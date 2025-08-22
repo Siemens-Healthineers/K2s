@@ -7,11 +7,10 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 )
 
 func Test(t *testing.T) {
@@ -56,7 +55,7 @@ var _ = Describe("common", func() {
 		It("works", func() {
 			result := CreateSystemNotInstalledCmdResult()
 
-			Expect(result.Failure.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
+			Expect(result.Failure.Code).To(Equal(config.ErrSystemNotInstalled.Error()))
 		})
 	})
 
@@ -65,7 +64,7 @@ var _ = Describe("common", func() {
 			result := CreateSystemNotInstalledCmdFailure()
 
 			Expect(result.Severity).To(Equal(SeverityWarning))
-			Expect(result.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
+			Expect(result.Code).To(Equal(config.ErrSystemNotInstalled.Error()))
 			Expect(result.Message).To(Equal(ErrSystemNotInstalledMsg))
 		})
 	})

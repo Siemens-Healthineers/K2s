@@ -26,13 +26,18 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType,
     [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-    [string] $K8sBinsPath = ''
+    [string] $K8sBinsPath = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Path to code signing certificate (.pfx file)')]
+    [string] $CertificatePath,
+    [parameter(Mandatory = $false, HelpMessage = 'Password for the certificate file')]
+    [string] $Password
 )
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule
+$signingModule = "$PSScriptRoot/../../../../modules/k2s/k2s.signing.module/k2s.signing.module.psm1"
+Import-Module $infraModule, $nodeModule, $clusterModule, $signingModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -41,6 +46,7 @@ Write-Log "- Target Directory: $TargetDirectory"
 Write-Log "- Package file name: $ZipPackageFileName"
 
 Add-type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPath) {
     # Expand windows node artifacts directory.
@@ -179,64 +185,163 @@ function New-ZipArchive() {
         [parameter(Mandatory = $true)]
         [string] $TargetPath
     )
+    
+    Write-Log "Creating ZIP archive: $TargetPath from base directory: $BaseDirectory" -Console
+    
+    # Normalize the base directory to its full path to avoid 8.3 vs long name issues
+    $normalizedBaseDirectory = (Get-Item $BaseDirectory).FullName
+    Write-Log "BaseDirectory normalized: $normalizedBaseDirectory" -Console
+    
     $files = Get-ChildItem -Path $BaseDirectory -Force -Recurse | ForEach-Object { $_.FullName }
+    Write-Log "Found $($files.Count) total files and directories to process" -Console
+    
     $fileStreamMode = [System.IO.FileMode]::Create
     $zipMode = [System.IO.Compression.ZipArchiveMode]::Create
     $compressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
 
+    $zipFileStream = $null
+    $zipFile = $null
+    
     try {
-        try {
-            $zipFileStream = [System.IO.File]::Open($TargetPath, $fileStreamMode)
-            $zipFile = [System.IO.Compression.ZipArchive]::new($zipFileStream, $zipMode)
-        }
-        catch {
-            Write-Log "ERROR in New-ZipArchive: $_"
-            $zipFile, $zipFileStream | ForEach-Object Dispose
-
-            if ($EncodeStructuredOutput -eq $true) {
-                $err = New-Error -Code 'build-package-failed' -Message $_
-                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-                return
-            }
+        $zipFileStream = [System.IO.File]::Open($TargetPath, $fileStreamMode)
+        $zipFile = [System.IO.Compression.ZipArchive]::new($zipFileStream, $zipMode)
+        Write-Log "ZIP archive opened successfully" -Console
         
-            Write-Log $_ -Error
-            exit 1
-        }
-
+        $addedCount = 0
+        $skippedCount = 0
+        
         foreach ($file in $files) {
+            $sourceFileStream = $null
+            $zipFileStreamEntry = $null
+            
             try {
-                if ($ExclusionList.Contains($file) -or
-                       ($ExclusionList | Foreach-Object { $file.StartsWith($_) }) -contains $true) {
-                    Write-Log "File or directory '$file' not included because of exclusion list"
-                    Continue
+                # Check exclusion list
+                $shouldSkip = $false
+                foreach ($exclusion in $ExclusionList) {
+                    if ($file.StartsWith($exclusion)) {
+                        Write-Log "Skipping excluded file: $file"
+                        $shouldSkip = $true
+                        $skippedCount++
+                        break
+                    }
+                }
+                
+                if ($shouldSkip) {
+                    continue
                 }
 
-                $relativeFilePath = $file.Replace("$BaseDirectory\", '')
+                $relativeFilePath = $file.Replace("$normalizedBaseDirectory\", '')
+                
+                # Debug: Check if the replacement worked properly
+                if ($relativeFilePath -eq $file) {
+                    # Replacement didn't work, try alternative method
+                    Write-Log "WARNING: Standard replacement failed for file: $file" -Console
+                    Write-Log "BaseDirectory: $normalizedBaseDirectory" -Console
+                    
+                    # Try using Resolve-Path or manual substring
+                    try {
+                        $filePathResolved = (Resolve-Path $file).Path
+                        if ($filePathResolved.StartsWith($normalizedBaseDirectory)) {
+                            $relativeFilePath = $filePathResolved.Substring($normalizedBaseDirectory.Length).TrimStart('\')
+                            Write-Log "Alternative method worked. Relative path: $relativeFilePath" -Console
+                        } else {
+                            Write-Log "ERROR: File path doesn't start with base directory!" -Error
+                            Write-Log "File: $filePathResolved" -Error
+                            Write-Log "Base: $normalizedBaseDirectory" -Error
+                            continue
+                        }
+                    } catch {
+                        Write-Log "ERROR: Could not resolve paths for relative calculation: $_" -Error
+                        continue
+                    }
+                }
+                
                 $isDirectory = (Get-Item $file) -is [System.IO.DirectoryInfo]
+                
                 if ($isDirectory) {
-                    Write-Log "Adding directory '$file' into zip file..."
+                    Write-Log "Adding directory: $relativeFilePath"
                     $zipFileEntry = $zipFile.CreateEntry("$relativeFilePath\")
-                    Write-Log '...done.'
+                    $addedCount++
                 }
                 else {
+                    # Check if file exists and is accessible
+                    if (-not (Test-Path $file -PathType Leaf)) {
+                        Write-Log "Warning: File not found or not accessible: $file" -Console
+                        continue
+                    }
+                    
+                    Write-Log "Adding file: $relativeFilePath (Size: $((Get-Item $file).Length) bytes)"
                     $zipFileEntry = $zipFile.CreateEntry($relativeFilePath, $compressionLevel)
                     $zipFileStreamEntry = $zipFileEntry.Open()
-                    Write-Log "Adding file '$file' into zip file..."
                     $sourceFileStream = [System.IO.File]::OpenRead($file)
                     $sourceFileStream.CopyTo($zipFileStreamEntry)
-                    Write-Log '...done.'
+                    $addedCount++
                 }
             }
             catch {
-                Write-Error $_
+                Write-Log "Error adding file '$file' to ZIP: $_" -Error
+                # Don't break the entire process for one file error, but log it
+                $skippedCount++
             }
             finally {
-                $sourceFileStream, $zipFileStreamEntry | ForEach-Object Dispose
+                # Properly dispose of streams for this file
+                if ($sourceFileStream) { $sourceFileStream.Dispose() }
+                if ($zipFileStreamEntry) { $zipFileStreamEntry.Dispose() }
             }
         }
+        
+        Write-Log "ZIP creation completed. Added: $addedCount, Skipped: $skippedCount" -Console
+        
+    }
+    catch {
+        Write-Log "CRITICAL ERROR in New-ZipArchive: $_" -Error
+        
+        # Clean up the partial ZIP file
+        if ($zipFile) { $zipFile.Dispose() }
+        if ($zipFileStream) { $zipFileStream.Dispose() }
+        if (Test-Path $TargetPath) {
+            Remove-Item $TargetPath -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'build-package-failed' -Message "ZIP creation failed: $_"
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+    
+        Write-Log "ZIP creation failed: $_" -Error
+        exit 1
     }
     finally {
-        $zipFile, $zipFileStream | ForEach-Object Dispose
+        # Properly dispose of main ZIP resources
+        if ($zipFile) { 
+            $zipFile.Dispose() 
+            Write-Log "ZIP file disposed successfully" -Console
+        }
+        if ($zipFileStream) { 
+            $zipFileStream.Dispose() 
+            Write-Log "ZIP file stream disposed successfully" -Console
+        }
+    }
+    
+    # Verify the created ZIP file
+    if (Test-Path $TargetPath) {
+        $zipSize = (Get-Item $TargetPath).Length
+        Write-Log "ZIP file created successfully. Size: $zipSize bytes" -Console
+        
+        # Quick verification that the ZIP is readable
+        try {
+            $testZip = [System.IO.Compression.ZipFile]::OpenRead($TargetPath)
+            $entryCount = $testZip.Entries.Count
+            $testZip.Dispose()
+            Write-Log "ZIP verification successful. Contains $entryCount entries" -Console
+        }
+        catch {
+            Write-Log "Warning: ZIP file may be corrupted. Verification failed: $_" -Error
+        }
+    }
+    else {
+        Write-Log "ERROR: ZIP file was not created at expected path: $TargetPath" -Error
     }
 }
 
@@ -359,8 +464,145 @@ $exclusionList += $kubenodeBaseVhdxPath
 Write-Log 'Content of the exclusion list:' -Console
 $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
 
-Write-Log 'Start creation of zip package...' -Console
-New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
+# Code signing logic (if requested)
+if ($CertificatePath) {
+    Write-Log 'Code signing requested - signing executables and scripts...' -Console
+    
+    # Validate that Password is provided when using a certificate
+    if ([string]::IsNullOrEmpty($Password)) {
+        $errMsg = "Password is required when providing a certificate path."
+        Write-Log $errMsg -Error
+        
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'code-signing-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        exit 1
+    }
+    
+    # Convert string password to SecureString for internal use
+    $securePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+    
+    # Create temporary directory for signing to avoid file locking issues
+    $tempSigningPath = Join-Path $env:TEMP "k2s-package-signing-$(Get-Random)"
+    
+    try {
+        Write-Log "Creating temporary copy for signing to avoid file locking issues..." -Console
+        Write-Log "Temporary signing directory: $tempSigningPath" -Console
+        
+        # Create temporary directory and copy all files
+        New-Item -Path $tempSigningPath -ItemType Directory -Force | Out-Null
+        
+        # Copy the entire kubePath structure to temp directory, excluding items in exclusion list
+        # For offline installation, we need special handling of large files
+        $filesToCopy = Get-ChildItem -Path $kubePath -Force -Recurse
+        foreach ($file in $filesToCopy) {
+            $relativePath = $file.FullName.Replace("$kubePath\", '')
+            $targetPath = Join-Path $tempSigningPath $relativePath
+            
+            # Skip files in exclusion list
+            $shouldExclude = $false
+            foreach ($exclusion in $exclusionList) {
+                if ($file.FullName.StartsWith($exclusion)) {
+                    $shouldExclude = $true
+                    break
+                }
+            }
+        
+            if ($ForOfflineInstallation -and -not $shouldExclude) {
+                # No additional exclusions - let Set-K2sFileSignature handle file type filtering
+                Write-Log "Including file for potential signing: $($file.FullName)" -Console
+            }
+            
+            if (-not $shouldExclude) {
+            if ($file.PSIsContainer) {
+                New-Item -Path $targetPath -ItemType Directory -Force | Out-Null
+            } else {
+                $targetDir = Split-Path -Path $targetPath -Parent
+                if (-not (Test-Path $targetDir)) {
+                    New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+                }
+                Copy-Item -Path $file.FullName -Destination $targetPath -Force
+                }
+            }
+        }
+        
+        Write-Log "Signing all executables and PowerShell scripts with certificate: $CertificatePath" -Console
+        # Sign files in temporary directory
+        Set-K2sFileSignature -SourcePath $tempSigningPath -CertificatePath $CertificatePath -Password $securePassword -ExclusionList @()
+        
+        Write-Log 'Code signing completed successfully.' -Console
+        
+        # For offline installation, sign contents of ZIP files that were copied to temp directory
+        if ($ForOfflineInstallation) {
+            Write-Log 'Signing contents of offline installation ZIP files...' -Console
+            
+            # Sign Windows Node Artifacts ZIP contents
+            $winArtifactsZipInTemp = Join-Path (Join-Path $tempSigningPath "bin") (Split-Path $winNodeArtifactsZipFilePath -Leaf)
+            if (Test-Path $winArtifactsZipInTemp) {
+                Write-Log "Signing contents of Windows Node Artifacts: $winArtifactsZipInTemp" -Console
+                $winArtifactsExtractPath = Join-Path $tempSigningPath "win-artifacts-extract"
+                
+                try {
+                    # Extract the ZIP
+                    New-Item -Path $winArtifactsExtractPath -ItemType Directory -Force | Out-Null
+                    Expand-Archive -Path $winArtifactsZipInTemp -DestinationPath $winArtifactsExtractPath -Force
+                    
+                    # Sign contents
+                    Set-K2sFileSignature -SourcePath $winArtifactsExtractPath -CertificatePath $CertificatePath -Password $securePassword -ExclusionList @()
+                    
+                    # Remove old ZIP and create new one with signed contents
+                    Remove-Item -Path $winArtifactsZipInTemp -Force
+                    Compress-Archive -Path "$winArtifactsExtractPath\*" -DestinationPath $winArtifactsZipInTemp -CompressionLevel Optimal
+                    
+                    Write-Log "Windows Node Artifacts contents signed and repackaged." -Console
+                } finally {
+                    if (Test-Path $winArtifactsExtractPath) {
+                        Remove-Item -Path $winArtifactsExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+            
+            Write-Log 'Offline installation ZIP contents signing completed.' -Console
+        }
+        
+        Write-Log 'Start creation of zip package from signed files...' -Console
+        
+        # Add debugging information
+        Write-Log "About to create ZIP with the following parameters:" -Console
+        Write-Log "- Source directory: $tempSigningPath" -Console  
+        Write-Log "- Target ZIP: $zipPackagePath" -Console
+        
+        # Check if temp directory has content
+        $tempFiles = Get-ChildItem -Path $tempSigningPath -Recurse -Force
+        Write-Log "Temp directory contains $($tempFiles.Count) items" -Console
+        if ($tempFiles.Count -eq 0) {
+            Write-Log "WARNING: Temp signing directory is empty!" -Error
+        }
+        
+        # Use signed files from temporary directory for ZIP creation
+        New-ZipArchive -ExclusionList @() -BaseDirectory $tempSigningPath -TargetPath "$zipPackagePath"
+        
+    } catch {
+        Write-Log "Error during code signing: $_" -Error
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = "Code signing failed: $_" }
+        }
+        exit 1
+    } finally {
+        # Clean up temporary signing directory
+        if (Test-Path $tempSigningPath) {
+            Write-Log "Cleaning up temporary signing directory..." -Console
+            Remove-Item -Path $tempSigningPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+} else {
+    Write-Log 'No code signing requested - creating standard package.' -Console
+    Write-Log 'Start creation of zip package...' -Console
+    New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
+}
+
 Write-Log "Zip package available at '$zipPackagePath'." -Console
 
 Write-Log 'Removing implicitly created K2s config dir'

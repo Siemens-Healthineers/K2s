@@ -11,7 +11,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	config_contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
@@ -74,7 +76,7 @@ var (
 		Example: example,
 	}
 	installer             common.Installer
-	createTzHandleFunc    func() (tz.ConfigWorkspaceHandle, error)
+	createTzHandleFunc    func(config *config_contracts.KubeConfig) (tz.ConfigWorkspaceHandle, error)
 	buildLinuxOnlyCmdFunc func(config *ic.InstallConfig) (cmd string, err error)
 )
 
@@ -88,9 +90,11 @@ func init() {
 		GetVersionFunc:           version.GetVersion,
 		GetPlatformFunc:          utils.Platform,
 		GetInstallDirFunc:        utils.InstallDir,
-		LoadConfigFunc:           setupinfo.ReadConfig,
-		MarkSetupAsCorruptedFunc: setupinfo.MarkSetupAsCorrupted,
-		DeleteConfigFunc:         func(configDir string) error { return os.Remove(filepath.Join(configDir, setupinfo.ConfigFileName)) },
+		LoadConfigFunc:           config.ReadRuntimeConfig,
+		MarkSetupAsCorruptedFunc: config.MarkSetupAsCorrupted,
+		DeleteConfigFunc: func(configDir string) error {
+			return os.Remove(filepath.Join(configDir, definitions.K2sRuntimeConfigFileName))
+		},
 	}
 
 	buildonly.Installer = installer
@@ -125,8 +129,8 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().PrintDefaults()
 }
 
-func createTimezoneConfigHandle() (tz.ConfigWorkspaceHandle, error) {
-	tzConfigWorkspace, err := tz.NewTimezoneConfigWorkspace()
+func createTimezoneConfigHandle(config *config_contracts.KubeConfig) (tz.ConfigWorkspaceHandle, error) {
+	tzConfigWorkspace, err := tz.NewTimezoneConfigWorkspace(config)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +148,9 @@ func install(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	tzConfigHandle, err := createTzHandleFunc()
+	context := cmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
+
+	tzConfigHandle, err := createTzHandleFunc(context.Config().Host().KubeConfig())
 	if err != nil {
 		return err
 	}
