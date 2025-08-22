@@ -29,6 +29,7 @@ try {
     Stop-WinHttpProxy
     $updatedProxyConfig = Get-ProxyConfig
     
+    # Configure HTTP proxy service with updated settings including K2s hosts
     $k2sHosts = Get-K2sHosts
     $allNoProxyHosts = @()
     if ($updatedProxyConfig.NoProxy.Count -gt 0) {

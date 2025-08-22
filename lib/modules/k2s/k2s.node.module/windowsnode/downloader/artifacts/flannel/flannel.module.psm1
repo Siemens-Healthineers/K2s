@@ -110,16 +110,11 @@ function Install-WinFlannel {
 
     Write-Log "Using local IP $ipaddress for AppParameters of flanneld"
     
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-    $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
-    
-    $k2sHosts = Get-K2sHosts
-    $noProxyValue = $k2sHosts -join ','
-    
+    # Set environment variables for flanneld service
+    # Note: Flanneld should NOT use HTTP proxy as it's a core networking component
+    # that needs direct communication with Kubernetes API and other cluster components
     $hn = ($(hostname)).ToLower()
-    &$kubeBinPath\nssm set flanneld AppEnvironmentExtra "NODE_NAME=$hn;HTTP_PROXY=$httpProxyUrl;HTTPS_PROXY=$httpProxyUrl;NO_PROXY=$noProxyValue" | Out-Null
-    Write-Log "Flanneld service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
-
+    &$kubeBinPath\nssm set flanneld AppEnvironmentExtra "NODE_NAME=$hn" | Out-Null
     &$kubeBinPath\nssm set flanneld AppParameters "--kubeconfig-file=\`"$kubePath\config\`" --iface=$ipaddress --ip-masq=1 --kube-subnet-mgr=1" | Out-Null
     &$kubeBinPath\nssm set flanneld AppDirectory "$(Get-SystemDriveLetter):\" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStdout "$(Get-SystemDriveLetter):\var\log\flanneld\flanneld_stdout.log" | Out-Null

@@ -323,18 +323,22 @@ timeout: 30
 
     Write-Log "Proxy to use with containerd: '$Proxy'"
     
+    # Configure containerd to use HTTP proxy service for external requests
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
     $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
     
+    # Get K2s hosts for no-proxy configuration
     $k2sHosts = Get-K2sHosts
     $allNoProxyHosts = @()
     
     if ( $Proxy -ne '' ) {
+        # If external proxy is configured, containerd should use the HTTP proxy service
         $allNoProxyHosts += $k2sHosts
         $noProxyValue = $allNoProxyHosts -join ','
-        &$kubeBinPath\nssm set containerd AppEnvironmentExtra "HTTP_PROXY=$httpProxyUrl;HTTPS_PROXY=$httpProxyUrl;NO_PROXY=$noProxyValue" | Out-Null
+        &$kubeBinPath\nssm set containerd AppEnvironmentExtra "HTTP_PROXY=$httpProxyUrl HTTPS_PROXY=$httpProxyUrl NO_PROXY=$noProxyValue" | Out-Null
         Write-Log "Containerd service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
     } else {
+        # If no external proxy, still configure K2s hosts as no-proxy
         $noProxyValue = $k2sHosts -join ','
         &$kubeBinPath\nssm set containerd AppEnvironmentExtra "NO_PROXY=$noProxyValue" | Out-Null
         Write-Log "Containerd service configured with NO_PROXY: $noProxyValue"

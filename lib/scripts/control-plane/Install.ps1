@@ -78,6 +78,7 @@ $controlPlaneNodeParams = @{
 New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
 
 # add transparent proxy to Windows host
+# Get the current proxy configuration to pass NoProxy settings
 $proxyConfig = Get-ProxyConfig
 $proxyOverrides = if ($proxyConfig.NoProxy.Count -gt 0) { $proxyConfig.NoProxy } else { @() }
 

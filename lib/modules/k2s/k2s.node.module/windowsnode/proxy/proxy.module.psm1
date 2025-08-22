@@ -28,8 +28,10 @@ without going through the proxy.
 function Get-K2sHosts {
     $k2sHosts = @()
     
+    # Add localhost variants
     $k2sHosts += @('localhost', '127.0.0.1', '::1')
     
+    # Add K2s specific IP addresses and subnets
     try {
         $ipControlPlane = Get-ConfiguredIPControlPlane
         if (![string]::IsNullOrWhiteSpace($ipControlPlane)) {
@@ -75,8 +77,10 @@ function Get-K2sHosts {
         Write-Log "Unable to get control plane CIDR: $($_.Exception.Message)" -Console
     }
     
+    # Add common K2s infrastructure subnets
     $k2sHosts += @('10.81.0.0/16', '.local', '.cluster.local')
     
+    # Remove any empty or null entries and return unique values
     $k2sHosts = $k2sHosts | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
     
     return $k2sHosts
@@ -180,6 +184,7 @@ function New-ProxyConfig {
         $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
         if ($proxyEnabledStatus) {
             $Proxy = Get-ProxyServerFromWindowsSettings
+            # Only get Windows proxy overrides if NoProxy parameter was not explicitly provided
             if ($null -eq $NoProxy -or $NoProxy.Count -eq 0) {
                 $windowsProxyOverrides = Get-ProxyOverrideFromWindowsSettings
                 if (![string]::IsNullOrWhiteSpace($windowsProxyOverrides)) {

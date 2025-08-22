@@ -129,14 +129,16 @@ function Install-WinKubelet {
     &$kubeBinPath\nssm set kubelet AppParameters "$powershellArgs \`"Invoke-Command {&'$startKubeletScriptPath'}\`"" | Out-Null
     &$kubeBinPath\nssm set kubelet DependOnService containerd | Out-Null
     
+    # Configure kubelet to use HTTP proxy service for external requests
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
     $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
     
-    
+    # Get K2s hosts for no-proxy configuration
     $k2sHosts = Get-K2sHosts
     $noProxyValue = $k2sHosts -join ','
     
-    &$kubeBinPath\nssm set kubelet AppEnvironmentExtra "HTTP_PROXY=$httpProxyUrl;HTTPS_PROXY=$httpProxyUrl;NO_PROXY=$noProxyValue" | Out-Null
+    # Set proxy environment variables for kubelet service
+    &$kubeBinPath\nssm set kubelet AppEnvironmentExtra "HTTP_PROXY=$httpProxyUrl HTTPS_PROXY=$httpProxyUrl NO_PROXY=$noProxyValue" | Out-Null
     Write-Log "Kubelet service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
     
     &$kubeBinPath\nssm set kubelet AppStdout "$($systemDefaultDriveLetter):\var\log\kubelet\kubelet_stdout.log" | Out-Null
@@ -168,7 +170,7 @@ function Install-WinKubeProxy {
     $noProxyValue = $k2sHosts -join ','
     
     # Set proxy environment variables for kube-proxy service
-    &$kubeBinPath\nssm set kubeproxy AppEnvironmentExtra "KUBE_NETWORK=cbr0;HTTP_PROXY=$httpProxyUrl;HTTPS_PROXY=$httpProxyUrl;NO_PROXY=$noProxyValue" | Out-Null
+    &$kubeBinPath\nssm set kubeproxy AppEnvironmentExtra "KUBE_NETWORK=cbr0 HTTP_PROXY=$httpProxyUrl HTTPS_PROXY=$httpProxyUrl NO_PROXY=$noProxyValue" | Out-Null
     Write-Log "Kube-proxy service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
     
     &$kubeBinPath\nssm set kubeproxy DependOnService kubelet | Out-Null

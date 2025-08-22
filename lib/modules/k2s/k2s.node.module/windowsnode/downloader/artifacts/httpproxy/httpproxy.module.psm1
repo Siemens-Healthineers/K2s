@@ -84,14 +84,17 @@ function Set-ProxyConfigInHttpProxy {
         $appParameters = $appParameters + " --forwardproxy $Proxy"
     }
     
+    # Get K2s hosts that should be in no-proxy for all services
     $k2sHosts = Get-K2sHosts
     
+    # Combine user-provided proxy overrides with K2s hosts
     $allNoProxyHosts = @()
     if ($ProxyOverrides.Count -gt 0) {
         $allNoProxyHosts += $ProxyOverrides
     }
     $allNoProxyHosts += $k2sHosts
     
+    # Remove duplicates and create final no-proxy list
     $uniqueNoProxyHosts = $allNoProxyHosts | Sort-Object -Unique
     
     if ($uniqueNoProxyHosts.Count -gt 0) {

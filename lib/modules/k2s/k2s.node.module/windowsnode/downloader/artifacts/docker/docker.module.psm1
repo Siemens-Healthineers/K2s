@@ -111,13 +111,16 @@ function Install-WinDocker {
         if ( $Proxy -ne '' ) {
             Write-Log("Setting proxy for docker: $Proxy")
             
+            # Configure Docker to use HTTP proxy service for external requests
             $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
             $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
             
+            # Get K2s hosts for no-proxy configuration
             $k2sHosts = Get-K2sHosts
             $allNoProxyHosts = @()
             $allNoProxyHosts += $k2sHosts
             
+            # Add additional hosts that Docker should not proxy
             $ipControlPlane = Get-ConfiguredIPControlPlane
             $clusterCIDR = Get-ConfiguredClusterCIDR
             $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
@@ -127,7 +130,7 @@ function Install-WinDocker {
             $uniqueNoProxyHosts = $allNoProxyHosts | Sort-Object -Unique
             $NoProxy = $uniqueNoProxyHosts -join ','
             
-            &$kubeBinPath\nssm set docker AppEnvironmentExtra "HTTP_PROXY=$httpProxyUrl;HTTPS_PROXY=$httpProxyUrl;NO_PROXY=$NoProxy" | Out-Null
+            &$kubeBinPath\nssm set docker AppEnvironmentExtra "HTTP_PROXY=$httpProxyUrl HTTPS_PROXY=$httpProxyUrl NO_PROXY=$NoProxy" | Out-Null
             Write-Log "Docker service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $NoProxy"
             &$kubeBinPath\nssm get docker AppEnvironmentExtra
         }

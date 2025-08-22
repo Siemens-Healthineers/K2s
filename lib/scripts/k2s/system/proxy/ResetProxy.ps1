@@ -27,6 +27,7 @@ try {
     Stop-WinHttpProxy
     $updatedProxyConfig = Get-ProxyConfig
     
+    # Even when resetting, ensure K2s hosts are in no-proxy for HTTP proxy service
     $k2sHosts = Get-K2sHosts
     Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverride $k2sHosts
     Start-WinHttpProxy
