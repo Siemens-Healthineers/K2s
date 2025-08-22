@@ -58,6 +58,10 @@ spec:
                 description: Omit keycloak and use external oauth2 provider
                 type: boolean
                 default: false
+              - name: omitOAuth2Proxy
+                description: Omit OAuth2 proxy deployment
+                type: boolean
+                default: false
             examples:
               - cmd: k2s addons enable security
                 comment: Enable security addon with CA issuer configured
@@ -71,6 +75,10 @@ spec:
                 comment: Enable security addon and omit keycloak setup
               - cmd: k2s addons enable security --omitHydra --omitKeycloak
                 comment: Enable security addon and omit both hydra/login and keycloak setup
+              - cmd: k2s addons enable security --omitOAuth2Proxy
+                comment: Enable security addon and omit OAuth2 proxy setup
+              - cmd: k2s addons enable security --omitHydra --omitKeycloak --omitOAuth2Proxy
+                comment: Enable security addon and omit hydra/login, keycloak, and OAuth2 proxy setup
           script:
             subPath: Enable.ps1
             parameterMappings:
@@ -84,6 +92,8 @@ spec:
                 scriptParameterName: OmitHydra
               - cliFlagName: omitKeycloak
                 scriptParameterName: OmitKeycloak
+              - cliFlagName: omitOAuth2Proxy
+                scriptParameterName: OmitOAuth2Proxy
         disable:
           cli:
             examples:
