@@ -41,5 +41,9 @@ func setProxyServer(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	return result.Failure
+	if result != nil && result.Failure != nil {
+		return result.Failure
+	}
+
+	return nil
 }
