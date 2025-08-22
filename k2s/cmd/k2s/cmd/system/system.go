@@ -7,6 +7,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/certificate"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/dump"
 	systempackage "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/package"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/proxy"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/reset"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/upgrade"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/users"
@@ -26,4 +27,5 @@ func init() {
 	SystemCmd.AddCommand(systempackage.PackageCmd)
 	SystemCmd.AddCommand(users.NewCommand())
 	SystemCmd.AddCommand(certificate.CertificateCmd)
+	SystemCmd.AddCommand(proxy.ProxyCmd)
 }
