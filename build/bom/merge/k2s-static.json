@@ -22,7 +22,7 @@
     "component": {
       "group": "",
       "name": "k2s",
-      "version": "v1.4.0",
+      "version": "v1.5.0",
       "type": "application"
     }
   },
@@ -166,9 +166,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/nerdctl/releases/download/v1.7.2/nerdctl-1.7.2-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/nerdctl/releases/download/v2.1.3/nerdctl-2.1.3-windows-amd64.tar.gz",
       "name": "nerdctl",
-      "version": "v1.7.2",
+      "version": "v2.1.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -185,7 +185,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/nerdctl@v1.7.2",
+      "purl": "pkg:github/containerd/nerdctl@v2.1.3",
       "type": "application"
     },
     {
@@ -467,7 +467,7 @@
     {
       "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
-      "version": "v1.0.2",
+      "version": "v2.1.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -559,7 +559,7 @@
     {
       "group": "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe",
       "name": "jq",
-      "version": "v1.6.0",
+      "version": "v1.8.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -576,122 +576,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/stedolan/jq@v1.6.0",
-      "type": "application"
-    },
-    {
-      "group": "https://nginx.org/download/nginx-1.23.2.zip",
-      "name": "nginx",
-      "version": "v1.23.2",
-      "description": "",
-      "scope": "required",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-2-Clause",
-            "url": "https://nginx.org/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addons:pkg:executables"
-        }
-      ],
-      "purl": "pkg:github/nginx/nginx@release-1.23.2",
-      "type": "application"
-    },
-    {
-      "group": "https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-windows-amd64.exe",
-      "name": "virtctl",
-      "version": "v0.58.0",
-      "description": "",
-      "scope": "required",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/kubevirt/kubevirt/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addons:pkg:executables"
-        }
-      ],
-      "purl": "pkg:github/kubevirt/kubevirt@v0.58.0",
-      "type": "application"
-    },
-    {
-      "group": "https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-linux-amd64",
-      "name": "virtctl-linux",
-      "version": "v0.58.0",
-      "description": "",
-      "scope": "required",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/kubevirt/kubevirt/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addons:pkg:executables"
-        }
-      ],
-      "purl": "pkg:github/kubevirt/kubevirt@v0.58.0",
-      "type": "application"
-    },
-    {
-      "group": "https://github.com/traefik/traefik",
-      "name": "traefik",
-      "version": "v2.9.6",
-      "description": "",
-      "scope": "required",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "url": "https://github.com/traefik/traefik/blob/master/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addons:pkg:executables"
-        }
-      ],
-      "purl": "pkg:github/traefik/traefik@v2.9.6",
-      "type": "application"
-    },
-    {
-      "group": "https://github.com/distribution/distribution",
-      "name": "registry",
-      "version": "v2.8.3",
-      "description": "",
-      "scope": "required",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/distribution/distribution/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addons:pkg:executables"
-        }
-      ],
-      "purl": "pkg:github.com/distribution/distribution@v2.8.3",
+      "purl": "pkg:github/stedolan/jq@v1.8.1",
       "type": "application"
     }
   ],
