@@ -240,7 +240,7 @@ function Start-GinkgoTests {
 
     foreach ($folder in $testFolders) {
         # TODO: refactor
-        $labelsResult = (ginkgo labels $folder *>&1) | Out-String
+        $labelsResult = (ginkgo labels $folder 2>$null) | Out-String
 
         if ($labelsResult -match 'Found no test suites') {
             Write-Output "No test suites found in '$folder'"
