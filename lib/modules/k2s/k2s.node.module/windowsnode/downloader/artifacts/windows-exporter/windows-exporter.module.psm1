@@ -44,10 +44,12 @@ function Install-WindowsExporter {
 
     &$kubeBinPath\nssm install windows_exporter "$kubeBinPath\windows_exporter.exe"
 
-    # possible to add --log.level="debug"
-    &$kubeBinPath\nssm set windows_exporter AppParameters --web.listen-address=":9100" --collectors.enabled="cpu,cs,logical_disk,net,os,service,system,cpu_info,thermalzone,container" --collector.service.services-where "`"`"Name='kubelet' OR Name='kubeproxy' OR Name='flanneld' OR Name='windows_exporter' OR Name LIKE '%docker%'`"`"" --collector.logical_disk.volume-blacklist 'HarddiskVolume.*' | Out-Null
-    # cpu,cs,logical_disk,net,os,service,system,cpu_info,thermalzone,time,process,hyperv
+    $windowsexporterconfig = "$kubeBinPath\windows_exporter.yaml"
 
+    # possible to add --log.level="debug"
+    # old command line setup
+    # &$kubeBinPath\nssm set windows_exporter AppParameters --web.listen-address=":9100" --collectors.enabled="cpu,cs,logical_disk,net,os,service,system,cpu_info,thermalzone,container" --collector.service.services-where "`"`"Name='kubelet' OR Name='kubeproxy' OR Name='flanneld' OR Name='windows_exporter' OR Name LIKE '%docker%'`"`"" --collector.logical_disk.volume-blacklist 'HarddiskVolume.*' | Out-Null
+    &$kubeBinPath\nssm set windows_exporter AppParameters --config.file=$windowsexporterconfig
     &$kubeBinPath\nssm set windows_exporter AppDirectory $kubePath | Out-Null
     &$kubeBinPath\nssm set windows_exporter AppStdout "${logDir}\windows_exporter_stdout.log" | Out-Null
     &$kubeBinPath\nssm set windows_exporter AppStderr "${logDir}\windows_exporter_stderr.log" | Out-Null
