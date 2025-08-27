@@ -151,9 +151,9 @@
       </properties>
     </component>
     <component type="application">
-      <group>https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html</group>
+      <group>https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html</group>
       <name>plink</name>
-      <version>v0.76.0</version>
+      <version>v0.83.0</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -162,15 +162,15 @@
           <url>https://www.chiark.greenend.org.uk/~sgtatham/putty/licence.html</url>
         </license>
       </licenses>
-      <purl>pkg:generic/plink@v0.76.0</purl>
+      <purl>pkg:generic/plink@v0.83.0</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html</group>
+      <group>https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html</group>
       <name>pscp</name>
-      <version>v0.76.0</version>
+      <version>v0.83.0</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -179,7 +179,7 @@
           <url>https://www.chiark.greenend.org.uk/~sgtatham/putty/licence.html</url>
         </license>
       </licenses>
-      <purl>pkg:generic/pscp@v0.76.0</purl>
+      <purl>pkg:generic/pscp@v0.83.0</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>

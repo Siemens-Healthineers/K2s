@@ -204,9 +204,9 @@
     },
     {
       "type": "application",
-      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "plink",
-      "version": "v0.76.0",
+      "version": "v0.83.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -217,7 +217,7 @@
           }
         }
       ],
-      "purl": "pkg:generic/plink@v0.76.0",
+      "purl": "pkg:generic/plink@v0.83.0",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -227,9 +227,9 @@
     },
     {
       "type": "application",
-      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "pscp",
-      "version": "v0.76.0",
+      "version": "v0.83.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -240,7 +240,7 @@
           }
         }
       ],
-      "purl": "pkg:generic/pscp@v0.76.0",
+      "purl": "pkg:generic/pscp@v0.83.0",
       "properties": [
         {
           "name": "sw360:projectName",
