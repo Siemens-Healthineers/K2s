@@ -17,8 +17,7 @@ $kubeBinPath = Get-KubeBinPath
 $dockerExe = "$kubeBinPath\docker\docker.exe"
 $nerdctlExe = "$kubeBinPath\nerdctl.exe"
 $ctrExe = "$kubeBinPath\containerd\ctr.exe"
-$crictlExe = "$kubeBinPath\crictl.exe"
-
+$crictlExe = Get-CrictlExePath
 class ContainerImage {
     [string]$ImageId
     [string]$Repository
@@ -110,7 +109,7 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
     return $linuxContainerImages
 }
 
-function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
+function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {    
     $output = &$crictlExe images 2> $null
     $node = $env:ComputerName.ToLower()
 
@@ -186,7 +185,7 @@ function Get-PushedContainerImages() {
 
 function Remove-Image([ContainerImage]$ContainerImage) {
     $output = ''
-    if ($containerImage.Node -eq $env:ComputerName.ToLower()) {
+    if ($containerImage.Node -eq $env:ComputerName.ToLower()) {        
         $output = $(&$crictlExe rmi $containerImage.ImageId 2>&1)
     }
     else {

@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
+$imageBackupModule = "$PSScriptRoot/../image/ImageBackup.psm1"
 
-Import-Module $infraModule
+Import-Module $infraModule, $imageBackupModule
 
 $processTools = @'
 
@@ -820,6 +821,7 @@ function PrepareClusterUpgrade {
 	param(
 		[switch] $ShowProgress,
 		[switch] $SkipResources,
+		[switch] $SkipImages,
 		[switch] $ShowLogs,
 		[string] $Proxy,
 		[string] $BackupDir,
@@ -830,7 +832,8 @@ function PrepareClusterUpgrade {
 		[ref] $storageVM,
 		[ref] $addonsBackupPath,
 		[ref] $hooksBackupPath,
-		[ref] $logFilePathBeforeUninstall
+		[ref] $logFilePathBeforeUninstall,
+		[ref] $imagesBackupPath
 	)
 	try {
 		# start progress
@@ -900,6 +903,45 @@ function PrepareClusterUpgrade {
 		$addonsBackupPath.Value = Join-Path $BackupDir 'addons'
 		Backup-Addons -BackupDir $addonsBackupPath.Value
 
+		# backup user application images
+		if (-not $SkipImages) {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Backing up user application images..' -Id 1 -Status '4.5/10' -PercentComplete 45 -CurrentOperation 'Backing up images, please wait..'
+			}
+			
+			try {
+				Write-Log "Starting image backup process..." -Console
+				$imagesBackupPath.Value = Join-Path $BackupDir 'images'
+				
+				# Check disk space before proceeding
+				$userImages = Get-K2sImageList
+				if ($userImages.Count -gt 0) {
+					$hasSufficientSpace = Test-BackupDiskSpace -BackupDirectory $imagesBackupPath.Value -Images $userImages
+					if (-not $hasSufficientSpace) {
+						Write-Log "Warning: Insufficient disk space for image backup. Skipping image backup." -Console
+					} else {
+						$imageBackupResult = Backup-K2sImages -BackupDirectory $imagesBackupPath.Value -Images $userImages
+						
+						if ($imageBackupResult.Success) {
+							Write-Log "Successfully backed up $($imageBackupResult.Images.Count) user application images" -Console
+						} else {
+							Write-Log "Image backup completed with some failures. Check backup logs for details." -Console
+						}
+					}
+				} else {
+					Write-Log "No user application images found to backup" -Console
+					$imagesBackupPath.Value = ""  # No images to backup
+				}
+			}
+			catch {
+				Write-Log "Warning: Image backup failed - $_. Continuing with upgrade..." -Console
+				$imagesBackupPath.Value = ""  # Mark as failed
+			}
+		} else {
+			Write-Log "Skipping image backup as requested" -Console
+			$imagesBackupPath.Value = ""  # Explicitly skipped
+		}
+
 		# backup log file
 		$logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
 		Backup-LogFile -LogFile $logFilePathBeforeUninstall.Value
@@ -929,7 +971,8 @@ function PerformClusterUpgrade {
 		[string] $storageVM,
 		[string] $addonsBackupPath,
 		[string] $hooksBackupPath,
-		[string] $logFilePathBeforeUninstall
+		[string] $logFilePathBeforeUninstall,
+		[string] $imagesBackupPath
 	)
 	try {
 		# uninstall of old cluster
@@ -982,6 +1025,38 @@ function PerformClusterUpgrade {
 			Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply namespaced resources, please wait..'
 		}
 		Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+		
+		# restore user application images
+		if (-not [string]::IsNullOrEmpty($imagesBackupPath) -and (Test-Path $imagesBackupPath)) {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Restoring user application images..' -Id 1 -Status '8.5/10' -PercentComplete 85 -CurrentOperation 'Restoring images, please wait..'
+			}
+			
+			try {
+				Write-Log "Starting image restore process..." -Console
+				$imageRestoreResult = Restore-K2sImages -BackupDirectory $imagesBackupPath
+				
+				if ($imageRestoreResult.Success) {
+					Write-Log "Successfully restored $($imageRestoreResult.RestoredImages.Count) user application images" -Console
+				} else {
+					Write-Log "Image restore completed with some failures. Check restore logs for details." -Console
+				}
+				
+				# Cleanup old backups (retain for 7 days by default)
+				try {
+					Remove-OldImageBackups -BackupDirectory (Split-Path $imagesBackupPath -Parent) -RetentionDays 7
+				}
+				catch {
+					Write-Log "Warning: Failed to cleanup old image backups - $_" -Console
+				}
+			}
+			catch {
+				Write-Log "Warning: Image restore failed - $_. Images can be restored manually later." -Console
+			}
+		} else {
+			Write-Log "No image backup found or images were skipped during backup" -Console
+		}
+		
 		if ($ShowProgress -eq $true) {
 			Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Restoring addons, please wait..'
 		}
