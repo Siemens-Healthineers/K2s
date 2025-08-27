@@ -214,8 +214,9 @@ try {
 
             foreach ($image in $windowsImages) {
                 Write-Log "Pulling windows image $image"
+                $kubeBinPath = Get-KubeBinPath
                 &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
-                &$(Get-CrictlExe) pull $image
+                &$(Get-CrictlExe) --config $kubeBinPath\crictl.yaml pull $image
                 if (!$?) {
                     $errMsg = "Pulling linux image $image failed"
                     if ($EncodeStructuredOutput -eq $true) {
