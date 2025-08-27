@@ -106,6 +106,11 @@ foreach ($manifest in $addonManifests) {
                     continue
                 }
 
+                # if $fullImageName does not contain a : the ignore
+                if ($fullImageName.IndexOf(':') -eq -1) {
+                    continue
+                }
+
                 $images.Add("$fullImageName")
 
                 # Initialize the image list if not already present
@@ -150,7 +155,7 @@ $uniqueSingleImages = New-Object System.Collections.Generic.List[System.String]
 foreach ($addonName in $addonNameImagesMapping.Keys) {
     $uniqueImages = $addonNameImagesMapping[$addonName] | Sort-Object -Unique
     $finalImages = @()
-    $finalImages = $uniqueImages -notlike ''
+    $finalImages = $uniqueImages | Where-Object { $_ -ne '' }
     $totalCountMapping = $totalCountMapping + $($finalImages.Count)
     Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Addon: $addonName"
     Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Addon Images Count: $($finalImages.Count)"
@@ -159,8 +164,10 @@ foreach ($addonName in $addonNameImagesMapping.Keys) {
 
     # check if images are all in the addons image list
     foreach ($image in $finalImages) {
+        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -> Image: $image"
+    
         if ($uniqueSingleImages.Contains($image)) {
-            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Info: Image $image is already in the addon images list, it's a duplicate"
+            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')]  Info: Image $image is already in the addon images list, it's a duplicate"
         }
         else {
             $uniqueSingleImages.Add($image)
@@ -186,6 +193,10 @@ foreach ($image in $finalImages) {
     $imageName, $imageVersion = $image -split ':'
 
     if ($image -eq '') {
+        continue
+    }
+
+    if ($null -eq $imageVersion -Or $imageVersion -eq '') {
         continue
     }
 
