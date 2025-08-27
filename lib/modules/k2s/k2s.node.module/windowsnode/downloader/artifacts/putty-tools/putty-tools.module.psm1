@@ -45,7 +45,7 @@ function Invoke-DownloadPlink {
         [string]$Proxy
     )
 
-    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.76/w64/$windowsNode_Plink $true $Proxy
+    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.83/w64/$windowsNode_Plink $true $Proxy
 }
 
 function Invoke-DownloadPscp {
@@ -56,7 +56,7 @@ function Invoke-DownloadPscp {
         [string]$Proxy
     )
 
-    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.76/w64/$windowsNode_Pscp $true $Proxy
+    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.83/w64/$windowsNode_Pscp $true $Proxy
 }
 
 Export-ModuleMember Invoke-DownloadPuttyArtifacts, Invoke-DeployPuttytoolsArtifacts,
