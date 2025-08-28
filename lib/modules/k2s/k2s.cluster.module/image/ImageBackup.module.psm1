@@ -17,6 +17,315 @@ Import-Module "$PSScriptRoot\..\..\k2s.infra.module\k2s.infra.module.psm1"
 
 <#
 .SYNOPSIS
+Creates an empty backup manifest for when no images are found
+
+.DESCRIPTION
+Helper function that creates a standard empty backup result structure
+
+.PARAMETER BackupDirectory
+Directory where the backup would be stored
+
+.OUTPUTS
+Empty backup manifest object
+#>
+function New-EmptyBackupResult {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $BackupDirectory,
+        
+        [Parameter(Mandatory = $false)]
+        [scriptblock] $DateTimeProvider = { Get-Date -Format "yyyy-MM-dd HH:mm:ss" }
+    )
+    
+    Write-Log "No images to backup" -Console
+    $result = @{
+        BackupTimestamp = & $DateTimeProvider
+        BackupDirectory = $BackupDirectory
+        Images = @()
+        Success = $true
+    }
+    $result.Images = @($result.Images)  # Ensure it's always an array
+    return $result
+}
+
+<#
+.SYNOPSIS
+Creates backup directory structure if it doesn't exist
+
+.DESCRIPTION
+Helper function to ensure backup directories exist before starting backup operations
+
+.PARAMETER BackupDirectory
+Main backup directory path
+
+.PARAMETER CreateImagesSubdir
+If true, also creates an 'images' subdirectory
+
+.PARAMETER FileSystemProvider
+Provider for file system operations (for testing)
+
+.OUTPUTS
+None
+#>
+function New-BackupDirectoryStructure {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $BackupDirectory,
+        
+        [Parameter(Mandatory = $false)]
+        [switch] $CreateImagesSubdir,
+        
+        [Parameter(Mandatory = $false)]
+        [hashtable] $FileSystemProvider = @{
+            TestPath = { param($path) Test-Path $path }
+            NewItem = { param($path, $type) New-Item -ItemType $type -Path $path -Force | Out-Null }
+            JoinPath = { param($parent, $child) Join-Path $parent $child }
+        }
+    )
+    
+    # Create main backup directory
+    if (-not (& $FileSystemProvider.TestPath $BackupDirectory)) {
+        Write-Log "Creating backup directory: $BackupDirectory"
+        & $FileSystemProvider.NewItem $BackupDirectory "Directory"
+    }
+    
+    # Create images subdirectory if requested
+    if ($CreateImagesSubdir) {
+        $imagesDir = & $FileSystemProvider.JoinPath $BackupDirectory "images"
+        if (-not (& $FileSystemProvider.TestPath $imagesDir)) {
+            Write-Log "Creating images directory: $imagesDir"
+            & $FileSystemProvider.NewItem $imagesDir "Directory"
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+Creates standardized log files for image processing operations
+
+.DESCRIPTION
+Helper function to create consistent log files for backup and restore operations
+
+.PARAMETER LogPath
+Full path where the log file will be created
+
+.PARAMETER LogType
+Type of operation: "Backup" or "Restore"
+
+.PARAMETER Result
+Result object containing processing details
+
+.PARAMETER OriginalTimestamp
+Original backup timestamp (for restore operations)
+#>
+function New-ImageProcessingLog {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $LogPath,
+        
+        [Parameter(Mandatory = $true)]
+        [string] $LogType,
+        
+        [Parameter(Mandatory = $true)]
+        [hashtable] $Result,
+        
+        [Parameter(Mandatory = $false)]
+        [string] $OriginalTimestamp
+    )
+    
+    $logContent = @"
+K2s Image $LogType Log
+$('=' * (15 + $LogType.Length))
+$LogType Date: $($Result."${LogType}Timestamp")
+$(if ($OriginalTimestamp) { "Original Backup Date: $OriginalTimestamp" })
+Total Images: $($Result.Images.Count + $Result.FailedImages.Count)
+Successful ${LogType}s: $($Result.Images.Count)
+Failed ${LogType}s: $($Result.FailedImages.Count)
+
+${LogType}d Images:
+"@
+    
+    foreach ($img in $Result.Images) {
+        $logContent += "`n- $($img.Repository):$($img.Tag) (ID: $($img.ImageId))"
+    }
+    
+    if ($Result.FailedImages.Count -gt 0) {
+        $logContent += "`n`nFailed Images:"
+        foreach ($img in $Result.FailedImages) {
+            $logContent += "`n- $($img.Repository):$($img.Tag) (ID: $($img.ImageId)) - Error: $($img.Error)"
+        }
+    }
+    
+    $logContent | Out-File -FilePath $LogPath -Encoding UTF8
+    Write-Log "Log file created: $LogPath"
+}
+
+<#
+.SYNOPSIS
+Executes K2s image commands with standardized error handling
+
+.DESCRIPTION
+Helper function to execute k2s image export/import commands with consistent error handling
+
+.PARAMETER Command
+The full k2s command to execute
+
+.PARAMETER ImageName
+Name of the image being processed (for error messages)
+
+.PARAMETER ExpectedFile
+Optional file path that should be created by the command
+
+.PARAMETER CommandExecutor
+Script block for executing commands (for testing)
+#>
+function Invoke-K2sImageCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Command,
+        
+        [Parameter(Mandatory = $true)]
+        [string] $ImageName,
+        
+        [Parameter(Mandatory = $false)]
+        [string] $ExpectedFile,
+        
+        [Parameter(Mandatory = $false)]
+        [scriptblock] $CommandExecutor = { param($cmd) Invoke-Expression $cmd 2>&1 }
+    )
+    
+    Write-Log "Executing command: $Command"
+    $result = & $CommandExecutor $Command
+    
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code $LASTEXITCODE : $result"
+    }
+    
+    # Verify expected file if specified
+    if ($ExpectedFile) {
+        if (-not (Test-Path $ExpectedFile)) {
+            throw "Expected file was not created: $ExpectedFile"
+        }
+        
+        if ((Get-Item $ExpectedFile).Length -eq 0) {
+            throw "Created file is empty: $ExpectedFile"
+        }
+    }
+    
+    # Don't return the command result to avoid polluting the pipeline
+    # Just return success indication or nothing
+}
+
+<#
+.SYNOPSIS
+Writes progress messages for image processing operations
+
+.DESCRIPTION
+Helper function to provide consistent progress tracking during backup/restore operations
+
+.PARAMETER Current
+Current image number being processed
+
+.PARAMETER Total
+Total number of images to process
+
+.PARAMETER Action
+Action being performed ("Backing up" or "Restoring")
+
+.PARAMETER Image
+Image object being processed
+#>
+function Write-ProcessingProgress {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int] $Current,
+        
+        [Parameter(Mandatory = $true)]
+        [int] $Total,
+        
+        [Parameter(Mandatory = $true)]
+        [string] $Action,
+        
+        [Parameter(Mandatory = $true)]
+        [object] $Image
+    )
+    
+    Write-Log "[$Current/$Total] $Action image: $($Image.repository):$($Image.tag)" -Console
+}
+
+<#
+.SYNOPSIS
+Validates input parameters for image operations
+
+.DESCRIPTION
+Helper function to validate common input parameters for backup/restore operations
+
+.PARAMETER BackupDirectory
+Directory path to validate
+
+.PARAMETER Images
+Images array to validate
+
+.PARAMETER RequiredSpaceGB
+Required space to validate
+
+.OUTPUTS
+Validation result object
+#>
+function Test-ImageOperationParameters {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string] $BackupDirectory,
+        
+        [Parameter(Mandatory = $false)]
+        [array] $Images,
+        
+        [Parameter(Mandatory = $false)]
+        [int] $RequiredSpaceGB
+    )
+    
+    $validationResult = @{
+        IsValid = $true
+        Errors = @()
+    }
+    
+    if ($BackupDirectory -ne $null) {
+        if ([string]::IsNullOrWhiteSpace($BackupDirectory)) {
+            $validationResult.IsValid = $false
+            $validationResult.Errors += "BackupDirectory cannot be empty or whitespace"
+        }
+        else {
+            # Validate path format
+            try {
+                [System.IO.Path]::GetFullPath($BackupDirectory) | Out-Null
+            }
+            catch {
+                $validationResult.IsValid = $false
+                $validationResult.Errors += "BackupDirectory contains invalid path characters"
+            }
+        }
+    }
+    
+    if ($Images -ne $null -and $Images.Count -gt 0) {
+        for ($i = 0; $i -lt $Images.Count; $i++) {
+            $image = $Images[$i]
+            if (-not $image.repository -or -not $image.tag -or -not $image.imageid) {
+                $validationResult.IsValid = $false
+                $validationResult.Errors += "Image at index $i is missing required properties (repository, tag, imageid)"
+            }
+        }
+    }
+    
+    if ($RequiredSpaceGB -and $RequiredSpaceGB -lt 0) {
+        $validationResult.IsValid = $false
+        $validationResult.Errors += "RequiredSpaceGB must be a positive number"
+    }
+    
+    return $validationResult
+}
+
+<#
+.SYNOPSIS
 Gets list of images in the cluster
 
 .DESCRIPTION
@@ -108,25 +417,14 @@ function Backup-K2sImages {
     Write-Log "Starting image backup to directory: $BackupDirectory" -Console
     
     if ($Images.Count -eq 0) {
-        Write-Log "No images to backup" -Console
-        return @{
-            BackupTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            BackupDirectory = $BackupDirectory
-            Images = @()
-            Success = $true
-        }
+        return New-EmptyBackupResult -BackupDirectory $BackupDirectory
     }
     
     try {
         # Create backup directory structure
-        if (-not (Test-Path $BackupDirectory)) {
-            New-Item -ItemType Directory -Path $BackupDirectory -Force | Out-Null
-        }
+        New-BackupDirectoryStructure -BackupDirectory $BackupDirectory -CreateImagesSubdir
         
         $imagesDir = Join-Path $BackupDirectory "images"
-        if (-not (Test-Path $imagesDir)) {
-            New-Item -ItemType Directory -Path $imagesDir -Force | Out-Null
-        }
         
         $k2sExe = Get-K2sExePath
         $backupManifest = @{
@@ -143,7 +441,7 @@ function Backup-K2sImages {
         foreach ($image in $Images) {
             $currentImage++
             
-            Write-Log "[$currentImage/$totalImages] Backing up image: $($image.repository):$($image.tag)" -Console
+            Write-ProcessingProgress -Current $currentImage -Total $totalImages -Action "Backing up" -Image $image
             
             try {
                 # Generate safe filename for tar archive
@@ -153,29 +451,19 @@ function Backup-K2sImages {
                 # Export image using k2s image export
                 $exportCommand = "$k2sExe image export --id $($image.imageid) -t `"$tarPath`""
                 
-                Write-Log "Exporting image with command: $exportCommand" 
-                $result = Invoke-Expression $exportCommand 2>&1
+                Invoke-K2sImageCommand -Command $exportCommand -ImageName "$($image.repository):$($image.tag)" -ExpectedFile $tarPath
                 
-                if ($LASTEXITCODE -eq 0) {
-                    # Verify tar file was created and has content
-                    if ((Test-Path $tarPath) -and ((Get-Item $tarPath).Length -gt 0)) {
-                        $imageBackupInfo = @{
-                            ImageId = $image.imageid
-                            Repository = $image.repository
-                            Tag = $image.tag
-                            Node = $image.node
-                            Size = $image.size
-                            TarFile = $tarPath
-                            BackupTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-                        }
-                        $backupManifest.Images += $imageBackupInfo
-                        Write-Log "Successfully backed up image: $($image.repository):$($image.tag)"
-                    } else {
-                        throw "Tar file was not created or is empty"
-                    }
-                } else {
-                    throw "Export command failed with exit code $LASTEXITCODE : $result"
+                $imageBackupInfo = @{
+                    ImageId = $image.imageid
+                    Repository = $image.repository
+                    Tag = $image.tag
+                    Node = $image.node
+                    Size = $image.size
+                    TarFile = $tarPath
+                    BackupTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
                 }
+                $backupManifest.Images += $imageBackupInfo
+                Write-Log "Successfully backed up image: $($image.repository):$($image.tag)"
             }
             catch {
                 Write-Log "Failed to backup image $($image.repository):$($image.tag) - $_" -Console
@@ -195,30 +483,7 @@ function Backup-K2sImages {
         
         # Create backup log
         $logPath = Join-Path $BackupDirectory "backup-log.txt"
-        $logContent = @"
-K2s Image Backup Log
-===================
-Backup Date: $($backupManifest.BackupTimestamp)
-Total Images: $totalImages
-Successful Backups: $($backupManifest.Images.Count)
-Failed Backups: $($backupManifest.FailedImages.Count)
-Backup Directory: $BackupDirectory
-
-Backed Up Images:
-"@
-        
-        foreach ($img in $backupManifest.Images) {
-            $logContent += "`n- $($img.Repository):$($img.Tag) (ID: $($img.ImageId))"
-        }
-        
-        if ($backupManifest.FailedImages.Count -gt 0) {
-            $logContent += "`n`nFailed Images:"
-            foreach ($img in $backupManifest.FailedImages) {
-                $logContent += "`n- $($img.Repository):$($img.Tag) (ID: $($img.ImageId)) - Error: $($img.Error)"
-            }
-        }
-        
-        $logContent | Out-File -FilePath $logPath -Encoding UTF8
+        New-ImageProcessingLog -LogPath $logPath -LogType "Backup" -Result $backupManifest
         
         if ($backupManifest.FailedImages.Count -gt 0) {
             Write-Log "Image backup completed with $($backupManifest.FailedImages.Count) failures. See $logPath for details." -Console
@@ -303,7 +568,7 @@ function Restore-K2sImages {
         foreach ($imageInfo in $manifest.Images) {
             $currentImage++
             
-            Write-Log "[$currentImage/$totalImages] Restoring image: $($imageInfo.Repository):$($imageInfo.Tag)" -Console
+            Write-ProcessingProgress -Current $currentImage -Total $totalImages -Action "Restoring" -Image $imageInfo
             
             try {
                 $tarPath = $imageInfo.TarFile
@@ -320,21 +585,16 @@ function Restore-K2sImages {
                     $importCommand += " -w"
                 }
                 
-                Write-Log "Importing image with command: $importCommand"
-                $result = Invoke-Expression $importCommand 2>&1
+                Invoke-K2sImageCommand -Command $importCommand -ImageName "$($imageInfo.Repository):$($imageInfo.Tag)"
                 
-                if ($LASTEXITCODE -eq 0) {
-                    $restoreResult.RestoredImages += @{
-                        ImageId = $imageInfo.ImageId
-                        Repository = $imageInfo.Repository
-                        Tag = $imageInfo.Tag
-                        TarFile = $tarPath
-                        RestoreTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-                    }
-                    Write-Log "Successfully restored image: $($imageInfo.Repository):$($imageInfo.Tag)"
-                } else {
-                    throw "Import command failed with exit code $LASTEXITCODE : $result"
+                $restoreResult.RestoredImages += @{
+                    ImageId = $imageInfo.ImageId
+                    Repository = $imageInfo.Repository
+                    Tag = $imageInfo.Tag
+                    TarFile = $tarPath
+                    RestoreTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
                 }
+                Write-Log "Successfully restored image: $($imageInfo.Repository):$($imageInfo.Tag)"
             }
             catch {
                 Write-Log "Failed to restore image $($imageInfo.Repository):$($imageInfo.Tag) - $_" -Console
@@ -350,35 +610,15 @@ function Restore-K2sImages {
         }
         
         # Create restore log
-        if (-not (Test-Path $BackupDirectory)) {
-            New-Item -ItemType Directory -Path $BackupDirectory -Force | Out-Null
-        }
+        New-BackupDirectoryStructure -BackupDirectory $BackupDirectory
         
         $logPath = Join-Path $BackupDirectory "restore-log.txt"
-        $logContent = @"
-K2s Image Restore Log
-====================
-Restore Date: $($restoreResult.RestoreTimestamp)
-Original Backup Date: $($manifest.BackupTimestamp)
-Total Images to Restore: $totalImages
-Successful Restores: $($restoreResult.RestoredImages.Count)
-Failed Restores: $($restoreResult.FailedImages.Count)
-
-Restored Images:
-"@
         
-        foreach ($img in $restoreResult.RestoredImages) {
-            $logContent += "`n- $($img.Repository):$($img.Tag) (ID: $($img.ImageId))"
-        }
+        # Prepare result for log creation (add Images property to match log function expectations)
+        $logResult = $restoreResult.Clone()
+        $logResult.Images = $restoreResult.RestoredImages
         
-        if ($restoreResult.FailedImages.Count -gt 0) {
-            $logContent += "`n`nFailed Images:"
-            foreach ($img in $restoreResult.FailedImages) {
-                $logContent += "`n- $($img.Repository):$($img.Tag) (ID: $($img.ImageId)) - Error: $($img.Error)"
-            }
-        }
-        
-        $logContent | Out-File -FilePath $logPath -Encoding UTF8
+        New-ImageProcessingLog -LogPath $logPath -LogType "Restore" -Result $logResult -OriginalTimestamp $manifest.BackupTimestamp
         
         if ($restoreResult.FailedImages.Count -gt 0) {
             Write-Log "Image restore completed with $($restoreResult.FailedImages.Count) failures. See $logPath for details." -Console
@@ -538,4 +778,5 @@ function Remove-OldImageBackups {
     }
 }
 
-Export-ModuleMember -Function Get-K2sImageList, Backup-K2sImages, Restore-K2sImages, Test-BackupDiskSpace, Remove-OldImageBackups
+Export-ModuleMember -Function Get-K2sImageList, Backup-K2sImages, Restore-K2sImages, Test-BackupDiskSpace, Remove-OldImageBackups, `
+    New-EmptyBackupResult, New-BackupDirectoryStructure, New-ImageProcessingLog, Invoke-K2sImageCommand, Write-ProcessingProgress, Test-ImageOperationParameters

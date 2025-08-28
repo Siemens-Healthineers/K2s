@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
-$imageBackupModule = "$PSScriptRoot/../image/ImageBackup.psm1"
+$imageBackupModule = "$PSScriptRoot/../image/ImageBackup.module.psm1"
 
 Import-Module $infraModule, $imageBackupModule
 
@@ -920,10 +920,13 @@ function PrepareClusterUpgrade {
 					if (-not $hasSufficientSpace) {
 						Write-Log "Warning: Insufficient disk space for image backup. Skipping image backup." -Console
 					} else {
+						Write-Log "Starting backup of $($userImages.Count) user images..." -Console
 						$imageBackupResult = Backup-K2sImages -BackupDirectory $imagesBackupPath.Value -Images $userImages
 						
 						if ($imageBackupResult.Success) {
-							Write-Log "Successfully backed up $($imageBackupResult.Images.Count) user application images" -Console
+							Write-Log "Image backup completed successfully" -Console
+							Write-Log "Actually backed up: $($imageBackupResult.Images.Count) images" -Console
+							Write-Log "Failed images: $($imageBackupResult.FailedImages.Count)" -Console
 						} else {
 							Write-Log "Image backup completed with some failures. Check backup logs for details." -Console
 						}
