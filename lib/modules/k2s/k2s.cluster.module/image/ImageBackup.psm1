@@ -396,32 +396,6 @@ Restored Images:
 
 <#
 .SYNOPSIS
-Gets the path to the k2s executable
-
-.DESCRIPTION
-Helper function to get the correct k2s executable path
-
-.OUTPUTS
-String path to k2s.exe
-#>
-function Get-K2sExePath {
-    # Try different possible locations for k2s.exe
-    $possiblePaths = @(
-        "k2s.exe",  # In PATH       
-        "$PSScriptRoot\..\..\..\..\..\k2s.exe"
-    )
-    
-    foreach ($path in $possiblePaths) {
-        if (Get-Command $path -ErrorAction SilentlyContinue) {
-            return $path
-        }
-    }
-    
-    throw "k2s.exe not found in any expected location"
-}
-
-<#
-.SYNOPSIS
 Validates available disk space for image backup
 
 .DESCRIPTION
@@ -452,41 +426,54 @@ function Test-BackupDiskSpace {
     )
     
     try {
+        # Validate input - prevent dangerous defaults
+        if (-not $RequiredSpaceGB -and (-not $Images -or $Images.Count -eq 0)) {
+            throw "Either RequiredSpaceGB must be specified or Images array must be provided for space calculation."
+        }
+        
         $drive = Split-Path $BackupDirectory -Qualifier
         if (-not $drive) {
             $drive = "C:"
         }
         
         $driveInfo = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object { $_.DeviceID -eq $drive }
+        if (-not $driveInfo) {
+            throw "Could not get disk information for drive: $drive"
+        }
+        
         $freeSpaceGB = [math]::Round($driveInfo.FreeSpace / 1GB, 2)
         
         if ($RequiredSpaceGB) {
             $requiredSpace = $RequiredSpaceGB
-        } elseif ($Images) {
-            # Estimate required space based on image sizes (with 50% buffer)
+        } else {
+            # Calculate size from images
             $totalSizeGB = 0
             foreach ($image in $Images) {
-                if ($image.size -match "(\d+(?:\.\d+)?)(MB|GB)") {
+                if ($image.size -match "(\d+(?:\.\d+)?)\s*(KB|MB|GB|TB)") {
                     $size = [double]$Matches[1]
-                    $unit = $Matches[2]
-                    if ($unit -eq "MB") {
-                        $totalSizeGB += $size / 1024
-                    } else {
-                        $totalSizeGB += $size
+                    $unit = $Matches[2].ToUpper()
+                    
+                    switch ($unit) {
+                        "KB" { $totalSizeGB += $size / (1024 * 1024) }
+                        "MB" { $totalSizeGB += $size / 1024 }
+                        "GB" { $totalSizeGB += $size }
+                        "TB" { $totalSizeGB += $size * 1024 }
                     }
                 }
             }
-            $requiredSpace = [math]::Ceiling($totalSizeGB * 1.5)  # 50% buffer
-        } else {
-            $requiredSpace = 5  # Default 5GB minimum
+            
+            # Add just 5% buffer (1.05 multiplier)
+            $requiredSpace = [math]::Ceiling($totalSizeGB * 1.05)
         }
         
         Write-Log "Disk space check: Available: ${freeSpaceGB}GB, Required: ${requiredSpace}GB" -Console
         
         if ($freeSpaceGB -ge $requiredSpace) {
+            Write-Log "✅ Sufficient disk space available for backup" -Console
             return $true
         } else {
-            Write-Log "Insufficient disk space for image backup. Available: ${freeSpaceGB}GB, Required: ${requiredSpace}GB" -Console
+            $shortfall = $requiredSpace - $freeSpaceGB
+            Write-Log "❌ Insufficient disk space for image backup. Available: ${freeSpaceGB}GB, Required: ${requiredSpace}GB (Shortfall: ${shortfall}GB)" -Console
             return $false
         }
     }

@@ -40,6 +40,12 @@ function Get-CrictlExePath {
     return $crictlExe
 }
 
+function Get-K2sExePath {
+    $kubePath = Get-KubePath
+    $k2sExe = "$kubePath\k2s.exe"    
+    return $k2sExe
+}
+
 function Get-InstallationDriveLetter {
     $kubePath = Get-KubePath
     $installationDriveLetter = ($kubePath).Split(':')[0]
@@ -118,7 +124,7 @@ function Write-RefreshEnvVariables {
     Write-Log ' ' -Console
 }
 
-Export-ModuleMember -Function Get-KubePath, Get-KubeBinPath, Get-KubeToolsPath, Get-CrictlExePath,
+Export-ModuleMember -Function Get-KubePath, Get-KubeBinPath, Get-KubeToolsPath, Get-CrictlExePath, Get-K2sExePath,
 Get-InstallationDriveLetter,
 Get-SystemDriveLetter,
 Test-PathPrerequisites,
