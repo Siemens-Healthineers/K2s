@@ -36,17 +36,6 @@ jobs:
         with:
           sdk-version: 22621
 
-      # - uses: TheMrMilchmann/setup-msvc-dev@v3
-      #   with:
-      #     arch: x64
-      #     sdk: 10.0.22621.0
-
-      # - name: Configure build for amd64
-      #   uses: ilammy/msvc-dev-cmd@v1
-      #   with:
-      #     arch: amd64
-      #     sdk: 10.0.22621.0
-
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2
         with:

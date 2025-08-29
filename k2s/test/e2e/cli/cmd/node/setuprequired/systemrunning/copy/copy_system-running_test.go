@@ -101,7 +101,8 @@ var _ = Describe("node copy", Ordered, func() {
 			AfterEach(func(ctx context.Context) {
 				GinkgoWriter.Println("Removing remote temp dir <", remoteTempDir, ">")
 
-				sshExec.exec(ctx, "rm -rf "+remoteTempDir)
+				// Use best effort cleanup to avoid test failures due to cleanup issues
+				sshExec.execBestEffort(ctx, "rm -rf "+remoteTempDir)
 			})
 
 			When("source is a file", func() {
@@ -154,7 +155,7 @@ var _ = Describe("node copy", Ordered, func() {
 							AfterEach(func(ctx context.Context) {
 								GinkgoWriter.Println("Removing file <", existingRemoteFile, ">")
 
-								sshExec.exec(ctx, "rm -rf "+existingRemoteFile)
+								sshExec.execBestEffort(ctx, "rm -rf "+existingRemoteFile)
 							})
 
 							It("overwrites existing file in home dir", func(ctx context.Context) {
@@ -207,7 +208,7 @@ var _ = Describe("node copy", Ordered, func() {
 								AfterEach(func(ctx context.Context) {
 									GinkgoWriter.Println("Removing file <", existingRemoteFile, ">")
 
-									sshExec.exec(ctx, "rm -rf "+existingRemoteFile)
+									sshExec.execBestEffort(ctx, "rm -rf "+existingRemoteFile)
 								})
 
 								It("overwrites the existing file in the home dir", func(ctx context.Context) {
@@ -248,7 +249,7 @@ var _ = Describe("node copy", Ordered, func() {
 								AfterEach(func(ctx context.Context) {
 									GinkgoWriter.Println("Removing file <", expectedRemoteFile, ">")
 
-									sshExec.exec(ctx, "rm -rf "+expectedRemoteFile)
+									sshExec.execBestEffort(ctx, "rm -rf "+expectedRemoteFile)
 								})
 
 								It("copies the file to home dir", func(ctx context.Context) {
@@ -306,7 +307,7 @@ var _ = Describe("node copy", Ordered, func() {
 						AfterEach(func(ctx context.Context) {
 							GinkgoWriter.Println("Removing file <", expectedRemoteFile, ">")
 
-							sshExec.exec(ctx, "rm -rf "+expectedRemoteFile)
+							sshExec.execBestEffort(ctx, "rm -rf "+expectedRemoteFile)
 						})
 
 						It("copies the file to home dir", func(ctx context.Context) {
@@ -549,7 +550,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 				GinkgoWriter.Println("Removing remote temp dir <", remoteTempDir, ">")
 
-				sshExec.exec(ctx, "rd /s /q "+remoteTempDir)
+				sshExec.execBestEffort(ctx, "rd /s /q "+remoteTempDir)
 			})
 
 			When("source is a file", func() {
@@ -602,7 +603,7 @@ var _ = Describe("node copy", Ordered, func() {
 							AfterEach(func(ctx context.Context) {
 								GinkgoWriter.Println("Removing file <", existingRemoteFile, ">")
 
-								sshExec.exec(ctx, "del "+existingRemoteFile)
+								sshExec.execBestEffort(ctx, "del "+existingRemoteFile)
 							})
 
 							It("overwrites existing file in home dir", func(ctx context.Context) {
@@ -655,7 +656,7 @@ var _ = Describe("node copy", Ordered, func() {
 								AfterEach(func(ctx context.Context) {
 									GinkgoWriter.Println("Removing file <", existingRemoteFile, ">")
 
-									sshExec.exec(ctx, "del "+existingRemoteFile)
+									sshExec.execBestEffort(ctx, "del "+existingRemoteFile)
 								})
 
 								It("overwrites the existing file in the home dir", func(ctx context.Context) {
@@ -696,7 +697,7 @@ var _ = Describe("node copy", Ordered, func() {
 								AfterEach(func(ctx context.Context) {
 									GinkgoWriter.Println("Removing file <", expectedRemoteFile, ">")
 
-									sshExec.exec(ctx, "del "+expectedRemoteFile)
+									sshExec.execBestEffort(ctx, "del "+expectedRemoteFile)
 								})
 
 								It("copies the file to home dir", func(ctx context.Context) {
@@ -754,7 +755,7 @@ var _ = Describe("node copy", Ordered, func() {
 						AfterEach(func(ctx context.Context) {
 							GinkgoWriter.Println("Removing file <", expectedRemoteFile, ">")
 
-							sshExec.exec(ctx, "del "+expectedRemoteFile)
+							sshExec.execBestEffort(ctx, "del "+expectedRemoteFile)
 						})
 
 						It("copies the file to home dir", func(ctx context.Context) {
@@ -1009,7 +1010,7 @@ var _ = Describe("node copy", Ordered, func() {
 				AfterEach(func(ctx context.Context) {
 					GinkgoWriter.Println("Removing remote temp dir <", remoteTempDir, ">")
 
-					sshExec.exec(ctx, "rm -rf "+remoteTempDir)
+					sshExec.execBestEffort(ctx, "rm -rf "+remoteTempDir)
 				})
 
 				When("source is a file", func() {
@@ -1435,7 +1436,7 @@ var _ = Describe("node copy", Ordered, func() {
 				AfterEach(func(ctx context.Context) {
 					GinkgoWriter.Println("Removing remote temp dir <", remoteTempDir, ">")
 
-					sshExec.exec(ctx, "rd /s /q "+remoteTempDir)
+					sshExec.execBestEffort(ctx, "rd /s /q "+remoteTempDir)
 				})
 
 				When("source is a file", func() {
@@ -1806,4 +1807,15 @@ var _ = Describe("node copy", Ordered, func() {
 
 func (ssh sshExecutor) exec(ctx context.Context, remoteCmd string) string {
 	return ssh.execFunc(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
+}
+
+func (ssh sshExecutor) execBestEffort(ctx context.Context, remoteCmd string) {
+	defer func() {
+		if r := recover(); r != nil {
+			GinkgoWriter.Printf("Best effort command failed (ignored): %v\n", r)
+		}
+	}()
+	
+	// Use suite.Cli().Exec instead of ExecOrFail to avoid test failure on cleanup errors
+	suite.Cli().Exec(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
 }

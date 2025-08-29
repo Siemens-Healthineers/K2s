@@ -1,4 +1,6 @@
-# .github/workflows/delete-old-branches.yml
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
 
 name: Delete old branches (6 months)
 
