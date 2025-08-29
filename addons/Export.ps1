@@ -141,7 +141,18 @@ try {
              # Copy only the contents of $dirPath — not the folder itself
              Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
 
-             
+            # ---------------------------
+            # Handle addon.manifest.yaml
+            # ---------------------------
+            # Get the parent folder of $dirPath (example: addons\ingress\nginx → addons\ingress)
+            $parentAddonFolder = Split-Path -Path $dirPath -Parent
+
+            # Check for addon.manifest.yaml at this level
+            $manifestFile = Join-Path $parentAddonFolder "addon.manifest.yaml"
+            if (Test-Path $manifestFile) {
+                Copy-Item -Path $manifestFile -Destination $destinationPath -Force
+            }
+
             Write-Log "Pulling images for addon $addonName from $dirPath" -Console
 
             Write-Log '---'
