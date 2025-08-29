@@ -228,6 +228,9 @@ function Invoke-DownloadWindowsNodeArtifacts {
     #HELM TOOLS
     Invoke-DownloadHelmArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
 
+    # ORAS
+    Invoke-DownloadOrasArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
+
     #START OF DEPLOYMENT OF DOWNLOADED ARTIFACTS
     # NSSM
     Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
@@ -235,6 +238,8 @@ function Invoke-DownloadWindowsNodeArtifacts {
     # HELM
     Invoke-DeployHelmArtifacts $windowsNodeArtifactsDirectory
 
+    # ORAS
+    Invoke-DeployOrasArtifacts $windowsNodeArtifactsDirectory
     # CONTAINERD
     Invoke-DeployContainerdArtifacts $windowsNodeArtifactsDirectory
     Invoke-DeployCrictlArtifacts $windowsNodeArtifactsDirectory
