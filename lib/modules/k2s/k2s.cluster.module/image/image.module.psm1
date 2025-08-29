@@ -111,7 +111,7 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
 }
 
 function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
-    $output = &$crictlExe images 2> $null
+    $output = &$crictlExe --config $kubeBinPath\crictl.yaml images 2> $null
     $node = $env:ComputerName.ToLower()
 
     $KubernetesImages = Get-KubernetesImagesFromJson
@@ -187,7 +187,7 @@ function Get-PushedContainerImages() {
 function Remove-Image([ContainerImage]$ContainerImage) {
     $output = ''
     if ($containerImage.Node -eq $env:ComputerName.ToLower()) {
-        $output = $(&$crictlExe rmi $containerImage.ImageId 2>&1)
+        $output = $(&$crictlExe --config $kubeBinPath\crictl.yaml rmi $containerImage.ImageId 2>&1)
     }
     else {
         $imageId = $containerImage.ImageId

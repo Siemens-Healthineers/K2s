@@ -27,7 +27,7 @@ function Get-CtrExePath {
 
 function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $containerdDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_ContainerdDirectory"
-    $versionContainerd = '2.1.3'
+    $versionContainerd = '2.1.4'
     $compressedContainerdFile = "containerd-$versionContainerd-windows-amd64.tar.gz"
     $compressedFile = "$containerdDownloadsDirectory\$compressedContainerdFile"
 
@@ -72,13 +72,13 @@ function Invoke-DeployContainerdArtifacts($windowsNodeArtifactsDirectory) {
 function Invoke-DownloadCrictlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $crictlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CrictlDirectory"
 
-    $compressedCrictlFile = 'crictl-v1.28.0-windows-amd64.tar.gz'
+    $compressedCrictlFile = 'crictl-v1.34.0-windows-amd64.tar.gz'
     $compressedFile = "$crictlDownloadsDirectory\$compressedCrictlFile"
 
     Write-Log "Create folder '$crictlDownloadsDirectory'"
     mkdir $crictlDownloadsDirectory | Out-Null
     Write-Log 'Download crictl'
-    Invoke-DownloadFile "$compressedFile" https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.28.0/$compressedCrictlFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.34.0/$compressedCrictlFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$crictlDownloadsDirectory`"
@@ -105,13 +105,13 @@ function Invoke-DeployCrictlArtifacts($windowsNodeArtifactsDirectory) {
 
 function Invoke-DownloadNerdctlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $nerdctlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_NerdctlDirectory"
-    $compressedNerdFile = 'nerdctl-1.7.2-windows-amd64.tar.gz'
+    $compressedNerdFile = 'nerdctl-2.1.3-windows-amd64.tar.gz'
     $compressedFile = "$nerdctlDownloadsDirectory\$compressedNerdFile"
 
     Write-Log "Create folder '$nerdctlDownloadsDirectory'"
     mkdir $nerdctlDownloadsDirectory | Out-Null
     Write-Log 'Download nerdctl'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v1.7.2/$compressedNerdFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v2.1.3/$compressedNerdFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$nerdctlDownloadsDirectory`"
