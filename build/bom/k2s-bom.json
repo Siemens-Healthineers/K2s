@@ -22,7 +22,7 @@
       "type": "application",
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.75.0",
+      "version": "v0.76.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -33,7 +33,7 @@
           }
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.75.0",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.76.1",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -66,9 +66,9 @@
     },
     {
       "type": "application",
-      "group": "https://dl.k8s.io/v1.33.3/bin/windows/amd64/kubelet.exe",
+      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubelet.exe",
       "name": "kubelet",
-      "version": "v1.33.3",
+      "version": "v1.33.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -79,7 +79,7 @@
           }
         }
       ],
-      "purl": "pkg:github/kubernetes/kubelet@v1.33.3",
+      "purl": "pkg:github/kubernetes/kubelet@v1.33.4",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -89,9 +89,9 @@
     },
     {
       "type": "application",
-      "group": "https://dl.k8s.io/v1.33.3/bin/windows/amd64/kubeadm.exe",
+      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubeadm.exe",
       "name": "kubeadm",
-      "version": "v1.33.3",
+      "version": "v1.33.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -102,7 +102,7 @@
           }
         }
       ],
-      "purl": "pkg:github/kubernetes/kubeadm@v1.33.3",
+      "purl": "pkg:github/kubernetes/kubeadm@v1.33.4",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -112,9 +112,9 @@
     },
     {
       "type": "application",
-      "group": "https://dl.k8s.io/v1.33.3/bin/windows/amd64/kube-proxy.exe",
+      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kube-proxy.exe",
       "name": "kube-proxy",
-      "version": "v1.33.3",
+      "version": "v1.33.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -125,7 +125,7 @@
           }
         }
       ],
-      "purl": "pkg:github/kubernetes/kube-proxy@v1.33.3",
+      "purl": "pkg:github/kubernetes/kube-proxy@v1.33.4",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -135,9 +135,9 @@
     },
     {
       "type": "application",
-      "group": "https://dl.k8s.io/v1.33.3/bin/windows/amd64/kubectl.exe",
+      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubectl.exe",
       "name": "kubectl",
-      "version": "v1.33.3",
+      "version": "v1.33.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -148,7 +148,7 @@
           }
         }
       ],
-      "purl": "pkg:github/kubernetes/kubectl@v1.33.3",
+      "purl": "pkg:github/kubernetes/kubectl@v1.33.4",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -204,9 +204,9 @@
     },
     {
       "type": "application",
-      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "plink",
-      "version": "v0.76.0",
+      "version": "v0.83.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -217,7 +217,7 @@
           }
         }
       ],
-      "purl": "pkg:generic/plink@v0.76.0",
+      "purl": "pkg:generic/plink@v0.83.0",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -227,9 +227,9 @@
     },
     {
       "type": "application",
-      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "pscp",
-      "version": "v0.76.0",
+      "version": "v0.83.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -240,7 +240,7 @@
           }
         }
       ],
-      "purl": "pkg:generic/pscp@v0.76.0",
+      "purl": "pkg:generic/pscp@v0.83.0",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -250,9 +250,9 @@
     },
     {
       "type": "application",
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.3.3.zip",
       "name": "dockerd",
-      "version": "v27.3.1",
+      "version": "v28.3.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -263,7 +263,7 @@
           }
         }
       ],
-      "purl": "pkg:github/moby/moby@27.3.1",
+      "purl": "pkg:github/moby/moby@28.3.3",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -273,9 +273,9 @@
     },
     {
       "type": "application",
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.3.3.zip",
       "name": "docker",
-      "version": "v27.3.1",
+      "version": "v28.3.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -286,7 +286,7 @@
           }
         }
       ],
-      "purl": "pkg:github/moby/moby@27.3.1",
+      "purl": "pkg:github/moby/moby@28.3.3",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -296,9 +296,9 @@
     },
     {
       "type": "application",
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.3.3.zip",
       "name": "docker-proxy",
-      "version": "v27.3.1",
+      "version": "v28.3.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -309,7 +309,7 @@
           }
         }
       ],
-      "purl": "pkg:github/moby/moby@27.3.1",
+      "purl": "pkg:github/moby/moby@28.3.3",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -319,9 +319,9 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/flannel-io/flannel/releases/download/0.26.1/flanneld.exe",
+      "group": "https://github.com/flannel-io/flannel/releases/download/0.27.2/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.26.7",
+      "version": "v0.27.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -332,7 +332,7 @@
           }
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.26.7",
+      "purl": "pkg:github/flannel-io/flannel@v0.27.2",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -457,7 +457,7 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
       "version": "v1.0.2",
       "description": "",
@@ -470,7 +470,7 @@
           }
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.1.3",
+      "purl": "pkg:github/containerd/containerd@v2.1.4",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -480,9 +480,9 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
       "name": "containerd-stress",
-      "version": "v2.1.3",
+      "version": "v2.1.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -493,7 +493,7 @@
           }
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.1.3",
+      "purl": "pkg:github/containerd/containerd@v2.1.4",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -503,9 +503,9 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
       "name": "containerd",
-      "version": "v2.1.3",
+      "version": "v2.1.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -516,7 +516,7 @@
           }
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.1.3",
+      "purl": "pkg:github/containerd/containerd@v2.1.4",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -526,9 +526,9 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
       "name": "ctr",
-      "version": "v2.1.3",
+      "version": "v2.1.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -539,7 +539,7 @@
           }
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.1.3",
+      "purl": "pkg:github/containerd/containerd@v2.1.4",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -200682,10 +200682,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "name": "github.com/flannel-io/flannel",
-      "version": "v0.26.7",
-      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "version": "v0.27.2",
+      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -217095,10 +217095,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/cloud.google.com/go@v0.75.0",
+      "bom-ref": "pkg:golang/cloud.google.com/go@v0.76.1",
       "name": "cloud.google.com/go",
-      "version": "v0.75.0",
-      "purl": "pkg:golang/cloud.google.com/go@v0.75.0",
+      "version": "v0.76.1",
+      "purl": "pkg:golang/cloud.google.com/go@v0.76.1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -217418,10 +217418,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible",
+      "bom-ref": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible",
       "name": "github.com/go-sourcemap/sourcemap",
-      "version": "v2.1.3\u002Bincompatible",
-      "purl": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible",
+      "version": "v2.1.4\u002Bincompatible",
+      "purl": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -375176,10 +375176,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/cloud.google.com/go@v0.75.0",
+      "bom-ref": "pkg:golang/cloud.google.com/go@v0.76.1",
       "name": "cloud.google.com/go",
-      "version": "v0.75.0",
-      "purl": "pkg:golang/cloud.google.com/go@v0.75.0",
+      "version": "v0.76.1",
+      "purl": "pkg:golang/cloud.google.com/go@v0.76.1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -379122,10 +379122,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "name": "github.com/flannel-io/flannel",
-      "version": "v0.26.7",
-      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "version": "v0.27.2",
+      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -379733,10 +379733,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible",
+      "bom-ref": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible",
       "name": "github.com/go-sourcemap/sourcemap",
-      "version": "v2.1.3\u002Bincompatible",
-      "purl": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible",
+      "version": "v2.1.4\u002Bincompatible",
+      "purl": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -483794,7 +483794,7 @@
     {
       "ref": "27002a4f-af3c-4868-90fc-8f1eee39bcc0",
       "dependsOn": [
-        "pkg:golang/github.com/flannel-io/flannel@v0.26.7"
+        "pkg:golang/github.com/flannel-io/flannel@v0.27.2"
       ]
     },
     {
@@ -484264,7 +484264,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "dependsOn": [
         "a53367a0-6c2f-430b-94b3-f0cd07043349",
         "pkg:golang/github.com/avast/retry-go/v4@v4.6.1",
@@ -487718,7 +487718,7 @@
         "fd0b2669-3315-4423-88eb-bbfb6b45fbb8",
         "ffb58eb8-18c0-4008-afd9-bb09d86d6ded",
         "pkg:golang/cloud.google.com/go/storage@v1.13.0",
-        "pkg:golang/cloud.google.com/go@v0.75.0",
+        "pkg:golang/cloud.google.com/go@v0.76.1",
         "pkg:golang/github.com/apache/thrift@v0.14.1",
         "pkg:golang/github.com/beevik/etree@v1.1.0",
         "pkg:golang/github.com/benbjohnson/clock@v1.0.3",
@@ -487736,7 +487736,7 @@
         "pkg:golang/github.com/go-kit/kit@v0.10.0",
         "pkg:golang/github.com/go-logfmt/logfmt@v0.5.0",
         "pkg:golang/github.com/go-macaron/gzip@v0.0.0-20160222043647-cad1c6580a07",
-        "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible",
+        "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible",
         "pkg:golang/github.com/gobwas/glob@v0.2.3",
         "pkg:golang/github.com/gogo/googleapis@v1.4.0",
         "pkg:golang/github.com/gogo/status@v1.0.3",
@@ -487987,7 +487987,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/cloud.google.com/go@v0.75.0",
+      "ref": "pkg:golang/cloud.google.com/go@v0.76.1",
       "dependsOn": []
     },
     {
@@ -488055,7 +488055,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible",
+      "ref": "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible",
       "dependsOn": []
     },
     {
@@ -512862,7 +512862,7 @@
         "fad64108-c0d9-4d3a-87de-bbe48fdf520a",
         "fb4132b4-e9ea-44ca-abc4-2e11d5c64972",
         "pkg:golang/cloud.google.com/go/storage@v1.13.0",
-        "pkg:golang/cloud.google.com/go@v0.75.0",
+        "pkg:golang/cloud.google.com/go@v0.76.1",
         "pkg:golang/github.com/apache/thrift@v0.14.1",
         "pkg:golang/github.com/beevik/etree@v1.1.0",
         "pkg:golang/github.com/benbjohnson/clock@v1.0.3",
@@ -512878,7 +512878,7 @@
         "pkg:golang/github.com/go-kit/kit@v0.10.0",
         "pkg:golang/github.com/go-logfmt/logfmt@v0.5.0",
         "pkg:golang/github.com/go-macaron/gzip@v0.0.0-20160222043647-cad1c6580a07",
-        "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible",
+        "pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible",
         "pkg:golang/github.com/gogo/googleapis@v1.4.0",
         "pkg:golang/github.com/gogo/status@v1.0.3",
         "pkg:golang/github.com/golang/groupcache@v0.0.0-20200121045136-8c9f03a8e57e",
@@ -516449,7 +516449,7 @@
     {
       "ref": "b12de0f1-9d30-4853-a4b8-10c62f2fd790",
       "dependsOn": [
-        "pkg:golang/github.com/flannel-io/flannel@v0.26.7"
+        "pkg:golang/github.com/flannel-io/flannel@v0.27.2"
       ]
     },
     {
@@ -530246,7 +530246,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "dependsOn": [
         "02b448fd-0471-4277-93db-6d1a5393184f",
         "054dc640-3af9-4bca-9ade-9cb2a5115247",

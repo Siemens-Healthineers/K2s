@@ -17,7 +17,7 @@
     <component type="application">
       <group>https://github.com/AdguardTeam/dnsproxy</group>
       <name>dnsproxy</name>
-      <version>v0.75.0</version>
+      <version>v0.76.1</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -26,7 +26,7 @@
           <url>https://github.com/AdguardTeam/dnsproxy/blob/master/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/AdguardTeam/dnsproxy@v0.75.0</purl>
+      <purl>pkg:github/AdguardTeam/dnsproxy@v0.76.1</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
@@ -49,9 +49,9 @@
       </properties>
     </component>
     <component type="application">
-      <group>https://dl.k8s.io/v1.33.3/bin/windows/amd64/kubelet.exe</group>
+      <group>https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubelet.exe</group>
       <name>kubelet</name>
-      <version>v1.33.3</version>
+      <version>v1.33.4</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -60,15 +60,15 @@
           <url>https://github.com/kubernetes/kubelet/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/kubernetes/kubelet@v1.33.3</purl>
+      <purl>pkg:github/kubernetes/kubelet@v1.33.4</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://dl.k8s.io/v1.33.3/bin/windows/amd64/kubeadm.exe</group>
+      <group>https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubeadm.exe</group>
       <name>kubeadm</name>
-      <version>v1.33.3</version>
+      <version>v1.33.4</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -77,15 +77,15 @@
           <url>https://github.com/kubernetes/kubeadm/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/kubernetes/kubeadm@v1.33.3</purl>
+      <purl>pkg:github/kubernetes/kubeadm@v1.33.4</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://dl.k8s.io/v1.33.3/bin/windows/amd64/kube-proxy.exe</group>
+      <group>https://dl.k8s.io/v1.33.4/bin/windows/amd64/kube-proxy.exe</group>
       <name>kube-proxy</name>
-      <version>v1.33.3</version>
+      <version>v1.33.4</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -94,15 +94,15 @@
           <url>https://github.com/kubernetes/kube-proxy/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/kubernetes/kube-proxy@v1.33.3</purl>
+      <purl>pkg:github/kubernetes/kube-proxy@v1.33.4</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://dl.k8s.io/v1.33.3/bin/windows/amd64/kubectl.exe</group>
+      <group>https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubectl.exe</group>
       <name>kubectl</name>
-      <version>v1.33.3</version>
+      <version>v1.33.4</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -111,7 +111,7 @@
           <url>https://github.com/kubernetes/kubectl/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/kubernetes/kubectl@v1.33.3</purl>
+      <purl>pkg:github/kubernetes/kubectl@v1.33.4</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
@@ -151,9 +151,9 @@
       </properties>
     </component>
     <component type="application">
-      <group>https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html</group>
+      <group>https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html</group>
       <name>plink</name>
-      <version>v0.76.0</version>
+      <version>v0.83.0</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -162,15 +162,15 @@
           <url>https://www.chiark.greenend.org.uk/~sgtatham/putty/licence.html</url>
         </license>
       </licenses>
-      <purl>pkg:generic/plink@v0.76.0</purl>
+      <purl>pkg:generic/plink@v0.83.0</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html</group>
+      <group>https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html</group>
       <name>pscp</name>
-      <version>v0.76.0</version>
+      <version>v0.83.0</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -179,15 +179,15 @@
           <url>https://www.chiark.greenend.org.uk/~sgtatham/putty/licence.html</url>
         </license>
       </licenses>
-      <purl>pkg:generic/pscp@v0.76.0</purl>
+      <purl>pkg:generic/pscp@v0.83.0</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip</group>
+      <group>https://download.docker.com/win/static/stable/x86_64/docker-28.3.3.zip</group>
       <name>dockerd</name>
-      <version>v27.3.1</version>
+      <version>v28.3.3</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -196,15 +196,15 @@
           <url>https://github.com/moby/moby/blob/master/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/moby/moby@27.3.1</purl>
+      <purl>pkg:github/moby/moby@28.3.3</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip</group>
+      <group>https://download.docker.com/win/static/stable/x86_64/docker-28.3.3.zip</group>
       <name>docker</name>
-      <version>v27.3.1</version>
+      <version>v28.3.3</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -213,15 +213,15 @@
           <url>https://github.com/moby/moby/blob/master/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/moby/moby@27.3.1</purl>
+      <purl>pkg:github/moby/moby@28.3.3</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip</group>
+      <group>https://download.docker.com/win/static/stable/x86_64/docker-28.3.3.zip</group>
       <name>docker-proxy</name>
-      <version>v27.3.1</version>
+      <version>v28.3.3</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -230,15 +230,15 @@
           <url>https://github.com/moby/moby/blob/master/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/moby/moby@27.3.1</purl>
+      <purl>pkg:github/moby/moby@28.3.3</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://github.com/flannel-io/flannel/releases/download/0.26.1/flanneld.exe</group>
+      <group>https://github.com/flannel-io/flannel/releases/download/0.27.2/flanneld.exe</group>
       <name>flanneld</name>
-      <version>v0.26.7</version>
+      <version>v0.27.2</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -247,7 +247,7 @@
           <url>https://github.com/flannel-io/flannel/blob/master/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/flannel-io/flannel@v0.26.7</purl>
+      <purl>pkg:github/flannel-io/flannel@v0.27.2</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
@@ -338,7 +338,7 @@
       </properties>
     </component>
     <component type="application">
-      <group>https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz</group>
+      <group>https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz</group>
       <name>containerd-shim-runhcs-v1</name>
       <version>v1.0.2</version>
       <description />
@@ -349,15 +349,15 @@
           <url>https://github.com/containerd/containerd/blob/main/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/containerd/containerd@v2.1.3</purl>
+      <purl>pkg:github/containerd/containerd@v2.1.4</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz</group>
+      <group>https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz</group>
       <name>containerd-stress</name>
-      <version>v2.1.3</version>
+      <version>v2.1.4</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -366,15 +366,15 @@
           <url>https://github.com/containerd/containerd/blob/main/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/containerd/containerd@v2.1.3</purl>
+      <purl>pkg:github/containerd/containerd@v2.1.4</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz</group>
+      <group>https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz</group>
       <name>containerd</name>
-      <version>v2.1.3</version>
+      <version>v2.1.4</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -383,15 +383,15 @@
           <url>https://github.com/containerd/containerd/blob/main/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/containerd/containerd@v2.1.3</purl>
+      <purl>pkg:github/containerd/containerd@v2.1.4</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
     </component>
     <component type="application">
-      <group>https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz</group>
+      <group>https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz</group>
       <name>ctr</name>
-      <version>v2.1.3</version>
+      <version>v2.1.4</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -400,7 +400,7 @@
           <url>https://github.com/containerd/containerd/blob/main/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/containerd/containerd@v2.1.3</purl>
+      <purl>pkg:github/containerd/containerd@v2.1.4</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
@@ -104569,10 +104569,10 @@
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
       </properties>
     </component>
-    <component type="library" bom-ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7">
+    <component type="library" bom-ref="pkg:golang/github.com/flannel-io/flannel@v0.27.2">
       <name>github.com/flannel-io/flannel</name>
-      <version>v0.26.7</version>
-      <purl>pkg:golang/github.com/flannel-io/flannel@v0.26.7</purl>
+      <version>v0.27.2</version>
+      <purl>pkg:golang/github.com/flannel-io/flannel@v0.27.2</purl>
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:f36a1f3c94fa92fdf561686b4acf5a499fc7c9a1105a9be6a12c3ffc956baf89</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
@@ -112829,10 +112829,10 @@
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
       </properties>
     </component>
-    <component type="library" bom-ref="pkg:golang/cloud.google.com/go@v0.75.0">
+    <component type="library" bom-ref="pkg:golang/cloud.google.com/go@v0.76.1">
       <name>cloud.google.com/go</name>
-      <version>v0.75.0</version>
-      <purl>pkg:golang/cloud.google.com/go@v0.75.0</purl>
+      <version>v0.76.1</version>
+      <purl>pkg:golang/cloud.google.com/go@v0.76.1</purl>
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:256fed7176c9efaf9472f57c4e110c8a21293166a3353ee0598c0eaf1d3a5da1</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
@@ -113000,10 +113000,10 @@
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
       </properties>
     </component>
-    <component type="library" bom-ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible">
+    <component type="library" bom-ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible">
       <name>github.com/go-sourcemap/sourcemap</name>
-      <version>v2.1.3+incompatible</version>
-      <purl>pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible</purl>
+      <version>v2.1.4+incompatible</version>
+      <purl>pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible</purl>
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:256fed7176c9efaf9472f57c4e110c8a21293166a3353ee0598c0eaf1d3a5da1</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
@@ -206300,10 +206300,10 @@
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
       </properties>
     </component>
-    <component type="library" bom-ref="pkg:golang/cloud.google.com/go@v0.75.0">
+    <component type="library" bom-ref="pkg:golang/cloud.google.com/go@v0.76.1">
       <name>cloud.google.com/go</name>
-      <version>v0.75.0</version>
-      <purl>pkg:golang/cloud.google.com/go@v0.75.0</purl>
+      <version>v0.76.1</version>
+      <purl>pkg:golang/cloud.google.com/go@v0.76.1</purl>
       <properties>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
       </properties>
@@ -208726,10 +208726,10 @@
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
       </properties>
     </component>
-    <component type="library" bom-ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7">
+    <component type="library" bom-ref="pkg:golang/github.com/flannel-io/flannel@v0.27.2">
       <name>github.com/flannel-io/flannel</name>
-      <version>v0.26.7</version>
-      <purl>pkg:golang/github.com/flannel-io/flannel@v0.26.7</purl>
+      <version>v0.27.2</version>
+      <purl>pkg:golang/github.com/flannel-io/flannel@v0.27.2</purl>
       <properties>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
       </properties>
@@ -209102,10 +209102,10 @@
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
       </properties>
     </component>
-    <component type="library" bom-ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible">
+    <component type="library" bom-ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible">
       <name>github.com/go-sourcemap/sourcemap</name>
-      <version>v2.1.3+incompatible</version>
-      <purl>pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible</purl>
+      <version>v2.1.4+incompatible</version>
+      <purl>pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible</purl>
       <properties>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
       </properties>
@@ -266293,7 +266293,7 @@
     <dependency ref="pkg:golang/golang.org/x/sys@v0.13.0" />
     <dependency ref="pkg:golang/stdlib@1.18.2" />
     <dependency ref="27002a4f-af3c-4868-90fc-8f1eee39bcc0">
-      <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7" />
+      <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.27.2" />
     </dependency>
     <dependency ref="2919748f-07ce-4b89-972a-6bfd0014c633">
       <dependency ref="27002a4f-af3c-4868-90fc-8f1eee39bcc0" />
@@ -266578,7 +266578,7 @@
     <dependency ref="pkg:golang/github.com/containernetworking/plugins@v1.6.2" />
     <dependency ref="pkg:golang/github.com/coreos/go-iptables@v0.8.0" />
     <dependency ref="pkg:golang/github.com/coreos/pkg@v0.0.0-20240122114842-bbd7aa9bf6fb" />
-    <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7">
+    <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.27.2">
       <dependency ref="a53367a0-6c2f-430b-94b3-f0cd07043349" />
       <dependency ref="pkg:golang/github.com/avast/retry-go/v4@v4.6.1" />
       <dependency ref="pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20" />
@@ -268102,7 +268102,7 @@
       <dependency ref="fd0b2669-3315-4423-88eb-bbfb6b45fbb8" />
       <dependency ref="ffb58eb8-18c0-4008-afd9-bb09d86d6ded" />
       <dependency ref="pkg:golang/cloud.google.com/go/storage@v1.13.0" />
-      <dependency ref="pkg:golang/cloud.google.com/go@v0.75.0" />
+      <dependency ref="pkg:golang/cloud.google.com/go@v0.76.1" />
       <dependency ref="pkg:golang/github.com/apache/thrift@v0.14.1" />
       <dependency ref="pkg:golang/github.com/beevik/etree@v1.1.0" />
       <dependency ref="pkg:golang/github.com/benbjohnson/clock@v1.0.3" />
@@ -268120,7 +268120,7 @@
       <dependency ref="pkg:golang/github.com/go-kit/kit@v0.10.0" />
       <dependency ref="pkg:golang/github.com/go-logfmt/logfmt@v0.5.0" />
       <dependency ref="pkg:golang/github.com/go-macaron/gzip@v0.0.0-20160222043647-cad1c6580a07" />
-      <dependency ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible" />
+      <dependency ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible" />
       <dependency ref="pkg:golang/github.com/gobwas/glob@v0.2.3" />
       <dependency ref="pkg:golang/github.com/gogo/googleapis@v1.4.0" />
       <dependency ref="pkg:golang/github.com/gogo/status@v1.0.3" />
@@ -268261,7 +268261,7 @@
       <dependency ref="pkg:apk/alpine/musl@1.2.4_git20230717-r4?arch=x86_64&amp;distro=3.19.1" />
     </dependency>
     <dependency ref="pkg:golang/cloud.google.com/go/storage@v1.13.0" />
-    <dependency ref="pkg:golang/cloud.google.com/go@v0.75.0" />
+    <dependency ref="pkg:golang/cloud.google.com/go@v0.76.1" />
     <dependency ref="pkg:golang/github.com/apache/thrift@v0.14.1" />
     <dependency ref="pkg:golang/github.com/beevik/etree@v1.1.0" />
     <dependency ref="pkg:golang/github.com/benbjohnson/clock@v1.0.3" />
@@ -268278,7 +268278,7 @@
     <dependency ref="pkg:golang/github.com/go-kit/kit@v0.10.0" />
     <dependency ref="pkg:golang/github.com/go-logfmt/logfmt@v0.5.0" />
     <dependency ref="pkg:golang/github.com/go-macaron/gzip@v0.0.0-20160222043647-cad1c6580a07" />
-    <dependency ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible" />
+    <dependency ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible" />
     <dependency ref="pkg:golang/github.com/gogo/googleapis@v1.4.0" />
     <dependency ref="pkg:golang/github.com/gogo/status@v1.0.3" />
     <dependency ref="pkg:golang/github.com/golang/groupcache@v0.0.0-20200121045136-8c9f03a8e57e" />
@@ -279854,7 +279854,7 @@
       <dependency ref="fad64108-c0d9-4d3a-87de-bbe48fdf520a" />
       <dependency ref="fb4132b4-e9ea-44ca-abc4-2e11d5c64972" />
       <dependency ref="pkg:golang/cloud.google.com/go/storage@v1.13.0" />
-      <dependency ref="pkg:golang/cloud.google.com/go@v0.75.0" />
+      <dependency ref="pkg:golang/cloud.google.com/go@v0.76.1" />
       <dependency ref="pkg:golang/github.com/apache/thrift@v0.14.1" />
       <dependency ref="pkg:golang/github.com/beevik/etree@v1.1.0" />
       <dependency ref="pkg:golang/github.com/benbjohnson/clock@v1.0.3" />
@@ -279870,7 +279870,7 @@
       <dependency ref="pkg:golang/github.com/go-kit/kit@v0.10.0" />
       <dependency ref="pkg:golang/github.com/go-logfmt/logfmt@v0.5.0" />
       <dependency ref="pkg:golang/github.com/go-macaron/gzip@v0.0.0-20160222043647-cad1c6580a07" />
-      <dependency ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.3%2Bincompatible" />
+      <dependency ref="pkg:golang/github.com/go-sourcemap/sourcemap@v2.1.4%2Bincompatible" />
       <dependency ref="pkg:golang/github.com/gogo/googleapis@v1.4.0" />
       <dependency ref="pkg:golang/github.com/gogo/status@v1.0.3" />
       <dependency ref="pkg:golang/github.com/golang/groupcache@v0.0.0-20200121045136-8c9f03a8e57e" />
@@ -281353,7 +281353,7 @@
     <dependency ref="b10a45d0-4233-432c-9aa7-c59f48ecdaf9" />
     <dependency ref="b11157c1-df50-41c1-bbc1-0fb1d46da5e8" />
     <dependency ref="b12de0f1-9d30-4853-a4b8-10c62f2fd790">
-      <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7" />
+      <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.27.2" />
     </dependency>
     <dependency ref="b12face1-3d37-450f-9f02-d95fc5e6866c" />
     <dependency ref="b135180d-8982-4093-9d6e-f0ea5e5b0c00" />
@@ -287915,7 +287915,7 @@
     <dependency ref="pkg:golang/github.com/docker/docker-credential-helpers@v0.8.0" />
     <dependency ref="pkg:golang/github.com/docker/docker@v26.1.3%2Bincompatible" />
     <dependency ref="pkg:golang/github.com/docker/go-events@v0.0.0-20190806004212-e31b211e4f1c" />
-    <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7">
+    <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.27.2">
       <dependency ref="02b448fd-0471-4277-93db-6d1a5393184f" />
       <dependency ref="054dc640-3af9-4bca-9ade-9cb2a5115247" />
       <dependency ref="0a45e93a-2a39-4ef9-b626-782537f7c213" />

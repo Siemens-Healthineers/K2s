@@ -84,7 +84,7 @@ else {
     $success = $false
     while ($retries -gt 0) {
         $retries--
-        &$kubeBinPath\crictl pull $ImageName
+        &$kubeBinPath\crictl --config $kubeBinPath\crictl.yaml pull $ImageName
 
         if ($?) {
             $success = $true
