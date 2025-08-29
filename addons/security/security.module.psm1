@@ -289,6 +289,15 @@ function Wait-ForOauth2ProxyAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=oauth2-proxy' -Namespace 'security' -TimeoutSeconds 120)
 }
 
+<#
+.DESCRIPTION
+Tests if the OAuth2 proxy service is available.
+#>
+function Test-OAuth2ProxyServiceAvailability {
+    $deployment = (Invoke-Kubectl -Params '-n', 'security', 'get', 'deployment', 'oauth2-proxy', '--ignore-not-found').Output
+    return $deployment -and $deployment -notmatch 'NotFound'
+}
+
 function Enable-IngressForSecurity([string]$Ingress) {
     switch ($Ingress) {
         'nginx' {
