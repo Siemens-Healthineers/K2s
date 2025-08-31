@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
@@ -13,6 +14,7 @@ import (
 )
 
 var suite *framework.K2sTestSuite
+var orasExe string
 
 func TestOCIArtifact(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -37,6 +39,8 @@ var _ = Describe("OCI Artifact operations", Ordered, func() {
 	When("Registry addon only", func() {
 		Context("addon is enabled {clusterip}", func() {
 			BeforeAll(func(ctx context.Context) {
+			    orasExe = filepath.Join(suite.RootDir(), "bin", "oras.exe")
+			    GinkgoWriter.Println("orasExe path:", orasExe) // prints to Ginkgo test output
 				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "registry", "-o")
 			})
 
@@ -66,20 +70,20 @@ var _ = Describe("OCI Artifact operations", Ordered, func() {
 
             It("pushes the zip file as OCI artifact", func(ctx context.Context) {
                 Expect(os.Stat(artifactName)).ToNot(BeNil())
-                suite.Cli().ExecOrFail(ctx, "oras", "push", "--insecure","--plain-http", fmt.Sprintf("%s:%d/%s:%s", "172.19.1.100", 30500, "testrepo", artifactTag), fmt.Sprintf("%s:application/zip", artifactName))
+                suite.Cli().ExecOrFail(ctx, orasExe, "push", "--insecure","--plain-http", fmt.Sprintf("%s:%d/%s:%s", "172.19.1.100", 30500, "testrepo", artifactTag), fmt.Sprintf("%s:application/zip", artifactName))
             })
 
             It("verifies the manifest after push", func(ctx context.Context) {
-                output := suite.Cli().ExecOrFail(ctx, "oras", "manifest", "fetch", "--insecure","--plain-http", fmt.Sprintf("%s:%d/%s:%s", "172.19.1.100", 30500, "testrepo", artifactTag))
+                output := suite.Cli().ExecOrFail(ctx, orasExe, "manifest", "fetch", "--insecure","--plain-http", fmt.Sprintf("%s:%d/%s:%s", "172.19.1.100", 30500, "testrepo", artifactTag))
                 Expect(output).To(ContainSubstring("application/zip"))
             })
 
             It("pulls the artifact", func(ctx context.Context) {
-                suite.Cli().ExecOrFail(ctx, "oras", "pull", "--insecure","--plain-http", fmt.Sprintf("%s:%d/%s:%s", "172.19.1.100", 30500, "testrepo", artifactTag))
+                suite.Cli().ExecOrFail(ctx, orasExe, "pull", "--insecure","--plain-http", fmt.Sprintf("%s:%d/%s:%s", "172.19.1.100", 30500, "testrepo", artifactTag))
             })
 
             It("pulls the artifact to a specific directory", func(ctx context.Context) {
-                suite.Cli().ExecOrFail(ctx, "oras", "pull", "--insecure","--plain-http", fmt.Sprintf("%s:%d/%s:%s", "172.19.1.100", 30500, "testrepo", artifactTag), "-o", "./downloaded")
+                suite.Cli().ExecOrFail(ctx, orasExe, "pull", "--insecure","--plain-http", fmt.Sprintf("%s:%d/%s:%s", "172.19.1.100", 30500, "testrepo", artifactTag), "-o", "./downloaded")
                 Expect(os.Stat("./downloaded/" + artifactName)).ToNot(BeNil())
             })
 
