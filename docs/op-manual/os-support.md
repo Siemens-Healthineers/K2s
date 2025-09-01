@@ -15,3 +15,4 @@ SPDX-License-Identifier: MIT
 | Windows 11              | 22H2    | `10.0.22621.xxxx` |
 | Windows 11              | 23H2    | `10.0.22631.xxxx` |
 | Windows 11, Server 2025 | 24H2    | `10.0.26100.xxxx` |
+| Windows 11              | 25H2    | `10.0.26200.xxxx` |
