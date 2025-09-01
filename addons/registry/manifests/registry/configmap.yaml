@@ -23,22 +23,11 @@ data:
     http:
       addr: :5000
       headers:
-
     health:
       storagedriver:
         enabled: true
-        threshold: 3   # Fail after 3 consecutive errors
+        threshold: 3
 
     extensions:
       oci:
-        enabled: true
-
-      metrics:
-        enabled: true
-        port: 9090
-
-      trust:
-        enabled: true
-
-      sbom:
         enabled: true
