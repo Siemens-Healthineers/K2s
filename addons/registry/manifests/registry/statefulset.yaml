@@ -61,7 +61,7 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: registry
-        image: ghcr.io/project-zot/zot-linux-amd64:latest
+        image: ghcr.io/project-zot/zot-linux-amd64:2.1.7
         volumeMounts:
         - name: repo-vol
           mountPath: "/var/lib/registry"
