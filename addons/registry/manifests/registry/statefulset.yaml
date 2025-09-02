@@ -51,7 +51,7 @@ spec:
     matchLabels:
       app: registry
   serviceName: "registry"
-  replicas: 1 
+  replicas: 1
   minReadySeconds: 10
   template:
     metadata:
@@ -61,12 +61,12 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: registry
-        image: public.ecr.aws/docker/library/registry:2
+        image: ghcr.io/project-zot/zot-linux-amd64:v2.1.7
         volumeMounts:
         - name: repo-vol
           mountPath: "/var/lib/registry"
         - name: config-vol
-          mountPath: /etc/docker/registry
+          mountPath: /etc/zot/registry
       volumes:
       - name: repo-vol
         persistentVolumeClaim:

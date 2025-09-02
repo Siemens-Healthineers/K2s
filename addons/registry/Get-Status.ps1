@@ -24,11 +24,11 @@ if ($registries) {
 
     if ($registry -match ':') {
         # Nodeport
-        $statusCode = curl.exe "http://$registry" -I -m 15 --retry 5 --retry-delay 5 --fail 2>&1 | Out-String
+        $statusCode = curl.exe "http://$registry/v2/" -i -m 15 --retry 5 --retry-delay 5 --fail 2>&1 | Out-String
     }
     else {
         # Ingress
-        $statusCode = curl.exe "https://$registry" -k -I -m 15 --retry 5 --retry-delay 5 --fail 2>&1 | Out-String
+        $statusCode = curl.exe "https://$registry/v2/" -k -i -m 15 --retry 5 --retry-delay 5 --fail 2>&1 | Out-String
     }
     
     $success = ($statusCode -match 200)
