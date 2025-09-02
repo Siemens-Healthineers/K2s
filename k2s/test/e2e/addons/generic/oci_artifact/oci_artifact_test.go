@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"archive/zip"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework"
@@ -44,11 +45,24 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("OCI Artifact operations", Ordered, func() {
 	When("Registry addon only", func() {
 		Context("addon is enabled {clusterip}", func() {
-			BeforeAll(func(ctx context.Context) {
-			    orasExe = filepath.Join(suite.RootDir(), "bin", orasBinaryName)
-			    GinkgoWriter.Println("orasExe path:", orasExe)
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "registry", "-o")
-			})
+            BeforeAll(func(ctx context.Context) {
+                orasExe = filepath.Join(suite.RootDir(), "bin", orasBinaryName)
+                GinkgoWriter.Println("orasExe path:", orasExe)
+
+                zipFile, err := os.Create(artifactName)
+                Expect(err).To(BeNil())
+                defer zipFile.Close()
+
+                zipWriter := zip.NewWriter(zipFile)
+                defer zipWriter.Close()
+
+                sampleFile, err := zipWriter.Create("sample.txt")
+                Expect(err).To(BeNil())
+                _, err = sampleFile.Write([]byte("This is a sample text file inside the zip."))
+                Expect(err).To(BeNil())
+
+                suite.K2sCli().RunOrFail(ctx, "addons", "enable", "registry", "-o")
+            })
 
 			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
 				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "registry")
@@ -96,6 +110,7 @@ var _ = Describe("OCI Artifact operations", Ordered, func() {
 			AfterAll(func(ctx context.Context) {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "registry", "-o")
 				_ = os.RemoveAll("./downloaded")
+				_ = os.Remove(artifactName)
 			})
 		})
 	})
