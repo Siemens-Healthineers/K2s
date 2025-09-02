@@ -53,7 +53,7 @@ version = 2
     max_container_log_line_size = 16384
     netns_mounts_under_state_dir = false
     restrict_oom_score_adj = false
-    sandbox_image = "shsk2s.azurecr.io/pause-win:v1.2.0"
+    sandbox_image = "shsk2s.azurecr.io/pause-win:v1.5.0"
     [plugins."io.containerd.grpc.v1.cri".registry.configs."shsk2s.azurecr.io".auth]
     auth = "%CONTAINERD_TOKEN%"
     selinux_category_range = 0

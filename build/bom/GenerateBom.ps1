@@ -52,7 +52,7 @@ function EnsureTrivy() {
     }
 
     $compressedFile = "$global:BinPath\trivy.zip"
-    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.52.1/trivy_0.52.1_windows-64bit.zip' $true -ProxyToUse $Proxy
+    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.65.0/trivy_0.65.0_windows-64bit.zip' $true -ProxyToUse $Proxy
 
     # Extract the archive.
     Write-Output "Extract archive to '$global:BinPath"
@@ -69,7 +69,7 @@ function EnsureCdxCli() {
     # download cli if not there
     $cli = "$global:BinPath\cyclonedx-win-x64.exe"
     if (!(Test-Path $cli)) {
-        DownloadFile $cli https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.25.0/cyclonedx-win-x64.exe $true -ProxyToUse $Proxy
+        DownloadFile $cli https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.29.1/cyclonedx-win-x64.exe $true -ProxyToUse $Proxy
     }
 }
 
@@ -155,9 +155,9 @@ function GenerateBomDebian() {
     }
     else {
         Write-Output "Install trivy into $hostname"
-        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.52.1/trivy_0.52.1_Linux-64bit.tar.gz 2>&1'
-        ExecCmdMaster 'sudo tar -xzf ./trivy_0.52.1_Linux-64bit.tar.gz trivy'
-        ExecCmdMaster 'sudo rm ./trivy_0.52.1_Linux-64bit.tar.gz'
+        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.65.0/trivy_0.65.0_Linux-64bit.tar.gz 2>&1'
+        ExecCmdMaster 'sudo tar -xzf ./trivy_0.65.0_Linux-64bit.tar.gz trivy'
+        ExecCmdMaster 'sudo rm ./trivy_0.65.0_Linux-64bit.tar.gz'
         ExecCmdMaster 'sudo mv ./trivy /usr/local/bin/'
         ExecCmdMaster 'sudo chmod +x /usr/local/bin/trivy'
     }
@@ -369,14 +369,23 @@ else {
 
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
+Write-Output '1 -> Check system state'
 CheckVMState
+Write-Output '2 -> Install tool trivy'
 EnsureTrivy
+Write-Output '3 -> Install tool cdxgen'
 EnsureCdxCli
+Write-Output '4 -> Remove old container files'
 RemoveOldContainerFiles
+Write-Output '5 -> Generate bom for directory: k2s'
 GenerateBomGolang('k2s')
+Write-Output '6 -> Generate bom for debian VM'
 GenerateBomDebian
+Write-Output '7 -> Load k2s images'
 LoadK2sImages
+Write-Output '8 -> Generate bom for containers'
 GenerateBomContainers
+Write-Output '9 -> Merge bom files'
 MergeBomFilesFromDirectory
 
 Write-Output '---------------------------------------------------------------'
