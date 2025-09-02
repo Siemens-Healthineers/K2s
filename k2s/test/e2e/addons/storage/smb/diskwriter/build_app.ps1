@@ -11,7 +11,7 @@ Set-Location $PSScriptRoot
 $Env:GOOS = 'windows'
 $Env:GOARCH = 'amd64'
 
-go build -ldflags="-w -s" -gcflags=all="-l -B" -o "$PSScriptRoot\dist\diskwriter.exe"
+go build -ldflags="-w -s" -gcflags=all="-l -B" -o "$PSScriptRoot\diskwriter.exe"
 
 if ($LASTEXITCODE -ne 0) {
     Set-Location $startLocation

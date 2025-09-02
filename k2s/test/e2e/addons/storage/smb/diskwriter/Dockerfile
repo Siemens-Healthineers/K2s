@@ -8,4 +8,4 @@ FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION}
 
 LABEL description='diskwriter Tool'
 
-COPY ["/dist/diskwriter.exe", "/diskwriter.exe"]
+COPY ["diskwriter.exe", "/diskwriter.exe"]

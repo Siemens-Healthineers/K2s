@@ -67,8 +67,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Found Linux nodes:", linuxNodes, len(linuxNodes))
 	GinkgoWriter.Println("Found Windows nodes:", windowsNodes, len(windowsNodes))
 
-	linuxImage := "shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0"
-	windowsImage := "shsk2s.azurecr.io/example.albums-golang-win:v1.0.0"
+	linuxImage := "shsk2s.azurecr.io/example.albums-golang-linux:v1.5.0"
+	windowsImage := "shsk2s.azurecr.io/example.albums-golang-win:v1.5.0"
 
 	clusterIPStart := map[string]string{
 		linux:   "172.21.0.",

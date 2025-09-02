@@ -28,7 +28,7 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
         - name: smb-share-test-windows2
-          image: shsk2s.azurecr.io/diskwriter:v1.2.0
+          image: shsk2s.azurecr.io/diskwriter:v1.5.0
           command:
             - "diskwriter.exe"
             - "-outfile"

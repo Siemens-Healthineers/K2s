@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: albums-win1
-          image: shsk2s.azurecr.io/example.albums-golang-win:v1.0.0 #windows_image
+          image: shsk2s.azurecr.io/example.albums-golang-win:v1.5.0 #windows_image
           ports:
             - containerPort: 8081
           env:
@@ -68,7 +68,7 @@ spec:
     spec:
       containers:
         - name: albums-win2
-          image: shsk2s.azurecr.io/example.albums-golang-win:v1.0.0 #windows_image
+          image: shsk2s.azurecr.io/example.albums-golang-win:v1.5.0 #windows_image
           ports:
             - containerPort: 8082
           env:
