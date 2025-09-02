@@ -40,7 +40,7 @@ spec:
       hostNetwork: true
       initContainers:
         - name: init
-          image: shsk2s.azurecr.io/sig-storage/smbplugin:v1.18.0-windows-hp #windows_image
+          image: shsk2s.azurecr.io/sig-storage/smbplugin:v1.18.0-windows-hp-signed #windows_image
           imagePullPolicy: IfNotPresent
           command:
             - "powershell.exe"
@@ -48,7 +48,7 @@ spec:
             - "New-Item -ItemType Directory -Path C:\\var\\lib\\kubelet\\plugins\\smb.csi.k8s.io\\ -Force"
       containers:
         - name: node-driver-registrar
-          image: shsk2s.azurecr.io/sig-storage/csi-node-driver-registrar:v2.13.0 #windows_image
+          image: shsk2s.azurecr.io/sig-storage/csi-node-driver-registrar:v2.13.0-signed #windows_image
           imagePullPolicy: IfNotPresent
           command:
             - "csi-node-driver-registrar.exe"
@@ -75,7 +75,7 @@ spec:
               cpu: 30m
               memory: 40Mi
         - name: smb
-          image: shsk2s.azurecr.io/sig-storage/smbplugin:v1.18.0-windows-hp #windows_image
+          image: shsk2s.azurecr.io/sig-storage/smbplugin:v1.18.0-windows-hp-signed #windows_image
           imagePullPolicy: IfNotPresent
           command:
             - "smbplugin.exe"
