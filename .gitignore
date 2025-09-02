@@ -17,7 +17,7 @@ bin/cmctl.exe
 nssm.exe
 vc_redist.x64.exe
 bin/cmctl.exe
-
+bin/oras.exe
 
 #Scripts
 smallsetup/common/StartKubelet.ps1
