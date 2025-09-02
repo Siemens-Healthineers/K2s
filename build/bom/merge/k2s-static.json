@@ -10,7 +10,7 @@
         "type": "application",
         "group": "aquasecurity",
         "name": "trivy",
-        "version": "0.50.0"
+        "version": "0.65.0"
       }
     ],
     "authors": [
@@ -465,7 +465,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
       "version": "v2.1.4",
       "description": "",
@@ -488,7 +488,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
       "name": "containerd-stress",
       "version": "v2.1.4",
       "description": "",
@@ -511,7 +511,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
       "name": "containerd",
       "version": "v2.1.4",
       "description": "",
@@ -534,7 +534,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
       "name": "ctr",
       "version": "v2.1.4",
       "description": "",
