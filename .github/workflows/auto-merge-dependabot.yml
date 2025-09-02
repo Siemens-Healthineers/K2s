@@ -4,11 +4,12 @@
 name: Automerge from Dependabot PR
 
 on:
-  pull_request_target:
-    types: [opened, synchronize]
-permissions:
-  pull-requests: write
-  contents: write
+  workflow_dispatch:
+#  pull_request_target:
+#    types: [opened, synchronize]
+#permissions:
+#  pull-requests: write
+#  contents: write
 
 jobs:
   dependabot-pr:
