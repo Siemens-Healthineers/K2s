@@ -11,17 +11,15 @@ data:
   config.yml: |
     version: 0.1
     log:
+      level: debug
       fields:
         service: registry
     storage:
-      delete:
-        enabled: true
-      cache:
-        blobdescriptor: inmemory
-      filesystem:
-        rootdirectory: /var/lib/registry
-    validation:
-      disabled: true
+      rootDirectory: /var/lib/registry
+      dedupe: true
+      gc: true
+      gcInterval: "24h"
+    
     http:
       addr: :5000
       headers:
@@ -29,3 +27,7 @@ data:
       storagedriver:
         enabled: true
         threshold: 3
+
+    extensions:
+      oci:
+        enabled: true
