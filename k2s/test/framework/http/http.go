@@ -14,6 +14,7 @@ import (
 
 	"github.com/failsafe-go/failsafe-go"
 	"github.com/failsafe-go/failsafe-go/failsafehttp"
+	"github.com/failsafe-go/failsafe-go/retrypolicy"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
@@ -24,7 +25,7 @@ type ResilientHttpClient struct {
 }
 
 func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
-	retryPolicy := failsafehttp.RetryPolicyBuilder().
+	retryPolicy := retrypolicy.NewBuilder[*http.Response]().
 		WithBackoff(time.Second, time.Minute).
 		WithJitterFactor(.25).
 		WithMaxRetries(5).
@@ -49,6 +50,27 @@ func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
 		executor: failsafe.NewExecutor(retryPolicy),
 	}
 }
+
+// func NewResilientHttpClient(requestTimeout time.Duration) *http.Client {
+//     // 1. Build a standard retry policy with a generic type of *http.Response.
+// 	// This makes the policy independent of the specific execution context.
+// 	retryPolicy := retrypolicy.Builder[*http.Response]().
+// 		WithBackoff(time.Second, time.Minute).
+// 		WithJitterFactor(.25).
+// 		WithMaxRetries(5).
+// 		WithMaxDuration(requestTimeout).
+// 		OnRetry(func(e failsafe.ExecutionEvent[*http.Response]) {
+// 			ginkgo.GinkgoWriter.Println("Last attempt failed with error: ", e.LastError())
+// 			ginkgo.GinkgoWriter.Printf("This is retry no. %d, elapsed time so far: %v, retrying\n", e.Retries(), e.ElapsedTime())
+// 		}).
+// 		// 2. Use the failsafehttp.IsFailure helper, which handles both network errors and status codes >= 400.
+// 		HandleIf(failsafehttp.IsFailure).
+// 		Build()
+
+//     // 3. Create a new Failsafe HTTP Client using the WithRetryPolicy option.
+//     // This is the new, recommended way to create a resilient HTTP client.
+// 	return failsafehttp.NewClient(failsafehttp.WithRetryPolicy(retryPolicy))
+// }
 
 // GetJson performs a GET request to the given URL, checks the payload for valid JSON and returns the payload as a byte array.
 // It retries failed requests according to the retry policy.

@@ -9,6 +9,6 @@
 # __END_BuildImage_Variables__
 #
 
-FROM mcr.microsoft.com/windows/nanoserver:20H2
+FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
 COPY weather-win.exe .
 ENTRYPOINT ["weather-win.exe"]
