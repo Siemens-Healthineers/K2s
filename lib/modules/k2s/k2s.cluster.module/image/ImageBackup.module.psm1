@@ -133,6 +133,31 @@ function New-ImageProcessingLog {
         [string] $OriginalTimestamp
     )
     
+    # Log summary to console with timestamps
+    Write-Log "=== K2s Image $LogType Summary ===" -Console
+    Write-Log "$LogType Date: $($Result."${LogType}Timestamp")" -Console
+    if ($OriginalTimestamp) {
+        Write-Log "Original Backup Date: $OriginalTimestamp" -Console
+    }
+    Write-Log "Total Images: $($Result.Images.Count + $Result.FailedImages.Count)" -Console
+    Write-Log "Successful ${LogType}s: $($Result.Images.Count)" -Console
+    Write-Log "Failed ${LogType}s: $($Result.FailedImages.Count)" -Console
+    
+    if ($Result.Images.Count -gt 0) {
+        Write-Log "${LogType}d Images:" -Console
+        foreach ($img in $Result.Images) {
+            Write-Log "✅ $($img.Repository):$($img.Tag) (ID: $($img.ImageId))" -Console
+        }
+    }
+    
+    if ($Result.FailedImages.Count -gt 0) {
+        Write-Log "Failed Images:" -Console
+        foreach ($img in $Result.FailedImages) {
+            Write-Log "❌ $($img.Repository):$($img.Tag) (ID: $($img.ImageId)) - Error: $($img.Error)" -Console
+        }
+    }
+    
+    # Create file content for log file
     $logContent = @"
 K2s Image $LogType Log
 $('=' * (15 + $LogType.Length))
@@ -157,7 +182,7 @@ ${LogType}d Images:
     }
     
     $logContent | Out-File -FilePath $LogPath -Encoding UTF8
-    Write-Log "Log file created: $LogPath"
+    Write-Log "Log file created: $LogPath" -Console
 }
 
 <#
@@ -165,10 +190,14 @@ ${LogType}d Images:
 Executes K2s image commands with standardized error handling
 
 .DESCRIPTION
-Helper function to execute k2s image export/import commands with consistent error handling
+Helper function to execute k2s image export/import commands with consistent error handling.
+Uses proper argument arrays to handle executable paths with spaces correctly.
 
-.PARAMETER Command
-The full k2s command to execute
+.PARAMETER K2sExecutable
+The path to the k2s executable
+
+.PARAMETER Arguments
+Array of command arguments to pass to k2s
 
 .PARAMETER ImageName
 Name of the image being processed (for error messages)
@@ -182,7 +211,10 @@ Script block for executing commands (for testing)
 function Invoke-K2sImageCommand {
     param(
         [Parameter(Mandatory = $true)]
-        [string] $Command,
+        [string] $K2sExecutable,
+        
+        [Parameter(Mandatory = $true)]
+        [string[]] $Arguments,
         
         [Parameter(Mandatory = $true)]
         [string] $ImageName,
@@ -191,11 +223,15 @@ function Invoke-K2sImageCommand {
         [string] $ExpectedFile,
         
         [Parameter(Mandatory = $false)]
-        [scriptblock] $CommandExecutor = { param($cmd) Invoke-Expression $cmd 2>&1 }
+        [scriptblock] $CommandExecutor = { 
+            param($exe, $arguments) 
+            Write-Log "Executing: $exe with arguments: $($arguments -join ' ')"
+            & $exe $arguments 2>&1 
+        }
     )
     
-    Write-Log "Executing command: $Command"
-    $result = & $CommandExecutor $Command
+    Write-Log "Executing k2s command for image: $ImageName"
+    $result = & $CommandExecutor $K2sExecutable $Arguments
     
     if ($LASTEXITCODE -ne 0) {
         throw "Command failed with exit code $LASTEXITCODE : $result"
@@ -449,9 +485,9 @@ function Backup-K2sImages {
                 $tarPath = Join-Path $imagesDir "$safeFileName.tar"
                 
                 # Export image using k2s image export
-                $exportCommand = "$k2sExe image export --id $($image.imageid) -t `"$tarPath`""
+                $exportArgs = @("image", "export", "--id", $image.imageid, "-t", $tarPath)
                 
-                Invoke-K2sImageCommand -Command $exportCommand -ImageName "$($image.repository):$($image.tag)" -ExpectedFile $tarPath
+                Invoke-K2sImageCommand -K2sExecutable $k2sExe -Arguments $exportArgs -ImageName "$($image.repository):$($image.tag)" -ExpectedFile $tarPath
                 
                 $imageBackupInfo = @{
                     ImageId = $image.imageid
@@ -481,8 +517,13 @@ function Backup-K2sImages {
         $manifestPath = Join-Path $BackupDirectory "manifest.json"
         $backupManifest | ConvertTo-Json -Depth 10 | Out-File -FilePath $manifestPath -Encoding UTF8
         
-        # Create backup log
-        $logPath = Join-Path $BackupDirectory "backup-log.txt"
+        # Create backup log in C:\var\log
+        $logDirectory = "C:\var\log"
+        if (-not (Test-Path $logDirectory)) {
+            New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+        }
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $logPath = Join-Path $logDirectory "k2s-image-backup-$timestamp.txt"
         New-ImageProcessingLog -LogPath $logPath -LogType "Backup" -Result $backupManifest
         
         if ($backupManifest.FailedImages.Count -gt 0) {
@@ -578,14 +619,14 @@ function Restore-K2sImages {
                 }
                 
                 # Import image using k2s image import
-                $importCommand = "$k2sExe image import -t `"$tarPath`""
+                $importArgs = @("image", "import", "-t", $tarPath)
                 
                 # Check if this is a Windows image (add -w flag if needed)
                 if ($imageInfo.Node -and $imageInfo.Node -like "*windows*") {
-                    $importCommand += " -w"
+                    $importArgs += "-w"
                 }
                 
-                Invoke-K2sImageCommand -Command $importCommand -ImageName "$($imageInfo.Repository):$($imageInfo.Tag)"
+                Invoke-K2sImageCommand -K2sExecutable $k2sExe -Arguments $importArgs -ImageName "$($imageInfo.Repository):$($imageInfo.Tag)"
                 
                 $restoreResult.RestoredImages += @{
                     ImageId = $imageInfo.ImageId
@@ -609,10 +650,13 @@ function Restore-K2sImages {
             }
         }
         
-        # Create restore log
-        New-BackupDirectoryStructure -BackupDirectory $BackupDirectory
-        
-        $logPath = Join-Path $BackupDirectory "restore-log.txt"
+        # Create restore log in C:\var\log
+        $logDirectory = "C:\var\log"
+        if (-not (Test-Path $logDirectory)) {
+            New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+        }
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $logPath = Join-Path $logDirectory "k2s-image-restore-$timestamp.txt"
         
         # Prepare result for log creation (add Images property to match log function expectations)
         $logResult = $restoreResult.Clone()

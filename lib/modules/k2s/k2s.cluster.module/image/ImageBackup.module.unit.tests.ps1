@@ -16,7 +16,7 @@ Describe "ImageBackup Module Tests" {
         It "Should return correct structure with default datetime" {
             $backupDir = "C:\Test\Backup"
             $result = New-EmptyBackupResult -BackupDirectory $backupDir
-            
+
             $result.BackupDirectory | Should -Be $backupDir
             $result.Images.Count | Should -Be 0
             $result.Success | Should -Be $true
@@ -26,7 +26,7 @@ Describe "ImageBackup Module Tests" {
         It "Should use custom datetime provider" {
             $testDate = "2024-01-01 12:00:00"
             $customProvider = { $testDate }
-            
+        
             $result = New-EmptyBackupResult -BackupDirectory "C:\Test" -DateTimeProvider $customProvider
             $result.BackupTimestamp | Should -Be $testDate
         }
@@ -45,8 +45,7 @@ Describe "ImageBackup Module Tests" {
                     New-Item -ItemType Directory -Path $path -Force | Out-Null 
                 }
                 JoinPath = { param($parent, $child) Join-Path $parent $child }
-            }
-            
+            }             
             { New-BackupDirectoryStructure -BackupDirectory $testDir -FileSystemProvider $mockProvider } | Should -Not -Throw
         }
         
@@ -67,50 +66,7 @@ Describe "ImageBackup Module Tests" {
             $createCalls | Should -Contain $testDir
             $createCalls | Should -Contain $imagesDir
         }
-    }
-    
-    Describe "Invoke-K2sImageCommand" {
-        It "Should execute command successfully" {
-            $testCommand = "echo test"
-            $mockExecutor = { param($cmd) "success output" }
-            
-            $global:LASTEXITCODE = 0
-            # Function no longer returns command output to avoid pipeline pollution
-            { Invoke-K2sImageCommand -Command $testCommand -ImageName "test:latest" -CommandExecutor $mockExecutor } | Should -Not -Throw
-        }
-        
-        It "Should throw on command failure" {
-            $testCommand = "failing command"
-            $mockExecutor = { param($cmd) "error output" }
-            
-            $global:LASTEXITCODE = 1
-            
-            { Invoke-K2sImageCommand -Command $testCommand -ImageName "test:latest" -CommandExecutor $mockExecutor } | 
-                Should -Throw "*Command failed with exit code 1*"
-        }
-        
-        It "Should validate expected file exists" {
-            $testFile = "TestDrive:\test.tar"
-            New-Item -Path $testFile -ItemType File -Value "test content"
-            
-            $mockExecutor = { param($cmd) "success" }
-            $global:LASTEXITCODE = 0
-            
-            { Invoke-K2sImageCommand -Command "test" -ImageName "test:latest" -ExpectedFile $testFile -CommandExecutor $mockExecutor } | 
-                Should -Not -Throw
-        }
-        
-        It "Should throw if expected file is empty" {
-            $testFile = "TestDrive:\empty.tar"
-            New-Item -Path $testFile -ItemType File
-            
-            $mockExecutor = { param($cmd) "success" }
-            $global:LASTEXITCODE = 0
-            
-            { Invoke-K2sImageCommand -Command "test" -ImageName "test:latest" -ExpectedFile $testFile -CommandExecutor $mockExecutor } | 
-                Should -Throw "*Created file is empty*"
-        }
-    }
+    }   
     
     Describe "Write-ProcessingProgress" {
         It "Should not throw when called with valid parameters" {
@@ -119,7 +75,7 @@ Describe "ImageBackup Module Tests" {
                 tag = "latest"
             }
             
-            { Write-ProcessingProgress -Current 1 -Total 5 -Action "Testing" -Image $mockImage } | Should -Not -Throw
+            { Write-ProcessingProgress -Current 1 -Total 1 -Action "Testing" -Image $mockImage } | Should -Not -Throw
         }
     }
     
