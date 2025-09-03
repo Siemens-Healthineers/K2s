@@ -1120,9 +1120,9 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#option-1-using-the-addon-exthttpaccess" class="md-nav__link">
+  <a href="#option-1-using-the-windows-firewall" class="md-nav__link">
     <span class="md-ellipsis">
-      [Option 1] Using the Addon exthttpaccess
+      [Option 1] Using the Windows firewall
     </span>
   </a>
   
@@ -1726,9 +1726,9 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#option-1-using-the-addon-exthttpaccess" class="md-nav__link">
+  <a href="#option-1-using-the-windows-firewall" class="md-nav__link">
     <span class="md-ellipsis">
-      [Option 1] Using the Addon exthttpaccess
+      [Option 1] Using the Windows firewall
     </span>
   </a>
   
@@ -1787,61 +1787,19 @@ SPDX-License-Identifier: MIT
 <p>In this document, we will assume you have enabled the <em>K2s</em> addon <code>dashboard</code>, so it is usable on your local host at <code>http://k2s.cluster.local/dashboard/</code>, and we further more assume you have an own product configured in one of the <em>K2s</em> ingress, reachable locally under <code>http://my-product.local</code>.</p>
 <p>If we want to expose the <em>ingress</em> / <em>gateway</em> endpoints outside of the <em>Windows</em> host in a secure manner, we need to configure a reverse proxy on the <em>Windows</em> host. The following picture shows this schematically for one of the variants:</p>
 <p><img alt="reverse-proxy" src="../assets/reverse-proxy.drawio.png" /></p>
-<p>We describe here two ways to do that: using the addon <code>exthttpaccess</code> and using <em><abbr title="Internet Information Services">IIS</abbr></em>.</p>
-<h2 id="option-1-using-the-addon-exthttpaccess">[Option 1] Using the Addon <code>exthttpaccess</code></h2>
-<p>This <em>K2s</em> addon installs <em>NGINX</em> as a <em>Windows</em> service on the host, and configures it as a reverse proxy to the installed <em>ingress</em> addon. Products shall adjust the configuration.</p>
-<p>See <a href="https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/" target="_blank">NGINX Reverse Proxy</a>.</p>
-<p>The example shows how to make the two web applications <em>K2s</em> dashboard available outside your host, under an  <code>https</code> endpoint:</p>
-<ul>
-<li><code>https://my-host.my-domain.com/dashboard</code> -&gt; <code>http://k2s.cluster.local/dashboard/</code></li>
-<li><code>https://my-host.my-domain.com/my-product</code> -&gt; <code>http://my-product.local</code></li>
-</ul>
-<p>For this you need a server certificate issued by a trusted authority for the <abbr title="Fully Qualified Domain Name">FQDN</abbr> of your host, in this example <code>my-host.my-domain.com</code>:</p>
-<ol>
-<li>
-<p>Enable the <em>K2s</em> addon <code>exthttpaccess</code></p>
-</li>
-<li>
-<p>Update the configuration file <code>&lt;k2s-install-dir&gt;\bin\nginx\nginx.conf</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>...
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>http {
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  server {
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    listen 443          ssl;
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    server_name         my-host.my-domain.com;
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    ssl_certificate     my-host.my-domain.com.crt;
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    ssl_certificate_key my-host.my-domain.com.key;
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    location /dashboard/ {
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>      proxy_pass http://k2s.cluster.local/dashboard/;
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>      proxy_set_header Accept-Encoding &quot;&quot;;
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    }
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    location /my-product/ {
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>      proxy_pass http://my-product.local/;
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>      sub_filter &#39;base href=&quot;&#39; &#39;base href=&quot;/my-product&#39;;
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>      proxy_buffering off;
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    }
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>  }
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>}
-</code></pre></div>
-<ul>
-<li>The <code>sub_filter</code> will replace e.g. <code>&lt;base href="/app/"/&gt;</code> with <code>&lt;base href="/my-product/app/"/&gt;</code>, and is needed for apps with static base <code>href</code>. The dashboard has dynamic base <code>href</code> and need no path re-write.</li>
-<li>The <code>proxy_buffering</code> needs to be turned off if the application uses <a href="https://javascript.info/server-sent-events" target="_blank">Server-Send-Events</a>.</li>
-</ul>
-</li>
-<li>
-<p>Restart <code>nginx-ext</code> using <code>nssm</code>, to use the updated configuration file:</p>
-</li>
-</ol>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">nssm restart nginx-ext</span>
-</code></pre></div>
-<div class="admonition question">
-<p class="admonition-title">Open Points</p>
-<ul>
-<li>How can <em>NGINX</em> authenticate users against <abbr title="NT LAN Manager">NTLM</abbr>? This feature seems to be available, but only for <em>NGINX Plus</em>.</li>
-<li>Can <em>NGINX</em> use server certificates private key from the <em>Windows Certificate Store</em>? Companies might have an established process to manage and distribute their server certificates, which on <em>Windows</em> means they are created in the computer certificate store and their private key cannot be exported to be used by <em>NGINX</em>. <em><abbr title="Internet Information Services">IIS</abbr></em> can use it from there.</li>
-</ul>
-</div>
+<p>We describe here two ways to do that: using the windows firewall and using <em><abbr title="Internet Information Services">IIS</abbr></em>.</p>
+<h2 id="option-1-using-the-windows-firewall">[Option 1] Using the Windows firewall</h2>
+<p>One way to expose the functionality outside of the <em>Windows</em> host is to use the <em>Windows</em> firewall.
+Use the Windows <em>netsh</em> command to create a port proxy that forwards external traffic to your ingress controller:</p>
+<p><code>netsh interface portproxy add v4tov4 listenport=8443 listenaddress=YOUR-HOST-IP connectport=443 connectaddress=172.19.1.100</code></p>
+<p>This command creates a tunnel that:</p>
+<p>Listens on port 8443 (or choose another free port on your host) at address YOUR-HOST-<abbr title="Internet Protocol">IP</abbr> (your host interface <abbr title="Internet Protocol">IP</abbr>, in most cases your Ethernet adapter) and 
+forwards traffic to port 443 at 172.19.1.100 (likely your ingress controller's service), by this the traffic will flow to the <abbr title="Kubernetes">K8s</abbr> cluster. </p>
+<p>Result: External clients can now access your Kubernetes services by connecting to YOUR-HOST-<abbr title="Internet Protocol">IP</abbr>:8443. The traffic flows through the Windows port proxy to your ingress controller, which then routes it to the appropriate service based on your ingress rules (hostname, path, etc.).
+This setup is commonly used in local development environments where the Kubernetes cluster runs on the host.</p>
+<p>Please check out other helpfull commands regarding portproxy:</p>
+<p><code>netsh interface portproxy show all</code> - shows all port forwardings settings</p>
+<p><code>netsh interface portproxy reset</code>    - cleans them all, for testing very usefull </p>
 <h2 id="option-2-using-iis">[Option 2] Using <em><abbr title="Internet Information Services">IIS</abbr></em></h2>
 <p>Another way to expose the functionality outside of the <em>Windows</em> host is to use the <a href="https://learn.microsoft.com/en-us/iis/extensions/planning-for-arr/using-the-application-request-routing-module" target="_blank">Application Request Routing module for <abbr title="Internet Information Services">IIS</abbr></a> and the <a href="https://www.iis.net/downloads/microsoft/url-rewrite" target="_blank"><abbr title="Uniform Resource Locator">URL</abbr> Rewrite <abbr title="Internet Information Services">IIS</abbr> Module</a> to configure a reverse proxy to the services exposed by the <em>K2s</em> <em>ingress</em> or <em>gateway</em> addon.</p>
 <p>Using the <em><abbr title="Internet Information Services">IIS</abbr></em> will ease up integration in the site network environment regarding secure communication and user management, as the <em><abbr title="Internet Information Services">IIS</abbr></em> can be configured for <abbr title="Secure Sockets Layer">SSL</abbr> using the existing host certificate and the <abbr title="NT LAN Manager">NTLM</abbr> authentication can be configured in <em><abbr title="Internet Information Services">IIS</abbr></em>.</p>
@@ -1872,46 +1830,46 @@ SPDX-License-Identifier: MIT
 <li>Finally, in <em><abbr title="Internet Information Services">IIS</abbr> Manager</em>, navigate to your default site again, select <code>URL Rewrite</code>, and create your inbound and outbound rules. Alternatively, update the configuration file under <code>C:\inetpub\wwwroot\web.config</code> and restart the site in <em><abbr title="Internet Information Services">IIS</abbr></em>.</li>
 </ol>
 <p>The example below shows how to forward requests to two different ingress endpoints, one of them being the <em>K2s</em> dashboard also used in the previous section.</p>
-<div class="highlight"><span class="filename">XML</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">&lt;configuration&gt;</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&lt;system.webServer&gt;</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">&lt;rewrite&gt;</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">&lt;rules&gt;</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">        </span><span class="nt">&lt;rule</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;k2s-dashboard&quot;</span><span class="w"> </span><span class="na">stopProcessing=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">          </span><span class="nt">&lt;match</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;^dashboard/?(.*)&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">          </span><span class="nt">&lt;serverVariables&gt;</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">            </span><span class="nt">&lt;set</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;HTTP_ACCEPT_ENCODING&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">          </span><span class="nt">&lt;/serverVariables&gt;</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">          </span><span class="nt">&lt;action</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;Rewrite&quot;</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;http://k2s.cluster.local/dashboard/{R:1}&quot;</span><span class="w"> </span><span class="na">logRewrittenUrl=</span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">        </span><span class="nt">&lt;/rule&gt;</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">        </span><span class="nt">&lt;rule</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;my-product&quot;</span><span class="w"> </span><span class="na">stopProcessing=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">          </span><span class="nt">&lt;match</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;^my-product/?(.*)&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">          </span><span class="nt">&lt;action</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;Rewrite&quot;</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;http://my-product.local/{R:1}&quot;</span><span class="w"> </span><span class="na">logRewrittenUrl=</span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">        </span><span class="nt">&lt;/rule&gt;</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">      </span><span class="nt">&lt;/rules&gt;</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">      </span><span class="nt">&lt;outboundRules&gt;</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">        </span><span class="nt">&lt;rule</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;my-product-out&quot;</span><span class="w"> </span><span class="na">preCondition=</span><span class="s">&quot;isHTML&quot;</span><span class="w"> </span><span class="na">stopProcessing=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">          </span><span class="nt">&lt;match</span><span class="w"> </span><span class="na">filterByTags=</span><span class="s">&quot;Base&quot;</span><span class="w"> </span><span class="na">pattern=</span><span class="s">&quot;^/?(.*)$&quot;</span><span class="w"> </span><span class="na">negate=</span><span class="s">&quot;false&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">          </span><span class="nt">&lt;action</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;Rewrite&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;/my-product/{R:1}&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">          </span><span class="nt">&lt;conditions&gt;</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">            </span><span class="nt">&lt;add</span><span class="w"> </span><span class="na">input=</span><span class="s">&quot;{URL}&quot;</span><span class="w"> </span><span class="na">pattern=</span><span class="s">&quot;/my-product.*&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">          </span><span class="nt">&lt;/conditions&gt;</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">        </span><span class="nt">&lt;/rule&gt;</span>
-<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">        </span><span class="nt">&lt;preConditions&gt;</span>
-<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">          </span><span class="nt">&lt;remove</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;isHTTP&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">          </span><span class="nt">&lt;preCondition</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;isHTML&quot;</span><span class="nt">&gt;</span>
-<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">            </span><span class="nt">&lt;add</span><span class="w"> </span><span class="na">input=</span><span class="s">&quot;{RESPONSE_CONTENT_TYPE}&quot;</span><span class="w"> </span><span class="na">pattern=</span><span class="s">&quot;^text/html&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="w">          </span><span class="nt">&lt;/preCondition&gt;</span>
-<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="w">        </span><span class="nt">&lt;/preConditions&gt;</span>
-<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">      </span><span class="nt">&lt;/outboundRules&gt;</span>
-<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">    </span><span class="nt">&lt;/rewrite&gt;</span>
-<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="w">    </span><span class="nt">&lt;security&gt;</span>
-<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="w">      </span><span class="nt">&lt;authentication&gt;</span>
-<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="w">        </span><span class="nt">&lt;windowsAuthentication</span><span class="w"> </span><span class="na">enabled=</span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="w">      </span><span class="nt">&lt;/authentication&gt;</span>
-<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="w">    </span><span class="nt">&lt;/security&gt;</span>
-<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="w">  </span><span class="nt">&lt;/system.webServer&gt;</span>
-<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="nt">&lt;/configuration&gt;</span>
+<div class="highlight"><span class="filename">XML</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">&lt;configuration&gt;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&lt;system.webServer&gt;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">&lt;rewrite&gt;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">      </span><span class="nt">&lt;rules&gt;</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">        </span><span class="nt">&lt;rule</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;k2s-dashboard&quot;</span><span class="w"> </span><span class="na">stopProcessing=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">          </span><span class="nt">&lt;match</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;^dashboard/?(.*)&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">          </span><span class="nt">&lt;serverVariables&gt;</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">            </span><span class="nt">&lt;set</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;HTTP_ACCEPT_ENCODING&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">          </span><span class="nt">&lt;/serverVariables&gt;</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">          </span><span class="nt">&lt;action</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;Rewrite&quot;</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;http://k2s.cluster.local/dashboard/{R:1}&quot;</span><span class="w"> </span><span class="na">logRewrittenUrl=</span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="nt">&lt;/rule&gt;</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="nt">&lt;rule</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;my-product&quot;</span><span class="w"> </span><span class="na">stopProcessing=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">          </span><span class="nt">&lt;match</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;^my-product/?(.*)&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">          </span><span class="nt">&lt;action</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;Rewrite&quot;</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;http://my-product.local/{R:1}&quot;</span><span class="w"> </span><span class="na">logRewrittenUrl=</span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">        </span><span class="nt">&lt;/rule&gt;</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">      </span><span class="nt">&lt;/rules&gt;</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">      </span><span class="nt">&lt;outboundRules&gt;</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">        </span><span class="nt">&lt;rule</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;my-product-out&quot;</span><span class="w"> </span><span class="na">preCondition=</span><span class="s">&quot;isHTML&quot;</span><span class="w"> </span><span class="na">stopProcessing=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">          </span><span class="nt">&lt;match</span><span class="w"> </span><span class="na">filterByTags=</span><span class="s">&quot;Base&quot;</span><span class="w"> </span><span class="na">pattern=</span><span class="s">&quot;^/?(.*)$&quot;</span><span class="w"> </span><span class="na">negate=</span><span class="s">&quot;false&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">          </span><span class="nt">&lt;action</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;Rewrite&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;/my-product/{R:1}&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">          </span><span class="nt">&lt;conditions&gt;</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">            </span><span class="nt">&lt;add</span><span class="w"> </span><span class="na">input=</span><span class="s">&quot;{URL}&quot;</span><span class="w"> </span><span class="na">pattern=</span><span class="s">&quot;/my-product.*&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">          </span><span class="nt">&lt;/conditions&gt;</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">        </span><span class="nt">&lt;/rule&gt;</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">        </span><span class="nt">&lt;preConditions&gt;</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">          </span><span class="nt">&lt;remove</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;isHTTP&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">          </span><span class="nt">&lt;preCondition</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;isHTML&quot;</span><span class="nt">&gt;</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">            </span><span class="nt">&lt;add</span><span class="w"> </span><span class="na">input=</span><span class="s">&quot;{RESPONSE_CONTENT_TYPE}&quot;</span><span class="w"> </span><span class="na">pattern=</span><span class="s">&quot;^text/html&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">          </span><span class="nt">&lt;/preCondition&gt;</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">        </span><span class="nt">&lt;/preConditions&gt;</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="w">      </span><span class="nt">&lt;/outboundRules&gt;</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">    </span><span class="nt">&lt;/rewrite&gt;</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="w">    </span><span class="nt">&lt;security&gt;</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="w">      </span><span class="nt">&lt;authentication&gt;</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="w">        </span><span class="nt">&lt;windowsAuthentication</span><span class="w"> </span><span class="na">enabled=</span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="w">      </span><span class="nt">&lt;/authentication&gt;</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="w">    </span><span class="nt">&lt;/security&gt;</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="w">  </span><span class="nt">&lt;/system.webServer&gt;</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="nt">&lt;/configuration&gt;</span>
 </code></pre></div>
 <div class="admonition question">
 <p class="admonition-title">Open Point</p>
