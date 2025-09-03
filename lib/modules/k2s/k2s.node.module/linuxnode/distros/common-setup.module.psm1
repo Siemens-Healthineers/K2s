@@ -1468,7 +1468,9 @@ function New-VmImageForKubernetesNode {
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
         [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [uint64]$VMDiskSize
+        [uint64]$VMDiskSize,
+        [Parameter(Mandatory = $false)]
+        [ScriptBlock]$Hook
     )
 
     $vmIpAddress = Get-VmIpForProvisioningKubeNode
@@ -1549,6 +1551,11 @@ function New-VmImageForControlPlaneNode {
             VMMemoryStartupBytes = $VMMemoryStartupBytes
             VMProcessorCount     = $VMProcessorCount
             VMDiskSize           = $VMDiskSize
+            Hook                 = {
+                $remoteUser = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
+                $remoteUserPwd = (Get-DefaultUserPwdKubeNode)
+                Install-HelmAndYq -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+            }
         }
         New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
@@ -1568,6 +1575,8 @@ function New-VmImageForControlPlaneNode {
             GatewayIpAddress     = $GatewayIpAddress
         }
         Edit-SupportForWSL @supportForWSLParams
+
+        Install-HelmAndYq -RemoteUser "$vmUserName@$IpAddress" -RemoteUserPwd $vmUserPwd
     }
 
     $kubemasterCreationParams = @{
@@ -1628,6 +1637,11 @@ function New-LinuxVmImageForWorkerNode {
             VMMemoryStartupBytes = $VMMemoryStartupBytes
             VMProcessorCount     = $VMProcessorCount
             VMDiskSize           = $VMDiskSize
+            Hook                 = {
+                $remoteUser = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
+                $remoteUserPwd = (Get-DefaultUserPwdKubeNode)
+                Install-HelmAndYq -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+            }
         }
         New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
@@ -1803,8 +1817,14 @@ function New-WslRootfsForControlPlaneNode {
             VmImageOutputPath    = $kubenodeBaseImagePath
             Proxy                = $Proxy
             VMDiskSize           = $VMDiskSize
+            DnsIpAddresses       = $DnsServers
             VMMemoryStartupBytes = $VMMemoryStartupBytes
             VMProcessorCount     = $VMProcessorCount
+            Hook                 = {
+                $remoteUser = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
+                $remoteUserPwd = (Get-DefaultUserPwdKubeNode)
+                Install-HelmAndYq -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+            }
         }
         New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
@@ -1981,8 +2001,23 @@ function Update-CoreDNSConfigurationviaSSH {
     }
 
     # exchange securitycontext for coredns to allow it to run on port 53
-    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start\n          value: `"`"53`"`"' | kubectl apply -f -" 
-    
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start\n          value: `"`"53`"`"' | kubectl apply -f -"
+
+}
+
+function Install-HelmAndYq {
+    param (
+        [string]$RemoteUser,
+        [string]$RemoteUserPwd
+    )
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl -fsSL https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -o /tmp/helm.tar.gz" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "tar -zxvf /tmp/helm.tar.gz -C /tmp" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/linux-amd64/helm /usr/local/bin/helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x /usr/local/bin/helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "rm -rf /tmp/helm.tar.gz /tmp/linux-amd64" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl -fsSL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /tmp/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/yq /usr/local/bin/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x /usr/local/bin/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
 }
 
 
