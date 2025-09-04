@@ -44,7 +44,7 @@ function New-EmptyBackupResult {
         Images = @()
         Success = $true
     }
-    $result.Images = @($result.Images)  # Ensure it's always an array
+    $result.Images = @($result.Images)  
     return $result
 }
 

@@ -1005,38 +1005,14 @@ function PerformClusterUpgrade {
 		Invoke-ClusterInstall -K2sPathToInstallFrom $K2sPathToInstallFrom -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -DeleteFiles:$DeleteFiles -MasterVMMemory $memoryVM -MasterVMProcessorCount $coresVM -MasterDiskSize $storageVM
 		Wait-ForAPIServerInGivenKubePath -KubePath $K2sPathToInstallFrom
 
-		# restore addons
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Apply not namespaced resources, please wait..'
-		}
-
-		if ($ExecuteHooks -eq $true) {
-			Restore-Addons -BackupDir $addonsBackupPath
-			# Invoke restore hooks
-			Write-Log "Restore with executing hooks"
-			Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
-		} else {
-			Write-Log "Restore without executing hooks"
-			$addonsPath = Join-Path -Path $K2sPathToInstallFrom -ChildPath "addons"
-			Restore-Addons -BackupDir $addonsBackupPath -AvoidRestore -Root $addonsPath
-		}
-
-		$kubeExeFolder = Get-KubeBinPathGivenKubePath -KubePathLocal $K2sPathToInstallFrom
-		# import of resources
-		Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply namespaced resources, please wait..'
-		}
-		Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
-		
-		# restore user application images
+		# restore user application images FIRST - before importing resources to avoid image pulls
 		if (-not [string]::IsNullOrEmpty($imagesBackupPath) -and (Test-Path $imagesBackupPath)) {
 			if ($ShowProgress -eq $true) {
-				Write-Progress -Activity 'Restoring user application images..' -Id 1 -Status '8.5/10' -PercentComplete 85 -CurrentOperation 'Restoring images, please wait..'
+				Write-Progress -Activity 'Restoring user application images..' -Id 1 -Status '6.5/10' -PercentComplete 65 -CurrentOperation 'Restoring images, please wait..'
 			}
 			
 			try {
-				Write-Log "Starting image restore process..." -Console
+				Write-Log "Starting image restore process (before resource import to avoid image pulls)..." -Console
 				$imageRestoreResult = Restore-K2sImages -BackupDirectory $imagesBackupPath
 				
 				if ($imageRestoreResult.Success) {
@@ -1054,16 +1030,41 @@ function PerformClusterUpgrade {
 				}
 			}
 			catch {
-				Write-Log "Warning: Image restore failed - $_. Images can be restored manually later." -Console
+				Write-Log "Warning: Image restore failed - $_. Images may be pulled manually during resource import." -Console
 			}
 		} else {
 			Write-Log "No image backup found or images were skipped during backup" -Console
 		}
-		
+
+		# restore addons
 		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Restoring addons, please wait..'
+			Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Restoring addons, please wait..'
 		}
 
+		if ($ExecuteHooks -eq $true) {
+			Restore-Addons -BackupDir $addonsBackupPath
+			# Invoke restore hooks
+			Write-Log "Restore with executing hooks"
+			Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+		} else {
+			Write-Log "Restore without executing hooks"
+			$addonsPath = Join-Path -Path $K2sPathToInstallFrom -ChildPath "addons"
+			Restore-Addons -BackupDir $addonsBackupPath -AvoidRestore -Root $addonsPath
+		}
+
+		$kubeExeFolder = Get-KubeBinPathGivenKubePath -KubePathLocal $K2sPathToInstallFrom
+		
+		# import of resources - images are already restored, so no pulls needed
+		if ($ShowProgress -eq $true) {
+			Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
+		}
+		Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+		
+		if ($ShowProgress -eq $true) {
+			Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Apply namespaced resources, please wait..'
+		}
+		Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+		
 		# show completion
 		if ($ShowProgress -eq $true) {
 			Write-Progress -Activity 'Gathering executed upgrade information..' -Id 1 -Status '10/10' -PercentComplete 100 -CurrentOperation 'Upgrade successfully finished'
