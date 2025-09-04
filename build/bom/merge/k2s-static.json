@@ -10,7 +10,7 @@
         "type": "application",
         "group": "aquasecurity",
         "name": "trivy",
-        "version": "0.50.0"
+        "version": "0.65.0"
       }
     ],
     "authors": [
@@ -212,9 +212,9 @@
       "type": "application"
     },
     {
-      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "plink",
-      "version": "v0.76.0",
+      "version": "v0.83.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -231,13 +231,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:generic/plink@v0.76.0",
+      "purl": "pkg:generic/plink@v0.83.0",
       "type": "application"
     },
     {
-      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "pscp",
-      "version": "v0.76.0",
+      "version": "v0.83.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -254,7 +254,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:generic/pscp@v0.76.0",
+      "purl": "pkg:generic/pscp@v0.83.0",
       "type": "application"
     },
     {
@@ -465,7 +465,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
       "version": "v2.1.4",
       "description": "",
@@ -488,7 +488,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
       "name": "containerd-stress",
       "version": "v2.1.4",
       "description": "",
@@ -511,7 +511,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
       "name": "containerd",
       "version": "v2.1.4",
       "description": "",
@@ -534,7 +534,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
       "name": "ctr",
       "version": "v2.1.4",
       "description": "",

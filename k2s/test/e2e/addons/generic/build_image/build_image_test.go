@@ -155,7 +155,7 @@ var _ = Describe("build container image", Ordered, func() {
 					})
 
 					It("Should be deployed in the cluster", func(ctx context.Context) {
-						suite.K2sCli().RunOrFail(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
+						suite.K2sCli().Run(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
 						deployApp(ctx, weatherLinuxSrcPath, weatherImageName, randomImageTag, weatherLinuxDeploymentName)
 					})
 
