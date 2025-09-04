@@ -211,6 +211,13 @@ try {
                 $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
                 foreach ($imageLine in $imageLines) {
                     $image = (($imageLine -split 'image: ')[1] -split '#')[0]
+                    $parts = $image.Split(':')
+                    if ($parts.Count -gt 1) {
+                        Write-Log "Image is valid $image"
+                    } else {
+                        Write-Log "Image is not valid $image, will skip it"
+                        continue
+                    }
                     if ($imageLine.Contains('#windows_image')) {
                         $windowsImages += $image
                     }
