@@ -85,6 +85,8 @@ Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
 if ($SkipStart) {
     Write-Log "Skipping start of K2s linux-only setup as requested"
     & "$PSScriptRoot\..\stop\Stop.ps1" -ShowLogs:$ShowLogs -HideHeaders:$true
+} else {
+    & "$PSScriptRoot\..\start\Start.ps1" -ShowLogs:$ShowLogs -HideHeaders:$true
 }
 
 Write-Log '---------------------------------------------------------------'
