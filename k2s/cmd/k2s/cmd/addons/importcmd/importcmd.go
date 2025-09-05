@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	ac "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
@@ -54,17 +53,12 @@ func NewCommand() *cobra.Command {
 
 func runImport(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
-	terminalPrinter := terminal.NewTerminalPrinter()
 	allAddons, err := addons.LoadAddons(utils.InstallDir())
 	if err != nil {
 		return err
 	}
 
 	ac.LogAddons(allAddons)
-
-	if err := ac.ValidateAddonNames(allAddons, "import", terminalPrinter, args...); err != nil {
-		return err
-	}
 
 	psCmd, params, err := buildPsCmd(cmd, args...)
 	if err != nil {
