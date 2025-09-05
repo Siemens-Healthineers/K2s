@@ -1554,7 +1554,7 @@ function New-VmImageForControlPlaneNode {
             Hook                 = {
                 $remoteUser = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
                 $remoteUserPwd = (Get-DefaultUserPwdKubeNode)
-                Install-HelmAndYq -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+                Install-HelmAndYq -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Proxy $Proxy
             }
         }
         New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
@@ -1576,7 +1576,7 @@ function New-VmImageForControlPlaneNode {
         }
         Edit-SupportForWSL @supportForWSLParams
 
-        Install-HelmAndYq -RemoteUser "$vmUserName@$IpAddress" -RemoteUserPwd $vmUserPwd
+        Install-HelmAndYq -RemoteUser "$vmUserName@$IpAddress" -RemoteUserPwd $vmUserPwd -Proxy $Proxy
     }
 
     $kubemasterCreationParams = @{
@@ -1997,14 +1997,17 @@ function Update-CoreDNSConfigurationviaSSH {
 function Install-HelmAndYq {
     param (
         [string]$RemoteUser,
-        [string]$RemoteUserPwd
+        [string]$RemoteUserPwd,
+        [string]$Proxy = ''
     )
     $helmVersion = "v3.16.3"
     $helmUrl = "https://get.helm.sh/helm-$helmVersion-linux-amd64.tar.gz"
     $yqUrl = "https://github.com/mikefarah/yq/releases/download/v4.47.1/yq_linux_amd64"
+    $proxyArg = ""
+    if ($Proxy -ne "") { $proxyArg = "--proxy $Proxy" }
 
-    Write-Log "Installing Helm $helmVersion..."
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl -fsSL $helmUrl -o /tmp/helm.tar.gz" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    Write-Log "Installing Helm $helmVersion $Proxy..."
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl $proxyArg -fsSL $helmUrl -o /tmp/helm.tar.gz" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "tar -zxvf /tmp/helm.tar.gz -C /tmp" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/linux-amd64/helm /usr/local/bin/helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x /usr/local/bin/helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
@@ -2012,7 +2015,7 @@ function Install-HelmAndYq {
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "which helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
 
     Write-Log "Installing yq..."
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl -fsSL $yqUrl -o /tmp/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl $proxyArg -fsSL $yqUrl -o /tmp/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/yq /usr/local/bin/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x /usr/local/bin/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "which yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
