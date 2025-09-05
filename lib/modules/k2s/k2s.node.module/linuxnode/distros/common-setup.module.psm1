@@ -1637,11 +1637,6 @@ function New-LinuxVmImageForWorkerNode {
             VMMemoryStartupBytes = $VMMemoryStartupBytes
             VMProcessorCount     = $VMProcessorCount
             VMDiskSize           = $VMDiskSize
-            Hook                 = {
-                $remoteUser = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
-                $remoteUserPwd = (Get-DefaultUserPwdKubeNode)
-                Install-HelmAndYq -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
-            }
         }
         New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
@@ -1817,14 +1812,8 @@ function New-WslRootfsForControlPlaneNode {
             VmImageOutputPath    = $kubenodeBaseImagePath
             Proxy                = $Proxy
             VMDiskSize           = $VMDiskSize
-            DnsIpAddresses       = $DnsServers
             VMMemoryStartupBytes = $VMMemoryStartupBytes
             VMProcessorCount     = $VMProcessorCount
-            Hook                 = {
-                $remoteUser = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
-                $remoteUserPwd = (Get-DefaultUserPwdKubeNode)
-                Install-HelmAndYq -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
-            }
         }
         New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
@@ -2010,14 +1999,23 @@ function Install-HelmAndYq {
         [string]$RemoteUser,
         [string]$RemoteUserPwd
     )
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl -fsSL https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -o /tmp/helm.tar.gz" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    $helmVersion = "v3.16.3"
+    $helmUrl = "https://get.helm.sh/helm-$helmVersion-linux-amd64.tar.gz"
+    $yqUrl = "https://github.com/mikefarah/yq/releases/download/v4.47.1/yq_linux_amd64"
+
+    Write-Log "Installing Helm $helmVersion..."
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl -fsSL $helmUrl -o /tmp/helm.tar.gz" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "tar -zxvf /tmp/helm.tar.gz -C /tmp" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/linux-amd64/helm /usr/local/bin/helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x /usr/local/bin/helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "rm -rf /tmp/helm.tar.gz /tmp/linux-amd64" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl -fsSL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /tmp/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "which helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+
+    Write-Log "Installing yq..."
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl -fsSL $yqUrl -o /tmp/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/yq /usr/local/bin/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x /usr/local/bin/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "which yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
 }
 
 
