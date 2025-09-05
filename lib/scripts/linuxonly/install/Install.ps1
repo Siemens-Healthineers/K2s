@@ -68,30 +68,11 @@ $controlPlaneParams = @{
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation           = $ForceOnlineInstallation
     CheckOnly                         = $false
-    SkipStart                         = $SkipStart
     ShowLogs                          = $ShowLogs
     WSL                               = $false
 }
 
-$controlPlaneParams = " -MasterVMMemory '$MasterVMMemory'"
-$controlPlaneParams += " -MasterVMProcessorCount '$MasterVMProcessorCount'"
-$controlPlaneParams += " -MasterDiskSize '$MasterDiskSize'"
-$controlPlaneParams += " -Proxy '$Proxy'"
-$controlPlaneParams += " -DnsAddresses '$dnsServers'"
-$controlPlaneParams += " -AdditionalHooksDir '$AdditionalHooksDir'"
-if ($DeleteFilesForOfflineInstallation.IsPresent) {
-    $controlPlaneParams += ' -DeleteFilesForOfflineInstallation'
-}
-if ($ForceOnlineInstallation.IsPresent) {
-    $controlPlaneParams += ' -ForceOnlineInstallation'
-}
-if ($SkipStart.IsPresent) {
-    $controlPlaneParams += ' -SkipStart'
-}
-if ($ShowLogs.IsPresent) {
-    $controlPlaneParams += ' -ShowLogs'
-}
-& powershell.exe "$PSScriptRoot\..\..\control-plane\Install.ps1" $controlPlaneParams
+& "$PSScriptRoot\..\..\control-plane\Install.ps1" @controlPlaneParams
 
 # show results
 Write-Log "Current state of kubernetes nodes:`n"
@@ -101,6 +82,15 @@ $kubeToolsPath = Get-KubeToolsPath
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
 
+if ($SkipStart) {
+    Write-Log "Skipping start of K2s linux-only setup as requested"
+    & "$PSScriptRoot\..\stop\Stop.ps1" -ShowLogs:$ShowLogs -HideHeaders:$true
+} else {
+    & "$PSScriptRoot\..\start\Start.ps1" -ShowLogs:$ShowLogs -HideHeaders:$true
+}
+
 Write-Log '---------------------------------------------------------------'
 Write-Log "Linux-only setup finished.  Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
+
+Write-RefreshEnvVariables
