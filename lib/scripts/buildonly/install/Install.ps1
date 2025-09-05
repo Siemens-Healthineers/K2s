@@ -67,7 +67,6 @@ $controlPlaneNodeParams = @{
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
     CheckOnly = $false
-    SkipStart = $true
     ShowLogs = $ShowLogs
     WSL = $WSL
 }
@@ -78,3 +77,5 @@ Install-WinNodeArtifacts -Proxy $Proxy -SkipClusterSetup $true $PodSubnetworkNum
 Write-Log '---------------------------------------------------------------'
 Write-Log "$installationType setup finished.  Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
+
+Write-RefreshEnvVariables
