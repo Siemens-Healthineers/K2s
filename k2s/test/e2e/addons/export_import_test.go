@@ -187,7 +187,8 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		BeforeAll(func(ctx context.Context) {
 			// clean up all images
 			GinkgoWriter.Println("cleanup images")
-			suite.K2sCli().RunOrFail(ctx, "image", "clean", "-o")
+			// to be more robust don't consider failing since many people have dangling images in their system
+			suite.K2sCli().Run(ctx, "image", "clean", "-o")
 
 			// clean all downloaded
 			GinkgoWriter.Println("remove all download debian packages")
