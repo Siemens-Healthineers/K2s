@@ -5,8 +5,6 @@
 #Requires -RunAsAdministrator
 
 Param(
-    [parameter(Mandatory = $false, HelpMessage = 'Do not call the StartK8s at end')]
-    [switch] $SkipStart = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
@@ -62,33 +60,6 @@ foreach ($registry in $mirrorRegistries) {
     Set-Registry -Name $registry.registry -Https -SkipVerify -Mirror $registry.mirror -Server $registry.server 
 }
 
-if (! $SkipStart) {
-    Write-Log 'Starting Windows worker node on Windows host'
-    & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -HideHeaders:$true -DnsAddresses $DnsAddresses
-
-    if ($RestartAfterInstallCount -gt 0) {
-        $restartCount = 0;
-    
-        while ($true) {
-            $restartCount++
-            Write-Log "Restarting Windows worker node on Windows host (iteration #$restartCount):"
-    
-            & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -HideHeaders:$true
-            Start-Sleep 10
-    
-            & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -HideHeaders:$true -DnsAddresses $DnsAddresses
-            Start-Sleep -s 5
-    
-            if ($restartCount -eq $RestartAfterInstallCount) {
-                Write-Log 'Restarting Windows worker node on Windows host completed'
-                break;
-            }
-        }
-    }
-}
-else {
-    & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -HideHeaders:$true
-}
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s Windows worker node on Windows host setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
