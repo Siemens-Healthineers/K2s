@@ -127,6 +127,44 @@ try {
                 $dirPath = Join-Path -Path $($manifest.dir.path) -ChildPath $($implementation.name)
             }
 
+            # Convert addon name like "ingress nginx" to "ingress_nginx"
+             $addonFolderName = ($addonName -split '\s+') -join '_'
+
+             # Destination path: $tmpExportDir\addons\ingress_nginx\content
+             $destinationPath = Join-Path -Path $tmpExportDir -ChildPath "addons\$addonFolderName\content"
+
+             # Ensure destination directory exists
+             if (-not (Test-Path $destinationPath)) {
+                 New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+             }
+
+             # Copy only the contents of $dirPath — not the folder itself
+             Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
+
+            # ---------------------------
+            # Handle addon.manifest.yaml
+            # ---------------------------
+            # Get the parent folder of $dirPath (example: addons\ingress\nginx → addons\ingress)
+            $parentAddonFolder = Split-Path -Path $dirPath -Parent
+
+            # Check for addon.manifest.yaml at this level
+            $manifestFile = Join-Path $parentAddonFolder "addon.manifest.yaml"
+            if (Test-Path $manifestFile) {
+                Copy-Item -Path $manifestFile -Destination $destinationPath -Force
+            }
+
+             # ---------------------------
+            # Handle addon.manifest.yaml
+            # ---------------------------
+            # Get the parent folder of $dirPath (example: addons\ingress\nginx → addons\ingress)
+            $parentAddonFolder = Split-Path -Path $dirPath -Parent
+
+            # Check for addon.manifest.yaml at this level
+            $manifestFile = Join-Path $parentAddonFolder "addon.manifest.yaml"
+            if (Test-Path $manifestFile) {
+                Copy-Item -Path $manifestFile -Destination $destinationPath -Force
+            }
+            
             Write-Log "Pulling images for addon $addonName from $dirPath" -Console
 
             Write-Log '---'
@@ -173,6 +211,13 @@ try {
                 $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
                 foreach ($imageLine in $imageLines) {
                     $image = (($imageLine -split 'image: ')[1] -split '#')[0]
+                    $parts = $image.Split(':')
+                    if ($parts.Count -gt 1) {
+                        Write-Log "Image is valid $image"
+                    } else {
+                        Write-Log "Image is not valid $image, will skip it"
+                        continue
+                    }
                     if ($imageLine.Contains('#windows_image')) {
                         $windowsImages += $image
                     }
@@ -214,8 +259,9 @@ try {
 
             foreach ($image in $windowsImages) {
                 Write-Log "Pulling windows image $image"
+                $kubeBinPath = Get-KubeBinPath
                 &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
-                &$(Get-CrictlExe) pull $image
+                &$(Get-CrictlExe) --config $kubeBinPath\crictl.yaml pull $image
                 if (!$?) {
                     $errMsg = "Pulling linux image $image failed"
                     if ($EncodeStructuredOutput -eq $true) {
