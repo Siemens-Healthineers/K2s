@@ -221,7 +221,7 @@ function Copy-FromRemoteComputerViaSSHKey($Source, $Target,
     $leaf = Split-Path $linuxSourceDirectory -Leaf
     $filter = $leaf
 
-    ssh.exe -n -o StrictHostKeyChecking=no -i $key $userOnRemoteMachine "[ -d '$linuxSourceDirectory' ]"
+    ssh.exe -n -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 -i $key $userOnRemoteMachine "[ -d '$linuxSourceDirectory' ]; exit"
     $isDir = $?
 
     if ($leaf.Contains("*")) {
