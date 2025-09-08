@@ -2000,7 +2000,7 @@ function Install-HelmAndYq {
         [string]$RemoteUserPwd,
         [string]$Proxy = ''
     )
-    $helmVersion = "v3.16.3"
+    $helmVersion = "v3.18.6"
     $helmUrl = "https://get.helm.sh/helm-$helmVersion-linux-amd64.tar.gz"
     $yqUrl = "https://github.com/mikefarah/yq/releases/download/v4.47.1/yq_linux_amd64"
     $proxyArg = ""
