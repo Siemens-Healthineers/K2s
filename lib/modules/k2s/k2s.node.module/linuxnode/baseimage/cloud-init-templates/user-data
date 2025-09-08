@@ -2,6 +2,16 @@
 hostname: __LOCAL-HOSTNAME_VALUE__
 fqdn: __LOCAL-HOSTNAME_VALUE__
 ssh_pwauth: true
+
+ssh:
+  allow_users: true
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-password-auth.conf
+    content: |
+      PasswordAuthentication yes
+    permissions: '0644'
+
 groups:
   - docker
 
@@ -26,4 +36,5 @@ apt:
 runcmd:
 - rm /etc/resolv.conf && echo "nameserver __IP_ADDRESSES_DNS_SERVERS__" > /etc/resolv.conf && chattr +i /etc/resolv.conf
 - netplan apply
+- systemctl restart ssh
 
