@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
 set -e
 
 # Set proxy (hardcoded, as in install_go.sh)
