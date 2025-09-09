@@ -904,6 +904,13 @@ Function Install-Tools {
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
     &$executeRemoteCommand 'sudo systemctl restart crio'
 
+    # --- Install helm and yq using shell script ---
+    $localScriptPath = "$PSScriptRoot\scripts\install-helm-yq.sh"
+    $remoteScriptPath = "/tmp/install-helm-yq.sh"
+    Copy-ToRemoteComputerViaUserAndPwd -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    &$executeRemoteCommand "sudo chmod +x $remoteScriptPath"
+    &$executeRemoteCommand "sudo $remoteScriptPath"
+
     Write-Log 'Finished installing tools in Linux'
 
 }
@@ -1468,9 +1475,7 @@ function New-VmImageForKubernetesNode {
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
         [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [uint64]$VMDiskSize,
-        [Parameter(Mandatory = $false)]
-        [ScriptBlock]$Hook
+        [uint64]$VMDiskSize
     )
 
     $vmIpAddress = Get-VmIpForProvisioningKubeNode
@@ -1551,11 +1556,6 @@ function New-VmImageForControlPlaneNode {
             VMMemoryStartupBytes = $VMMemoryStartupBytes
             VMProcessorCount     = $VMProcessorCount
             VMDiskSize           = $VMDiskSize
-            Hook                 = {
-                $remoteUser = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
-                $remoteUserPwd = (Get-DefaultUserPwdKubeNode)
-                Install-HelmAndYq -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Proxy $Proxy
-            }
         }
         New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
@@ -1575,8 +1575,6 @@ function New-VmImageForControlPlaneNode {
             GatewayIpAddress     = $GatewayIpAddress
         }
         Edit-SupportForWSL @supportForWSLParams
-
-        Install-HelmAndYq -RemoteUser "$vmUserName@$IpAddress" -RemoteUserPwd $vmUserPwd -Proxy $Proxy
     }
 
     $kubemasterCreationParams = @{
@@ -1992,33 +1990,6 @@ function Update-CoreDNSConfigurationviaSSH {
     # exchange securitycontext for coredns to allow it to run on port 53
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start\n          value: `"`"53`"`"' | kubectl apply -f -"
 
-}
-
-function Install-HelmAndYq {
-    param (
-        [string]$RemoteUser,
-        [string]$RemoteUserPwd,
-        [string]$Proxy = ''
-    )
-    $helmVersion = "v3.18.6"
-    $helmUrl = "https://get.helm.sh/helm-$helmVersion-linux-amd64.tar.gz"
-    $yqUrl = "https://github.com/mikefarah/yq/releases/download/v4.47.1/yq_linux_amd64"
-    $proxyArg = ""
-    if ($Proxy -ne "") { $proxyArg = "--proxy $Proxy" }
-
-    Write-Log "Installing Helm $helmVersion $Proxy..."
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl $proxyArg -fsSL $helmUrl -o /tmp/helm.tar.gz" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "tar -zxvf /tmp/helm.tar.gz -C /tmp" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/linux-amd64/helm /usr/local/bin/helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x /usr/local/bin/helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "rm -rf /tmp/helm.tar.gz /tmp/linux-amd64" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "which helm" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-
-    Write-Log "Installing yq..."
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "curl $proxyArg -fsSL $yqUrl -o /tmp/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/yq /usr/local/bin/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x /usr/local/bin/yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "which yq" -RemoteUser $RemoteUser -RemoteUserPwd $RemoteUserPwd).Output | Write-Log
 }
 
 
