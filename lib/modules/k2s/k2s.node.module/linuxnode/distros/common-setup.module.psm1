@@ -907,9 +907,14 @@ Function Install-Tools {
     # --- Install helm and yq using shell script ---
     $localScriptPath = "$PSScriptRoot\scripts\install-helm-yq.sh"
     $remoteScriptPath = "/tmp/install-helm-yq.sh"
-    Copy-ToRemoteComputerViaUserAndPwd -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+        Copy-ToRemoteComputerViaSshKey -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -IpAddress $IpAddress
+    } else {
+        Copy-ToRemoteComputerViaUserAndPwd -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    }
     &$executeRemoteCommand "sudo chmod +x $remoteScriptPath"
     &$executeRemoteCommand "sudo $remoteScriptPath"
+    Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
 
     Write-Log 'Finished installing tools in Linux'
 
