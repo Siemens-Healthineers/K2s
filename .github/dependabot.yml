@@ -10,6 +10,9 @@ updates:
       interval: daily
       time: "17:00" # time in UTC
     open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "gomod"    
     ignore:
       - dependency-name: sigs.k8s.io/gateway-api
         update-types: [version-update:semver-major, version-update:semver-minor]
