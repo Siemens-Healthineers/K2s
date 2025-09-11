@@ -904,18 +904,6 @@ Function Install-Tools {
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
     &$executeRemoteCommand 'sudo systemctl restart crio'
 
-    # --- Install helm and yq using shell script ---
-    $localScriptPath = "$PSScriptRoot\scripts\install-helm-yq.sh"
-    $remoteScriptPath = "/tmp/install-helm-yq.sh"
-    if ([string]::IsNullOrWhiteSpace($UserPwd)) {
-        Copy-ToRemoteComputerViaSshKey -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -IpAddress $IpAddress
-    } else {
-        Copy-ToRemoteComputerViaUserAndPwd -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
-    }
-    &$executeRemoteCommand "sudo chmod +x $remoteScriptPath"
-    &$executeRemoteCommand "sudo $remoteScriptPath"
-    Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
-
     Write-Log 'Finished installing tools in Linux'
 
 }
@@ -1468,6 +1456,33 @@ function Get-KubenodeBaseFileName {
     return 'Kubenode-Base.vhdx'
 }
 
+
+function Install-HelmAndYqOnKubeMaster
+{
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$UserName,
+        [Parameter(Mandatory = $true)]
+        [string]$UserPwd,
+        [Parameter(Mandatory = $true)]
+        [string]$IpAddress
+    )
+    $localScriptPath = "$PSScriptRoot\scripts\install-helm-yq.sh"
+    $remoteScriptPath = "/home/$UserName/install-helm-yq.sh"
+    if ( [string]::IsNullOrWhiteSpace($UserPwd))
+    {
+        Copy-ToRemoteComputerViaSshKey -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -IpAddress $IpAddress
+    }
+    else
+    {
+        Copy-ToRemoteComputerViaUserAndPwd -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    }
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo sed -i 's/\r$//' $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
+    
+    Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
+}
 function New-VmImageForKubernetesNode {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
@@ -1580,6 +1595,7 @@ function New-VmImageForControlPlaneNode {
             GatewayIpAddress     = $GatewayIpAddress
         }
         Edit-SupportForWSL @supportForWSLParams
+        Install-HelmAndYqOnKubeMaster -UserName $vmUserName -UserPwd $vmUserPwd -IpAddress $IpAddress
     }
 
     $kubemasterCreationParams = @{
