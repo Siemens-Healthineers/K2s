@@ -1,17 +1,16 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
-ARG TOOL_VERSION
 ARG WINDOWS_VERSION
 
-FROM registry.k8s.io/sig-storage/smbplugin:${TOOL_VERSION} AS toolbase
+# FROM registry.k8s.io/sig-storage/smbplugin:${TOOL_VERSION} AS toolbase
 FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION} AS winbase
 FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION}
 
 LABEL description='CSI SMB plugin'
 
-COPY --from=toolbase ["/smbplugin.exe", "/smbplugin.exe"]
+COPY ["smbplugin.exe", "/smbplugin.exe"]
 COPY --from=winbase ["/Windows/System32/netapi32.dll", "/Windows/System32/netapi32.dll"]
 
 USER ContainerAdministrator

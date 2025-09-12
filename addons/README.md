@@ -18,8 +18,6 @@ The following addons will be deployed with **K2s**:
 |---|---|
 | [autoscaling](./autoscaling/README.md) | Horizontally scale workloads based on external events or triggers with KEDA (Kubernetes Event-Driven Autoscaling) | 
 | [dashboard](./dashboard/README.md) | Dashboard for Kubernetes | 
-| [exthttpaccess](./exthttpaccess/README.md) | Expose the K2s cluster via HTTP/HTTPS outside the host machine boundary. | 
-| [gateway-api](./gateway-api/README.md) | Manage ingress traffic and routing for services within a cluster using Gateway API resource | 
 | [gpu-node](./gpu-node/README.md) | Configure the control plane node to utilize GPUs for direct GPU access and high-performance computing tasks. | 
 | [ingress nginx](./ingress/nginx/README.md) | Ingress Controller for external access that uses nginx as a reverse proxy | 
 | [ingress traefik](./ingress/traefik/README.md) | Ingress Controller for external access that uses traefik as a reverse proxy | 

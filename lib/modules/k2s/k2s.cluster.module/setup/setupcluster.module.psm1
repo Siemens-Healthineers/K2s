@@ -364,7 +364,7 @@ function Uninstall-Cluster {
 
 function New-JoinCommand {
     $tokenCreationCommand = 'sudo kubeadm token create --print-join-command'
-    $joinCommand = (Invoke-CmdOnControlPlaneViaSSHKey "$tokenCreationCommand").Output 2>&1
+    $joinCommand = (Invoke-CmdOnControlPlaneViaSSHKey -Retries 3 -CmdToExecute "$tokenCreationCommand").Output 2>&1
     return $joinCommand
 }
 

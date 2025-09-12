@@ -88,15 +88,12 @@ $controlPlaneNodeParams = @{
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
     CheckOnly = $CheckOnly
-    SkipStart = $SkipStart
     ShowLogs = $ShowLogs
-    RestartAfterInstallCount = $RestartAfterInstallCount
     WSL = $WSL
 }
 & "$PSScriptRoot\..\..\control-plane\Install.ps1" @controlPlaneNodeParams
 
 $workerNodeParams = @{
-    SkipStart = $SkipStart
     ShowLogs = $ShowLogs
     AdditionalHooksDir = $AdditionalHooksDir
     Proxy = $Proxy
@@ -114,6 +111,34 @@ $kubeToolsPath = Get-KubeToolsPath
 &"$kubeToolsPath\kubectl.exe" get nodes -o wide
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
+
+if (-not $SkipStart) {
+    Write-Log 'Starting K2s'
+    & "$PSScriptRoot\..\start\Start.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay:$true
+
+    if ($RestartAfterInstallCount -gt 0) {
+        $restartCount = 0;
+
+        while ($true) {
+            $restartCount++
+            Write-Log "Restarting k2s (iteration #$restartCount):"
+
+            & "$PSScriptRoot\..\stop\Stop.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay:$true
+            Start-Sleep 10
+
+            & "$PSScriptRoot\..\start\Start.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay:$true
+            Start-Sleep -s 5
+
+            if ($restartCount -eq $RestartAfterInstallCount) {
+                Write-Log 'Restarting k2s Completed'
+                break;
+            }
+        }
+    }
+} else {
+    Write-Log 'Skipping start of K2s as requested.'
+    & "$PSScriptRoot\..\stop\Stop.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay:$true
+}
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"

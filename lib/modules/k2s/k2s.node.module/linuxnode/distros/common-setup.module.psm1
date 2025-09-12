@@ -88,14 +88,17 @@ Function Set-UpComputerBeforeProvisioning {
             &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
         }
     }
-    Write-Log 'Retrieve hostname'
-    [string]$hostname = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
-    if ([string]::IsNullOrWhiteSpace($hostname) -eq $true) {
-        throw "The hostname of the computer with IP '$IpAddress' could not be retrieved."
+
+    if (![string]::IsNullOrWhiteSpace($UserPwd)) {
+        Write-Log 'Retrieve hostname'
+        [string]$hostname = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
+        if ([string]::IsNullOrWhiteSpace($hostname) -eq $true) {
+            throw "The hostname of the computer with IP '$IpAddress' could not be retrieved."
+        }
+        
+        Write-Log "Add hostname '$hostname' to /etc/hosts"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo sed -i 's/\tlocalhost/\tlocalhost $hostname/g' /etc/hosts" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
     }
-    
-    Write-Log "Add hostname '$hostname' to /etc/hosts"
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo sed -i 's/\tlocalhost/\tlocalhost $hostname/g' /etc/hosts" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
 }
 
 Function Set-UpComputerAfterProvisioning {
@@ -950,7 +953,7 @@ function Get-FlannelImages {
     Write-Log 'Get images used by flannel'
 
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2'
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.26.7'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.27.2'
 }
 
 function AddRegistryMirrors {
