@@ -32,7 +32,7 @@ spec:
             - mountPath: /etc/orthanc
               name: json-configmap-volume
         - name: health-checker
-          image: curlimages/curl:8.5.0
+          image: curlimages/curl:8.16.0
           command:
             - sh
             - -c
