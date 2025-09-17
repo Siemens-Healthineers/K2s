@@ -30,6 +30,7 @@ type certGenerator interface {
 type kubeconfigWriter interface {
 	SetUserCredentials(k8sUserName, certPath, keyPath, kubeconfigPath string) error
 	SetContext(context, k8sUserName, clusterName, kubeconfigPath string) error
+	SetCurrentContext(context, kubeconfigPath string) error
 }
 
 type accessVerifier interface {
@@ -41,16 +42,18 @@ type ClusterAdmission struct {
 	kubeconfigResolver kubeconfigResolver
 	kubeconfigCopier   kubeconfigCopier
 	kubeconfigWriter   kubeconfigWriter
+	kubeconfigReader   kubeconfigReader
 	certGenerator      certGenerator
 	accessVerifier     accessVerifier
 }
 
-func NewClusterAdmission(config *config.K2sClusterConfig, kubeconfigResolver kubeconfigResolver, kubeconfigCopier kubeconfigCopier, kubeconfigWriter kubeconfigWriter, certGenerator certGenerator, accessVerifier accessVerifier) *ClusterAdmission {
+func NewClusterAdmission(config *config.K2sClusterConfig, kubeconfigResolver kubeconfigResolver, kubeconfigCopier kubeconfigCopier, kubeconfigWriter kubeconfigWriter, kubeconfigReader kubeconfigReader, certGenerator certGenerator, accessVerifier accessVerifier) *ClusterAdmission {
 	return &ClusterAdmission{
 		config:             config,
 		kubeconfigResolver: kubeconfigResolver,
 		kubeconfigCopier:   kubeconfigCopier,
 		kubeconfigWriter:   kubeconfigWriter,
+		kubeconfigReader:   kubeconfigReader,
 		certGenerator:      certGenerator,
 		accessVerifier:     accessVerifier,
 	}
@@ -114,6 +117,17 @@ func (c *ClusterAdmission) GrantAccess(user *users.OSUser, k8sUserName string) e
 
 	if err := c.accessVerifier.VerifyAccess(k8sContext, kubeconfigPath); err != nil {
 		return fmt.Errorf("failed to verify cluster access for user '%s': %w", k8sUserName, err)
+	}
+
+	currentContext, err := c.kubeconfigReader.ReadCurrentContext(kubeconfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to read current context from kubeconfig '%s': %w", kubeconfigPath, err)
+	}
+
+	if currentContext == "" {
+		if err := c.kubeconfigWriter.SetCurrentContext(k8sContext, kubeconfigPath); err != nil {
+			return fmt.Errorf("failed to set current context '%s': %w", kubeconfigPath, err)
+		}
 	}
 	return nil
 }
