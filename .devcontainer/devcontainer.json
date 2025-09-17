@@ -1,0 +1,12 @@
+{
+  "name": "Go Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "settings": {},
+  "extensions": [
+    "golang.Go"
+  ],
+  "forwardPorts": [8080],
+  "postCreateCommand": "go version"
+}
