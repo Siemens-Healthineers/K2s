@@ -12,6 +12,7 @@ import (
 
 type kubeconfigReader interface {
 	ReadK8sApiCredentials(context, kubeconfigPath string) (clusterConfig *kubeconfig.ClusterConfig, userConfig *kubeconfig.UserConfig, err error)
+	ReadCurrentContext(kubeconfigPath string) (string, error)
 }
 
 type credentialsDecoder interface {

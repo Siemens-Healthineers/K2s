@@ -10,6 +10,9 @@ updates:
       interval: daily
       time: "17:00" # time in UTC
     open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "gomod"    
     ignore:
       - dependency-name: sigs.k8s.io/gateway-api
         update-types: [version-update:semver-major, version-update:semver-minor]
@@ -18,7 +21,32 @@ updates:
         patterns:
           - k8s.io/*
 
+  - package-ecosystem: "docker"
+    directory: "/addons/dicom/manifests/dicom/"
+    schedule:
+      interval: daily
+      time: "17:00" # time in UTC
+    open-pull-requests-limit: 1
+    allow:
+      - dependency-type: "all"
+    labels:
+      - "dependencies"
+      - "addons"
+      - "dicom"
 
+  - package-ecosystem: "docker"
+    directory: "/addons/viewer/manifests/viewer/"
+    schedule:
+      interval: daily
+      time: "17:00" # time in UTC
+    open-pull-requests-limit: 1
+    allow:
+      - dependency-type: "all"
+    labels:
+      - "dependencies"
+      - "addons"
+      - "viewer"
+      
 #  - package-ecosystem: "github-actions"
 #    directories:
 #    - "/"

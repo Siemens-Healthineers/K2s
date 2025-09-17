@@ -45,3 +45,16 @@ func (k *KubeconfigReader) ReadK8sApiCredentials(context, kubeconfigPath string)
 	slog.Debug("Kubernetes API credentials read from kubeconfig", "context", context, "kubeconfig-path", kubeconfigPath)
 	return
 }
+
+func (k *KubeconfigReader) ReadCurrentContext(kubeconfigPath string) (string, error) {
+	slog.Debug("Reading Kubernetes current context from kubeconfig", "kubeconfig-path", kubeconfigPath)
+
+	kubeConfig, err := k.kubeconfigReader.ReadKubeconfig(kubeconfigPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read kubeconfig '%s': %w", kubeconfigPath, err)
+	}
+
+	slog.Debug("Kubernetes current context read from kubeconfig", "context", kubeConfig.CurrentContext, "kubeconfig-path", kubeconfigPath)
+
+	return kubeConfig.CurrentContext, nil
+}
