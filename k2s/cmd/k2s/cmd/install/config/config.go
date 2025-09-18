@@ -129,7 +129,6 @@ const (
 	SkipStartFlagName  = "skip-start"
 	SkipStartFlagUsage = "Do not start the K8s cluster automatically after installation"
 
-	RestartFlagName  = "restart-post-install-count"
 	RestartFlagUsage = "Number of times to restart cluster post installation."
 )
 
@@ -310,8 +309,6 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.Memory = vConfig.GetString(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
-	case RestartFlagName:
-		iConfig.Env.RestartPostInstall = vConfig.GetString(flagName)
 	case SkipStartFlagName:
 		iConfig.Behavior.SkipStart = vConfig.GetBool(flagName)
 	case WslFlagName:
