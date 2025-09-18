@@ -7,11 +7,11 @@ SPDX-License-Identifier: MIT
 
 ## Core Principles and Architecture: simplicity and maximum performance
 
-In alignment with K2s' foundational design principles of operational <b>simplicity</b> and <b>maximum performance</b>, our networking architecture is built upon Flannel CNI configured in host-gateway mode. This provides a transparent, high-throughput, and low-latency data plane that is ideal for demanding workloads and facilitates straightforward network analysis. For production-grade security, K2s integrates the [security addon](https://github.com/Siemens-Healthineers/K2s/blob/main/addons/security/README.md) which uses [Linkerd](https://linkerd.io/) to establish a zero-trust environment for all TCP-based traffic through transparent mTLS and fine-grained policy enforcement.
+In alignment with *K2s*' foundational design principles of operational <b>simplicity</b> and <b>maximum performance</b>, our networking architecture is built upon Flannel CNI configured in host-gateway mode. This provides a transparent, high-throughput, and low-latency data plane that is ideal for demanding workloads and facilitates straightforward network analysis. For production-grade security, K2s integrates the [security addon](https://github.com/Siemens-Healthineers/K2s/blob/main/addons/security/README.md) which uses [Linkerd](https://linkerd.io/) to establish a zero-trust environment for all TCP-based traffic through transparent mTLS and fine-grained policy enforcement.
 
 ## The Broader Strategic Value of Simplicity and Performance
 
-The commitment to a simple and performant networking foundation provides strategic advantages that extend far beyond enabling zero-trust features. This architecture directly translates into tangible value for both operators and developers running workloads on K2s.
+The commitment to a simple and performant networking foundation provides strategic advantages that extend far beyond enabling zero-trust features. This architecture directly translates into tangible value for both operators and developers running workloads on *K2s*.
 
 <b>Accelerated Diagnostics and Troubleshooting</b>: The transparent host-gateway data plane avoids complex encapsulation (like VXLAN or IP-in-IP). Network traffic remains directly observable on the host, allowing operators to use standard, universal tools like tcpdump and Wireshark for rapid, intuitive debugging. This dramatically reduces the mean time to resolution (MTTR) for network-related issues compared to debugging opaque overlay networks.
 
@@ -23,28 +23,29 @@ The commitment to a simple and performant networking foundation provides strateg
 
 <div align="center">
 
-![Overview](docs/op-manual/assets/networksimplicity.png)
+![Overview](assets/networksimplicity.png)
 </div>
 
 ## Alternative Solutions Considered: Network Policy Controllers (same applies for more complex CNIs like Calico)
 
 During our evaluation, we analyzed solutions designed to enable native Kubernetes NetworkPolicy support on platforms where the CNI does not enforce it. A notable example is the windows-network-policy-controller from the Kubernetes SIGs community, which translates NetworkPolicy objects into rules for the Windows Filtering Platform.
 
-Potential Advantage: The primary benefit of such a controller is the ability to use the standard Kubernetes NetworkPolicy API. This provides a familiar, powerful abstraction for defining granular, label-based traffic rules between pods, which is highly desirable from a user-experience perspective.
+<b>Potential Advantage</b>: The primary benefit of such a controller is the ability to use the standard Kubernetes NetworkPolicy API. This provides a familiar, powerful abstraction for defining granular, label-based traffic rules between pods, which is highly desirable from a user-experience perspective.
 
-Reasons for Rejection: Despite this advantage, we concluded that this approach was not aligned with the core K2s tenets for the following reasons:
+<b>Reasons for Rejection</b>: Despite this advantage, we concluded that this approach was not aligned with the core K2s tenets for the following reasons:
 
 <b>Increased Complexity</b>: It introduces another active controller into the cluster's critical path. This component must be installed, managed, and monitored, adding operational overhead. Its logic for translating policies into host rules creates a layer of abstraction that can be difficult to debug when unexpected network behavior occurs.
 
 <b>Performance and Scalability Concerns</b>: A network policy controller must continuously watch the Kubernetes API for changes to pods (e.g., label changes, scaling events) and policies. In dynamic clusters, this can trigger frequent and numerous updates to the host's firewall ruleset, potentially leading to performance degradation, rule conflicts, or transient connectivity issues. This dynamic management layer adds computational overhead compared to the static, highly-performant rules applied by our chosen DaemonSet approach.
 
-<b>Deviation from Simplicity</b>: The goal of K2s is to provide a transparent and easily understandable system. A dynamic controller that generates a complex and ever-changing set of host firewall rules moves away from this principle, making it harder for operators to reason about the state of the network at any given moment.
+<b>Deviation from Simplicity</b>: The goal of K2s is to provide a transparent and easily understandable system. A dynamic controller that generates a complex and ever-changing set of host firewall rules moves away from this principle, making it harder for operators to reason about the state of the network at any given moment. In addition the solutions add an overhead in the package processing plus an additional CPU overhead for kernel/userspace transitions: latency increase of +100μs-2ms per packet, throughput reduction: 20%-80%
+and CPU overhead: +20-200%. Even package drops are possible under high load !
 
-<b>OS support</b> The analyzed solutions where not working under Windows, they provided only for Linux nodes a solution.
+<b>OS support</b> Many of the analyzed solutions where not working under Windows, they provided only for Linux nodes a viable solution.
 
 ## Governing Non-TCP Traffic
 
-A critical consideration in this chosen architecture is the governance of non-TCP protocols, primarily UDP. As Linkerd's service mesh capabilities are focused on L4/L7 TCP traffic, UDP communication operates outside its security perimeter. This necessitates a robust and performant solution to control UDP traffic flows without compromising our core design goals of simplicity and speed. While alternative CNIs like Calico offer integrated policy enforcement, they introduce significant operational complexity and potential performance overhead, which runs counter to the K2s philosophy.
+A critical consideration in this chosen architecture is the governance of non-TCP protocols, primarily UDP. As Linkerd's service mesh capabilities are focused on L4/L7 TCP traffic, UDP communication operates outside its security perimeter. This necessitates a robust and performant solution to control UDP traffic flows without compromising our core design goals of simplicity and speed. While alternative CNIs like Calico offer integrated policy enforcement, they introduce significant operational complexity and potential performance overhead, which runs counter to the *K2s* philosophy.
 
 ## The Selected Strategy: Host-Level Firewall Enforcement via a Kubernetes DaemonSet
 
@@ -54,7 +55,7 @@ To address this gap, we have adopted a strategy of leveraging the native, kernel
 
 This decision reinforces our commitment to performance and simplicity through the following key advantages:
 
-<b>Upholding Peak Performance</b>: By delegating UDP filtering to the highly-optimized packet processing engines within the host kernel, we ensure that security policies are enforced with negligible latency or throughput degradation. This preserves the performance integrity of the K2s data plane, which is paramount for data-intensive applications.
+<b>Upholding Peak Performance</b>: By delegating UDP filtering to the highly-optimized packet processing engines within the host kernel, we ensure that security policies are enforced with negligible latency or throughput degradation. This preserves the performance integrity of the *K2s* data plane, which is paramount for data-intensive applications.
 
 <b>Maintaining Architectural Simplicity</b>: This approach avoids introducing a complex secondary networking stack. We retain the lean, understandable Flannel CNI and sidestep the steep learning curve and operational burden associated with more intricate CNI solutions. The control plane remains minimalist and easy to manage.
 
@@ -192,4 +193,4 @@ spec:
 
 Conclusion
 
-By implementing UDP security policies via a host-firewall DaemonSet, K2s strikes an optimal balance. We secure the cluster by closing the UDP gap while staying true to our core tenets: delivering a Kubernetes distribution that is exceptionally fast, operationally simple, and ready for the most demanding production workloads.
+By implementing UDP security policies via a host-firewall DaemonSet, *K2s* strikes an optimal balance. We secure the cluster by closing the UDP gap while staying true to our core tenets: delivering a Kubernetes distribution that is exceptionally fast, operationally simple, and ready for the most demanding production workloads.
