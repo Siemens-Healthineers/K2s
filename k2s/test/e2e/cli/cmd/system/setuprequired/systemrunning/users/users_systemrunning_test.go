@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"os/user"
 	"path/filepath"
 	"testing"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	contracts "github.com/siemens-healthineers/k2s/internal/contracts/users"
+	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
 	"github.com/siemens-healthineers/k2s/internal/providers/winusers"
 	integration "github.com/siemens-healthineers/k2s/internal/users"
 	"github.com/siemens-healthineers/k2s/test/framework"
@@ -65,30 +67,102 @@ var _ = Describe("system users add", Ordered, func() {
 		var userProvider integration.UsersProvider
 		var expectedKeyPath string
 		var expectedRemoteUser string
+		var kubeconfigPath string
+		var sut *integration.AddUserIntegration
 
-		BeforeAll(func() {
-			fakeHomeDir := filepath.Join(GinkgoT().TempDir(), systemUserId)
-			GinkgoWriter.Println("Using temp home dir <", fakeHomeDir, ">")
+		When("user has no previous kubeconfig with current context set", func() {
+			BeforeAll(func() {
+				fakeHomeDir := filepath.Join(GinkgoT().TempDir(), systemUserId)
+				GinkgoWriter.Println("Using temp home dir <", fakeHomeDir, ">")
 
-			expectedRemoteUser = "remote@" + suite.SetupInfo().Config.ControlPlane().IpAddress()
-			expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\k2s\id_rsa`)
+				expectedRemoteUser = "remote@" + suite.SetupInfo().Config.ControlPlane().IpAddress()
+				expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\k2s\id_rsa`)
+				kubeconfigPath = filepath.Join(fakeHomeDir, ".kube", "config")
 
-			systemUserWithFakeHomeDir := contracts.NewOSUser(systemUserId, systemUserName, fakeHomeDir)
+				systemUserWithFakeHomeDir := contracts.NewOSUser(systemUserId, systemUserName, fakeHomeDir)
 
-			userProvider = &winUserProvider{
-				findByName: func(_ string) (*contracts.OSUser, error) { return systemUserWithFakeHomeDir, nil },
-				getCurrent: winusers.Current,
-			}
+				userProvider = &winUserProvider{
+					findByName: func(_ string) (*contracts.OSUser, error) { return systemUserWithFakeHomeDir, nil },
+					getCurrent: winusers.Current,
+				}
+
+				sut = integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider)
+
+				Expect(sut.AddByName(systemUserName)).To(Succeed())
+			})
+
+			It("grants Windows SYSTEM user access to K2s control-plane", MustPassRepeatedly(2), func(ctx context.Context) {
+				output := suite.Cli().ExecOrFail(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
+
+				Expect(output).To(ContainSubstring("SSH access test successful"))
+			})
+
+			It("sets Windows SYSTEM user's current context to K2s", func(ctx context.Context) {
+				kubeconfig, err := kubeconfig.ReadFile(kubeconfigPath)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kubeconfig.CurrentContext).To(Equal("k2s-NT-AUTHORITY-SYSTEM@" + suite.SetupInfo().RuntimeConfig.ClusterConfig().Name()))
+			})
 		})
 
-		It("grants Windows SYSTEM user access to K2s", MustPassRepeatedly(2), func(ctx context.Context) {
-			sut := integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider)
+		When("user has previous kubeconfig with current context set", func() {
+			BeforeAll(func() {
+				kubeconfig := `
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: ABCD1234
+    server: https://localhost:6443
+  name: other-cluster
+contexts:
+- context:
+    cluster: other-cluster
+    user: other-user
+  name: other-user@other-cluster
+current-context: "other-user@other-cluster"
+kind: Config
+preferences: {}
+users:
+- name: other-user
+  user:
+    client-certificate-data: EFGH5678
+    client-key-data: IJKL9012
+`
 
-			Expect(sut.AddByName(systemUserName)).To(Succeed())
+				fakeHomeDir := filepath.Join(GinkgoT().TempDir(), systemUserId)
+				GinkgoWriter.Println("Using temp home dir <", fakeHomeDir, ">")
 
-			output := suite.Cli().ExecOrFail(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
+				expectedRemoteUser = "remote@" + suite.SetupInfo().Config.ControlPlane().IpAddress()
+				expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\k2s\id_rsa`)
+				kubeconfigDir := filepath.Join(fakeHomeDir, ".kube")
+				kubeconfigPath = filepath.Join(kubeconfigDir, "config")
 
-			Expect(output).To(ContainSubstring("SSH access test successful"))
+				systemUserWithFakeHomeDir := contracts.NewOSUser(systemUserId, systemUserName, fakeHomeDir)
+
+				userProvider = &winUserProvider{
+					findByName: func(_ string) (*contracts.OSUser, error) { return systemUserWithFakeHomeDir, nil },
+					getCurrent: winusers.Current,
+				}
+
+				sut = integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider)
+
+				Expect(os.MkdirAll(kubeconfigDir, os.ModePerm)).To(Succeed())
+				Expect(os.WriteFile(kubeconfigPath, []byte(kubeconfig), os.ModePerm)).To(Succeed())
+				Expect(sut.AddByName(systemUserName)).To(Succeed())
+			})
+
+			It("grants Windows SYSTEM user access to K2s control-plane", MustPassRepeatedly(2), func(ctx context.Context) {
+				output := suite.Cli().ExecOrFail(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
+
+				Expect(output).To(ContainSubstring("SSH access test successful"))
+			})
+
+			It("keeps Windows SYSTEM user's previous context as current context", func(ctx context.Context) {
+				kubeconfig, err := kubeconfig.ReadFile(kubeconfigPath)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kubeconfig.CurrentContext).To(Equal("other-user@other-cluster"))
+			})
 		})
 	})
 

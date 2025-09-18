@@ -69,9 +69,20 @@ func (k *KubeconfigWriter) SetContext(context, k8sUserName, clusterName, kubecon
 	slog.Debug("Setting context for user", "k8s-user-name", k8sUserName, "cluster-name", clusterName, "context", context, "kubeconfig-path", kubeconfigPath)
 
 	if err := k.kubectl.Exec("config", "set-context", context, "--cluster="+clusterName, "--user="+k8sUserName, "--kubeconfig", kubeconfigPath); err != nil {
-		return fmt.Errorf("failed to set user credentials in kubeconfig '%s': %w", kubeconfigPath, err)
+		return fmt.Errorf("failed to set context in kubeconfig '%s': %w", kubeconfigPath, err)
 	}
 
 	slog.Debug("K2s context set", "k8s-user-name", k8sUserName, "cluster-name", clusterName, "context", context, "kubeconfig-path", kubeconfigPath)
+	return nil
+}
+
+func (k *KubeconfigWriter) SetCurrentContext(context, kubeconfigPath string) error {
+	slog.Debug("Setting current context", "context", context, "kubeconfig-path", kubeconfigPath)
+
+	if err := k.kubectl.Exec("config", "use-context", context, "--kubeconfig", kubeconfigPath); err != nil {
+		return fmt.Errorf("failed to set current context in kubeconfig '%s': %w", kubeconfigPath, err)
+	}
+
+	slog.Debug("Current context set", "context", context, "kubeconfig-path", kubeconfigPath)
 	return nil
 }
