@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 
 - On your Windows machine, open the file `C:\Users\<YourUsername>\.ssh\config` (create it if it doesn’t exist).
 - Add the following entry, adjusting paths and IP as needed:
-![SSHConfig.png](SSHConfig.png)
+![SSHConfig.png](images/SSHConfig.png)
   - HostName is the IP address of your Linux VM created after K2s installation.
   - User is the username you set up during K2s installation (default is `remote`)
   - After K2s is successfully installed, `id_rsa` file is created in `C:\Users\<YourUsername>\.ssh\K2s\id_rsa` and is the private key used to connect to the Linux VM.
@@ -19,15 +19,15 @@ SPDX-License-Identifier: MIT
 
 - Open Visual Studio Code.
 - Go to Extensions (`Ctrl+Shift+X`), search for `Remote - SSH`, and install it.
-![RemoteSSH.png](RemoteSSH.png)
+![RemoteSSH.png](images/RemoteSSH.png)
 
 ### 3\. Connect to KubeMaster
 
 - Press `F1` in VS Code, type `Remote-SSH: Connect to Host...`, and select `KubeMaster`.
-![RemoteSSHConnectToHost.png](RemoteSSHConnectToHost.png)
-![RemoteSSHKubemaster.png](RemoteSSHKubemaster.png)
+![RemoteSSHConnectToHost.png](images/RemoteSSHConnectToHost.png)
+![RemoteSSHKubemaster.png](images/RemoteSSHKubemaster.png)
 - VS Code will open a new window connected to your Linux VM.
-![RemoteSession.png](RemoteSession.png)
+![RemoteSession.png](images/RemoteSession.png)
 
 ### 4\. Clone a Repository on Linux and Develop from Windows Using VS Code
 
@@ -36,9 +36,9 @@ SPDX-License-Identifier: MIT
   - If above curl command doesnt return 200 response, you need to set proxy in the terminal using following command 
       - export http_proxy=http://172.19.1.1:8181 export https_proxy=https://172.19.1.1:8181 - But this is temporary and will be lost when you close the terminal.
       - To make it permanent, you need to add proxy to ~/.bashrc file.
-        ![ExportProxyBashRC.png](ExportProxyBashRC.png)
+        ![ExportProxyBashRC.png](images/ExportProxyBashRC.png)
       - Add proxy to /etc/apt/apt.conf.d/proxy.conf → so apt update and apt install work.
-        ![AddProxyAptConf.png](AddProxyAptConf.png)
+        ![AddProxyAptConf.png](images/AddProxyAptConf.png)
 - To clone a repository, run the following commands (replace `<repo-url>` with your repository URL):
   - Install Git if its not already present in linux vm
     - bash
