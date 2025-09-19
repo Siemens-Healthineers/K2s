@@ -37,9 +37,10 @@ During our evaluation, we analyzed solutions designed to enable native Kubernete
 <b>Increased Complexity</b>: It introduces another active controller into the cluster's critical path. This component must be installed, managed, and monitored, adding operational overhead. Its logic for translating policies into host rules creates a layer of abstraction that can be difficult to debug when unexpected network behavior occurs.
 
 <b>Performance and Scalability Concerns</b>: A network policy controller must continuously watch the Kubernetes API for changes to pods (e.g., label changes, scaling events) and policies. In dynamic clusters, this can trigger frequent and numerous updates to the host's firewall ruleset, potentially leading to performance degradation, rule conflicts, or transient connectivity issues. This dynamic management layer adds computational overhead compared to the static, highly-performant rules applied by our chosen DaemonSet approach.
-
-<b>Deviation from Simplicity</b>: The goal of K2s is to provide a transparent and easily understandable system. A dynamic controller that generates a complex and ever-changing set of host firewall rules moves away from this principle, making it harder for operators to reason about the state of the network at any given moment. In addition the solutions add an overhead in the package processing plus an additional CPU overhead for kernel/userspace transitions: latency increase of +100μs-2ms per packet, throughput reduction: 20%-80%
+In addition the solutions add an overhead in the package processing plus an additional CPU overhead for kernel/userspace transitions: latency increase of +100μs-2ms per packet, throughput reduction: 20%-80%
 and CPU overhead: +20-200%. Even package drops are possible under high load !
+
+<b>Deviation from Simplicity</b>: The goal of K2s is to provide a transparent and easily understandable system. A dynamic controller that generates a complex and ever-changing set of host firewall rules moves away from this principle, making it harder for operators to reason about the state of the network at any given moment. 
 
 <b>OS support</b> Many of the analyzed solutions where not working under Windows, they provided only for Linux nodes a viable solution.
 
