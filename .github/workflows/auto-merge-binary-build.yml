@@ -4,11 +4,12 @@
 name: Automerge from PR for binary build
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-permissions:
-  pull-requests: write
-  contents: write
+  workflow_dispatch:
+#  pull_request:
+#    types: [opened, synchronize, reopened]
+#permissions:
+#  pull-requests: write
+#  contents: write
   
 jobs:
   auto-merge-temp-pr:
