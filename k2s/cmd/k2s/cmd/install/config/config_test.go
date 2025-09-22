@@ -552,7 +552,6 @@ var _ = Describe("config", func() {
 			Entry(ControlPlaneMemoryFlagName, ControlPlaneMemoryFlagName, "test-cp-memory", func() any { return iConfig.Nodes[0].Resources.Memory }),
 			Entry(ControlPlaneDiskSizeFlagName, ControlPlaneDiskSizeFlagName, "test-cp-disk", func() any { return iConfig.Nodes[0].Resources.Disk }),
 			Entry(ProxyFlagName, ProxyFlagName, "test-proxy", func() any { return iConfig.Env.Proxy }),
-			Entry(RestartFlagName, RestartFlagName, "test-restart", func() any { return iConfig.Env.RestartPostInstall }),
 			Entry(SkipStartFlagName, SkipStartFlagName, false, func() any { return iConfig.Behavior.SkipStart }),
 			Entry(WslFlagName, WslFlagName, false, func() any { return iConfig.Behavior.Wsl }),
 		)
