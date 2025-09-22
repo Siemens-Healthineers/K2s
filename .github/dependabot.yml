@@ -22,30 +22,69 @@ updates:
           - k8s.io/*
 
   - package-ecosystem: "docker"
+    directory: "addons/registry/manifests/registry/statefulset.yaml"
+    schedule:
+      interval: daily
+      time: "17:00" # time in UTC
+    open-pull-requests-limit: 1
+    allow:
+      - dependency-type: "direct"
+    labels:
+      - "dependencies"
+      - "addons"
+      - "registry"
+
+  - package-ecosystem: "docker"
+    directory: "addons/storage/smb/manifests/base/"
+    schedule:
+      interval: daily
+      time: "17:00" # time in UTC
+    open-pull-requests-limit: 1
+    allow:
+      - dependency-type: "direct"
+    labels:
+      - "dependencies"
+      - "addons"
+      - "storage"
+
+  - package-ecosystem: "docker"
+    directory: "addons/storage/smb/manifests/windows/"
+    schedule:
+      interval: daily
+      time: "17:00" # time in UTC
+    open-pull-requests-limit: 1
+    allow:
+      - dependency-type: "direct"
+    labels:
+      - "dependencies"
+      - "addons"
+      - "storage"
+    
+  - package-ecosystem: "docker"
     directory: "/addons/dicom/manifests/dicom/"
     schedule:
       interval: daily
       time: "17:00" # time in UTC
     open-pull-requests-limit: 1
     allow:
-      - dependency-type: "all"
+      - dependency-type: "direct"
     labels:
       - "dependencies"
       - "addons"
       - "dicom"
 
-  - package-ecosystem: "docker"
-    directory: "/addons/viewer/manifests/viewer/"
-    schedule:
-      interval: daily
-      time: "17:00" # time in UTC
-    open-pull-requests-limit: 1
-    allow:
-      - dependency-type: "all"
-    labels:
-      - "dependencies"
-      - "addons"
-      - "viewer"
+  # - package-ecosystem: "docker"
+  #   directory: "/addons/viewer/manifests/viewer/"
+  #   schedule:
+  #     interval: daily
+  #     time: "17:00" # time in UTC
+  #   open-pull-requests-limit: 1
+  #   allow:
+  #     - dependency-type: "all"
+  #   labels:
+  #     - "dependencies"
+  #     - "addons"
+  #     - "viewer"
       
 #  - package-ecosystem: "github-actions"
 #    directories:
