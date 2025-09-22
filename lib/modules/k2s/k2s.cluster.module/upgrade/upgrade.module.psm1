@@ -455,9 +455,9 @@ function Assert-UpgradeOperation {
         throw "Upgrade not supported from $currentVersion to $nextVersion. Major version must be the same and minor version increase must be consecutive!"
     }
 
-    if(!(Restart-ClusterIfBuildVersionMismatch -CurrentVersion $currentVersion -NextVersion $nextVersion -InstallFolder $installFolder -KubePath $kubePath)) {
-        return $false
-    }
+    # if(!(Restart-ClusterIfBuildVersionMismatch -CurrentVersion $currentVersion -NextVersion $nextVersion -InstallFolder $installFolder -KubePath $kubePath)) {
+    #     return $false
+    # }
 
     Write-Log "Upgrade to the next minor version: $nextVersion"
     return $true
