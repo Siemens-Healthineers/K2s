@@ -117,7 +117,6 @@ func bindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().Bool(ic.AppendLogFlagName, false, ic.AppendLogFlagUsage)
 	cmd.Flags().Bool(ic.SkipStartFlagName, false, ic.SkipStartFlagUsage)
-	cmd.Flags().String(ic.RestartFlagName, "", ic.RestartFlagUsage)
 
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
