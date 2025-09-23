@@ -17,7 +17,7 @@ spec:
           deb: []
           curl: []
           additionalImages:
-            - registry.k8s.io/external-dns/external-dns:v0.13.4
+            - registry.k8s.io/external-dns/external-dns:v0.19.0
         windows:
           curl: []
       commands:
@@ -43,7 +43,7 @@ spec:
           deb: []
           curl: []
           additionalImages:
-            - registry.k8s.io/external-dns/external-dns:v0.13.4
+            - registry.k8s.io/external-dns/external-dns:v0.19.0
         windows:
           curl: []
       commands:
