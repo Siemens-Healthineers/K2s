@@ -5,9 +5,9 @@ name: Release a version
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v1.*'
+#  push:
+#    tags:
+#      - 'v1.*'
 
 jobs:
   build_release:
