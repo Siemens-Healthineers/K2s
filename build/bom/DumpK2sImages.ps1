@@ -96,10 +96,43 @@ foreach ($manifest in $addonManifests) {
         $files = Get-Childitem -recurse $dirPath | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
 
         foreach ($file in $files) {
-            $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
+            $imageLines = @()
+            $content = Get-Content -Path $file
+            if ($file -match 'chart\.yaml$') {
+                continue
+            }
+            if ($file -match 'values\.yaml$') {
+                foreach ($line in $content) {
+                    if ($line -match 'image:' -or $line -match 'repository:' -or $line -match 'tag:') {
+                        $imageLines += $line
+                    }
+                }
+            } else {
+                $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
+            }
 
             foreach ($imageLine in $imageLines) {
-                $unTrimmedFullImageName = (($imageLine -split 'image: ')[1] -split '#')[0]
+                $unTrimmedFullImageName = ''
+                if ($imageLine -match 'image:') {
+                    $unTrimmedFullImageName = (($imageLine -split 'image: ')[1] -split '#')[0]
+                } elseif ($imageLine -match 'repository:') {
+                    $repo = ($imageLine -replace '.*repository:\s*', '') -split '#' | Select-Object -First 1
+                    $repo = $repo.Trim("`"'").Trim()
+                    $tagLine = $content | Where-Object { $_ -match 'tag:' } | Select-Object -First 1
+                    $tag = ''
+                    if ($tagLine) {
+                        $tag = ($tagLine -replace '.*tag:\s*', '') -split '#' | Select-Object -First 1
+                        $tag = $tag.Trim("`"'").Trim()
+                    }
+                    if ($repo -ne '') {
+                        if ($tag -ne '') {
+                            $unTrimmedFullImageName = "$($repo):$($tag)"
+                        } else {
+                            # If tag is missing, default to 'latest'
+                            $unTrimmedFullImageName = "$($repo):latest"
+                        }
+                    }
+                }
                 $fullImageName = $unTrimmedFullImageName.Trim().Trim("`"'")
 
                 if ($fullImageName -eq '') {
