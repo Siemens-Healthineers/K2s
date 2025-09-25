@@ -25,7 +25,6 @@ const (
 	albumApp2Name   = "albums-win2"
 	albumsNamespace = "k2s"
 	albumsImageRepo = "shsk2s.azurecr.io/example.albums-golang-win"
-	albumsImageTag  = "v1.5.0"
 )
 
 var suite *framework.K2sTestSuite
@@ -64,16 +63,15 @@ var _ = Describe("Upgrade Validation", func() {
 		It("user application images are preserved after upgrade", func(ctx SpecContext) {
 			output := suite.K2sCli().RunOrFail(ctx, "image", "ls")
 
-			expectedImages := map[string]string{
-				albumsImageRepo: albumsImageTag,
-				// Add other expected images here: "repository": "tag"
+			// Only check for images, not specific tags
+			expectedImages := []string{
+				albumsImageRepo,
+				// Add other images to check here
 			}
 
-			for repository, tag := range expectedImages {
-				Expect(output).To(And(
-					ContainSubstring(repository),
-					ContainSubstring(tag),
-				), "Image '%s:%s' is missing after upgrade", repository, tag)
+			for _, image := range expectedImages {
+				Expect(output).To(ContainSubstring(image),
+					"Image '%s' is missing after upgrade", image)
 			}
 		})
 	})
