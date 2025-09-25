@@ -313,13 +313,8 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.Memory = vConfig.GetString(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
-<<<<<<< HEAD
 	case NoProxyFlagName:
 		iConfig.Env.NoProxy = vConfig.GetStringSlice(flagName)
-	case RestartFlagName:
-		iConfig.Env.RestartPostInstall = vConfig.GetString(flagName)
-=======
->>>>>>> main
 	case SkipStartFlagName:
 		iConfig.Behavior.SkipStart = vConfig.GetBool(flagName)
 	case WslFlagName:
