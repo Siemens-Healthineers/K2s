@@ -13,7 +13,8 @@ BeforeAll {
 Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
     
     Describe "New-EmptyBackupResult" -Tag 'unit', 'ci' {
-        It "Should return correct structure with default datetime" {
+        Context 'default datetime' {
+            It 'returns correct structure with default datetime' {
             $backupDir = "C:\Test\Backup"
             $result = New-EmptyBackupResult -BackupDirectory $backupDir
 
@@ -22,13 +23,16 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
             $result.Success | Should -Be $true
             $result.BackupTimestamp | Should -Match "^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$"
         }
+        }
         
-        It "Should use custom datetime provider" {
+        Context 'custom datetime provider' {
+            It 'uses custom datetime provider' {
             $testDate = "2024-01-01 12:00:00"
             $customProvider = { $testDate }
         
             $result = New-EmptyBackupResult -BackupDirectory "C:\Test" -DateTimeProvider $customProvider
             $result.BackupTimestamp | Should -Be $testDate
+            }
         }
     }
     
@@ -38,7 +42,8 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
             $imagesDir = "TestDrive:\backup\images"
         }
         
-        It "Should create main directory when it doesn't exist" {
+        Context 'main directory does not exist' {
+            It 'creates main directory' {
             $mockProvider = @{
                 TestPath = { param($path) $false }
                 NewItem = { param($path, $type) 
@@ -47,9 +52,11 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
                 JoinPath = { param($parent, $child) Join-Path $parent $child }
             }             
             { New-BackupDirectoryStructure -BackupDirectory $testDir -FileSystemProvider $mockProvider } | Should -Not -Throw
+            }
         }
         
-        It "Should create images subdirectory when requested" {
+        Context 'images subdirectory requested' {
+            It 'creates images subdirectory' {
             $testDir = "TestDrive:\backup"
             $imagesDir = "TestDrive:\backup\images"
             $createCalls = [System.Collections.ArrayList]::new()
@@ -65,22 +72,26 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
             
             $createCalls | Should -Contain $testDir
             $createCalls | Should -Contain $imagesDir
+            }
         }
     }   
     
     Describe "Write-ProcessingProgress" -Tag 'unit', 'ci' {
-        It "Should not throw when called with valid parameters" {
+        Context 'valid parameters' {
+            It 'does not throw' {
             $mockImage = @{
                 repository = "nginx"
                 tag = "latest"
             }
             
             { Write-ProcessingProgress -Current 1 -Total 1 -Action "Testing" -Image $mockImage } | Should -Not -Throw
+            }
         }
     }
     
     Describe "Test-ImageOperationParameters" -Tag 'unit', 'ci' {
-        It "Should validate valid parameters" {
+        Context 'valid parameters' {
+            It 'validates parameters successfully' {
             $images = @(
                 @{ repository = "nginx"; tag = "latest"; imageid = "123" }
                 @{ repository = "redis"; tag = "6"; imageid = "456" }
@@ -90,16 +101,18 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
             
             $result.IsValid | Should -Be $true
             $result.Errors.Count | Should -Be 0
+            }
         }
         
-        It "Should detect invalid backup directory" {
+        Context 'invalid parameters' {
+            It 'detects invalid backup directory' {
             $result = Test-ImageOperationParameters -BackupDirectory ""
             
             $result.IsValid | Should -Be $false
             $result.Errors | Should -Contain "BackupDirectory cannot be empty or whitespace"
         }
         
-        It "Should detect invalid images" {
+            It 'detects invalid images' {
             $invalidImages = @(
                 @{ repository = "nginx" }  # Missing tag and imageid
             )
@@ -110,16 +123,18 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
             $result.Errors | Should -Contain "Image at index 0 is missing required properties (repository, tag, imageid)"
         }
         
-        It "Should detect negative space requirement" {
-            $result = Test-ImageOperationParameters -RequiredSpaceGB -5
-            
-            $result.IsValid | Should -Be $false
-            $result.Errors | Should -Contain "RequiredSpaceGB must be a positive number"
+            It 'detects negative space requirement' {
+                $result = Test-ImageOperationParameters -RequiredSpaceGB -5
+                
+                $result.IsValid | Should -Be $false
+                $result.Errors | Should -Contain "RequiredSpaceGB must be a positive number"
+            }
         }
     }
     
     Describe "New-ImageProcessingLog" -Tag 'unit', 'ci' {
-        It "Should create backup log with correct format" {
+        Context 'backup log creation' {
+            It 'creates backup log with correct format' {
             $logPath = "TestDrive:\backup.log"
             $testResult = @{
                 BackupTimestamp = "2024-01-01 12:00:00"
@@ -135,9 +150,11 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
             $logContent | Should -Match "K2s Image Backup Log"
             $logContent | Should -Match "Backup Date: 2024-01-01 12:00:00"
             $logContent | Should -Match "nginx:latest"
+            }
         }
         
-        It "Should include failed images in log" {
+        Context 'restore log with failures' {
+            It 'includes failed images in log' {
             $logPath = "TestDrive:\restore.log"
             $testResult = @{
                 RestoreTimestamp = "2024-01-01 13:00:00"
@@ -153,6 +170,7 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
             $logContent | Should -Match "Failed Images:"
             $logContent | Should -Match "redis:6.*Connection failed"
             $logContent | Should -Match "Original Backup Date: 2024-01-01 12:00:00"
+            }
         }
     } 
 }
