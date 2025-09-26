@@ -10,9 +10,9 @@ BeforeAll {
     Import-Module $modulePath -Force
 }
 
-Describe "ImageBackup Module Tests" {
+Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
     
-    Describe "New-EmptyBackupResult" {
+    Describe "New-EmptyBackupResult" -Tag 'unit', 'ci' {
         It "Should return correct structure with default datetime" {
             $backupDir = "C:\Test\Backup"
             $result = New-EmptyBackupResult -BackupDirectory $backupDir
@@ -32,7 +32,7 @@ Describe "ImageBackup Module Tests" {
         }
     }
     
-    Describe "New-BackupDirectoryStructure" {
+    Describe "New-BackupDirectoryStructure" -Tag 'unit', 'ci' {
         BeforeEach {
             $testDir = "TestDrive:\backup"
             $imagesDir = "TestDrive:\backup\images"
@@ -68,7 +68,7 @@ Describe "ImageBackup Module Tests" {
         }
     }   
     
-    Describe "Write-ProcessingProgress" {
+    Describe "Write-ProcessingProgress" -Tag 'unit', 'ci' {
         It "Should not throw when called with valid parameters" {
             $mockImage = @{
                 repository = "nginx"
@@ -79,7 +79,7 @@ Describe "ImageBackup Module Tests" {
         }
     }
     
-    Describe "Test-ImageOperationParameters" {
+    Describe "Test-ImageOperationParameters" -Tag 'unit', 'ci' {
         It "Should validate valid parameters" {
             $images = @(
                 @{ repository = "nginx"; tag = "latest"; imageid = "123" }
@@ -118,7 +118,7 @@ Describe "ImageBackup Module Tests" {
         }
     }
     
-    Describe "New-ImageProcessingLog" {
+    Describe "New-ImageProcessingLog" -Tag 'unit', 'ci' {
         It "Should create backup log with correct format" {
             $logPath = "TestDrive:\backup.log"
             $testResult = @{
