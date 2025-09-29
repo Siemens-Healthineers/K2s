@@ -6,6 +6,7 @@ package main
 
 import (
 	"errors"
+	"bufio"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -239,6 +240,29 @@ func resume(pi processInformation) error {
 	return nil
 }
 
+// dumpRecentErrorLines prints up to 'max' recent lines containing level=ERROR from the log file to stderr.
+// If none are found, it prints the last 'max' lines of the file instead. Best-effort; failures are silent.
+func dumpRecentErrorLines(path string, max int) {
+ 	f, err := os.Open(path)
+ 	if err != nil { return }
+ 	defer f.Close()
+ 	scanner := bufio.NewScanner(f)
+ 	var all []string
+ 	for scanner.Scan() {
+ 		line := scanner.Text()
+ 		all = append(all, line)
+ 	}
+ 	var errs []string
+ 	for _, l := range all { if strings.Contains(l, "level=ERROR") { errs = append(errs, l) } }
+ 	selectLines := errs
+ 	if len(selectLines) == 0 { selectLines = all }
+ 	if max > 0 && len(selectLines) > max { selectLines = selectLines[len(selectLines)-max:] }
+ 	if len(selectLines) == 0 { return }
+ 	fmt.Fprintf(os.Stderr, "\n---- recent log lines (%s) ----\n", path)
+ 	for _, l := range selectLines { fmt.Fprintln(os.Stderr, l) }
+ 	fmt.Fprintln(os.Stderr, "---- end log excerpt ----")
+}
+
 func main() {
 	var compartment uint
 	var dll string
@@ -352,7 +376,8 @@ func main() {
 		if err != nil {
 			slog.Error("failed to resolve compartment from label", "label", labelSelector, "error", err)
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			return
+			dumpRecentErrorLines(logFilePath, 20)
+			os.Exit(1)
 		}
 		compartment = uint(resolvedComp)
 		slog.Info("resolved compartment from pod label", "label", labelSelector, "compartment", compartment, "podIP", podIP, "pod", podName, "namespace", ns, "timeout", labelTimeout)
@@ -403,6 +428,7 @@ func main() {
 	pi, err := createSuspended(exe, args)
 	if err != nil {
 		slog.Error("create process failed", "error", err, "exe", exe)
+		dumpRecentErrorLines(logFilePath, 20)
 		os.Exit(1)
 	}
 	defer procCloseHandle.Call(uintptr(pi.Process))
@@ -412,11 +438,13 @@ func main() {
 		base, err := injectDLL(pi.Process, dll)
 		if err != nil {
 			slog.Error("dll injection failed", "error", err, "dll", dll)
+			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
 		offset, err := computeExportOffset(dll, exportName)
 		if err != nil {
 			slog.Error("compute export offset failed", "error", err, "export", exportName)
+			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
 		if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
@@ -426,6 +454,7 @@ func main() {
 		if !selfEnv { // only attempt remote call if not deferring to target
 			if err := callRemoteExport(pi.Process, base, offset, uint32(compartment)); err != nil {
 				slog.Error("remote export call failed", "error", err, "compartment", compartment)
+				dumpRecentErrorLines(logFilePath, 20)
 				os.Exit(1)
 			} else {
 				slog.Info("remote export invoked", "compartment", compartment)
@@ -442,6 +471,7 @@ func main() {
 	}
 	if err := resume(pi); err != nil {
 		slog.Error("resume failed", "error", err)
+		dumpRecentErrorLines(logFilePath, 20)
 		os.Exit(1)
 	}
 	finalDll := dll
