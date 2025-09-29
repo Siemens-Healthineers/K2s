@@ -41,10 +41,11 @@ var (
 	procGetExitCodeProcess       = kernel32.NewProc("GetExitCodeProcess")
 	procCloseHandle              = kernel32.NewProc("CloseHandle")
 	procLoadLibraryW             = kernel32.NewProc("LoadLibraryW")
+	procSetHandleInformation     = kernel32.NewProc("SetHandleInformation")
+	procCreatePipe               = kernel32.NewProc("CreatePipe")
 	procCreateToolhelp32Snapshot = kernel32.NewProc("CreateToolhelp32Snapshot")
 	procModule32FirstW           = kernel32.NewProc("Module32FirstW")
 	procModule32NextW            = kernel32.NewProc("Module32NextW")
-	procSetHandleInformation     = kernel32.NewProc("SetHandleInformation")
 	iphlpapi                     = syscall.NewLazyDLL("iphlpapi.dll")
 )
 
@@ -464,28 +465,83 @@ func main() {
 		os.Setenv(envVarName, fmt.Sprintf("%d", compartment))
 		slog.Info("set env", "name", envVarName, "value", compartment, "mode", "self-env")
 	}
-	// Prepare redirection files so we can capture child stdout/stderr for logging after it exits.
+	// Prepare live streaming via anonymous pipes + persistent capture files.
 	childStdoutPath := filepath.Join(logDir, fmt.Sprintf("%s-child-stdout-%d.log", cliName, time.Now().UnixNano()))
 	childStderrPath := filepath.Join(logDir, fmt.Sprintf("%s-child-stderr-%d.log", cliName, time.Now().UnixNano()))
-	childStdoutFile, err := os.Create(childStdoutPath)
-	if err != nil { slog.Error("create child stdout file failed", "error", err); os.Exit(1) }
-	defer childStdoutFile.Close()
-	childStderrFile, err := os.Create(childStderrPath)
-	if err != nil { slog.Error("create child stderr file failed", "error", err); os.Exit(1) }
-	defer childStderrFile.Close()
-	// Make handles inheritable
-	if _, _, se := procSetHandleInformation.Call(childStdoutFile.Fd(), HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT); se != nil && se.Error() != "The operation completed successfully." {
-		slog.Warn("failed to mark stdout handle inheritable", "error", se)
+	stdoutCaptureFile, err := os.Create(childStdoutPath)
+	if err != nil { slog.Error("create stdout capture file failed", "error", err); os.Exit(1) }
+	defer stdoutCaptureFile.Close()
+	stderrCaptureFile, err := os.Create(childStderrPath)
+	if err != nil { slog.Error("create stderr capture file failed", "error", err); os.Exit(1) }
+	defer stderrCaptureFile.Close()
+
+	makePipe := func() (readH, writeH syscall.Handle, err error) {
+		var r, w syscall.Handle
+		ret, _, e1 := procCreatePipe.Call(uintptr(unsafe.Pointer(&r)), uintptr(unsafe.Pointer(&w)), 0, 0)
+		if ret == 0 {
+			return 0, 0, fmt.Errorf("CreatePipe: %v", e1)
+		}
+		// read end: clear inherit; write end: keep inherit
+		if _, _, e2 := procSetHandleInformation.Call(uintptr(r), HANDLE_FLAG_INHERIT, 0); e2 != nil && e2.Error() != "The operation completed successfully." {
+			slog.Warn("SetHandleInformation read end", "error", e2)
+		}
+		return r, w, nil
 	}
-	if _, _, se := procSetHandleInformation.Call(childStderrFile.Fd(), HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT); se != nil && se.Error() != "The operation completed successfully." {
-		slog.Warn("failed to mark stderr handle inheritable", "error", se)
-	}
-	pi, err := createSuspended(exe, args, syscall.Handle(childStdoutFile.Fd()), syscall.Handle(childStderrFile.Fd()))
+	stdoutR, stdoutW, err := makePipe()
+	if err != nil { slog.Error("pipe setup failed", "stream", "stdout", "error", err); os.Exit(1) }
+	stderrR, stderrW, err := makePipe()
+	if err != nil { slog.Error("pipe setup failed", "stream", "stderr", "error", err); os.Exit(1) }
+
+	pi, err := createSuspended(exe, args, stdoutW, stderrW)
 	if err != nil {
 		slog.Error("create process failed", "error", err, "exe", exe)
 		dumpRecentErrorLines(logFilePath, 20)
 		os.Exit(1)
 	}
+	// Parent no longer needs write ends
+	procCloseHandle.Call(uintptr(stdoutW))
+	procCloseHandle.Call(uintptr(stderrW))
+
+	// Print PID as first line before any child output (child still suspended)
+	fmt.Printf("pid=%d\n", pi.ProcessId)
+	// Flush to ensure ordering
+	os.Stdout.Sync()
+
+	// Start streaming goroutines before injection so DLL output (if any) is captured.
+	var streamWG sync.WaitGroup
+	stream := func(handle syscall.Handle, streamName string, persist *os.File) {
+		defer streamWG.Done()
+		f := os.NewFile(uintptr(handle), streamName)
+		if f == nil { return }
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		buf := make([]byte, 0, 64*1024)
+		scanner.Buffer(buf, 1024*1024)
+		writer := bufio.NewWriter(persist)
+		defer writer.Flush()
+		for scanner.Scan() {
+			line := scanner.Text()
+			line = strings.TrimRight(line, "\r")
+			if line == "" { continue }
+			// Write to capture file
+			writer.WriteString(line + "\n")
+			writer.Flush()
+			// Mirror to parent console promptly
+			if streamName == "stdout" {
+				fmt.Fprintln(os.Stdout, line)
+			} else {
+				fmt.Fprintln(os.Stderr, line)
+			}
+			// Structured log
+			slog.Info("child", "stream", streamName, "line", line)
+		}
+		if err := scanner.Err(); err != nil {
+			slog.Warn("child stream read error", "stream", streamName, "error", err)
+		}
+	}
+	streamWG.Add(2)
+	go stream(stdoutR, "stdout", stdoutCaptureFile)
+	go stream(stderrR, "stderr", stderrCaptureFile)
 	defer procCloseHandle.Call(uintptr(pi.Process))
 	defer procCloseHandle.Call(uintptr(pi.Thread))
 
@@ -535,26 +591,12 @@ func main() {
 	}
 	slog.Info("child running", "pid", pi.ProcessId, "dll", finalDll, "compartment", compartment, "selfEnv", selfEnv, "noInject", noInject, "logFile", logFilePath, "stdoutCapture", childStdoutPath, "stderrCapture", childStderrPath)
 
-	// Wait for child process to exit, then capture its exit code & log outputs.
+	// Wait for child exit
 	syscall.WaitForSingleObject(syscall.Handle(pi.Process), syscall.INFINITE)
 	var exitCode uint32
 	procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
-
-	// Read and log child stdout
-	logChildOutput := func(path, stream string) {
-		f, err := os.Open(path)
-		if err != nil { slog.Warn("open child output failed", "stream", stream, "error", err); return }
-		defer f.Close()
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line == "" { continue }
-			slog.Info("child", "stream", stream, "line", line)
-			if stream == "stdout" { fmt.Fprintln(os.Stdout, line) } else { fmt.Fprintln(os.Stderr, line) }
-		}
-	}
-	logChildOutput(childStdoutPath, "stdout")
-	logChildOutput(childStderrPath, "stderr")
+	// Wait for stream goroutines to finish consuming remaining buffered data
+	streamWG.Wait()
 
 	slog.Info("child exited", "pid", pi.ProcessId, "exitCode", exitCode)
 	fmt.Printf("cplauncher: child exited pid=%d exit=%d (log=%s)\n", pi.ProcessId, exitCode, logFilePath)
