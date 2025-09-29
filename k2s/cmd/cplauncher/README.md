@@ -107,6 +107,8 @@ Logs are written to `<SystemDrive>\\var\\log\\cplauncher` using structured `slog
 | Compartment effects not visible | Target threads may need explicit calls when using `-self-env`. |
 | Label selector matches multiple pods | Refine with `-namespace` or a more specific selector; tool now fails instead of picking first. |
 | Pod has no IP yet | Wait until pod is Running; relaunch with same `-label`. |
+| PowerShell exit 99 during label resolution | No interface found for the pod IP yet. Pod IP may not be bound on host or network plugin hides it; retry after a short delay or ensure elevated privileges. |
+| PowerShell exit 98 during label resolution | Interface found but no CompartmentId returned; network stack may not expose it yet—retry or verify the interface with `Get-NetIPInterface`. |
 
 <!--
 SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
@@ -132,6 +134,7 @@ k2s image build -w ...
 docker run --rm -it --name nano --network nat mcr.microsoft.com/windows/nanoserver:ltsc2022 cmd
 # start an external executable with cplaucher in the compartment of the container
 c:\ws\k2s\bin\cni\cplauncher.exe -compartment 2 -- c:\ws\s\examples\albums-golang-win\albumswin.exe
+c:\ws\k2s\bin\cni\cplauncher.exe -label app=albums-win1 -namespace k2s -- c:\ws\s\examples\albums-golang-win\albumswin.exe
 
 
 

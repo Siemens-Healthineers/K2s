@@ -486,7 +486,7 @@ func resolveCompartmentFromLabel(selector, namespace string, timeout time.Durati
 	}
 	comp, err := compartmentFromIP(pod.Status.PodIP)
 	if err != nil {
-		return 0, pod.Status.PodIP, pod.Name, pod.Namespace, err
+		return 0, pod.Status.PodIP, pod.Name, pod.Namespace, fmt.Errorf("map pod ip to compartment: %w", err)
 	}
 	return comp, pod.Status.PodIP, pod.Name, pod.Namespace, nil
 }
@@ -502,11 +502,25 @@ func compartmentFromIP(ip string) (int, error) {
 	// Use PowerShell to find the interface alias for the IP then query its NetIPInterface for CompartmentId
 	script := fmt.Sprintf(`$ip="%s"; $int=(Get-NetIPConfiguration | Where-Object { $_.IPv4Address.IPAddress -eq $ip }).InterfaceAlias; if(-not $int){ exit 99 }; $c=(Get-NetIPInterface -InterfaceAlias $int | Select-Object -First 1 -ExpandProperty CompartmentId); if(-not $c){ exit 98 }; Write-Output $c`, ip)
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	slog.Debug("executing powershell compartment query", "ip", ip)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	if err := cmd.Run(); err != nil {
-		return 0, fmt.Errorf("powershell compartment query failed: %v - output: %s", err, out.String())
+		// Attempt to derive specific exit codes (98/99) for user-friendly diagnostics
+		var exitCode int
+		if ee, ok := err.(*exec.ExitError); ok {
+			exitCode = ee.ExitCode()
+			switch exitCode {
+			case 99:
+				return 0, fmt.Errorf("no network interface found for pod IP %s (exit 99). Possible causes: pod IP not yet bound on host, virtual/overlay network not exposed via Get-NetIPConfiguration, or insufficient privileges. Enable debug verbosity for script details. Raw output: %s", ip, strings.TrimSpace(out.String()))
+			case 98:
+				return 0, fmt.Errorf("failed to obtain CompartmentId for interface of pod IP %s (exit 98). Interface present but did not return a compartment. Raw output: %s", ip, strings.TrimSpace(out.String()))
+			default:
+				return 0, fmt.Errorf("PowerShell query failed (exit %d) resolving compartment for IP %s: %v. Output: %s", exitCode, ip, err, strings.TrimSpace(out.String()))
+			}
+		}
+		return 0, fmt.Errorf("PowerShell execution error resolving compartment for IP %s: %v. Output: %s", ip, err, strings.TrimSpace(out.String()))
 	}
 	line := strings.TrimSpace(out.String())
 	if line == "" {
