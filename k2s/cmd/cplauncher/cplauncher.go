@@ -14,6 +14,9 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"github.com/siemens-healthineers/k2s/internal/cli"
+	ve "github.com/siemens-healthineers/k2s/internal/version"
 )
 
 var (
@@ -67,6 +70,9 @@ type moduleEntry32 struct {
 }
 
 func utf16Ptr(s string) *uint16 { p, _ := syscall.UTF16PtrFromString(s); return p }
+
+// cliName used for version flag & logging prefixes (aligns with other small utilities e.g. vfprules)
+const cliName = "cplauncher"
 
 func createSuspended(exe string, args []string) (processInformation, error) {
 	var pi processInformation
@@ -222,16 +228,23 @@ func main() {
 	var selfEnv bool
 	var noInject bool
 	var envVarName string
+
+	versionFlag := cli.NewVersionFlag(cliName)
+
 	flag.UintVar(&compartment, "compartment", 0, "Compartment ID (required)")
 	flag.StringVar(&dll, "dll", "", "Helper DLL path (required)")
-	flag.StringVar(&exportName, "export", "SetTargetCompartmentId", "Export name")
+	flag.StringVar(&exportName, "export", "SetTargetCompartmentId", "Export name of the compartment switching function inside the helper DLL")
 	flag.BoolVar(&selfEnv, "self-env", false, "Only set environment variable (no remote SetCurrentThreadCompartmentId); target must self-set")
 	flag.BoolVar(&noInject, "no-inject", false, "Skip DLL injection (use with -self-env)")
 	flag.StringVar(&envVarName, "env-name", "COMPARTMENT_ID", "Environment variable name to pass compartment to target when using -self-env")
 	flag.Parse()
-	if compartment == 0 || dll == "" {
-		log.Fatal("-compartment and -dll required")
+
+	if *versionFlag {
+		ve.GetVersion().Print(cliName)
+		return
 	}
+
+	// Extract target command after -- (same pattern kept, but provide friendly usage like vfprules)
 	var target []string
 	for i, a := range os.Args {
 		if a == "--" {
@@ -239,8 +252,11 @@ func main() {
 			break
 		}
 	}
-	if len(target) == 0 {
-		log.Fatal("Usage: <launcher> -compartment <id> -dll <dll> -- <exe> [args]")
+
+	if compartment == 0 || dll == "" || len(target) == 0 {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s -compartment <id> -dll <dll> [options] -- <exe> [args]\n", os.Args[0])
+		flag.PrintDefaults()
+		return
 	}
 	exe := target[0]
 	args := target[1:]
