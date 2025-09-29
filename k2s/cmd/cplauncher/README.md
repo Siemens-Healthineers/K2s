@@ -94,6 +94,7 @@ cplauncher -label app=my-service -dry-run -- myapp.exe
 
 ### Logging
 Logs are written to `<SystemDrive>\\var\\log\\cplauncher` using structured `slog`. Each execution creates a new file named `cplauncher-<pid>-<unixTs>.log`.
+On fatal errors the tool now prints the most recent ERROR lines (or last lines) from the log file to stderr for quick triage.
 
 ### Exit Codes
 `0` success; non-zero indicates failure in process creation, DLL injection, export invocation, or resume.
@@ -109,6 +110,7 @@ Logs are written to `<SystemDrive>\\var\\log\\cplauncher` using structured `slog
 | Pod has no IP yet | Wait until pod is Running; relaunch with same `-label`. |
 | Native lookup: no adapter found for IP | Pod IP not yet present on host or hidden by networking layer; retry after small delay. |
 | Native lookup: GetInterfaceCompartmentId failed | Ensure running elevated; interface may be transient. Try again or inspect with `ipconfig /allcompartments`. |
+| Native + fallback both fail | Tool first uses Win32 APIs, then parses `ipconfig /allcompartments`; if both fail, verify the IP exists in host namespace and networking components are initialized. |
 
 <!--
 SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG

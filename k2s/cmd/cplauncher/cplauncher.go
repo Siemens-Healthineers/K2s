@@ -15,7 +15,9 @@ import (
 	"strings"
 	"syscall"
 	"context"
+	"os/exec"
 	"net"
+	"regexp"
 	"time"
 	"unsafe"
 	"sync"
@@ -624,8 +626,41 @@ func compartmentFromIP(ip string) (int, error) {
 	compCacheMu.RUnlock()
 	comp, err := nativeCompartmentFromIP(ip)
 	if err != nil {
-		return 0, fmt.Errorf("native compartment resolution failed for ip %s: %w", ip, err)
+		slog.Debug("native compartment resolution failed; attempting ipconfig fallback", "ip", ip, "error", err)
+		if c2, err2 := compartmentFromIPViaIpconfig(ip); err2 == nil {
+			compCacheMu.Lock(); compCache[ip] = c2; compCacheMu.Unlock(); return c2, nil
+		} else {
+			return 0, fmt.Errorf("native compartment resolution failed for ip %s: %v; ipconfig fallback also failed: %v", ip, err, err2)
+		}
 	}
-	compCacheMu.Lock(); compCache[ip] = comp; compCacheMu.Unlock()
-	return comp, nil
+	compCacheMu.Lock(); compCache[ip] = comp; compCacheMu.Unlock(); return comp, nil
+}
+
+// compartmentFromIPViaIpconfig parses the output of `ipconfig /allcompartments` to map an IP to a compartment id.
+// This is a pragmatic fallback for cases where the process cannot enumerate addresses from other compartments via APIs.
+func compartmentFromIPViaIpconfig(ip string) (int, error) {
+ 	cmd := exec.Command("ipconfig", "/allcompartments")
+ 	out, err := cmd.Output()
+ 	if err != nil { return 0, fmt.Errorf("run ipconfig: %w", err) }
+ 	lines := strings.Split(string(out), "\n")
+ 	compartmentRe := regexp.MustCompile(`(?i)compartment[^0-9]*([0-9]+)`) // attempts to catch lines introducing a compartment
+ 	ipRe := regexp.MustCompile(`\b` + regexp.QuoteMeta(ip) + `\b`)
+ 	current := -1
+ 	found := -1
+ 	for _, raw := range lines {
+ 		line := strings.TrimSpace(strings.ReplaceAll(raw, "\r", ""))
+ 		if line == "" { continue }
+ 		if m := compartmentRe.FindStringSubmatch(line); m != nil {
+ 			var cid int
+ 			fmt.Sscanf(m[1], "%d", &cid)
+ 			current = cid
+ 			continue
+ 		}
+ 		if current != -1 && ipRe.MatchString(line) {
+ 			if found != -1 && found != current { return 0, fmt.Errorf("ip %s appears in multiple compartments (%d,%d)", ip, found, current) }
+ 			found = current
+ 		}
+ 	}
+ 	if found == -1 { return 0, fmt.Errorf("ip %s not found in ipconfig /allcompartments output", ip) }
+ 	return found, nil
 }
