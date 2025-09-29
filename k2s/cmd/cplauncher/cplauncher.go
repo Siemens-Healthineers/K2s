@@ -251,7 +251,7 @@ func main() {
 
 	versionFlag := cli.NewVersionFlag(cliName)
 
-	flag.UintVar(&compartment, "compartment", 0, "Compartment ID (required)")
+	flag.UintVar(&compartment, "compartment", 0, "Compartment ID (required unless -label is used)")
 	flag.StringVar(&dll, "dll", "", "Helper DLL path (optional if cphook.dll is beside the executable)")
 	flag.StringVar(&exportName, "export", "SetTargetCompartmentId", "Export name of the compartment switching function inside the helper DLL")
 	flag.BoolVar(&selfEnv, "self-env", false, "Only set environment variable (no remote SetCurrentThreadCompartmentId); target must self-set")

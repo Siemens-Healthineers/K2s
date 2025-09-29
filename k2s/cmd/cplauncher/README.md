@@ -30,7 +30,7 @@ go build -o cplauncher.exe .
 
 ### Flags
 ```
-	-compartment <id>         Compartment ID (required)
+	-compartment <id>         Compartment ID (required unless -label is used)
 	-label <selector>         Kubernetes label selector resolving to exactly one pod (alternative to -compartment)
 	-namespace <ns>           Namespace scope for -label (omit for all namespaces)
 	-label-timeout <dur>      Timeout for label resolution (default 10s, e.g. 5s, 30s, 1m)
