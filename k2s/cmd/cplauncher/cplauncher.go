@@ -230,6 +230,8 @@ func main() {
 	var selfEnv bool
 	var noInject bool
 	var envVarName string
+	var dryRun bool
+	var verbosity string
 
 	versionFlag := cli.NewVersionFlag(cliName)
 
@@ -239,6 +241,8 @@ func main() {
 	flag.BoolVar(&selfEnv, "self-env", false, "Only set environment variable (no remote SetCurrentThreadCompartmentId); target must self-set")
 	flag.BoolVar(&noInject, "no-inject", false, "Skip DLL injection (use with -self-env)")
 	flag.StringVar(&envVarName, "env-name", "COMPARTMENT_ID", "Environment variable name to pass compartment to target when using -self-env")
+	flag.BoolVar(&dryRun, "dry-run", false, "Show planned actions (compartment, dll resolution, target) without creating or modifying a process")
+	flag.StringVar(&verbosity, cli.VerbosityFlagName, logging.LevelToLowerString(slog.LevelInfo), cli.VerbosityFlagHelp())
 	flag.Parse()
 
 	if *versionFlag {
@@ -262,15 +266,24 @@ func main() {
 	}
 
 	// Setup structured file logging (one file per invocation, include timestamp for uniqueness)
+	// Parse verbosity into a slog level prior to logger creation
+	var levelVar slog.LevelVar
+	levelVar.Set(slog.LevelInfo)
+	if err := logging.SetVerbosity(verbosity, &levelVar); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid verbosity '%s': %v\n", verbosity, err)
+		os.Exit(1)
+	}
+
 	logDir := filepath.Join(logging.RootLogDir(), cliName)
 	logFileName := fmt.Sprintf("%s-%d-%d.log", cliName, os.Getpid(), time.Now().Unix())
-	logFile, err := logging.SetupDefaultFileLogger(logDir, logFileName, slog.LevelDebug, "component", cliName)
+	logFilePath := filepath.Join(logDir, logFileName)
+	logFile, err := logging.SetupDefaultFileLogger(logDir, logFileName, levelVar.Level(), "component", cliName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to setup logger: %v\n", err)
 		os.Exit(1)
 	}
 	defer logFile.Close()
-	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartment", compartment)
+	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartment", compartment, "verbosity", verbosity)
 
 	// Resolve default DLL if not provided and injection requested
 	if dll == "" && !noInject {
@@ -291,8 +304,33 @@ func main() {
 	} else if dll == "" && noInject {
 		slog.Info("-dll not provided but -no-inject set; continuing without dll")
 	}
+
 	exe := target[0]
 	args := target[1:]
+
+	if dryRun {
+		slog.Info("dry-run: planned execution", 
+			"compartment", compartment,
+			"dll", func() string { if dll == "" { return "(none / not needed)" } ; return dll }(),
+			"export", exportName,
+			"selfEnv", selfEnv,
+			"noInject", noInject,
+			"envVarName", envVarName,
+			"targetExe", exe,
+			"targetArgs", strings.Join(args, " "))
+		// Show which env vars would be set
+		if selfEnv {
+			slog.Info("dry-run: would set environment variables", "COMPARTMENT_ID_ATTACH", fmt.Sprintf("%d", compartment), envVarName, fmt.Sprintf("%d", compartment))
+		} else {
+			slog.Info("dry-run: would set environment variable", "COMPARTMENT_ID_ATTACH", fmt.Sprintf("%d", compartment))
+		}
+		if !noInject {
+			slog.Info("dry-run: would inject dll and call export (unless self-env suppresses export call)", "export", exportName)
+		}
+		slog.Info("dry-run complete; exiting without side effects", "logFile", logFilePath)
+		fmt.Printf("cplauncher dry-run finished, log: %s\n", logFilePath)
+		return
+	}
 
 	if err := createCompartmentIfNeeded(uint32(compartment)); err != nil {
 		slog.Warn("compartment provisioning attempt failed or skipped", "error", err)
@@ -350,5 +388,10 @@ func main() {
 		slog.Error("resume failed", "error", err)
 		os.Exit(1)
 	}
-	slog.Info("done", "pid", pi.ProcessId)
+	finalDll := dll
+	if noInject {
+		if finalDll == "" { finalDll = "(no injection)" } else { finalDll += " (injection disabled)" }
+	}
+	slog.Info("done", "pid", pi.ProcessId, "dll", finalDll, "compartment", compartment, "selfEnv", selfEnv, "noInject", noInject, "logFile", logFilePath)
+	fmt.Printf("cplauncher finished. pid=%d log=%s dll=%s\n", pi.ProcessId, logFilePath, finalDll)
 }

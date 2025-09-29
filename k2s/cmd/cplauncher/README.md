@@ -4,6 +4,95 @@ SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
+### Overview
+`cplauncher` starts a target process in a specified Windows network compartment and (optionally) injects a helper DLL (`cphook.dll`) which can perform per-thread compartment switching logic.
+
+### Building the helper DLL (`cphook.dll`) with MinGW-w64
+Install toolchain (example using Chocolatey if allowed):
+```
+choco install -y mingw
+```
+Build DLL (from this directory):
+```
+g++ -shared -o ..\..\..\bin\cni\cphook.dll .\cphook\cphook.c -liphlpapi -Wl,--out-implib,libcphook.a
+```
+You may then copy `cphook.dll` next to `cplauncher.exe` if you want it discovered automatically (see below).
+
+### Building `cplauncher`
+Automated build (repository helper):
+```
+c:\ws\k2s\bin\bgo.cmd -ProjectDir "c:\ws\k2s\k2s\cmd\cplauncher" -ExeOutDir "c:\ws\k2s\bin\cni"
+```
+Ad-hoc local build:
+```
+go build -o cplauncher.exe .
+```
+
+### Flags
+```
+	-compartment <id>         Compartment ID (required)
+	-dll <path>               Helper DLL path (optional if cphook.dll is beside the executable)
+	-export <name>            Export name inside the DLL (default: SetTargetCompartmentId)
+	-self-env                 Do not perform remote export call; only set env vars for target to self-configure
+	-no-inject                Do not inject any DLL (useful with -self-env)
+	-env-name <var>           Name of variable carrying compartment for self-env mode (default: COMPARTMENT_ID)
+	-dry-run                  Print planned actions then exit (no process creation/injection)
+	-version                  Print version information
+```
+
+### Default DLL Discovery
+If `-dll` is omitted and `-no-inject` is NOT specified, `cplauncher` attempts to use `cphook.dll` located in the same directory as `cplauncher.exe`. If not found, execution aborts with an error. If `-no-inject` is set, `-dll` is ignored / optional.
+
+### Environment Variables Set
+Always: `COMPARTMENT_ID_ATTACH=<id>` (consumed by the injected DLL for thread setup).
+If `-self-env`: additionally `<env-name>=<id>` (default `COMPARTMENT_ID`). Your target process can then call `SetCurrentThreadCompartmentId` itself.
+
+### Examples
+Run with automatic DLL discovery (assuming `cphook.dll` is alongside the exe):
+```
+cplauncher -compartment 42 -- myapp.exe -arg1
+```
+
+Explicit DLL path:
+```
+cplauncher -compartment 42 -dll C:\k2s\cni\cphook.dll -- myapp.exe
+```
+
+Self-managed mode (no remote export invocation, still inject DLL for its other logic):
+```
+cplauncher -compartment 42 -self-env -- myapp.exe
+```
+
+Pure environment mode (no DLL at all):
+```
+cplauncher -compartment 42 -self-env -no-inject -- myapp.exe
+```
+
+Dry run (show what would happen, no process started):
+```
+cplauncher -compartment 42 -dry-run -dll C:\k2s\cni\cphook.dll -- myapp.exe
+```
+
+### Logging
+Logs are written to `<SystemDrive>\\var\\log\\cplauncher` using structured `slog`. Each execution creates a new file named `cplauncher-<pid>-<unixTs>.log`.
+
+### Exit Codes
+`0` success; non-zero indicates failure in process creation, DLL injection, export invocation, or resume.
+
+### Troubleshooting
+| Symptom | Hint |
+|---------|------|
+| "dll not specified...default not found" | Place `cphook.dll` beside the exe or pass `-dll` explicitly. |
+| Remote export call fails | Verify export name (`-export`), ensure DLL exports undecorated function. |
+| Access denied | Run elevated if required for compartment operations. |
+| Compartment effects not visible | Target threads may need explicit calls when using `-self-env`. |
+
+<!--
+SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+
+SPDX-License-Identifier: MIT
+-->
+
 ### Build the cphook.dll with mingw
 ## choco install -y mingw (install if not available)
 g++ -shared -o ..\..\..\bin\cni\cphook.dll .\cphook\cphook.c -liphlpapi -Wl,--out-implib,libcphook.a
