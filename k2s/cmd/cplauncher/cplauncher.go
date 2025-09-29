@@ -318,7 +318,7 @@ func main() {
 	flag.StringVar(&envVarName, "env-name", "COMPARTMENT_ID", "Environment variable name to pass compartment to target when using -self-env")
 	flag.StringVar(&labelSelector, "label", "", "Kubernetes label selector to resolve a pod -> compartment (alternative to -compartment)")
 	flag.StringVar(&namespace, "namespace", "", "Namespace scope for -label lookup (empty = all namespaces)")
-	flag.StringVar(&labelTimeoutStr, "label-timeout", "10s", "Timeout for Kubernetes label resolution (e.g. 5s, 30s, 1m)")
+	flag.StringVar(&labelTimeoutStr, "label-timeout", "20s", "Timeout for Kubernetes label resolution (e.g. 5s, 30s, 1m)")
 	flag.IntVar(&logsKeep, "logs-keep", 30, "Maximum number of previous log files to retain (excluding current)" )
 	flag.StringVar(&logMaxAgeStr, "log-max-age", "", "Optional max age for log files (e.g. 24h, 7d); empty disables age-based deletion")
 	flag.BoolVar(&dryRun, "dry-run", false, "Show planned actions (compartment, dll resolution, target) without creating or modifying a process")
