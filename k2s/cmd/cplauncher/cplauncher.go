@@ -16,7 +16,6 @@ import (
 	"syscall"
 	"context"
 	"os/exec"
-	"net"
 	"regexp"
 	"time"
 	"unsafe"
@@ -44,9 +43,6 @@ var (
 	procModule32FirstW           = kernel32.NewProc("Module32FirstW")
 	procModule32NextW            = kernel32.NewProc("Module32NextW")
 	iphlpapi                     = syscall.NewLazyDLL("iphlpapi.dll")
-	procGetAdaptersAddresses     = iphlpapi.NewProc("GetAdaptersAddresses")
-	procConvertInterfaceIndexToLuid = iphlpapi.NewProc("ConvertInterfaceIndexToLuid")
-	procGetInterfaceCompartmentId   = iphlpapi.NewProc("GetInterfaceCompartmentId")
 )
 
 const (
@@ -291,6 +287,7 @@ func main() {
 	flag.StringVar(&labelTimeoutStr, "label-timeout", "10s", "Timeout for Kubernetes label resolution (e.g. 5s, 30s, 1m)")
 	flag.BoolVar(&dryRun, "dry-run", false, "Show planned actions (compartment, dll resolution, target) without creating or modifying a process")
 	flag.StringVar(&verbosity, cli.VerbosityFlagName, logging.LevelToLowerString(slog.LevelInfo), cli.VerbosityFlagHelp())
+	flag.StringVar(&verbosity, "v", logging.LevelToLowerString(slog.LevelInfo), "Alias for -verbosity")
 	flag.Parse()
 
 	if *versionFlag {
@@ -486,9 +483,9 @@ func main() {
 
 // resolveCompartmentFromLabel locates a pod by label selector and maps its primary IP to a Windows network compartment ID.
 // Strategy:
-// 1. Build in-cluster style kubeconfig path (system profile) and query pods across all namespaces using the selector.
-// 2. If multiple pods match, pick the first (future enhancement: allow index or fail if >1).
-// 3. Use PowerShell / Get-NetIPInterface and Get-NetIPConfiguration to map the IP's interface alias to its CompartmentId.
+// 1. Load system kubeconfig and list pods by selector (optionally namespace constrained).
+// 2. Enforce exactly one match.
+// 3. Derive compartment via parsing `ipconfig /allcompartments` (primary approach) cached per IP.
 func resolveCompartmentFromLabel(selector, namespace string, timeout time.Duration) (int, string, string, string, error) {
 	kubeconfig := `C:\Windows\System32\config\systemprofile\config`
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -526,113 +523,11 @@ func resolveCompartmentFromLabel(selector, namespace string, timeout time.Durati
 	return comp, pod.Status.PodIP, pod.Name, pod.Namespace, nil
 }
 
-// compartmentFromIP returns the compartment id for a given IP by querying PowerShell.
-// Native structures (partial) for GetAdaptersAddresses enumeration
-type ipAdapterUnicastAddress struct {
-	Length uint32
-	Flags  uint32
-	Next   *ipAdapterUnicastAddress
-	Address socketAddress
-	// Remaining fields ignored
-}
-type socketAddress struct {
-	Sockaddr uintptr
-	Length   int32
-}
-type ipAdapterAddresses struct {
-	Length                uint32
-	IfIndex               uint32
-	Next                  *ipAdapterAddresses
-	AdapterName           uintptr
-	FirstUnicastAddress   *ipAdapterUnicastAddress
-	FirstAnycastAddress   uintptr
-	FirstMulticastAddress uintptr
-	FirstDnsServerAddress uintptr
-	DnsSuffix             uintptr
-	Description           uintptr
-	FriendlyName          uintptr
-	PhysicalAddress       [8]byte // truncated
-	PhysicalAddressLength uint32
-	Flags                 uint32
-	Mtu                   uint32
-	IfType                uint32
-	OperStatus            uint32
-	Ipv6IfIndex           uint32
-	ZoneIndices           [16]uint32
-	FirstPrefix           uintptr
-	// ignore rest
-}
-type netLuid struct { Value uint64 }
-
-func nativeCompartmentFromIP(ip string) (int, error) {
-	// Load required procs
-	if err := iphlpapi.Load(); err != nil { return 0, fmt.Errorf("load iphlpapi: %w", err) }
-	if err := procGetAdaptersAddresses.Find(); err != nil { return 0, fmt.Errorf("GetAdaptersAddresses not found: %w", err) }
-	if err := procConvertInterfaceIndexToLuid.Find(); err != nil { return 0, fmt.Errorf("ConvertInterfaceIndexToLuid not found: %w", err) }
-	if err := procGetInterfaceCompartmentId.Find(); err != nil { return 0, fmt.Errorf("GetInterfaceCompartmentId not found: %w", err) }
-
-	const AF_INET = 2
-	const GAA_FLAG_SKIP_ANYCAST = 0x2
-	const GAA_FLAG_SKIP_MULTICAST = 0x4
-	const GAA_FLAG_SKIP_DNS_SERVER = 0x8
-	const GAA_FLAG_INCLUDE_PREFIX = 0x10
-	flags := uintptr(GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER | GAA_FLAG_INCLUDE_PREFIX)
-	size := uint32(15 * 1024)
-	buf := make([]byte, size)
-	r1, _, e1 := procGetAdaptersAddresses.Call(uintptr(AF_INET), flags, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
-	if r1 != 0 { // ERROR_BUFFER_OVERFLOW or failure
-		if r1 == 111 { // ERROR_BUFFER_OVERFLOW
-			buf = make([]byte, size)
-			r1, _, e1 = procGetAdaptersAddresses.Call(uintptr(AF_INET), flags, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
-		}
-	}
-	if r1 != 0 {
-		return 0, fmt.Errorf("GetAdaptersAddresses failed: %v", e1)
-	}
-	targetIP := net.ParseIP(ip)
-	if targetIP == nil {
-		return 0, fmt.Errorf("invalid ip '%s'", ip)
-	}
-	// Walk linked list
-	head := (*ipAdapterAddresses)(unsafe.Pointer(&buf[0]))
-	for aa := head; aa != nil; aa = aa.Next {
-		for ua := aa.FirstUnicastAddress; ua != nil; ua = ua.Next {
-			sa := ua.Address
-			if sa.Sockaddr == 0 || sa.Length < 8 { continue }
-			fam := *(*uint16)(unsafe.Pointer(sa.Sockaddr))
-			if fam != AF_INET { continue }
-			// Extract IPv4 at offset 4
-			raw := (*[16]byte)(unsafe.Pointer(sa.Sockaddr))
-			v4 := net.IPv4(raw[4], raw[5], raw[6], raw[7])
-			if v4.Equal(targetIP.To4()) {
-				// Found interface index
-				ifIndex := aa.IfIndex
-				var luid netLuid
-				r2, _, e2 := procConvertInterfaceIndexToLuid.Call(uintptr(ifIndex), uintptr(unsafe.Pointer(&luid)))
-				if r2 != 0 { return 0, fmt.Errorf("ConvertInterfaceIndexToLuid failed: %v", e2) }
-				var compID uint32
-				r3, _, e3 := procGetInterfaceCompartmentId.Call(uintptr(unsafe.Pointer(&luid)), uintptr(unsafe.Pointer(&compID)))
-				if r3 != 0 { return 0, fmt.Errorf("GetInterfaceCompartmentId failed: %v", e3) }
-				return int(compID), nil
-			}
-		}
-	}
-	return 0, fmt.Errorf("no adapter found for ip %s", ip)
-}
-
+// compartmentFromIP returns the compartment id for a given IP via parsing ipconfig /allcompartments.
 func compartmentFromIP(ip string) (int, error) {
-	compCacheMu.RLock()
-	if v, ok := compCache[ip]; ok { compCacheMu.RUnlock(); return v, nil }
-	compCacheMu.RUnlock()
-	comp, err := nativeCompartmentFromIP(ip)
-	if err != nil {
-		slog.Debug("native compartment resolution failed; attempting ipconfig fallback", "ip", ip, "error", err)
-		if c2, err2 := compartmentFromIPViaIpconfig(ip); err2 == nil {
-			compCacheMu.Lock(); compCache[ip] = c2; compCacheMu.Unlock(); return c2, nil
-		} else {
-			return 0, fmt.Errorf("native compartment resolution failed for ip %s: %v; ipconfig fallback also failed: %v", ip, err, err2)
-		}
-	}
+	compCacheMu.RLock(); if v, ok := compCache[ip]; ok { compCacheMu.RUnlock(); return v, nil }; compCacheMu.RUnlock()
+	comp, err := compartmentFromIPViaIpconfig(ip)
+	if err != nil { return 0, fmt.Errorf("ipconfig scan failed for ip %s: %w", ip, err) }
 	compCacheMu.Lock(); compCache[ip] = comp; compCacheMu.Unlock(); return comp, nil
 }
 

@@ -41,6 +41,7 @@ go build -o cplauncher.exe .
 	-env-name <var>           Name of variable carrying compartment for self-env mode (default: COMPARTMENT_ID)
 	-dry-run                  Print planned actions then exit (no process creation/injection)
 	-verbosity <level>        Log verbosity (debug|info|warn|error or integer levels)
+	-v <level>                Alias for -verbosity
 	-version                  Print version information
 ```
 
@@ -108,9 +109,7 @@ On fatal errors the tool now prints the most recent ERROR lines (or last lines) 
 | Compartment effects not visible | Target threads may need explicit calls when using `-self-env`. |
 | Label selector matches multiple pods | Refine with `-namespace` or a more specific selector; tool now fails instead of picking first. |
 | Pod has no IP yet | Wait until pod is Running; relaunch with same `-label`. |
-| Native lookup: no adapter found for IP | Pod IP not yet present on host or hidden by networking layer; retry after small delay. |
-| Native lookup: GetInterfaceCompartmentId failed | Ensure running elevated; interface may be transient. Try again or inspect with `ipconfig /allcompartments`. |
-| Native + fallback both fail | Tool first uses Win32 APIs, then parses `ipconfig /allcompartments`; if both fail, verify the IP exists in host namespace and networking components are initialized. |
+| ipconfig scan failed for ip ... | Ensure `ipconfig /allcompartments` lists the pod IP; if not, wait until networking initializes. |
 
 <!--
 SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
