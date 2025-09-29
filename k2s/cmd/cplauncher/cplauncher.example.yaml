@@ -13,11 +13,11 @@ metadata:
 spec:
   nodeSelector:
     kubernetes.io/os: windows
-    tolerations:
-      - key: 'OS'
-        operator: 'Equal'
-        value: 'Windows'
-        effect: 'NoSchedule'
+  tolerations:                # (optional) tolerate Windows specific taint
+    - key: "OS"
+      operator: "Equal"
+      value: "Windows"
+      effect: "NoSchedule"
   containers:
     - name: pause
       image: shsk2s.azurecr.io/pause-win:v1.5.0
@@ -45,11 +45,11 @@ spec:
     spec:
       nodeSelector:
         kubernetes.io/os: windows
-        tolerations:
-          - key: 'OS'
-            operator: 'Equal'
-            value: 'Windows'
-            effect: 'NoSchedule'
+      tolerations:            # (optional) tolerate Windows taint
+        - key: "OS"
+          operator: "Equal"
+          value: "Windows"
+          effect: "NoSchedule"
       securityContext:
         windowsOptions:
           hostProcess: true
