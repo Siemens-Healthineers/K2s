@@ -13,12 +13,19 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"bytes"
+	"context"
+	"os/exec"
 	"time"
 	"unsafe"
+	"sync"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/internal/logging"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
@@ -75,6 +82,12 @@ func utf16Ptr(s string) *uint16 { p, _ := syscall.UTF16PtrFromString(s); return 
 
 // cliName used for version flag & logging prefixes (aligns with other small utilities e.g. vfprules)
 const cliName = "cplauncher"
+
+// cache for IP -> compartment lookups within a single execution
+var (
+	compCache   = map[string]int{}
+	compCacheMu sync.RWMutex
+)
 
 func createSuspended(exe string, args []string) (processInformation, error) {
 	var pi processInformation
@@ -232,6 +245,9 @@ func main() {
 	var envVarName string
 	var dryRun bool
 	var verbosity string
+	var labelSelector string
+	var namespace string
+	var labelTimeoutStr string
 
 	versionFlag := cli.NewVersionFlag(cliName)
 
@@ -241,6 +257,9 @@ func main() {
 	flag.BoolVar(&selfEnv, "self-env", false, "Only set environment variable (no remote SetCurrentThreadCompartmentId); target must self-set")
 	flag.BoolVar(&noInject, "no-inject", false, "Skip DLL injection (use with -self-env)")
 	flag.StringVar(&envVarName, "env-name", "COMPARTMENT_ID", "Environment variable name to pass compartment to target when using -self-env")
+	flag.StringVar(&labelSelector, "label", "", "Kubernetes label selector to resolve a pod -> compartment (alternative to -compartment)")
+	flag.StringVar(&namespace, "namespace", "", "Namespace scope for -label lookup (empty = all namespaces)")
+	flag.StringVar(&labelTimeoutStr, "label-timeout", "10s", "Timeout for Kubernetes label resolution (e.g. 5s, 30s, 1m)")
 	flag.BoolVar(&dryRun, "dry-run", false, "Show planned actions (compartment, dll resolution, target) without creating or modifying a process")
 	flag.StringVar(&verbosity, cli.VerbosityFlagName, logging.LevelToLowerString(slog.LevelInfo), cli.VerbosityFlagHelp())
 	flag.Parse()
@@ -259,9 +278,17 @@ func main() {
 		}
 	}
 
-	if compartment == 0 || len(target) == 0 {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s -compartment <id> [-dll <dll>] [options] -- <exe> [args]\n", os.Args[0])
+	if (compartment == 0 && labelSelector == "") || len(target) == 0 {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s (-compartment <id> | -label <selector> [-namespace <ns>] [-label-timeout <dur>]) [-dll <dll>] [options] -- <exe> [args]\n", os.Args[0])
 		flag.PrintDefaults()
+		return
+	}
+	if compartment != 0 && labelSelector != "" {
+		fmt.Fprintf(os.Stderr, "error: specify either -compartment or -label, not both\n")
+		return
+	}
+	if namespace != "" && labelSelector == "" {
+		fmt.Fprintf(os.Stderr, "error: -namespace provided without -label\n")
 		return
 	}
 
@@ -305,17 +332,43 @@ func main() {
 		slog.Info("-dll not provided but -no-inject set; continuing without dll")
 	}
 
+	// If label selector provided, resolve compartment ID from pod IP before potential dry-run output
+	var labelTimeout time.Duration
+	if labelSelector != "" {
+		var err error
+		labelTimeout, err = time.ParseDuration(labelTimeoutStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: invalid -label-timeout value '%s': %v\n", labelTimeoutStr, err)
+			return
+		}
+		if labelTimeout <= 0 {
+			fmt.Fprintf(os.Stderr, "error: -label-timeout must be > 0\n")
+			return
+		}
+		resolvedComp, podIP, podName, ns, err := resolveCompartmentFromLabel(labelSelector, namespace, labelTimeout)
+		if err != nil {
+			slog.Error("failed to resolve compartment from label", "label", labelSelector, "error", err)
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return
+		}
+		compartment = uint(resolvedComp)
+		slog.Info("resolved compartment from pod label", "label", labelSelector, "compartment", compartment, "podIP", podIP, "pod", podName, "namespace", ns, "timeout", labelTimeout)
+	}
+
 	exe := target[0]
 	args := target[1:]
 
 	if dryRun {
-		slog.Info("dry-run: planned execution", 
+			slog.Info("dry-run: planned execution", 
 			"compartment", compartment,
 			"dll", func() string { if dll == "" { return "(none / not needed)" } ; return dll }(),
 			"export", exportName,
 			"selfEnv", selfEnv,
 			"noInject", noInject,
 			"envVarName", envVarName,
+			"label", labelSelector,
+			"labelTimeout", labelTimeoutStr,
+			"namespace", namespace,
 			"targetExe", exe,
 			"targetArgs", strings.Join(args, " "))
 		// Show which env vars would be set
@@ -394,4 +447,78 @@ func main() {
 	}
 	slog.Info("done", "pid", pi.ProcessId, "dll", finalDll, "compartment", compartment, "selfEnv", selfEnv, "noInject", noInject, "logFile", logFilePath)
 	fmt.Printf("cplauncher finished. pid=%d log=%s dll=%s\n", pi.ProcessId, logFilePath, finalDll)
+}
+
+// resolveCompartmentFromLabel locates a pod by label selector and maps its primary IP to a Windows network compartment ID.
+// Strategy:
+// 1. Build in-cluster style kubeconfig path (system profile) and query pods across all namespaces using the selector.
+// 2. If multiple pods match, pick the first (future enhancement: allow index or fail if >1).
+// 3. Use PowerShell / Get-NetIPInterface and Get-NetIPConfiguration to map the IP's interface alias to its CompartmentId.
+func resolveCompartmentFromLabel(selector, namespace string, timeout time.Duration) (int, string, string, string, error) {
+	kubeconfig := `C:\Windows\System32\config\systemprofile\config`
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return 0, "", "", "", fmt.Errorf("kubeconfig load: %w", err)
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return 0, "", "", "", fmt.Errorf("kube client: %w", err)
+	}
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	listNs := namespace // empty means all
+	pods, err := clientset.CoreV1().Pods(listNs).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return 0, "", "", "", fmt.Errorf("list pods: %w", err)
+	}
+	if len(pods.Items) == 0 {
+		return 0, "", "", "", fmt.Errorf("no pods match label selector '%s'", selector)
+	}
+	if len(pods.Items) > 1 {
+		return 0, "", "", "", fmt.Errorf("label selector '%s' matched %d pods (namespace='%s'); please refine with -namespace or a more specific selector", selector, len(pods.Items), namespace)
+	}
+	pod := pods.Items[0]
+	if pod.Status.PodIP == "" {
+		return 0, "", pod.Name, pod.Namespace, fmt.Errorf("pod '%s/%s' has no IP yet", pod.Namespace, pod.Name)
+	}
+	comp, err := compartmentFromIP(pod.Status.PodIP)
+	if err != nil {
+		return 0, pod.Status.PodIP, pod.Name, pod.Namespace, err
+	}
+	return comp, pod.Status.PodIP, pod.Name, pod.Namespace, nil
+}
+
+// compartmentFromIP returns the compartment id for a given IP by querying PowerShell.
+func compartmentFromIP(ip string) (int, error) {
+	compCacheMu.RLock()
+	if v, ok := compCache[ip]; ok {
+		compCacheMu.RUnlock()
+		return v, nil
+	}
+	compCacheMu.RUnlock()
+	// Use PowerShell to find the interface alias for the IP then query its NetIPInterface for CompartmentId
+	script := fmt.Sprintf(`$ip="%s"; $int=(Get-NetIPConfiguration | Where-Object { $_.IPv4Address.IPAddress -eq $ip }).InterfaceAlias; if(-not $int){ exit 99 }; $c=(Get-NetIPInterface -InterfaceAlias $int | Select-Object -First 1 -ExpandProperty CompartmentId); if(-not $c){ exit 98 }; Write-Output $c`, ip)
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		return 0, fmt.Errorf("powershell compartment query failed: %v - output: %s", err, out.String())
+	}
+	line := strings.TrimSpace(out.String())
+	if line == "" {
+		return 0, fmt.Errorf("empty compartment output for ip %s", ip)
+	}
+	var comp int
+	_, scanErr := fmt.Sscanf(line, "%d", &comp)
+	if scanErr != nil {
+		return 0, fmt.Errorf("parse compartment id '%s': %v", line, scanErr)
+	}
+	compCacheMu.Lock()
+	compCache[ip] = comp
+	compCacheMu.Unlock()
+	return comp, nil
 }

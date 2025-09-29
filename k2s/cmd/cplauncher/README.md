@@ -31,12 +31,16 @@ go build -o cplauncher.exe .
 ### Flags
 ```
 	-compartment <id>         Compartment ID (required)
+	-label <selector>         Kubernetes label selector resolving to exactly one pod (alternative to -compartment)
+	-namespace <ns>           Namespace scope for -label (omit for all namespaces)
+	-label-timeout <dur>      Timeout for label resolution (default 10s, e.g. 5s, 30s, 1m)
 	-dll <path>               Helper DLL path (optional if cphook.dll is beside the executable)
 	-export <name>            Export name inside the DLL (default: SetTargetCompartmentId)
 	-self-env                 Do not perform remote export call; only set env vars for target to self-configure
 	-no-inject                Do not inject any DLL (useful with -self-env)
 	-env-name <var>           Name of variable carrying compartment for self-env mode (default: COMPARTMENT_ID)
 	-dry-run                  Print planned actions then exit (no process creation/injection)
+	-verbosity <level>        Log verbosity (debug|info|warn|error or integer levels)
 	-version                  Print version information
 ```
 
@@ -48,6 +52,16 @@ Always: `COMPARTMENT_ID_ATTACH=<id>` (consumed by the injected DLL for thread se
 If `-self-env`: additionally `<env-name>=<id>` (default `COMPARTMENT_ID`). Your target process can then call `SetCurrentThreadCompartmentId` itself.
 
 ### Examples
+Resolve compartment from a unique pod label in all namespaces:
+```
+cplauncher -label app=my-service -- myapp.exe
+```
+
+Label + namespace (more specific):
+```
+cplauncher -label app=my-service -namespace prod -- myapp.exe
+```
+
 Run with automatic DLL discovery (assuming `cphook.dll` is alongside the exe):
 ```
 cplauncher -compartment 42 -- myapp.exe -arg1
@@ -73,6 +87,11 @@ Dry run (show what would happen, no process started):
 cplauncher -compartment 42 -dry-run -dll C:\k2s\cni\cphook.dll -- myapp.exe
 ```
 
+Dry run with label resolution:
+```
+cplauncher -label app=my-service -dry-run -- myapp.exe
+```
+
 ### Logging
 Logs are written to `<SystemDrive>\\var\\log\\cplauncher` using structured `slog`. Each execution creates a new file named `cplauncher-<pid>-<unixTs>.log`.
 
@@ -86,6 +105,8 @@ Logs are written to `<SystemDrive>\\var\\log\\cplauncher` using structured `slog
 | Remote export call fails | Verify export name (`-export`), ensure DLL exports undecorated function. |
 | Access denied | Run elevated if required for compartment operations. |
 | Compartment effects not visible | Target threads may need explicit calls when using `-self-env`. |
+| Label selector matches multiple pods | Refine with `-namespace` or a more specific selector; tool now fails instead of picking first. |
+| Pod has no IP yet | Wait until pod is Running; relaunch with same `-label`. |
 
 <!--
 SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
