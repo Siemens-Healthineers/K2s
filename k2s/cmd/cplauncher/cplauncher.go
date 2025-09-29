@@ -38,11 +38,13 @@ var (
 	procVirtualAllocEx           = kernel32.NewProc("VirtualAllocEx")
 	procWriteProcessMemory       = kernel32.NewProc("WriteProcessMemory")
 	procGetExitCodeThread        = kernel32.NewProc("GetExitCodeThread")
+	procGetExitCodeProcess       = kernel32.NewProc("GetExitCodeProcess")
 	procCloseHandle              = kernel32.NewProc("CloseHandle")
 	procLoadLibraryW             = kernel32.NewProc("LoadLibraryW")
 	procCreateToolhelp32Snapshot = kernel32.NewProc("CreateToolhelp32Snapshot")
 	procModule32FirstW           = kernel32.NewProc("Module32FirstW")
 	procModule32NextW            = kernel32.NewProc("Module32NextW")
+	procSetHandleInformation     = kernel32.NewProc("SetHandleInformation")
 	iphlpapi                     = syscall.NewLazyDLL("iphlpapi.dll")
 )
 
@@ -54,11 +56,30 @@ const (
 	PAGE_READWRITE             = 0x04
 	TH32CS_SNAPMODULE          = 0x00000008
 	TH32CS_SNAPMODULE32        = 0x00000010
+	STARTF_USESTDHANDLES      = 0x00000100
+	HANDLE_FLAG_INHERIT       = 0x00000001
 )
 
+// startupInfo mirrors Windows STARTUPINFOW (only fields we need) for std handle redirection.
 type startupInfo struct {
-	Cb uint32
-	_  [68]byte
+	Cb              uint32
+	lpReserved      *uint16
+	lpDesktop       *uint16
+	lpTitle         *uint16
+	dwX             uint32
+	dwY             uint32
+	dwXSize         uint32
+	dwYSize         uint32
+	dwXCountChars   uint32
+	dwYCountChars   uint32
+	dwFillAttribute uint32
+	dwFlags         uint32
+	wShowWindow     uint16
+	cbReserved2     uint16
+	lpReserved2     *byte
+	hStdInput       syscall.Handle
+	hStdOutput      syscall.Handle
+	hStdError       syscall.Handle
 }
 
 type processInformation struct {
@@ -92,7 +113,7 @@ var (
 	compCacheMu sync.RWMutex
 )
 
-func createSuspended(exe string, args []string) (processInformation, error) {
+func createSuspended(exe string, args []string, stdout, stderr syscall.Handle) (processInformation, error) {
 	var pi processInformation
 	full, err := filepath.Abs(exe)
 	if err != nil {
@@ -105,8 +126,17 @@ func createSuspended(exe string, args []string) (processInformation, error) {
 	if len(args) > 0 {
 		cmdLine += " " + strings.Join(args, " ")
 	}
-	si := startupInfo{Cb: uint32(unsafe.Sizeof(startupInfo{}))}
-	r1, _, e1 := procCreateProcessW.Call(0, uintptr(unsafe.Pointer(utf16Ptr(full))), 0, 0, 0, CREATE_SUSPENDED|CREATE_UNICODE_ENVIRONMENT, 0, 0, uintptr(unsafe.Pointer(&si)), uintptr(unsafe.Pointer(&pi)))
+	si := startupInfo{}
+	si.Cb = uint32(unsafe.Sizeof(si))
+	inherit := uintptr(0)
+	if stdout != 0 || stderr != 0 {
+		// Only set flags & handles when at least one provided
+		si.dwFlags |= STARTF_USESTDHANDLES
+		if stdout != 0 { si.hStdOutput = stdout }
+		if stderr != 0 { si.hStdError = stderr }
+		inherit = 1
+	}
+	r1, _, e1 := procCreateProcessW.Call(0, uintptr(unsafe.Pointer(utf16Ptr(full))), 0, 0, inherit, CREATE_SUSPENDED|CREATE_UNICODE_ENVIRONMENT, 0, 0, uintptr(unsafe.Pointer(&si)), uintptr(unsafe.Pointer(&pi)))
 	if r1 == 0 {
 		return pi, fmt.Errorf("CreateProcessW failed: %v", e1)
 	}
@@ -434,7 +464,23 @@ func main() {
 		os.Setenv(envVarName, fmt.Sprintf("%d", compartment))
 		slog.Info("set env", "name", envVarName, "value", compartment, "mode", "self-env")
 	}
-	pi, err := createSuspended(exe, args)
+	// Prepare redirection files so we can capture child stdout/stderr for logging after it exits.
+	childStdoutPath := filepath.Join(logDir, fmt.Sprintf("%s-child-stdout-%d.log", cliName, time.Now().UnixNano()))
+	childStderrPath := filepath.Join(logDir, fmt.Sprintf("%s-child-stderr-%d.log", cliName, time.Now().UnixNano()))
+	childStdoutFile, err := os.Create(childStdoutPath)
+	if err != nil { slog.Error("create child stdout file failed", "error", err); os.Exit(1) }
+	defer childStdoutFile.Close()
+	childStderrFile, err := os.Create(childStderrPath)
+	if err != nil { slog.Error("create child stderr file failed", "error", err); os.Exit(1) }
+	defer childStderrFile.Close()
+	// Make handles inheritable
+	if _, _, se := procSetHandleInformation.Call(childStdoutFile.Fd(), HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT); se != nil && se.Error() != "The operation completed successfully." {
+		slog.Warn("failed to mark stdout handle inheritable", "error", se)
+	}
+	if _, _, se := procSetHandleInformation.Call(childStderrFile.Fd(), HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT); se != nil && se.Error() != "The operation completed successfully." {
+		slog.Warn("failed to mark stderr handle inheritable", "error", se)
+	}
+	pi, err := createSuspended(exe, args, syscall.Handle(childStdoutFile.Fd()), syscall.Handle(childStderrFile.Fd()))
 	if err != nil {
 		slog.Error("create process failed", "error", err, "exe", exe)
 		dumpRecentErrorLines(logFilePath, 20)
@@ -487,8 +533,32 @@ func main() {
 	if noInject {
 		if finalDll == "" { finalDll = "(no injection)" } else { finalDll += " (injection disabled)" }
 	}
-	slog.Info("done", "pid", pi.ProcessId, "dll", finalDll, "compartment", compartment, "selfEnv", selfEnv, "noInject", noInject, "logFile", logFilePath)
-	fmt.Printf("cplauncher finished. pid=%d log=%s dll=%s\n", pi.ProcessId, logFilePath, finalDll)
+	slog.Info("child running", "pid", pi.ProcessId, "dll", finalDll, "compartment", compartment, "selfEnv", selfEnv, "noInject", noInject, "logFile", logFilePath, "stdoutCapture", childStdoutPath, "stderrCapture", childStderrPath)
+
+	// Wait for child process to exit, then capture its exit code & log outputs.
+	syscall.WaitForSingleObject(syscall.Handle(pi.Process), syscall.INFINITE)
+	var exitCode uint32
+	procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
+
+	// Read and log child stdout
+	logChildOutput := func(path, stream string) {
+		f, err := os.Open(path)
+		if err != nil { slog.Warn("open child output failed", "stream", stream, "error", err); return }
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" { continue }
+			slog.Info("child", "stream", stream, "line", line)
+			if stream == "stdout" { fmt.Fprintln(os.Stdout, line) } else { fmt.Fprintln(os.Stderr, line) }
+		}
+	}
+	logChildOutput(childStdoutPath, "stdout")
+	logChildOutput(childStderrPath, "stderr")
+
+	slog.Info("child exited", "pid", pi.ProcessId, "exitCode", exitCode)
+	fmt.Printf("cplauncher: child exited pid=%d exit=%d (log=%s)\n", pi.ProcessId, exitCode, logFilePath)
+	os.Exit(int(exitCode))
 }
 
 // resolveCompartmentFromLabel locates a pod by label selector and maps its primary IP to a Windows network compartment ID.
