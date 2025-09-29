@@ -10,6 +10,7 @@ import (
 )
 
 type CliExecutor interface {
+	Exec(ctx context.Context, cliPath string, cliArgs ...string) (string, int)
 	ExecOrFail(ctx context.Context, cliPath string, cliArgs ...string) string
 }
 
