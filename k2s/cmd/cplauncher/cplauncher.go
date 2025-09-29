@@ -17,6 +17,7 @@ import (
 	"context"
 	"os/exec"
 	"regexp"
+	"sort"
 	"time"
 	"unsafe"
 	"sync"
@@ -273,6 +274,8 @@ func main() {
 	var labelSelector string
 	var namespace string
 	var labelTimeoutStr string
+	var logsKeep int
+	var logMaxAgeStr string
 
 	versionFlag := cli.NewVersionFlag(cliName)
 
@@ -285,6 +288,8 @@ func main() {
 	flag.StringVar(&labelSelector, "label", "", "Kubernetes label selector to resolve a pod -> compartment (alternative to -compartment)")
 	flag.StringVar(&namespace, "namespace", "", "Namespace scope for -label lookup (empty = all namespaces)")
 	flag.StringVar(&labelTimeoutStr, "label-timeout", "10s", "Timeout for Kubernetes label resolution (e.g. 5s, 30s, 1m)")
+	flag.IntVar(&logsKeep, "logs-keep", 30, "Maximum number of previous log files to retain (excluding current)" )
+	flag.StringVar(&logMaxAgeStr, "log-max-age", "", "Optional max age for log files (e.g. 24h, 7d); empty disables age-based deletion")
 	flag.BoolVar(&dryRun, "dry-run", false, "Show planned actions (compartment, dll resolution, target) without creating or modifying a process")
 	flag.StringVar(&verbosity, cli.VerbosityFlagName, logging.LevelToLowerString(slog.LevelInfo), cli.VerbosityFlagHelp())
 	flag.StringVar(&verbosity, "v", logging.LevelToLowerString(slog.LevelInfo), "Alias for -verbosity")
@@ -337,6 +342,11 @@ func main() {
 	}
 	defer logFile.Close()
 	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartment", compartment, "verbosity", verbosity)
+
+	// Perform log retention maintenance (best-effort)
+	if err := cleanupOldLogs(logDir, logFileName, logsKeep, logMaxAgeStr); err != nil {
+		slog.Warn("log cleanup encountered an issue", "error", err)
+	}
 
 	// Resolve default DLL if not provided and injection requested
 	if dll == "" && !noInject {
@@ -559,3 +569,53 @@ func compartmentFromIPViaIpconfig(ip string) (int, error) {
  	if found == -1 { return 0, fmt.Errorf("ip %s not found in ipconfig /allcompartments output", ip) }
  	return found, nil
 }
+
+// cleanupOldLogs enforces log retention: keep latest 'keep' files (excluding current) and optionally delete older than maxAge.
+func cleanupOldLogs(dir, current string, keep int, maxAgeStr string) error {
+	if keep < 0 { keep = 0 }
+	var maxAge time.Duration
+	var err error
+	if maxAgeStr != "" {
+		maxAge, err = time.ParseDuration(maxAgeStr)
+		if err != nil { return fmt.Errorf("parse log-max-age: %w", err) }
+		if maxAge <= 0 { return fmt.Errorf("log-max-age must be > 0") }
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil { return fmt.Errorf("read log dir: %w", err) }
+	type lf struct { name string; info os.FileInfo }
+	var files []lf
+	for _, e := range entries {
+		if e.IsDir() { continue }
+		name := e.Name()
+		if !strings.HasPrefix(name, cliName+"-") || !strings.HasSuffix(name, ".log") { continue }
+		if name == current { continue }
+		info, ierr := e.Info(); if ierr != nil { continue }
+		files = append(files, lf{name: name, info: info})
+	}
+	// Sort newest first
+	sort.Slice(files, func(i,j int) bool { return files[i].info.ModTime().After(files[j].info.ModTime()) })
+	now := time.Now()
+	var toDelete []lf
+	if keep < len(files) {
+		toDelete = append(toDelete, files[keep:]...)
+	}
+	if maxAgeStr != "" {
+		for _, f := range files[:min(len(files), keep)] { // also age filter among retained set
+			if now.Sub(f.info.ModTime()) > maxAge { toDelete = append(toDelete, f) }
+		}
+	}
+	seen := map[string]struct{}{}
+	for _, f := range toDelete {
+		if _, ok := seen[f.name]; ok { continue }
+		seen[f.name] = struct{}{}
+		path := filepath.Join(dir, f.name)
+		if err := os.Remove(path); err != nil {
+			slog.Debug("log retention removal failed", "file", path, "error", err)
+		} else {
+			slog.Debug("log retention removed", "file", path)
+		}
+	}
+	return nil
+}
+
+func min(a,b int) int { if a<b { return a }; return b }

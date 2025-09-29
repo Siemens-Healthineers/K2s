@@ -42,6 +42,8 @@ go build -o cplauncher.exe .
 	-dry-run                  Print planned actions then exit (no process creation/injection)
 	-verbosity <level>        Log verbosity (debug|info|warn|error or integer levels)
 	-v <level>                Alias for -verbosity
+	-logs-keep <n>            Max number of previous log files to retain (default 30)
+	-log-max-age <dur>        Optional age threshold for log deletion (e.g. 24h, 7d); empty disables age based pruning
 	-version                  Print version information
 ```
 
@@ -95,6 +97,7 @@ cplauncher -label app=my-service -dry-run -- myapp.exe
 
 ### Logging
 Logs are written to `<SystemDrive>\\var\\log\\cplauncher` using structured `slog`. Each execution creates a new file named `cplauncher-<pid>-<unixTs>.log`.
+Retention: after starting, the tool prunes old logs keeping at most `-logs-keep` newest (excluding the current) and optionally any older than `-log-max-age`.
 On fatal errors the tool now prints the most recent ERROR lines (or last lines) from the log file to stderr for quick triage.
 
 ### Exit Codes
