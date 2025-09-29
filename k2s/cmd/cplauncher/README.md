@@ -107,8 +107,8 @@ Logs are written to `<SystemDrive>\\var\\log\\cplauncher` using structured `slog
 | Compartment effects not visible | Target threads may need explicit calls when using `-self-env`. |
 | Label selector matches multiple pods | Refine with `-namespace` or a more specific selector; tool now fails instead of picking first. |
 | Pod has no IP yet | Wait until pod is Running; relaunch with same `-label`. |
-| PowerShell exit 99 during label resolution | No interface found for the pod IP yet. Pod IP may not be bound on host or network plugin hides it; retry after a short delay or ensure elevated privileges. |
-| PowerShell exit 98 during label resolution | Interface found but no CompartmentId returned; network stack may not expose it yet—retry or verify the interface with `Get-NetIPInterface`. |
+| Native lookup: no adapter found for IP | Pod IP not yet present on host or hidden by networking layer; retry after small delay. |
+| Native lookup: GetInterfaceCompartmentId failed | Ensure running elevated; interface may be transient. Try again or inspect with `ipconfig /allcompartments`. |
 
 <!--
 SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG

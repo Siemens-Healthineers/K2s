@@ -13,9 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"bytes"
 	"context"
-	"os/exec"
+	"net"
 	"time"
 	"unsafe"
 	"sync"
@@ -41,6 +40,10 @@ var (
 	procCreateToolhelp32Snapshot = kernel32.NewProc("CreateToolhelp32Snapshot")
 	procModule32FirstW           = kernel32.NewProc("Module32FirstW")
 	procModule32NextW            = kernel32.NewProc("Module32NextW")
+	iphlpapi                     = syscall.NewLazyDLL("iphlpapi.dll")
+	procGetAdaptersAddresses     = iphlpapi.NewProc("GetAdaptersAddresses")
+	procConvertInterfaceIndexToLuid = iphlpapi.NewProc("ConvertInterfaceIndexToLuid")
+	procGetInterfaceCompartmentId   = iphlpapi.NewProc("GetInterfaceCompartmentId")
 )
 
 const (
@@ -492,47 +495,107 @@ func resolveCompartmentFromLabel(selector, namespace string, timeout time.Durati
 }
 
 // compartmentFromIP returns the compartment id for a given IP by querying PowerShell.
-func compartmentFromIP(ip string) (int, error) {
-	compCacheMu.RLock()
-	if v, ok := compCache[ip]; ok {
-		compCacheMu.RUnlock()
-		return v, nil
+// Native structures (partial) for GetAdaptersAddresses enumeration
+type ipAdapterUnicastAddress struct {
+	Length uint32
+	Flags  uint32
+	Next   *ipAdapterUnicastAddress
+	Address socketAddress
+	// Remaining fields ignored
+}
+type socketAddress struct {
+	Sockaddr uintptr
+	Length   int32
+}
+type ipAdapterAddresses struct {
+	Length                uint32
+	IfIndex               uint32
+	Next                  *ipAdapterAddresses
+	AdapterName           uintptr
+	FirstUnicastAddress   *ipAdapterUnicastAddress
+	FirstAnycastAddress   uintptr
+	FirstMulticastAddress uintptr
+	FirstDnsServerAddress uintptr
+	DnsSuffix             uintptr
+	Description           uintptr
+	FriendlyName          uintptr
+	PhysicalAddress       [8]byte // truncated
+	PhysicalAddressLength uint32
+	Flags                 uint32
+	Mtu                   uint32
+	IfType                uint32
+	OperStatus            uint32
+	Ipv6IfIndex           uint32
+	ZoneIndices           [16]uint32
+	FirstPrefix           uintptr
+	// ignore rest
+}
+type netLuid struct { Value uint64 }
+
+func nativeCompartmentFromIP(ip string) (int, error) {
+	// Load required procs
+	if err := iphlpapi.Load(); err != nil { return 0, fmt.Errorf("load iphlpapi: %w", err) }
+	if err := procGetAdaptersAddresses.Find(); err != nil { return 0, fmt.Errorf("GetAdaptersAddresses not found: %w", err) }
+	if err := procConvertInterfaceIndexToLuid.Find(); err != nil { return 0, fmt.Errorf("ConvertInterfaceIndexToLuid not found: %w", err) }
+	if err := procGetInterfaceCompartmentId.Find(); err != nil { return 0, fmt.Errorf("GetInterfaceCompartmentId not found: %w", err) }
+
+	const AF_INET = 2
+	const GAA_FLAG_SKIP_ANYCAST = 0x2
+	const GAA_FLAG_SKIP_MULTICAST = 0x4
+	const GAA_FLAG_SKIP_DNS_SERVER = 0x8
+	const GAA_FLAG_INCLUDE_PREFIX = 0x10
+	flags := uintptr(GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER | GAA_FLAG_INCLUDE_PREFIX)
+	size := uint32(15 * 1024)
+	buf := make([]byte, size)
+	r1, _, e1 := procGetAdaptersAddresses.Call(uintptr(AF_INET), flags, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
+	if r1 != 0 { // ERROR_BUFFER_OVERFLOW or failure
+		if r1 == 111 { // ERROR_BUFFER_OVERFLOW
+			buf = make([]byte, size)
+			r1, _, e1 = procGetAdaptersAddresses.Call(uintptr(AF_INET), flags, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
+		}
 	}
-	compCacheMu.RUnlock()
-	// Use PowerShell to find the interface alias for the IP then query its NetIPInterface for CompartmentId
-	script := fmt.Sprintf(`$ip="%s"; $int=(Get-NetIPConfiguration | Where-Object { $_.IPv4Address.IPAddress -eq $ip }).InterfaceAlias; if(-not $int){ exit 99 }; $c=(Get-NetIPInterface -InterfaceAlias $int | Select-Object -First 1 -ExpandProperty CompartmentId); if(-not $c){ exit 98 }; Write-Output $c`, ip)
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
-	slog.Debug("executing powershell compartment query", "ip", ip)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	if err := cmd.Run(); err != nil {
-		// Attempt to derive specific exit codes (98/99) for user-friendly diagnostics
-		var exitCode int
-		if ee, ok := err.(*exec.ExitError); ok {
-			exitCode = ee.ExitCode()
-			switch exitCode {
-			case 99:
-				return 0, fmt.Errorf("no network interface found for pod IP %s (exit 99). Possible causes: pod IP not yet bound on host, virtual/overlay network not exposed via Get-NetIPConfiguration, or insufficient privileges. Enable debug verbosity for script details. Raw output: %s", ip, strings.TrimSpace(out.String()))
-			case 98:
-				return 0, fmt.Errorf("failed to obtain CompartmentId for interface of pod IP %s (exit 98). Interface present but did not return a compartment. Raw output: %s", ip, strings.TrimSpace(out.String()))
-			default:
-				return 0, fmt.Errorf("PowerShell query failed (exit %d) resolving compartment for IP %s: %v. Output: %s", exitCode, ip, err, strings.TrimSpace(out.String()))
+	if r1 != 0 {
+		return 0, fmt.Errorf("GetAdaptersAddresses failed: %v", e1)
+	}
+	targetIP := net.ParseIP(ip)
+	if targetIP == nil {
+		return 0, fmt.Errorf("invalid ip '%s'", ip)
+	}
+	// Walk linked list
+	head := (*ipAdapterAddresses)(unsafe.Pointer(&buf[0]))
+	for aa := head; aa != nil; aa = aa.Next {
+		for ua := aa.FirstUnicastAddress; ua != nil; ua = ua.Next {
+			sa := ua.Address
+			if sa.Sockaddr == 0 || sa.Length < 8 { continue }
+			fam := *(*uint16)(unsafe.Pointer(sa.Sockaddr))
+			if fam != AF_INET { continue }
+			// Extract IPv4 at offset 4
+			raw := (*[16]byte)(unsafe.Pointer(sa.Sockaddr))
+			v4 := net.IPv4(raw[4], raw[5], raw[6], raw[7])
+			if v4.Equal(targetIP.To4()) {
+				// Found interface index
+				ifIndex := aa.IfIndex
+				var luid netLuid
+				r2, _, e2 := procConvertInterfaceIndexToLuid.Call(uintptr(ifIndex), uintptr(unsafe.Pointer(&luid)))
+				if r2 != 0 { return 0, fmt.Errorf("ConvertInterfaceIndexToLuid failed: %v", e2) }
+				var compID uint32
+				r3, _, e3 := procGetInterfaceCompartmentId.Call(uintptr(unsafe.Pointer(&luid)), uintptr(unsafe.Pointer(&compID)))
+				if r3 != 0 { return 0, fmt.Errorf("GetInterfaceCompartmentId failed: %v", e3) }
+				return int(compID), nil
 			}
 		}
-		return 0, fmt.Errorf("PowerShell execution error resolving compartment for IP %s: %v. Output: %s", ip, err, strings.TrimSpace(out.String()))
 	}
-	line := strings.TrimSpace(out.String())
-	if line == "" {
-		return 0, fmt.Errorf("empty compartment output for ip %s", ip)
+	return 0, fmt.Errorf("no adapter found for ip %s", ip)
+}
+
+func compartmentFromIP(ip string) (int, error) {
+	compCacheMu.RLock()
+	if v, ok := compCache[ip]; ok { compCacheMu.RUnlock(); return v, nil }
+	compCacheMu.RUnlock()
+	comp, err := nativeCompartmentFromIP(ip)
+	if err != nil {
+		return 0, fmt.Errorf("native compartment resolution failed for ip %s: %w", ip, err)
 	}
-	var comp int
-	_, scanErr := fmt.Sscanf(line, "%d", &comp)
-	if scanErr != nil {
-		return 0, fmt.Errorf("parse compartment id '%s': %v", line, scanErr)
-	}
-	compCacheMu.Lock()
-	compCache[ip] = comp
-	compCacheMu.Unlock()
+	compCacheMu.Lock(); compCache[ip] = comp; compCacheMu.Unlock()
 	return comp, nil
 }
