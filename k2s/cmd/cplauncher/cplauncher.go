@@ -481,9 +481,12 @@ func main() {
 		if ret == 0 {
 			return 0, 0, fmt.Errorf("CreatePipe: %v", e1)
 		}
-		// read end: clear inherit; write end: keep inherit
-		if _, _, e2 := procSetHandleInformation.Call(uintptr(r), HANDLE_FLAG_INHERIT, 0); e2 != nil && e2.Error() != "The operation completed successfully." {
-			slog.Warn("SetHandleInformation read end", "error", e2)
+		// Ensure write end is inheritable, read end not inheritable
+		if _, _, eW := procSetHandleInformation.Call(uintptr(w), HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT); eW != nil && eW.Error() != "The operation completed successfully." {
+			slog.Warn("SetHandleInformation write end", "error", eW)
+		}
+		if _, _, eR := procSetHandleInformation.Call(uintptr(r), HANDLE_FLAG_INHERIT, 0); eR != nil && eR.Error() != "The operation completed successfully." {
+			slog.Warn("SetHandleInformation read end", "error", eR)
 		}
 		return r, w, nil
 	}
