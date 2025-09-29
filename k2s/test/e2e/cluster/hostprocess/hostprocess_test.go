@@ -83,9 +83,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	// Only wait for rollout if deployments exist (skip errors if some examples only contain pods)
 	for _, dep := range hostProcessDeploymentNames {
-		// Use rollout status with timeout, but ignore failures if resource absent to keep test flexible
-		_, err := suite.Kubectl().RunSilently(ctx, "get", "deployment", dep, "-n", namespace)
-		if err == nil {
+		_, code := suite.Kubectl().RunWithExitCode(ctx, "get", "deployment", dep, "-n", namespace)
+		if code == 0 {
 			suite.Kubectl().Run(ctx, "rollout", "status", "deployment", dep, "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
 		}
 	}
@@ -148,7 +147,6 @@ var _ = Describe("HostProcess Workloads", func() {
 	})
 
 	Describe("cplauncher diagnostics", func() {
-		cplauncherDep := hostProcessDeploymentNames[0]
 		cplauncherLabel := HostProcessAppLabel
 
 		It("cplauncher stdout logs contain pid line and target exe", func(ctx SpecContext) {
@@ -173,6 +171,19 @@ var _ = Describe("HostProcess Workloads", func() {
 			jsonOut := suite.Kubectl().Run(ctx, "get", "pod", anchorPodName, "-n", namespace, "-o", "json")
 			var obj map[string]any
 			Expect(json.Unmarshal([]byte(jsonOut), &obj)).To(Succeed())
+			meta, _ := obj["metadata"].(map[string]any)
+			anns, _ := meta["annotations"].(map[string]any)
+			if len(anns) == 0 { Skip("no annotations present") }
+			re := regexp.MustCompile(`(?i)compartment`)
+			found := false
+			for k, v := range anns {
+				if !re.MatchString(k) { continue }
+				if s, ok := v.(string); ok {
+					if s == "" { continue }
+					if regexp.MustCompile(`^\\d+$`).MatchString(s) { found = true; break }
+				}
+			}
+			if !found { Skip("no compartment-related numeric annotation found") }
 		})
 	})
 
@@ -192,97 +203,6 @@ var _ = Describe("HostProcess Workloads", func() {
 			if code != 0 { Skip("service not found: " + serviceName) }
 			_, curlCode := suite.Kubectl().RunWithExitCode(ctx, "get", "deployment", "curl", "-n", namespace)
 			if curlCode != 0 { Skip("curl deployment not found; skipping pod->deployment reachability test") }
-			suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment(hostProcDep, namespace, "curl", namespace, ctx)
-		})
-	})
-			It(depName+" becomes available", func() {
-				// Skip gracefully if deployment not present in the workload set
-				_, err := suite.Kubectl().RunSilently(context.Background(), "get", "deployment", depName, "-n", namespace)
-				if err != nil {
-					Skip("deployment not found: " + depName)
-				}
-				suite.Cluster().ExpectDeploymentToBeAvailable(depName, namespace)
-			})
-			It(depName+" pods become Ready", func(ctx SpecContext) {
-				_, err := suite.Kubectl().RunSilently(context.Background(), "get", "deployment", depName, "-n", namespace)
-				if err != nil {
-					Skip("deployment not found: " + depName)
-				}
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", depName, namespace)
-			})
-		}
-	})
-
-	Describe("cplauncher diagnostics", func() {
-		cplauncherDep := hostProcessDeploymentNames[0]
-		cplauncherLabel := HostProcessAppLabel
-
-		It("cplauncher stdout logs contain pid line and target exe", func(ctx SpecContext) {
-			// Find pod name for deployment (assumes 1 replica)
-			// We poll using kubectl get pod -l app=<depLabel>
-			var podName string
-			Eventually(func(g Gomega) string {
-				out, err := suite.Kubectl().RunSilently(ctx, "get", "pods", "-n", namespace, "-l", "app="+cplauncherLabel, "-o", "jsonpath={.items[0].metadata.name}")
-				g.Expect(err).NotTo(HaveOccurred())
-				podName = out
-				return out
-			}, suite.TestStepTimeout(), 2*time.Second).ShouldNot(BeEmpty())
-
-			Eventually(func() string {
-				logs, _ := suite.Kubectl().RunSilently(ctx, "logs", podName, "-n", namespace)
-				return logs
-			}, 60*time.Second, 2*time.Second).Should(And(ContainSubstring("pid="), ContainSubstring("cplauncher finished")))
-		})
-
-		It("anchor pod (if annotated) exposes a numeric compartment annotation", func(ctx SpecContext) {
-			jsonOut, err := suite.Kubectl().RunSilently(ctx, "get", "pod", anchorPodName, "-n", namespace, "-o", "json")
-			Expect(err).NotTo(HaveOccurred())
-			var obj map[string]any
-			Expect(json.Unmarshal([]byte(jsonOut), &obj)).To(Succeed())
-			meta, _ := obj["metadata"].(map[string]any)
-			anns, _ := meta["annotations"].(map[string]any)
-			if len(anns) == 0 {
-				Skip("no annotations present")
-			}
-			re := regexp.MustCompile(`(?i)compartment`) // look for any key mentioning compartment
-			found := false
-			for k, v := range anns {
-				if !re.MatchString(k) { continue }
-				if s, ok := v.(string); ok {
-					if s == "" { continue }
-					if matched := regexp.MustCompile(`^\\d+$`).MatchString(s); matched {
-						found = true
-						break
-					}
-				}
-			}
-			if !found {
-				Skip("no compartment-related numeric annotation found")
-			}
-		})
-	})
-
-	Describe("Reachability", func() {
-		const hostProcDep = HostProcessDeploymentName
-		const serviceName = HostProcessServiceName // Service exposing port 80 -> 8080
-
-		It(serviceName+" service is reachable from host", func(ctx SpecContext) {
-			// Ensure deployment exists
-			if _, err := suite.Kubectl().RunSilently(ctx, "get", "service", serviceName, "-n", namespace); err != nil {
-				Skip("service not found: " + serviceName)
-			}
-			// Use existing helper against deployment first (port discovery may rely on deployment), then optionally curl service.
-			k2s.VerifyDeploymentToBeReachableFromHost(ctx, hostProcDep, namespace)
-		})
-
-		It(serviceName+" service is reachable from curl pod", func(ctx SpecContext) {
-			// Need both deployments present: hostProcDep and curl
-			if _, err := suite.Kubectl().RunSilently(ctx, "get", "service", serviceName, "-n", namespace); err != nil {
-				Skip("service not found: " + serviceName)
-			}
-			if _, err := suite.Kubectl().RunSilently(ctx, "get", "deployment", "curl", "-n", namespace); err != nil {
-				Skip("curl deployment not found; skipping pod->deployment reachability test")
-			}
 			suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment(hostProcDep, namespace, "curl", namespace, ctx)
 		})
 	})
