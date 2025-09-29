@@ -234,7 +234,7 @@ func main() {
 	versionFlag := cli.NewVersionFlag(cliName)
 
 	flag.UintVar(&compartment, "compartment", 0, "Compartment ID (required)")
-	flag.StringVar(&dll, "dll", "", "Helper DLL path (required)")
+	flag.StringVar(&dll, "dll", "", "Helper DLL path (optional if cphook.dll is beside the executable)")
 	flag.StringVar(&exportName, "export", "SetTargetCompartmentId", "Export name of the compartment switching function inside the helper DLL")
 	flag.BoolVar(&selfEnv, "self-env", false, "Only set environment variable (no remote SetCurrentThreadCompartmentId); target must self-set")
 	flag.BoolVar(&noInject, "no-inject", false, "Skip DLL injection (use with -self-env)")
@@ -255,8 +255,8 @@ func main() {
 		}
 	}
 
-	if compartment == 0 || dll == "" || len(target) == 0 {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s -compartment <id> -dll <dll> [options] -- <exe> [args]\n", os.Args[0])
+	if compartment == 0 || len(target) == 0 {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s -compartment <id> [-dll <dll>] [options] -- <exe> [args]\n", os.Args[0])
 		flag.PrintDefaults()
 		return
 	}
@@ -271,6 +271,26 @@ func main() {
 	}
 	defer logFile.Close()
 	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartment", compartment)
+
+	// Resolve default DLL if not provided and injection requested
+	if dll == "" && !noInject {
+		exePath, err := os.Executable()
+		if err != nil {
+			slog.Error("failed to determine executable path for default dll", "error", err)
+		} else {
+			candidate := filepath.Join(filepath.Dir(exePath), "cphook.dll")
+			if _, statErr := os.Stat(candidate); statErr == nil {
+				dll = candidate
+				slog.Info("using default helper dll", "dll", dll)
+			} else {
+				slog.Error("dll not specified and default cphook.dll not found", "candidate", candidate)
+				fmt.Fprintf(flag.CommandLine.Output(), "error: -dll not provided and default not found: %s\n", candidate)
+				return
+			}
+		}
+	} else if dll == "" && noInject {
+		slog.Info("-dll not provided but -no-inject set; continuing without dll")
+	}
 	exe := target[0]
 	args := target[1:]
 
