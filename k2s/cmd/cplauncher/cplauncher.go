@@ -8,14 +8,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/internal/logging"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
 )
 
@@ -258,25 +260,36 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
+
+	// Setup structured file logging (one file per invocation, include timestamp for uniqueness)
+	logDir := filepath.Join(logging.RootLogDir(), cliName)
+	logFileName := fmt.Sprintf("%s-%d-%d.log", cliName, os.Getpid(), time.Now().Unix())
+	logFile, err := logging.SetupDefaultFileLogger(logDir, logFileName, slog.LevelDebug, "component", cliName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to setup logger: %v\n", err)
+		os.Exit(1)
+	}
+	defer logFile.Close()
+	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartment", compartment)
 	exe := target[0]
 	args := target[1:]
 
 	if err := createCompartmentIfNeeded(uint32(compartment)); err != nil {
-		log.Printf("[warn] compartment provisioning attempt: %v", err)
+		slog.Warn("compartment provisioning attempt failed or skipped", "error", err)
 	}
 
 	// Always set COMPARTMENT_ID_ATTACH so the DLL's DllMain can attempt per-thread switching
 	os.Setenv("COMPARTMENT_ID_ATTACH", fmt.Sprintf("%d", compartment))
-	log.Printf("[info] set COMPARTMENT_ID_ATTACH=%d (DLL will queue per-thread compartment switch via APC on load)", compartment)
+	slog.Info("set env", "name", "COMPARTMENT_ID_ATTACH", "value", compartment)
 
 	if selfEnv {
-		// Expose additional variable (possibly custom name) for target code that self-configures
 		os.Setenv(envVarName, fmt.Sprintf("%d", compartment))
-		log.Printf("[info] set %s=%d (target code may self-call SetCurrentThreadCompartmentId); COMPARTMENT_ID_ATTACH already set for automatic DLL handling", envVarName, compartment)
+		slog.Info("set env", "name", envVarName, "value", compartment, "mode", "self-env")
 	}
 	pi, err := createSuspended(exe, args)
 	if err != nil {
-		log.Fatalf("create process: %v", err)
+		slog.Error("create process failed", "error", err, "exe", exe)
+		os.Exit(1)
 	}
 	defer procCloseHandle.Call(uintptr(pi.Process))
 	defer procCloseHandle.Call(uintptr(pi.Thread))
@@ -284,33 +297,38 @@ func main() {
 	if !noInject {
 		base, err := injectDLL(pi.Process, dll)
 		if err != nil {
-			log.Fatalf("inject: %v", err)
+			slog.Error("dll injection failed", "error", err, "dll", dll)
+			os.Exit(1)
 		}
 		offset, err := computeExportOffset(dll, exportName)
 		if err != nil {
-			log.Fatalf("export offset: %v", err)
+			slog.Error("compute export offset failed", "error", err, "export", exportName)
+			os.Exit(1)
 		}
 		if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
 			base = enumBase
+			slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
 		}
 		if !selfEnv { // only attempt remote call if not deferring to target
 			if err := callRemoteExport(pi.Process, base, offset, uint32(compartment)); err != nil {
-				log.Fatalf("remote call: %v", err)
+				slog.Error("remote export call failed", "error", err, "compartment", compartment)
+				os.Exit(1)
 			} else {
-				log.Printf("[info] remote thread SetCurrentThreadCompartmentId(%d) succeeded (NOTE: affects only that remote thread)", compartment)
+				slog.Info("remote export invoked", "compartment", compartment)
 			}
 		} else {
-			log.Printf("[info] skipped remote SetTargetCompartmentId call due to -self-env (DLL may still perform other instrumentation)")
+			slog.Info("skipped remote export due to self-env", "export", exportName)
 		}
 	} else if !selfEnv {
-		log.Printf("[warn] -no-inject specified without -self-env; the main thread will remain in its original compartment")
+		slog.Warn("-no-inject specified without -self-env; target main thread may remain in original compartment")
 	}
 
 	if !selfEnv {
-		log.Printf("[note] The current method sets compartment on a transient remote thread only; unless the target itself sets the compartment on its network threads it will continue operating in compartment 1.")
+		slog.Info("note: unless target sets compartment for its own network threads it stays in default compartment")
 	}
 	if err := resume(pi); err != nil {
-		log.Fatalf("resume: %v", err)
+		slog.Error("resume failed", "error", err)
+		os.Exit(1)
 	}
-	log.Printf("Done. PID=%d", pi.ProcessId)
+	slog.Info("done", "pid", pi.ProcessId)
 }
