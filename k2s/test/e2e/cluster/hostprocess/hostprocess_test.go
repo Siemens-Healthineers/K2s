@@ -131,6 +131,72 @@ var _ = Describe("HostProcess Workloads", func() {
 			depName := dep
 			It(depName+" becomes available", func() {
 				// Skip gracefully if deployment not present in the workload set
+				_, exitCode := suite.Kubectl().RunWithExitCode(context.Background(), "get", "deployment", depName, "-n", namespace)
+				if exitCode != 0 {
+					Skip("deployment not found: " + depName)
+				}
+				suite.Cluster().ExpectDeploymentToBeAvailable(depName, namespace)
+			})
+			It(depName+" pods become Ready", func(ctx SpecContext) {
+				_, exitCode := suite.Kubectl().RunWithExitCode(context.Background(), "get", "deployment", depName, "-n", namespace)
+				if exitCode != 0 {
+					Skip("deployment not found: " + depName)
+				}
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", depName, namespace)
+			})
+		}
+	})
+
+	Describe("cplauncher diagnostics", func() {
+		cplauncherDep := hostProcessDeploymentNames[0]
+		cplauncherLabel := HostProcessAppLabel
+
+		It("cplauncher stdout logs contain pid line and target exe", func(ctx SpecContext) {
+			// Find pod name for deployment (assumes 1 replica)
+			// We poll using kubectl get pod -l app=<depLabel>
+			var podName string
+			Eventually(func(g Gomega) string {
+				out, code := suite.Kubectl().RunWithExitCode(ctx, "get", "pods", "-n", namespace, "-l", "app="+cplauncherLabel, "-o", "jsonpath={.items[0].metadata.name}")
+				if code != 0 { return "" }
+				podName = out
+				return out
+			}, suite.TestStepTimeout(), 2*time.Second).ShouldNot(BeEmpty())
+
+			Eventually(func() string {
+				logs, code := suite.Kubectl().RunWithExitCode(ctx, "logs", podName, "-n", namespace)
+				if code != 0 { return "" }
+				return logs
+			}, 60*time.Second, 2*time.Second).Should(And(ContainSubstring("pid="), ContainSubstring("cplauncher finished")))
+		})
+
+		It("anchor pod (if annotated) exposes a numeric compartment annotation", func(ctx SpecContext) {
+			jsonOut := suite.Kubectl().Run(ctx, "get", "pod", anchorPodName, "-n", namespace, "-o", "json")
+			var obj map[string]any
+			Expect(json.Unmarshal([]byte(jsonOut), &obj)).To(Succeed())
+		})
+	})
+
+	Describe("Reachability", func() {
+		const hostProcDep = HostProcessDeploymentName
+		const serviceName = HostProcessServiceName // Service exposing port 80 -> 8080
+
+		It(serviceName+" service is reachable from host", func(ctx SpecContext) {
+			// Ensure service exists
+			_, code := suite.Kubectl().RunWithExitCode(ctx, "get", "service", serviceName, "-n", namespace)
+			if code != 0 { Skip("service not found: " + serviceName) }
+			k2s.VerifyDeploymentToBeReachableFromHost(ctx, hostProcDep, namespace)
+		})
+
+		It(serviceName+" service is reachable from curl pod", func(ctx SpecContext) {
+			_, code := suite.Kubectl().RunWithExitCode(ctx, "get", "service", serviceName, "-n", namespace)
+			if code != 0 { Skip("service not found: " + serviceName) }
+			_, curlCode := suite.Kubectl().RunWithExitCode(ctx, "get", "deployment", "curl", "-n", namespace)
+			if curlCode != 0 { Skip("curl deployment not found; skipping pod->deployment reachability test") }
+			suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment(hostProcDep, namespace, "curl", namespace, ctx)
+		})
+	})
+			It(depName+" becomes available", func() {
+				// Skip gracefully if deployment not present in the workload set
 				_, err := suite.Kubectl().RunSilently(context.Background(), "get", "deployment", depName, "-n", namespace)
 				if err != nil {
 					Skip("deployment not found: " + depName)
