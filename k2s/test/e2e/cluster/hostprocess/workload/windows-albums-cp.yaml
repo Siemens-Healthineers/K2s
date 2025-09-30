@@ -58,14 +58,27 @@ spec:
         - name: cplauncher
           image: mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0  # HostProcess base image
           imagePullPolicy: IfNotPresent
+          env:
+            - name: CPLAUNCHER_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: hostprocess-launcher-env
+                  key: CPLAUNCHER_BASE
+            - name: ALBUMS_WIN
+              valueFrom:
+                configMapKeyRef:
+                  name: hostprocess-launcher-env
+                  key: ALBUMS_WIN
           command:
-            - "C:\\ws\\k2s\\bin\\cni\\cplauncher.exe"
+            - "cmd.exe"
+            - "/c"
+            - "%CPLAUNCHER_BASE%\\cplauncher.exe"
             - "-label"
             - "app=cp-albums-win"
             - "-namespace"
             - "k2s"
             - "--"
-            - "C:\\ws\\s\\examples\\albums-golang-win\\albumswin.exe"
+            - "%ALBUMS_WIN%"
           volumeMounts:
             - name: host-ws
               mountPath: C:/ws
