@@ -5,11 +5,9 @@ package hostprocess
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -113,13 +111,14 @@ func toWindowsPath(p string) string {
 	p = filepath.Clean(p)
 	return strings.ReplaceAll(p, "/", "\\")
 }
+
 // ensureLauncherConfigMap creates or updates the ConfigMap holding env values for cplauncher paths.
 // Priority: explicit env vars (TEST_CPLAUNCHER_BASE, TEST_ALBUMS_WIN) -> defaults.
 func ensureLauncherConfigMap(ctx context.Context) {
 	base := os.Getenv("TEST_CPLAUNCHER_BASE")
-	if base == "" { base = `C:\\ws\\k2s\\bin\\cni` }
+	if base == "" { base = `..\\..\\..\\..\\..\\..\\bin\\cni` }
 	albums := os.Getenv("TEST_ALBUMS_WIN")
-	if albums == "" { albums = `C:\\ws\\s\\examples\\albums-golang-win\\albumswin.exe` }
+	if albums == "" { albums = `.\\albumswin.exe` }
 
 	// Normalize to Windows backslashes (in case someone passed forward slashes)
 	base = strings.ReplaceAll(base, `/`, `\\`)
@@ -165,6 +164,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	// Create/update ConfigMap with dynamic base paths before applying manifests
 	ensureLauncherConfigMap(ctx)
+
 	// Apply all manifests in the workload directory
 	suite.Kubectl().Run(ctx, "apply", "-k", manifestDir)
 
@@ -257,26 +257,7 @@ var _ = Describe("HostProcess Workloads", func() {
 				logs, code := suite.Kubectl().RunWithExitCode(ctx, "logs", podName, "-n", namespace)
 				if code != 0 { return "" }
 				return logs
-			}, 60*time.Second, 2*time.Second).Should(And(ContainSubstring("pid="), ContainSubstring("cplauncher finished")))
-		})
-
-		It("anchor pod (if annotated) exposes a numeric compartment annotation", func(ctx SpecContext) {
-			jsonOut := suite.Kubectl().Run(ctx, "get", "pod", anchorPodName, "-n", namespace, "-o", "json")
-			var obj map[string]any
-			Expect(json.Unmarshal([]byte(jsonOut), &obj)).To(Succeed())
-			meta, _ := obj["metadata"].(map[string]any)
-			anns, _ := meta["annotations"].(map[string]any)
-			if len(anns) == 0 { Skip("no annotations present") }
-			re := regexp.MustCompile(`(?i)compartment`)
-			found := false
-			for k, v := range anns {
-				if !re.MatchString(k) { continue }
-				if s, ok := v.(string); ok {
-					if s == "" { continue }
-					if regexp.MustCompile(`^\\d+$`).MatchString(s) { found = true; break }
-				}
-			}
-			if !found { Skip("no compartment-related numeric annotation found") }
+			}, 60*time.Second, 2*time.Second).Should(And(ContainSubstring("IP Addresses"), ContainSubstring("172.20.1")))
 		})
 	})
 

@@ -69,6 +69,8 @@ spec:
                 configMapKeyRef:
                   name: hostprocess-launcher-env
                   key: ALBUMS_WIN
+            - name: RESOURCE
+              value: 'albums-win-hp-app-hostprocess'
           command:
             - "cmd.exe"
             - "/c"
@@ -104,10 +106,11 @@ metadata:
     app: albums-win-hp-app-hostprocess
 spec:
   selector:
-    app: albums-win-hp-app-hostprocess
+    app: cp-albums-win  # <== label selector used by cplauncher
   type: ClusterIP
   ports:
     - name: http
       port: 80          # Cluster IP port
       targetPort: 8080  # Container listens on 8080 (adjust if different)
       protocol: TCP
+  clusterIP: 172.21.1.211
