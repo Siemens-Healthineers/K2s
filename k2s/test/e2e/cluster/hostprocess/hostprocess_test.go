@@ -5,12 +5,10 @@ package hostprocess
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -159,8 +157,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	GinkgoWriter.Println("Applying hostprocess workloads from", manifestDir)
 
-	suite.Kubectl().Run(ctx, "delete", "namespace", "k2s", "--ignore-not-found=true")
-	suite.Kubectl().Run(ctx, "create", "namespace", "k2s")
+	suite.Kubectl().Run(ctx, "delete", "namespace", namespace, "--ignore-not-found=true")
+	suite.Kubectl().Run(ctx, "create", "namespace", namespace)
 
 	// Resolve paths and attempt local build of albumswin before creating ConfigMap
 	computeAndSetLauncherEnv()
@@ -199,7 +197,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if code != 0 { GinkgoWriter.Println("(non-fatal) deletion returned exit code", code) }
 	GinkgoWriter.Println("Hostprocess workloads delete step finished; manifests path:", manifestDir)
 
-	suite.Kubectl().Run(ctx, "delete", "namespace", "k2s", "--ignore-not-found=true")
+	suite.Kubectl().Run(ctx, "delete", "namespace", namespace, "--ignore-not-found=true")
 
 	// Delete cluster role for k2s-NT-AUTHORITY-SYSTEM
 	GinkgoWriter.Println("Deleting cluster role for k2s-NT-AUTHORITY-SYSTEM")
@@ -285,12 +283,12 @@ var _ = Describe("HostProcess Workloads", func() {
 
 		It("direct hostprocess pod IP is reachable from curl pod", func(ctx SpecContext) {
 			// Ensure curl deployment exists
+			GinkgoWriter.Println("Getting curl deployment: ")
 			_, curlCode := suite.Kubectl().RunWithExitCode(ctx, "get", "deployment", "curl", "-n", namespace)
 			if curlCode != 0 { Skip("curl deployment not found") }
-			// Get hostprocess pod name
-			podName, pCode := suite.Kubectl().RunWithExitCode(ctx, "get", "pods", "-n", namespace, "-l", "app="+HostProcessAppLabel, "-o", "jsonpath={.items[0].metadata.name}")
-			if pCode != 0 || podName == "" { Skip("hostprocess pod not found") }
-			podIP, ipCode := suite.Kubectl().RunWithExitCode(ctx, "get", "pod", podName, "-n", namespace, "-o", "jsonpath={.status.podIP}")
+			// Get hostprocess pod IP
+			GinkgoWriter.Println("Getting hostprocess pod IP: ")
+			podIP, ipCode := suite.Kubectl().RunWithExitCode(ctx, "get", "pod", AnchorPodName, "-n", namespace, "-o", "jsonpath={.status.podIP}")
 			if ipCode != 0 || podIP == "" { Skip("pod IP not available yet") }
 			// Find curl pod name
 			var curlPodName string
@@ -299,10 +297,26 @@ var _ = Describe("HostProcess Workloads", func() {
 				curlPodName = name
 				return name
 			}, suite.TestStepTimeout(), 2*time.Second).ShouldNot(BeEmpty())
+			GinkgoWriter.Printf("Found curl pod: %s\n", curlPodName)
 			// Execute curl directly to pod IP:8080 expecting HTTP 200 (health endpoint or root)
-			cmd := fmt.Sprintf("curl -s -o /dev/null -w %%{http_code} http://%s:%d/ || true", podIP, HostProcessContainerTargetPort)
+			cmd := fmt.Sprintf("curl -s -o /dev/null -w %%{http_code} http://%s:%d/%s || true", podIP, HostProcessContainerTargetPort, HostProcessDeploymentName)
+			GinkgoWriter.Println("Executing curl command: ", cmd)
 			Eventually(func() string {
 				out, _ := suite.Kubectl().RunWithExitCode(ctx, "exec", curlPodName, "-n", namespace, "--", "sh", "-c", cmd)
+				return strings.TrimSpace(out)
+			}, 60*time.Second, 3*time.Second).Should(Equal("200"))
+		})
+
+		It("direct hostprocess pod IP is reachable from host", func(ctx SpecContext) {
+			// Get hostprocess pod IP
+			GinkgoWriter.Println("Getting hostprocess pod IP: ")
+			podIP, ipCode := suite.Kubectl().RunWithExitCode(ctx, "get", "pod", AnchorPodName, "-n", namespace, "-o", "jsonpath={.status.podIP}")
+			if ipCode != 0 || podIP == "" { Skip("pod IP not available yet") }
+			// Execute curl directly to pod IP:8080 expecting HTTP 200 (health endpoint or root)
+			url := fmt.Sprintf("http://%s:%d/%s", podIP, HostProcessContainerTargetPort, HostProcessDeploymentName)
+			GinkgoWriter.Println("Executing curl command: ", url)
+			Eventually(func() string {
+				out, _ := suite.Cli().Exec(ctx, "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url)
 				return strings.TrimSpace(out)
 			}, 60*time.Second, 3*time.Second).Should(Equal("200"))
 		})
