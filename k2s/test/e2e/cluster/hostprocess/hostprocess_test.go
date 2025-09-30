@@ -5,9 +5,12 @@ package hostprocess
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -278,6 +281,30 @@ var _ = Describe("HostProcess Workloads", func() {
 			_, curlCode := suite.Kubectl().RunWithExitCode(ctx, "get", "deployment", "curl", "-n", namespace)
 			if curlCode != 0 { Skip("curl deployment not found; skipping pod->deployment reachability test") }
 			suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment(hostProcDep, namespace, "curl", namespace, ctx)
+		})
+
+		It("direct hostprocess pod IP is reachable from curl pod", func(ctx SpecContext) {
+			// Ensure curl deployment exists
+			_, curlCode := suite.Kubectl().RunWithExitCode(ctx, "get", "deployment", "curl", "-n", namespace)
+			if curlCode != 0 { Skip("curl deployment not found") }
+			// Get hostprocess pod name
+			podName, pCode := suite.Kubectl().RunWithExitCode(ctx, "get", "pods", "-n", namespace, "-l", "app="+HostProcessAppLabel, "-o", "jsonpath={.items[0].metadata.name}")
+			if pCode != 0 || podName == "" { Skip("hostprocess pod not found") }
+			podIP, ipCode := suite.Kubectl().RunWithExitCode(ctx, "get", "pod", podName, "-n", namespace, "-o", "jsonpath={.status.podIP}")
+			if ipCode != 0 || podIP == "" { Skip("pod IP not available yet") }
+			// Find curl pod name
+			var curlPodName string
+			Eventually(func() string {
+				name, _ := suite.Kubectl().RunWithExitCode(ctx, "get", "pods", "-n", namespace, "-l", "app=curl", "-o", "jsonpath={.items[0].metadata.name}")
+				curlPodName = name
+				return name
+			}, suite.TestStepTimeout(), 2*time.Second).ShouldNot(BeEmpty())
+			// Execute curl directly to pod IP:8080 expecting HTTP 200 (health endpoint or root)
+			cmd := fmt.Sprintf("curl -s -o /dev/null -w %%{http_code} http://%s:%d/ || true", podIP, HostProcessContainerTargetPort)
+			Eventually(func() string {
+				out, _ := suite.Kubectl().RunWithExitCode(ctx, "exec", curlPodName, "-n", namespace, "--", "sh", "-c", cmd)
+				return strings.TrimSpace(out)
+			}, 60*time.Second, 3*time.Second).Should(Equal("200"))
 		})
 	})
 })
