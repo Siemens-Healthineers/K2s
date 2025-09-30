@@ -149,6 +149,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	GinkgoWriter.Println("Applying hostprocess workloads from", manifestDir)
 
+	suite.Kubectl().Run(ctx, "create", "namespace", "k2s")
+
 	// Resolve paths and attempt local build of albumswin before creating ConfigMap
 	computeAndSetLauncherEnv()
 
