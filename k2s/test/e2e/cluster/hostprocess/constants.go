@@ -6,8 +6,8 @@ const (
 	NamespaceHostProcess           = "k2s" // currently using default; adjust if manifest namespace changes
 	AnchorPodName                  = "albums-compartment-anchor"
 	HostProcessDeploymentName      = "albums-win-hp-app-hostprocess"
-	HostProcessAppLabel            = "albums-win-hp-app" // value of the app label on the host process pods and service
-	HostProcessServiceName         = "albums-win-hp-app"
+	HostProcessAppLabel            = "albums-win-hp-app-hostprocess" // value of the app label on the host process pods and service
+	HostProcessServiceName         = "albums-win-hp-app-hostprocess"
 	HostProcessServicePort         = 80   // service port
 	HostProcessContainerTargetPort = 8080 // targetPort in the service (documented for reference)
 )
