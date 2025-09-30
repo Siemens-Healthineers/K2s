@@ -54,7 +54,7 @@ func TestClusterHostProcess(t *testing.T) {
 // can be run from repo root or within the package directory.
 func resolveManifestDir() string {
 	if st, err := os.Stat("workload"); err == nil && st.IsDir() { return "workload" }
-	return "workload" // default
+	return "workload/" // default
 }
 
 // computeAndSetLauncherEnv locates cplauncher and builds the local albumswin test binary.
@@ -147,8 +147,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		Skip("hostprocess manifest directory not found: " + manifestDir)
 	}
 
+	// Create cluster role for k2s-NT-AUTHORITY-SYSTEM
+	GinkgoWriter.Println("Creating cluster role for k2s-NT-AUTHORITY-SYSTEM")
+	suite.K2sCli().RunOrFail(ctx, "system", "users", "add", "-u", "NT AUTHORITY\\SYSTEM")
+	suite.Kubectl().Run(ctx, "delete", "clusterrole", "ViewDeploymentRole", "--ignore-not-found=true")
+	suite.Kubectl().Run(ctx, "delete", "clusterrolebinding", "ViewDeploymenBinding", "--ignore-not-found=true")
+	suite.Kubectl().Run(ctx, "create", "clusterrole", "ViewDeploymentRole", "--verb=get,list,watch", "--resource=pods,deployments") 
+	suite.Kubectl().Run(ctx, "create", "clusterrolebinding", "ViewDeploymenBinding", "--clusterrole=ViewDeploymentRole", "--user=k2s-NT-AUTHORITY-SYSTEM")
+
 	GinkgoWriter.Println("Applying hostprocess workloads from", manifestDir)
 
+	suite.Kubectl().Run(ctx, "delete", "namespace", "k2s", "--ignore-not-found=true")
 	suite.Kubectl().Run(ctx, "create", "namespace", "k2s")
 
 	// Resolve paths and attempt local build of albumswin before creating ConfigMap
@@ -157,7 +166,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	// Create/update ConfigMap with dynamic base paths before applying manifests
 	ensureLauncherConfigMap(ctx)
 	// Apply all manifests in the workload directory
-	suite.Kubectl().Run(ctx, "apply", "-f", manifestDir)
+	suite.Kubectl().Run(ctx, "apply", "-k", manifestDir)
 
 	GinkgoWriter.Println("Waiting for hostprocess deployments (if any) to be ready in namespace <", namespace, "> ..")
 
@@ -183,9 +192,16 @@ var _ = AfterSuite(func(ctx context.Context) {
 	}
 
 	GinkgoWriter.Println("Deleting hostprocess workloads (best-effort)..")
-	_, code := suite.Kubectl().RunWithExitCode(ctx, "delete", "-f", manifestDir, "--ignore-not-found=true")
+	_, code := suite.Kubectl().RunWithExitCode(ctx, "delete", "-k", manifestDir, "--force", "--ignore-not-found=true")
 	if code != 0 { GinkgoWriter.Println("(non-fatal) deletion returned exit code", code) }
 	GinkgoWriter.Println("Hostprocess workloads delete step finished; manifests path:", manifestDir)
+
+	suite.Kubectl().Run(ctx, "delete", "namespace", "k2s", "--ignore-not-found=true")
+
+	// Delete cluster role for k2s-NT-AUTHORITY-SYSTEM
+	GinkgoWriter.Println("Deleting cluster role for k2s-NT-AUTHORITY-SYSTEM")
+	suite.Kubectl().Run(ctx, "delete", "clusterrole", "ViewDeploymentRole", "--ignore-not-found=true")
+	suite.Kubectl().Run(ctx, "delete", "clusterrolebinding", "ViewDeploymenBinding", "--ignore-not-found=true")
 
 	suite.TearDown(ctx, framework.RestartKubeProxy)
 })

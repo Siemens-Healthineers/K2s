@@ -612,7 +612,7 @@ func main() {
 // 2. Enforce exactly one match.
 // 3. Derive compartment via parsing `ipconfig /allcompartments` (primary approach) cached per IP.
 func resolveCompartmentFromLabel(selector, namespace string, timeout time.Duration) (int, string, string, string, error) {
-	kubeconfig := `C:\Windows\System32\config\systemprofile\config`
+	kubeconfig := filepath.Join(os.Getenv("USERPROFILE"), ".kube", "config")
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return 0, "", "", "", fmt.Errorf("kubeconfig load: %w", err)

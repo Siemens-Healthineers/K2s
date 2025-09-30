@@ -31,16 +31,16 @@ kind: Deployment
 metadata:
   name: albums-win-hp-app-hostprocess
   labels:
-    app: albums-win-hp-app
+    app: albums-win-hp-app-hostprocess
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: albums-win-hp-app
+      app: albums-win-hp-app-hostprocess
   template:
     metadata:
       labels:
-        app: albums-win-hp-app
+        app: albums-win-hp-app-hostprocess
     spec:
       nodeSelector:
         kubernetes.io/os: windows
@@ -99,12 +99,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: albums-win-hp-app
+  name: albums-win-hp-app-hostprocess
   labels:
-    app: albums-win-hp-app
+    app: albums-win-hp-app-hostprocess
 spec:
   selector:
-    app: albums-win-hp-app
+    app: albums-win-hp-app-hostprocess
   type: ClusterIP
   ports:
     - name: http
