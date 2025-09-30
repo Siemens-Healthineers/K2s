@@ -47,8 +47,7 @@ func TestClusterHostProcess(t *testing.T) {
 // can be run from repo root or within the package directory.
 func resolveManifestDir() string {
 	candidates := []string{
-		"test/e2e/cluster/hostprocess/workload", // absolute-from-root style
-		"hostprocess/workload",                   // relative short form (if working dir already at test/e2e/cluster)
+		"workload",                   // relative short form
 	}
 	for _, c := range candidates {
 		if st, err := os.Stat(c); err == nil && st.IsDir() {
