@@ -82,7 +82,7 @@ metadata:
   labels:
     app: myapp-anchor-1    # label used by cplauncher discovery
   annotations:
-  linkerd.io/inject: enabled   # enables Linkerd proxy injection if mesh is installed and auto-inject is permitted
+    linkerd.io/inject: enabled   # enables Linkerd proxy injection if mesh is installed and auto-inject is permitted
 spec:
   nodeSelector:
     kubernetes.io/os: windows
