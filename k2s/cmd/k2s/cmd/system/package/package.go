@@ -23,20 +23,26 @@ import (
 
 var (
 	example = `
-# Creates K2s package
-k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip"
+	# Creates K2s package
+	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip"
 
-# Creates K2s package for offline installation
-k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation
+	# Creates K2s package for offline installation
+	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation
 
-# Creates K2s package with code signing (certificate and password are both required)
-k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --certificate "path\to\cert.pfx" --password "mycertpassword"
+	# Creates K2s package with code signing (certificate and password are both required)
+	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --certificate "path\to\cert.pfx" --password "mycertpassword"
 
-# Creates K2s package for offline installation with code signing
-k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation --certificate "path\to\cert.pfx" --password "mycertpassword"
+	# Creates K2s package for offline installation with code signing
+	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation --certificate "path\to\cert.pfx" --password "mycertpassword"
 
-Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
-`
+	# Creates a delta package (provide full package zip paths)
+	k2s system package --delta-package --target-dir "C:\tmp" --name "k2s-delta-1.4.0-to-1.4.1.zip" --package-version-from "C:\tmp\k2s-1.4.0.zip" --package-version-to "C:\tmp\k2s-1.4.1.zip"
+
+	# Creates a signed delta package
+	k2s system package --delta-package --target-dir "C:\tmp" --name "k2s-delta-1.4.0-to-1.4.1.zip" --package-version-from "C:\tmp\k2s-1.4.0.zip" --package-version-to "C:\tmp\k2s-1.4.1.zip" --certificate "path\to\cert.pfx" --password "mycertpassword"
+
+	Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
+	`
 
 	PackageCmd = &cobra.Command{
 		Use:     "package",
@@ -77,6 +83,15 @@ const (
 	
 	PasswordFlagName  = "password"
 	PasswordFlagUsage = "Password for the code signing certificate"
+
+	DeltaPackageFlagName  = "delta-package"
+	DeltaPackageFlagUsage = "Creates a delta package for faster updates"
+
+	PackageVersionFromFlagName  = "package-version-from"
+	PackageVersionFromFlagUsage = "Path to the existing (base) full package .zip (required if --delta-package is set)"
+
+	PackageVersionToFlagName  = "package-version-to"
+	PackageVersionToFlagUsage = "Path to the new (target) full package .zip (required if --delta-package is set)"
 )
 
 func init() {
@@ -88,7 +103,40 @@ func init() {
 	PackageCmd.Flags().StringP(ZipPackageFileNameFlagName, "n", "", ZipPackageFileNameFlagUsage)
 	PackageCmd.Flags().Bool(ForOfflineInstallationFlagName, false, ForOfflineInstallationFlagUsage)
 	PackageCmd.Flags().String(K8sBinsFlagName, "", K8sBinsFlagUsage)
-	
+	PackageCmd.Flags().Bool(DeltaPackageFlagName, false, DeltaPackageFlagUsage)
+	PackageCmd.MarkFlagRequired(TargetDirectoryFlagName)
+	PackageCmd.MarkFlagRequired(ZipPackageFileNameFlagName)
+
+	PackageCmd.Flags().String(PackageVersionFromFlagName, "", PackageVersionFromFlagUsage)
+	PackageCmd.Flags().String(PackageVersionToFlagName, "", PackageVersionToFlagUsage)
+	PackageCmd.Flags().Lookup(PackageVersionFromFlagName).NoOptDefVal = ""
+	PackageCmd.Flags().Lookup(PackageVersionToFlagName).NoOptDefVal = ""
+	PackageCmd.Flags().Lookup(DeltaPackageFlagName).NoOptDefVal = "true"
+
+	// NOTE: We do not mark the version flags as required here because they are only
+	// required when --delta-package is set. Validation is handled in PreRunE below.
+	PackageCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		delta, _ := cmd.Flags().GetBool(DeltaPackageFlagName)
+		from, _ := cmd.Flags().GetString(PackageVersionFromFlagName)
+		to, _ := cmd.Flags().GetString(PackageVersionToFlagName)
+		if delta {
+			if from == "" {
+				return fmt.Errorf("--%s is required when --%s is set", PackageVersionFromFlagName, DeltaPackageFlagName)
+			}	
+			if to == "" {
+				return fmt.Errorf("--%s is required when --%s is set", PackageVersionToFlagName, DeltaPackageFlagName)
+			}
+		} else {
+			if from != "" {
+				return fmt.Errorf("--%s can only be used when --%s is set", PackageVersionFromFlagName, DeltaPackageFlagName)
+			}
+			if to != "" {
+				return fmt.Errorf("--%s can only be used when --%s is set", PackageVersionToFlagName, DeltaPackageFlagName)
+			}
+		}
+		return nil
+	}
+
 	// Code signing flags
 	PackageCmd.Flags().StringP(CertificateFlagName, "c", "", CertificateFlagUsage)
 	PackageCmd.Flags().StringP(PasswordFlagName, "w", "", PasswordFlagUsage)
@@ -136,68 +184,49 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 }
 
 func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
-	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1"))
+	flags.VisitAll(func(f *pflag.Flag) { slog.Debug("Param", "name", f.Name, "value", f.Value) })
 
-	flags.VisitAll(func(f *pflag.Flag) {
-		slog.Debug("Param", "name", f.Name, "value", f.Value)
-	})
+	delta, _ := strconv.ParseBool(flags.Lookup(DeltaPackageFlagName).Value.String())
+
+	// Shared params
+	out, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
+	targetDir := flags.Lookup(TargetDirectoryFlagName).Value.String()
+	zipName := flags.Lookup(ZipPackageFileNameFlagName).Value.String() // For delta this is the output delta zip
 
 	params := []string{}
-
-	out, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
-	if out {
-		params = append(params, " -ShowLogs")
-	}
-
-	proxy := flags.Lookup(ProxyFlagName).Value.String()
-	if len(proxy) > 0 {
-		params = append(params, " -Proxy "+proxy)
-	}
-
-	cpus := flags.Lookup(ControlPlaneCPUsFlagName).Value.String()
-	if len(cpus) > 0 {
-		params = append(params, " -VMProcessorCount "+cpus)
-	}
-
-	memory := flags.Lookup(ControlPlaneMemoryFlagName).Value.String()
-	if len(memory) > 0 {
-		params = append(params, " -VMMemoryStartupBytes "+memory)
-	}
-
-	disksize := flags.Lookup(ControlPlaneDiskSizeFlagName).Value.String()
-	if len(disksize) > 0 {
-		params = append(params, " -VMDiskSize "+disksize)
-	}
-
-	targetDir := flags.Lookup(TargetDirectoryFlagName).Value.String()
+	if out { params = append(params, " -ShowLogs") }
 	params = append(params, " -TargetDirectory "+utils.EscapeWithSingleQuotes(targetDir))
+	params = append(params, " -ZipPackageFileName "+utils.EscapeWithSingleQuotes(zipName))
 
-	name := flags.Lookup(ZipPackageFileNameFlagName).Value.String()
-	params = append(params, " -ZipPackageFileName "+utils.EscapeWithSingleQuotes(name))
-
-	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String())
-	if forOfflineInstallation {
-		params = append(params, " -ForOfflineInstallation")
-	}
-
-	k8sBins := flags.Lookup(K8sBinsFlagName).Value.String()
-	if k8sBins != "" {
-		params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins))
-	}
-
-	// Code signing parameters
+	// Code signing (applies to both normal and delta packages)
 	certPath := flags.Lookup(CertificateFlagName).Value.String()
 	password := flags.Lookup(PasswordFlagName).Value.String()
-	
 	if certPath != "" {
-		if password == "" {
-			return "", nil, fmt.Errorf("password is required when using a certificate")
-		}
+		if password == "" { return "", nil, fmt.Errorf("password is required when using a certificate") }
 		params = append(params, " -CertificatePath "+utils.EscapeWithSingleQuotes(certPath))
 		params = append(params, " -Password "+utils.EscapeWithSingleQuotes(password))
 	} else if password != "" {
 		return "", nil, fmt.Errorf("certificate is required when providing a password")
 	}
+
+	if delta {
+		oldPkg := flags.Lookup(PackageVersionFromFlagName).Value.String()
+		newPkg := flags.Lookup(PackageVersionToFlagName).Value.String()
+		params = append(params, " -InputPackageOne "+utils.EscapeWithSingleQuotes(oldPkg))
+		params = append(params, " -InputPackageTwo "+utils.EscapeWithSingleQuotes(newPkg))
+		return utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sDeltaPackage.ps1")), params, nil
+	}
+
+	// Normal (full) package path
+	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1"))
+
+	// Only add full-package specific params if not delta
+	proxy := flags.Lookup(ProxyFlagName).Value.String(); if proxy != "" { params = append(params, " -Proxy "+proxy) }
+	cpus := flags.Lookup(ControlPlaneCPUsFlagName).Value.String(); if cpus != "" { params = append(params, " -VMProcessorCount "+cpus) }
+	memory := flags.Lookup(ControlPlaneMemoryFlagName).Value.String(); if memory != "" { params = append(params, " -VMMemoryStartupBytes "+memory) }
+	disksize := flags.Lookup(ControlPlaneDiskSizeFlagName).Value.String(); if disksize != "" { params = append(params, " -VMDiskSize "+disksize) }
+	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String()); if forOfflineInstallation { params = append(params, " -ForOfflineInstallation") }
+	k8sBins := flags.Lookup(K8sBinsFlagName).Value.String(); if k8sBins != "" { params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins)) }
 
 	return systemPackageCommand, params, nil
 }
