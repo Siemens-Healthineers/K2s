@@ -68,6 +68,64 @@ function Invoke-GoCommand {
     }
 }
 
+# Internal helper: Safely execute 'go mod download' inside a working directory that may contain spaces.
+function Invoke-GoModDownloadInDir {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $WorkingDir,
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy
+    )
+
+    if (-not (Test-Path -LiteralPath $WorkingDir)) {
+        throw "Working directory '$WorkingDir' does not exist."
+    }
+
+    # Detect if installed go supports '-C' flag (Go 1.20+). We'll attempt 'go help build' and inspect output once.
+    $supportsChangeDir = $false
+    try {
+        $help = & go.exe help build 2>$null
+        if ($help -match "-C") {
+            $supportsChangeDir = $true
+        }
+    } catch {
+        Write-Host "Warning: unable to detect go version capabilities. Falling back to Push-Location approach." -ForegroundColor Yellow
+    }
+
+    $prevHttp = $env:http_proxy
+    $prevHttps = $env:https_proxy
+    try {
+        if ($Proxy) { $env:http_proxy = $Proxy; $env:https_proxy = $Proxy }
+
+        if ($supportsChangeDir) {
+            Write-Host "Using 'go -C' for module download in '$WorkingDir'" -ForegroundColor DarkCyan
+            $exit = & go.exe -C "$WorkingDir" mod download 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host $exit
+                throw "go mod download failed (exit $LASTEXITCODE) using -C in '$WorkingDir'"
+            }
+            return
+        }
+
+        # Fallback: change directory in-process with Push/Pop-Location
+        Write-Host "Using Push-Location fallback for module download in '$WorkingDir'" -ForegroundColor DarkCyan
+        Push-Location -LiteralPath $WorkingDir
+        try {
+            $exit = & go.exe mod download 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host $exit
+                throw "go mod download failed (exit $LASTEXITCODE) in '$WorkingDir'"
+            }
+        } finally {
+            Pop-Location
+        }
+    }
+    finally {
+        $env:http_proxy = $prevHttp
+        $env:https_proxy = $prevHttps
+    }
+}
+
 function New-GinkgoTestCmd {
     param (
         [Parameter(Mandatory = $false)]
@@ -128,7 +186,8 @@ function New-GinkgoTestCmd {
         $ginkgoCmd += "!$tag"
     }
 
-    $ginkgoCmd += '" {path}'
+    # Append path placeholder quoted to survive spaces in paths like 'C:\Program Files\...'
+    $ginkgoCmd += '" "{path}"'
 
     return $ginkgoCmd
 }
@@ -227,7 +286,10 @@ function Start-GinkgoTests {
 
     if ($Proxy -ne '') {
         Write-Output "  Using Proxy to download go modules: '$Proxy'.."
-        Invoke-GoCommand -Proxy $Proxy -Cmd "cd $WorkingDir;ls;go.exe mod download"
+        Invoke-GoModDownloadInDir -WorkingDir $WorkingDir -Proxy $Proxy
+    } else {
+        # Even without proxy we still must ensure modules are downloaded with safe path handling
+        Invoke-GoModDownloadInDir -WorkingDir $WorkingDir
     }
 
     $ginkgoCmd = $(New-GinkgoTestCmd -Tags $Tags -ExcludeTags $ExcludeTags -OutDir $OutDir -V:$V)
