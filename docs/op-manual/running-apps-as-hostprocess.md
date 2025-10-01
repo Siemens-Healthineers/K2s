@@ -2,8 +2,8 @@
 
 ## Overview
 
-Running existing (often legacy or closed-source) native Windows applications in Kubernetes can be challenging when you need modern platform capabilities (service mesh, observability, scaling) but the binaries were never built for container-awareness or multi-instance coexistence. On Windows, **network compartments** provide a logical isolation boundary for network configuration (interfaces, routes, policies, DNS) similar in spirit to a network namespace on Linux, but they are not automatically created for HostProcess containers (which execute directly in the host context).
-Bringing these native Windows applications in Kubernetes as host process containers and isolating them to run in an spefic pod network can bring the benefit of reusing these modern platform capabilities (service mesh, observability, scaling).
+Running existing (often legacy or closed‑source) native Windows applications in Kubernetes can be challenging when you need modern platform capabilities (service mesh, observability, scaling) but the binaries were never built for container awareness or multi‑instance coexistence. On Windows, **network compartments** provide a logical isolation boundary for network configuration (interfaces, routes, policies, DNS) similar in spirit to a network namespace on Linux, but they are not automatically created for HostProcess containers (which execute directly in the host context).
+Bringing these native Windows applications into Kubernetes as HostProcess containers and isolating them to run in a specific pod network compartment lets you reuse these platform capabilities (service mesh, observability, scaling) with minimal or no code change.
 
 <div align="center">
 
@@ -39,7 +39,10 @@ Windows HostProcess containers execute directly on the host and can start arbitr
 - Starts the desired executable while streaming logs.
 - Exits with a meaningful status for observability.
 
-Tool is available under the *K2s* installation: ```K2S-INSTALLATION-FOLDER\bin\cni\cplauncher.exe```
+Tool is available under the K2s installation:
+```
+K2S-INSTALLATION-FOLDER\bin\cni\cplauncher.exe
+```
 
 ### Benefits
 | Theme | Value | Detail |
@@ -64,7 +67,7 @@ Tool is available under the *K2s* installation: ```K2S-INSTALLATION-FOLDER\bin\c
 4. `cplauncher` resolves anchor pod -> extracts compartment -> switches thread -> launches application.
 5. (Optional) Expose via a Service with selector `app=my-legacy-app`.
 6. Scale by repeating (anchor, HostProcess pair) or using a Deployment (1:1 pods) where each new replica references a unique anchor label (pattern generation or pre-created anchors).
-7. Anchor pod can also be reused with multiple HostProcess instances, so that multiple HostProcess instances share the same pod network.
+7. (Optional) Reuse a single anchor for multiple HostProcess instances (shared compartment/IP) if safe—but prefer 1:1 mapping for isolation and distinct IPs.
 
 ## Full Generic Example
 Below is a generalized manifest (anchor + HostProcess) based on `cplauncher.example.yaml`. Adjust label values, paths, and image versions to fit your environment.
@@ -78,6 +81,8 @@ metadata:
   namespace: apps
   labels:
     app: myapp-anchor-1    # label used by cplauncher discovery
+  annotations:
+  linkerd.io/inject: enabled   # enables Linkerd proxy injection if mesh is installed and auto-inject is permitted
 spec:
   nodeSelector:
     kubernetes.io/os: windows
@@ -118,7 +123,7 @@ spec:
           command:
             - "cmd.exe"
             - "/c"
-            - "K2S-INSTALLATION-FOLDER\\bin\\cni\\cplauncher.exe"  # adjust path (volume / host mount)
+            - "K2S-INSTALLATION-FOLDER\\bin\\cni\\cplauncher.exe"  # replace placeholder with actual path or env var
             - "-label"; "app=myapp-anchor-1"
             - "-namespace"; "apps"
             - "--"
@@ -151,13 +156,13 @@ metadata:
   namespace: apps
 spec:
   selector:
-    app: myapp-anchor-1
+    app: myapp   # target the HostProcess deployment label
   type: ClusterIP
   ports:
     - port: 80
       targetPort: 8080   # assuming binary listens on 8080
       protocol: TCP
-  clusterIP: 172.21.1.222
+  # clusterIP: omit to let Kubernetes allocate
 ```
 
 ### Scaling Strategies
@@ -168,7 +173,49 @@ spec:
 | StatefulSet with deterministic labels | Use ordinal to form anchor label (e.g. `myapp-anchor-$(ordinal)`) | Needs deterministic anchor provisioning logic |
 
 ### Mesh / Sidecar Considerations
-If your service mesh supports Windows injection, target the anchor pod for injection so that traffic is already compartment-scoped before being proxied; ensure cplauncher waits until anchor is Ready (optionally implement a readiness/annotation gate).
+If your service mesh supports Windows injection, target only the anchor pod for injection so traffic is compartment‑scoped before proxy handling. Ensure `cplauncher` waits until the anchor is Ready (consider a readiness annotation gate).
+
+## Using Linkerd with HostProcess Compartments
+Linkerd can provide mutual TLS, latency metrics, policy enforcement, and traffic shaping for legacy Windows workloads launched via HostProcess + compartment binding.
+
+### Injection Path
+1. Install Linkerd with Windows support features enabled (control plane on Linux nodes; data plane proxy supports Windows anchors).
+2. Annotate the anchor pod (or label the namespace) with `linkerd.io/inject: enabled`.
+3. The proxy sidecar is injected into the anchor pod only (HostProcess pods cannot host conventional sidecars).
+4. `cplauncher` switches the HostProcess-launched application into the same compartment; traffic now traverses the proxy transparently.
+
+### Traffic & Identity
+| Aspect | Detail |
+|--------|--------|
+| mTLS Identity | Derived from the anchor pod's ServiceAccount; all processes sharing the compartment inherit that trust domain. |
+| Multiple Processes | If multiple HostProcess workloads share one anchor, they also share identity—use separate anchors for isolation. |
+| Policy Objects | Use `Server` / `ServerAuthorization` (or `Policy` in newer Linkerd) referencing labels on the HostProcess Service. |
+| Outbound Control | Leverage `linkerd viz edges` to confirm encrypted edges; restrict egress with NetworkPolicy + Linkerd policy. |
+
+### Observability
+| Tool | Usage |
+|------|-------|
+| `linkerd viz stat` | Verify success/latency for the Service selecting HostProcess pods. |
+| `linkerd viz tap` | Inspect live requests; confirm compartment-switched process traffic is visible. |
+| `linkerd viz edges` | Confirm mTLS (identity established) between consumers and the workload. |
+
+### Recommended Sequence
+```
+1. k2s addons enable security --type enhanced --omitHydra --omitKeycloak --omitOAuth2Proxy 
+4. Deploy anchor (pause image) + wait for Ready
+5. Deploy HostProcess deployment with cplauncher referencing anchor label
+6. kubectl port-forward or curl via a meshed client to validate traffic
+7. linkerd viz stat deploy -n apps
+8. linkerd viz tap deploy/myapp -n apps (optional)
+```
+
+### Best Practices
+| Practice | Reason |
+|----------|--------|
+| One anchor per identity-sensitive workload | Limits blast radius and clarifies metrics ownership. |
+| Health gating in launcher | Prevents proxy receiving traffic before process is ready. |
+| Structured launcher logs | Facilitates correlation with Linkerd tap output. |
+| Explicit port documentation | Helps avoid conflicts and clarifies expected interception. |
 
 ### Security Notes
 Because HostProcess runs with elevated rights, restrict file system exposure (mount only what you need) and sign the launcher & target binaries. Use per‑namespace RBAC limiting list/get permissions strictly to Pods.
