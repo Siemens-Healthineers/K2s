@@ -38,6 +38,7 @@ var (
 
 	manifestDir string
 	testFailed  bool
+    createdSystemRole bool
 )
 
 const (
@@ -135,6 +136,15 @@ func ensureLauncherConfigMap(ctx context.Context) {
 	)
 }
 
+// isRunningAsSystem returns true if the current process user matches 'NT AUTHORITY\\SYSTEM'.
+// Uses 'whoami' for portability across different Windows configurations.
+func isRunningAsSystem() bool {
+	out, err := exec.Command("whoami").CombinedOutput()
+	if err != nil { return false }
+	user := strings.TrimSpace(string(out))
+	return strings.EqualFold(user, "NT AUTHORITY\\SYSTEM")
+}
+
 var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = resolveManifestDir()
 
@@ -147,13 +157,18 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		Skip("hostprocess manifest directory not found: " + manifestDir)
 	}
 
-	// Create cluster role for k2s-NT-AUTHORITY-SYSTEM
-	GinkgoWriter.Println("Creating cluster role for k2s-NT-AUTHORITY-SYSTEM")
-	suite.K2sCli().RunOrFail(ctx, "system", "users", "add", "-u", "NT AUTHORITY\\SYSTEM")
-	suite.Kubectl().Run(ctx, "delete", "clusterrole", "ViewDeploymentRole", "--ignore-not-found=true")
-	suite.Kubectl().Run(ctx, "delete", "clusterrolebinding", "ViewDeploymenBinding", "--ignore-not-found=true")
-	suite.Kubectl().Run(ctx, "create", "clusterrole", "ViewDeploymentRole", "--verb=get,list,watch", "--resource=pods,deployments") 
-	suite.Kubectl().Run(ctx, "create", "clusterrolebinding", "ViewDeploymenBinding", "--clusterrole=ViewDeploymentRole", "--user=k2s-NT-AUTHORITY-SYSTEM")
+	// Create cluster role for k2s-NT-AUTHORITY-SYSTEM only if not already running as SYSTEM
+	if !isRunningAsSystem() {
+		GinkgoWriter.Println("Creating cluster role for k2s-NT-AUTHORITY-SYSTEM (current user is not SYSTEM)")
+		suite.K2sCli().RunOrFail(ctx, "system", "users", "add", "-u", "NT AUTHORITY\\SYSTEM")
+		suite.Kubectl().Run(ctx, "delete", "clusterrole", "ViewDeploymentRole", "--ignore-not-found=true")
+		suite.Kubectl().Run(ctx, "delete", "clusterrolebinding", "ViewDeploymenBinding", "--ignore-not-found=true")
+		suite.Kubectl().Run(ctx, "create", "clusterrole", "ViewDeploymentRole", "--verb=get,list,watch", "--resource=pods,deployments")
+		suite.Kubectl().Run(ctx, "create", "clusterrolebinding", "ViewDeploymenBinding", "--clusterrole=ViewDeploymentRole", "--user=k2s-NT-AUTHORITY-SYSTEM")
+		createdSystemRole = true
+	} else {
+		GinkgoWriter.Println("Running as NT AUTHORITY\\SYSTEM; skipping creation of cluster role and user add")
+	}
 
 	GinkgoWriter.Println("Applying hostprocess workloads from", manifestDir)
 
@@ -199,10 +214,14 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	suite.Kubectl().Run(ctx, "delete", "namespace", namespace, "--ignore-not-found=true")
 
-	// Delete cluster role for k2s-NT-AUTHORITY-SYSTEM
-	GinkgoWriter.Println("Deleting cluster role for k2s-NT-AUTHORITY-SYSTEM")
-	suite.Kubectl().Run(ctx, "delete", "clusterrole", "ViewDeploymentRole", "--ignore-not-found=true")
-	suite.Kubectl().Run(ctx, "delete", "clusterrolebinding", "ViewDeploymenBinding", "--ignore-not-found=true")
+	// Delete cluster role for k2s-NT-AUTHORITY-SYSTEM only if it was created in this run
+	if createdSystemRole {
+		GinkgoWriter.Println("Deleting cluster role for k2s-NT-AUTHORITY-SYSTEM (it was created by the test)")
+		suite.Kubectl().Run(ctx, "delete", "clusterrole", "ViewDeploymentRole", "--ignore-not-found=true")
+		suite.Kubectl().Run(ctx, "delete", "clusterrolebinding", "ViewDeploymenBinding", "--ignore-not-found=true")
+	} else {
+		GinkgoWriter.Println("Cluster role for k2s-NT-AUTHORITY-SYSTEM not created by test; skipping delete")
+	}
 
 	suite.TearDown(ctx, framework.RestartKubeProxy)
 })
