@@ -126,26 +126,6 @@ function Invoke-GoModDownloadInDir {
     }
 }
 
-# Normalize tag inputs: split entries that may have been passed as a single
-# comma-separated string (e.g. "addon, functional, no-setup") and trim.
-function Convert-ToTagArray {
-    param(
-        [Parameter(Mandatory = $false)]
-        [string[]] $Input
-    )
-    if (-not $Input) { return $null }
-
-    $all = @()
-    foreach ($raw in $Input) {
-        if ($null -eq $raw) { continue }
-        # Split on comma or whitespace (multiple) and remove empties
-        $parts = $raw -split '[,\s]+' | Where-Object { $_ -and ($_.Trim().Length -gt 0) }
-        foreach ($p in $parts) { $all += $p.Trim() }
-    }
-    # Return unique to avoid duplicates if user mixed styles
-    return $all | Select-Object -Unique
-}
-
 function New-GinkgoTestCmd {
     param (
         [Parameter(Mandatory = $false)]
@@ -302,11 +282,7 @@ function Start-GinkgoTests {
         [switch]
         $VV = $false
     )
-    # Sanitize / normalize tag arrays early (robust against comma-separated single arg)
-    $Tags = Convert-ToTagArray -Input $Tags
-    $ExcludeTags = Convert-ToTagArray -Input $ExcludeTags
-
-    Write-Output "  Executing Go-based tests in '$WorkingDir' with verbose='$V' and super-verbose='$VV' for tags '$($Tags -join ',')' and excluding tags '$($ExcludeTags -join ',')'.."
+    Write-Output "  Executing Go-based tests in '$WorkingDir' with verbose='$V' and super-verbose='$VV' for tags '$Tags' and excluding tags '$ExcludeTags'.."
 
     if ($Proxy -ne '') {
         Write-Output "  Using Proxy to download go modules: '$Proxy'.."
@@ -395,11 +371,7 @@ function Start-PesterTests {
         [switch]
         $V = $false
     )
-    # Sanitize / normalize tag arrays early
-    $Tags = Convert-ToTagArray -Input $Tags
-    $ExcludeTags = Convert-ToTagArray -Input $ExcludeTags
-
-    Write-Output "Executing Powershell tests in '$WorkingDir' with verbose='$V' for tags '$($Tags -join ',')' and excluding tags '$($ExcludeTags -join ',')'.."
+    Write-Output "Executing Powershell tests in '$WorkingDir' with verbose='$V' for tags '$Tags' and excluding tags '$ExcludeTags'.."
 
     $pesterConf = New-PesterConfiguration
     $pesterConf.Run.Path = $WorkingDir
