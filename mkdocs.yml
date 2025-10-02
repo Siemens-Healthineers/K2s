@@ -108,6 +108,8 @@ nav:
       - External DNS: op-manual/external-dns.md
       - Extending K2s cluster: op-manual/extending-k2s-cluster.md
       - Secure Host Access: op-manual/secure-host-access.md
+      - Networking Architecture: op-manual/networking-architecture.md
+      - Running Native Windows Apps (HostProcess & Compartments): op-manual/running-apps-as-hostprocess.md
       - Uninstalling K2s: op-manual/uninstalling-k2s.md
       - Sign K2s package: op-manual/signcatalog-k2s.md
   - Developer Guide:
