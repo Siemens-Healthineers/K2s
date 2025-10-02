@@ -48,6 +48,20 @@ and CPU overhead: +20-200%. Even package drops are possible under high load !
 
 A critical consideration in this chosen architecture is the governance of non-TCP protocols, primarily UDP. As Linkerd's service mesh capabilities are focused on L4/L7 TCP traffic, UDP communication operates outside its security perimeter. This necessitates a robust and performant solution to control UDP traffic flows without compromising our core design goals of simplicity and speed. While alternative CNIs like Calico offer integrated policy enforcement, they introduce significant operational complexity and potential performance overhead, which runs counter to the *K2s* philosophy.
 
+## HostProcess & Legacy Windows Application Isolation
+
+For scenarios where existing native Windows applications must be integrated into the cluster with compartmentalized networking and optional service mesh capabilities, *K2s* supports a HostProcess + network compartment pattern. This allows unmodified executables to run with per-instance (or shared) compartment isolation while still benefiting from Linkerd (for TCP) and host-level policy controls (for UDP / non-meshed flows).
+
+See: [Running Native Windows Applications with HostProcess + Network Compartments](./running-apps-as-hostprocess.md)
+
+Key advantages of this pattern within the broader networking model:
+* Preserves the simplicity of the Flannel host-gateway data plane.
+* Avoids introducing opaque overlays when isolating legacy processes.
+* Leverages Linkerd for encrypted / observable TCP while keeping direct compartment routing transparent.
+* Enables per-workload or per-tenant segmentation without complex CNI changes.
+
+This complements the host-level firewall DaemonSets by layering process-level isolation (compartment) with node-level enforcement.
+
 ## The Selected Strategy: Host-Level Firewall Enforcement via a Kubernetes DaemonSet
 
 To address this gap, we have adopted a strategy of leveraging the native, kernel-level firewalls of the host operating systems (Linux iptables and the Windows Filtering Platform). The application and lifecycle of these firewall rules are managed declaratively from within the cluster using a privileged Kubernetes DaemonSet.
