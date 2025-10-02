@@ -305,6 +305,11 @@ if ($wholeDirsNormalized.Count -gt 0) {
     Write-Log "Whole directories (no diffing): $($wholeDirsNormalized -join ', ')" -Console
 }
 
+# Internal list of special files that should be excluded from diff/staging and handled separately if needed.
+$SpecialSkippedFiles = @('Kubemaster-Base.vhdx')
+Write-Log "Special skipped files: $($SpecialSkippedFiles -join ', ')" -Console
+function Test-SpecialSkippedFile { param($path,$list) foreach($f in $list){ if ($path -ieq $f) { return $true } } return $false }
+
 function Test-InWholeDir { param($path, $dirs) foreach($d in $dirs){ if($path.StartsWith($d + '/')){ return $true } } return $false }
 
 $hashPhase = Start-Phase "Hashing"
@@ -319,12 +324,14 @@ $changed  = @()
 # Added & changed (exclude files beneath wholesale directories)
 foreach ($p in $newMap.Keys) {
     if (Test-InWholeDir -path $p -dirs $wholeDirsNormalized) { continue }
+    if (Test-SpecialSkippedFile -path $p -list $SpecialSkippedFiles) { continue }
     if (-not $oldMap.ContainsKey($p)) { $added += $p; continue }
     if ($oldMap[$p].Hash -ne $newMap[$p].Hash) { $changed += $p }
 }
 # Removed (exclude files beneath wholesale directories)
 foreach ($p in $oldMap.Keys) {
     if (Test-InWholeDir -path $p -dirs $wholeDirsNormalized) { continue }
+    if (Test-SpecialSkippedFile -path $p -list $SpecialSkippedFiles) { continue }
     if (-not $newMap.ContainsKey($p)) { $removed += $p }
 }
 
@@ -341,7 +348,15 @@ foreach ($wd in $wholeDirsNormalized) {
 }
 
 # Stage added + changed files
-$deltaFileList = $added + $changed
+$deltaFileList = $added + $changed | Where-Object { -not (Test-SpecialSkippedFile -path $_ -list $SpecialSkippedFiles) }
+# Ensure special skipped files are not present if copied accidentally (e.g. via wholesale dir)
+foreach ($sf in $SpecialSkippedFiles) {
+    $candidate = Join-Path $stageDir $sf
+    if (Test-Path -LiteralPath $candidate) {
+        try { Remove-Item -LiteralPath $candidate -Force -ErrorAction Stop; Write-Log "Removed special skipped file from stage: $sf" -Console }
+        catch { Write-Log "[Warning] Failed to remove special skipped file '$sf' from stage: $($_.Exception.Message)" -Console }
+    }
+}
 $deltaTotal = $deltaFileList.Count
 Write-Log "Staging $deltaTotal changed/added files" -Console
 $lastPct = -1
@@ -374,6 +389,8 @@ $manifest = [pscustomobject]@{
     TargetPackage         = (Split-Path -Leaf $InputPackageTwo)
     WholeDirectories      = $wholeDirsNormalized
     WholeDirectoriesCount = $wholeDirsNormalized.Count
+    SpecialSkippedFiles   = $SpecialSkippedFiles
+    SpecialSkippedFilesCount = $SpecialSkippedFiles.Count
     Added                 = $added
     Changed               = $changed
     Removed               = $removed
@@ -452,7 +469,7 @@ if ($overallError) {
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ 
         Error = $null;
-        Delta = @{ WholeDirectories = $wholeDirsNormalized; Added = $added; Changed = $changed; Removed = $removed; Manifest = 'delta-manifest.json' }
+    Delta = @{ WholeDirectories = $wholeDirsNormalized; SpecialSkippedFiles = $SpecialSkippedFiles; Added = $added; Changed = $changed; Removed = $removed; Manifest = 'delta-manifest.json' }
     }
 }
 
