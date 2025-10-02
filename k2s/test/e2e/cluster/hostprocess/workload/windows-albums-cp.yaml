@@ -82,15 +82,9 @@ spec:
             - "--"
             - "%ALBUMS_WIN%"
           volumeMounts:
-            - name: host-ws
-              mountPath: C:/ws
             - name: host-var-log
               mountPath: C:/var/log
       volumes:
-        - name: host-ws
-          hostPath:
-            path: C:/ws
-            type: Directory
         - name: host-var-log
           hostPath:
             path: C:/var/log
