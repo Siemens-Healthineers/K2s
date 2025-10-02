@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+
+SPDX-License-Identifier: MIT
+-->
+<!-- markdownlint-disable MD041 -->
+
 # AI Assistant Project Instructions
 
 These instructions help AI coding agents work effectively in the K2s repository.

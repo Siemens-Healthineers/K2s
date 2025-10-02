@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
 # Running Native Windows Applications with HostProcess + Network Compartments
 
 ## Overview

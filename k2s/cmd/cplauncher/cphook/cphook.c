@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+//
+// SPDX-License-Identifier: MIT
+
 // CompartmentHook.cpp - C++ helper DLL to set thread network compartment.
 // Exported function: DWORD WINAPI SetTargetCompartmentId(LPVOID param)
 // Returns 0 on success (mirrors SetCurrentThreadCompartmentId), or Win32 error code.

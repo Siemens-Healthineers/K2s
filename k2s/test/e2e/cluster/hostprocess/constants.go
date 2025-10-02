@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-License-Identifier:   MIT
+
 package hostprocess
 
 // Centralized constants for host process e2e to avoid drift with manifests.
