@@ -146,6 +146,16 @@ function New-GinkgoTestCmd {
         $ginkgoCmd += ' -v'
     }
 
+    # Normalize ExcludeTags if they arrive as a single comma-separated string (happens
+    # when invocation style/quoting differs e.g. due to spaces in install path).
+    if ($ExcludeTags -and $ExcludeTags.Count -eq 1) {
+        $single = $ExcludeTags[0]
+        if ($single -match ',') {
+            $split = $single -split '\s*,\s*' | Where-Object { $_ -and ($_.Trim().Length -gt 0) }
+            if ($split.Count -gt 0) { $ExcludeTags = $split }
+        }
+    }
+
     $ginkgoCmd += ' --require-suite' # complains about specs without test suite
     $ginkgoCmd += " --junit-report=GoTest-$((Get-Date -Format 'yyyy-MM-dd-HH-mm-ss').ToString()).xml"
     $ginkgoCmd += " --output-dir=$OutDir"
