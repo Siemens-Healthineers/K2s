@@ -114,6 +114,58 @@ var (
 	compCacheMu sync.RWMutex
 )
 
+// winEscapeArg applies Windows command line quoting rules for a single argument so CreateProcessW
+// parses it back to the original string. Adapted from documented rules; intentionally minimal yet
+// covers spaces, tabs, quotes and backslashes before quotes.
+func winEscapeArg(a string) string {
+	if a == "" { return "\"\"" }
+	// Fast path: no special chars needing quotes
+	// Need quotes if spaces, tabs, quotes, empty, or ends with backslash (so it isn't consumed)
+	needQuotes := strings.ContainsAny(a, " \t\"") || len(a) == 0 || strings.HasSuffix(a, "\\")
+	if !needQuotes {
+		return a
+	}
+	var b strings.Builder
+	b.Grow(len(a) + 2)
+	b.WriteByte('"')
+	backslashes := 0
+	for i := 0; i < len(a); i++ {
+		c := a[i]
+		if c == '\\' {
+			backslashes++
+			continue
+		}
+		if c == '"' {
+			// double the accumulated backslashes, then escape the quote
+			b.WriteString(strings.Repeat("\\", backslashes*2))
+			backslashes = 0
+			b.WriteString("\\\"")
+			continue
+		}
+		// normal char
+		if backslashes > 0 {
+			b.WriteString(strings.Repeat("\\", backslashes))
+			backslashes = 0
+		}
+		b.WriteByte(c)
+	}
+	if backslashes > 0 {
+		// Only double if we are about to terminate the quoted arg (so they precede the closing quote)
+		b.WriteString(strings.Repeat("\\", backslashes*2))
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
+// buildCommandLine constructs the full command line including the executable as the first argument.
+func buildCommandLine(fullExe string, args []string) string {
+	escaped := make([]string, 0, 1+len(args))
+	// Always quote exe path to be safe (could contain spaces)
+	escaped = append(escaped, winEscapeArg(fullExe))
+	for _, a := range args { escaped = append(escaped, winEscapeArg(a)) }
+	return strings.Join(escaped, " ")
+}
+
 func createSuspended(exe string, args []string, stdout, stderr syscall.Handle) (processInformation, error) {
 	var pi processInformation
 	full, err := filepath.Abs(exe)
@@ -123,23 +175,34 @@ func createSuspended(exe string, args []string, stdout, stderr syscall.Handle) (
 	if _, err = os.Stat(full); err != nil {
 		return pi, fmt.Errorf("executable not found: %s", full)
 	}
-	cmdLine := fmt.Sprintf("\"%s\"", full)
-	if len(args) > 0 {
-		cmdLine += " " + strings.Join(args, " ")
-	}
+	// Prepare STARTUPINFO with redirected handles when provided
 	si := startupInfo{}
 	si.Cb = uint32(unsafe.Sizeof(si))
 	inherit := uintptr(0)
 	if stdout != 0 || stderr != 0 {
-		// Only set flags & handles when at least one provided
 		si.dwFlags |= STARTF_USESTDHANDLES
 		if stdout != 0 { si.hStdOutput = stdout }
 		if stderr != 0 { si.hStdError = stderr }
 		inherit = 1
 	}
-	r1, _, e1 := procCreateProcessW.Call(0, uintptr(unsafe.Pointer(utf16Ptr(full))), 0, 0, inherit, CREATE_SUSPENDED|CREATE_UNICODE_ENVIRONMENT, 0, 0, uintptr(unsafe.Pointer(&si)), uintptr(unsafe.Pointer(&pi)))
+	cmdLine := buildCommandLine(full, args)
+	// Windows may modify the command line buffer in-place, so create a mutable UTF16 slice
+	clUTF16 := syscall.StringToUTF16(cmdLine)
+	appNamePtr := utf16Ptr(full)
+	slog.Debug("CreateProcessW prepared", "application", full, "cmdLine", cmdLine, "inheritStd", inherit == 1)
+	r1, _, e1 := procCreateProcessW.Call(
+		uintptr(unsafe.Pointer(appNamePtr)),                                  // lpApplicationName
+		uintptr(unsafe.Pointer(&clUTF16[0])),                                  // lpCommandLine (mutable)
+		0, 0,                                                                  // lpProcessAttributes, lpThreadAttributes
+		inherit,                                                               // bInheritHandles
+		CREATE_SUSPENDED|CREATE_UNICODE_ENVIRONMENT,                           // dwCreationFlags
+		0,                                                                     // lpEnvironment (inherit)
+		0,                                                                     // lpCurrentDirectory (inherit)
+		uintptr(unsafe.Pointer(&si)),                                          // lpStartupInfo
+		uintptr(unsafe.Pointer(&pi)),                                          // lpProcessInformation
+	)
 	if r1 == 0 {
-		return pi, fmt.Errorf("CreateProcessW failed: %v", e1)
+		return pi, fmt.Errorf("CreateProcessW failed: %v (cmdLine=%s)", e1, cmdLine)
 	}
 	return pi, nil
 }
