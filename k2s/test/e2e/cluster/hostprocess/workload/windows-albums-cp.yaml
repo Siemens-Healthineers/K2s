@@ -71,13 +71,14 @@ spec:
                   key: ALBUMS_WIN
             - name: RESOURCE
               value: 'albums-win-hp-app-hostprocess'
-          # Use a single command line so we can explicitly quote expanded env vars with spaces.
-          # cmd.exe /c ""<cplauncher>" -label app=cp-albums-win -namespace k2s -- "<albums>""
-          # Double quotes at start/end plus inner quoted segments ensure proper parsing.
+          # Invoke via PowerShell to avoid cmd.exe quoting ambiguities with paths containing spaces.
+          # PowerShell expands $env: vars and preserves quoted arguments precisely.
           command:
-            - cmd.exe
-            - /c
-            - '"%CPLAUNCHER_BASE%\cplauncher.exe" -label app=cp-albums-win -namespace k2s -- "%ALBUMS_WIN%"'
+            - powershell.exe
+            - -NoLogo
+            - -NoProfile
+            - -Command
+            - '"& \"$env:CPLAUNCHER_BASE\cplauncher.exe\" -label app=cp-albums-win -namespace k2s -- \"$env:ALBUMS_WIN\""'
           volumeMounts:
             - name: host-var-log
               mountPath: C:/var/log
