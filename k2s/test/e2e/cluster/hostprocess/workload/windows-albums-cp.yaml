@@ -78,7 +78,7 @@ spec:
             - -NoLogo
             - -NoProfile
             - -Command
-            - '"& \"$env:CPLAUNCHER_BASE\cplauncher.exe\" -label app=cp-albums-win -namespace k2s -- \"$env:ALBUMS_WIN\""'
+              - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -- "$env:ALBUMS_WIN"'
           volumeMounts:
             - name: host-var-log
               mountPath: C:/var/log
