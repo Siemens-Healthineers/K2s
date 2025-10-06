@@ -75,9 +75,9 @@ spec:
           # cmd.exe /c ""<cplauncher>" -label app=cp-albums-win -namespace k2s -- "<albums>""
           # Double quotes at start/end plus inner quoted segments ensure proper parsing.
           command:
-            - 'cmd.exe'
-            - '/c'
-            - "\"%CPLAUNCHER_BASE%\\cplauncher.exe\" -label app=cp-albums-win -namespace k2s -- \"%ALBUMS_WIN%\""
+            - cmd.exe
+            - /c
+            - '"%CPLAUNCHER_BASE%\cplauncher.exe" -label app=cp-albums-win -namespace k2s -- "%ALBUMS_WIN%"'
           volumeMounts:
             - name: host-var-log
               mountPath: C:/var/log
