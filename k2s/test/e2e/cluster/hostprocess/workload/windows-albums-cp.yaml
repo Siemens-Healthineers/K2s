@@ -56,7 +56,7 @@ spec:
       hostNetwork: true
       containers:
         - name: cplauncher
-          image: mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0 # HostProcess base image
+          image: shsk2s.azurecr.io/pause-win:v1.5.0
           imagePullPolicy: IfNotPresent
           env:
             - name: CPLAUNCHER_BASE
