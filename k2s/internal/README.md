@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -16,6 +16,7 @@ The dependencies can be analyzed with *Go* tooling, e.g.:
     ```sh
     go install github.com/loov/goda@latest
     ```
+- Install [*Graphviz*](https://graphviz.org/download/#windows)
 - Generate graph:
     ```sh
     goda graph github.com/siemens-healthineers/k2s/internal/... | dot -Tsvg -o graph-internal.svg
