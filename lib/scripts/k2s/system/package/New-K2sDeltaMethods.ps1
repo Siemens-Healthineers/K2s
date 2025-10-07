@@ -218,9 +218,10 @@ function Get-DebianPackagesFromVHDX {
     $result = [pscustomobject]@{ Packages = $null; Error = $null; Method = 'hyperv-ssh'; DownloadedDebs = @() }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
     Write-Log "[DebPkg] Starting extraction from VHDX '$VhdxPath' with new extract '$NewExtract' and old extract '$OldExtract'" -Console
-    Write-Log "[DebPkg] Switch name: $switchName, Download directory: $DownloadLocalDir, DownloadDebs: $DownloadDebs" -Console
-    # Use distinct naming to avoid collisions and make purpose clear
+    # Derive consistent resource names early
     $switchName = "k2s-switch-$switchNameEnding"
+    $natName    = "k2s-nat-$switchNameEnding"
+    Write-Log "[DebPkg] Switch name: $switchName, NAT name: $natName, Download directory: $DownloadLocalDir, DownloadDebs: $DownloadDebs" -Console
     $hostSwitchIp = '172.19.1.1'
     $guestExpectedIp = '172.19.1.100'
     $prefixLen = 24
@@ -238,6 +239,16 @@ function Get-DebianPackagesFromVHDX {
         $adapter = Get-NetAdapter | Where-Object { $_.Name -like "*$switchName*" }
         if (-not $adapter) { throw 'Internal vSwitch adapter not found after creation' }
         New-NetIPAddress -InterfaceAlias $adapter.Name -IPAddress $hostSwitchIp -PrefixLength $prefixLen -ErrorAction Stop | Out-Null
+        # Ensure NAT exists (best effort)
+        $natExisting = Get-NetNat -Name $natName -ErrorAction SilentlyContinue
+        if ($natExisting) {
+            Write-Log "[DebPkg] Reusing existing NAT '$natName'" -Console
+        } else {
+            try {
+                New-NetNat -Name $natName -InternalIPInterfaceAddressPrefix "$hostSwitchIp/$prefixLen" -ErrorAction Stop | Out-Null
+                Write-Log "[DebPkg] Created NAT '$natName' ($hostSwitchIp/$prefixLen)" -Console
+            } catch { Write-Log "[DebPkg][Warning] Failed to create NAT '$natName': $($_.Exception.Message)" -Console }
+        }
     }
     catch { $result.Error = "Failed to create/configure switch: $($_.Exception.Message)"; return $result }
     $vmName = "k2s-kubemaster-" + $switchNameEnding 
@@ -534,7 +545,12 @@ function Get-DebianPackagesFromVHDX {
     }
     catch { $result.Error = "Hyper-V SSH extraction failed: $($_.Exception.Message)" }
     finally {
-        Write-Log "[DebPkg] Beginning cleanup (VM, switch, IP)" -Console
+
+        # Please ask here for input of user
+        $userInput = Read-Host -Prompt "Please enter your input"
+        Write-Log "[DebPkg] User input received: $userInput" -Console
+
+    Write-Log "[DebPkg] Beginning cleanup (VM, switch, IP, NAT)" -Console
         $cleanupErrors = @()
         try {
             if ($createdVm) {
@@ -550,6 +566,10 @@ function Get-DebianPackagesFromVHDX {
             Remove-VMSwitch -Name $switchName -Force -ErrorAction SilentlyContinue | Out-Null
         } catch { $cleanupErrors += "Remove-VMSwitch: $($_.Exception.Message)" }
         try {
+            $natObj = Get-NetNat -Name $natName -ErrorAction SilentlyContinue
+            if ($natObj) { Remove-NetNat -Name $natName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null }
+        } catch { $cleanupErrors += "Remove-NetNat: $($_.Exception.Message)" }
+        try {
             $existing = Get-NetIPAddress -IPAddress $hostSwitchIp -ErrorAction SilentlyContinue
             if ($existing) {
                 $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
@@ -564,12 +584,19 @@ function Get-DebianPackagesFromVHDX {
             $leftVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
             if ($leftVm) { $cleanupErrors += 'VM remains after retry.' }
         }
-        $leftSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
+    $leftSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
+    $leftNat = Get-NetNat -Name $natName -ErrorAction SilentlyContinue
         if ($leftSwitch) {
             Write-Log "[DebPkg][Cleanup] Switch still present after first attempt; retrying remove." -Console
             try { Remove-VMSwitch -Name $switchName -Force -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Retry Remove-VMSwitch: $($_.Exception.Message)" }
             $leftSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
             if ($leftSwitch) { $cleanupErrors += 'Switch remains after retry.' }
+        }
+        if ($leftNat) {
+            Write-Log "[DebPkg][Cleanup] NAT still present after first attempt; retrying remove." -Console
+            try { Remove-NetNat -Name $natName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Retry Remove-NetNat: $($_.Exception.Message)" }
+            $leftNat = Get-NetNat -Name $natName -ErrorAction SilentlyContinue
+            if ($leftNat) { $cleanupErrors += 'NAT remains after retry.' }
         }
         $leftIp = Get-NetIPAddress -IPAddress $hostSwitchIp -ErrorAction SilentlyContinue
         if ($leftIp) {
