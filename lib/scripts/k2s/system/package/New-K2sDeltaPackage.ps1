@@ -32,6 +32,9 @@ Param(
     [string[]] $WholeDirectories = @()
 )
 
+# Internal flag to suppress duplicate terminal error logs
+$script:SuppressFinalErrorLog = $false
+
 ### Import modules required for logging and signing
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
@@ -317,7 +320,17 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
         }
     } else {
         $err = "Debian package diff not processed: $($debianPackageDiff.Error)"
+        # Attempt a quick verification that no temp Hyper-V artifacts remain (best effort)
+        try {
+            if (Get-Module -ListAvailable -Name Hyper-V) {
+                $leftVMs = Get-VM -Name 'k2s-kubemaster-*' -ErrorAction SilentlyContinue | Where-Object { $_.State -ne 'Off' -or $_ }
+                $leftSwitches = Get-VMSwitch -Name 'k2s-switch-*' -ErrorAction SilentlyContinue
+                if ($leftVMs) { Write-Log ("[Warning] Residual VM objects after diff failure: {0}" -f ($leftVMs.Name -join ', ')) -Console }
+                if ($leftSwitches) { Write-Log ("[Warning] Residual VMSwitch objects after diff failure: {0}" -f ($leftSwitches.Name -join ', ')) -Console }
+            }
+        } catch { Write-Log "[Warning] Cleanup verification failed: $($_.Exception.Message)" -Console }
         Write-Log $err -Error
+        $script:SuppressFinalErrorLog = $true
         throw $err
     }
 }
@@ -404,7 +417,9 @@ finally {
 }
 
 if ($overallError) {
-    Write-Log "Delta creation encountered an error: $($overallError.Exception.Message)" -Error
+    if (-not $script:SuppressFinalErrorLog) {
+        Write-Log "Delta creation encountered an error: $($overallError.Exception.Message)" -Error
+    }
     exit 5
 }
 
