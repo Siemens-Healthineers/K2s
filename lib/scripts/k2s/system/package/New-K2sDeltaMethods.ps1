@@ -148,7 +148,7 @@ function Get-DebianPackagesFromVHDX {
     $result = [pscustomobject]@{ Packages = $null; Error = $null; Method = 'hyperv-ssh' }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
     Write-Log "[DebPkg] Starting extraction from VHDX '$VhdxPath' with new extract '$NewExtract' and old extract '$OldExtract'" -Console
-    $switchName = "k2s-delta-$switchNameEnding"
+    $switchName = "k2s-switch-$switchNameEnding"
     $hostSwitchIp = '172.19.1.1'
     $guestExpectedIp = '172.19.1.100'
     $prefixLen = 24
@@ -163,12 +163,12 @@ function Get-DebianPackagesFromVHDX {
     try {
         Write-Log "[DebPkg] Creating internal switch '$switchName' with host IP $hostSwitchIp/$prefixLen" -Console
         New-VMSwitch -Name $switchName -SwitchType Internal -ErrorAction Stop | Out-Null
-        $adapter = Get-NetAdapter | Where-Object { $_.Name -eq $switchName }
+        $adapter = Get-NetAdapter | Where-Object { $_.Name -like "*$switchName*" }
         if (-not $adapter) { throw 'Internal vSwitch adapter not found after creation' }
         New-NetIPAddress -InterfaceAlias $adapter.Name -IPAddress $hostSwitchIp -PrefixLength $prefixLen -ErrorAction Stop | Out-Null
     }
     catch { $result.Error = "Failed to create/configure switch: $($_.Exception.Message)"; return $result }
-    $vmName = "k2s-diff-" + ([guid]::NewGuid().ToString('N').Substring(0,8))
+    $vmName = "k2s-kubemaster-" + $switchNameEnding 
     $createdVm = $false
     try {
         Write-Log "[DebPkg] Creating temporary VM '$vmName' attached to '$switchName'" -Console
