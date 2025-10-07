@@ -240,6 +240,81 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
     $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx'
     if ($debianPackageDiff.Processed) {
         Write-Log ("Debian package diff: Added={0} Changed={1} Removed={2}" -f $debianPackageDiff.AddedCount, $debianPackageDiff.ChangedCount, $debianPackageDiff.RemovedCount) -Console
+        # --- Generate Debian delta artifact directory (lists + scripts) -----------------
+        try {
+            $debianDeltaDir = Join-Path $stageDir 'debian-delta'
+            if (-not (Test-Path -LiteralPath $debianDeltaDir)) { New-Item -ItemType Directory -Path $debianDeltaDir | Out-Null }
+
+            # Added packages list (keep full pkg=version form)
+            $addedPkgs = $debianPackageDiff.Added
+            if ($addedPkgs) { $addedPkgs | Sort-Object | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.added') -Encoding ASCII -Force }
+
+            # Removed packages list (strip versions to just names)
+            $removedNames = @()
+            foreach ($r in ($debianPackageDiff.Removed)) { if ($r -match '^(?<n>[^=]+)=(?<v>.+)$') { $removedNames += $matches['n'] } }
+            if ($removedNames) { $removedNames | Sort-Object -Unique | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.removed') -Encoding ASCII -Force }
+
+            # Upgraded packages (Changed list lines formatted: name: old -> new)
+            $upgradedLines = @()
+            foreach ($c in ($debianPackageDiff.Changed)) { if ($c -match '^(?<n>[^:]+):\s+(?<o>[^ ]+)\s+->\s+(?<nv>.+)$') { $upgradedLines += ("{0} {1} {2}" -f $matches['n'], $matches['o'], $matches['nv']) } }
+            if ($upgradedLines) { $upgradedLines | Sort-Object | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.upgraded') -Encoding ASCII -Force }
+
+            # Debian delta manifest (JSON)
+            $debDeltaManifest = [pscustomobject]@{
+                SourceVhdxOld       = $debianPackageDiff.OldRelativePath
+                SourceVhdxNew       = $debianPackageDiff.NewRelativePath
+                Added               = $addedPkgs
+                Removed             = $removedNames
+                Upgraded            = $upgradedLines
+                AddedCount          = $debianPackageDiff.AddedCount
+                RemovedCount        = $debianPackageDiff.RemovedCount
+                UpgradedCount       = $upgradedLines.Count
+                GeneratedUtc        = [DateTime]::UtcNow.ToString('o')
+            }
+            $debDeltaManifest | ConvertTo-Json -Depth 4 | Out-File -FilePath (Join-Path $debianDeltaDir 'debian-delta-manifest.json') -Encoding UTF8 -Force
+
+            # Apply script (bash) - installs added + upgraded with explicit versions, removes removed
+            $applyScript = @('#!/usr/bin/env bash',
+                'set -euo pipefail',
+                'echo "[debian-delta] Apply start"',
+                'if [[ $EUID -ne 0 ]]; then echo "Run as root" >&2; exit 1; fi',
+                'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
+                'cd "$SCRIPT_DIR"',
+                'ADDED_FILE=packages.added',
+                'REMOVED_FILE=packages.removed',
+                'UPGRADED_FILE=packages.upgraded',
+                'INSTALL_LIST=()',
+                'if [[ -f "$REMOVED_FILE" ]]; then echo "[debian-delta] Purging removed packages"; xargs -r apt-get purge -y < "$REMOVED_FILE"; fi',
+                'if [[ -f "$ADDED_FILE" ]]; then while IFS= read -r l; do [[ -z "$l" ]] && continue; INSTALL_LIST+=("$l"); done < "$ADDED_FILE"; fi',
+                'if [[ -f "$UPGRADED_FILE" ]]; then while IFS= read -r l; do [[ -z "$l" ]] && continue; PKG=$(echo "$l" | awk "{print $1}"); NEWV=$(echo "$l" | awk "{print $3}"); INSTALL_LIST+=("${PKG}=${NEWV}"); done < "$UPGRADED_FILE"; fi',
+                'if [[ ${#INSTALL_LIST[@]} -gt 0 ]]; then echo "[debian-delta] Installing/upgrading ${#INSTALL_LIST[@]} packages"; apt-get update; apt-get install -y --no-install-recommends "${INSTALL_LIST[@]}"; else echo "[debian-delta] No packages to install"; fi',
+                'echo "[debian-delta] Apply complete"'
+            ) -join "`n"
+            $applyPath = Join-Path $debianDeltaDir 'apply-debian-delta.sh'
+            $applyScript | Out-File -FilePath $applyPath -Encoding ASCII -Force
+            # Verification script
+            $verifyScript = @('#!/usr/bin/env bash',
+                'set -euo pipefail',
+                'if [[ $EUID -ne 0 ]]; then echo "Run as root" >&2; exit 1; fi',
+                'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
+                'cd "$SCRIPT_DIR"',
+                'MJSON=debian-delta-manifest.json',
+                'command -v jq >/dev/null 2>&1 || { echo "jq required for verification" >&2; exit 2; }',
+                'ADDED=$(jq -r ".Added[]?" "$MJSON" || true)',
+                'UPG=$(jq -r ".Upgraded[]?" "$MJSON" || true)',
+                'FAIL=0',
+                'for entry in $ADDED; do P=${entry%%=*}; V=${entry#*=}; CV=$(dpkg-query -W -f="${Version}" "$P" 2>/dev/null || echo missing); if [[ "$CV" != "$V" ]]; then echo "[verify] Added pkg mismatch: $P expected $V got $CV"; FAIL=1; fi; done',
+                'while read -r line; do [[ -z "$line" ]] && continue; PKG=$(echo "$line" | awk "{print $1}"); OV=$(echo "$line" | awk "{print $2}"); NV=$(echo "$line" | awk "{print $3}"); CV=$(dpkg-query -W -f="${Version}" "$PKG" 2>/dev/null || echo missing); if [[ "$CV" != "$NV" ]]; then echo "[verify] Upgraded pkg mismatch: $PKG expected $NV got $CV"; FAIL=1; fi; done <<< "$UPG"',
+                'if [[ $FAIL -eq 0 ]]; then echo "[verify] Debian delta verification PASSED"; else echo "[verify] Debian delta verification FAILED"; fi',
+                'exit $FAIL'
+            ) -join "`n"
+            $verifyPath = Join-Path $debianDeltaDir 'verify-debian-delta.sh'
+            $verifyScript | Out-File -FilePath $verifyPath -Encoding ASCII -Force
+            Write-Log "Created Debian delta artifact at '$debianDeltaDir'" -Console
+        }
+        catch {
+            Write-Log "[Warning] Failed to generate Debian delta artifact: $($_.Exception.Message)" -Console
+        }
     } else {
         Write-Log "[Warning] Debian package diff not processed: $($debianPackageDiff.Error)" -Console
     }
@@ -262,6 +337,7 @@ $manifest = [pscustomobject]@{
     RemovedCount          = $removed.Count
     HashAlgorithm         = 'SHA256'
     DebianPackageDiff     = $debianPackageDiff
+    DebianDeltaRelativePath = $(if (Test-Path -LiteralPath (Join-Path $stageDir 'debian-delta')) { 'debian-delta' } else { $null })
 }
 $manifestPath = Join-Path $stageDir 'delta-manifest.json'
 $manifest | ConvertTo-Json -Depth 6 | Out-File -FilePath $manifestPath -Encoding UTF8 -Force
