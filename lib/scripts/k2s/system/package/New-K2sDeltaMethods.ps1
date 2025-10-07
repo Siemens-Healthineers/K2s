@@ -296,7 +296,8 @@ function Get-DebianPackagesFromVHDX {
         # Self-test: verify dpkg-query responds (captures version) with stderr capture
         try {
             Write-Log '[DebPkg] Running dpkg-query self-test' -Console
-            $testCmd = 'dpkg-query -V || echo __DPKG_QUERY_FAILED__=$?'
+            # Use --version (supported) instead of -V (unsupported on some builds)
+            $testCmd = 'dpkg-query --version 2>&1 || echo __DPKG_QUERY_FAILED__=$?'
             if ($usingPlink) {
                 $testArgs = @('-batch','-noagent','-P','22')
                 if ($plinkHostKey) { $testArgs += @('-hostkey', $plinkHostKey) }
@@ -308,16 +309,22 @@ function Get-DebianPackagesFromVHDX {
             }
             $testArgs += $testCmd
             $testOutput = & $sshClient @testArgs 2>&1
-            if ($testOutput -and ($testOutput | Where-Object { $_ -match 'dpkg-query' })) {
-                $firstLine = $testOutput | Select-Object -First 1
+            $hasVersion = $false
+            $errorUnknown = $false
+            foreach ($line in $testOutput) {
+                if ($line -match '^dpkg-query ') { $hasVersion = $true }
+                if ($line -match 'unknown option') { $errorUnknown = $true }
+            }
+            if ($hasVersion -and -not $errorUnknown) {
+                $firstLine = ($testOutput | Where-Object { $_ -match '^dpkg-query ' } | Select-Object -First 1)
                 Write-Log "[DebPkg] dpkg self-test OK: $firstLine" -Console
             } else {
-                $joined = ($testOutput | Select-Object -First 5) -join ' | '
-                Write-Log "[DebPkg] dpkg self-test inconclusive. Output: $joined" -Console
-                if ($usingPlink -and ($testOutput -match 'POTENTIAL SECURITY BREACH')) {
-                    $result.Error = 'Host key mismatch detected (plink security warning). Provide correct fingerprint in K2S_DEBIAN_SSH_HOSTKEY or clear cached host key.'
-                    return $result
-                }
+                $joined = ($testOutput | Select-Object -First 8) -join ' | '
+                Write-Log "[DebPkg] dpkg self-test FAILED/INCONCLUSIVE: $joined" -Console
+            }
+            if ($usingPlink -and ($testOutput -match 'POTENTIAL SECURITY BREACH')) {
+                $result.Error = 'Host key mismatch detected (plink security warning). Provide correct fingerprint or clear cached host key.'
+                return $result
             }
         }
         catch {
@@ -373,10 +380,20 @@ function Get-DebianPackagesFromVHDX {
             if (-not (Test-Path -LiteralPath $DownloadLocalDir)) { New-Item -ItemType Directory -Path $DownloadLocalDir -Force | Out-Null }
             $remoteDebDir = '/tmp/k2s-delta-debs'
             $downloadScript = @(
-                "set -euo pipefail",
+                'set -euo pipefail',
                 "rm -rf $remoteDebDir; mkdir -p $remoteDebDir",
                 "cd $remoteDebDir",
-                "apt-get update >/dev/null 2>&1 || true"
+                '# Diagnostics: basic network + sources',
+                'echo __K2S_NET_DIAG_BEGIN__',
+                'ip addr show || true',
+                'ip route show || true',
+                'grep -v "^#" /etc/apt/sources.list 2>/dev/null || true',
+                'ls -1 /etc/apt/sources.list.d 2>/dev/null || true',
+                'ping -c1 deb.debian.org >/dev/null 2>&1 && echo PING_OK || echo PING_FAIL || true',
+                'echo __K2S_NET_DIAG_END__',
+                'echo __K2S_APT_UPDATE_BEGIN__',
+                'apt-get update 2>&1 || true',
+                'echo __K2S_APT_UPDATE_END__'
             )
             foreach ($spec in $DownloadPackageSpecs) {
                 if ([string]::IsNullOrWhiteSpace($spec)) { continue }
@@ -393,6 +410,13 @@ function Get-DebianPackagesFromVHDX {
             $downloadScript += 'echo __K2S_DEB_LIST_BEGIN__'
             $downloadScript += 'ls -1 *.deb 2>/dev/null || true'
             $downloadScript += 'echo __K2S_DEB_LIST_END__'
+            # Fallback: copy from apt cache if download produced nothing
+            $downloadScript += '[ "$(ls -1 *.deb 2>/dev/null | wc -l)" -eq 0 ] && cp -a /var/cache/apt/archives/*.deb . 2>/dev/null || true'
+            $downloadScript += 'echo __K2S_DEB_FALLBACK_LIST_BEGIN__'
+            $downloadScript += 'ls -1 *.deb 2>/dev/null || true'
+            $downloadScript += 'echo __K2S_DEB_FALLBACK_LIST_END__'
+            # Extra: record package table for troubleshooting
+            $downloadScript += 'dpkg -l >/tmp/k2s-dpkg-list.txt 2>/dev/null || true'
             $remoteCmd = ("bash -c '" + ($downloadScript -join '; ') + "'")
             $dlArgs = @()
             if ($usingPlink) {
@@ -452,18 +476,59 @@ function Get-DebianPackagesFromVHDX {
                 }
                 Write-Log ("[DebPkg] Offline .deb acquisition complete ({0} files)" -f $result.DownloadedDebs.Count) -Console
             } else {
-                # Diagnostic: show raw output trimmed around markers
                 if ($dlOutput) {
-                    $startIdx = ($dlOutput | Select-String -SimpleMatch '__K2S_DEB_LIST_BEGIN__').LineNumber
-                    $endIdx = ($dlOutput | Select-String -SimpleMatch '__K2S_DEB_LIST_END__').LineNumber
-                    if ($startIdx -and $endIdx -and $endIdx -gt $startIdx) {
-                        $between = $dlOutput[($startIdx)..($endIdx)]
-                        Write-Log ("[DebPkg][Diag] Remote deb directory listing lines: {0}" -f ($between -join ' | ')) -Console
-                    } else {
-                        Write-Log ("[DebPkg][Diag] Raw download output head: {0}" -f (($dlOutput | Select-Object -First 20) -join ' || ')) -Console
+                    $diagSections = @(
+                        '__K2S_NET_DIAG_BEGIN__','__K2S_NET_DIAG_END__',
+                        '__K2S_APT_UPDATE_BEGIN__','__K2S_APT_UPDATE_END__',
+                        '__K2S_DEB_LIST_BEGIN__','__K2S_DEB_LIST_END__',
+                        '__K2S_DEB_FALLBACK_LIST_BEGIN__','__K2S_DEB_FALLBACK_LIST_END__'
+                    )
+                    foreach ($markerPair in ($diagSections | ForEach-Object -Begin { $acc=@() } -Process { $acc+=$_ } -End { for($i=0;$i -lt $acc.Count;$i+=2){ ,@($acc[$i],$acc[$i+1]) } })) {
+                        $start = $dlOutput | Select-String -SimpleMatch $markerPair[0]
+                        $end   = $dlOutput | Select-String -SimpleMatch $markerPair[1]
+                        if ($start -and $end) {
+                            $sLine = $start.LineNumber; $eLine=$end.LineNumber
+                            if ($eLine -gt $sLine) {
+                                $slice = $dlOutput[$sLine..$eLine]
+                                Write-Log ("[DebPkg][Diag]{0} {1}" -f $markerPair[0], ($slice -join ' | ')) -Console
+                            }
+                        }
                     }
+                    Write-Log ("[DebPkg][Diag] Raw output head: {0}" -f (($dlOutput | Select-Object -First 25) -join ' || ')) -Console
                 }
-                Write-Log '[DebPkg][Warning] No .deb files listed by remote acquisition script' -Console
+                Write-Log '[DebPkg][Warning] No .deb files listed by remote acquisition script (after cache fallback)' -Console
+
+                # Local fallback: search the extracted NEW package content for any embedded .deb files
+                try {
+                    Write-Log '[DebPkg][Fallback] Attempting local search for .deb files in new extraction tree' -Console
+                    $localDebs = Get-ChildItem -Path $NewExtract -Recurse -Filter *.deb -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+                    if ($localDebs -and $localDebs.Count -gt 0) {
+                        Write-Log ("[DebPkg][Fallback] Found {0} candidate .deb files" -f $localDebs.Count) -Console
+                        $specMap = @{}
+                        foreach ($s in $DownloadPackageSpecs) { if ($s -match '^(?<n>[^=]+)=(?<v>.+)$') { $specMap[$matches['n']] = $matches['v'] } }
+                        foreach ($full in $localDebs) {
+                            $file = Split-Path -Leaf $full
+                            # Debian file name pattern: name_version_arch.deb (simplistic)
+                            if ($file -match '^(?<pkg>.+?)_(?<ver>[^_]+)_[^_]+\.deb$') {
+                                $pkg = $matches['pkg']; $ver = $matches['ver']
+                                if ($specMap.ContainsKey($pkg) -and $specMap[$pkg] -eq $ver) {
+                                    $dest = Join-Path $DownloadLocalDir $file
+                                    if (-not (Test-Path -LiteralPath $dest)) { Copy-Item -LiteralPath $full -Destination $dest -Force }
+                                    if (Test-Path -LiteralPath $dest -and -not ($result.DownloadedDebs -contains $file)) { $result.DownloadedDebs += $file }
+                                }
+                            }
+                        }
+                        if ($result.DownloadedDebs.Count -gt 0) {
+                            Write-Log ("[DebPkg][Fallback] Successfully staged {0} .deb files from local content" -f $result.DownloadedDebs.Count) -Console
+                        } else {
+                            Write-Log '[DebPkg][Fallback] No matching versions among discovered .deb files' -Console
+                        }
+                    } else {
+                        Write-Log '[DebPkg][Fallback] No .deb files found in new extraction tree' -Console
+                    }
+                } catch {
+                    Write-Log "[DebPkg][Fallback][Warning] Local .deb search failed: $($_.Exception.Message)" -Console
+                }
             }
         }
     }
