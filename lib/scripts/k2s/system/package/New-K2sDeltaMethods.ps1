@@ -224,4 +224,22 @@ function Get-SkippedFileDebianPackageDiff {
     $diffResult.Processed=$true; $diffResult.Added=$added; $diffResult.Removed=$removed; $diffResult.Changed=$changed; $diffResult.AddedCount=$added.Count; $diffResult.RemovedCount=$removed.Count; $diffResult.ChangedCount=$changed.Count; return $diffResult
 }
 
-function Remove-SpecialSkippedFilesFromStage { param([string]$StagePath,[string[]]$Skipped) foreach ($sf in $Skipped) { $foundFiles = Get-ChildItem -Path $StagePath -Recurse -File -Filter $sf -ErrorAction SilentlyContinue; foreach ($m in $foundFiles) { try { Remove-Item -LiteralPath $m.FullName -Force -ErrorAction Stop; Write-Log "Removed special skipped file from stage: $($m.FullName)" -Console } catch { Write-Log "[Warning] Failed to remove special skipped file '$($m.FullName)': $($_.Exception.Message)" -Console } } } }
+function Remove-SpecialSkippedFilesFromStage {
+    param(
+        [Parameter(Mandatory=$true)][string]$StagePath,
+        [Parameter(Mandatory=$true)][string[]]$Skipped
+    )
+
+    foreach ($sf in $Skipped) {
+        $foundFiles = Get-ChildItem -Path $StagePath -Recurse -File -Filter $sf -ErrorAction SilentlyContinue
+        foreach ($m in $foundFiles) {
+            try {
+                Remove-Item -LiteralPath $m.FullName -Force -ErrorAction Stop
+                Write-Log "Removed special skipped file from stage: $($m.FullName)" -Console
+            }
+            catch {
+                Write-Log "[Warning] Failed to remove special skipped file '$($m.FullName)': $($_.Exception.Message)" -Console
+            }
+        }
+    }
+}
