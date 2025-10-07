@@ -1,7 +1,7 @@
 # Shared helper methods for New-K2sDeltaPackage.ps1
 # Extracted to reduce script size and keep orchestration separate.
 
-Add-type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Expand-ZipWithProgress {
@@ -98,9 +98,39 @@ function New-ZipWithProgress {
     }
 }
 
-function Stop-Phase($name, $sw) { if ($sw) { $sw.Stop(); Write-Log ("[Phase] {0} - done in {1:N2}s" -f $name, ($sw.Elapsed.TotalSeconds)) -Console } }
-function Start-Phase { param([string]$Name) Write-Log "[Phase] $Name - start" -Console; return [System.Diagnostics.Stopwatch]::StartNew() }
-function Format-Size { param([uint64]$Bytes) if ($Bytes -lt 1KB) { return "$Bytes B" }; $kb = [double]$Bytes / 1KB; if ($kb -lt 1024) { return ("{0:N2} KB" -f $kb) }; $mb = $kb / 1024; if ($mb -lt 1024) { return ("{0:N2} MB" -f $mb) }; $gb = $mb / 1024; if ($gb -lt 1024) { return ("{0:N2} GB" -f $gb) }; $tb = $gb / 1024; return ("{0:N2} TB" -f $tb) }
+function Stop-Phase {
+    param(
+        [string] $Name,
+        $Stopwatch
+    )
+    if ($Stopwatch) {
+        $Stopwatch.Stop()
+        Write-Log ("[Phase] {0} - done in {1:N2}s" -f $Name, $Stopwatch.Elapsed.TotalSeconds) -Console
+    }
+}
+
+function Start-Phase {
+    param(
+        [Parameter(Mandatory)] [string] $Name
+    )
+    Write-Log "[Phase] $Name - start" -Console
+    return [System.Diagnostics.Stopwatch]::StartNew()
+}
+
+function Format-Size {
+    param(
+        [uint64] $Bytes
+    )
+    if ($Bytes -lt 1KB) { return "$Bytes B" }
+    $kb = [double]$Bytes / 1KB
+    if ($kb -lt 1024) { return ("{0:N2} KB" -f $kb) }
+    $mb = $kb / 1024
+    if ($mb -lt 1024) { return ("{0:N2} MB" -f $mb) }
+    $gb = $mb / 1024
+    if ($gb -lt 1024) { return ("{0:N2} GB" -f $gb) }
+    $tb = $gb / 1024
+    return ("{0:N2} TB" -f $tb)
+}
 
 function Get-FileMap {
     param($root, [string]$label, [switch]$ShowLogs)
@@ -125,19 +155,51 @@ function Get-FileMap {
     return $map
 }
 
-function Test-SpecialSkippedFile { param($path,$list) $leaf = [IO.Path]::GetFileName($path); foreach($f in $list){ if ($leaf -ieq $f) { return $true } } return $false }
-function Test-InWholeDir { param($path, $dirs) foreach($d in $dirs){ if($path.StartsWith($d + '/')){ return $true } } return $false }
+function Test-SpecialSkippedFile {
+    param(
+        [string] $Path,
+        [string[]] $List
+    )
+    $leaf = [IO.Path]::GetFileName($Path)
+    foreach ($f in $List) {
+        if ($leaf -ieq $f) { return $true }
+    }
+    return $false
+}
+
+function Test-InWholeDir {
+    param(
+        [string] $Path,
+        [string[]] $Dirs
+    )
+    foreach ($d in $Dirs) {
+        if ($Path.StartsWith($d + '/')) { return $true }
+    }
+    return $false
+}
 
 function Get-DebianPackageMapFromStatusFile {
-    param([string]$StatusFilePath)
+    param(
+        [string] $StatusFilePath
+    )
     $map = @{}
     if (-not (Test-Path -LiteralPath $StatusFilePath)) { return $map }
-    $currentName = $null; $currentVersion = $null
+    $currentName = $null
+    $currentVersion = $null
     Get-Content -LiteralPath $StatusFilePath | ForEach-Object {
         $line = $_
-        if ([string]::IsNullOrWhiteSpace($line)) { if ($currentName) { $map[$currentName] = $currentVersion }; $currentName = $null; $currentVersion = $null; return }
-        if ($line -like 'Package:*') { $currentName = ($line.Substring(8)).Trim() }
-        elseif ($line -like 'Version:*') { $currentVersion = ($line.Substring(8)).Trim() }
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            if ($currentName) { $map[$currentName] = $currentVersion }
+            $currentName = $null
+            $currentVersion = $null
+            return
+        }
+        if ($line -like 'Package:*') {
+            $currentName = ($line.Substring(8)).Trim()
+        }
+        elseif ($line -like 'Version:*') {
+            $currentVersion = ($line.Substring(8)).Trim()
+        }
     }
     if ($currentName) { $map[$currentName] = $currentVersion }
     return $map
@@ -182,21 +244,78 @@ function Get-DebianPackagesFromVHDX {
         while ((Get-Date) -lt $deadline -and -not $ipFound) { Start-Sleep -Seconds 5; if (Test-Connection -ComputerName $guestExpectedIp -Count 1 -Quiet -ErrorAction SilentlyContinue) { $ipFound = $true } }
         if (-not $ipFound) { throw "Guest IP $guestExpectedIp not reachable within timeout" }
         Write-Log "[DebPkg] Guest reachable at $guestExpectedIp" -Console
-        $plinkCandidates = @(
+        # Prefer native OpenSSH client if available, fallback to plink. Adjust arguments accordingly.
+        $sshCandidates = @(
+            (Join-Path $NewExtract 'bin\\ssh.exe'),
+            (Join-Path $OldExtract 'bin\\ssh.exe'),
+            'ssh.exe',
             (Join-Path $NewExtract 'bin\\plink.exe'),
             (Join-Path $OldExtract 'bin\\plink.exe'),
             'plink.exe'
         )
-        $plink = $plinkCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-        if (-not $plink) { throw 'plink.exe not found' }
-        Write-Log "[DebPkg] Using plink executable: $plink" -Console
-        $sshCmd = "dpkg-query -W -f='${Package}=${Version}\n'".Replace('`','``')
-        $plinkArgs = @('-batch','-noagent','-ssh',"$sshUser@$guestExpectedIp",'-P','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
-        if ($sshKey) { $plinkArgs += @('-i', $sshKey) } elseif ($sshPwd) { $plinkArgs += @('-pw', $sshPwd) }
-        $plinkArgs += $sshCmd
-        Write-Log "[DebPkg] Executing dpkg-query via SSH" -Console
-        $pkgOutput = & $plink @plinkArgs 2>$null
-        if (-not $pkgOutput) { throw 'Empty dpkg-query output' }
+    $sshClient = $sshCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $sshClient) { throw 'No ssh/plink client found (looked for ssh.exe or plink.exe)' }
+    $usingPlink = ($sshClient.ToLower().EndsWith('plink.exe'))
+    $mode = if ($usingPlink) { 'plink' } else { 'openssh' }
+    Write-Log ("[DebPkg] Using SSH client: {0} (mode={1})" -f $sshClient, $mode) -Console
+        # Self-test: verify dpkg-query responds (captures version) with stderr capture
+        try {
+            Write-Log '[DebPkg] Running dpkg-query self-test' -Console
+            $testCmd = 'dpkg-query -V || echo __DPKG_QUERY_FAILED__=$?'
+            if ($usingPlink) {
+                $testArgs = @('-batch','-noagent','-P','22')
+                if ($sshKey) { $testArgs += @('-i', $sshKey) } elseif ($sshPwd) { $testArgs += @('-pw', $sshPwd) }
+                $testArgs += ("$sshUser@$guestExpectedIp")
+            } else {
+                $testArgs = @('-p','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null',"$sshUser@$guestExpectedIp")
+                if ($sshKey) { $testArgs += @('-i', $sshKey) }
+            }
+            $testArgs += $testCmd
+            $testOutput = & $sshClient @testArgs 2>&1
+            if ($testOutput -and ($testOutput | Where-Object { $_ -match 'dpkg-query' })) {
+                $firstLine = $testOutput | Select-Object -First 1
+                Write-Log "[DebPkg] dpkg self-test OK: $firstLine" -Console
+            } else {
+                $joined = ($testOutput | Select-Object -First 5) -join ' | '
+                Write-Log "[DebPkg] dpkg self-test inconclusive. Output: $joined" -Console
+            }
+        }
+        catch {
+            Write-Log "[Warning] dpkg self-test failed: $($_.Exception.Message)" -Console
+        }
+
+        # Build dpkg-query command (no sudo; not required for listing)
+        $formatLiteral = '${Package}=${Version}\n'
+        $baseQuery = "dpkg-query -W -f='$formatLiteral'"
+        if ($usingPlink) {
+            $baseArgs = @('-batch','-noagent','-P','22')
+            if ($sshKey) { $baseArgs += @('-i', $sshKey) } elseif ($sshPwd) { $baseArgs += @('-pw', $sshPwd) }
+            $baseArgs += ("$sshUser@$guestExpectedIp")
+        } else {
+            $baseArgs = @('-p','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
+            if ($sshKey) { $baseArgs += @('-i', $sshKey) }
+            $baseArgs += ("$sshUser@$guestExpectedIp")
+        }
+
+    # Retry attempts reduced from 8 to 2 for quicker failure feedback
+    $maxAttempts = 2
+        $attempt = 0
+        $pkgOutput = $null
+        while ($attempt -lt $maxAttempts -and (-not $pkgOutput)) {
+            $attempt++
+            $remaining = $maxAttempts - $attempt
+            $cmd = $baseQuery
+            $fullArgs = $baseArgs + $cmd
+            Write-Log ("[DebPkg] Attempt {0}: running package inventory (remaining retries: {1})" -f $attempt, $remaining) -Console
+            $raw = & $sshClient @fullArgs 2>&1
+            if ($raw) {
+                # Filter out any sudo/locale noise lines if present
+                $candidate = $raw | Where-Object { $_ -match '.+=.+' }
+                if ($candidate.Count -gt 5) { $pkgOutput = $candidate } else { $pkgOutput = $candidate }
+            }
+            if (-not $pkgOutput) { Start-Sleep -Seconds 5 }
+        }
+        if (-not $pkgOutput) { throw "Empty dpkg-query output after $maxAttempts attempt(s)" }
         $pkgMap = @{}
         foreach ($line in $pkgOutput) {
             if ([string]::IsNullOrWhiteSpace($line)) { continue }
@@ -208,52 +327,134 @@ function Get-DebianPackagesFromVHDX {
     }
     catch { $result.Error = "Hyper-V SSH extraction failed: $($_.Exception.Message)" }
     finally {
-        # please add a step to stop here ans ask for key input
-        Read-Host -Prompt "Press Enter to continue"
         Write-Log "[DebPkg] Beginning cleanup (VM, switch, IP)" -Console
-        try { if ($createdVm) { Stop-VM -Name $vmName -Force -TurnOff -ErrorAction SilentlyContinue | Out-Null } } catch {}
-        try { if ($createdVm) { Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null } } catch {}
-        try { Remove-VMSwitch -Name $switchName -Force -ErrorAction SilentlyContinue | Out-Null } catch {}
-        try { $existing = Get-NetIPAddress -IPAddress $hostSwitchIp -ErrorAction SilentlyContinue; if ($existing) { $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue } } catch {}
-        Write-Log "[DebPkg] Cleanup complete" -Console
+        $cleanupErrors = @()
+        try {
+            if ($createdVm) {
+                Stop-VM -Name $vmName -Force -TurnOff -ErrorAction SilentlyContinue | Out-Null
+            }
+        } catch { $cleanupErrors += "Stop-VM: $($_.Exception.Message)" }
+        try {
+            if ($createdVm) {
+                Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null
+            }
+        } catch { $cleanupErrors += "Remove-VM: $($_.Exception.Message)" }
+        try {
+            Remove-VMSwitch -Name $switchName -Force -ErrorAction SilentlyContinue | Out-Null
+        } catch { $cleanupErrors += "Remove-VMSwitch: $($_.Exception.Message)" }
+        try {
+            $existing = Get-NetIPAddress -IPAddress $hostSwitchIp -ErrorAction SilentlyContinue
+            if ($existing) {
+                $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
+            }
+        } catch { $cleanupErrors += "Remove-NetIPAddress: $($_.Exception.Message)" }
+
+        # Verification & second pass if needed
+        $leftVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        if ($leftVm) {
+            Write-Log "[DebPkg][Cleanup] VM still present after first attempt; retrying remove." -Console
+            try { Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Retry Remove-VM: $($_.Exception.Message)" }
+            $leftVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+            if ($leftVm) { $cleanupErrors += 'VM remains after retry.' }
+        }
+        $leftSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
+        if ($leftSwitch) {
+            Write-Log "[DebPkg][Cleanup] Switch still present after first attempt; retrying remove." -Console
+            try { Remove-VMSwitch -Name $switchName -Force -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Retry Remove-VMSwitch: $($_.Exception.Message)" }
+            $leftSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
+            if ($leftSwitch) { $cleanupErrors += 'Switch remains after retry.' }
+        }
+        $leftIp = Get-NetIPAddress -IPAddress $hostSwitchIp -ErrorAction SilentlyContinue
+        if ($leftIp) {
+            Write-Log "[DebPkg][Cleanup] Host IP still present; retry removal." -Console
+            try { $leftIp | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue } catch { $cleanupErrors += "Retry Remove-NetIPAddress: $($_.Exception.Message)" }
+            $leftIp = Get-NetIPAddress -IPAddress $hostSwitchIp -ErrorAction SilentlyContinue
+            if ($leftIp) { $cleanupErrors += 'Host switch IP remains after retry.' }
+        }
+
+        if ($cleanupErrors.Count -gt 0) {
+            Write-Log ("[DebPkg] Cleanup completed with warnings: {0}" -f ($cleanupErrors -join '; ')) -Console
+        } else {
+            Write-Log "[DebPkg] Cleanup complete" -Console
+        }
     }
     return $result
 }
 
 function Get-SkippedFileDebianPackageDiff {
     param(
-        [string]$OldRoot,
-        [string]$NewRoot,
-        [string]$FileName
+        [string] $OldRoot,
+        [string] $NewRoot,
+        [string] $FileName
     )
     Write-Log "[DebPkgDiff] Starting diff for skipped file '$FileName'" -Console
-    $diffResult = [pscustomobject]@{ Processed=$false; Error=$null; File=$FileName; OldRelativePath=$null; NewRelativePath=$null; Added=@(); Removed=@(); Changed=@(); AddedCount=0; RemovedCount=0; ChangedCount=0 }
+    $diffResult = [pscustomobject]@{
+        Processed        = $false
+        Error            = $null
+        File             = $FileName
+        OldRelativePath  = $null
+        NewRelativePath  = $null
+        Added            = @()
+        Removed          = @()
+        Changed          = @()
+        AddedCount       = 0
+        RemovedCount     = 0
+        ChangedCount     = 0
+    }
     $oldMatch = Get-ChildItem -Path $OldRoot -Recurse -File -Filter $FileName -ErrorAction SilentlyContinue | Select-Object -First 1
     $newMatch = Get-ChildItem -Path $NewRoot -Recurse -File -Filter $FileName -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $oldMatch -or -not $newMatch) { $diffResult.Error = 'File missing in one of the packages (search failed)'; return $diffResult }
+    if (-not $oldMatch -or -not $newMatch) {
+        $diffResult.Error = 'File missing in one of the packages (search failed)'
+        return $diffResult
+    }
     $diffResult.OldRelativePath = ($oldMatch.FullName.Substring($OldRoot.Length)) -replace '^[\\/]+' , ''
     $diffResult.NewRelativePath = ($newMatch.FullName.Substring($NewRoot.Length)) -replace '^[\\/]+' , ''
     $oldPkgs = Get-DebianPackagesFromVHDX -VhdxPath $oldMatch.FullName -NewExtract $NewRoot -OldExtract $OldRoot -switchNameEnding 'old'
     $newPkgs = Get-DebianPackagesFromVHDX -VhdxPath $newMatch.FullName -NewExtract $NewRoot -OldExtract $OldRoot -switchNameEnding 'new'
-    if ($oldPkgs.Error -or $newPkgs.Error) { $diffResult.Error = "OldError=[$($oldPkgs.Error)] NewError=[$($newPkgs.Error)]"; return $diffResult }
-    $oldMap = $oldPkgs.Packages; $newMap = $newPkgs.Packages
-    $added=@(); $removed=@(); $changed=@()
-    foreach ($k in $newMap.Keys) { if (-not $oldMap.ContainsKey($k)) { $added += "$k=$($newMap[$k])" } elseif ($oldMap[$k] -ne $newMap[$k]) { $changed += ("{0}: {1} -> {2}" -f $k,$oldMap[$k],$newMap[$k]) } }
-    foreach ($k in $oldMap.Keys) { if (-not $newMap.ContainsKey($k)) { $removed += "$k=$($oldMap[$k])" } }
-    $diffResult.Processed=$true; $diffResult.Added=$added; $diffResult.Removed=$removed; $diffResult.Changed=$changed; $diffResult.AddedCount=$added.Count; $diffResult.RemovedCount=$removed.Count; $diffResult.ChangedCount=$changed.Count; return $diffResult
+    if ($oldPkgs.Error -or $newPkgs.Error) {
+        $diffResult.Error = "OldError=[$($oldPkgs.Error)] NewError=[$($newPkgs.Error)]"
+        return $diffResult
+    }
+    $oldMap = $oldPkgs.Packages
+    $newMap = $newPkgs.Packages
+    $added   = @()
+    $removed = @()
+    $changed = @()
+    foreach ($k in $newMap.Keys) {
+        if (-not $oldMap.ContainsKey($k)) {
+            $added += "$k=$($newMap[$k])"
+        }
+        elseif ($oldMap[$k] -ne $newMap[$k]) {
+            $changed += ("{0}: {1} -> {2}" -f $k, $oldMap[$k], $newMap[$k])
+        }
+    }
+    foreach ($k in $oldMap.Keys) {
+        if (-not $newMap.ContainsKey($k)) {
+            $removed += "$k=$($oldMap[$k])"
+        }
+    }
+    $diffResult.Processed    = $true
+    $diffResult.Added        = $added
+    $diffResult.Removed      = $removed
+    $diffResult.Changed      = $changed
+    $diffResult.AddedCount   = $added.Count
+    $diffResult.RemovedCount = $removed.Count
+    $diffResult.ChangedCount = $changed.Count
+    return $diffResult
 }
 
 function Remove-SpecialSkippedFilesFromStage {
     param(
-        [Parameter(Mandatory=$true)][string]$StagePath,
-        [Parameter(Mandatory=$true)][string[]]$Skipped
+        [Parameter(Mandatory = $true)] [string]  $StagePath,
+        [Parameter(Mandatory = $true)] [string[]] $Skipped
     )
-
     Write-Log "[StageCleanup] Starting removal of special skipped files from '$StagePath' (Patterns: $([string]::Join(', ', $Skipped)))" -Console
     $totalRemoved = 0
     foreach ($sf in $Skipped) {
         $foundFiles = Get-ChildItem -Path $StagePath -Recurse -File -Filter $sf -ErrorAction SilentlyContinue
-        if ($foundFiles) { Write-Log "[StageCleanup] Found $($foundFiles.Count) candidate(s) for pattern '$sf'" -Console }
+        if ($foundFiles) {
+            Write-Log "[StageCleanup] Found $($foundFiles.Count) candidate(s) for pattern '$sf'" -Console
+        }
         foreach ($m in $foundFiles) {
             try {
                 Remove-Item -LiteralPath $m.FullName -Force -ErrorAction Stop

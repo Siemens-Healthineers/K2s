@@ -316,7 +316,9 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
             Write-Log "[Warning] Failed to generate Debian delta artifact: $($_.Exception.Message)" -Console
         }
     } else {
-        Write-Log "[Warning] Debian package diff not processed: $($debianPackageDiff.Error)" -Console
+        $err = "Debian package diff not processed: $($debianPackageDiff.Error)"
+        Write-Log $err -Error
+        throw $err
     }
 }
 
