@@ -206,10 +206,20 @@ function Get-DebianPackageMapFromStatusFile {
 }
 
 function Get-DebianPackagesFromVHDX {
-    param([string]$VhdxPath, [string]$NewExtract, [string]$OldExtract, [string]$switchNameEnding='')
-    $result = [pscustomobject]@{ Packages = $null; Error = $null; Method = 'hyperv-ssh' }
+    param(
+        [string] $VhdxPath,
+        [string] $NewExtract,
+        [string] $OldExtract,
+        [string] $switchNameEnding = '',
+        [string[]] $DownloadPackageSpecs,
+        [string] $DownloadLocalDir,
+        [switch] $DownloadDebs
+    )
+    $result = [pscustomobject]@{ Packages = $null; Error = $null; Method = 'hyperv-ssh'; DownloadedDebs = @() }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
     Write-Log "[DebPkg] Starting extraction from VHDX '$VhdxPath' with new extract '$NewExtract' and old extract '$OldExtract'" -Console
+    Write-Log "[DebPkg] Switch name: $switchName, Download directory: $DownloadLocalDir, DownloadDebs: $DownloadDebs" -Console
+    # Use distinct naming to avoid collisions and make purpose clear
     $switchName = "k2s-switch-$switchNameEnding"
     $hostSwitchIp = '172.19.1.1'
     $guestExpectedIp = '172.19.1.100'
@@ -355,6 +365,107 @@ function Get-DebianPackagesFromVHDX {
         if ($pkgMap.Count -eq 0) { throw 'Parsed 0 packages' }
         Write-Log "[DebPkg] Parsed $($pkgMap.Count) packages from VHDX" -Console
         $result.Packages = $pkgMap
+
+        # Optional offline .deb acquisition
+        if ($DownloadDebs -and $DownloadPackageSpecs -and $DownloadPackageSpecs.Count -gt 0) {
+            Write-Log ("[DebPkg] Starting offline .deb acquisition for {0} package specs" -f $DownloadPackageSpecs.Count) -Console
+            if (-not $DownloadLocalDir) { throw 'DownloadLocalDir not specified for offline acquisition' }
+            if (-not (Test-Path -LiteralPath $DownloadLocalDir)) { New-Item -ItemType Directory -Path $DownloadLocalDir -Force | Out-Null }
+            $remoteDebDir = '/tmp/k2s-delta-debs'
+            $downloadScript = @(
+                "set -euo pipefail",
+                "rm -rf $remoteDebDir; mkdir -p $remoteDebDir",
+                "cd $remoteDebDir",
+                "apt-get update >/dev/null 2>&1 || true"
+            )
+            foreach ($spec in $DownloadPackageSpecs) {
+                if ([string]::IsNullOrWhiteSpace($spec)) { continue }
+                $name = $spec; $ver = ''
+                if ($spec -match '^(?<n>[^=]+)=(?<v>.+)$') { $name = $matches['n']; $ver = $matches['v'] }
+                if ($ver) {
+                    $downloadScript += "echo '[dl] $name=$ver'";
+                    $downloadScript += "apt-get download $name=$ver >/dev/null 2>&1 || echo 'WARN: failed $name=$ver'";
+                } else {
+                    $downloadScript += "echo '[dl] $name (no version specified)'";
+                    $downloadScript += "apt-get download $name >/dev/null 2>&1 || echo 'WARN: failed $name'";
+                }
+            }
+            $downloadScript += 'echo __K2S_DEB_LIST_BEGIN__'
+            $downloadScript += 'ls -1 *.deb 2>/dev/null || true'
+            $downloadScript += 'echo __K2S_DEB_LIST_END__'
+            $remoteCmd = ("bash -c '" + ($downloadScript -join '; ') + "'")
+            $dlArgs = @()
+            if ($usingPlink) {
+                $dlArgs = @('-batch','-noagent','-P','22')
+                if ($plinkHostKey) { $dlArgs += @('-hostkey', $plinkHostKey) }
+                if ($sshKey) { $dlArgs += @('-i', $sshKey) } elseif ($sshPwd) { $dlArgs += @('-pw', $sshPwd) }
+                $dlArgs += ("$sshUser@$guestExpectedIp")
+                $dlArgs += $remoteCmd
+                $dlOutput = & $sshClient @dlArgs 2>&1
+            } else {
+                $dlArgs = @('-p','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
+                if ($sshKey) { $dlArgs += @('-i', $sshKey) }
+                $dlArgs += ("$sshUser@$guestExpectedIp")
+                $dlArgs += $remoteCmd
+                $dlOutput = & $sshClient @dlArgs 2>&1
+            }
+            $debFiles = @()
+            if ($dlOutput) {
+                $debFiles = $dlOutput | Where-Object { $_ -like '*.deb' }
+            }
+            if ($debFiles.Count -gt 0) {
+                Write-Log ("[DebPkg] Retrieved list of {0} .deb files; starting copy" -f $debFiles.Count) -Console
+                # copy via pscp or scp
+                $scpClient = $null
+                $pscpCandidates = @(
+                    (Join-Path $NewExtract 'bin\\pscp.exe'),
+                    (Join-Path $OldExtract 'bin\\pscp.exe'),
+                    'pscp.exe'
+                )
+                $scpClient = $pscpCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+                $usePlinkCopy = $false
+                if ($scpClient -and ($scpClient.ToLower().EndsWith('pscp.exe'))) { $usePlinkCopy = $true }
+                if (-not $scpClient -and -not $usingPlink) { $scpClient = $sshClient } # use ssh scp mode if available
+                foreach ($deb in $debFiles) {
+                    try {
+                        if ($usePlinkCopy) {
+                            $copyArgs = @('-batch','-P','22')
+                            if ($plinkHostKey) { $copyArgs += @('-hostkey', $plinkHostKey) }
+                            if ($sshKey) { $copyArgs += @('-i', $sshKey) } elseif ($sshPwd) { $copyArgs += @('-pw', $sshPwd) }
+                            $copyArgs += ("${sshUser}@${guestExpectedIp}:${remoteDebDir}/$deb")
+                            $copyArgs += (Join-Path $DownloadLocalDir $deb)
+                            $null = & $scpClient @copyArgs 2>&1
+                        } else {
+                            # assume scp compatible (OpenSSH)
+                            $copyArgs = @('-P','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
+                            if ($sshKey) { $copyArgs += @('-i', $sshKey) }
+                            $copyArgs += ("${sshUser}@${guestExpectedIp}:${remoteDebDir}/$deb")
+                            $copyArgs += $DownloadLocalDir
+                            $null = & $scpClient @copyArgs 2>&1
+                        }
+                        if (Test-Path -LiteralPath (Join-Path $DownloadLocalDir $deb)) {
+                            $result.DownloadedDebs += $deb
+                        }
+                    } catch {
+                        Write-Log "[DebPkg][Warning] Failed to copy ${deb}: $($_.Exception.Message)" -Console
+                    }
+                }
+                Write-Log ("[DebPkg] Offline .deb acquisition complete ({0} files)" -f $result.DownloadedDebs.Count) -Console
+            } else {
+                # Diagnostic: show raw output trimmed around markers
+                if ($dlOutput) {
+                    $startIdx = ($dlOutput | Select-String -SimpleMatch '__K2S_DEB_LIST_BEGIN__').LineNumber
+                    $endIdx = ($dlOutput | Select-String -SimpleMatch '__K2S_DEB_LIST_END__').LineNumber
+                    if ($startIdx -and $endIdx -and $endIdx -gt $startIdx) {
+                        $between = $dlOutput[($startIdx)..($endIdx)]
+                        Write-Log ("[DebPkg][Diag] Remote deb directory listing lines: {0}" -f ($between -join ' | ')) -Console
+                    } else {
+                        Write-Log ("[DebPkg][Diag] Raw download output head: {0}" -f (($dlOutput | Select-Object -First 20) -join ' || ')) -Console
+                    }
+                }
+                Write-Log '[DebPkg][Warning] No .deb files listed by remote acquisition script' -Console
+            }
+        }
     }
     catch { $result.Error = "Hyper-V SSH extraction failed: $($_.Exception.Message)" }
     finally {

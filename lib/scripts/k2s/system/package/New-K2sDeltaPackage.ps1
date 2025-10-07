@@ -238,6 +238,7 @@ Write-Log "Staging summary: total staged files=$stagedFileCount (wholesale dirs=
 
 # Special diff for Debian packages inside Kubemaster-Base.vhdx (if present and analyzable)
 $debianPackageDiff = $null
+$offlineDebInfo = $null
 if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
     Write-Log 'Analyzing Debian packages in Kubemaster-Base.vhdx ...' -Console
     $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx'
@@ -247,6 +248,16 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
         try {
             $debianDeltaDir = Join-Path $stageDir 'debian-delta'
             if (-not (Test-Path -LiteralPath $debianDeltaDir)) { New-Item -ItemType Directory -Path $debianDeltaDir | Out-Null }
+
+            # Collect offline package specs (added + upgraded new versions)
+            $offlineSpecs = @()
+            if ($debianPackageDiff.Added) { $offlineSpecs += $debianPackageDiff.Added }
+            if ($debianPackageDiff.Changed) {
+                foreach ($c in $debianPackageDiff.Changed) {
+                    if ($c -match '^(?<n>[^:]+):\s+[^ ]+\s+->\s+(?<nv>.+)$') { $offlineSpecs += ("{0}={1}" -f $matches['n'], $matches['nv']) }
+                }
+            }
+            $offlineSpecs = $offlineSpecs | Sort-Object -Unique
 
             # Added packages list (keep full pkg=version form)
             $addedPkgs = $debianPackageDiff.Added
@@ -272,6 +283,8 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 AddedCount          = $debianPackageDiff.AddedCount
                 RemovedCount        = $debianPackageDiff.RemovedCount
                 UpgradedCount       = $upgradedLines.Count
+                OfflinePackages     = $offlineSpecs
+                OfflinePackagesCount = $offlineSpecs.Count
                 GeneratedUtc        = [DateTime]::UtcNow.ToString('o')
             }
             $debDeltaManifest | ConvertTo-Json -Depth 4 | Out-File -FilePath (Join-Path $debianDeltaDir 'debian-delta-manifest.json') -Encoding UTF8 -Force
@@ -286,11 +299,34 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 'ADDED_FILE=packages.added',
                 'REMOVED_FILE=packages.removed',
                 'UPGRADED_FILE=packages.upgraded',
-                'INSTALL_LIST=()',
-                'if [[ -f "$REMOVED_FILE" ]]; then echo "[debian-delta] Purging removed packages"; xargs -r apt-get purge -y < "$REMOVED_FILE"; fi',
-                'if [[ -f "$ADDED_FILE" ]]; then while IFS= read -r l; do [[ -z "$l" ]] && continue; INSTALL_LIST+=("$l"); done < "$ADDED_FILE"; fi',
-                'if [[ -f "$UPGRADED_FILE" ]]; then while IFS= read -r l; do [[ -z "$l" ]] && continue; PKG=$(echo "$l" | awk "{print $1}"); NEWV=$(echo "$l" | awk "{print $3}"); INSTALL_LIST+=("${PKG}=${NEWV}"); done < "$UPGRADED_FILE"; fi',
-                'if [[ ${#INSTALL_LIST[@]} -gt 0 ]]; then echo "[debian-delta] Installing/upgrading ${#INSTALL_LIST[@]} packages"; apt-get update; apt-get install -y --no-install-recommends "${INSTALL_LIST[@]}"; else echo "[debian-delta] No packages to install"; fi',
+                'PKG_DIR=packages',
+                'INSTALL_SPECS=()',
+                'if [[ -f "$REMOVED_FILE" ]]; then echo "[debian-delta] Purging removed packages"; xargs -r dpkg --purge < "$REMOVED_FILE" || true; fi',
+                'if [[ -f "$ADDED_FILE" ]]; then while IFS= read -r l; do [[ -z "$l" ]] && continue; INSTALL_SPECS+=("$l"); done < "$ADDED_FILE"; fi',
+                'if [[ -f "$UPGRADED_FILE" ]]; then while IFS= read -r l; do [[ -z "$l" ]] && continue; PKG=$(echo "$l" | awk "{print $1}"); NEWV=$(echo "$l" | awk "{print $3}"); INSTALL_SPECS+=("${PKG}=${NEWV}"); done < "$UPGRADED_FILE"; fi',
+                'if [[ -d "$PKG_DIR" ]]; then',
+                '  shopt -s nullglob',
+                '  DEBS=($PKG_DIR/*.deb)',
+                '  if [[ ${#DEBS[@]} -gt 0 ]]; then',
+                '    echo "[debian-delta] Installing local .deb files (${#DEBS[@]})"',
+                '    dpkg -i ${DEBS[@]} || true',
+                '    # Attempt to fix missing dependencies without network if possible',
+                '    if command -v apt-get >/dev/null 2>&1; then apt-get -y --no-install-recommends install -f || true; fi',
+                '  else',
+                '    echo "[debian-delta] No local .deb files present"',
+                '  fi',
+                'fi',
+                'if [[ ${#INSTALL_SPECS[@]} -gt 0 ]]; then',
+                '  echo "[debian-delta] Ensuring target versions for ${#INSTALL_SPECS[@]} packages"',
+                '  # Attempt version enforcement using dpkg (requires local .debs); fallback echo warnings',
+                '  for spec in "${INSTALL_SPECS[@]}"; do',
+                '     P=${spec%%=*}; V=${spec#*=};',
+                '     CUR=$(dpkg-query -W -f="${Version}" "$P" 2>/dev/null || echo missing)',
+                '     if [[ "$CUR" != "$V" ]]; then echo "[debian-delta][warn] Version mismatch for $P expected $V got $CUR"; fi',
+                '  done',
+                'else',
+                '  echo "[debian-delta] No packages specified for install/upgrade"',
+                'fi',
                 'echo "[debian-delta] Apply complete"'
             ) -join "`n"
             $applyPath = Join-Path $debianDeltaDir 'apply-debian-delta.sh'
@@ -313,6 +349,40 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
             ) -join "`n"
             $verifyPath = Join-Path $debianDeltaDir 'verify-debian-delta.sh'
             $verifyScript | Out-File -FilePath $verifyPath -Encoding ASCII -Force
+            
+            # Attempt offline .deb acquisition using a second VHDX scan pass (best effort)
+            try {
+                if ($offlineSpecs.Count -gt 0) {
+                    $debDownloadDir = Join-Path $debianDeltaDir 'packages'
+                    if (-not (Test-Path -LiteralPath $debDownloadDir)) { New-Item -ItemType Directory -Path $debDownloadDir | Out-Null }
+                    Write-Log ("Attempting offline .deb acquisition for {0} packages" -f $offlineSpecs.Count) -Console
+                    $kubemasterNewRel = $debianPackageDiff.NewRelativePath
+                    $kubemasterNewAbs = Join-Path $newExtract $kubemasterNewRel
+                    if (Test-Path -LiteralPath $kubemasterNewAbs) {
+                        $dlResult = Get-DebianPackagesFromVHDX -VhdxPath $kubemasterNewAbs -NewExtract $newExtract -OldExtract $oldExtract -switchNameEnding 'delta' -DownloadPackageSpecs $offlineSpecs -DownloadLocalDir $debDownloadDir -DownloadDebs
+                        if ($dlResult.Error) { Write-Log ("[Warning] Offline package acquisition error: {0}" -f $dlResult.Error) -Console }
+                        elseif ($dlResult.DownloadedDebs.Count -gt 0) {
+                            $debMeta = [pscustomobject]@{
+                                Downloaded = $dlResult.DownloadedDebs
+                                DownloadedCount = $dlResult.DownloadedDebs.Count
+                                GeneratedUtc = [DateTime]::UtcNow.ToString('o')
+                            }
+                            $debMeta | ConvertTo-Json -Depth 3 | Out-File -FilePath (Join-Path $debDownloadDir 'download-manifest.json') -Encoding UTF8 -Force
+                            Write-Log ("Offline .deb acquisition completed: {0} files" -f $dlResult.DownloadedDebs.Count) -Console
+                            $offlineDebInfo = [pscustomobject]@{
+                                Specs = $offlineSpecs
+                                Downloaded = $dlResult.DownloadedDebs | ForEach-Object { Join-Path 'debian-delta/packages' $_ }
+                            }
+                        } else {
+                            Write-Log '[Warning] No .deb files downloaded (empty list)' -Console
+                        }
+                    } else {
+                        Write-Log ("[Warning] Expected VHDX for offline acquisition not found: {0}" -f $kubemasterNewAbs) -Console
+                    }
+                }
+            } catch {
+                Write-Log ("[Warning] Offline acquisition attempt failed: {0}" -f $_.Exception.Message) -Console
+            }
             Write-Log "Created Debian delta artifact at '$debianDeltaDir'" -Console
         }
         catch {
@@ -353,6 +423,10 @@ $manifest = [pscustomobject]@{
     HashAlgorithm         = 'SHA256'
     DebianPackageDiff     = $debianPackageDiff
     DebianDeltaRelativePath = $(if (Test-Path -LiteralPath (Join-Path $stageDir 'debian-delta')) { 'debian-delta' } else { $null })
+    DebianOfflinePackages = $(if ($offlineDebInfo) { $offlineDebInfo.Specs } else { @() })
+    DebianOfflinePackagesCount = $(if ($offlineDebInfo) { $offlineDebInfo.Specs.Count } else { 0 })
+    DebianOfflineDownloaded = $(if ($offlineDebInfo) { $offlineDebInfo.Downloaded } else { @() })
+    DebianOfflineDownloadedCount = $(if ($offlineDebInfo) { $offlineDebInfo.Downloaded.Count } else { 0 })
 }
 $manifestPath = Join-Path $stageDir 'delta-manifest.json'
 $manifest | ConvertTo-Json -Depth 6 | Out-File -FilePath $manifestPath -Encoding UTF8 -Force
