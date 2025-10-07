@@ -48,7 +48,7 @@ function Start-Phase($name) {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     return $sw
 }
-function End-Phase($name, $sw) {
+function Stop-Phase($name, $sw) {
     if ($sw) { $sw.Stop(); Write-Log ("[Phase] {0} - done in {1:N2}s" -f $name, ($sw.Elapsed.TotalSeconds)) -Console }
 }
 
@@ -306,16 +306,201 @@ if ($wholeDirsNormalized.Count -gt 0) {
 }
 
 # Internal list of special files that should be excluded from diff/staging and handled separately if needed.
-$SpecialSkippedFiles = @('Kubemaster-Base.vhdx')
+$SpecialSkippedFiles = @('Kubemaster-Base.vhdx', 'trivy.exe', 'virtctl.exe', 'virt-viewer-x64-11.0-1.0.msi', 'k2s-bom.json', 'k2s-bom.xml')
 Write-Log "Special skipped files: $($SpecialSkippedFiles -join ', ')" -Console
-function Test-SpecialSkippedFile { param($path,$list) foreach($f in $list){ if ($path -ieq $f) { return $true } } return $false }
+function Test-SpecialSkippedFile { param($path,$list) $leaf = [IO.Path]::GetFileName($path); foreach($f in $list){ if ($leaf -ieq $f) { return $true } } return $false }
 
 function Test-InWholeDir { param($path, $dirs) foreach($d in $dirs){ if($path.StartsWith($d + '/')){ return $true } } return $false }
+
+# ---- Special Handling: Analyze Debian packages inside Kubemaster-Base.vhdx (best effort) ---------
+# This avoids fully booting a VM by attempting offline extraction of /var/lib/dpkg/status using 7zip.
+# If 7z.exe is not available or the dpkg status file cannot be located, the analysis is skipped gracefully.
+
+function Get-DebianPackageMapFromStatusFile {
+    param([string]$StatusFilePath)
+    $map = @{}
+    if (-not (Test-Path -LiteralPath $StatusFilePath)) { return $map }
+    $currentName = $null; $currentVersion = $null
+    Get-Content -LiteralPath $StatusFilePath | ForEach-Object {
+        $line = $_
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            if ($currentName) { $map[$currentName] = $currentVersion }
+            $currentName = $null; $currentVersion = $null
+            return
+        }
+        if ($line -like 'Package:*') { $currentName = ($line.Substring(8)).Trim() }
+        elseif ($line -like 'Version:*') { $currentVersion = ($line.Substring(8)).Trim() }
+    }
+    if ($currentName) { $map[$currentName] = $currentVersion }
+    return $map
+}
+
+function Get-DebianPackagesFromVHDX {
+    param([string]$VhdxPath)
+    $result = [pscustomobject]@{ Packages = $null; Error = $null; Method = $null }
+    if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
+
+    # Strategy 1: Use 7zip (fast, no mounting/VM)
+    $sevenZip = Get-Command 7z.exe -ErrorAction SilentlyContinue
+    if ($sevenZip) {
+        try {
+            $listOutput = & $sevenZip.Path l -ba -- "$VhdxPath" 2>$null
+            if (-not $listOutput) { throw 'No listing output from 7z' }
+            $statusLine = $listOutput | Where-Object { $_ -match 'var/lib/dpkg/status$' } | Select-Object -First 1
+            if (-not $statusLine) { throw 'dpkg status file not found inside VHDX (7z listing)' }
+            $tempDir = Join-Path ([IO.Path]::GetTempPath()) ("k2s-dpkg-" + [guid]::NewGuid())
+            New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+            try {
+                $candidates = @('var/lib/dpkg/status','0/var/lib/dpkg/status','1/var/lib/dpkg/status')
+                $extracted = $false
+                foreach ($c in $candidates) {
+                    if ($extracted) { break }
+                    & $sevenZip.Path e -y -- "$VhdxPath" "$c" -o"$tempDir" > $null 2>&1
+                    if (Test-Path (Join-Path $tempDir 'status')) { $extracted = $true }
+                }
+                if (-not $extracted) { throw 'Failed to extract dpkg status (candidates not found with 7z)' }
+                $statusFile = Join-Path $tempDir 'status'
+                $pkgMap = Get-DebianPackageMapFromStatusFile -StatusFilePath $statusFile
+                $result.Packages = $pkgMap
+                $result.Method = '7zip'
+                return $result
+            }
+            finally {
+                try { if (Test-Path $tempDir) { Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue } } catch {}
+            }
+        }
+        catch {
+            Write-Log "[Warning] 7zip extraction path failed for '$VhdxPath': $($_.Exception.Message). Will attempt mount fallback." -Console
+        }
+    } else {
+        Write-Log '[Info] 7z.exe not found; attempting mount fallback for Debian package extraction.' -Console
+    }
+
+    # Strategy 2: Mount the VHDX (works only if Windows can read filesystem; ext4 usually not readable -> may fail)
+    try {
+        $volsBefore = Get-Volume | ForEach-Object { $_.DriveLetter } | Where-Object { $_ }
+        $mount = Mount-DiskImage -ImagePath $VhdxPath -PassThru -ErrorAction Stop
+        Start-Sleep -Seconds 2
+        $volsAfter = Get-Volume | ForEach-Object { $_.DriveLetter } | Where-Object { $_ }
+        $newLetters = @($volsAfter | Where-Object { $volsBefore -notcontains $_ })
+        if (-not $newLetters -or $newLetters.Count -eq 0) { throw 'No new accessible volumes after mounting (likely unsupported filesystem such as ext4)' }
+        $statusFound = $false; $pkgMap = @{}
+        foreach ($ltr in $newLetters) {
+            # Build candidate path to dpkg status file on the mounted volume
+            $candidate = ("{0}:\var\lib\dpkg\status" -f $ltr)
+            if (Test-Path -LiteralPath $candidate) {
+                $pkgMap = Get-DebianPackageMapFromStatusFile -StatusFilePath $candidate
+                $statusFound = $true; break
+            }
+        }
+        if (-not $statusFound) { throw 'dpkg status file not found on mounted volumes' }
+        $result.Packages = $pkgMap
+        $result.Method = 'mount'
+    }
+    catch {
+        if (-not $result.Packages) { $result.Error = "Mount fallback failed: $($_.Exception.Message)" }
+    }
+    finally {
+        try { Dismount-DiskImage -ImagePath $VhdxPath -ErrorAction SilentlyContinue | Out-Null } catch {}
+    }
+    # Strategy 3: WSL mount (for ext4) if still not successful
+    if (-not $result.Packages) {
+        $wsl = Get-Command wsl.exe -ErrorAction SilentlyContinue
+        if ($wsl) {
+            Write-Log "[Info] Attempting WSL fallback to read dpkg status from '$VhdxPath'" -Console
+            $tempStatusHost = Join-Path ([IO.Path]::GetTempPath()) ("k2s-dpkg-wsl-" + [guid]::NewGuid() + '.status')
+            try {
+                # Mount all partitions automatically (omit --bare for auto-mount)
+                & $wsl.Path --mount "$VhdxPath" 2>$null
+                Start-Sleep -Seconds 2
+                # Find candidate status file inside /mnt/wsl/* paths (WSL auto-mount root) then export to host path
+                $script = @'
+set -e
+FOUND=""
+for f in /mnt/wsl/*/var/lib/dpkg/status; do
+  if [ -f "$f" ]; then
+    FOUND="$f"; break
+  fi
+done
+if [ -n "$FOUND" ]; then
+  cat "$FOUND"
+fi
+'@
+                $content = & $wsl.Path -e sh -c $script
+                if ($content -and $content.Length -gt 0) {
+                    $content | Out-File -FilePath $tempStatusHost -Encoding UTF8 -Force
+                    $pkgMap = Get-DebianPackageMapFromStatusFile -StatusFilePath $tempStatusHost
+                    if ($pkgMap.Count -gt 0) {
+                        $result.Packages = $pkgMap
+                        $result.Method = 'wsl'
+                        $result.Error = $null
+                    } else {
+                        Write-Log '[Warning] WSL fallback found status file but no packages parsed' -Console
+                    }
+                } else {
+                    Write-Log '[Warning] WSL fallback did not locate a dpkg status file' -Console
+                }
+            }
+            catch {
+                Write-Log "[Warning] WSL fallback failed: $($_.Exception.Message)" -Console
+            }
+            finally {
+                try { & $wsl.Path --unmount "$VhdxPath" 2>$null } catch {}
+                try { if (Test-Path -LiteralPath $tempStatusHost) { Remove-Item -LiteralPath $tempStatusHost -Force -ErrorAction SilentlyContinue } } catch {}
+            }
+        }
+    }
+    return $result
+}
+
+function Get-SkippedFileDebianPackageDiff {
+    param(
+        [string]$OldRoot,
+        [string]$NewRoot,
+        [string]$FileName
+    )
+    $diffResult = [pscustomobject]@{
+        Processed      = $false
+        Error          = $null
+        File           = $FileName
+        OldRelativePath= $null
+        NewRelativePath= $null
+        Added          = @()
+        Removed        = @()
+        Changed        = @()
+        AddedCount     = 0
+        RemovedCount   = 0
+        ChangedCount   = 0
+    }
+    $oldMatch = Get-ChildItem -Path $OldRoot -Recurse -File -Filter $FileName -ErrorAction SilentlyContinue | Select-Object -First 1
+    $newMatch = Get-ChildItem -Path $NewRoot -Recurse -File -Filter $FileName -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $oldMatch -or -not $newMatch) { $diffResult.Error = 'File missing in one of the packages (search failed)'; return $diffResult }
+    $diffResult.OldRelativePath = ($oldMatch.FullName.Substring($OldRoot.Length)) -replace '^[\\/]+' , ''
+    $diffResult.NewRelativePath = ($newMatch.FullName.Substring($NewRoot.Length)) -replace '^[\\/]+' , ''
+    $oldPkgs = Get-DebianPackagesFromVHDX -VhdxPath $oldMatch.FullName
+    $newPkgs = Get-DebianPackagesFromVHDX -VhdxPath $newMatch.FullName
+    if ($oldPkgs.Error -or $newPkgs.Error) { $diffResult.Error = "OldError=[$($oldPkgs.Error)] NewError=[$($newPkgs.Error)]"; return $diffResult }
+    $oldMap = $oldPkgs.Packages; $newMap = $newPkgs.Packages
+    $added = @(); $removed = @(); $changed = @()
+    foreach ($k in $newMap.Keys) {
+        if (-not $oldMap.ContainsKey($k)) { $added += "$k=$($newMap[$k])" }
+        elseif ($oldMap[$k] -ne $newMap[$k]) { $changed += ("{0}: {1} -> {2}" -f $k,$oldMap[$k],$newMap[$k]) }
+    }
+    foreach ($k in $oldMap.Keys) { if (-not $newMap.ContainsKey($k)) { $removed += "$k=$($oldMap[$k])" } }
+    $diffResult.Processed = $true
+    $diffResult.Added = $added
+    $diffResult.Removed = $removed
+    $diffResult.Changed = $changed
+    $diffResult.AddedCount = $added.Count
+    $diffResult.RemovedCount = $removed.Count
+    $diffResult.ChangedCount = $changed.Count
+    return $diffResult
+}
 
 $hashPhase = Start-Phase "Hashing"
 $oldMap = Get-FileMap -root $oldExtract -label 'old package'
 $newMap = Get-FileMap -root $newExtract -label 'new package'
-End-Phase "Hashing" $hashPhase
+Stop-Phase "Hashing" $hashPhase
 
 $added    = @()
 $removed  = @()
@@ -347,16 +532,25 @@ foreach ($wd in $wholeDirsNormalized) {
     Copy-Item -LiteralPath $srcDir -Destination $dstDir -Recurse -Force
 }
 
-# Stage added + changed files
-$deltaFileList = $added + $changed | Where-Object { -not (Test-SpecialSkippedFile -path $_ -list $SpecialSkippedFiles) }
-# Ensure special skipped files are not present if copied accidentally (e.g. via wholesale dir)
-foreach ($sf in $SpecialSkippedFiles) {
-    $candidate = Join-Path $stageDir $sf
-    if (Test-Path -LiteralPath $candidate) {
-        try { Remove-Item -LiteralPath $candidate -Force -ErrorAction Stop; Write-Log "Removed special skipped file from stage: $sf" -Console }
-        catch { Write-Log "[Warning] Failed to remove special skipped file '$sf' from stage: $($_.Exception.Message)" -Console }
+# Helper to purge any special skipped files that were copied indirectly (e.g. via wholesale directories)
+function Remove-SpecialSkippedFilesFromStage {
+    param([string]$StagePath,[string[]]$Skipped)
+    foreach ($sf in $Skipped) {
+        $matches = Get-ChildItem -Path $StagePath -Recurse -File -Filter $sf -ErrorAction SilentlyContinue
+        foreach ($m in $matches) {
+            try { Remove-Item -LiteralPath $m.FullName -Force -ErrorAction Stop; Write-Log "Removed special skipped file from stage: $($m.FullName)" -Console }
+            catch { Write-Log "[Warning] Failed to remove special skipped file '$($m.FullName)': $($_.Exception.Message)" -Console }
+        }
     }
 }
+
+# Initial purge after wholesale copy
+Remove-SpecialSkippedFilesFromStage -StagePath $stageDir -Skipped $SpecialSkippedFiles
+
+# Stage added + changed files
+$deltaFileList = $added + $changed | Where-Object { -not (Test-SpecialSkippedFile -path $_ -list $SpecialSkippedFiles) }
+# Final purge to ensure no special skipped files remain (handles files among added/changed set)
+Remove-SpecialSkippedFilesFromStage -StagePath $stageDir -Skipped $SpecialSkippedFiles
 $deltaTotal = $deltaFileList.Count
 Write-Log "Staging $deltaTotal changed/added files" -Console
 $lastPct = -1
@@ -376,11 +570,23 @@ for ($i = 0; $i -lt $deltaTotal; $i++) {
     }
 }
 if ($ShowLogs) { Write-Progress -Activity 'Staging delta files' -Completed }
-End-Phase "Staging" $stagePhase
+Stop-Phase "Staging" $stagePhase
 
 # Staging summary
 $stagedFileCount = (Get-ChildItem -Path $stageDir -Recurse -File | Measure-Object).Count
 Write-Log "Staging summary: total staged files=$stagedFileCount (wholesale dirs=$($wholeDirsNormalized.Count), added=$($added.Count), changed=$($changed.Count))" -Console
+
+# Special diff for Debian packages inside Kubemaster-Base.vhdx (if present and analyzable)
+$debianPackageDiff = $null
+if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
+    Write-Log 'Analyzing Debian packages in Kubemaster-Base.vhdx ...' -Console
+    $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx'
+    if ($debianPackageDiff.Processed) {
+        Write-Log ("Debian package diff: Added={0} Changed={1} Removed={2}" -f $debianPackageDiff.AddedCount, $debianPackageDiff.ChangedCount, $debianPackageDiff.RemovedCount) -Console
+    } else {
+        Write-Log "[Warning] Debian package diff not processed: $($debianPackageDiff.Error)" -Console
+    }
+}
 
 # Build manifest
 $manifest = [pscustomobject]@{
@@ -398,6 +604,7 @@ $manifest = [pscustomobject]@{
     ChangedCount          = $changed.Count
     RemovedCount          = $removed.Count
     HashAlgorithm         = 'SHA256'
+    DebianPackageDiff     = $debianPackageDiff
 }
 $manifestPath = Join-Path $stageDir 'delta-manifest.json'
 $manifest | ConvertTo-Json -Depth 6 | Out-File -FilePath $manifestPath -Encoding UTF8 -Force
@@ -443,7 +650,7 @@ $manifest | ConvertTo-Json -Depth 6 | Out-File -FilePath $manifestPath -Encoding
         Write-Log "Failed to create delta zip: $($_.Exception.Message)" -Error
         throw
     }
-    End-Phase "Zipping" $zipPhase
+    Stop-Phase "Zipping" $zipPhase
 }
 catch {
     $overallError = $_
@@ -469,7 +676,7 @@ if ($overallError) {
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ 
         Error = $null;
-    Delta = @{ WholeDirectories = $wholeDirsNormalized; SpecialSkippedFiles = $SpecialSkippedFiles; Added = $added; Changed = $changed; Removed = $removed; Manifest = 'delta-manifest.json' }
+    Delta = @{ WholeDirectories = $wholeDirsNormalized; SpecialSkippedFiles = $SpecialSkippedFiles; Added = $added; Changed = $changed; Removed = $removed; Manifest = 'delta-manifest.json'; DebianPackageDiff = $debianPackageDiff }
     }
 }
 
