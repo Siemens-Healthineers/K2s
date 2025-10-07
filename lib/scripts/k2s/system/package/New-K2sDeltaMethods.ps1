@@ -144,11 +144,11 @@ function Get-DebianPackageMapFromStatusFile {
 }
 
 function Get-DebianPackagesFromVHDX {
-    param([string]$VhdxPath, [string]$NewExtract, [string]$OldExtract)
+    param([string]$VhdxPath, [string]$NewExtract, [string]$OldExtract, [string]$switchNameEnding='')
     $result = [pscustomobject]@{ Packages = $null; Error = $null; Method = 'hyperv-ssh' }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
     Write-Log "[DebPkg] Starting extraction from VHDX '$VhdxPath' with new extract '$NewExtract' and old extract '$OldExtract'" -Console
-    $switchName = "k2s-diff-switch"
+    $switchName = "k2s-delta-$switchNameEnding"
     $hostSwitchIp = '172.19.1.1'
     $guestExpectedIp = '172.19.1.100'
     $prefixLen = 24
@@ -231,8 +231,8 @@ function Get-SkippedFileDebianPackageDiff {
     if (-not $oldMatch -or -not $newMatch) { $diffResult.Error = 'File missing in one of the packages (search failed)'; return $diffResult }
     $diffResult.OldRelativePath = ($oldMatch.FullName.Substring($OldRoot.Length)) -replace '^[\\/]+' , ''
     $diffResult.NewRelativePath = ($newMatch.FullName.Substring($NewRoot.Length)) -replace '^[\\/]+' , ''
-    $oldPkgs = Get-DebianPackagesFromVHDX -VhdxPath $oldMatch.FullName -NewExtract $NewRoot -OldExtract $OldRoot
-    $newPkgs = Get-DebianPackagesFromVHDX -VhdxPath $newMatch.FullName -NewExtract $NewRoot -OldExtract $OldRoot
+    $oldPkgs = Get-DebianPackagesFromVHDX -VhdxPath $oldMatch.FullName -NewExtract $NewRoot -OldExtract $OldRoot -switchNameEnding 'old'
+    $newPkgs = Get-DebianPackagesFromVHDX -VhdxPath $newMatch.FullName -NewExtract $NewRoot -OldExtract $OldRoot -switchNameEnding 'new'
     if ($oldPkgs.Error -or $newPkgs.Error) { $diffResult.Error = "OldError=[$($oldPkgs.Error)] NewError=[$($newPkgs.Error)]"; return $diffResult }
     $oldMap = $oldPkgs.Packages; $newMap = $newPkgs.Packages
     $added=@(); $removed=@(); $changed=@()
