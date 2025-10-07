@@ -258,12 +258,38 @@ function Get-DebianPackagesFromVHDX {
     $usingPlink = ($sshClient.ToLower().EndsWith('plink.exe'))
     $mode = if ($usingPlink) { 'plink' } else { 'openssh' }
     Write-Log ("[DebPkg] Using SSH client: {0} (mode={1})" -f $sshClient, $mode) -Console
+
+        $plinkHostKey = $null
+        if ($usingPlink) {
+            try {
+                Write-Log '[DebPkg] Performing plink host key probe' -Console
+                $probeArgs = @('-noagent','-batch','-P','22',"$sshUser@$guestExpectedIp",'exit')
+                $probeOutput = & $sshClient @probeArgs 2>&1
+                $joinedProbe = ($probeOutput | Select-Object -First 8) -join ' | '
+                if ($probeOutput -match 'host key is not cached' -or $probeOutput -match 'POTENTIAL SECURITY BREACH') {
+                    # Attempt to extract an ssh-ed25519 SHA256 fingerprint line
+                    $fingerLine = $probeOutput | Where-Object { $_ -match 'ssh-ed25519 255 SHA256:' } | Select-Object -First 1
+                    if (-not $fingerLine) { $fingerLine = $probeOutput | Where-Object { $_ -match 'ssh-rsa 2048 SHA256:' } | Select-Object -First 1 }
+                    if ($fingerLine -and ($fingerLine -match '(ssh-(ed25519|rsa)\s+\d+\s+SHA256:[A-Za-z0-9+/=]+)')) {
+                        $plinkHostKey = $matches[1]
+                        Write-Log "[DebPkg] Extracted host key fingerprint: $plinkHostKey" -Console
+                    } else {
+                        Write-Log "[DebPkg][Warning] Could not parse host key fingerprint from probe output: $joinedProbe" -Console
+                    }
+                } else {
+                    Write-Log '[DebPkg] Host key already trusted (no prompt in probe).' -Console
+                }
+            } catch {
+                Write-Log "[DebPkg][Warning] Host key probe failed: $($_.Exception.Message)" -Console
+            }
+        }
         # Self-test: verify dpkg-query responds (captures version) with stderr capture
         try {
             Write-Log '[DebPkg] Running dpkg-query self-test' -Console
             $testCmd = 'dpkg-query -V || echo __DPKG_QUERY_FAILED__=$?'
             if ($usingPlink) {
                 $testArgs = @('-batch','-noagent','-P','22')
+                if ($plinkHostKey) { $testArgs += @('-hostkey', $plinkHostKey) }
                 if ($sshKey) { $testArgs += @('-i', $sshKey) } elseif ($sshPwd) { $testArgs += @('-pw', $sshPwd) }
                 $testArgs += ("$sshUser@$guestExpectedIp")
             } else {
@@ -278,6 +304,10 @@ function Get-DebianPackagesFromVHDX {
             } else {
                 $joined = ($testOutput | Select-Object -First 5) -join ' | '
                 Write-Log "[DebPkg] dpkg self-test inconclusive. Output: $joined" -Console
+                if ($usingPlink -and ($testOutput -match 'POTENTIAL SECURITY BREACH')) {
+                    $result.Error = 'Host key mismatch detected (plink security warning). Provide correct fingerprint in K2S_DEBIAN_SSH_HOSTKEY or clear cached host key.'
+                    return $result
+                }
             }
         }
         catch {
@@ -289,6 +319,7 @@ function Get-DebianPackagesFromVHDX {
         $baseQuery = "dpkg-query -W -f='$formatLiteral'"
         if ($usingPlink) {
             $baseArgs = @('-batch','-noagent','-P','22')
+            if ($plinkHostKey) { $baseArgs += @('-hostkey', $plinkHostKey) }
             if ($sshKey) { $baseArgs += @('-i', $sshKey) } elseif ($sshPwd) { $baseArgs += @('-pw', $sshPwd) }
             $baseArgs += ("$sshUser@$guestExpectedIp")
         } else {
