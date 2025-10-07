@@ -172,7 +172,7 @@ function Get-DebianPackagesFromVHDX {
     $createdVm = $false
     try {
         Write-Log "[DebPkg] Creating temporary VM '$vmName' attached to '$switchName'" -Console
-        New-VM -Name $vmName -MemoryStartupBytes (2GB) -VHDPath $VhdxPath -Generation 2 -SwitchName $switchName -ErrorAction Stop | Out-Null
+        New-VM -Name $vmName -MemoryStartupBytes (2GB) -VHDPath $VhdxPath -SwitchName $switchName -ErrorAction Stop | Out-Null
         $createdVm = $true
         Write-Log "[DebPkg] Starting VM '$vmName'" -Console
         Start-VM -Name $vmName -ErrorAction Stop | Out-Null
@@ -208,6 +208,8 @@ function Get-DebianPackagesFromVHDX {
     }
     catch { $result.Error = "Hyper-V SSH extraction failed: $($_.Exception.Message)" }
     finally {
+        # please add a step to stop here ans ask for key input
+        Read-Host -Prompt "Press Enter to continue"
         Write-Log "[DebPkg] Beginning cleanup (VM, switch, IP)" -Console
         try { if ($createdVm) { Stop-VM -Name $vmName -Force -TurnOff -ErrorAction SilentlyContinue | Out-Null } } catch {}
         try { if ($createdVm) { Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null } } catch {}
