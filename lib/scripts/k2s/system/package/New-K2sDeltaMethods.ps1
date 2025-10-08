@@ -205,6 +205,106 @@ function Get-DebianPackageMapFromStatusFile {
     return $map
 }
 
+# Performs per-package download attempts inside the guest VM to simplify debugging.
+# Returns object: @{ DebFiles = <string[]>; Failures = <string[]>; Logs = <string[]>; RemoteDir = <string>; UsedFallback = <bool>; Diagnostics = <string[]> }
+function Invoke-GuestDebAcquisition {
+    param(
+        [Parameter(Mandatory)][string] $RemoteDir,
+        [Parameter(Mandatory)][string[]] $PackageSpecs,
+        [Parameter(Mandatory)][string] $SshClient,
+        [Parameter(Mandatory)][bool] $UsingPlink,
+        [string] $PlinkHostKey,
+        [string] $SshUser,
+        [string] $GuestIp,
+        [string] $SshKey,
+        [string] $SshPassword
+    )
+    $result = [pscustomobject]@{ DebFiles=@(); Failures=@(); Logs=@(); RemoteDir=$RemoteDir; UsedFallback=$false; Diagnostics=@() }
+    if (-not $PackageSpecs -or $PackageSpecs.Count -eq 0) { return $result }
+
+    # Helper to build base SSH argument list (without remote command)
+    function _BaseArgs([string]$extra='') {
+        if ($UsingPlink) {
+            $args = @('-batch','-noagent','-P','22')
+            if ($PlinkHostKey) { $args += @('-hostkey', $PlinkHostKey) }
+            if ($SshKey) { $args += @('-i', $SshKey) } elseif ($SshPassword) { $args += @('-pw', $SshPassword) }
+            $args += ("$SshUser@$GuestIp")
+            return ,$args
+        } else {
+            $args = @('-p','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
+            if ($SshKey) { $args += @('-i', $SshKey) }
+            $args += ("$SshUser@$GuestIp")
+            return ,$args
+        }
+    }
+
+    # Prepare remote directory & diagnostics once
+    $initScript = @(
+        'set -euo pipefail',
+        "rm -rf $RemoteDir; mkdir -p $RemoteDir",
+        "cd $RemoteDir",
+        'echo __K2S_DIAG_BEGIN__',
+        'ip addr show || true','ip route show || true',
+        'grep -v "^#" /etc/apt/sources.list 2>/dev/null || true',
+        'ls -1 /etc/apt/sources.list.d 2>/dev/null || true',
+        'ping -c1 deb.debian.org >/dev/null 2>&1 && echo PING_OK || echo PING_FAIL || true',
+        'echo --- RESOLV.CONF ---','cat /etc/resolv.conf 2>/dev/null || true',
+        'echo --- CURL TEST deb.debian.org (HTTP root) ---','command -v curl >/dev/null 2>&1 && (curl -fsI --connect-timeout 5 http://deb.debian.org/ >/dev/null && echo CURL_DEB_OK || echo CURL_DEB_FAIL) || echo CURL_NOT_INSTALLED',
+        'echo __K2S_DIAG_END__',
+        'apt-get update 2>&1 || true'
+    ) -join '; '
+    $initCmd = "bash -c '" + $initScript + "'"
+    $initArgs = (_BaseArgs) + $initCmd
+    $initOut = & $SshClient @initArgs 2>&1
+    if ($initOut) { $result.Diagnostics += ($initOut | Select-Object -First 40) }
+    Write-Log ("[DebPkg][DL] Init output head: {0}" -f (($initOut | Select-Object -First 10) -join ' | ')) -Console
+
+    $idx = 0; $total = $PackageSpecs.Count
+    foreach ($spec in $PackageSpecs) {
+        $idx++
+        if ([string]::IsNullOrWhiteSpace($spec)) { continue }
+        $pkgSpec = $spec.Trim()
+        Write-Log ("[DebPkg][DL] ({0}/{1}) downloading {2}" -f $idx, $total, $pkgSpec) -Console
+        $escaped = $pkgSpec.Replace("'", "'\\''")
+        $cmdScript = @(
+            'set -euo pipefail',
+            "cd $RemoteDir",
+            "echo '[dl] $escaped'",
+            "if apt-get help 2>&1 | grep -qi download; then apt-get download '$escaped' 2>&1 || echo 'WARN: failed $escaped'; \
+             elif command -v apt >/dev/null 2>&1; then apt download '$escaped' 2>&1 || echo 'WARN: failed $escaped'; \
+             else echo 'WARN: no download command'; fi",
+            'echo "[ls-after]"',
+            'ls -1 *.deb 2>/dev/null || true'
+        ) -join '; '
+        $cmd = "bash -c '" + $cmdScript + "'"
+        $args = (_BaseArgs) + $cmd
+        $out = & $SshClient @args 2>&1
+        $result.Logs += $out
+        $fail = ($out | Where-Object { $_ -match 'WARN: failed' })
+        if ($fail) {
+            $result.Failures += $pkgSpec
+        } else {
+            # Collect new deb names after this attempt
+            $listCmd = "bash -c 'cd $RemoteDir; ls -1 *.deb 2>/dev/null || true'"
+            $listOut = & $SshClient @((_BaseArgs) + $listCmd) 2>&1
+            if ($listOut) {
+                $current = $listOut | Where-Object { $_ -like '*.deb' }
+                $result.DebFiles = ($current | Sort-Object -Unique)
+            }
+        }
+    }
+    # Fallback: if no files at all, copy apt cache content
+    if (-not $result.DebFiles -or $result.DebFiles.Count -eq 0) {
+        Write-Log '[DebPkg][DL] No deb files after per-package attempts; invoking cache fallback' -Console
+        $fallbackCmd = "bash -c 'cd $RemoteDir; cp -a /var/cache/apt/archives/*.deb . 2>/dev/null || true; ls -1 *.deb 2>/dev/null || true'"
+        $fallbackOut = & $SshClient @((_BaseArgs) + $fallbackCmd) 2>&1
+        $fbDebs = $fallbackOut | Where-Object { $_ -like '*.deb' }
+        if ($fbDebs) { $result.DebFiles = ($fbDebs | Sort-Object -Unique); $result.UsedFallback = $true }
+        $result.Diagnostics += ($fallbackOut | Select-Object -First 40)
+    }
+    return $result
+}
+
 function Get-DebianPackagesFromVHDX {
     param(
         [string] $VhdxPath,
@@ -223,6 +323,7 @@ function Get-DebianPackagesFromVHDX {
     $natName    = "k2s-nat-$switchNameEnding"
     Write-Log "[DebPkg] Switch name: $switchName, NAT name: $natName, Download directory: $DownloadLocalDir, DownloadDebs: $DownloadDebs" -Console
     $hostSwitchIp = '172.19.1.1'
+    $networkPrefix = '172.19.1.0'
     $guestExpectedIp = '172.19.1.100'
     $prefixLen = 24
     $sshUser = 'remote'
@@ -245,8 +346,8 @@ function Get-DebianPackagesFromVHDX {
             Write-Log "[DebPkg] Reusing existing NAT '$natName'" -Console
         } else {
             try {
-                New-NetNat -Name $natName -InternalIPInterfaceAddressPrefix "$hostSwitchIp/$prefixLen" -ErrorAction Stop | Out-Null
-                Write-Log "[DebPkg] Created NAT '$natName' ($hostSwitchIp/$prefixLen)" -Console
+                New-NetNat -Name $natName -InternalIPInterfaceAddressPrefix "$networkPrefix/$prefixLen" -ErrorAction Stop | Out-Null
+                Write-Log "[DebPkg] Created NAT '$natName' ($networkPrefix/$prefixLen)" -Console
             } catch { Write-Log "[DebPkg][Warning] Failed to create NAT '$natName': $($_.Exception.Message)" -Console }
         }
     }
@@ -356,101 +457,46 @@ function Get-DebianPackagesFromVHDX {
             $baseArgs += ("$sshUser@$guestExpectedIp")
         }
 
-    # Retry attempts reduced from 8 to 2 for quicker failure feedback
-    $maxAttempts = 2
-        $attempt = 0
-        $pkgOutput = $null
-        while ($attempt -lt $maxAttempts -and (-not $pkgOutput)) {
-            $attempt++
-            $remaining = $maxAttempts - $attempt
-            $cmd = $baseQuery
-            $fullArgs = $baseArgs + $cmd
-            Write-Log ("[DebPkg] Attempt {0}: running package inventory (remaining retries: {1})" -f $attempt, $remaining) -Console
-            $raw = & $sshClient @fullArgs 2>&1
-            if ($raw) {
-                # Filter out any sudo/locale noise lines if present
-                $candidate = $raw | Where-Object { $_ -match '.+=.+' }
-                if ($candidate.Count -gt 5) { $pkgOutput = $candidate } else { $pkgOutput = $candidate }
+        # Execute package listing and build map (this was missing causing empty diffs)
+        try {
+            Write-Log '[DebPkg] Querying installed packages via dpkg-query' -Console
+            $pkgOutput = & $sshClient @($baseArgs + $baseQuery) 2>&1
+            $pkgMap = @{}
+            $lineCount = 0
+            foreach ($ln in $pkgOutput) {
+                if ([string]::IsNullOrWhiteSpace($ln)) { continue }
+                # Expect lines like name=version; ignore other diagnostic lines
+                if ($ln -match '^[a-z0-9][a-z0-9+\-.]+?=') {
+                    $eq = $ln.IndexOf('=')
+                    if ($eq -gt 0) {
+                        $name = $ln.Substring(0,$eq)
+                        $ver  = $ln.Substring($eq+1)
+                        if (-not [string]::IsNullOrWhiteSpace($name)) { $pkgMap[$name] = $ver }
+                        $lineCount++
+                    }
+                }
             }
-            if (-not $pkgOutput) { Start-Sleep -Seconds 5 }
+            $result.Packages = $pkgMap
+            Write-Log ("[DebPkg] Retrieved {0} packages (head: {1})" -f $pkgMap.Count, ([string]::Join(', ', ($pkgMap.Keys | Select-Object -First 5)))) -Console
+            if ($pkgMap.Count -eq 0) {
+                $sample = ($pkgOutput | Select-Object -First 8) -join ' | '
+                Write-Log ("[DebPkg][Warning] dpkg-query returned no packages; sample output: {0}" -f $sample) -Console
+            }
+        } catch {
+            Write-Log ("[DebPkg][Error] Failed to query packages: {0}" -f $_.Exception.Message) -Console
         }
-        if (-not $pkgOutput) { throw "Empty dpkg-query output after $maxAttempts attempt(s)" }
-        $pkgMap = @{}
-        foreach ($line in $pkgOutput) {
-            if ([string]::IsNullOrWhiteSpace($line)) { continue }
-            if ($line -match '^(?<n>[^=]+)=(?<v>.+)$') { $pkgMap[$matches['n']] = $matches['v'] }
-        }
-        if ($pkgMap.Count -eq 0) { throw 'Parsed 0 packages' }
-        Write-Log "[DebPkg] Parsed $($pkgMap.Count) packages from VHDX" -Console
-        $result.Packages = $pkgMap
 
-        # Optional offline .deb acquisition
+    # Optional offline .deb acquisition (refactored to per-package calls). Only attempt if we have at least one spec.
         if ($DownloadDebs -and $DownloadPackageSpecs -and $DownloadPackageSpecs.Count -gt 0) {
-            Write-Log ("[DebPkg] Starting offline .deb acquisition for {0} package specs" -f $DownloadPackageSpecs.Count) -Console
             if (-not $DownloadLocalDir) { throw 'DownloadLocalDir not specified for offline acquisition' }
             if (-not (Test-Path -LiteralPath $DownloadLocalDir)) { New-Item -ItemType Directory -Path $DownloadLocalDir -Force | Out-Null }
             $remoteDebDir = '/tmp/k2s-delta-debs'
-            $downloadScript = @(
-                'set -euo pipefail',
-                "rm -rf $remoteDebDir; mkdir -p $remoteDebDir",
-                "cd $remoteDebDir",
-                '# Diagnostics: basic network + sources',
-                'echo __K2S_NET_DIAG_BEGIN__',
-                'ip addr show || true',
-                'ip route show || true',
-                'grep -v "^#" /etc/apt/sources.list 2>/dev/null || true',
-                'ls -1 /etc/apt/sources.list.d 2>/dev/null || true',
-                'ping -c1 deb.debian.org >/dev/null 2>&1 && echo PING_OK || echo PING_FAIL || true',
-                'echo __K2S_NET_DIAG_END__',
-                'echo __K2S_APT_UPDATE_BEGIN__',
-                'apt-get update 2>&1 || true',
-                'echo __K2S_APT_UPDATE_END__'
-            )
-            foreach ($spec in $DownloadPackageSpecs) {
-                if ([string]::IsNullOrWhiteSpace($spec)) { continue }
-                $name = $spec; $ver = ''
-                if ($spec -match '^(?<n>[^=]+)=(?<v>.+)$') { $name = $matches['n']; $ver = $matches['v'] }
-                if ($ver) {
-                    $downloadScript += "echo '[dl] $name=$ver'";
-                    $downloadScript += "apt-get download $name=$ver >/dev/null 2>&1 || echo 'WARN: failed $name=$ver'";
-                } else {
-                    $downloadScript += "echo '[dl] $name (no version specified)'";
-                    $downloadScript += "apt-get download $name >/dev/null 2>&1 || echo 'WARN: failed $name'";
-                }
-            }
-            $downloadScript += 'echo __K2S_DEB_LIST_BEGIN__'
-            $downloadScript += 'ls -1 *.deb 2>/dev/null || true'
-            $downloadScript += 'echo __K2S_DEB_LIST_END__'
-            # Fallback: copy from apt cache if download produced nothing
-            $downloadScript += '[ "$(ls -1 *.deb 2>/dev/null | wc -l)" -eq 0 ] && cp -a /var/cache/apt/archives/*.deb . 2>/dev/null || true'
-            $downloadScript += 'echo __K2S_DEB_FALLBACK_LIST_BEGIN__'
-            $downloadScript += 'ls -1 *.deb 2>/dev/null || true'
-            $downloadScript += 'echo __K2S_DEB_FALLBACK_LIST_END__'
-            # Extra: record package table for troubleshooting
-            $downloadScript += 'dpkg -l >/tmp/k2s-dpkg-list.txt 2>/dev/null || true'
-            $remoteCmd = ("bash -c '" + ($downloadScript -join '; ') + "'")
-            $dlArgs = @()
-            if ($usingPlink) {
-                $dlArgs = @('-batch','-noagent','-P','22')
-                if ($plinkHostKey) { $dlArgs += @('-hostkey', $plinkHostKey) }
-                if ($sshKey) { $dlArgs += @('-i', $sshKey) } elseif ($sshPwd) { $dlArgs += @('-pw', $sshPwd) }
-                $dlArgs += ("$sshUser@$guestExpectedIp")
-                $dlArgs += $remoteCmd
-                $dlOutput = & $sshClient @dlArgs 2>&1
-            } else {
-                $dlArgs = @('-p','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
-                if ($sshKey) { $dlArgs += @('-i', $sshKey) }
-                $dlArgs += ("$sshUser@$guestExpectedIp")
-                $dlArgs += $remoteCmd
-                $dlOutput = & $sshClient @dlArgs 2>&1
-            }
-            $debFiles = @()
-            if ($dlOutput) {
-                $debFiles = $dlOutput | Where-Object { $_ -like '*.deb' }
-            }
-            if ($debFiles.Count -gt 0) {
-                Write-Log ("[DebPkg] Retrieved list of {0} .deb files; starting copy" -f $debFiles.Count) -Console
-                # copy via pscp or scp
+            Write-Log ("[DebPkg] Starting per-package offline acquisition ({0} specs)" -f $DownloadPackageSpecs.Count) -Console
+            $acq = Invoke-GuestDebAcquisition -RemoteDir $remoteDebDir -PackageSpecs $DownloadPackageSpecs -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestExpectedIp -SshKey $sshKey -SshPassword $sshPwd
+            if ($acq.Failures.Count -gt 0) { Write-Log ("[DebPkg][DL][Warning] Failed specs: {0}" -f ($acq.Failures -join ', ')) -Console }
+            if ($acq.DebFiles.Count -gt 0) {
+                Write-Log ("[DebPkg] Guest has {0} deb file(s) ready for copy" -f $acq.DebFiles.Count) -Console
+                # Copy files
                 $scpClient = $null
                 $pscpCandidates = @(
                     (Join-Path $NewExtract 'bin\\pscp.exe'),
@@ -458,10 +504,9 @@ function Get-DebianPackagesFromVHDX {
                     'pscp.exe'
                 )
                 $scpClient = $pscpCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-                $usePlinkCopy = $false
-                if ($scpClient -and ($scpClient.ToLower().EndsWith('pscp.exe'))) { $usePlinkCopy = $true }
-                if (-not $scpClient -and -not $usingPlink) { $scpClient = $sshClient } # use ssh scp mode if available
-                foreach ($deb in $debFiles) {
+                $usePlinkCopy = ($scpClient -and ($scpClient.ToLower().EndsWith('pscp.exe')))
+                if (-not $scpClient -and -not $usingPlink) { $scpClient = $sshClient }
+                foreach ($deb in $acq.DebFiles) {
                     try {
                         if ($usePlinkCopy) {
                             $copyArgs = @('-batch','-P','22')
@@ -471,84 +516,44 @@ function Get-DebianPackagesFromVHDX {
                             $copyArgs += (Join-Path $DownloadLocalDir $deb)
                             $null = & $scpClient @copyArgs 2>&1
                         } else {
-                            # assume scp compatible (OpenSSH)
                             $copyArgs = @('-P','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
                             if ($sshKey) { $copyArgs += @('-i', $sshKey) }
                             $copyArgs += ("${sshUser}@${guestExpectedIp}:${remoteDebDir}/$deb")
                             $copyArgs += $DownloadLocalDir
                             $null = & $scpClient @copyArgs 2>&1
                         }
-                        if (Test-Path -LiteralPath (Join-Path $DownloadLocalDir $deb)) {
-                            $result.DownloadedDebs += $deb
-                        }
-                    } catch {
-                        Write-Log "[DebPkg][Warning] Failed to copy ${deb}: $($_.Exception.Message)" -Console
-                    }
+                        if (Test-Path -LiteralPath (Join-Path $DownloadLocalDir $deb)) { $result.DownloadedDebs += $deb }
+                    } catch { Write-Log "[DebPkg][DL][Warning] Copy failed for ${deb}: $($_.Exception.Message)" -Console }
                 }
-                Write-Log ("[DebPkg] Offline .deb acquisition complete ({0} files)" -f $result.DownloadedDebs.Count) -Console
+                Write-Log ("[DebPkg] Offline acquisition complete (downloaded {0} files)" -f $result.DownloadedDebs.Count) -Console
             } else {
-                if ($dlOutput) {
-                    $diagSections = @(
-                        '__K2S_NET_DIAG_BEGIN__','__K2S_NET_DIAG_END__',
-                        '__K2S_APT_UPDATE_BEGIN__','__K2S_APT_UPDATE_END__',
-                        '__K2S_DEB_LIST_BEGIN__','__K2S_DEB_LIST_END__',
-                        '__K2S_DEB_FALLBACK_LIST_BEGIN__','__K2S_DEB_FALLBACK_LIST_END__'
-                    )
-                    foreach ($markerPair in ($diagSections | ForEach-Object -Begin { $acc=@() } -Process { $acc+=$_ } -End { for($i=0;$i -lt $acc.Count;$i+=2){ ,@($acc[$i],$acc[$i+1]) } })) {
-                        $start = $dlOutput | Select-String -SimpleMatch $markerPair[0]
-                        $end   = $dlOutput | Select-String -SimpleMatch $markerPair[1]
-                        if ($start -and $end) {
-                            $sLine = $start.LineNumber; $eLine=$end.LineNumber
-                            if ($eLine -gt $sLine) {
-                                $slice = $dlOutput[$sLine..$eLine]
-                                Write-Log ("[DebPkg][Diag]{0} {1}" -f $markerPair[0], ($slice -join ' | ')) -Console
-                            }
-                        }
-                    }
-                    Write-Log ("[DebPkg][Diag] Raw output head: {0}" -f (($dlOutput | Select-Object -First 25) -join ' || ')) -Console
-                }
-                Write-Log '[DebPkg][Warning] No .deb files listed by remote acquisition script (after cache fallback)' -Console
-
-                # Local fallback: search the extracted NEW package content for any embedded .deb files
+                Write-Log '[DebPkg][DL][Warning] No deb files produced by acquisition; attempting local fallback search' -Console
                 try {
-                    Write-Log '[DebPkg][Fallback] Attempting local search for .deb files in new extraction tree' -Console
                     $localDebs = Get-ChildItem -Path $NewExtract -Recurse -Filter *.deb -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-                    if ($localDebs -and $localDebs.Count -gt 0) {
-                        Write-Log ("[DebPkg][Fallback] Found {0} candidate .deb files" -f $localDebs.Count) -Console
+                    if ($localDebs) {
                         $specMap = @{}
                         foreach ($s in $DownloadPackageSpecs) { if ($s -match '^(?<n>[^=]+)=(?<v>.+)$') { $specMap[$matches['n']] = $matches['v'] } }
                         foreach ($full in $localDebs) {
                             $file = Split-Path -Leaf $full
-                            # Debian file name pattern: name_version_arch.deb (simplistic)
                             if ($file -match '^(?<pkg>.+?)_(?<ver>[^_]+)_[^_]+\.deb$') {
                                 $pkg = $matches['pkg']; $ver = $matches['ver']
                                 if ($specMap.ContainsKey($pkg) -and $specMap[$pkg] -eq $ver) {
                                     $dest = Join-Path $DownloadLocalDir $file
-                                    if (-not (Test-Path -LiteralPath $dest)) { Copy-Item -LiteralPath $full -Destination $dest -Force }
-                                    if (Test-Path -LiteralPath $dest -and -not ($result.DownloadedDebs -contains $file)) { $result.DownloadedDebs += $file }
+                                    Copy-Item -LiteralPath $full -Destination $dest -Force -ErrorAction SilentlyContinue
+                                    if (Test-Path -LiteralPath $dest) { $result.DownloadedDebs += $file }
                                 }
                             }
                         }
-                        if ($result.DownloadedDebs.Count -gt 0) {
-                            Write-Log ("[DebPkg][Fallback] Successfully staged {0} .deb files from local content" -f $result.DownloadedDebs.Count) -Console
-                        } else {
-                            Write-Log '[DebPkg][Fallback] No matching versions among discovered .deb files' -Console
-                        }
-                    } else {
-                        Write-Log '[DebPkg][Fallback] No .deb files found in new extraction tree' -Console
-                    }
-                } catch {
-                    Write-Log "[DebPkg][Fallback][Warning] Local .deb search failed: $($_.Exception.Message)" -Console
-                }
+                        if ($result.DownloadedDebs.Count -gt 0) { Write-Log ("[DebPkg][Fallback] Staged {0} deb files from local extract" -f $result.DownloadedDebs.Count) -Console }
+                        else { Write-Log '[DebPkg][Fallback] No matching deb versions in local extract' -Console }
+                    } else { Write-Log '[DebPkg][Fallback] No deb files found in local extract tree' -Console }
+                } catch { Write-Log "[DebPkg][Fallback][Warning] Local search failed: $($_.Exception.Message)" -Console }
             }
         }
     }
     catch { $result.Error = "Hyper-V SSH extraction failed: $($_.Exception.Message)" }
     finally {
-
-        # Please ask here for input of user
-        $userInput = Read-Host -Prompt "Please enter your input"
-        Write-Log "[DebPkg] User input received: $userInput" -Console
+        # Non-interactive cleanup (removed Read-Host prompt to allow automation)
 
     Write-Log "[DebPkg] Beginning cleanup (VM, switch, IP, NAT)" -Console
         $cleanupErrors = @()
