@@ -45,12 +45,24 @@ Import-Module $infraModule, $nodeModule, $clusterModule, $signingModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
 ### Dot-source helper methods
-$methodsFile = Join-Path $PSScriptRoot 'New-K2sDeltaMethods.ps1'
-if (-not (Test-Path -LiteralPath $methodsFile)) {
-    Write-Log "Helper methods file missing: $methodsFile" -Error
-    exit 10
+$script:DeltaHelperParts = @(
+    'New-K2sDelta.Phase.ps1',
+    'New-K2sDelta.IO.ps1',
+    'New-K2sDelta.Hash.ps1',
+    'New-K2sDelta.Skip.ps1',
+    'New-K2sDelta.Debian.ps1',
+    'New-K2sDelta.HyperV.ps1',
+    'New-K2sDelta.Diff.ps1'
+)
+
+foreach ($part in $script:DeltaHelperParts) {
+    $path = Join-Path $PSScriptRoot $part
+    if (Test-Path -LiteralPath $path) {
+        . $path
+    } else {
+        Write-Log "[DeltaHelpers][Warning] Part missing: $part (expected at $path)" -Console
+    }
 }
-. $methodsFile
 
 Write-Log "- Target Directory: $TargetDirectory"
 Write-Log "- Package file name: $ZipPackageFileName"
