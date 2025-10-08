@@ -30,10 +30,11 @@ import (
 const testClusterTimeout = time.Minute * 60
 
 var (
-	suite      *framework.K2sTestSuite
-	linuxOnly  bool
-	exportPath string
-	allAddons  addons.Addons
+	suite           *framework.K2sTestSuite
+	linuxOnly       bool
+	exportPath      string
+	allAddons       addons.Addons
+	exportedZipFile string
 
 	linuxTestContainers   []string
 	windowsTestContainers []string
@@ -97,17 +98,30 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 		})
 
-		It("addons are exported to zip file", func(ctx context.Context) {
-			_, err := os.Stat(filepath.Join(exportPath, "addons.zip"))
+		It("addons are exported to versioned zip file", func(ctx context.Context) {
+			// Validate versioned filename pattern: K2s-{version}-addons-all.zip
+			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-all.zip"))
+			Expect(err).To(BeNil())
+			Expect(len(files)).To(Equal(1), "Should create exactly one versioned zip file")
+
+			exportedZipFile = files[0]
+			_, err = os.Stat(exportedZipFile)
 			Expect(os.IsNotExist(err)).To(BeFalse())
 		})
 
-		It("contains a folder for every exported addon and each folder is not empty", func(ctx context.Context) {
-			// addons.zip can be extracted
-			suite.Cli().ExecOrFail(ctx, "tar", "-xf", filepath.Join(exportPath, "addons.zip"), "-C", exportPath)
+		It("contains a folder for every exported addon with flattened structure and version info", func(ctx context.Context) {
+			// Extract the versioned zip file
+			suite.Cli().ExecOrFail(ctx, "tar", "-xf", exportedZipFile, "-C", exportPath)
 			// check for extracted folder
 			_, err := os.Stat(filepath.Join(exportPath, "addons"))
 			Expect(os.IsNotExist(err)).To(BeFalse())
+
+			// check for metadata files
+			_, err = os.Stat(filepath.Join(exportPath, "addons", "addons.json"))
+			Expect(os.IsNotExist(err)).To(BeFalse(), "addons.json metadata file should exist")
+
+			_, err = os.Stat(filepath.Join(exportPath, "addons", "version.json"))
+			Expect(os.IsNotExist(err)).To(BeFalse(), "version.json metadata file should exist")
 
 			// check for folder for each addon
 			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "addons"))
@@ -135,9 +149,13 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			for _, e := range exportedAddons {
 				addonsDir := filepath.Join(exportPath, "addons", e)
 
-				GinkgoWriter.Println("Checking addon directory:", addonsDir)
+				// Validate flattened structure - addon content is directly in addon directory
+				Expect(sos.IsEmptyDir(addonsDir)).To(BeFalse(), "addon directory should not be empty for addon %s", e)
 
-				Expect(sos.IsEmptyDir(addonsDir)).To(BeFalse())
+				// Check for version.info file (CD-friendly)
+				versionInfoPath := filepath.Join(addonsDir, "version.info")
+				_, err = os.Stat(versionInfoPath)
+				Expect(os.IsNotExist(err)).To(BeFalse(), "version.info file should exist for addon %s", e)
 			}
 		})
 
@@ -158,7 +176,9 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 					GinkgoWriter.Println("	exportedImages:", len(exportedImages), ", images:", len(images))
 					Expect(len(exportedImages)).To(Equal(len(images)))
 
-					// check linux curl package count is equal
+					// Validate flattened structure and version info
+					_, err = os.Stat(filepath.Join(addonExportDir, "version.info"))
+					Expect(os.IsNotExist(err)).To(BeFalse(), "version.info should exist for addon %s", i.ExportDirectoryName) // check linux curl package count is equal
 					GinkgoWriter.Println("	check linux curl package count is equal")
 					for _, lp := range i.OfflineUsage.LinuxResources.CurlPackages {
 						_, err = os.Stat(filepath.Join(addonExportDir, "linuxpackages", filepath.Base(lp.Url)))
@@ -179,6 +199,52 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 						Expect(os.IsNotExist(err)).To(BeFalse())
 					}
 				}
+			}
+		})
+
+		It("metadata files contain correct information", func(ctx context.Context) {
+			// Check addons.json exists and has required fields
+			addonsJsonPath := filepath.Join(exportPath, "addons", "addons.json")
+			addonsJsonBytes, err := os.ReadFile(addonsJsonPath)
+			Expect(err).To(BeNil())
+			Expect(string(addonsJsonBytes)).To(ContainSubstring("k2sVersion"))
+			Expect(string(addonsJsonBytes)).To(ContainSubstring("exportType"))
+			Expect(string(addonsJsonBytes)).To(ContainSubstring("addons"))
+
+			// Check version.json exists and has required fields
+			versionJsonPath := filepath.Join(exportPath, "addons", "version.json")
+			versionJsonBytes, err := os.ReadFile(versionJsonPath)
+			Expect(err).To(BeNil())
+			Expect(string(versionJsonBytes)).To(ContainSubstring("k2sVersion"))
+			Expect(string(versionJsonBytes)).To(ContainSubstring("exportType"))
+			Expect(string(versionJsonBytes)).To(ContainSubstring("addonCount"))
+		})
+
+		It("version.info files contain CD-friendly information", func(ctx context.Context) {
+			// Check that each addon has version.info with required fields for CD solutions
+			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "addons"))
+			Expect(err).To(BeNil())
+
+			addonDirs := []string{}
+			for _, entry := range exportedAddonsDir {
+				if entry.IsDir() {
+					addonDirs = append(addonDirs, entry.Name())
+				}
+			}
+
+			for _, addonDir := range addonDirs {
+				versionInfoPath := filepath.Join(exportPath, "addons", addonDir, "version.info")
+				versionInfoBytes, err := os.ReadFile(versionInfoPath)
+				Expect(err).To(BeNil(), "should be able to read version.info for addon %s", addonDir)
+
+				// Validate JSON structure and required fields
+				Expect(string(versionInfoBytes)).To(ContainSubstring("addonName"))
+				Expect(string(versionInfoBytes)).To(ContainSubstring("implementationName"))
+				Expect(string(versionInfoBytes)).To(ContainSubstring("k2sVersion"))
+				Expect(string(versionInfoBytes)).To(ContainSubstring("exportDate"))
+				Expect(string(versionInfoBytes)).To(ContainSubstring("exportType"))
+
+				GinkgoWriter.Printf("Version info for %s: %s", addonDir, string(versionInfoBytes)[:200])
 			}
 		})
 	})
@@ -215,9 +281,8 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 	Describe("import all addons", func() {
 		BeforeAll(func(ctx context.Context) {
-			// clean up all images
-			zipFile := filepath.Join(exportPath, "addons.zip")
-			suite.K2sCli().RunOrFail(ctx, "addons", "import", "-z", zipFile)
+			// Import the versioned zip file
+			suite.K2sCli().RunOrFail(ctx, "addons", "import", "-z", exportedZipFile)
 		})
 
 		AfterAll(func(ctx context.Context) {

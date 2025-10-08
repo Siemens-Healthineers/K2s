@@ -122,11 +122,25 @@ foreach ($addon in $addonsToImport) {
         $destinationPath = Join-Path -Path $destinationPath -ChildPath $part
     }
 
-    # Define source path (Content folder)
-    $dirPath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)\Content"
+    # flattened structure and version info
+    $addonSourcePath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)"
+    
+    # Check for version.info and process it
+    $versionInfoPath = Join-Path $addonSourcePath "version.info"
+    if (Test-Path $versionInfoPath) {
+        $versionInfo = Get-Content $versionInfoPath | ConvertFrom-Json
+        Write-Log "  -> Addon: $($versionInfo.addonName), Implementation: $($versionInfo.implementationName)"
+        Write-Log "  -> Exported from K2s version: $($versionInfo.k2sVersion), Export date: $($versionInfo.exportDate)"
+        
+        # Remove version.info from import
+        Remove-Item -Path $versionInfoPath -Force -ErrorAction SilentlyContinue
+    }
+    
+    # Use flattened structure 
+    $dirPath = $addonSourcePath
 
     # Log
-    Write-Log "Value of dirPath (source): $dirPath"
+    Write-Log "Value of dirPath (flattened source): $dirPath"
     Write-Log "Value of destinationPath : $destinationPath"
 
     # Ensure final destination exists
