@@ -55,7 +55,7 @@ function New-K2sHvTempVm {
         [string] $VhdxPath,
         [string] $SwitchName
     )
-    Write-Log ("[DebPkg] Creating temporary VM '{0}' attached to '{1}'" -f $VmName, $SwitchName) -Console
+    Write-Log ("[DebPkg] Creating temporary VM '{0}' attached to '{1}' from path '{2}'" -f $VmName, $SwitchName, $VhdxPath) -Console
     New-VM -Name $VmName -MemoryStartupBytes (2GB) -VHDPath $VhdxPath -SwitchName $SwitchName -ErrorAction Stop | Out-Null
     Start-VM -Name $VmName -ErrorAction Stop | Out-Null
     Write-Log ("[DebPkg] VM '{0}' started" -f $VmName) -Console
