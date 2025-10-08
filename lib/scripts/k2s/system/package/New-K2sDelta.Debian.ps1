@@ -35,7 +35,7 @@ function Invoke-GuestDebAcquisition {
         [string] $SshKey,
         [string] $SshPassword
     )
-    $result = [pscustomobject]@{ DebFiles=@(); Failures=@(); Logs=@(); RemoteDir=$RemoteDir; UsedFallback=$false; Diagnostics=@() }
+    $result = [pscustomobject]@{ DebFiles=@(); Failures=@(); Logs=@(); RemoteDir=$RemoteDir; UsedFallback=$false; Diagnostics=@(); SatisfiedMeta=@() }
     if (-not $PackageSpecs -or $PackageSpecs.Count -eq 0) { return $result }
 
     function _BaseArgs([string]$extra='') {
@@ -124,6 +124,26 @@ function Invoke-GuestDebAcquisition {
         Write-Log ("[DebPkg][DL] ({0}/{1}) <-- Completed attempt for {2}; total .deb files now: {3}" -f $idx, $total, $pkgSpec, ($result.DebFiles.Count)) -Console
     }
     Write-Log ("[DebPkg][DL] Completed per-package download attempts; total .deb files now: {0}" -f ($result.DebFiles.Count)) -Console
+
+    # Meta package satisfaction logic: if a meta (linux-image-cloud-amd64) requested exact version but only the concrete kernel image exists, treat as satisfied.
+    if ($result.Failures.Count -gt 0 -and $result.DebFiles.Count -gt 0) {
+        $remainingFailures = @()
+        foreach ($fSpec in $result.Failures) {
+            if ($fSpec -match '^(?<name>linux-image-cloud-amd64)=(?<ver>[^=]+)$') {
+                $metaName = $matches['name']; $metaVer = $matches['ver']
+                # Look for linux-image-*-cloud-amd64_<version>_*.deb file among downloaded debs (names only)
+                $pattern = "linux-image-*-cloud-amd64_${metaVer}_" # base pattern fragment
+                $matching = $result.DebFiles | Where-Object { $_ -like "linux-image-*cloud-amd64_${metaVer}_*.deb" }
+                if ($matching -and $matching.Count -gt 0) {
+                    Write-Log ("[DebPkg][DL] Meta spec {0} satisfied by kernel image(s): {1}" -f $fSpec, ($matching -join ', ')) -Console
+                    $result.SatisfiedMeta += [pscustomobject]@{ Spec=$fSpec; Via=$matching }
+                    continue
+                }
+            }
+            $remainingFailures += $fSpec
+        }
+        $result.Failures = $remainingFailures
+    }
     if (-not $result.DebFiles -or $result.DebFiles.Count -eq 0) {
         Write-Log '[DebPkg][DL] No deb files after per-package attempts; invoking cache fallback' -Console
         $fallbackCmd = "bash -c 'cd $RemoteDir; cp -a /var/cache/apt/archives/*.deb . 2>/dev/null || true; ls -1 *.deb 2>/dev/null || true'"
@@ -131,6 +151,24 @@ function Invoke-GuestDebAcquisition {
         $fbDebs = $fallbackOut | Where-Object { $_ -like '*.deb' }
         if ($fbDebs) { $result.DebFiles = ($fbDebs | Sort-Object -Unique); $result.UsedFallback = $true }
         $result.Diagnostics += ($fallbackOut | Select-Object -First 40)
+    }
+
+    # Re-run meta satisfaction after fallback if still failing
+    if ($result.Failures.Count -gt 0 -and $result.DebFiles.Count -gt 0) {
+        $remainingFailures = @()
+        foreach ($fSpec in $result.Failures) {
+            if ($fSpec -match '^(?<name>linux-image-cloud-amd64)=(?<ver>[^=]+)$') {
+                $metaName = $matches['name']; $metaVer = $matches['ver']
+                $matching = $result.DebFiles | Where-Object { $_ -like "linux-image-*cloud-amd64_${metaVer}_*.deb" }
+                if ($matching -and $matching.Count -gt 0) {
+                    Write-Log ("[DebPkg][DL] (fallback) Meta spec {0} satisfied by kernel image(s): {1}" -f $fSpec, ($matching -join ', ')) -Console
+                    $result.SatisfiedMeta += [pscustomobject]@{ Spec=$fSpec; Via=$matching; Fallback=$true }
+                    continue
+                }
+            }
+            $remainingFailures += $fSpec
+        }
+        $result.Failures = $remainingFailures
     }
 
     # Debug pause removed (non-interactive safe) – no blocking Read-Host here
