@@ -111,8 +111,12 @@ function Invoke-GuestDebAcquisition {
             $listOut = & $SshClient @((_BaseArgs) + $listCmd) 2>&1
             if ($listOut) {
                 $current = $listOut | Where-Object { $_ -match '^.+\.deb$' }
-                if ($current) { $result.DebFiles = @($result.DebFiles + $current) | Sort-Object -Unique }
-                Write-Log ("[DebPkg][DL] ({0}/{1})    .deb files (incremental): {2}" -f $idx, $total, ($current -join ', ')) -Console
+                $previous = @($result.DebFiles)
+                $newOnes = @()
+                if ($current) { $newOnes = $current | Where-Object { $previous -notcontains $_ } }
+                if ($current) { $result.DebFiles = @($previous + $current) | Sort-Object -Unique }
+                $display = if ($newOnes.Count -gt 0) { $newOnes -join ', ' } else { '(none new)' }
+                Write-Log ("[DebPkg][DL] ({0}/{1})    new .deb file(s): {2}" -f $idx, $total, $display) -Console
             } else {
                 Write-Log ("[DebPkg][DL][Info] ({0}/{1}) No .deb files listed after download of {2}" -f $idx, $total, $pkgSpec) -Console
             }
@@ -129,8 +133,7 @@ function Invoke-GuestDebAcquisition {
         $result.Diagnostics += ($fallbackOut | Select-Object -First 40)
     }
 
-    # Debug pause removed (non-interactive safe)
-    Read-Host -Prompt 'Press Enter to continue with cleanup...'
+    # Debug pause removed (non-interactive safe) – no blocking Read-Host here
 
     return $result
 }
