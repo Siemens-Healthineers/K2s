@@ -81,31 +81,40 @@ function Invoke-GuestDebAcquisition {
         Write-Log ("[DebPkg][DL] ({0}/{1}) --> Downloading {2} to {3}" -f $idx, $total, $pkgSpec, $RemoteDir) -Console
         $escaped = $pkgSpec.Replace("'", "'\\''")
         $cmdScript = @(
-            'set -euo pipefail',
-            "rm -rf $RemoteDir; mkdir -p $RemoteDir",
+            # strict mode
+            "set -euo pipefail",
+            # ensure directory persists across iterations
+            "mkdir -p $RemoteDir",
             "cd $RemoteDir",
-            "echo '[dl] $escaped'",
-            "if apt-get help 2>&1 | grep -qi download; then apt-get download '$escaped' 2>&1 || echo 'WARN: failed $escaped'; \\\n+             elif command -v apt >/dev/null 2>&1; then apt download '$escaped' 2>&1 || echo 'WARN: failed $escaped'; \\\n+             else echo 'WARN: no download command'; fi",
-            'echo "[ls-after]"',
-            'ls -1 *.deb 2>/dev/null || true'
+            # download attempt
+            "echo [dl] $escaped",
+            "if apt-get help 2>&1 | grep -qi download; then apt-get download '$escaped' 2>&1 || echo WARN: failed $escaped; elif command -v apt >/dev/null 2>&1; then apt download '$escaped' 2>&1 || echo WARN: failed $escaped; else echo WARN: no download command; fi",
+            # diagnostics & listing
+            "echo [ls-after]",
+            "pwd || true",
+            "ls -al 2>/dev/null | head -n 20 || true",
+            # robust loop (handle no matches)
+            'for f in *.deb; do if [ -f "$f" ]; then echo $f; fi; done || true'
         ) -join '; '
         $cmd = "bash -c '" + $cmdScript + "'"
         $args = (_BaseArgs) + $cmd
         $out = & $SshClient @args 2>&1
-        Write-Log ("[DebPkg][DL] ({0}/{1})    {2} downloaded to {3}, output: {4}" -f $idx, $total, $pkgSpec, $RemoteDir, $out) -Console
+        Write-Log ("[DebPkg][DL] ({0}/{1})    {2} downloaded to {3}, output head: {4}" -f $idx, $total, $pkgSpec, $RemoteDir, (($out | Select-Object -First 6) -join ' | ')) -Console
         $result.Logs += $out
         $fail = ($out | Where-Object { $_ -match 'WARN: failed' })
         if ($fail) {
             Write-Log ("[DebPkg][DL] ({0}/{1})    Failed to download {2} with {3}" -f $idx, $total, $pkgSpec, ($fail -join ', ')) -Console
             $result.Failures += $pkgSpec
         } else {
-            Write-Log ("[DebPkg][DL] ({0}/{1})    Checking for .deb files in {2}" -f $idx, $total, $RemoteDir) -Console
-            $listCmd = "bash -c 'cd $RemoteDir; ls -1 *.deb 2>/dev/null || true'"
+            Write-Log ("[DebPkg][DL] ({0}/{1})    Listing .deb files in {2}" -f $idx, $total, $RemoteDir) -Console
+            $listCmd = ('bash -c ''cd {0}; pwd; ls -al 2>/dev/null | head -n 20; for f in *.deb; do if [ -f "$f" ]; then echo $f; fi; done || true''' -f $RemoteDir)
             $listOut = & $SshClient @((_BaseArgs) + $listCmd) 2>&1
-            Write-Log ("[DebPkg][DL] ({0}/{1})    .deb files found: {2}" -f $idx, $total, ($listOut -join ', ')) -Console
             if ($listOut) {
-                $current = $listOut | Where-Object { $_ -like '*.deb' }
-                $result.DebFiles = ($current | Sort-Object -Unique)
+                $current = $listOut | Where-Object { $_ -match '^.+\.deb$' }
+                if ($current) { $result.DebFiles = @($result.DebFiles + $current) | Sort-Object -Unique }
+                Write-Log ("[DebPkg][DL] ({0}/{1})    .deb files (incremental): {2}" -f $idx, $total, ($current -join ', ')) -Console
+            } else {
+                Write-Log ("[DebPkg][DL][Info] ({0}/{1}) No .deb files listed after download of {2}" -f $idx, $total, $pkgSpec) -Console
             }
         }
         Write-Log ("[DebPkg][DL] ({0}/{1}) <-- Completed attempt for {2}; total .deb files now: {3}" -f $idx, $total, $pkgSpec, ($result.DebFiles.Count)) -Console
@@ -119,5 +128,9 @@ function Invoke-GuestDebAcquisition {
         if ($fbDebs) { $result.DebFiles = ($fbDebs | Sort-Object -Unique); $result.UsedFallback = $true }
         $result.Diagnostics += ($fallbackOut | Select-Object -First 40)
     }
+
+    # Debug pause removed (non-interactive safe)
+    Read-Host -Prompt 'Press Enter to continue with cleanup...'
+
     return $result
 }
