@@ -78,10 +78,11 @@ function Invoke-GuestDebAcquisition {
         $idx++
         if ([string]::IsNullOrWhiteSpace($spec)) { continue }
         $pkgSpec = $spec.Trim()
-        Write-Log ("[DebPkg][DL] ({0}/{1}) downloading {2}" -f $idx, $total, $pkgSpec) -Console
+        Write-Log ("[DebPkg][DL] ({0}/{1}) --> Downloading {2} to {3}" -f $idx, $total, $pkgSpec, $RemoteDir) -Console
         $escaped = $pkgSpec.Replace("'", "'\\''")
         $cmdScript = @(
             'set -euo pipefail',
+            "rm -rf $RemoteDir; mkdir -p $RemoteDir",
             "cd $RemoteDir",
             "echo '[dl] $escaped'",
             "if apt-get help 2>&1 | grep -qi download; then apt-get download '$escaped' 2>&1 || echo 'WARN: failed $escaped'; \\\n+             elif command -v apt >/dev/null 2>&1; then apt download '$escaped' 2>&1 || echo 'WARN: failed $escaped'; \\\n+             else echo 'WARN: no download command'; fi",
@@ -91,19 +92,25 @@ function Invoke-GuestDebAcquisition {
         $cmd = "bash -c '" + $cmdScript + "'"
         $args = (_BaseArgs) + $cmd
         $out = & $SshClient @args 2>&1
+        Write-Log ("[DebPkg][DL] ({0}/{1})    {2} downloaded to {3}, output: {4}" -f $idx, $total, $pkgSpec, $RemoteDir, $out) -Console
         $result.Logs += $out
         $fail = ($out | Where-Object { $_ -match 'WARN: failed' })
         if ($fail) {
+            Write-Log ("[DebPkg][DL] ({0}/{1})    Failed to download {2} with {3}" -f $idx, $total, $pkgSpec, ($fail -join ', ')) -Console
             $result.Failures += $pkgSpec
         } else {
+            Write-Log ("[DebPkg][DL] ({0}/{1})    Checking for .deb files in {2}" -f $idx, $total, $RemoteDir) -Console
             $listCmd = "bash -c 'cd $RemoteDir; ls -1 *.deb 2>/dev/null || true'"
             $listOut = & $SshClient @((_BaseArgs) + $listCmd) 2>&1
+            Write-Log ("[DebPkg][DL] ({0}/{1})    .deb files found: {2}" -f $idx, $total, ($listOut -join ', ')) -Console
             if ($listOut) {
                 $current = $listOut | Where-Object { $_ -like '*.deb' }
                 $result.DebFiles = ($current | Sort-Object -Unique)
             }
         }
+        Write-Log ("[DebPkg][DL] ({0}/{1}) <-- Completed attempt for {2}; total .deb files now: {3}" -f $idx, $total, $pkgSpec, ($result.DebFiles.Count)) -Console
     }
+    Write-Log ("[DebPkg][DL] Completed per-package download attempts; total .deb files now: {0}" -f ($result.DebFiles.Count)) -Console
     if (-not $result.DebFiles -or $result.DebFiles.Count -eq 0) {
         Write-Log '[DebPkg][DL] No deb files after per-package attempts; invoking cache fallback' -Console
         $fallbackCmd = "bash -c 'cd $RemoteDir; cp -a /var/cache/apt/archives/*.deb . 2>/dev/null || true; ls -1 *.deb 2>/dev/null || true'"
