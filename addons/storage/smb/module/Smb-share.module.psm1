@@ -41,6 +41,7 @@ $storageClassTimeoutSeconds = 600
 $namespace = 'storage-smb'
 
 $configFilePath = "$PSScriptRoot\..\config\SmbStorage.json"
+$fixNetworkPoliciesScript = "$PSScriptRoot\..\SetNetworkSharePolicy.ps1"
 
 function Test-CsiPodsCondition {
     param (
@@ -240,7 +241,7 @@ function Test-ForKnownSmbProblems {
         gpresult /r /scope:computer | Select-String -Pattern 'OU='
         Write-Log "You can also find the setting here: 'UCMS-ControlCenter' (also called 'User-Client Info') -> 'More details...' -> 'OU' section"
         Write-Log "Please contact your administrator and let them move you to the 'R&D OU' `n"
-        Write-Log "Current workaround: fix the policy issue with powershell <installation folder>\smallsetup\helpers\SetNetworkSharePolicy.ps1 `n"
+        Write-Log "Current workaround: fix the policy issue with PowerShell script '$fixNetworkPoliciesScript' `n"
 
         $script:HasIssues = $true
         return
@@ -312,7 +313,7 @@ function New-SharedFolderMountOnLinuxClient {
 
             if ( $script:HasIssues -eq $true ) {
                 Write-Log 'Executing script to fix policy issue...'
-                & "$PSScriptRoot\SetNetworkSharePolicy.ps1"
+                & $fixNetworkPoliciesScript
             }
         }
         if ($i -ge 6) {
@@ -411,7 +412,7 @@ function Wait-ForSharedFolderMountOnLinuxClient () {
 
             if ( $script:HasIssues -eq $true ) {
                 Write-Log 'Executing script to fix policy issue...'
-                & "$PSScriptRoot\SetNetworkSharePolicy.ps1"
+                & $fixNetworkPoliciesScript
             }
         }
         if ($iteration -ge 20) {
