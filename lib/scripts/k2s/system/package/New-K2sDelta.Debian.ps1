@@ -56,25 +56,28 @@ function Invoke-GuestDebAcquisition {
         }
     }
 
-    $initScript = @(
-        'set -euo pipefail',
-        "rm -rf $RemoteDir; mkdir -p $RemoteDir",
-        "cd $RemoteDir",
-        'echo __K2S_DIAG_BEGIN__',
-        'ip addr show || true','ip route show || true',
-        'grep -v "^#" /etc/apt/sources.list 2>/dev/null || true',
-        'ls -1 /etc/apt/sources.list.d 2>/dev/null || true',
-        'ping -c1 deb.debian.org >/dev/null 2>&1 && echo PING_OK || echo PING_FAIL || true',
-        'echo --- RESOLV.CONF ---','cat /etc/resolv.conf 2>/dev/null || true',
-        'echo --- CURL TEST deb.debian.org (HTTP root) ---','command -v curl >/dev/null 2>&1 && (curl -fsI --connect-timeout 5 http://deb.debian.org/ >/dev/null && echo CURL_DEB_OK || echo CURL_DEB_FAIL) || echo CURL_NOT_INSTALLED',
-        'echo __K2S_DIAG_END__',
-        'apt-get update 2>&1 || true'
-    ) -join '; '
+    $initParts = @()
+    $initParts += 'set -euo pipefail'
+    $initParts += "rm -rf $RemoteDir; mkdir -p $RemoteDir"
+    $initParts += "cd $RemoteDir"
+    $initParts += 'echo __K2S_DIAG_BEGIN__'
+    $initParts += 'ip addr show || true'
+    $initParts += 'ip route show || true'
+    $initParts += 'grep -v ^# /etc/apt/sources.list 2>/dev/null || true'
+    $initParts += 'ls -1 /etc/apt/sources.list.d 2>/dev/null || true'
+    $initParts += 'ping -c1 deb.debian.org >/dev/null 2>&1 && echo PING_OK || echo PING_FAIL || true'
+    $initParts += 'echo --- RESOLV.CONF ---'
+    $initParts += 'cat /etc/resolv.conf 2>/dev/null || true'
+    # Curl test without extra parentheses or embedded single quotes
+    $initParts += 'if command -v curl >/dev/null 2>&1; then echo "--- CURL TEST deb.debian.org HTTP root ---"; if curl -fsI --connect-timeout 5 http://deb.debian.org/ >/dev/null; then echo CURL_DEB_OK; else echo CURL_DEB_FAIL; fi; else echo CURL_NOT_INSTALLED; fi'
+    $initParts += 'echo __K2S_DIAG_END__'
+    $initParts += 'apt-get update 2>&1 || true'
+    $initScript = ($initParts -join '; ')
     $initCmd = "bash -c '" + $initScript + "'"
     $initArgs = (_BaseArgs) + $initCmd
     $initOut = & $SshClient @initArgs 2>&1
     if ($initOut) { $result.Diagnostics += ($initOut | Select-Object -First 40) }
-    Write-Log ("[DebPkg][DL] Init output head: {0}" -f (($initOut | Select-Object -First 10) -join ' | ')) -Console
+    Write-Log ("[DebPkg][DL] Init output head: {0}" -f (($initOut | Select-Object -First 20) -join ' | ')) -Console
 
     $idx = 0; $total = $PackageSpecs.Count
     foreach ($spec in $PackageSpecs) {
