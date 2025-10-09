@@ -328,7 +328,7 @@ function Get-DebianPackagesFromVHDX {
         [switch] $DownloadDebs,
         [switch] $AllowPartialAcquisition
     )
-    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); FailureDetails=@() }
+    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); Resolutions=@() }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
     if (-not (Get-Module -ListAvailable -Name Hyper-V)) { $result.Error = 'Hyper-V module unavailable'; return $result }
     $sshUser = 'remote'; $sshPwd = 'admin'; $sshKey = ''  # TODO: parameterize via caller / env if needed
@@ -379,14 +379,14 @@ function Get-DebianPackagesFromVHDX {
             if (-not (Test-Path -LiteralPath $DownloadLocalDir)) { New-Item -ItemType Directory -Path $DownloadLocalDir -Force | Out-Null }
             $remoteDebDir = '/tmp/k2s-delta-debs'
             Write-Log ("[DebPkg] Starting per-package offline acquisition ({0} specs)" -f $DownloadPackageSpecs.Count) -Console
-            $acq = Invoke-GuestDebAcquisition -RemoteDir $remoteDebDir -PackageSpecs $DownloadPackageSpecs -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd -ClassifyFailures
+            $acq = Invoke-GuestDebAcquisition -RemoteDir $remoteDebDir -PackageSpecs $DownloadPackageSpecs -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd
             if ($acq.Failures.Count -gt 0) { Write-Log ("[DebPkg][DL][Warning] Failed specs: {0}" -f ($acq.Failures -join ', ')) -Console }
             $downloaded = Invoke-K2sGuestDebCopy -AcquisitionResult $acq -NewExtract $NewExtract -OldExtract $OldExtract -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd -RemoteDir $remoteDebDir -DownloadLocalDir $DownloadLocalDir
             if ($downloaded.Count -eq 0) {
                 $fallback = Invoke-K2sGuestLocalDebFallback -DownloadPackageSpecs $DownloadPackageSpecs -NewExtract $NewExtract -DownloadLocalDir $DownloadLocalDir
                 $downloaded = $fallback
             }
-            $result.FailureDetails = $acq.FailureDetails
+            $result.Resolutions = $acq.Resolutions
             if ($acq.Failures.Count -gt 0 -or $downloaded.Count -eq 0) {
                 if ($AllowPartialAcquisition -and $downloaded.Count -gt 0) {
                     Write-Log ("[DebPkg][DL][Warning] Partial acquisition accepted (downloaded={0}, failures={1})" -f $downloaded.Count, ($acq.Failures -join ', ')) -Console

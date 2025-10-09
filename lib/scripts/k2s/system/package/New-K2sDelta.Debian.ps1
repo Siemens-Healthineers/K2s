@@ -35,10 +35,9 @@ function Invoke-GuestDebAcquisition {
         [string] $SshKey,
         # NOTE: Legacy plain-text password to match existing calling pattern; avoid proliferating further. Prefer key auth.
         # PSScriptAnalyzer Suppression: Using string for backward compatibility with existing callers.
-        [string] $SshPassword,
-        [switch] $ClassifyFailures
+    [string] $SshPassword
     )
-    $result = [pscustomobject]@{ DebFiles=@(); Failures=@(); Logs=@(); RemoteDir=$RemoteDir; UsedFallback=$false; Diagnostics=@(); SatisfiedMeta=@(); FailureDetails=@() }
+    $result = [pscustomobject]@{ DebFiles=@(); Failures=@(); Logs=@(); RemoteDir=$RemoteDir; UsedFallback=$false; Diagnostics=@(); SatisfiedMeta=@(); Resolutions=@() }
     if (-not $PackageSpecs -or $PackageSpecs.Count -eq 0) { return $result }
 
     function _BaseArgs([string]$extra='') {
@@ -176,24 +175,71 @@ function Invoke-GuestDebAcquisition {
         $result.Failures = $remainingFailures
     }
 
-    if ($ClassifyFailures -and $result.Failures.Count -gt 0) {
-        Write-Log ("[DebPkg][DL] Classifying {0} failure(s)" -f $result.Failures.Count) -Console
-        foreach ($fSpec in @($result.Failures)) {
-            if ($fSpec -notmatch '^(?<name>[^=]+)=(?<ver>.+)$') { continue }
-            $pkgName = $matches['name']; $pkgVer = $matches['ver']
-            $madCmd = ('bash -c ''apt-cache madison {0} 2>/dev/null || true''' -f $pkgName)
-            $madOut = & $SshClient @((_BaseArgs) + $madCmd) 2>&1
-            $versions = @()
-            foreach ($ln in $madOut) {
-                if ($ln -match "^$pkgName\s*\|\s*(?<v>[^\s|]+)") { $versions += $matches['v'] }
+    # Simplified substitution: handle Debian point security revision bumps (~deb12uX)
+    if ($result.Failures.Count -gt 0) {
+        $still = @()
+        foreach ($spec in $result.Failures) {
+            if ($spec -notmatch '^(?<name>[^=]+)=(?<ver>.+)$') { $still += $spec; continue }
+            $pkgName = $matches['name']; $reqVer = $matches['ver']
+            if ($reqVer -notmatch '^(?<base>.+~deb12u)(?<rev>\d+)$') { $still += $spec; continue }
+            $basePrefix = $matches['base']; $reqRev = [int]$matches['rev']
+            # Iteratively probe higher revision numbers (avoid fragile candidate parsing)
+            $maxProbe = 8  # try up to 8 higher revisions
+            $foundVersion = $null
+            for ($inc = 1; $inc -le $maxProbe; $inc++) {
+                $tryRev = $reqRev + $inc
+                $tryVer = "$basePrefix$tryRev"
+                Write-Log ("[DebPkg][DL][Debug] Probing revision {0} for {1}" -f $tryVer, $pkgName) -Console
+                $probeCmd = ('bash -c ''cd {0}; apt-get download {1}={2} 2>&1 || echo PROBE_FAIL: {1}={2}; ls -1 *{1}_{2}_*.deb 2>/dev/null || true''' -f $RemoteDir, $pkgName, $tryVer)
+                $probeOut = & $SshClient @((_BaseArgs) + $probeCmd) 2>&1
+                $result.Logs += $probeOut
+                if ($probeOut -notmatch "PROBE_FAIL: $pkgName=$tryVer") {
+                    $debFiles = $probeOut | Where-Object { $_ -like '*.deb' }
+                    if ($debFiles) {
+                        $foundVersion = $tryVer
+                        foreach ($df in $debFiles) { if ($result.DebFiles -notcontains $df) { $result.DebFiles += $df } }
+                        break
+                    }
+                }
             }
-            $reason = 'DownloadFailed'
-            if ($versions.Count -gt 0 -and ($versions -notcontains $pkgVer)) { $reason = 'MissingVersionInRepos' }
-            elseif ($versions.Count -eq 0) { $reason = 'NoVersionsListed' }
-            $result.FailureDetails += [pscustomobject]@{ Name=$pkgName; Requested=$pkgVer; Reason=$reason; Available=@($versions); MadisonSample= ($madOut | Select-Object -First 6) }
+            if (-not $foundVersion) {
+                # plain fallback (unversioned) then parse revision
+                Write-Log ("[DebPkg][DL][Info] Probes failed for {0}; attempting plain download fallback" -f $pkgName) -Console
+                $plainCmd = ('bash -c ''cd {0}; apt-get download {1} 2>&1 || echo PLAIN_FAIL: {1}; ls -1 *{1}_*.deb 2>/dev/null || true''' -f $RemoteDir, $pkgName)
+                $plainOut = & $SshClient @((_BaseArgs) + $plainCmd) 2>&1
+                $result.Logs += $plainOut
+                if ($plainOut -notmatch "PLAIN_FAIL: $pkgName") {
+                    $plainFiles = $plainOut | Where-Object { $_ -like '*.deb' }
+                    if ($plainFiles) {
+                        $firstPlain = $plainFiles | Select-Object -First 1
+                        if ($firstPlain -match "^${pkgName}_(?<ver>[^_]+)_.+\.deb$") {
+                            $parsed = $matches['ver']
+                            if ($parsed -match '^(?<cbase>.+~deb12u)(?<crev>\d+)$') {
+                                $cBase = $matches['cbase']; $cRev = [int]$matches['crev']
+                                if ($cBase -eq $basePrefix -and $cRev -gt $reqRev) {
+                                    $foundVersion = $parsed
+                                    foreach ($pf in $plainFiles) { if ($result.DebFiles -notcontains $pf) { $result.DebFiles += $pf } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (-not $foundVersion) { $still += $spec; continue }
+            Write-Log ("[DebPkg][DL] Substituting {0} -> {1}" -f $spec, $foundVersion) -Console
+            $result.Resolutions += [pscustomobject]@{ Spec=$spec; Action='Deb12Revision'; Requested=$reqRev; Provided=$foundVersion; Files=($result.DebFiles | Where-Object { $_ -like "$pkgName*${foundVersion}_*.deb" }) }
         }
+        $result.Failures = $still
     }
 
+    # Summary log
+    if ($result.Resolutions.Count -gt 0) {
+        $subs = ($result.Resolutions | ForEach-Object { "${($_.Spec)}->${($_.Provided)}" }) -join ', '
+        Write-Log ("[DebPkg][DL] Substitutions applied: {0}" -f $subs) -Console
+    }
+    if ($result.Failures.Count -gt 0) {
+        Write-Log ("[DebPkg][DL] Unresolved specs after substitution: {0}" -f ($result.Failures -join ', ')) -Console
+    }
     # (Removed interactive Read-Host used for debugging to allow non-interactive execution)
 
     return $result

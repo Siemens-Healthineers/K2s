@@ -384,10 +384,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                             }
                             $debMeta | ConvertTo-Json -Depth 3 | Out-File -FilePath (Join-Path $debDownloadDir 'download-manifest.json') -Encoding UTF8 -Force
                             Write-Log ("Offline .deb acquisition completed: {0} files" -f $dlResult.DownloadedDebs.Count) -Console
-                            if ($dlResult.FailureDetails -and $dlResult.FailureDetails.Count -gt 0) {
-                                ($dlResult.FailureDetails | ConvertTo-Json -Depth 4) | Out-File -FilePath (Join-Path $debDownloadDir 'failed-packages.json') -Encoding UTF8 -Force
-                                Write-Log ("[DebPkg][DL][Warning] Partial failures recorded → failed-packages.json") -Console
-                            }
+                            # FailureDetails removed; no failed-packages.json emitted
                             $offlineDebInfo = [pscustomobject]@{
                                 Specs = $offlineSpecs
                                 Downloaded = $dlResult.DownloadedDebs | ForEach-Object { Join-Path 'debian-delta/packages' $_ }
