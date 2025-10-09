@@ -24,7 +24,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Override storage directory for Orthanc data')]
+    [string] $StorageDir
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -78,7 +80,59 @@ if ($Ingress -ne 'none') {
 
 if ($Storage -ne 'none') {
     Enable-StorageAddon -Storage:$Storage
+
+    if ($StorageDir) {
+        Write-Log "Validating StorageDir '$StorageDir' against SMB config..." -Console
+        $orthancConfigPath = "$PSScriptRoot\manifests\dicom\orthanc.json"
+        $chosenStorageDir = $null
+        $smbConfigPath = "$PSScriptRoot\..\storage\smb\config\SmbStorage.json"
+        $smbConfig = Get-Content $smbConfigPath | ConvertFrom-Json
+
+        # Support both array and single object for SmbStorage.json
+        $linuxMountPaths = @()
+        if ($smbConfig -is [System.Collections.IEnumerable]) {
+            foreach ($entry in $smbConfig) {
+                if ($entry.linuxMountPath) {
+                    $linuxMountPaths += $entry.linuxMountPath
+                }
+            }
+        } elseif ($smbConfig.linuxMountPath) {
+            $linuxMountPaths += $smbConfig.linuxMountPath
+        }
+        if ($linuxMountPaths -contains $StorageDir) {
+            Write-Log "StorageDir '$StorageDir' found in SMB config." -Console
+            $chosenStorageDir = $StorageDir
+        } else {
+            Write-Warning "Provided StorageDir '$StorageDir' does not match any SMB linuxMountPath. Using default: $($linuxMountPaths[0])"
+            $chosenStorageDir = if ($linuxMountPaths.Count -gt 0) { $linuxMountPaths[0] } else { $null }
+        }
+        Update-OrthancStorageConfig -orthancConfigPath $orthancConfigPath -newStorageDir $chosenStorageDir
+        Write-Log "Orthanc storage directory set to: $chosenStorageDir" -Console
+    }
 }
+
+# --- Begin: SMB storage config adaptation and orthanc.json preservation ---
+function Update-OrthancStorageConfig {
+    param(
+        [string]$orthancConfigPath,
+        [string]$newStorageDir
+    )
+    $orthancConfig = $null
+    if (Test-Path $orthancConfigPath) {
+        $orthancConfig = Get-Content $orthancConfigPath -Raw | ConvertFrom-Json
+        $orthancConfig.StorageDirectory = $newStorageDir
+        $orthancConfig.IndexDirectory = $newStorageDir
+    } else {
+        $orthancConfig = @{
+            StorageDirectory = $newStorageDir
+            IndexDirectory   = $newStorageDir
+        }
+    }
+    $orthancConfig | ConvertTo-Json -Depth 100 -Compress | Set-Content -Path $orthancConfigPath -Force
+}
+
+
+# --- End: SMB storage config adaptation and orthanc.json preservation ---
 
 $dicomConfig = Get-DicomConfig
 (Invoke-Kubectl -Params 'apply', '-f', "$dicomConfig\dicom-namespace.yaml").Output | Write-Log
@@ -90,7 +144,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage' })) -eq $tr
         $pvConfig = Get-PVConfigStorage
         (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
         $StorageUsage = 'storage'
-        Write-Log 'Use storage addon for storing DICOM data' -C
+        Write-Log 'Use storage addon for storing DICOM data' -Console
     }
     else {
         $answer = Read-Host 'Addon storage is enabled. Would you like to reuse the storage provided by that addon for the DICOM data ? (y/N)'
