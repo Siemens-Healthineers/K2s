@@ -78,6 +78,25 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
+function Update-OrthancStorageConfig {
+    param(
+        [string]$orthancConfigPath,
+        [string]$newStorageDir
+    )
+    $orthancConfig = $null
+    if (Test-Path $orthancConfigPath) {
+        $jsonText = Get-Content $orthancConfigPath -Raw
+        $jsonText = $jsonText -replace '(?m)^\s*//.*$', ''
+        $jsonText = $jsonText -replace '(?m)([^:]*)//.*$', '$1'
+        $jsonText = [System.Text.RegularExpressions.Regex]::Replace($jsonText, '/\*.*?\*/', '', 'Singleline')
+
+        $orthancConfig = $jsonText | ConvertFrom-Json
+        $orthancConfig.StorageDirectory = $newStorageDir
+        $orthancConfig.IndexDirectory = $newStorageDir
+        $orthancConfig | ConvertTo-Json -Depth 100 -Compress | Set-Content -Path $orthancConfigPath -Force
+    }
+}
+
 if ($Storage -ne 'none') {
     Enable-StorageAddon -Storage:$Storage
 
@@ -88,7 +107,6 @@ if ($Storage -ne 'none') {
         $smbConfigPath = "$PSScriptRoot\..\storage\smb\config\SmbStorage.json"
         $smbConfig = Get-Content $smbConfigPath | ConvertFrom-Json
 
-        # Support both array and single object for SmbStorage.json
         $linuxMountPaths = @()
         if ($smbConfig -is [System.Collections.IEnumerable]) {
             foreach ($entry in $smbConfig) {
@@ -110,29 +128,6 @@ if ($Storage -ne 'none') {
         Write-Log "Orthanc storage directory set to: $chosenStorageDir" -Console
     }
 }
-
-# --- Begin: SMB storage config adaptation and orthanc.json preservation ---
-function Update-OrthancStorageConfig {
-    param(
-        [string]$orthancConfigPath,
-        [string]$newStorageDir
-    )
-    $orthancConfig = $null
-    if (Test-Path $orthancConfigPath) {
-        $orthancConfig = Get-Content $orthancConfigPath -Raw | ConvertFrom-Json
-        $orthancConfig.StorageDirectory = $newStorageDir
-        $orthancConfig.IndexDirectory = $newStorageDir
-    } else {
-        $orthancConfig = @{
-            StorageDirectory = $newStorageDir
-            IndexDirectory   = $newStorageDir
-        }
-    }
-    $orthancConfig | ConvertTo-Json -Depth 100 -Compress | Set-Content -Path $orthancConfigPath -Force
-}
-
-
-# --- End: SMB storage config adaptation and orthanc.json preservation ---
 
 $dicomConfig = Get-DicomConfig
 (Invoke-Kubectl -Params 'apply', '-f', "$dicomConfig\dicom-namespace.yaml").Output | Write-Log

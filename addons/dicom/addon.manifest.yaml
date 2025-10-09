@@ -36,7 +36,7 @@ spec:
                     - smb
               - name: storagedir
                 default: none
-                description: Path to storage directory (e.g., /mnt/k8s-smb-share)
+                description: Path to smb storage directory (e.g., /mnt/k8s-smb-share)
             examples:
               - cmd: k2s addons enable dicom
                 comment: Enable dicom in k2s
