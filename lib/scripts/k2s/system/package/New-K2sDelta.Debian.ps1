@@ -115,7 +115,13 @@ function Invoke-GuestDebAcquisition {
             $listCmd = ('bash -c ''cd {0}; pwd; ls -al 2>/dev/null | head -n 20; for f in *.deb; do if [ -f "$f" ]; then echo $f; fi; done || true''' -f $RemoteDir)
             $listOut = & $SshClient @((_BaseArgs) + $listCmd) 2>&1
             if ($listOut) {
-                $current = $listOut | Where-Object { $_ -match '^.+\.deb$' }
+                # Extract only pure .deb filenames (lines without spaces); avoid ls -al metadata lines that also end with .deb
+                $rawDebLines = $listOut | Where-Object { ($_ -like '*.deb') -and ($_ -notmatch '\s') }
+                $ignoredMeta = ($listOut | Where-Object { ($_ -like '*.deb') -and ($_ -match '\s') })
+                if ($ignoredMeta -and $ignoredMeta.Count -gt 0) {
+                    Write-Log ("[DebPkg][DL][Debug] Ignoring metadata lines mistaken as deb entries: {0}" -f (($ignoredMeta | Select-Object -First 3) -join ' | ')) -Console
+                }
+                $current = $rawDebLines
                 $previous = @($result.DebFiles)
                 $newOnes = @()
                 if ($current) { $newOnes = $current | Where-Object { $previous -notcontains $_ } }
