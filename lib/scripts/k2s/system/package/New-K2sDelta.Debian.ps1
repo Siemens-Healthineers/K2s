@@ -340,7 +340,24 @@ function Invoke-GuestDebAcquisition {
 
     # Summary log
     if ($result.Resolutions.Count -gt 0) {
-        $subs = ($result.Resolutions | ForEach-Object { "${($_.Spec)}->${($_.Provided)}" }) -join ', '
+        $bad = $result.Resolutions | Where-Object { -not $_.Spec -or -not $_.Provided }
+        if ($bad) {
+            Write-Log ("[DebPkg][DL][Debug] Detected resolution entries missing Spec/Provided: {0}" -f (($bad | ConvertTo-Json -Depth 4))) -Console
+        }
+        # Try to repair missing Provided by parsing Files if possible
+        foreach ($r in $result.Resolutions) {
+            if ((-not $r.Provided) -and $r.Files -and $r.Files.Count -gt 0) {
+                $first = $r.Files | Select-Object -First 1
+                if ($first -match '^[^_]+_(?<ver>[^_]+)_.+\.deb$') { $r | Add-Member -NotePropertyName Provided -NotePropertyValue $matches['ver'] -Force }
+            }
+        }
+        $formatted = @()
+        foreach ($r in $result.Resolutions) {
+            $specTxt = if ($r.Spec) { $r.Spec } else { '(unknown-spec)' }
+            $provTxt = if ($r.Provided) { $r.Provided } else { '(unknown-version)' }
+            $formatted += ("{0}->{1}" -f $specTxt, $provTxt)
+        }
+        $subs = $formatted -join ', '
         Write-Log ("[DebPkg][DL] Substitutions applied: {0}" -f $subs) -Console
     }
     if ($result.Failures.Count -gt 0) {
