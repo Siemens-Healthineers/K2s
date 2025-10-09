@@ -153,12 +153,36 @@ try {
             # Check for addon.manifest.yaml at this level
             $manifestFile = Join-Path $parentAddonFolder "addon.manifest.yaml"
             if (Test-Path $manifestFile) {
-                Copy-Item -Path $manifestFile -Destination $destinationPath -Force
+                $copiedManifestPath = Join-Path $destinationPath "addon.manifest.yaml"
                 
-                # Auto-update manifest for single implementation exports
+                # For single implementation exports, save the filtered manifest with annotations
                 if (-not $All -and $Names.Count -eq 1 -and $implementation.name -ne $manifest.metadata.name) {
-                    $copiedManifestPath = Join-Path $destinationPath "addon.manifest.yaml"
-                    Update-ManifestForSingleImplementation -ManifestPath $copiedManifestPath -ImplementationName $implementation.name -K2sVersion $k2sVersion
+                    # Create updated manifest with annotations
+                    $updatedManifest = $manifest.PSObject.Copy()
+                    if (-not $updatedManifest.metadata.annotations) {
+                        $updatedManifest.metadata | Add-Member -NotePropertyName 'annotations' -NotePropertyValue @{}
+                    }
+                    $updatedManifest.metadata.annotations["k2s.io/exported-implementation"] = $implementation.name
+                    $updatedManifest.metadata.annotations["k2s.io/export-date"] = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    $updatedManifest.metadata.annotations["k2s.io/exported-version"] = $k2sVersion
+                    $updatedManifest.metadata.annotations["k2s.io/export-type"] = "single-implementation"
+                    
+                    # Save the filtered and annotated manifest
+                    # Convert to JSON first, then use yq to convert to YAML
+                    $jsonContent = $updatedManifest | ConvertTo-Json -Depth 100
+                    $kubeBinPath = Get-KubeBinPath
+                    $yqExe = Join-Path $kubeBinPath "yq.exe"
+                    $tempJsonFile = New-TemporaryFile
+                    try {
+                        $jsonContent | Set-Content -Path $tempJsonFile -Encoding UTF8
+                        & $yqExe eval -P '.' $tempJsonFile | Set-Content -Path $copiedManifestPath -Encoding UTF8
+                    } finally {
+                        Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
+                    }
+                    Write-Log "Updated manifest for single implementation: $($implementation.name)" -Console
+                } else {
+                    # For all exports or addons with single implementation, copy original manifest
+                    Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
                 }
             }
 
