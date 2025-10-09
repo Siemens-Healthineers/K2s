@@ -458,6 +458,7 @@ function Set-RoutesToWindowsWorkloads {
 }
 
 function Repair-K2sRoutes {
+    Set-RoutesToKubemaster
     Set-RoutesToLinuxWorkloads
     Set-RoutesToWindowsWorkloads
     # TODO: add routes for additional nodes
