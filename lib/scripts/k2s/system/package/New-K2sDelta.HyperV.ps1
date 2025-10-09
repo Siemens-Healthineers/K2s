@@ -32,7 +32,22 @@ function New-K2sHvNetwork {
     if ($existingSwitch) {
         try { Remove-VMSwitch -Name $SwitchName -Force -ErrorAction Stop } catch { throw "Failed to remove existing switch: $($_.Exception.Message)" }
     }
-    New-VMSwitch -Name $SwitchName -SwitchType Internal -ErrorAction Stop | Out-Null
+    $created = $false; $attempt = 0; $baseName = $SwitchName
+    while (-not $created -and $attempt -lt 3) {
+        try {
+            New-VMSwitch -Name $SwitchName -SwitchType Internal -ErrorAction Stop | Out-Null
+            $created = $true
+        } catch {
+            $msg = $_.Exception.Message
+            if ($msg -match '0x800700B7' -or $msg -match 'already exists') {
+                Write-Log ("[DebPkg][Warning] Switch name collision or miniport reuse detected for '{0}' (attempt {1}): {2}" -f $SwitchName, ($attempt+1), $msg) -Console
+                $SwitchName = "$baseName-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+                Write-Log ("[DebPkg] Retrying with alternate switch name '{0}'" -f $SwitchName) -Console
+            } else { throw }
+        }
+        $attempt++
+    }
+    if (-not $created) { throw "Failed to create VMSwitch after retries (last name '$SwitchName')" }
     $adapter = Get-NetAdapter | Where-Object { $_.Name -like "*$SwitchName*" }
     if (-not $adapter) { throw 'Internal vSwitch adapter not found after creation' }
     New-NetIPAddress -InterfaceAlias $adapter.Name -IPAddress $HostSwitchIp -PrefixLength $PrefixLen -ErrorAction Stop | Out-Null
@@ -310,9 +325,10 @@ function Get-DebianPackagesFromVHDX {
         [string] $switchNameEnding = '',
         [string[]] $DownloadPackageSpecs,
         [string] $DownloadLocalDir,
-        [switch] $DownloadDebs
+        [switch] $DownloadDebs,
+        [switch] $AllowPartialAcquisition
     )
-    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@() }
+    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); FailureDetails=@() }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
     if (-not (Get-Module -ListAvailable -Name Hyper-V)) { $result.Error = 'Hyper-V module unavailable'; return $result }
     $sshUser = 'remote'; $sshPwd = 'admin'; $sshKey = ''  # TODO: parameterize via caller / env if needed
@@ -333,8 +349,13 @@ function Get-DebianPackagesFromVHDX {
     $ctx = [pscustomobject]@{ SwitchName=$switchName; NatName=$natName; HostSwitchIp=$hostSwitchIp; NetworkPrefix=$networkPrefix; PrefixLen=$prefixLen; GuestIp=$guestIp; VmName=$vmName; CreatedVm=$false }
 
     try {
-        # Network
-        $null = New-K2sHvNetwork -SwitchName $switchName -NatName $natName -HostSwitchIp $hostSwitchIp -NetworkPrefix $networkPrefix -PrefixLen $prefixLen
+        # Network (capture object in case switch name was auto-adjusted due to collision)
+        $netCtx = New-K2sHvNetwork -SwitchName $switchName -NatName $natName -HostSwitchIp $hostSwitchIp -NetworkPrefix $networkPrefix -PrefixLen $prefixLen
+        if ($netCtx.SwitchName -ne $switchName) {
+            Write-Log ("[DebPkg] Switch name adjusted to '{0}' after collision handling" -f $netCtx.SwitchName) -Console
+            $switchName = $netCtx.SwitchName
+            $ctx.SwitchName = $switchName
+        }
         # VM
         New-K2sHvTempVm -VmName $vmName -VhdxPath $VhdxPath -SwitchName $switchName
         $ctx.CreatedVm = $true
@@ -358,12 +379,20 @@ function Get-DebianPackagesFromVHDX {
             if (-not (Test-Path -LiteralPath $DownloadLocalDir)) { New-Item -ItemType Directory -Path $DownloadLocalDir -Force | Out-Null }
             $remoteDebDir = '/tmp/k2s-delta-debs'
             Write-Log ("[DebPkg] Starting per-package offline acquisition ({0} specs)" -f $DownloadPackageSpecs.Count) -Console
-            $acq = Invoke-GuestDebAcquisition -RemoteDir $remoteDebDir -PackageSpecs $DownloadPackageSpecs -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd
+            $acq = Invoke-GuestDebAcquisition -RemoteDir $remoteDebDir -PackageSpecs $DownloadPackageSpecs -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd -ClassifyFailures
             if ($acq.Failures.Count -gt 0) { Write-Log ("[DebPkg][DL][Warning] Failed specs: {0}" -f ($acq.Failures -join ', ')) -Console }
             $downloaded = Invoke-K2sGuestDebCopy -AcquisitionResult $acq -NewExtract $NewExtract -OldExtract $OldExtract -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd -RemoteDir $remoteDebDir -DownloadLocalDir $DownloadLocalDir
             if ($downloaded.Count -eq 0) {
                 $fallback = Invoke-K2sGuestLocalDebFallback -DownloadPackageSpecs $DownloadPackageSpecs -NewExtract $NewExtract -DownloadLocalDir $DownloadLocalDir
                 $downloaded = $fallback
+            }
+            $result.FailureDetails = $acq.FailureDetails
+            if ($acq.Failures.Count -gt 0 -or $downloaded.Count -eq 0) {
+                if ($AllowPartialAcquisition -and $downloaded.Count -gt 0) {
+                    Write-Log ("[DebPkg][DL][Warning] Partial acquisition accepted (downloaded={0}, failures={1})" -f $downloaded.Count, ($acq.Failures -join ', ')) -Console
+                } else {
+                    throw "Offline deb acquisition incomplete (failures=${($acq.Failures -join '; ')}, downloaded=$($downloaded.Count))"
+                }
             }
             $result.DownloadedDebs = $downloaded
         }

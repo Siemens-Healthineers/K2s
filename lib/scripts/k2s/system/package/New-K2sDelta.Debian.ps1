@@ -33,23 +33,26 @@ function Invoke-GuestDebAcquisition {
         [string] $SshUser,
         [string] $GuestIp,
         [string] $SshKey,
-        [string] $SshPassword
+        # NOTE: Legacy plain-text password to match existing calling pattern; avoid proliferating further. Prefer key auth.
+        # PSScriptAnalyzer Suppression: Using string for backward compatibility with existing callers.
+        [string] $SshPassword,
+        [switch] $ClassifyFailures
     )
-    $result = [pscustomobject]@{ DebFiles=@(); Failures=@(); Logs=@(); RemoteDir=$RemoteDir; UsedFallback=$false; Diagnostics=@(); SatisfiedMeta=@() }
+    $result = [pscustomobject]@{ DebFiles=@(); Failures=@(); Logs=@(); RemoteDir=$RemoteDir; UsedFallback=$false; Diagnostics=@(); SatisfiedMeta=@(); FailureDetails=@() }
     if (-not $PackageSpecs -or $PackageSpecs.Count -eq 0) { return $result }
 
     function _BaseArgs([string]$extra='') {
         if ($UsingPlink) {
-            $args = @('-batch','-noagent','-P','22')
-            if ($PlinkHostKey) { $args += @('-hostkey', $PlinkHostKey) }
-            if ($SshKey) { $args += @('-i', $SshKey) } elseif ($SshPassword) { $args += @('-pw', $SshPassword) }
-            $args += ("$SshUser@$GuestIp")
-            return ,$args
+            $sshArgs = @('-batch','-noagent','-P','22')
+            if ($PlinkHostKey) { $sshArgs += @('-hostkey', $PlinkHostKey) }
+            if ($SshKey) { $sshArgs += @('-i', $SshKey) } elseif ($SshPassword) { $sshArgs += @('-pw', $SshPassword) }
+            $sshArgs += ("$SshUser@$GuestIp")
+            return ,$sshArgs
         } else {
-            $args = @('-p','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
-            if ($SshKey) { $args += @('-i', $SshKey) }
-            $args += ("$SshUser@$GuestIp")
-            return ,$args
+            $sshArgs = @('-p','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
+            if ($SshKey) { $sshArgs += @('-i', $SshKey) }
+            $sshArgs += ("$SshUser@$GuestIp")
+            return ,$sshArgs
         }
     }
 
@@ -97,8 +100,8 @@ function Invoke-GuestDebAcquisition {
             'for f in *.deb; do if [ -f "$f" ]; then echo $f; fi; done || true'
         ) -join '; '
         $cmd = "bash -c '" + $cmdScript + "'"
-        $args = (_BaseArgs) + $cmd
-        $out = & $SshClient @args 2>&1
+    $execArgs = (_BaseArgs) + $cmd
+    $out = & $SshClient @execArgs 2>&1
         Write-Log ("[DebPkg][DL] ({0}/{1})    {2} downloaded to {3}, output head: {4}" -f $idx, $total, $pkgSpec, $RemoteDir, (($out | Select-Object -First 6) -join ' | ')) -Console
         $result.Logs += $out
         $fail = ($out | Where-Object { $_ -match 'WARN: failed' })
@@ -130,9 +133,8 @@ function Invoke-GuestDebAcquisition {
         $remainingFailures = @()
         foreach ($fSpec in $result.Failures) {
             if ($fSpec -match '^(?<name>linux-image-cloud-amd64)=(?<ver>[^=]+)$') {
-                $metaName = $matches['name']; $metaVer = $matches['ver']
+                $metaVer = $matches['ver']
                 # Look for linux-image-*-cloud-amd64_<version>_*.deb file among downloaded debs (names only)
-                $pattern = "linux-image-*-cloud-amd64_${metaVer}_" # base pattern fragment
                 $matching = $result.DebFiles | Where-Object { $_ -like "linux-image-*cloud-amd64_${metaVer}_*.deb" }
                 if ($matching -and $matching.Count -gt 0) {
                     Write-Log ("[DebPkg][DL] Meta spec {0} satisfied by kernel image(s): {1}" -f $fSpec, ($matching -join ', ')) -Console
@@ -158,7 +160,7 @@ function Invoke-GuestDebAcquisition {
         $remainingFailures = @()
         foreach ($fSpec in $result.Failures) {
             if ($fSpec -match '^(?<name>linux-image-cloud-amd64)=(?<ver>[^=]+)$') {
-                $metaName = $matches['name']; $metaVer = $matches['ver']
+                $metaVer = $matches['ver']
                 $matching = $result.DebFiles | Where-Object { $_ -like "linux-image-*cloud-amd64_${metaVer}_*.deb" }
                 if ($matching -and $matching.Count -gt 0) {
                     Write-Log ("[DebPkg][DL] (fallback) Meta spec {0} satisfied by kernel image(s): {1}" -f $fSpec, ($matching -join ', ')) -Console
@@ -171,7 +173,25 @@ function Invoke-GuestDebAcquisition {
         $result.Failures = $remainingFailures
     }
 
-    # Debug pause removed (non-interactive safe) – no blocking Read-Host here
+    if ($ClassifyFailures -and $result.Failures.Count -gt 0) {
+        Write-Log ("[DebPkg][DL] Classifying {0} failure(s)" -f $result.Failures.Count) -Console
+        foreach ($fSpec in @($result.Failures)) {
+            if ($fSpec -notmatch '^(?<name>[^=]+)=(?<ver>.+)$') { continue }
+            $pkgName = $matches['name']; $pkgVer = $matches['ver']
+            $madCmd = ('bash -c ''apt-cache madison {0} 2>/dev/null || true''' -f $pkgName)
+            $madOut = & $SshClient @((_BaseArgs) + $madCmd) 2>&1
+            $versions = @()
+            foreach ($ln in $madOut) {
+                if ($ln -match "^$pkgName\s*\|\s*(?<v>[^\s|]+)") { $versions += $matches['v'] }
+            }
+            $reason = 'DownloadFailed'
+            if ($versions.Count -gt 0 -and ($versions -notcontains $pkgVer)) { $reason = 'MissingVersionInRepos' }
+            elseif ($versions.Count -eq 0) { $reason = 'NoVersionsListed' }
+            $result.FailureDetails += [pscustomobject]@{ Name=$pkgName; Requested=$pkgVer; Reason=$reason; Available=@($versions); MadisonSample= ($madOut | Select-Object -First 6) }
+        }
+    }
+
+    # (Removed interactive Read-Host used for debugging to allow non-interactive execution)
 
     return $result
 }

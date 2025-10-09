@@ -371,8 +371,11 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     $kubemasterNewRel = $debianPackageDiff.NewRelativePath
                     $kubemasterNewAbs = Join-Path $newExtract $kubemasterNewRel
                     if (Test-Path -LiteralPath $kubemasterNewAbs) {
-                        $dlResult = Get-DebianPackagesFromVHDX -VhdxPath $kubemasterNewAbs -NewExtract $newExtract -OldExtract $oldExtract -switchNameEnding 'delta' -DownloadPackageSpecs $offlineSpecs -DownloadLocalDir $debDownloadDir -DownloadDebs
-                        if ($dlResult.Error) { Write-Log ("[Warning] Offline package acquisition error: {0}" -f $dlResult.Error) -Console }
+                        $dlResult = Get-DebianPackagesFromVHDX -VhdxPath $kubemasterNewAbs -NewExtract $newExtract -OldExtract $oldExtract -switchNameEnding 'delta' -DownloadPackageSpecs $offlineSpecs -DownloadLocalDir $debDownloadDir -DownloadDebs -AllowPartialAcquisition
+                        if ($dlResult.Error) {
+                            Write-Log ("[Warning] Offline package acquisition error: {0}" -f $dlResult.Error) -Console
+                            throw "Offline deb acquisition failed: $($dlResult.Error)"    # mandatory failure
+                        }
                         elseif ($dlResult.DownloadedDebs.Count -gt 0) {
                             $debMeta = [pscustomobject]@{
                                 Downloaded = $dlResult.DownloadedDebs
@@ -381,24 +384,32 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                             }
                             $debMeta | ConvertTo-Json -Depth 3 | Out-File -FilePath (Join-Path $debDownloadDir 'download-manifest.json') -Encoding UTF8 -Force
                             Write-Log ("Offline .deb acquisition completed: {0} files" -f $dlResult.DownloadedDebs.Count) -Console
+                            if ($dlResult.FailureDetails -and $dlResult.FailureDetails.Count -gt 0) {
+                                ($dlResult.FailureDetails | ConvertTo-Json -Depth 4) | Out-File -FilePath (Join-Path $debDownloadDir 'failed-packages.json') -Encoding UTF8 -Force
+                                Write-Log ("[DebPkg][DL][Warning] Partial failures recorded → failed-packages.json") -Console
+                            }
                             $offlineDebInfo = [pscustomobject]@{
                                 Specs = $offlineSpecs
                                 Downloaded = $dlResult.DownloadedDebs | ForEach-Object { Join-Path 'debian-delta/packages' $_ }
                             }
                         } else {
                             Write-Log '[Warning] No .deb files downloaded (empty list)' -Console
+                            throw 'Offline deb acquisition produced zero files (mandatory)'
                         }
                     } else {
                         Write-Log ("[Warning] Expected VHDX for offline acquisition not found: {0}" -f $kubemasterNewAbs) -Console
+                        throw 'Offline deb acquisition VHDX missing (mandatory)'
                     }
                 }
             } catch {
                 Write-Log ("[Warning] Offline acquisition attempt failed: {0}" -f $_.Exception.Message) -Console
+                throw
             }
             Write-Log "Created Debian delta artifact at '$debianDeltaDir'" -Console
         }
         catch {
-            Write-Log "[Warning] Failed to generate Debian delta artifact: $($_.Exception.Message)" -Console
+            Write-Log "[Error] Failed to generate Debian delta artifact: $($_.Exception.Message)" -Console
+            throw $_
         }
     } else {
         $err = "Debian package diff not processed: $($debianPackageDiff.Error)"
