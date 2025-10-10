@@ -144,51 +144,37 @@ try {
              # Copy only the contents of $dirPath — not the folder itself
              Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
 
-            # ---------------------------
-            # Handle addon.manifest.yaml and auto-update for single implementations
-            # ---------------------------
-            # Get the parent folder of $dirPath (example: addons\ingress\nginx → addons\ingress)
+            # Handle addon.manifest.yaml
             $parentAddonFolder = Split-Path -Path $dirPath -Parent
-
-            # Check for addon.manifest.yaml at this level
             $manifestFile = Join-Path $parentAddonFolder "addon.manifest.yaml"
             if (Test-Path $manifestFile) {
                 $copiedManifestPath = Join-Path $destinationPath "addon.manifest.yaml"
                 
-                # For single implementation exports, save the filtered manifest with annotations
+                # For single implementation exports
                 if (-not $All -and $Names.Count -eq 1 -and $implementation.name -ne $manifest.metadata.name) {
-                    # Create updated manifest with annotations
-                    $updatedManifest = $manifest.PSObject.Copy()
-                    if (-not $updatedManifest.metadata.annotations) {
-                        $updatedManifest.metadata | Add-Member -NotePropertyName 'annotations' -NotePropertyValue @{}
-                    }
-                    $updatedManifest.metadata.annotations["k2s.io/exported-implementation"] = $implementation.name
-                    $updatedManifest.metadata.annotations["k2s.io/export-date"] = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
-                    $updatedManifest.metadata.annotations["k2s.io/exported-version"] = $k2sVersion
-                    $updatedManifest.metadata.annotations["k2s.io/export-type"] = "single-implementation"
-                    
-                    # Save the filtered and annotated manifest
-                    # Convert to JSON first, then use yq to convert to YAML
-                    $jsonContent = $updatedManifest | ConvertTo-Json -Depth 100
                     $kubeBinPath = Get-KubeBinPath
                     $yqExe = Join-Path $kubeBinPath "yq.exe"
-                    $tempJsonFile = New-TemporaryFile
+                    
                     try {
-                        $jsonContent | Set-Content -Path $tempJsonFile -Encoding UTF8
-                        & $yqExe eval -P '.' $tempJsonFile | Set-Content -Path $copiedManifestPath -Encoding UTF8
-                    } finally {
-                        Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
+                        $tempFilterFile = New-TemporaryFile
+                        $filterContent = ".spec.implementations |= [.[] | select(.name == `"$($implementation.name)`")]"
+                        [System.IO.File]::WriteAllText($tempFilterFile.FullName, $filterContent, [System.Text.Encoding]::ASCII)
+                        
+                        & $yqExe eval --from-file $tempFilterFile $manifestFile | Set-Content -Path $copiedManifestPath -Encoding UTF8
+                        Write-Log "Filtered manifest for single implementation: $($implementation.name)" -Console
+                        
+                        Remove-Item -Path $tempFilterFile -Force -ErrorAction SilentlyContinue
+                    } catch {
+                        Write-Log "Failed to filter manifest with yq.exe, falling back to copy: $_" -Console
+                        Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
                     }
-                    Write-Log "Updated manifest for single implementation: $($implementation.name)" -Console
                 } else {
-                    # For all exports or addons with single implementation, copy original manifest
+                    # For all exports or single implementation addons, copy original manifest
                     Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
                 }
             }
 
-            # ---------------------------
             # Add version information file for CD solutions
-            # ---------------------------
             $versionInfoPath = Join-Path $destinationPath "version.info"
             @{
                 addonName = $manifest.metadata.name

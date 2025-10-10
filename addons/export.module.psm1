@@ -42,7 +42,6 @@ function Update-ManifestForSingleImplementation {
             return
         }
         
-        # Update manifest to contain only the target implementation
         $manifest.spec.implementations = @($targetImpl)
         
         # Add export metadata annotations
@@ -54,9 +53,18 @@ function Update-ManifestForSingleImplementation {
         $manifest.metadata.annotations["k2s.io/exported-version"] = $K2sVersion
         $manifest.metadata.annotations["k2s.io/export-type"] = "single-implementation"
         
-        # Save updated manifest
-        $manifest | ConvertTo-Yaml | Set-Content -Path $ManifestPath -Force
-        Write-Log "Updated manifest for single implementation: $ImplementationName"
+        # Save updated manifest 
+        $jsonContent = $manifest | ConvertTo-Json -Depth 100
+        $kubeBinPath = Get-KubeBinPath
+        $yqExe = Join-Path $kubeBinPath "yq.exe"
+        $tempJsonFile = New-TemporaryFile
+        try {
+            $jsonContent | Set-Content -Path $tempJsonFile -Encoding UTF8
+            & $yqExe eval -P '.' $tempJsonFile | Set-Content -Path $ManifestPath -Encoding UTF8
+            Write-Log "Updated manifest for single implementation: $ImplementationName"
+        } finally {
+            Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
+        }
         
     } catch {
         Write-Log "Failed to update manifest: $_" -Error
