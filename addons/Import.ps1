@@ -169,97 +169,47 @@ foreach ($addon in $addonsToImport) {
             }
 
             if (Test-Path $parentManifestPath) {
-                # Merge with existing manifest
+                # Merge with existing manifest to preserve multiple implementations
                 Write-Log "Merging with existing manifest at: $parentManifestPath" -Console
                 $existingManifest = Get-FromYamlFile -Path $parentManifestPath
+                $importedManifest = Get-FromYamlFile -Path $manifestInContent
                 
-                # Use yq.exe to merge implementations while preserving field order
-                $kubeBinPath = Get-KubeBinPath
-                $yqExe = Join-Path $kubeBinPath "yq.exe"
-                
-                try {
-                    # Merge implementations using PowerShell logic
-                    $existingManifest = Get-FromYamlFile -Path $parentManifestPath
-                    $importedManifest = Get-FromYamlFile -Path $manifestInContent
-                    
-                    # Merge implementations - add only new ones, preserve existing
-                    $existingImplNames = $existingManifest.spec.implementations | ForEach-Object { $_.name }
-                    foreach ($importedImpl in $importedManifest.spec.implementations) {
-                        if ($importedImpl.name -notin $existingImplNames) {
-                            Write-Log "Adding new implementation: $($importedImpl.name)" -Console
-                            $existingManifest.spec.implementations += $importedImpl
-                        } else {
-                            Write-Log "Implementation '$($importedImpl.name)' already exists, skipping" -Console
-                        }
-                    }
-                    
-                    # Extract header from original file
-                    $originalBytes = [System.IO.File]::ReadAllBytes($parentManifestPath)
-                    $originalContent = [System.Text.Encoding]::UTF8.GetString($originalBytes)
-                    
-                    $headerLines = @()
-                    foreach ($line in ($originalContent -split "`n")) {
-                        if ($line.StartsWith("#") -or $line.Trim() -eq "") {
-                            $headerLines += $line
-                        } else {
-                            break
-                        }
-                    }
-                    
-                    # Convert to YAML using yq
-                    $tempJsonFile = New-TemporaryFile
-                    $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
-                    [System.IO.File]::WriteAllText($tempJsonFile.FullName, $mergedJson, [System.Text.Encoding]::UTF8)
-                    
-                    $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
-                    Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
-                    
-                    if ($yamlOutput -is [array]) {
-                        $yamlContent = $yamlOutput -join "`n"
+                # Merge implementations - add only new ones, preserve existing
+                $existingImplNames = $existingManifest.spec.implementations | ForEach-Object { $_.name }
+                foreach ($importedImpl in $importedManifest.spec.implementations) {
+                    if ($importedImpl.name -notin $existingImplNames) {
+                        Write-Log "Adding new implementation: $($importedImpl.name)" -Console
+                        $existingManifest.spec.implementations += $importedImpl
                     } else {
-                        $yamlContent = $yamlOutput.ToString()
+                        Write-Log "Implementation '$($importedImpl.name)' already exists, updating" -Console
+                        # Replace existing implementation with imported one
+                        for ($i = 0; $i -lt $existingManifest.spec.implementations.Count; $i++) {
+                            if ($existingManifest.spec.implementations[$i].name -eq $importedImpl.name) {
+                                $existingManifest.spec.implementations[$i] = $importedImpl
+                                break
+                            }
+                        }
                     }
-                    
-                    $finalContent = ($headerLines -join "`n") + "`n" + $yamlContent
-                    
-                    [System.IO.File]::WriteAllText($parentManifestPath, $finalContent, [System.Text.Encoding]::UTF8)
-                    Write-Log "Merged manifest saved to: $parentManifestPath" -Console
-                } catch {
-                    # Fallback - copy imported manifest
-                    Write-Log "yq.exe merge failed, falling back to copy: $_" -Console
-                    Copy-Item -Path $manifestInContent -Destination $parentManifestPath -Force
                 }
-            } else {
-                # Create new manifest
+                
+                # Save merged manifest using yq.exe
                 $kubeBinPath = Get-KubeBinPath
                 $yqExe = Join-Path $kubeBinPath "yq.exe"
                 $tempJsonFile = New-TemporaryFile
                 try {
-                    $header = @(
-                        "# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG",
-                        "#",
-                        "# SPDX-License-Identifier: MIT",
-                        ""
-                    )
-                    
-                    $jsonContent = $importedManifest | ConvertTo-Json -Depth 100
-                    [System.IO.File]::WriteAllText($tempJsonFile.FullName, $jsonContent, [System.Text.Encoding]::UTF8)
+                    $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
+                    [System.IO.File]::WriteAllText($tempJsonFile.FullName, $mergedJson, [System.Text.Encoding]::UTF8)
                     
                     $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
-                    
-                    if ($yamlOutput -is [array]) {
-                        $yamlContent = $yamlOutput -join "`n"
-                    } else {
-                        $yamlContent = $yamlOutput.ToString()
-                    }
-                    
-                    $finalContent = ($header -join "`n") + "`n" + $yamlContent
-                    
-                    [System.IO.File]::WriteAllText($parentManifestPath, $finalContent, [System.Text.Encoding]::UTF8)
-                    Write-Log "New manifest created at: $parentManifestPath" -Console
+                    $yamlOutput | Set-Content -Path $parentManifestPath -Encoding UTF8
+                    Write-Log "Merged manifest saved to: $parentManifestPath" -Console
                 } finally {
                     Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
                 }
+            } else {
+                # No existing manifest - copy imported manifest
+                Copy-Item -Path $manifestInContent -Destination $parentManifestPath -Force
+                Write-Log "New manifest created at: $parentManifestPath" -Console
             }
 
             # Safety: ensure no stray manifest remains in the implementation folder
@@ -275,69 +225,45 @@ foreach ($addon in $addonsToImport) {
 
             
             if (Test-Path $finalManifestPath) {
-                # Merge with existing manifest
+                # Merge with existing manifest to preserve multiple implementations
                 Write-Log "Merging with existing manifest at: $finalManifestPath" -Console
                 $existingManifest = Get-FromYamlFile -Path $finalManifestPath
+                $importedManifest = Get-FromYamlFile -Path $manifestInContent
                 
-                # Use yq.exe to merge implementations while preserving field order
+                # Merge implementations - add only new ones, preserve existing
+                $existingImplNames = $existingManifest.spec.implementations | ForEach-Object { $_.name }
+                foreach ($importedImpl in $importedManifest.spec.implementations) {
+                    if ($importedImpl.name -notin $existingImplNames) {
+                        Write-Log "Adding new implementation: $($importedImpl.name)" -Console
+                        $existingManifest.spec.implementations += $importedImpl
+                    } else {
+                        Write-Log "Implementation '$($importedImpl.name)' already exists, updating" -Console
+                        # Replace existing implementation with imported one
+                        for ($i = 0; $i -lt $existingManifest.spec.implementations.Count; $i++) {
+                            if ($existingManifest.spec.implementations[$i].name -eq $importedImpl.name) {
+                                $existingManifest.spec.implementations[$i] = $importedImpl
+                                break
+                            }
+                        }
+                    }
+                }
+                
+                # Save merged manifest using yq.exe
                 $kubeBinPath = Get-KubeBinPath
                 $yqExe = Join-Path $kubeBinPath "yq.exe"
-                
+                $tempJsonFile = New-TemporaryFile
                 try {
-                    # Merge implementations using PowerShell logic
-                    $existingManifest = Get-FromYamlFile -Path $finalManifestPath
-                    $importedManifest = Get-FromYamlFile -Path $manifestInContent
-                    
-                    # Merge implementations - add only new ones, preserve existing
-                    $existingImplNames = $existingManifest.spec.implementations | ForEach-Object { $_.name }
-                    foreach ($importedImpl in $importedManifest.spec.implementations) {
-                        if ($importedImpl.name -notin $existingImplNames) {
-                            Write-Log "Adding new implementation: $($importedImpl.name)" -Console
-                            $existingManifest.spec.implementations += $importedImpl
-                        } else {
-                            Write-Log "Implementation '$($importedImpl.name)' already exists, skipping" -Console
-                        }
-                    }
-                    
-                    # Extract header from original file
-                    $originalBytes = [System.IO.File]::ReadAllBytes($finalManifestPath)
-                    $originalContent = [System.Text.Encoding]::UTF8.GetString($originalBytes)
-                    
-                    $headerLines = @()
-                    foreach ($line in ($originalContent -split "`n")) {
-                        if ($line.StartsWith("#") -or $line.Trim() -eq "") {
-                            $headerLines += $line
-                        } else {
-                            break
-                        }
-                    }
-                    
-                    # Convert to YAML using yq
-                    $tempJsonFile = New-TemporaryFile
                     $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
                     [System.IO.File]::WriteAllText($tempJsonFile.FullName, $mergedJson, [System.Text.Encoding]::UTF8)
                     
                     $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
-                    Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
-                    
-                    if ($yamlOutput -is [array]) {
-                        $yamlContent = $yamlOutput -join "`n"
-                    } else {
-                        $yamlContent = $yamlOutput.ToString()
-                    }
-                    
-                    $finalContent = ($headerLines -join "`n") + "`n" + $yamlContent
-                    
-                    [System.IO.File]::WriteAllText($finalManifestPath, $finalContent, [System.Text.Encoding]::UTF8)
+                    $yamlOutput | Set-Content -Path $finalManifestPath -Encoding UTF8
                     Write-Log "Merged manifest saved to: $finalManifestPath" -Console
-                } catch {
-                    # Fallback - copy imported manifest
-                    Write-Log "yq.exe merge failed, falling back to copy: $_" -Console
-                    Copy-Item -Path $manifestInContent -Destination $finalManifestPath -Force
+                } finally {
+                    Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
                 }
             } else {
                 # No existing manifest - copy imported manifest
-                Write-Log "No existing manifest found, creating new one at: $finalManifestPath" -Console
                 Copy-Item -Path $manifestInContent -Destination $finalManifestPath -Force
                 Write-Log "New manifest created at: $finalManifestPath" -Console
             }
