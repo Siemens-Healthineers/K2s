@@ -156,6 +156,14 @@ func CreateSystemUnableToUpgradeCmdFailure() *CmdFailure {
 	}
 }
 
+func CreateSystemUnableToUpdateCmdFailure() *CmdFailure {
+	return &CmdFailure{
+		Severity: SeverityError,
+		Code:     "unable-to-update",
+		Message:  "'k2s system update' failed",
+	}
+}
+
 func CreateFuncUnavailableForLinuxOnlyCmdFailure() *CmdFailure {
 	return &CmdFailure{
 		Severity: SeverityWarning,
