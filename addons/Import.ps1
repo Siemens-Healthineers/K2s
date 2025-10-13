@@ -197,11 +197,33 @@ foreach ($addon in $addonsToImport) {
                 $yqExe = Join-Path $kubeBinPath "yq.exe"
                 $tempJsonFile = New-TemporaryFile
                 try {
+                    # Extract header from original file
+                    $originalBytes = [System.IO.File]::ReadAllBytes($parentManifestPath)
+                    $originalContent = [System.Text.Encoding]::UTF8.GetString($originalBytes)
+                    
+                    $headerLines = @()
+                    foreach ($line in ($originalContent -split "`n")) {
+                        if ($line.StartsWith("#") -or $line.Trim() -eq "") {
+                            $headerLines += $line
+                        } else {
+                            break
+                        }
+                    }
+                    
                     $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
                     [System.IO.File]::WriteAllText($tempJsonFile.FullName, $mergedJson, [System.Text.Encoding]::UTF8)
                     
                     $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
-                    $yamlOutput | Set-Content -Path $parentManifestPath -Encoding UTF8
+                    
+                    if ($yamlOutput -is [array]) {
+                        $yamlContent = $yamlOutput -join "`n"
+                    } else {
+                        $yamlContent = $yamlOutput.ToString()
+                    }
+                    
+                    $finalContent = ($headerLines -join "`n") + "`n" + $yamlContent
+                    
+                    [System.IO.File]::WriteAllText($parentManifestPath, $finalContent, [System.Text.Encoding]::UTF8)
                     Write-Log "Merged manifest saved to: $parentManifestPath" -Console
                 } finally {
                     Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
