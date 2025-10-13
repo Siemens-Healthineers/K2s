@@ -31,7 +31,7 @@ import (
 var updateCommandShortDescription = "[EXPERIMENTAL] Update the installed K2s cluster to a newer version using an in-place update with a delta package"
 
 var updateCommandLongDescription = `
-Updates the installed K2s cluster to a newer version using an in-place update with a delta package.
+[EXPERIMENTAL] Updates the installed K2s cluster to a newer version using an in-place update with a delta package.
 
 ⚠  This command must be called within the folder containing the new K2s version, e.g. '<new-version-dir>\k2s.exe system update'
 
