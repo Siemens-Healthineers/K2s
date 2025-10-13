@@ -219,54 +219,8 @@ foreach ($addon in $addonsToImport) {
             }
         }
         else {
-            # One-level case (e.g., logging) - merge with existing manifest if it exists
-            $finalManifestPath = Join-Path $destinationPath "addon.manifest.yaml"
-            
-
-            
-            if (Test-Path $finalManifestPath) {
-                # Merge with existing manifest to preserve multiple implementations
-                Write-Log "Merging with existing manifest at: $finalManifestPath" -Console
-                $existingManifest = Get-FromYamlFile -Path $finalManifestPath
-                $importedManifest = Get-FromYamlFile -Path $manifestInContent
-                
-                # Merge implementations - add only new ones, preserve existing
-                $existingImplNames = $existingManifest.spec.implementations | ForEach-Object { $_.name }
-                foreach ($importedImpl in $importedManifest.spec.implementations) {
-                    if ($importedImpl.name -notin $existingImplNames) {
-                        Write-Log "Adding new implementation: $($importedImpl.name)" -Console
-                        $existingManifest.spec.implementations += $importedImpl
-                    } else {
-                        Write-Log "Implementation '$($importedImpl.name)' already exists, updating" -Console
-                        # Replace existing implementation with imported one
-                        for ($i = 0; $i -lt $existingManifest.spec.implementations.Count; $i++) {
-                            if ($existingManifest.spec.implementations[$i].name -eq $importedImpl.name) {
-                                $existingManifest.spec.implementations[$i] = $importedImpl
-                                break
-                            }
-                        }
-                    }
-                }
-                
-                # Save merged manifest using yq.exe
-                $kubeBinPath = Get-KubeBinPath
-                $yqExe = Join-Path $kubeBinPath "yq.exe"
-                $tempJsonFile = New-TemporaryFile
-                try {
-                    $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
-                    [System.IO.File]::WriteAllText($tempJsonFile.FullName, $mergedJson, [System.Text.Encoding]::UTF8)
-                    
-                    $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
-                    $yamlOutput | Set-Content -Path $finalManifestPath -Encoding UTF8
-                    Write-Log "Merged manifest saved to: $finalManifestPath" -Console
-                } finally {
-                    Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
-                }
-            } else {
-                # No existing manifest - copy imported manifest
-                Copy-Item -Path $manifestInContent -Destination $finalManifestPath -Force
-                Write-Log "New manifest created at: $finalManifestPath" -Console
-            }
+            # One-level case (e.g., logging) → keep manifest in the addon folder
+            Copy-Item -Path $manifestInContent -Destination $finalManifestPath -Force
         }
     }
     foreach ($image in $images) {
