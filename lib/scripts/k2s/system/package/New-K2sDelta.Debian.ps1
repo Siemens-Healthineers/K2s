@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
 # Debian package parsing & per-package acquisition helpers (guest VM context)
 
 function Get-DebianPackageMapFromStatusFile {

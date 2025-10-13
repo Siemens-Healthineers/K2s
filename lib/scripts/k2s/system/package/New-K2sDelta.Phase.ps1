@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
 # Phase timing & size formatting utilities for delta packaging
 
 function Start-Phase {

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+
+SPDX-License-Identifier: MIT
+-->
+
 # AI Coding Assistant Project Instructions (K2s)
 
 These instructions make an AI agent immediately productive in this repository. Keep responses concise, apply these conventions automatically, and prefer concrete edits (not vague advice).

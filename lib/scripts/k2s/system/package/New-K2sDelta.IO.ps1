@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
 # Archival (zip) extraction & creation helpers
 
 Add-Type -AssemblyName System.IO.Compression

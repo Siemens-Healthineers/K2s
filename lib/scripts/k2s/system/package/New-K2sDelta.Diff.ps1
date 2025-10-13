@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
 # Diff helpers for Debian packages inside skipped VHDX
 
 function Get-SkippedFileDebianPackageDiff {

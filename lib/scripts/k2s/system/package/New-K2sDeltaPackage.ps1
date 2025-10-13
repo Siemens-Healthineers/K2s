@@ -1,11 +1,10 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
 <#
     New-K2sDeltaPackage.ps1
     Orchestrates creation of a delta package between two offline packages.
-    All helper functions live in New-K2sDeltaMethods.ps1 and are dot-sourced below.
 #>
-
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
 
