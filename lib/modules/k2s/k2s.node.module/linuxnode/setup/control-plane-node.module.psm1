@@ -453,6 +453,11 @@ function Remove-ControlPlaneNodeOnNewVM {
         if (Test-Path $kubenodeBaseFilePath) {
             Remove-Item $kubenodeBaseFilePath -Force
         }
+        $debianImageFilePath = Get-DebianImageFilePath
+        Write-Log "Delete file '$debianImageFilePath' if existing"
+        if (Test-Path $debianImageFilePath) {
+            Remove-Item $debianImageFilePath -Force
+        }
     }
 
     Write-Log 'Remove previous VM key from known_hosts file'
