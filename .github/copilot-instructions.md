@@ -3,92 +3,98 @@ SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
-<!-- markdownlint-disable MD041 -->
 
-# AI Assistant Project Instructions
+# AI Coding Assistant Project Instructions (K2s)
 
-These instructions help AI coding agents work effectively in the K2s repository.
-Keep responses concise, explain reasoning only when non-obvious, and prefer concrete edits.
+These instructions make an AI agent immediately productive in this repository. Keep responses concise, apply these conventions automatically, and prefer concrete edits (not vague advice).
 
-## 1. Project Overview
-K2s is a Windows-first Kubernetes distribution bundling required components and optional addons. Core goals: mixed Windows/Linux workload support, offline installation, minimal footprint. The repo produces multiple executables under `k2s/cmd/*` plus helper artifacts (PowerShell scripts, addons manifests, Windows networking utilities).
+## 1. Big Picture
+K2s is a Windows‑first Kubernetes distribution bundling a Linux VM (Hyper-V or WSL) plus curated OSS components, with strong offline support. Repo delivers:
+- `k2s.exe` CLI (Go) under `k2s/cmd/...` operating orchestration & lifecycle.
+- PowerShell modules & scripts for host provisioning, packaging, offline builds, addon management (`lib/modules`, `lib/scripts`, `addons/`).
+- Addon system: each addon = folder with `addon.manifest.yaml`, enable/disable scripts, and manifests.
+- Offline packaging pipeline producing large ZIPs containing binaries, images, VHDX base disks, and addon assets.
+- Documentation site built via MkDocs (`mkdocs.yml`, `docs/`).
 
-## 2. Architecture & Code Organization
-- `k2s/cmd/*`: One package per executable. Keep only CLI-specific logic here; delegate domain logic.
-- `k2s/internal/*`: Reusable internal Go packages (not public). Higher abstraction/domain config lives under `internal/core`.
-- `k2s/addons/*`: Addon enable/disable scripts + Kubernetes manifests; automation consumes these via the `k2s addons` command.
-- `bin/`: Vendor-supplied or generated helper executables (kubectl-like shortcuts, container runtime tools, build helpers). Do NOT modify binaries here; automation may overwrite.
-- `docs/`: End-user + operations docs (MkDocs based). Update when changing user-visible behavior.
-- `smallsetup/`: Windows bootstrap helpers (PowerShell modules, configuration artifacts).
-- Logging: central log dir is `<SystemDrive>\var\log` (`internal/logging`). Each CLI may create component-specific logs.
+## 2. Key Directories
+- `k2s/` Go sources (CLI root). Subdirs `cmd/*` for individual commands; shared logic in `internal/`.
+- `lib/modules/k2s.*.module/` PowerShell modules (logging, infra, node, cluster, signing, etc.).
+- `lib/scripts/k2s/system/package/` Packaging & delta generation scripts (`New-K2sDeltaPackage.ps1`, helpers file).
+- `addons/` Addon definitions; each addon has `Enable.ps1`, `Disable.ps1`, optional `Get-Status.ps1`, `Update.ps1`, `README.md`.
+- `smallsetup/` Windows environment bootstrap (loopback adapter, HNS, kubeadm flags, etc.).
+- `bin/` Pre-bundled third‑party executables (kubectl, helm, nerdctl, jq, plink, etc.). Do NOT modify vendored binaries—never rewrite.
+- `build/` BOM, catalog metadata used for reproducibility & signing.
+- `docs/` MkDocs sources; includes dev guide, ops manual, troubleshooting.
 
-## 3. CLI & Flag Conventions
-- Main CLI uses Cobra (`cmd/k2s/cmd/**`). Avoid custom flag parsing there—add new commands under the correct functional sub-tree (e.g. `image`, `addons`, `system`).
-- Smaller utilities (`vfprules`, `cplauncher`, etc.) use Go `flag` + helpers from `internal/cli` (e.g. `NewVersionFlag`, verbosity constants). Reuse helpers instead of duplicating version or verbosity handling.
-- Version printing uses `internal/version` with linker-injected build info.
-- Prefer lowercase UUIDs where applicable (see `vfprules`).
+## 3. PowerShell Conventions
+- All logging goes through functions from `k2s.infra.module` (`Write-Log`, `Write-ErrorMessage`). Don’t use `Write-Host` directly for new code.
+- Scripts meant for reuse go into a helper `.ps1` and are dot-sourced; keep orchestration thin (see `New-K2sDeltaPackage.ps1` + `New-K2sDeltaMethods.ps1`).
+- Long phases wrapped with `Start-Phase` / `Stop-Phase` for timing.
+- Hash objects expose both `.Sha256` and `.Hash` for backward compatibility.
+- Avoid assigning to automatic variables (`$args`). Use explicit names (`$sshParams`, `$scpParams`).
+- When adding guest/Hyper-V interactions, clean up resources (switch, NAT, VM) even on error.
+- Secure inputs: new code should accept `SecureString` or `PSCredential` for secrets (legacy plain strings exist—don’t proliferate).
 
-## 4. Logging Patterns
-- Use `slog` via helpers in `internal/logging` or the structured wrapper used in the main k2s CLI (`cmd/k2s/utils/logging`).
-- For standalone tools: create a component log file using `logging.SetupDefaultFileLogger(logDir, name, slog.LevelDebug, "component", cliName)`; then log structured key/value pairs.
-- Honor verbosity flags (`-v` / `--verbosity`) in the main CLI. Do not introduce ad-hoc environment variables for log levels.
+## 4. Delta Packaging Pattern
+- Extraction: `Expand-ZipWithProgress` with path sanitization & traversal prevention.
+- Hashing: `Get-FileMap` builds maps; diff logic excludes wholesale directories & special large artifacts (VHDX, MSI, archives).
+- Debian diff: Boot temporary VM from Kubemaster VHDX → SSH → `dpkg-query` → compute Added/Removed/Changed. Offline acquisition attempts to download changed .deb files (`Invoke-GuestDebAcquisition`).
+- Generated artifacts under staging include `delta-manifest.json`, optionally `debian-delta/*` (lists, scripts, downloaded packages).
 
-## 5. Error Handling
-- Main CLI: Return rich errors as `*common.CmdFailure` when you want controlled user-facing output + structured logging.
-- Utilities: Fail fast with `log.Fatalf` only for unrecoverable startup errors; otherwise prefer `slog.Error` then `os.Exit(1)`.
-- Avoid panics except in truly exceptional, non-runtime scenarios (e.g. impossible invariant breaches). Wrap unexpected errors before surfacing.
+## 5. Addon Pattern
+Each addon folder contains:
+- `addon.manifest.yaml` (metadata, dependencies, toggles).
+- Enable/Disable scripts modify cluster state via kubectl/helm/yaml manifests under `manifests/`.
+- Status scripts typically query deployments/CRDs; follow existing naming.
+New addon: copy a minimal existing one (e.g. `addons/autoscaling/`) and adjust manifest + scripts.
 
-## 6. Build & Tooling
-- Primary binaries built via Go toolchain (module root `k2s/go.mod`). Use `go build ./...` for compilation; `go test ./...` for unit tests.
-- Some artifacts (e.g. `pause.c`, `cphook.c`) require MinGW-w64 (documented under `cmd/cplauncher/README.md`). Keep build instructions accurate if dependencies change.
-- Linker flags inject version data; replicate existing pattern (see workflows) when adding new binaries.
+## 6. Go Code (CLI)
+- Each command in `k2s/cmd/<name>` with its own `main.go` or cobra-style setup (inspect existing patterns before introducing new flags/roots).
+- Shared functionality lives under `k2s/internal/...`. Reuse before creating duplicates.
+- Keep binaries buildable offline: avoid introducing network-time fetches at runtime.
 
-## 7. Testing
-- Unit tests colocated next to code under `internal/**` and some `cmd/*` helpers.
-- E2E framework under `test/e2e` (Go + DSL helpers). Avoid adding slow tests to unit packages; place integration / system scenarios under `test/e2e`.
-- When modifying CLI surface, add or update tests that parse and assert command behavior (Cobra commands or flag-driven tools).
+## 7. Build & CI Workflows
+See `.github/workflows/` for canonical pipelines:
+- `build-k2s-cli*.yml` builds Go CLI.
+- `build-k2s-artifacts.yml` assembles offline package.
+- `build-docs-next.yml` builds MkDocs site.
+- `ci-reuse-checks.yml` SPDX/license compliance.
+- `ci-unit-tests.yml` runs test suites (PowerShell / Go where applicable).
+When modifying build steps, mirror variables & caching patterns used in existing workflows.
 
-## 8. Windows-Specific Concerns
-- Numerous tools rely on Windows networking (HNS/VFP). Keep P/Invoke / syscall code minimal and well-contained (see `cplauncher` and `vfprules`). Prefer reusing existing wrappers before adding new syscall logic.
-- Paths should use `filepath` helpers; avoid hard-coded drive letters except where intentionally using `host.SystemDrive()`.
+## 8. Testing Strategy
+- PowerShell: unit-like tests live in module folders or `test/*.ps1` (see `addons.module.unit.tests.ps1`). Prefer parameterized helper functions for testability.
+- Go: standard `*_test.go` files under related package directories.
+- Avoid flaking Hyper-V dependent tests in CI—mock or guard with environment checks.
 
-## 9. Addons & Manifests
-- Addons follow a pattern: `Enable.ps1`, `Disable.ps1`, `Get-Status.ps1`, optional `Update.ps1`, plus a `addon.manifest.yaml`. Follow existing naming & manifest schema when creating new addons.
-- Groups of Kubernetes dependencies may be managed by Dependabot grouping in `.github/dependabot.yml`.
+## 9. Security & Offline
+- Never introduce code that silently pulls images or packages at runtime without explicit user action—offline reproducibility is a core promise.
+- Large artifacts (VHDX, rootfs tarballs, MSI, WindowsNodeArtifacts.zip) are excluded from delta content; maintain the skip list in one place.
+- Always sanitize zip extraction targets (already implemented—follow that pattern for any new archival logic).
 
-## 10. Introducing New Code
-When adding a new utility or command:
-1. Decide if it belongs inside the monolithic `k2s` CLI (Cobra) or as a separate small exe.
-2. Reuse `internal` packages—do not duplicate logic (search first).
-3. Add flags consistently; for version support: `versionFlag := cli.NewVersionFlag(<name>)`.
-4. Add structured logging early (create log file if persistent output needed).
-5. Provide or update README in the new command folder with specific build/test instructions.
-6. Update docs if user-facing behavior changes.
+## 10. Logging & Diagnostics
+- Prefix category tags in logs: `[DebPkg]`, `[Expand]`, `[Hash]`, `[StageCleanup]`, etc. Follow existing style for new subsystems.
+- On guest operations: gather diagnostics when expected artifacts are missing instead of failing silently.
 
-## 11. Common Pitfalls
-- Duplicating logging setup instead of using `logging.SetupDefaultFileLogger`.
-- Forgetting to set verbosity before constructing log handlers in the root CLI.
-- Hardcoding temp directories instead of using helper utilities under `internal/os`.
-- Adding external dependencies without updating Dependabot config if grouping needed.
+## 11. Adding New Automation
+When adding a new packaging / diff feature:
+1. Put core logic in `New-...Methods.ps1` helper file.
+2. Reference via dot-sourcing from orchestrator script.
+3. Reuse phase timing & logging helpers.
+4. Update or create manifest JSON with new metadata fields (keep camelCase keys consistent).
 
-## 12. Example: Adding a New Cobra Subcommand
-```go
-cmd := &cobra.Command{Use: "foo", Short: "Demo" , RunE: func(cmd *cobra.Command, args []string) error {
-    slog.Info("executing", "args", args)
-    return nil
-}}
-parent.AddCommand(cmd)
-```
+## 12. Style & Quality
+- Preserve existing file headers & SPDX identifiers.
+- Do not rename public functions consumed by scripts unless updating all call sites.
+- PSScriptAnalyzer: avoid automatic variable assignment, prefer approved verbs; add suppressions only with justification in a comment.
 
-## 13. Example: Small Utility With Version Flag
-```go
-const cliName = "mytool"
-func main(){
-  versionFlag := cli.NewVersionFlag(cliName)
-  flag.Parse()
-  if *versionFlag { ve.GetVersion().Print(cliName); return }
-  // logic
-}
-```
+## 13. Typical Commands (Local Dev)
+- Build CLI (Go): `go build ./k2s/cmd/k2s` (respect existing Go module).
+- Run delta packaging: `powershell -File lib/scripts/k2s/system/package/New-K2sDeltaPackage.ps1 ...`.
+- Serve docs locally: `mkdocs serve` (ensure python + mkdocs installed).
 
-Refine these instructions if new patterns emerge. Keep this file lean and current.
+## 14. When Unsure
+Prefer searching existing examples (addon scripts, helper functions) before inventing new patterns. Keep new code incremental and testable.
+
+---
+If a needed pattern isn’t described here, surface a question in PR or propose a minimal extension and document it in this file.
