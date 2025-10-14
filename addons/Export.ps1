@@ -156,13 +156,15 @@ try {
                     $yqExe = Join-Path $kubeBinPath "yq.exe"
                     
                     try {
+                        Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
+                        
                         $tempFilterFile = New-TemporaryFile
                         $filterContent = ".spec.implementations |= [.[] | select(.name == `"$($implementation.name)`")]"
-                        [System.IO.File]::WriteAllText($tempFilterFile.FullName, $filterContent, [System.Text.Encoding]::ASCII)
+                        Set-Content -Path $tempFilterFile.FullName -Value $filterContent -Encoding ASCII
                         
-                        & $yqExe eval --from-file $tempFilterFile $manifestFile | Set-Content -Path $copiedManifestPath -Encoding UTF8
+                        & $yqExe eval --from-file $tempFilterFile --inplace $copiedManifestPath
+                        
                         Write-Log "Filtered manifest for single implementation: $($implementation.name)" -Console
-                        
                         Remove-Item -Path $tempFilterFile -Force -ErrorAction SilentlyContinue
                     } catch {
                         Write-Log "Failed to filter manifest with yq.exe, falling back to copy: $_" -Console

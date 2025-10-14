@@ -148,11 +148,11 @@ foreach ($addon in $addonsToImport) {
         New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
     }
 
-    # Copy *only the contents* of Content — EXCLUDING the manifest
+    # Copy *only the contents* of Content — EXCLUDING the manifest and tar files
     Copy-Item -Path (Join-Path $dirPath '*') `
           -Destination $destinationPath `
           -Recurse -Force `
-          -Exclude 'addon.manifest.yaml'
+          -Exclude 'addon.manifest.yaml', '*.tar'
 
     # Handle addon.manifest.yaml 
     $manifestInContent = Join-Path $dirPath "addon.manifest.yaml"
@@ -197,12 +197,10 @@ foreach ($addon in $addonsToImport) {
                 $yqExe = Join-Path $kubeBinPath "yq.exe"
                 $tempJsonFile = New-TemporaryFile
                 try {
-                    # Extract header from original file
-                    $originalBytes = [System.IO.File]::ReadAllBytes($parentManifestPath)
-                    $originalContent = [System.Text.Encoding]::UTF8.GetString($originalBytes)
+                    $originalContent = Get-Content -Path $parentManifestPath -Raw -Encoding UTF8
                     
                     $headerLines = @()
-                    foreach ($line in ($originalContent -split "`n")) {
+                    foreach ($line in ($originalContent -split "`r?`n")) {
                         if ($line.StartsWith("#") -or $line.Trim() -eq "") {
                             $headerLines += $line
                         } else {
@@ -211,7 +209,7 @@ foreach ($addon in $addonsToImport) {
                     }
                     
                     $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
-                    [System.IO.File]::WriteAllText($tempJsonFile.FullName, $mergedJson, [System.Text.Encoding]::UTF8)
+                    Set-Content -Path $tempJsonFile.FullName -Value $mergedJson -Encoding UTF8
                     
                     $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
                     
@@ -223,7 +221,7 @@ foreach ($addon in $addonsToImport) {
                     
                     $finalContent = ($headerLines -join "`n") + "`n" + $yamlContent
                     
-                    [System.IO.File]::WriteAllText($parentManifestPath, $finalContent, [System.Text.Encoding]::UTF8)
+                    Set-Content -Path $parentManifestPath -Value $finalContent -Encoding UTF8
                     Write-Log "Merged manifest saved to: $parentManifestPath" -Console
                 } finally {
                     Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
@@ -242,6 +240,7 @@ foreach ($addon in $addonsToImport) {
         }
         else {
             # One-level case (e.g., logging) → keep manifest in the addon folder
+            $finalManifestPath = Join-Path $destinationPath "addon.manifest.yaml"
             Copy-Item -Path $manifestInContent -Destination $finalManifestPath -Force
         }
     }
