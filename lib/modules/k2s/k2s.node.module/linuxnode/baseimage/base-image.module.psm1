@@ -122,7 +122,16 @@ Function Get-DebianImage {
     )
     Assert-Path -Path $DownloadsDirectory -PathType 'Container' -ShallExist $true | Out-Null
 
-    $imgFile = Invoke-DownloadDebianImage $DownloadsDirectory $Proxy
+    # check if image file already exists under bin directory
+    $kubeBinPath = Get-KubeBinPath
+    $imgFile = Join-Path $kubeBinPath 'debian-12-genericcloud-amd64.qcow2'
+    if (Test-Path $imgFile) {
+        Write-Output $imgFile
+        return
+    }
+
+    # dowload directly to bin folder
+    $imgFile = Invoke-DownloadDebianImage $kubeBinPath $Proxy
 
     Write-Output $imgFile
 }
