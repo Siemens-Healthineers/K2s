@@ -152,7 +152,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage' })) -eq $tr
             $pvConfig = Get-PVConfigStorage
             (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
             $StorageUsage = 'storage'
-            Write-Log 'Use storage addon for storing DICOM data' -C
+            Write-Log 'Use storage addon for storing DICOM data' -Console
         }
     }
 }
