@@ -20,6 +20,11 @@ function Get-KubeworkerBaseFilePath {
     return "$kubebinPath\Kubeworker-Base.vhdx"
 }
 
+function Get-DebianImageFilePath {
+    $kubebinPath = Get-KubeBinPath
+    return "$kubebinPath\debian-12-genericcloud-amd64.qcow2"
+}
+
 function New-LinuxVmAsControlPlaneNode {
     param (
         [string]$Hostname,
