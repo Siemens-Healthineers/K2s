@@ -90,6 +90,17 @@ spec:
             failureThreshold: 6
             successThreshold: 1
             timeoutSeconds: 4
+          livenessProbe:  # lightweight: slower period to reduce probe load
+            httpGet:
+              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
+              port: 80
+              path: /albums-win-hp-app-hostprocess
+              scheme: HTTP
+            initialDelaySeconds: 30   # allow full startup & readiness first
+            periodSeconds: 30         # low frequency keeps overhead small
+            timeoutSeconds: 3
+            failureThreshold: 3       # ~90s to mark unhealthy
+            successThreshold: 1
           volumeMounts:
             - name: host-var-log
               mountPath: C:/var/log
