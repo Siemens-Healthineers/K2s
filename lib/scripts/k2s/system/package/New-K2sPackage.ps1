@@ -410,7 +410,6 @@ if ($Profile -eq 'Lite') {
     Write-Log '[Profile] Applying Lite profile exclusions for reduced package size' -Console
     $liteExclude = @(
         (Join-Path $kubePath 'docs'),
-        (Join-Path $kubePath 'k2s/cmd'),
         (Join-Path $kubePath 'k2s/test/e2e/addons'),
         (Join-Path $kubePath 'build'),
         (Join-Path $kubePath 'addons/autoscaling'),  
