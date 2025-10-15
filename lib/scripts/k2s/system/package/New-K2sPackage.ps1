@@ -30,7 +30,10 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Path to code signing certificate (.pfx file)')]
     [string] $CertificatePath,
     [parameter(Mandatory = $false, HelpMessage = 'Password for the certificate file')]
-    [string] $Password
+    [string] $Password,
+    [parameter(Mandatory = $false, HelpMessage = 'Packaging profile: Dev (default) or Lite (reduced footprint)')]
+    [ValidateSet('Dev','Lite')]
+    [string] $Profile = 'Dev'
 )
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -44,6 +47,7 @@ Initialize-Logging -ShowLogs:$ShowLogs
 Write-Log "- Proxy to be used: $Proxy"
 Write-Log "- Target Directory: $TargetDirectory"
 Write-Log "- Package file name: $ZipPackageFileName"
+Write-Log "- Profile: $Profile"
 
 Add-type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -183,7 +187,10 @@ function New-ZipArchive() {
         [parameter(Mandatory = $true)]
         [string] $BaseDirectory,
         [parameter(Mandatory = $true)]
-        [string] $TargetPath
+        [string] $TargetPath,
+        [parameter(Mandatory = $false)]
+        [AllowEmptyCollection()]
+        [string[]] $InclusionList = @()
     )
     
     Write-Log "Creating ZIP archive: $TargetPath from base directory: $BaseDirectory" -Console
@@ -219,14 +226,17 @@ function New-ZipArchive() {
                 $shouldSkip = $false
                 foreach ($exclusion in $ExclusionList) {
                     if ($file.StartsWith($exclusion)) {
-                        Write-Log "Skipping excluded file: $file"
                         $shouldSkip = $true
-                        $skippedCount++
                         break
                     }
                 }
-                
+                if ($shouldSkip -and $InclusionList -contains $file) {
+                    Write-Log "Re-including whitelisted file: $file" -Console
+                    $shouldSkip = $false
+                }
                 if ($shouldSkip) {
+                    Write-Log "Skipping excluded file: $file"
+                    $skippedCount++
                     continue
                 }
 
@@ -387,11 +397,33 @@ if (Test-Path $zipPackagePath) {
 # create exclusion list
 $kubePath = Get-KubePath
 $exclusionList = @('.git', '.vscode', '.gitignore') | ForEach-Object { Join-Path $kubePath $_ }
-$exclusionList += "$kubePath\k2s\cmd\k2s\k2s.exe"
 $exclusionList += "$kubePath\k2s\cmd\vfprules\vfprules.exe"
 $exclusionList += "$kubePath\k2s\cmd\httpproxy\httpproxy.exe"
 $exclusionList += "$kubePath\k2s\cmd\devgon\devgon.exe"
 $exclusionList += "$kubePath\k2s\cmd\bridge\bridge.exe"
+
+# Inclusion list (whitelist) - initialized empty; may be populated per profile
+$inclusionList = @()
+
+if ($Profile -eq 'Lite') {
+    Write-Log '[Profile] Applying Lite profile exclusions for reduced package size' -Console
+    $liteExclude = @(
+        (Join-Path $kubePath 'docs'),
+        (Join-Path $kubePath 'k2s'),
+        (Join-Path $kubePath 'build'),
+        (Join-Path $kubePath 'test'),
+        (Join-Path $kubePath 'bin/Kubemaster-Base.rootfs.tar.gz')
+    )
+    foreach ($p in $liteExclude) {
+        if (-not ($exclusionList -contains $p)) { $exclusionList += $p }
+    }
+
+    # Also ensure root-level compiled k2s.exe (if present) is kept
+    $rootK2sExe = Join-Path $kubePath 'k2s.exe'
+    if (Test-Path $rootK2sExe) { $inclusionList += $rootK2sExe }
+    $rootK2sExeLicense = Join-Path $kubePath 'k2s.exe.license'
+    if (Test-Path $rootK2sExeLicense) { $inclusionList += $rootK2sExeLicense }
+}
 
 # if the zip package is to be used for offline installation then use existing base image and windows node artifacts file
 # or create a new one for the one that does not exist.
@@ -600,7 +632,7 @@ if ($CertificatePath) {
 } else {
     Write-Log 'No code signing requested - creating standard package.' -Console
     Write-Log 'Start creation of zip package...' -Console
-    New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
+    New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath" -InclusionList $inclusionList
 }
 
 Write-Log "Zip package available at '$zipPackagePath'." -Console
