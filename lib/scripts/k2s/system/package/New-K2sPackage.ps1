@@ -411,7 +411,6 @@ if ($Profile -eq 'Lite') {
     $liteExclude = @(
         (Join-Path $kubePath 'docs'),
         (Join-Path $kubePath 'k2s/cmd'),
-        (Join-Path $kubePath 'k2s/internal'),
         (Join-Path $kubePath 'k2s/test/e2e/addons'),
         (Join-Path $kubePath 'build'),
         (Join-Path $kubePath 'addons/autoscaling'),  
