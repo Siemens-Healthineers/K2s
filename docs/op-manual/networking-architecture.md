@@ -37,16 +37,29 @@ During our evaluation, we analyzed solutions designed to enable native Kubernete
 <b>Increased Complexity</b>: It introduces another active controller into the cluster's critical path. This component must be installed, managed, and monitored, adding operational overhead. Its logic for translating policies into host rules creates a layer of abstraction that can be difficult to debug when unexpected network behavior occurs.
 
 <b>Performance and Scalability Concerns</b>: A network policy controller must continuously watch the Kubernetes API for changes to pods (e.g., label changes, scaling events) and policies. In dynamic clusters, this can trigger frequent and numerous updates to the host's firewall ruleset, potentially leading to performance degradation, rule conflicts, or transient connectivity issues. This dynamic management layer adds computational overhead compared to the static, highly-performant rules applied by our chosen DaemonSet approach.
-In addition the solutions add an overhead in the package processing plus an additional CPU overhead for kernel/userspace transitions: latency increase of +100μs-2ms per packet, throughput reduction: 20%-80%
-and CPU overhead: +20-200%. Even package drops are possible under high load !
+In addition, these solutions introduce packet-processing overhead and extra CPU cost from kernel/user space transitions—latency increases of 100 microseconds up to 2 ms per packet, throughput reductions of 20%–80%, and additional CPU overhead of +20%–200%. Packet drops may also occur under high load.
 
 <b>Deviation from Simplicity</b>: The goal of K2s is to provide a transparent and easily understandable system. A dynamic controller that generates a complex and ever-changing set of host firewall rules moves away from this principle, making it harder for operators to reason about the state of the network at any given moment. 
 
-<b>OS support</b> Many of the analyzed solutions where not working under Windows, they provided only for Linux nodes a viable solution.
+<b>OS support</b> Many of the analyzed solutions were not working under Windows, they provided only for Linux nodes a viable solution.
 
 ## Governing Non-TCP Traffic
 
 A critical consideration in this chosen architecture is the governance of non-TCP protocols, primarily UDP. As Linkerd's service mesh capabilities are focused on L4/L7 TCP traffic, UDP communication operates outside its security perimeter. This necessitates a robust and performant solution to control UDP traffic flows without compromising our core design goals of simplicity and speed. While alternative CNIs like Calico offer integrated policy enforcement, they introduce significant operational complexity and potential performance overhead, which runs counter to the *K2s* philosophy.
+
+## HostProcess & Legacy Windows Application Isolation
+
+For scenarios where existing native Windows applications must be integrated into the cluster with compartmentalized networking and optional service mesh capabilities, *K2s* supports a HostProcess + network compartment pattern. This allows unmodified executables to run with per-instance (or shared) compartment isolation while still benefiting from Linkerd (for TCP) and host-level policy controls (for UDP / non-meshed flows).
+
+See: [Running Native Windows Applications with HostProcess + Network Compartments](./running-apps-as-hostprocess.md)
+
+Key advantages of this pattern within the broader networking model:
+* Preserves the simplicity of the Flannel host-gateway data plane.
+* Avoids introducing opaque overlays when isolating legacy processes.
+* Leverages Linkerd for encrypted / observable TCP while keeping direct compartment routing transparent.
+* Enables per-workload or per-tenant segmentation without complex CNI changes.
+
+This complements the host-level firewall DaemonSets by layering process-level isolation (compartment) with node-level enforcement.
 
 ## The Selected Strategy: Host-Level Firewall Enforcement via a Kubernetes DaemonSet
 

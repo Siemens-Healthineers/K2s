@@ -294,6 +294,8 @@ function Start-ControlPlaneNodeOnNewVM {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 
+    Set-RoutesToKubemaster
+
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     EnsureCni0InterfaceIsCreated -VmName $controlPlaneVMHostName -WSL:$WSL
@@ -450,6 +452,11 @@ function Remove-ControlPlaneNodeOnNewVM {
         Write-Log "Delete file '$kubenodeBaseFilePath' if existing"
         if (Test-Path $kubenodeBaseFilePath) {
             Remove-Item $kubenodeBaseFilePath -Force
+        }
+        $debianImageFilePath = Get-DebianImageFilePath
+        Write-Log "Delete file '$debianImageFilePath' if existing"
+        if (Test-Path $debianImageFilePath) {
+            Remove-Item $debianImageFilePath -Force
         }
     }
 
