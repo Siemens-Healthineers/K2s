@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
+$imageBackupModule = "$PSScriptRoot/../image/ImageBackup.module.psm1"
 
-Import-Module $infraModule
+Import-Module $infraModule, $imageBackupModule
 
 $processTools = @'
 
@@ -820,6 +821,7 @@ function PrepareClusterUpgrade {
 	param(
 		[switch] $ShowProgress,
 		[switch] $SkipResources,
+		[switch] $SkipImages,
 		[switch] $ShowLogs,
 		[string] $Proxy,
 		[string] $BackupDir,
@@ -830,7 +832,8 @@ function PrepareClusterUpgrade {
 		[ref] $storageVM,
 		[ref] $addonsBackupPath,
 		[ref] $hooksBackupPath,
-		[ref] $logFilePathBeforeUninstall
+		[ref] $logFilePathBeforeUninstall,
+		[ref] $imagesBackupPath
 	)
 	try {
 		# start progress
@@ -900,6 +903,48 @@ function PrepareClusterUpgrade {
 		$addonsBackupPath.Value = Join-Path $BackupDir 'addons'
 		Backup-Addons -BackupDir $addonsBackupPath.Value
 
+		# backup user application images
+		if (-not $SkipImages) {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Backing up user application images..' -Id 1 -Status '4.5/10' -PercentComplete 45 -CurrentOperation 'Backing up images, please wait..'
+			}
+			
+			try {
+				Write-Log "Starting image backup process..." -Console
+				$imagesBackupPath.Value = Join-Path $BackupDir 'images'
+				
+				# Check disk space before proceeding
+				$userImages = Get-K2sImageList
+				if ($userImages.Count -gt 0) {
+					$hasSufficientSpace = Test-BackupDiskSpace -BackupDirectory $imagesBackupPath.Value -Images $userImages
+					if (-not $hasSufficientSpace) {
+						Write-Log "Warning: Insufficient disk space for image backup. Skipping image backup." -Console
+					} else {
+						Write-Log "Starting backup of $($userImages.Count) user images..." -Console
+						$imageBackupResult = Backup-K2sImages -BackupDirectory $imagesBackupPath.Value -Images $userImages
+						
+						if ($imageBackupResult.Success) {
+							Write-Log "Image backup completed successfully" -Console
+							Write-Log "Actually backed up: $($imageBackupResult.Images.Count) images" -Console
+							Write-Log "Failed images: $($imageBackupResult.FailedImages.Count)" -Console
+						} else {
+							Write-Log "Image backup completed with some failures. Check backup logs for details." -Console
+						}
+					}
+				} else {
+					Write-Log "No user application images found to backup" -Console
+					$imagesBackupPath.Value = ""  # No images to backup
+				}
+			}
+			catch {
+				Write-Log "Warning: Image backup failed - $_. Continuing with upgrade..." -Console
+				$imagesBackupPath.Value = ""  # Mark as failed
+			}
+		} else {
+			Write-Log "Skipping image backup as requested" -Console
+			$imagesBackupPath.Value = ""  # Explicitly skipped
+		}
+
 		# backup log file
 		$logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
 		Backup-LogFile -LogFile $logFilePathBeforeUninstall.Value
@@ -929,7 +974,8 @@ function PerformClusterUpgrade {
 		[string] $storageVM,
 		[string] $addonsBackupPath,
 		[string] $hooksBackupPath,
-		[string] $logFilePathBeforeUninstall
+		[string] $logFilePathBeforeUninstall,
+		[string] $imagesBackupPath
 	)
 	try {
 		# uninstall of old cluster
@@ -959,9 +1005,40 @@ function PerformClusterUpgrade {
 		Invoke-ClusterInstall -K2sPathToInstallFrom $K2sPathToInstallFrom -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -DeleteFiles:$DeleteFiles -MasterVMMemory $memoryVM -MasterVMProcessorCount $coresVM -MasterDiskSize $storageVM
 		Wait-ForAPIServerInGivenKubePath -KubePath $K2sPathToInstallFrom
 
+		# restore user application images FIRST - before importing resources to avoid image pulls
+		if (-not [string]::IsNullOrEmpty($imagesBackupPath) -and (Test-Path $imagesBackupPath)) {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Restoring user application images..' -Id 1 -Status '6.5/10' -PercentComplete 65 -CurrentOperation 'Restoring images, please wait..'
+			}
+			
+			try {
+				Write-Log "Starting image restore process (before resource import to avoid image pulls)..." -Console
+				$imageRestoreResult = Restore-K2sImages -BackupDirectory $imagesBackupPath
+				
+				if ($imageRestoreResult.Success) {
+					Write-Log "Successfully restored $($imageRestoreResult.RestoredImages.Count) user application images" -Console
+				} else {
+					Write-Log "Image restore completed with some failures. Check restore logs for details." -Console
+				}
+				
+				# Cleanup old backups (retain for 7 days by default)
+				try {
+					Remove-OldImageBackups -BackupDirectory (Split-Path $imagesBackupPath -Parent) -RetentionDays 7
+				}
+				catch {
+					Write-Log "Warning: Failed to cleanup old image backups - $_" -Console
+				}
+			}
+			catch {
+				Write-Log "Warning: Image restore failed - $_. Images may be pulled manually during resource import." -Console
+			}
+		} else {
+			Write-Log "No image backup found or images were skipped during backup" -Console
+		}
+
 		# restore addons
 		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Apply not namespaced resources, please wait..'
+			Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Restoring addons, please wait..'
 		}
 
 		if ($ExecuteHooks -eq $true) {
@@ -976,16 +1053,18 @@ function PerformClusterUpgrade {
 		}
 
 		$kubeExeFolder = Get-KubeBinPathGivenKubePath -KubePathLocal $K2sPathToInstallFrom
-		# import of resources
-		Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+		
+		# import of resources - images are already restored, so no pulls needed
 		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply namespaced resources, please wait..'
+			Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
+		}
+		Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+		
+		if ($ShowProgress -eq $true) {
+			Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Apply namespaced resources, please wait..'
 		}
 		Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Restoring addons, please wait..'
-		}
-
+		
 		# show completion
 		if ($ShowProgress -eq $true) {
 			Write-Progress -Activity 'Gathering executed upgrade information..' -Id 1 -Status '10/10' -PercentComplete 100 -CurrentOperation 'Upgrade successfully finished'
