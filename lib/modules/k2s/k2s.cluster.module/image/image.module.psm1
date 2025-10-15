@@ -17,8 +17,7 @@ $kubeBinPath = Get-KubeBinPath
 $dockerExe = "$kubeBinPath\docker\docker.exe"
 $nerdctlExe = "$kubeBinPath\nerdctl.exe"
 $ctrExe = "$kubeBinPath\containerd\ctr.exe"
-$crictlExe = "$kubeBinPath\crictl.exe"
-
+$crictlExe = Get-CrictlExePath
 class ContainerImage {
     [string]$ImageId
     [string]$Repository
