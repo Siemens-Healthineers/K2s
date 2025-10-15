@@ -410,9 +410,24 @@ if ($Profile -eq 'Lite') {
     Write-Log '[Profile] Applying Lite profile exclusions for reduced package size' -Console
     $liteExclude = @(
         (Join-Path $kubePath 'docs'),
-        (Join-Path $kubePath 'k2s'),
+        (Join-Path $kubePath 'k2s/cmd'),
+        (Join-Path $kubePath 'k2s/internal'),
+        (Join-Path $kubePath 'k2s/test/e2e/addons'),
         (Join-Path $kubePath 'build'),
-        (Join-Path $kubePath 'test'),
+        (Join-Path $kubePath 'addons/autoscaling'),  
+        (Join-Path $kubePath 'addons/dashboard'),
+        (Join-Path $kubePath 'addons/dicom'), 
+        (Join-Path $kubePath 'addons/gpu-node'),
+        (Join-Path $kubePath 'addons/ingress'),
+        (Join-Path $kubePath 'addons/kubevirt'),
+        (Join-Path $kubePath 'addons/logging'),
+        (Join-Path $kubePath 'addons/metrics'),
+        (Join-Path $kubePath 'addons/monitoring'),
+        (Join-Path $kubePath 'addons/registry'),
+        (Join-Path $kubePath 'addons/rollout'),
+        (Join-Path $kubePath 'addons/security'),
+        (Join-Path $kubePath 'addons/storage'),
+        (Join-Path $kubePath 'addons/viewer'),
         (Join-Path $kubePath 'bin/Kubemaster-Base.rootfs.tar.gz')
     )
     foreach ($p in $liteExclude) {
