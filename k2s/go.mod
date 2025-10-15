@@ -25,7 +25,7 @@ require (
 	github.com/ory/hydra-client-go v1.11.8
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.9
-	github.com/pterm/pterm v0.12.81
+	github.com/pterm/pterm v0.12.82
 	github.com/samber/lo v1.52.0
 	github.com/samber/slog-multi v1.5.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
