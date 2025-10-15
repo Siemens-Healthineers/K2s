@@ -121,7 +121,7 @@ if ($Storage -ne 'none') {
             Write-Log "StorageDir '$StorageDir' found in SMB config." -Console
             $chosenStorageDir = $StorageDir
         } else {
-            Write-Warning "Provided StorageDir '$StorageDir' does not match any SMB linuxMountPath. Using default: $($linuxMountPaths[0])"
+            Write-Log "Provided StorageDir '$StorageDir' does not match any SMB linuxMountPath. Using default: $($linuxMountPaths[0])" -Console
             $chosenStorageDir = if ($linuxMountPaths.Count -gt 0) { $linuxMountPaths[0] } else { $null }
         }
         Update-OrthancStorageConfig -orthancConfigPath $orthancConfigPath -newStorageDir $chosenStorageDir
