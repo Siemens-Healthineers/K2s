@@ -40,7 +40,7 @@ var _ = Describe("package", func() {
 				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
-				Expect(params).To(ConsistOf(" -ShowLogs", " -Proxy http://myproxy:81", " -VMProcessorCount 6", " -VMMemoryStartupBytes 4GB", " -VMDiskSize 50GB", " -TargetDirectory 'dir'", " -ZipPackageFileName 'file.zip'", " -ForOfflineInstallation", " -K8sBinsPath 'k8sbins'"))
+				Expect(params).To(ConsistOf(" -ShowLogs", " -Proxy http://myproxy:81", " -VMProcessorCount 6", " -VMMemoryStartupBytes 4GB", " -VMDiskSize 50GB", " -TargetDirectory 'dir'", " -ZipPackageFileName 'file.zip'", " -ForOfflineInstallation", " -Profile Dev", " -K8sBinsPath 'k8sbins'"))
 			})
 		})
 
