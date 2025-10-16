@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
@@ -26,8 +27,8 @@ var (
 	# Creates K2s package
 	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip"
 
-	# Creates K2s package for offline installation
-	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation
+	# Creates K2s package for offline installation and optimized
+	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation --profile "Lite"
 
 	# Creates K2s package with code signing (certificate and password are both required)
 	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --certificate "path\to\cert.pfx" --password "mycertpassword"
@@ -38,10 +39,6 @@ var (
 	# Creates a delta package (provide full package zip paths)
 	[EXPERIMENTAL]
 	k2s system package --delta-package --target-dir "C:\tmp" --name "k2s-delta-1.4.0-to-1.4.1.zip" --package-version-from "C:\tmp\k2s-1.4.0.zip" --package-version-to "C:\tmp\k2s-1.4.1.zip"
-
-	# Creates a signed delta package
-	[EXPERIMENTAL]
-	k2s system package --delta-package --target-dir "C:\tmp" --name "k2s-delta-1.4.0-to-1.4.1.zip" --package-version-from "C:\tmp\k2s-1.4.0.zip" --package-version-to "C:\tmp\k2s-1.4.1.zip" --certificate "path\to\cert.pfx" --password "mycertpassword"
 
 	Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
 	`
@@ -94,6 +91,9 @@ const (
 
 	PackageVersionToFlagName  = "package-version-to"
 	PackageVersionToFlagUsage = "Path to the new (target) full package .zip (required if --delta-package is set)"
+
+	ProfileFlagName  = "profile"
+	ProfileFlagUsage = "Packaging profile: Dev (default) or Lite (skips optional parts like documentation, source code etc.)"
 )
 
 func init() {
@@ -118,6 +118,14 @@ func init() {
 	// NOTE: We do not mark the version flags as required here because they are only
 	// required when --delta-package is set. Validation is handled in PreRunE below.
 	PackageCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		profile, _ := cmd.Flags().GetString(ProfileFlagName)
+		if profile == "" { profile = "Dev" }
+		profile = strings.Title(strings.ToLower(profile))
+		if profile != "Dev" && profile != "Lite" {
+			return fmt.Errorf("--%s must be one of: Dev, Lite (got '%s')", ProfileFlagName, profile)
+		}
+		// normalize flag value in place so downstream always sees canonical form
+		_ = cmd.Flags().Set(ProfileFlagName, profile)
 		delta, _ := cmd.Flags().GetBool(DeltaPackageFlagName)
 		from, _ := cmd.Flags().GetString(PackageVersionFromFlagName)
 		to, _ := cmd.Flags().GetString(PackageVersionToFlagName)
@@ -142,6 +150,7 @@ func init() {
 	// Code signing flags
 	PackageCmd.Flags().StringP(CertificateFlagName, "c", "", CertificateFlagUsage)
 	PackageCmd.Flags().StringP(PasswordFlagName, "w", "", PasswordFlagUsage)
+	PackageCmd.Flags().String(ProfileFlagName, "Dev", ProfileFlagUsage)
 	
 	PackageCmd.Flags().SortFlags = false
 	PackageCmd.Flags().PrintDefaults()
@@ -228,6 +237,7 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	memory := flags.Lookup(ControlPlaneMemoryFlagName).Value.String(); if memory != "" { params = append(params, " -VMMemoryStartupBytes "+memory) }
 	disksize := flags.Lookup(ControlPlaneDiskSizeFlagName).Value.String(); if disksize != "" { params = append(params, " -VMDiskSize "+disksize) }
 	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String()); if forOfflineInstallation { params = append(params, " -ForOfflineInstallation") }
+	profile := flags.Lookup(ProfileFlagName).Value.String(); if profile != "" { params = append(params, " -Profile "+profile) }
 	k8sBins := flags.Lookup(K8sBinsFlagName).Value.String(); if k8sBins != "" { params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins)) }
 
 	return systemPackageCommand, params, nil
