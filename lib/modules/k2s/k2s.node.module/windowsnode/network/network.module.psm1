@@ -174,6 +174,29 @@ function Remove-ExternalSwitch () {
             $hns | Where-Object Name -Like ('*' + $controlPlaneSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
         } -ArgumentList @($hns, $controlPlaneSwitchName)
     }
+
+    # check l2BridgeSwitchName still exists and if so remove it, do it with 3 tries
+    Write-Log 'Check l2BridgeSwitchName still exists and if so remove it, do it with 3 tries'
+    $iteration = 3
+    while ($iteration -gt 0) {
+        $iteration--
+        $l2BridgeSwitchName = Get-L2BridgeSwitchName
+        $found = Invoke-HNSCommand -Command { 
+            param($l2BridgeSwitchName)
+            Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName 
+        } -ArgumentList $l2BridgeSwitchName
+        if ($found) {
+            Write-Log "$iteration L2 bridge network switch name: $l2BridgeSwitchName still exists"
+            Invoke-HNSCommand -Command { 
+                param($l2BridgeSwitchName)
+                Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName | Remove-HNSNetwork -ErrorAction SilentlyContinue
+            } -ArgumentList $l2BridgeSwitchName
+        }
+        else {
+            Write-Log "L2 bridge network switch name: $l2BridgeSwitchName removed"
+            break
+        }
+    }
 }
 
 function Set-InterfacePrivate {
