@@ -21,6 +21,19 @@ The dicom addon can be enabled using the k2s CLI by running the following comman
 ```
 k2s addons enable dicom
 ```
+### Storage Configuration with SMB
+
+The DICOM addon now supports integration with the SMB storage addon. You can specify the storage directory in the Linux VM using the `--storagedir` parameter. The DICOM server's storage configuration (`orthanc.json`) will be automatically synchronized with the SMB storage addon settings, ensuring all DICOM data and database files are stored via the storage addon.
+
+To enable the DICOM addon with SMB storage, use:
+
+```
+k2s addons enable dicom --storage smb --storagedir /mnt/k8s-smb-share
+```
+- If the SMB storage addon is not enabled, it will be enabled automatically.
+- If the SMB storage addon is already enabled, the specified `--storagedir` will be checked for presence in `SmbStorage.json`. If found, it will be used by the DICOM addon.
+- Disabling the DICOM addon will not remove the shared storage content; the SMB storage addon manages the share lifecycle.
+
 
 ### Integration with the ingress addon
 
