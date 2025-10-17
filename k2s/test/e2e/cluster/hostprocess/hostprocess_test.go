@@ -207,6 +207,17 @@ var _ = AfterSuite(func(ctx context.Context) {
 		return // keep workloads for inspection
 	}
 
+	// dump a kubectl describe of all resources in the k2s namespace for debugging purposes
+	GinkgoWriter.Println("Dumping kubectl describe of all resources in namespace", namespace)
+	suite.Kubectl().Run(ctx, "describe", "all", "-n", namespace)
+
+	// dump the logs of all pods in the k2s namespace for debugging purposes
+	GinkgoWriter.Println("Dumping logs of all pods in namespace", namespace)
+	GinkgoWriter.Println("POD albums-compartment-anchor", namespace)
+	suite.Kubectl().Run(ctx, "logs", "pod/albums-compartment-anchor", "-n", namespace)
+	GinkgoWriter.Println("DEPLOYMENT albums-win-hp-app-hostprocess", namespace)
+	suite.Kubectl().Run(ctx, "logs", "deployment/albums-win-hp-app-hostprocess", "-n", namespace)
+
 	GinkgoWriter.Println("Deleting hostprocess workloads (best-effort)..")
 	_, code := suite.Kubectl().RunWithExitCode(ctx, "delete", "-k", manifestDir, "--force", "--ignore-not-found=true")
 	if code != 0 { GinkgoWriter.Println("(non-fatal) deletion returned exit code", code) }
