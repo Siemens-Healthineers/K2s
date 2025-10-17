@@ -28,6 +28,9 @@ $exportModule = "$PSScriptRoot\export.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $exportModule
 
+# Read K2s version for export metadata and file naming
+$k2sVersion = Get-Content "$PSScriptRoot\..\VERSION" -Raw | ForEach-Object { $_.Trim() }
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $systemError = Test-SystemAvailability -Structured
@@ -130,8 +133,8 @@ try {
             # Convert addon name like "ingress nginx" to "ingress_nginx"
              $addonFolderName = ($addonName -split '\s+') -join '_'
 
-             # Destination path: $tmpExportDir\addons\ingress_nginx\content
-             $destinationPath = Join-Path -Path $tmpExportDir -ChildPath "addons\$addonFolderName\content"
+             # Destination path: $tmpExportDir\addons\ingress_nginx
+             $destinationPath = Join-Path -Path $tmpExportDir -ChildPath "addons\$addonFolderName"
 
              # Ensure destination directory exists
              if (-not (Test-Path $destinationPath)) {
@@ -141,29 +144,48 @@ try {
              # Copy only the contents of $dirPath — not the folder itself
              Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
 
-            # ---------------------------
             # Handle addon.manifest.yaml
-            # ---------------------------
-            # Get the parent folder of $dirPath (example: addons\ingress\nginx → addons\ingress)
             $parentAddonFolder = Split-Path -Path $dirPath -Parent
-
-            # Check for addon.manifest.yaml at this level
             $manifestFile = Join-Path $parentAddonFolder "addon.manifest.yaml"
             if (Test-Path $manifestFile) {
-                Copy-Item -Path $manifestFile -Destination $destinationPath -Force
+                $copiedManifestPath = Join-Path $destinationPath "addon.manifest.yaml"
+                
+                # For single implementation exports
+                if (-not $All -and $Names.Count -eq 1 -and $implementation.name -ne $manifest.metadata.name) {
+                    $kubeBinPath = Get-KubeBinPath
+                    $yqExe = Join-Path $kubeBinPath "yq.exe"
+                    
+                    try {
+                        Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
+                        
+                        $tempFilterFile = New-TemporaryFile
+                        $filterContent = ".spec.implementations |= [.[] | select(.name == `"$($implementation.name)`")]"
+                        Set-Content -Path $tempFilterFile.FullName -Value $filterContent -Encoding ASCII
+                        
+                        & $yqExe eval --from-file $tempFilterFile --inplace $copiedManifestPath
+                        
+                        Write-Log "Filtered manifest for single implementation: $($implementation.name)" -Console
+                        Remove-Item -Path $tempFilterFile -Force -ErrorAction SilentlyContinue
+                    } catch {
+                        Write-Log "Failed to filter manifest with yq.exe, falling back to copy: $_" -Console
+                        Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
+                    }
+                } else {
+                    # For all exports or single implementation addons, copy original manifest
+                    Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
+                }
             }
 
-             # ---------------------------
-            # Handle addon.manifest.yaml
-            # ---------------------------
-            # Get the parent folder of $dirPath (example: addons\ingress\nginx → addons\ingress)
-            $parentAddonFolder = Split-Path -Path $dirPath -Parent
-
-            # Check for addon.manifest.yaml at this level
-            $manifestFile = Join-Path $parentAddonFolder "addon.manifest.yaml"
-            if (Test-Path $manifestFile) {
-                Copy-Item -Path $manifestFile -Destination $destinationPath -Force
-            }
+            # Add version information file for CD solutions
+            $versionInfoPath = Join-Path $destinationPath "version.info"
+            @{
+                addonName = $manifest.metadata.name
+                implementationName = $implementation.name
+                k2sVersion = $k2sVersion
+                exportDate = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+                exportType = if ($All) { "all" } else { "specific" }
+                description = if ($manifest.metadata.description) { $manifest.metadata.description } else { "" }
+            } | ConvertTo-Json -Depth 10 | Set-Content -Path $versionInfoPath -Force
             
             Write-Log "Pulling images for addon $addonName from $dirPath" -Console
 
@@ -401,24 +423,51 @@ try {
                 }
             }
 
-            $addonExportInfo.addons += @{name = $addonName; dirName = $dirName; offline_usage = $implementation.offline_usage }
+            $addonExportInfo.addons += @{
+                name = $addonName;
+                dirName = $dirName;
+                implementation = $implementation.name;
+                version = if ($implementation.version) { $implementation.version } else { "1.0.0" };
+                offline_usage = $implementation.offline_usage
+            }
 
             Write-Log '---' -Console    
         }    
     }
 
+    $addonExportInfo.k2sVersion = $k2sVersion
+    $addonExportInfo.exportType = if ($All) { "all" } else { "specific" }
+    
     $addonExportInfo | ConvertTo-Json -Depth 100 | Set-Content -Path "${tmpExportDir}\addons\addons.json" -Force
+    
+    $versionInfo = @{
+        k2sVersion = $k2sVersion
+        exportType = $addonExportInfo.exportType
+        addonCount = $addonExportInfo.addons.Count
+    }
+    $versionInfo | ConvertTo-Json -Depth 10 | Set-Content -Path "${tmpExportDir}\addons\version.json" -Force
 }
 finally {
     $env:http_proxy = $currentHttpProxy
     $env:https_proxy = $currentHttpsProxy
 }
 
-Remove-Item -Force "${ExportDir}\addons.zip" -ErrorAction SilentlyContinue
-Compress-Archive -Path "${tmpExportDir}\addons" -DestinationPath "${ExportDir}\addons.zip" -CompressionLevel Optimal -Force
+# Generate versioned filename according to pattern: K2s-{version}-addons-{addon-names}
+$exportedAddonNames = if ($All) {
+    "all"
+} else {
+    ($addonExportInfo.addons | ForEach-Object { 
+        ($_.name -replace '\s+', '-').ToLower()
+    }) -join '-'
+}
+$versionedFileName = "K2s-${k2sVersion}-addons-${exportedAddonNames}.zip"
+$finalExportPath = Join-Path $ExportDir $versionedFileName
+
+Remove-Item -Force $finalExportPath -ErrorAction SilentlyContinue
+Compress-Archive -Path "${tmpExportDir}\addons" -DestinationPath $finalExportPath -CompressionLevel Optimal -Force
 Remove-Item -Force "$tmpExportDir" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 Write-Log '---'
-Write-Log "Addons exported successfully to ${ExportDir}\addons.zip" -Console
+Write-Log "Addons exported successfully to $finalExportPath" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
