@@ -5,11 +5,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"sync/atomic"
+	"time"
 	"syscall"
 	"unsafe"
 
@@ -31,6 +34,47 @@ var albums = []album{
 	{ID: "1", Title: "Pawn Hearts", Artist: "Van der Graaf Generator", Price: 26.99},
 	{ID: "2", Title: "A Passion Play", Artist: "Jethro Tull", Price: 17.99},
 	{ID: "3", Title: "Tales from Topographic Oceans", Artist: "Yes", Price: 32.99},
+}
+
+// Health state tracking
+var (
+	startedAt                = time.Now()
+	readinessFlag    int32   // 0 = not ready, 1 = ready
+	livenessFailures int32   // increment on simulated failures (for future extension)
+)
+
+// Mark application ready when main finishes initial setup.
+func markReady() { atomic.StoreInt32(&readinessFlag, 1) }
+
+// startupHealth returns 200 only after minimal startup time threshold has elapsed.
+// Distinct name: startupHealth.
+func startupHealth(c *gin.Context) {
+	// Allow a small grace period (e.g., 3s) for early init before reporting healthy.
+	if time.Since(startedAt) < 3*time.Second {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "starting"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "started", "uptimeSeconds": int(time.Since(startedAt).Seconds())})
+}
+
+// readinessHealth returns 200 only once readinessFlag is set.
+// Distinct name: readinessHealth.
+func readinessHealth(c *gin.Context) {
+	if atomic.LoadInt32(&readinessFlag) != 1 {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not-ready"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ready"})
+}
+
+// livenessHealth returns 200 unless livenessFailures exceeds a threshold.
+// Distinct name: livenessHealth.
+func livenessHealth(c *gin.Context) {
+	if atomic.LoadInt32(&livenessFailures) > 1000 { // placeholder threshold
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "unhealthy"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "alive"})
 }
 
 var (
@@ -192,8 +236,48 @@ func main() {
 	// create the full address string
 	addr := fmt.Sprintf("%s:%s", bindAddress, port)
 
-	router := gin.Default()
+	// Configure Gin logging with timestamps for both debug route registration and requests.
+	// 1. Override route debug printing without double timestamp (custom formatter already adds one).
+	// Disable default logger prefix timestamps.
+	log.SetFlags(0)
+	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
+		// Single RFC3339 timestamp for route registration lines.
+		fmt.Printf("[GIN-debug] %s %s %-30s --> %s (%d handlers)\n", time.Now().Format(time.RFC3339), httpMethod, absolutePath, handlerName, nuHandlers)
+	}
+
+	// 2. Create a custom logger formatter for request logs to ensure consistent timestamping.
+	customLogger := gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		// param.TimeStamp is the time the request was logged.
+		return fmt.Sprintf("[GIN] %s | %3d | %13v | %15s | %-7s %s\n",
+			param.TimeStamp.Format(time.RFC3339),
+			param.StatusCode,
+			param.Latency,
+			param.ClientIP,
+			param.Method,
+			param.Path,
+		)
+	})
+
+	// 3. Optionally log to both stdout and a file under the mounted host path (if writable).
+	logFilePath := "C:/var/log/albumswin/gin.log"
+	if f, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+		gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+	} else {
+		// Fallback: keep default stdout only.
+		log.Printf("[GIN-debug] could not open log file %s: %v", logFilePath, err)
+	}
+
+	router := gin.New()
 	router.SetTrustedProxies(nil)
+	router.Use(customLogger, gin.Recovery())
+
+	// Health endpoints (distinct paths & handlers)
+	router.GET("/health/startup", startupHealth)
+	router.GET("/health/readiness", readinessHealth)
+	router.GET("/health/liveness", livenessHealth)
+
+	// Mark app ready after routes & initial network dumps configured.
+	markReady()
 	router.GET("/"+resource, getAlbums)
 	router.GET("/"+resource+"/:id", getAlbumByID)
 	router.POST("/"+resource, postAlbums)
