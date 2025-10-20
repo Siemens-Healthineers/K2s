@@ -178,6 +178,8 @@ function Start-ControlPlaneNodeOnNewVM {
             [string] $VmName = $(throw 'Argument missing: VmName'),
             [bool] $WSL = $(throw 'Argument missing: WSL')
         )
+        Write-Log "cni0 interface in $VmName is created ?" -Console
+        $startTime = Get-Date
         $i = 0
         while ($true) {
             $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
@@ -207,6 +209,9 @@ function Start-ControlPlaneNodeOnNewVM {
             Wait-ForSSHConnectionToLinuxVMViaSshKey
             $i++
         }
+        $endTime = Get-Date
+        $durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
+        Write-Log "cni0 interface in $VmName is created, total duration: $durationSeconds seconds"
     }
 
     if ($SkipHeaderDisplay -eq $false) {
