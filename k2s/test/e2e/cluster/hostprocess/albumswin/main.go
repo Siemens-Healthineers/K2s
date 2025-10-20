@@ -241,7 +241,8 @@ func main() {
 	// Disable default logger prefix timestamps.
 	log.SetFlags(0)
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
-		fmt.Printf("[GIN-debug] %s %-30s --> %s (%d handlers)\n", httpMethod, absolutePath, handlerName, nuHandlers)
+		// Single RFC3339 timestamp for route registration lines.
+		fmt.Printf("[GIN-debug] %s %s %-30s --> %s (%d handlers)\n", time.Now().Format(time.RFC3339), httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
 	// 2. Create a custom logger formatter for request logs to ensure consistent timestamping.
