@@ -82,25 +82,36 @@ spec:
           readinessProbe:
             httpGet:
               host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local   # Service DNS name (same namespace)
-              port: 80
-              path: /albums-win-hp-app-hostprocess     
+              port: 8080
+              path: /health/readiness     
               scheme: HTTP
-            initialDelaySeconds: 10
+            initialDelaySeconds: 20
             periodSeconds: 5
-            failureThreshold: 10
+            failureThreshold: 50
             successThreshold: 1
             timeoutSeconds: 4
           livenessProbe:  # lightweight: slower period to reduce probe load
             httpGet:
               host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
-              port: 80
-              path: /albums-win-hp-app-hostprocess
+              port: 8080
+              path: /health/liveness
               scheme: HTTP
             initialDelaySeconds: 30   # allow full startup & readiness first
-            periodSeconds: 30         # low frequency keeps overhead small
-            timeoutSeconds: 3
-            failureThreshold: 20       # ~90s to mark unhealthy
+            periodSeconds: 10         # low frequency keeps overhead small
+            timeoutSeconds: 2
+            failureThreshold: 3       
             successThreshold: 1
+          startupProbe:
+            httpGet:
+              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
+              port: 8080
+              path: /health/startup
+              scheme: HTTP
+            initialDelaySeconds: 5       # small delay before first check
+            periodSeconds: 5             # check every 5s during startup
+            failureThreshold: 20         # allow up to 20*5s = 100s for slow Windows host init
+            successThreshold: 1          # one successful connect is enough
+            timeoutSeconds: 2            # short timeout for TCP connect
           volumeMounts:
             - name: host-var-log
               mountPath: C:/var/log
@@ -124,7 +135,7 @@ spec:
   type: ClusterIP
   ports:
     - name: http
-      port: 80 # Cluster IP port
+      port: 8080 # Cluster IP port
       targetPort: 8080 # Container listens on 8080 (adjust if different)
       protocol: TCP
   clusterIP: 172.21.1.211

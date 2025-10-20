@@ -143,6 +143,30 @@ func (c *Cluster) ExpectDeploymentToBeReachableFromPodOfOtherDeployment(targetNa
 	expectCmdExecInPodToSucceed(param)
 }
 
+func (c *Cluster) ExpectDeploymentToBeReachableFromPodOfOtherDeploymentAtPort(targetName string, targetNamespace string, sourceName string, sourceNamespace string, port string, ctx context.Context) {
+	client := c.Client()
+
+	pod, err := determineFirstPodOfDeployment(sourceName, sourceNamespace, client, ctx)
+
+	Expect(err).ShouldNot(HaveOccurred())
+
+	var stdout, stderr bytes.Buffer
+	command := []string{"curl", "-i", "-m", "10", "--retry", "3", "http://" + targetName + "." + targetNamespace + ".svc.cluster.local:" + port + "/" + targetName}
+
+	param := podExecParam{
+		Namespace: sourceNamespace,
+		Pod:       pod.Name,
+		Container: sourceName,
+		Command:   command,
+		Config:    client.Resources().GetConfig(),
+		Ctx:       ctx,
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+	}
+
+	expectCmdExecInPodToSucceed(param)
+}
+
 func (c *Cluster) ExpectDeploymentNotToBeReachableFromPodOfOtherDeployment(targetName string, targetNamespace string, sourceName string, sourceNamespace string, ctx context.Context) {
 	client := c.Client()
 

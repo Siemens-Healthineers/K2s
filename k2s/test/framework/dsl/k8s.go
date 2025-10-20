@@ -62,3 +62,11 @@ func (k *K2s) VerifyDeploymentToBeReachableFromHost(ctx context.Context, name st
 
 	Expect(err).ToNot(HaveOccurred())
 }
+
+func (k *K2s) VerifyDeploymentToBeReachableFromHostAtPort(ctx context.Context, name string, namespace string, port string) {
+	url := fmt.Sprintf("http://%s.%s.svc.cluster.local:%s/%s", name, namespace, port, name)
+
+	_, err := k.suite.HttpClient().GetJson(ctx, url)
+
+	Expect(err).ToNot(HaveOccurred())
+}
