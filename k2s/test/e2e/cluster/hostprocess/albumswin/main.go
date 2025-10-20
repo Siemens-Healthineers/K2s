@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync/atomic"
+	"time"
 	"syscall"
 	"unsafe"
 
@@ -31,6 +33,47 @@ var albums = []album{
 	{ID: "1", Title: "Pawn Hearts", Artist: "Van der Graaf Generator", Price: 26.99},
 	{ID: "2", Title: "A Passion Play", Artist: "Jethro Tull", Price: 17.99},
 	{ID: "3", Title: "Tales from Topographic Oceans", Artist: "Yes", Price: 32.99},
+}
+
+// Health state tracking
+var (
+	startedAt                = time.Now()
+	readinessFlag    int32   // 0 = not ready, 1 = ready
+	livenessFailures int32   // increment on simulated failures (for future extension)
+)
+
+// Mark application ready when main finishes initial setup.
+func markReady() { atomic.StoreInt32(&readinessFlag, 1) }
+
+// startupHealth returns 200 only after minimal startup time threshold has elapsed.
+// Distinct name: startupHealth.
+func startupHealth(c *gin.Context) {
+	// Allow a small grace period (e.g., 3s) for early init before reporting healthy.
+	if time.Since(startedAt) < 3*time.Second {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "starting"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "started", "uptimeSeconds": int(time.Since(startedAt).Seconds())})
+}
+
+// readinessHealth returns 200 only once readinessFlag is set.
+// Distinct name: readinessHealth.
+func readinessHealth(c *gin.Context) {
+	if atomic.LoadInt32(&readinessFlag) != 1 {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not-ready"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ready"})
+}
+
+// livenessHealth returns 200 unless livenessFailures exceeds a threshold.
+// Distinct name: livenessHealth.
+func livenessHealth(c *gin.Context) {
+	if atomic.LoadInt32(&livenessFailures) > 1000 { // placeholder threshold
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "unhealthy"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "alive"})
 }
 
 var (
@@ -194,6 +237,14 @@ func main() {
 
 	router := gin.Default()
 	router.SetTrustedProxies(nil)
+
+	// Health endpoints (distinct paths & handlers)
+	router.GET("/health/startup", startupHealth)
+	router.GET("/health/readiness", readinessHealth)
+	router.GET("/health/liveness", livenessHealth)
+
+	// Mark app ready after routes & initial network dumps configured.
+	markReady()
 	router.GET("/"+resource, getAlbums)
 	router.GET("/"+resource+"/:id", getAlbumByID)
 	router.POST("/"+resource, postAlbums)
