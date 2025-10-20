@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"strconv"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
@@ -294,13 +295,14 @@ var _ = Describe("HostProcess Workloads", func() {
 
 	Describe("Reachability", func() {
 		const hostProcDep = HostProcessDeploymentName
-		const serviceName = HostProcessServiceName // Service exposing port 80 -> 8080
+		const serviceName = HostProcessServiceName
+		servicePort := strconv.Itoa(HostProcessContainerTargetPort)
 
 		It(serviceName+" service is reachable from host", func(ctx SpecContext) {
 			// Ensure service exists
 			_, code := suite.Kubectl().RunWithExitCode(ctx, "get", "service", serviceName, "-n", namespace)
 			if code != 0 { Skip("service not found: " + serviceName) }
-			k2s.VerifyDeploymentToBeReachableFromHost(ctx, hostProcDep, namespace)
+			k2s.VerifyDeploymentToBeReachableFromHostAtPort(ctx, hostProcDep, namespace, servicePort)
 		})
 
 		It(serviceName+" service is reachable from curl pod", func(ctx SpecContext) {
@@ -308,7 +310,7 @@ var _ = Describe("HostProcess Workloads", func() {
 			if code != 0 { Skip("service not found: " + serviceName) }
 			_, curlCode := suite.Kubectl().RunWithExitCode(ctx, "get", "deployment", "curl", "-n", namespace)
 			if curlCode != 0 { Skip("curl deployment not found; skipping pod->deployment reachability test") }
-			suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment(hostProcDep, namespace, "curl", namespace, ctx)
+			suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeploymentAtPort(hostProcDep, namespace, "curl", namespace, servicePort, ctx)
 		})
 
 		It("direct hostprocess pod IP is reachable from curl pod", func(ctx SpecContext) {
