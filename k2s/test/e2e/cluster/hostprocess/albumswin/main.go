@@ -237,9 +237,11 @@ func main() {
 	addr := fmt.Sprintf("%s:%s", bindAddress, port)
 
 	// Configure Gin logging with timestamps for both debug route registration and requests.
-	// 1. Override route debug printing to include RFC3339 timestamp.
+	// 1. Override route debug printing without double timestamp (custom formatter already adds one).
+	// Disable default logger prefix timestamps.
+	log.SetFlags(0)
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
-		log.Printf("[GIN-debug] %s %s %-30s --> %s (%d handlers)", time.Now().Format(time.RFC3339), httpMethod, absolutePath, handlerName, nuHandlers)
+		fmt.Printf("[GIN-debug] %s %-30s --> %s (%d handlers)\n", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
 	// 2. Create a custom logger formatter for request logs to ensure consistent timestamping.
