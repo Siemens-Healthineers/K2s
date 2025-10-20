@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -235,8 +236,37 @@ func main() {
 	// create the full address string
 	addr := fmt.Sprintf("%s:%s", bindAddress, port)
 
-	router := gin.Default()
+	// Configure Gin logging with timestamps for both debug route registration and requests.
+	// 1. Override route debug printing to include RFC3339 timestamp.
+	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
+		log.Printf("[GIN-debug] %s %s %-30s --> %s (%d handlers)", time.Now().Format(time.RFC3339), httpMethod, absolutePath, handlerName, nuHandlers)
+	}
+
+	// 2. Create a custom logger formatter for request logs to ensure consistent timestamping.
+	customLogger := gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		// param.TimeStamp is the time the request was logged.
+		return fmt.Sprintf("[GIN] %s | %3d | %13v | %15s | %-7s %s\n",
+			param.TimeStamp.Format(time.RFC3339),
+			param.StatusCode,
+			param.Latency,
+			param.ClientIP,
+			param.Method,
+			param.Path,
+		)
+	})
+
+	// 3. Optionally log to both stdout and a file under the mounted host path (if writable).
+	logFilePath := "C:/var/log/albumswin/gin.log"
+	if f, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+		gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+	} else {
+		// Fallback: keep default stdout only.
+		log.Printf("[GIN-debug] could not open log file %s: %v", logFilePath, err)
+	}
+
+	router := gin.New()
 	router.SetTrustedProxies(nil)
+	router.Use(customLogger, gin.Recovery())
 
 	// Health endpoints (distinct paths & handlers)
 	router.GET("/health/startup", startupHealth)
