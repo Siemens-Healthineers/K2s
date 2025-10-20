@@ -69,6 +69,11 @@ $workerNodeParams = @{
 }
 & "$PSScriptRoot\..\..\worker\windows\windows-host\Start.ps1" @workerNodeParams
 
+# ensure cni0 interface is created (this needs to be done at the end in oder to ensure that initially no extra time is needed)
+$controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
+$WSL = Get-ConfigWslFlag
+Initialize-Cni0Interface -VmName $controlPlaneVMHostName -WSL:$WSL
+
 $endTime = Get-Date
 $durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
 Write-Log "K2s start command finished, total duration: ${durationSeconds} seconds" -Console
