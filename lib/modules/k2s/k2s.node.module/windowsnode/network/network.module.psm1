@@ -205,6 +205,7 @@ function Set-InterfacePrivate {
         [string] $InterfaceAlias
     )
 
+    $startTime = Get-Date
     Write-Log "OK: $InterfaceAlias trying to set to private..."
 
     # check if the interface is already available as a connection profile
@@ -249,7 +250,9 @@ function Set-InterfacePrivate {
         throw "$InterfaceAlias could not set to private in time"
     }
 
-    Write-Log "OK: $InterfaceAlias set to private now"
+    $endTime = Get-Date
+    $durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
+    Write-Log "OK: $InterfaceAlias set to private after $iteration attempts, total duration: ${durationSeconds} seconds"
 }
 
 function Set-IPAddressAndDnsClientServerAddress {

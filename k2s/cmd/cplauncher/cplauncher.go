@@ -702,7 +702,32 @@ func resolveCompartmentFromLabel(selector, namespace string, timeout time.Durati
 	}
 	pod := pods.Items[0]
 	if pod.Status.PodIP == "" {
-		return 0, "", pod.Name, pod.Namespace, fmt.Errorf("pod '%s/%s' has no IP yet", pod.Namespace, pod.Name)
+		// Wait for PodIP to be assigned within the provided timeout instead of failing immediately.
+		start := time.Now()
+		pollInterval := 1 * time.Second
+		slog.Info("pod has no IP yet; waiting", "pod", pod.Name, "namespace", pod.Namespace, "timeout", timeout, "pollInterval", pollInterval)
+		for {
+			// Check context deadline first
+			select {
+			case <-ctx.Done():
+				elapsed := time.Since(start)
+				return 0, "", pod.Name, pod.Namespace, fmt.Errorf("pod '%s/%s' still has no IP after %s (timeout); consider increasing -label-timeout", pod.Namespace, pod.Name, elapsed)
+			default:
+			}
+
+			// Re-fetch the pod to see if IP assigned
+			refreshed, err := clientset.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+			if err != nil {
+				// Non-fatal transient errors: keep waiting unless context expired
+				slog.Warn("pod get during IP wait failed", "pod", pod.Name, "namespace", pod.Namespace, "error", err)
+			} else if refreshed.Status.PodIP != "" {
+				pod = *refreshed
+				break
+			}
+			time.Sleep(pollInterval)
+		}
+		elapsed := time.Since(start)
+		slog.Info("pod IP resolved after wait", "pod", pod.Name, "namespace", pod.Namespace, "podIP", pod.Status.PodIP, "waitElapsed", elapsed)
 	}
 	comp, err := compartmentFromIP(pod.Status.PodIP)
 	if err != nil {
