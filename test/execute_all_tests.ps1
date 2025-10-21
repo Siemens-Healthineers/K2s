@@ -83,7 +83,7 @@ if ($ExcludePowershellTests -and $ExcludeGoTests) {
 Import-Module "$PSScriptRoot\test.module.psm1" -Force
 
 $pesterVersion = '5.7.1'
-$ginkgoVersion = '2.25.3'
+$ginkgoVersion = '2.26.0'
 
 # Normalize and resolve repository root directory robustly (handles .. and spaces)
 $rootDir = Join-Path -Path $PSScriptRoot -ChildPath '..'
@@ -99,8 +99,6 @@ Write-Output 'All tests execution started.'
 
 $stopWatch = New-Object -TypeName 'System.Diagnostics.Stopwatch'
 $stopWatch.Start()
-
-$currentLocation = Get-Location
 
 $results = @{PowerShell = -1; Go = -1 }
 
