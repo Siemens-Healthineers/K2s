@@ -38,7 +38,7 @@ function Confirm-ApiVersionIsValid {
         throw "expected K8s API version '$supportedApiVersion', but got '$($Version)'"
     }
 
-    Write-Log "Version valid"
+    Write-Log 'Version valid'
 }
 
 function Get-Age {
@@ -73,25 +73,25 @@ function Get-NodeStatus {
         $Conditions
     )    
 
-    Write-Log "Extracting Node status from JSON.."
+    Write-Log 'Extracting Node status from JSON..'
 
     $status = 'Unknown'
     $isReady = $false
 
     foreach ($condition in $Conditions) {
         if ($condition.status -eq 'True') {
-            Write-Log "Current Node condition found"
+            Write-Log 'Current Node condition found'
 
             $status = $condition.type
 
             Write-Log "Node status='$status'"
 
             if ($status -eq 'Ready') {
-                Write-Log "Node is ready"
+                Write-Log 'Node is ready'
                 $isReady = $true
             }
             else {
-                Write-Log "Node not ready"
+                Write-Log 'Node not ready'
             }
             break
         }
@@ -111,7 +111,7 @@ function Get-NodeRole {
         $Labels
     )    
 
-    Write-Log "Extracting Node role from JSON.."
+    Write-Log 'Extracting Node role from JSON..'
 
     foreach ($label in $Labels.PSObject.Properties) {
         if ($label.Name -eq 'node-role.kubernetes.io/control-plane') {
@@ -127,7 +127,7 @@ function Get-NodeRole {
         }
     }
 
-    Write-Log " No role found"
+    Write-Log ' No role found'
 
     return 'Unknown'
 }
@@ -139,7 +139,7 @@ function Get-NodeInternalIp {
         $Addresses
     )   
 
-    Write-Log "Extracting Node internal IP from JSON.."
+    Write-Log 'Extracting Node internal IP from JSON..'
 
     foreach ($address in $Addresses) {
         Write-Log "Checking address '$address'.."
@@ -151,7 +151,7 @@ function Get-NodeInternalIp {
         }
     }
 
-    Write-Log "No internal IP found"
+    Write-Log 'No internal IP found'
 
     return '<none>'
 }
@@ -163,7 +163,7 @@ function Get-NodeCapacity {
         $Capacity
     )   
 
-    Write-Log "Extracting Node capacity from JSON.."
+    Write-Log 'Extracting Node capacity from JSON..'
 
     [pscustomobject]@{
         CPU     = $Capacity.cpu;
@@ -179,7 +179,7 @@ function Get-Node {
         $JsonNode = $(throw 'JSON node not specified')
     )   
 
-    Write-Log "Extracting Node info from JSON.."
+    Write-Log 'Extracting Node info from JSON..'
 
     $status = Get-NodeStatus -Conditions $JsonNode.status.conditions
     $role = Get-NodeRole -Labels $JsonNode.metadata.labels
@@ -209,7 +209,7 @@ function Get-PodStatus {
         $JsonNode = $(throw 'JSON node not specified')
     )    
 
-    Write-Log "Extracting Pod status from JSON.."
+    Write-Log 'Extracting Pod status from JSON..'
 
     $status = 'Running'
     $restarts = 0
@@ -227,13 +227,13 @@ function Get-PodStatus {
             Write-Log "Detected '$restarts' restarts"
 
             if ($containerStatus.ready -eq $true) {
-                Write-Log "Container is ready"
+                Write-Log 'Container is ready'
 
                 $readyCount = ($readyCount + 1)
             }
 
             if ($containerStatus.state.PSobject.Properties.Name.Contains('running') -ne $true) {
-                Write-Log "Container not running"
+                Write-Log 'Container not running'
 
                 $isRunning = $false
                 $status = $containerStatus.state.PSobject.Properties.Value.reason
@@ -263,7 +263,7 @@ function Get-Pod {
         $JsonNode = $(throw 'JSON node not specified')
     )    
 
-    Write-Log "Extracting Pod info from JSON.."
+    Write-Log 'Extracting Pod info from JSON..'
 
     $status = Get-PodStatus -JsonNode $JsonNode
     $age = Get-Age -Timestamp $($JsonNode.metadata.creationTimestamp).ToString()
@@ -517,7 +517,7 @@ Get-SystemPods
 #>
 function Get-SystemPods {    
 
-    Write-Log "Getting system Pods.."
+    Write-Log 'Getting system Pods..'
 
     $pods = [System.Collections.ArrayList]@()
 
@@ -602,24 +602,7 @@ function Remove-Secret {
     )
     Write-Output "Removing secret '$Name' from namespace '$Namespace'.."
 
-    $params = 'get', 'secret', $Name, '-n', $Namespace, '--ignore-not-found'
-
-    Write-Output "Invoking kubectl with '$params'.."
-
-    $result = Invoke-Kubectl -Params $params
-    if ($result.Success -ne $true) {
-        Write-Warning " Error occurred while invoking kubectl: $($result.Output)"
-        return
-    }
-
-    if ($null -eq $result.Output) {
-        Write-Output "Secret '$Name' not found in namespace '$Namespace', skipping."
-        return
-    }
-
-    Write-Output "Secret '$Name' found in namespace '$Namespace', deleting it.."
-
-    $params = 'delete', 'secret', $Name, '-n', $Namespace
+    $params = 'delete', 'secret', $Name, '-n', $Namespace, '--ignore-not-found'
 
     Write-Output "Invoking kubectl with '$params'.."
 
@@ -761,11 +744,11 @@ function Wait-ForPodCondition {
         Write-Information "Invoking kubectl with '$params'.."
         $result = Invoke-Kubectl -Params $params
         
-        if ($result.Success -or $result.Output -match "timed out") {
+        if ($result.Success -or $result.Output -match 'timed out') {
             break
         }
 
-        Write-Information "Resource not existing yet, waiting 2s..."
+        Write-Information 'Resource not existing yet, waiting 2s...'
         Start-Sleep 2
         $TimeoutSeconds = $TimeoutSeconds - 2
     } while ($result.Success -ne $true -and $TimeoutSeconds -gt 0)
@@ -803,11 +786,11 @@ function Wait-ForJobCondition {
         Write-Information "Invoking kubectl with '$params'.."
         $result = Invoke-Kubectl -Params $params
 
-        if ($result.Success -or $result.Output -match "timed out") {
+        if ($result.Success -or $result.Output -match 'timed out') {
             break
         }
 
-        Write-Information "Resource not existing yet, waiting 2s..."
+        Write-Information 'Resource not existing yet, waiting 2s...'
         Start-Sleep 2
         $TimeoutSeconds = $TimeoutSeconds - 2
     } while ($TimeoutSeconds -gt 0)
