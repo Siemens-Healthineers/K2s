@@ -85,11 +85,11 @@ spec:
               port: 8080
               path: /health/readiness     
               scheme: HTTP
-            initialDelaySeconds: 20
-            periodSeconds: 5
-            failureThreshold: 50
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 5
             successThreshold: 1
-            timeoutSeconds: 4
+            timeoutSeconds: 6
           livenessProbe:  # lightweight: slower period to reduce probe load
             httpGet:
               host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
@@ -97,9 +97,9 @@ spec:
               path: /health/liveness
               scheme: HTTP
             initialDelaySeconds: 30   # allow full startup & readiness first
-            periodSeconds: 10         # low frequency keeps overhead small
-            timeoutSeconds: 2
-            failureThreshold: 3       
+            periodSeconds: 30         # low frequency keeps overhead small
+            timeoutSeconds: 6
+            failureThreshold: 2       
             successThreshold: 1
           startupProbe:
             httpGet:
@@ -107,11 +107,11 @@ spec:
               port: 8080
               path: /health/startup
               scheme: HTTP
-            initialDelaySeconds: 5       # small delay before first check
-            periodSeconds: 5             # check every 5s during startup
-            failureThreshold: 20         # allow up to 20*5s = 100s for slow Windows host init
+            initialDelaySeconds: 20       # small delay before first check
+            periodSeconds: 10             # check every 5s during startup
+            failureThreshold: 2         # allow up to 20*5s = 100s for slow Windows host init
             successThreshold: 1          # one successful connect is enough
-            timeoutSeconds: 2            # short timeout for TCP connect
+            timeoutSeconds: 6            # short timeout for TCP connect
           volumeMounts:
             - name: host-var-log
               mountPath: C:/var/log

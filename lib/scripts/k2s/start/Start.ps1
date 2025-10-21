@@ -69,10 +69,14 @@ $workerNodeParams = @{
 }
 & "$PSScriptRoot\..\..\worker\windows\windows-host\Start.ps1" @workerNodeParams
 
+# Actions which need to be done at the end in order to not block the commands before !!!
 # ensure cni0 interface is created (this needs to be done at the end in oder to ensure that initially no extra time is needed)
 $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
 $WSL = Get-ConfigWslFlag
 Initialize-Cni0Interface -VmName $controlPlaneVMHostName -WSL:$WSL
+
+# change loopback adapter to private network profile
+# Set-PrivateNetworkProfileForLoopbackAdapter
 
 $endTime = Get-Date
 $durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
