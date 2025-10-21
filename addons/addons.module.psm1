@@ -287,38 +287,47 @@ function Remove-AddonFromSetupJson {
 	$filePath = Get-SetupConfigFilePath
 	$parsedSetupJson = Get-Content -Raw $filePath | ConvertFrom-Json
 
-	$enabledAddonMemberExists = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
-	if ($enabledAddonMemberExists) {
-		$enabledAddons = $parsedSetupJson.EnabledAddons
-		$newEnabledAddons = $enabledAddons
+	$addonsMember = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
+	if ($null -eq $addonsMember) {
+		Write-Log 'No addons config found, skipping'
+		return
+	}
 
-		$addonExists = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name }
-		if ($addonExists) {
-			if ($null -ne $Addon.Implementation) {
-				$implementationExists = $addonExists | Where-Object { $_.Implementation -eq $Addon.Implementation }
-				if ($implementationExists) {
-					$newEnabledAddons = @($enabledAddons | Where-Object { $_.Implementation -ne $Addon.Implementation })
-				}
+	$enabledAddons = $parsedSetupJson.EnabledAddons
+	$newEnabledAddons = $enabledAddons
+
+	$addonExists = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name }
+	if ($addonExists) {
+		if ($null -ne $Addon.Implementation) {
+			$implementationExists = $addonExists | Where-Object { $_.Implementation -eq $Addon.Implementation }
+			if ($implementationExists) {
+				$newEnabledAddons = @($enabledAddons | Where-Object { $_.Implementation -ne $Addon.Implementation })
 			}
-			else {
-				$hasImplementationProperty = $addonExists | Where-Object { $null -ne $_.Implementation }
-				if (!$hasImplementationProperty) {
-					$newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
-				}
-				else {
-					throw "More than one implementation of addon '$($Addon.Name)'. Please specify the implementation!"
-				}
-			}
-		}
-		
-		if ($newEnabledAddons) {
-			$parsedSetupJson.EnabledAddons = $newEnabledAddons
 		}
 		else {
-			$parsedSetupJson.PSObject.Properties.Remove($ConfigKey_EnabledAddons)
+			$hasImplementationProperty = $addonExists | Where-Object { $null -ne $_.Implementation }
+			if (!$hasImplementationProperty) {
+				$newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
+			}
+			else {
+				throw "More than one implementation of addon '$($Addon.Name)'. Please specify the implementation!"
+			}
 		}
-		$parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
 	}
+	else {
+		if ($null -ne $Addon.Implementation) {
+			$name += " $($Addon.Implementation)"
+		}
+		Write-Log "Addon '$name' not found in addons config, skipping"
+	}
+		
+	if ($newEnabledAddons) {
+		$parsedSetupJson.EnabledAddons = $newEnabledAddons
+	}
+	else {
+		$parsedSetupJson.PSObject.Properties.Remove($ConfigKey_EnabledAddons)
+	}
+	$parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
 }
 
 function Install-DebianPackages {
@@ -750,9 +759,15 @@ function Update-Addons {
 		[string]
 		$AddonName = $(throw 'Addon name not specified')
 	)
-	Write-Log "Adapting addons called from addon: $AddonName" -Console
+	Write-Log "Adapting addons called from addon '$AddonName'" -Console
 
 	$addons = Get-AddonsConfig
+
+	if ($null -eq $addons) {
+		Write-Log 'No addons to adapt, skipping' -Console
+		return
+	}
+
 	$addons | ForEach-Object {
 		# Not for addons with the name from input
 		if ($_.Name -ne $AddonName) {

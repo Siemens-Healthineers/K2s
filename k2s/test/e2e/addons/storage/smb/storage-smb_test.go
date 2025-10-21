@@ -42,7 +42,6 @@ const (
 	addonName          = "storage"
 	implementationName = "smb"
 	namespace          = "smb-share-test"
-	secretName         = "regcred"
 
 	linuxManifestDir   = "workloads/linux"
 	windowsManifestDir = "workloads/windows"
@@ -111,20 +110,11 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.Kubectl().Run(ctx, "delete", "-f", namespaceManifestPath)
 
 	GinkgoWriter.Println("Namespace <", namespace, "> deleted on cluster")
-	GinkgoWriter.Println("Checking if addon is disabled..")
+	GinkgoWriter.Println("Disabling addon..")
 
-	addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-	enabled := addonsStatus.IsAddonEnabled(addonName, implementationName)
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
-	if enabled {
-		GinkgoWriter.Println("Addon is still enabled, disabling it..")
-
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
-
-		GinkgoWriter.Println(output)
-	} else {
-		GinkgoWriter.Println("Addon is disabled.")
-	}
+	GinkgoWriter.Println(output)
 
 	Expect(bos.Remove(originalConfigPath)).To(Succeed())
 	Expect(bos.Rename(originalConfigPath+"_", originalConfigPath)).To(Succeed())
@@ -165,14 +155,14 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 	Describe("disable command", func() {
 		When("addon is disabled", func() {
-			It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
+			It("disables the addon for both host types for cleanup", func(ctx context.Context) {
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 				Expect(output).To(SatisfyAll(
 					ContainSubstring("disable"),
 					ContainSubstring(addonName),
 					ContainSubstring(implementationName),
-					MatchRegexp(`Addon \'%s %s\' is already disabled`, addonName, implementationName),
+					ContainSubstring("trying to remove both Windows and Linux hosted SMB shares"),
 				))
 			})
 		})
