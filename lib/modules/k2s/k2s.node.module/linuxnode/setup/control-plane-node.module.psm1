@@ -252,9 +252,6 @@ function Start-ControlPlaneNodeOnNewVM {
     Set-IndexForDefaultSwitch
 
     $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
-    $ipControlPlane = Get-ConfiguredIPControlPlane
-
-    $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
 
     if (!$WSL) {
         # Because of stability issues network settings are recreated every time we start the machine
