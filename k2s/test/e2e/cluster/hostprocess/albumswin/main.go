@@ -228,7 +228,7 @@ func main() {
 	}
 
 	// get environment variables for bind address and port
-	compartmentId := os.Getenv("COMPARTMENTID")
+	compartmentId := os.Getenv("COMPARTMENT_ID_ATTACH")
 	// Set default values if environment variables are not set
 	if compartmentId != "" {
 		num, err := strconv.Atoi(compartmentId)
@@ -298,6 +298,18 @@ func main() {
 
 	// Launch health server concurrently.
 	go func() {
+		// Set default values if environment variables are not set
+		if compartmentId != "" {
+			num, err := strconv.Atoi(compartmentId)
+			if err == nil {
+				fmt.Println("Using compartment id: ", compartmentId)
+				err := SetCurrentThreadCompartmentId(uint32(num))
+				if err != nil {
+					fmt.Println("Failed to set compartment ID: %v", err)
+				}
+			}
+		}
+
 		healthAddr := fmt.Sprintf("%s:%s", healthBindAddress, healthPort)
 		log.Printf("[health] listening on %s", healthAddr)
 		if err := healthRouter.Run(healthAddr); err != nil {
