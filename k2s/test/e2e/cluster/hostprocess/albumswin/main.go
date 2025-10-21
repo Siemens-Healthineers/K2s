@@ -216,6 +216,17 @@ func main() {
 		port = "8080" // default port
 	}
 
+	// Dedicated health port (served separately so it can be excluded from Linkerd interception).
+	// Environment variable name: HEALTH_PORT (defaults to 8081). Optionally HEALTH_BIND_ADDRESS overrides BIND_ADDRESS.
+	healthBindAddress := os.Getenv("HEALTH_BIND_ADDRESS")
+	if healthBindAddress == "" {
+		healthBindAddress = bindAddress
+	}
+	healthPort := os.Getenv("HEALTH_PORT")
+	if healthPort == "" {
+		healthPort = "8081"
+	}
+
 	// get environment variables for bind address and port
 	compartmentId := os.Getenv("COMPARTMENTID")
 	// Set default values if environment variables are not set
@@ -271,16 +282,35 @@ func main() {
 	router.SetTrustedProxies(nil)
 	router.Use(customLogger, gin.Recovery())
 
-	// Health endpoints (distinct paths & handlers)
+	// Duplicate health endpoints on primary app port as well (in addition to dedicated health port)
+	// so they remain reachable via standard service port when sidecar interception is desired.
 	router.GET("/health/startup", startupHealth)
 	router.GET("/health/readiness", readinessHealth)
 	router.GET("/health/liveness", livenessHealth)
+
+	// Health endpoints are moved to a dedicated router on a separate port so probes can bypass the mesh proxy via port skipping.
+	healthRouter := gin.New()
+	healthRouter.SetTrustedProxies(nil)
+	healthRouter.Use(customLogger, gin.Recovery())
+	healthRouter.GET("/health/startup", startupHealth)
+	healthRouter.GET("/health/readiness", readinessHealth)
+	healthRouter.GET("/health/liveness", livenessHealth)
+
+	// Launch health server concurrently.
+	go func() {
+		healthAddr := fmt.Sprintf("%s:%s", healthBindAddress, healthPort)
+		log.Printf("[health] listening on %s", healthAddr)
+		if err := healthRouter.Run(healthAddr); err != nil {
+			log.Printf("[health] server error: %v", err)
+		}
+	}()
 
 	// Mark app ready after routes & initial network dumps configured.
 	markReady()
 	router.GET("/"+resource, getAlbums)
 	router.GET("/"+resource+"/:id", getAlbumByID)
 	router.POST("/"+resource, postAlbums)
+	log.Printf("[app] listening on %s", addr)
 	router.Run(addr)
 }
 
