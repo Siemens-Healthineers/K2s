@@ -52,6 +52,6 @@ Write-Log 'Reconfiguring volatile settings in VM...'
 (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_instances=8192').Output | Write-Log
 (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_watches=524288').Output | Write-Log
 
-$loopbackAdapter = Get-L2BridgeName
+# $loopbackAdapter = Get-L2BridgeName
 # Set DNS proxy for all physical network interfaces on Windows host to the DNS proxy
 # Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter

@@ -523,7 +523,7 @@ function Wait-ForSshPossible {
     $maxIterations = 40  # Increased from 25 to handle sporadic failures better
     $baseDelay = 3       # Base delay in seconds
     $maxDelay = 15       # Maximum delay between attempts
-    
+    $startTime = Get-Date
     Write-Log "Performing SSH login into VM with $($User)..."
     while ($true) {
         $iteration++
@@ -581,13 +581,9 @@ function Wait-ForSshPossible {
         
         Start-Sleep $finalDelay
     }
-    if ($iteration -eq 1) {
-        Write-Log "SSH login into VM with $($User) possible, no waiting needed."
-    }
-    else {
-        $totalTime = ($iteration - 1) * $baseDelay
-        Write-Log "SSH login into VM with $($User) now possible after $iteration attempts (${totalTime}s total)."
-    }
+    $endTime = Get-Date
+    $durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
+    Write-Log "SSH login into VM: $($User) now possible after $iteration attempts, total duration: ${durationSeconds} seconds"
 }
 
 <#

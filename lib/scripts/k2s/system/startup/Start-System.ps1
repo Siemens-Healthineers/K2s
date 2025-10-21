@@ -159,6 +159,7 @@ try {
                     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
                     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
                     Repair-KubeSwitch
+                    # Set-PrivateNetworkProfileForLoopbackAdapter
                 }
                 else {
                     Write-Log "[$logUseCase] ERROR: Could not repair k8s network !"

@@ -168,6 +168,8 @@ function Start-WindowsWorkerNode {
         return $false
     }
 
+    $startTime = Get-Date
+
     Write-Log 'Ensuring service log directories exists'
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
@@ -222,6 +224,10 @@ function Start-WindowsWorkerNode {
     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
 
     CheckFlannelConfig
+
+    $endTime = Get-Date
+    $durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
+    Write-Log "K8s services started on the Windows node after $iteration attempts, total duration: ${durationSeconds} seconds"
 
     Invoke-Hook -HookName 'AfterStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 }
