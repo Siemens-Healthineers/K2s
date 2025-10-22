@@ -726,6 +726,8 @@ func main() {
 			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] offset validated, no error\n")
+		os.Stderr.Sync()
 		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] before slog export offset computed\n")
 		os.Stderr.Sync()
 		// slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset)) // COMMENTED: This line kills the process!
