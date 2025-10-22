@@ -17,6 +17,7 @@ import (
 	"context"
 	"os/exec"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"time"
 	"unsafe"
@@ -493,7 +494,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to setup logger: %v\n", err)
 		os.Exit(1)
 	}
-	defer logFile.Close()
+	defer func() {
+		logFile.Sync() // ensure all buffered logs written before close
+		logFile.Close()
+	}()
 	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartmentRaw", compartment, "verbosity", verbosity, "args", os.Args)
 	slog.Info("startup configuration",
 		"requestedCompartment", compartment,
@@ -711,6 +715,16 @@ func main() {
 	defer procCloseHandle.Call(uintptr(pi.Process))
 	defer procCloseHandle.Call(uintptr(pi.Thread))
 
+	// Recover from panics during injection to ensure logs are captured
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic during injection or setup", "panic", r, "stack", string(debug.Stack()))
+			logFile.Sync()
+			dumpRecentErrorLines(logFilePath, 30)
+			os.Exit(1)
+		}
+	}()
+
 	if !noInject {
 		slog.Debug("injection start", "dll", dll, "export", exportName, "selfEnv", selfEnv)
 		base, err := injectDLL(pi.Process, dll)
@@ -719,17 +733,20 @@ func main() {
 			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
+		slog.Debug("dll injected successfully", "base", fmt.Sprintf("0x%x", base))
 		offset, err := computeExportOffset(dll, exportName)
 		if err != nil {
 			slog.Error("compute export offset failed", "error", err, "export", exportName)
 			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
+		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
 		if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
 			base = enumBase
 			slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
 		}
 		if !selfEnv { // only attempt remote call if not deferring to target
+			slog.Debug("calling remote export", "export", exportName, "compartment", compartment)
 			if err := callRemoteExport(pi.Process, base, offset, uint32(compartment)); err != nil {
 				slog.Error("remote export call failed", "error", err, "compartment", compartment)
 				dumpRecentErrorLines(logFilePath, 20)
