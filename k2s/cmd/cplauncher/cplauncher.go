@@ -800,72 +800,65 @@ func main() {
 func resolveCompartmentFromLabel(selector, namespace string, timeout time.Duration) (int, string, string, string, error) {
 	kubeconfig := filepath.Join(os.Getenv("USERPROFILE"), ".kube", "config")
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return 0, "", "", "", fmt.Errorf("kubeconfig load: %w", err)
-	}
+	if err != nil { return 0, "", "", "", fmt.Errorf("kubeconfig load: %w", err) }
 	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return 0, "", "", "", fmt.Errorf("kube client: %w", err)
-	}
-	if timeout <= 0 {
-		timeout = 10 * time.Second
-	}
+	if err != nil { return 0, "", "", "", fmt.Errorf("kube client: %w", err) }
+	if timeout <= 0 { timeout = 10 * time.Second }
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	listNs := namespace // empty means all
-	slog.Debug("listing pods for selector", "selector", selector, "namespace", listNs, "timeout", timeout)
-	pods, err := clientset.CoreV1().Pods(listNs).List(ctx, metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return 0, "", "", "", fmt.Errorf("list pods: %w", err)
-	}
-	slog.Debug("pods listed", "count", len(pods.Items))
-	if len(pods.Items) == 0 {
-		return 0, "", "", "", fmt.Errorf("no pods match label selector '%s'", selector)
-	}
-	if len(pods.Items) > 1 {
-		return 0, "", "", "", fmt.Errorf("label selector '%s' matched %d pods (namespace='%s'); please refine with -namespace or a more specific selector", selector, len(pods.Items), namespace)
-	}
-	pod := pods.Items[0]
-	if pod.Status.PodIP == "" {
-		// Wait for PodIP to be assigned within the provided timeout instead of failing immediately.
-		start := time.Now()
-		pollInterval := 1 * time.Second
-		slog.Info("pod has no IP yet; waiting", "pod", pod.Name, "namespace", pod.Namespace, "timeout", timeout, "pollInterval", pollInterval)
-		attempt := 0
-		for {
-			// Check context deadline first
-			select {
-			case <-ctx.Done():
-				elapsed := time.Since(start)
-				return 0, "", pod.Name, pod.Namespace, fmt.Errorf("pod '%s/%s' still has no IP after %s (timeout); consider increasing -label-timeout", pod.Namespace, pod.Name, elapsed)
+	pollInterval := 1 * time.Second
+	var state string // ""|"zero"|"many"|"one"
+	start := time.Now()
+	for {
+		select { case <-ctx.Done():
+			// timeout reached before single pod ready
+			switch state {
+			case "zero", "":
+				return 0, "", "", "", fmt.Errorf("no pods match label selector '%s' before timeout", selector)
+			case "many":
+				return 0, "", "", "", fmt.Errorf("label selector '%s' did not narrow to a single pod before timeout", selector)
+			case "one":
+				return 0, "", "", "", fmt.Errorf("pod never became ready with IP before timeout (selector '%s')", selector)
 			default:
+				return 0, "", "", "", fmt.Errorf("timeout resolving label selector '%s'", selector)
 			}
+		default: }
 
-			// Re-fetch the pod to see if IP assigned
-			refreshed, err := clientset.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-			if err != nil {
-				// Non-fatal transient errors: keep waiting unless context expired
-				slog.Warn("pod get during IP wait failed", "pod", pod.Name, "namespace", pod.Namespace, "error", err)
-			} else if refreshed.Status.PodIP != "" {
-				pod = *refreshed
-				break
-			}
-			attempt++
-			if attempt%5 == 0 { // every 5 seconds (with 1s poll) emit a heartbeat debug log
-				elapsed := time.Since(start)
-				slog.Debug("still waiting for pod IP", "pod", pod.Name, "namespace", pod.Namespace, "elapsed", elapsed, "attempts", attempt)
-			}
-			time.Sleep(pollInterval)
+		pods, err := clientset.CoreV1().Pods(listNs).List(ctx, metav1.ListOptions{LabelSelector: selector})
+		if err != nil { return 0, "", "", "", fmt.Errorf("list pods: %w", err) }
+		if len(pods.Items) == 0 {
+			if state != "zero" { slog.Debug("no pods match label yet; waiting", "selector", selector, "namespace", listNs) ; state = "zero" }
+			time.Sleep(pollInterval); continue
 		}
-		elapsed := time.Since(start)
-		slog.Info("pod IP resolved after wait", "pod", pod.Name, "namespace", pod.Namespace, "podIP", pod.Status.PodIP, "waitElapsed", elapsed)
+		if len(pods.Items) > 1 {
+			if state != "many" { slog.Debug("multiple pods match; waiting for uniqueness", "selector", selector, "namespace", listNs, "count", len(pods.Items)) ; state = "many" }
+			time.Sleep(pollInterval); continue
+		}
+		pod := pods.Items[0]
+		if state != "one" { slog.Debug("single pod matched; checking IP", "pod", pod.Name, "namespace", pod.Namespace) ; state = "one" }
+		if pod.Status.PodIP == "" {
+			// wait for IP inside remaining timeout
+			ipAttempt := 0
+			for pod.Status.PodIP == "" {
+				select { case <-ctx.Done():
+					elapsed := time.Since(start)
+					return 0, "", pod.Name, pod.Namespace, fmt.Errorf("pod '%s/%s' still has no IP after %s (timeout); consider increasing -label-timeout", pod.Namespace, pod.Name, elapsed)
+				default: }
+				time.Sleep(1 * time.Second)
+				refreshed, err := clientset.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
+				if err != nil { slog.Warn("pod get during IP wait failed", "pod", pod.Name, "namespace", pod.Namespace, "error", err); continue }
+				pod = *refreshed
+				ipAttempt++
+				if ipAttempt%5 == 0 { slog.Debug("still waiting for pod IP", "pod", pod.Name, "namespace", pod.Namespace, "attempts", ipAttempt) }
+			}
+			slog.Info("pod IP resolved", "pod", pod.Name, "namespace", pod.Namespace, "podIP", pod.Status.PodIP, "waitElapsed", time.Since(start))
+		}
+		comp, err := compartmentFromIP(pod.Status.PodIP)
+		if err != nil { return 0, pod.Status.PodIP, pod.Name, pod.Namespace, fmt.Errorf("map pod ip to compartment: %w", err) }
+		slog.Debug("mapped pod IP to compartment", "pod", pod.Name, "namespace", pod.Namespace, "podIP", pod.Status.PodIP, "compartment", comp)
+		return comp, pod.Status.PodIP, pod.Name, pod.Namespace, nil
 	}
-	comp, err := compartmentFromIP(pod.Status.PodIP)
-	if err != nil {
-		return 0, pod.Status.PodIP, pod.Name, pod.Namespace, fmt.Errorf("map pod ip to compartment: %w", err)
-	}
-	slog.Debug("mapped pod IP to compartment", "pod", pod.Name, "namespace", pod.Namespace, "podIP", pod.Status.PodIP, "compartment", comp)
-	return comp, pod.Status.PodIP, pod.Name, pod.Namespace, nil
 }
 
 // compartmentFromIP returns the compartment id for a given IP via parsing ipconfig /allcompartments.
