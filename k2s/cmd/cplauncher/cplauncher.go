@@ -723,10 +723,20 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
-		if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
-			base = enumBase
-			slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
-		}
+		slog.Debug("attempting to enumerate module base", "pid", pi.ProcessId, "dll", filepath.Base(dll))
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Warn("getModuleBase panicked; using injected base", "panic", r, "base", fmt.Sprintf("0x%x", base))
+				}
+			}()
+			if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
+				base = enumBase
+				slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
+			} else {
+				slog.Debug("module base enumeration failed; using injected base", "error", err2, "base", fmt.Sprintf("0x%x", base))
+			}
+		}()
 		if !selfEnv { // only attempt remote call if not deferring to target
 			slog.Debug("calling remote export", "export", exportName, "compartment", compartment)
 			if err := callRemoteExport(pi.Process, base, offset, uint32(compartment)); err != nil {
