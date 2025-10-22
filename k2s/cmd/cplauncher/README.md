@@ -44,6 +44,7 @@ go build -o cplauncher.exe .
 	-v <level>                Alias for -verbosity
 	-logs-keep <n>            Max number of previous log files to retain (default 30)
 	-log-max-age <dur>        Optional age threshold for log deletion (e.g. 24h, 7d); empty disables age based pruning
+	-wait-tree                Wait for the entire descendant process tree (Windows Job) to exit before returning; ensures cleanup if launcher dies
 	-version                  Print version information
 ```
 
