@@ -86,7 +86,7 @@ spec:
               path: /health/readiness     
               scheme: HTTP
             initialDelaySeconds: 30
-            periodSeconds: 10
+            periodSeconds: 30
             failureThreshold: 5
             successThreshold: 1
             timeoutSeconds: 6
@@ -107,11 +107,11 @@ spec:
               port: 8080
               path: /health/startup
               scheme: HTTP
-            initialDelaySeconds: 20       # small delay before first check
+            initialDelaySeconds: 30       # small delay before first check
             periodSeconds: 10             # check every 5s during startup
-            failureThreshold: 2         # allow up to 20*5s = 100s for slow Windows host init
+            failureThreshold: 2         
             successThreshold: 1          # one successful connect is enough
-            timeoutSeconds: 6            # short timeout for TCP connect
+            timeoutSeconds: 5            # short timeout for TCP connect
           volumeMounts:
             - name: host-var-log
               mountPath: C:/var/log
