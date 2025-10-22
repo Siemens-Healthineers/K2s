@@ -45,6 +45,7 @@ go build -o cplauncher.exe .
 	-logs-keep <n>            Max number of previous log files to retain (default 30)
 	-log-max-age <dur>        Optional age threshold for log deletion (e.g. 24h, 7d); empty disables age based pruning
 	-wait-tree                Wait for the entire descendant process tree (Windows Job) to exit before returning; ensures cleanup if launcher dies
+	-legacy-inject            Use legacy CreateRemoteThread injection (may trigger Windows Defender); default uses stealthier NtCreateThreadEx
 	-version                  Print version information
 ```
 
@@ -141,5 +142,26 @@ docker run --rm -it --name nano --network nat mcr.microsoft.com/windows/nanoserv
 c:\ws\k2s\bin\cni\cplauncher.exe -compartment 2 -- c:\ws\s\examples\albums-golang-win\albumswin.exe
 c:\ws\k2s\bin\cni\cplauncher.exe -label app=albums-win1 -namespace k2s -- c:\ws\s\examples\albums-golang-win\albumswin.exe
 
+### Windows Defender Considerations
+The DLL injection technique (creating a suspended process, allocating remote memory, and creating remote threads) can trigger behavioral detection in Windows Defender Real-time Protection. 
+
+**Default behavior**: `cplauncher` uses a stealthier injection method (`NtCreateThreadEx` with timing delays) to reduce detection likelihood.
+
+**If you still experience crashes** (process killed after "export offset computed" log):
+
+1. **Add a Windows Defender exclusion** (requires administrator privileges):
+   ```powershell
+   Add-MpPreference -ExclusionProcess "cplauncher.exe"
+   # OR exclude the entire directory:
+   Add-MpPreference -ExclusionPath "C:\ws\k2s\bin\cni"
+   ```
+
+2. **Use legacy injection mode** (if the stealth mode has issues):
+   ```
+   cplauncher -legacy-inject -compartment 42 -- myapp.exe
+   ```
+   Note: Legacy mode is more likely to be detected by Windows Defender.
+
+3. **For production**: Code-sign the `cplauncher.exe` binary to reduce antivirus sensitivity.
 
 
