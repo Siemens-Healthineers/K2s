@@ -334,8 +334,8 @@ func injectDLLStealth(h syscall.Handle, dll string) (uintptr, error) {
 		return 0, err
 	}
 	
-	// Small delay before thread creation to reduce timing-based detection
-	time.Sleep(100 * time.Millisecond)
+	// Longer delay before thread creation to reduce timing-based detection
+	time.Sleep(250 * time.Millisecond)
 	
 	// Use NtCreateThreadEx (undocumented but more stealthy than CreateRemoteThread)
 	var hThread uintptr
@@ -424,8 +424,8 @@ func callRemoteExport(h syscall.Handle, base, offset uintptr, compartment uint32
 func callRemoteExportStealth(h syscall.Handle, base, offset uintptr, compartment uint32) error {
 	fn := base + offset
 	
-	// Small delay before calling export
-	time.Sleep(50 * time.Millisecond)
+	// Longer delay before calling export to further separate injection stages
+	time.Sleep(150 * time.Millisecond)
 	
 	var hThread uintptr
 	status, _, _ := procNtCreateThreadEx.Call(
@@ -812,10 +812,29 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
+		
+		// Check if child process is still alive before proceeding
+		var exitCode uint32
+		r, _, _ := procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
+		if r != 0 && exitCode != 259 { // 259 = STILL_ACTIVE
+			slog.Error("child process terminated unexpectedly before export call", "exitCode", exitCode)
+			dumpRecentErrorLines(logFilePath, 20)
+			os.Exit(1)
+		}
+		
 		if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
 			base = enumBase
 			slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
 		}
+		
+		// Check again after module enumeration
+		r, _, _ = procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
+		if r != 0 && exitCode != 259 { // 259 = STILL_ACTIVE
+			slog.Error("child process terminated unexpectedly after module enumeration", "exitCode", exitCode)
+			dumpRecentErrorLines(logFilePath, 20)
+			os.Exit(1)
+		}
+		
 		if !selfEnv { // only attempt remote call if not deferring to target
 			if legacyInject {
 				err = callRemoteExport(pi.Process, base, offset, uint32(compartment))

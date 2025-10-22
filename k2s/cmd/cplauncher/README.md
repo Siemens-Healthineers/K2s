@@ -143,25 +143,40 @@ c:\ws\k2s\bin\cni\cplauncher.exe -compartment 2 -- c:\ws\s\examples\albums-golan
 c:\ws\k2s\bin\cni\cplauncher.exe -label app=albums-win1 -namespace k2s -- c:\ws\s\examples\albums-golang-win\albumswin.exe
 
 ### Windows Defender Considerations
-The DLL injection technique (creating a suspended process, allocating remote memory, and creating remote threads) can trigger behavioral detection in Windows Defender Real-time Protection. 
+⚠️ **IMPORTANT**: The DLL injection technique (creating a suspended process, allocating remote memory, and creating remote threads) **WILL** trigger behavioral detection in Windows Defender Real-time Protection, even with the stealth mode enabled.
 
-**Default behavior**: `cplauncher` uses a stealthier injection method (`NtCreateThreadEx` with timing delays) to reduce detection likelihood.
+**Symptoms**: `cplauncher` crashes sporadically after the "dll injected successfully" or "export offset computed" log entry, with no error message. This indicates Windows Defender is terminating the process.
 
-**If you still experience crashes** (process killed after "export offset computed" log):
+**Required Solution - Add Windows Defender Exclusion** (requires administrator privileges on the test/deployment machine):
+```powershell
+# Recommended: Exclude the entire cplauncher directory
+Add-MpPreference -ExclusionPath "C:\ws\k2s\bin\cni"
 
-1. **Add a Windows Defender exclusion** (requires administrator privileges):
-   ```powershell
-   Add-MpPreference -ExclusionProcess "cplauncher.exe"
-   # OR exclude the entire directory:
-   Add-MpPreference -ExclusionPath "C:\ws\k2s\bin\cni"
-   ```
+# OR exclude just the process:
+Add-MpPreference -ExclusionProcess "cplauncher.exe"
+```
 
-2. **Use legacy injection mode** (if the stealth mode has issues):
+**Verify exclusion was added:**
+```powershell
+Get-MpPreference | Select-Object -ExpandProperty ExclusionPath
+Get-MpPreference | Select-Object -ExpandProperty ExclusionProcess
+```
+
+**Alternative approaches**:
+
+1. **Use legacy injection mode** (if you want to test different behavior):
    ```
    cplauncher -legacy-inject -compartment 42 -- myapp.exe
    ```
-   Note: Legacy mode is more likely to be detected by Windows Defender.
+   Note: Both stealth and legacy modes require the Defender exclusion; the stealth mode just uses less common APIs.
 
-3. **For production**: Code-sign the `cplauncher.exe` binary to reduce antivirus sensitivity.
+2. **For production deployment**: Code-sign the `cplauncher.exe` binary with a trusted certificate to reduce antivirus sensitivity.
+
+3. **If you cannot add exclusions**: The only workaround is to disable Windows Defender Real-time Protection entirely (not recommended for production systems):
+   ```powershell
+   Set-MpPreference -DisableRealtimeMonitoring $true
+   ```
+
+**Default behavior**: `cplauncher` uses a stealthier injection method (`NtCreateThreadEx` with timing delays) by default, but this is **NOT sufficient** to bypass Windows Defender - the exclusion is still required.
 
 
