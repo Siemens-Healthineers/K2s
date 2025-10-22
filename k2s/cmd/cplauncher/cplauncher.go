@@ -389,6 +389,8 @@ func main() {
 	flag.StringVar(&verbosity, "v", logging.LevelToLowerString(slog.LevelInfo), "Alias for -verbosity")
 	flag.Parse()
 
+	// Note: detailed logging only active after logger initialization; early stage kept minimal.
+
 	if *versionFlag {
 		ve.GetVersion().Print(cliName)
 		return
@@ -435,7 +437,19 @@ func main() {
 		os.Exit(1)
 	}
 	defer logFile.Close()
-	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartment", compartment, "verbosity", verbosity)
+	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartmentRaw", compartment, "verbosity", verbosity, "args", os.Args)
+	slog.Info("startup configuration",
+		"requestedCompartment", compartment,
+		"labelSelector", labelSelector,
+		"namespace", namespace,
+		"labelTimeout", labelTimeoutStr,
+		"dll", func() string { if dll=="" { return "(auto or none)"}; return dll }(),
+		"inject", !noInject,
+		"selfEnv", selfEnv,
+		"envVarName", envVarName,
+		"logsKeep", logsKeep,
+		"logMaxAge", logMaxAgeStr,
+		"dryRun", dryRun)
 
 	// Perform log retention maintenance (best-effort)
 	if err := cleanupOldLogs(logDir, logFileName, logsKeep, logMaxAgeStr); err != nil {
@@ -465,6 +479,7 @@ func main() {
 	// If label selector provided, resolve compartment ID from pod IP before potential dry-run output
 	var labelTimeout time.Duration
 	if labelSelector != "" {
+		slog.Debug("starting label-based pod lookup", "selector", labelSelector, "namespace", namespace)
 		var err error
 		labelTimeout, err = time.ParseDuration(labelTimeoutStr)
 		if err != nil {
@@ -518,6 +533,8 @@ func main() {
 
 	if err := createCompartmentIfNeeded(uint32(compartment)); err != nil {
 		slog.Warn("compartment provisioning attempt failed or skipped", "error", err)
+	} else {
+		slog.Debug("compartment ensured", "compartment", compartment)
 	}
 
 	// Always set COMPARTMENT_ID_ATTACH so the DLL's DllMain can attempt per-thread switching
@@ -558,6 +575,7 @@ func main() {
 	stderrR, stderrW, err := makePipe()
 	if err != nil { slog.Error("pipe setup failed", "stream", "stderr", "error", err); os.Exit(1) }
 
+	slog.Debug("creating suspended child", "exe", exe, "args", args)
 	pi, err := createSuspended(exe, args, stdoutW, stderrW)
 	if err != nil {
 		slog.Error("create process failed", "error", err, "exe", exe)
@@ -612,6 +630,7 @@ func main() {
 	defer procCloseHandle.Call(uintptr(pi.Thread))
 
 	if !noInject {
+		slog.Debug("injection start", "dll", dll, "export", exportName, "selfEnv", selfEnv)
 		base, err := injectDLL(pi.Process, dll)
 		if err != nil {
 			slog.Error("dll injection failed", "error", err, "dll", dll)
@@ -646,6 +665,7 @@ func main() {
 	if !selfEnv {
 		slog.Info("note: unless target sets compartment for its own network threads it stays in default compartment")
 	}
+	slog.Debug("resuming child", "pid", pi.ProcessId)
 	if err := resume(pi); err != nil {
 		slog.Error("resume failed", "error", err)
 		dumpRecentErrorLines(logFilePath, 20)
@@ -658,6 +678,7 @@ func main() {
 	slog.Info("child running", "pid", pi.ProcessId, "dll", finalDll, "compartment", compartment, "selfEnv", selfEnv, "noInject", noInject, "logFile", logFilePath, "stdoutCapture", childStdoutPath, "stderrCapture", childStderrPath)
 
 	// Wait for child exit
+	slog.Debug("waiting for child to exit", "pid", pi.ProcessId)
 	syscall.WaitForSingleObject(syscall.Handle(pi.Process), syscall.INFINITE)
 	var exitCode uint32
 	procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
@@ -690,10 +711,12 @@ func resolveCompartmentFromLabel(selector, namespace string, timeout time.Durati
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	listNs := namespace // empty means all
+	slog.Debug("listing pods for selector", "selector", selector, "namespace", listNs, "timeout", timeout)
 	pods, err := clientset.CoreV1().Pods(listNs).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return 0, "", "", "", fmt.Errorf("list pods: %w", err)
 	}
+	slog.Debug("pods listed", "count", len(pods.Items))
 	if len(pods.Items) == 0 {
 		return 0, "", "", "", fmt.Errorf("no pods match label selector '%s'", selector)
 	}
@@ -706,6 +729,7 @@ func resolveCompartmentFromLabel(selector, namespace string, timeout time.Durati
 		start := time.Now()
 		pollInterval := 1 * time.Second
 		slog.Info("pod has no IP yet; waiting", "pod", pod.Name, "namespace", pod.Namespace, "timeout", timeout, "pollInterval", pollInterval)
+		attempt := 0
 		for {
 			// Check context deadline first
 			select {
@@ -724,6 +748,11 @@ func resolveCompartmentFromLabel(selector, namespace string, timeout time.Durati
 				pod = *refreshed
 				break
 			}
+			attempt++
+			if attempt%5 == 0 { // every 5 seconds (with 1s poll) emit a heartbeat debug log
+				elapsed := time.Since(start)
+				slog.Debug("still waiting for pod IP", "pod", pod.Name, "namespace", pod.Namespace, "elapsed", elapsed, "attempts", attempt)
+			}
 			time.Sleep(pollInterval)
 		}
 		elapsed := time.Since(start)
@@ -733,6 +762,7 @@ func resolveCompartmentFromLabel(selector, namespace string, timeout time.Durati
 	if err != nil {
 		return 0, pod.Status.PodIP, pod.Name, pod.Namespace, fmt.Errorf("map pod ip to compartment: %w", err)
 	}
+	slog.Debug("mapped pod IP to compartment", "pod", pod.Name, "namespace", pod.Namespace, "podIP", pod.Status.PodIP, "compartment", comp)
 	return comp, pod.Status.PodIP, pod.Name, pod.Namespace, nil
 }
 
