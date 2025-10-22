@@ -17,7 +17,6 @@ import (
 	"context"
 	"os/exec"
 	"regexp"
-	"runtime/debug"
 	"sort"
 	"time"
 	"unsafe"
