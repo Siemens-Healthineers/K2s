@@ -140,7 +140,7 @@ function Initialize-Cni0Interface {
         [string] $VmName = $(throw 'Argument missing: VmName'),
         [bool] $WSL = $(throw 'Argument missing: WSL')
     )
-    Write-Log "cni0 interface in $VmName is created ?" -Console
+    Write-Log "cni0 interface in $VmName is created ?"
     $startTime = Get-Date
     $i = 0
     while ($true) {
