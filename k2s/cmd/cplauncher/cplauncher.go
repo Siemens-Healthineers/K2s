@@ -810,6 +810,7 @@ func resolveCompartmentFromLabel(selector, namespace string, timeout time.Durati
 	pollInterval := 1 * time.Second
 	var state string // ""|"zero"|"many"|"one"
 	start := time.Now()
+	slog.Info("waiting for pod label resolution", "selector", selector, "namespace", listNs, "timeout", timeout, "pollInterval", pollInterval)
 	for {
 		select { case <-ctx.Done():
 			// timeout reached before single pod ready
