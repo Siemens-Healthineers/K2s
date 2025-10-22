@@ -176,6 +176,14 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	suite.Kubectl().Run(ctx, "delete", "namespace", namespace, "--ignore-not-found=true")
 	suite.Kubectl().Run(ctx, "create", "namespace", namespace)
 
+	// Create log directory for albumswin
+	albumsLogDir := `C:\var\log\albumswin`
+	if err := os.MkdirAll(albumsLogDir, 0755); err != nil {
+		GinkgoWriter.Printf("Warning: failed to create albumswin log directory %s: %v\n", albumsLogDir, err)
+	} else {
+		GinkgoWriter.Printf("Created albumswin log directory: %s\n", albumsLogDir)
+	}
+
 	// Resolve paths and attempt local build of albumswin before creating ConfigMap
 	computeAndSetLauncherEnv()
 
