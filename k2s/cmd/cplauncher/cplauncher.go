@@ -725,28 +725,16 @@ func main() {
 		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
 		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after export offset computed\n")
 		os.Stderr.Sync()
-		logFile.Sync() // Force flush before potentially risky operation
-		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after logFile.Sync()\n")
-		os.Stderr.Sync()
-		slog.Debug("about to enumerate module base")
-		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after slog about to enumerate\n")
-		os.Stderr.Sync()
-		slog.Debug("attempting to enumerate module base", "pid", pi.ProcessId, "dll", filepath.Base(dll))
-		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] before getModuleBase call\n")
-		os.Stderr.Sync()
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					slog.Warn("getModuleBase panicked; using injected base", "panic", r, "base", fmt.Sprintf("0x%x", base))
-				}
-			}()
-			if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
-				base = enumBase
-				slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
-			} else {
-				slog.Debug("module base enumeration failed; using injected base", "error", err2, "base", fmt.Sprintf("0x%x", base))
-			}
-		}()
+		
+		// TEMPORARILY SKIP getModuleBase to test if AV/Defender is killing us
+		// if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
+		// 	base = enumBase
+		// 	slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
+		// } else {
+		// 	slog.Debug("module base enumeration failed; using injected base", "error", err2, "base", fmt.Sprintf("0x%x", base))
+		// }
+		slog.Debug("skipped getModuleBase; using injected base", "base", fmt.Sprintf("0x%x", base))
+		
 		if !selfEnv { // only attempt remote call if not deferring to target
 			slog.Debug("calling remote export", "export", exportName, "compartment", compartment)
 			if err := callRemoteExport(pi.Process, base, offset, uint32(compartment)); err != nil {
