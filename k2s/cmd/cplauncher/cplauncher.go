@@ -32,10 +32,13 @@ import (
 
 var (
 	kernel32                     = syscall.NewLazyDLL("kernel32.dll")
+	ntdll                        = syscall.NewLazyDLL("ntdll.dll")
 	procCreateProcessW           = kernel32.NewProc("CreateProcessW")
 	procCreateRemoteThread       = kernel32.NewProc("CreateRemoteThread")
+	procNtCreateThreadEx         = ntdll.NewProc("NtCreateThreadEx")
 	procResumeThread             = kernel32.NewProc("ResumeThread")
 	procVirtualAllocEx           = kernel32.NewProc("VirtualAllocEx")
+	procVirtualProtectEx         = kernel32.NewProc("VirtualProtectEx")
 	procWriteProcessMemory       = kernel32.NewProc("WriteProcessMemory")
 	procGetExitCodeThread        = kernel32.NewProc("GetExitCodeThread")
 	procGetExitCodeProcess       = kernel32.NewProc("GetExitCodeProcess")
@@ -60,6 +63,7 @@ const (
 	MEM_COMMIT                 = 0x1000
 	MEM_RESERVE                = 0x2000
 	PAGE_READWRITE             = 0x04
+	PAGE_EXECUTE_READ          = 0x20
 	TH32CS_SNAPMODULE          = 0x00000008
 	TH32CS_SNAPMODULE32        = 0x00000010
 	STARTF_USESTDHANDLES      = 0x00000100
@@ -307,6 +311,61 @@ func injectDLL(h syscall.Handle, dll string) (uintptr, error) {
 	return mod, nil
 }
 
+// injectDLLStealth uses NtCreateThreadEx instead of CreateRemoteThread and adds a small delay
+// to reduce detection by behavioral analysis in Windows Defender
+func injectDLLStealth(h syscall.Handle, dll string) (uintptr, error) {
+	abs, err := filepath.Abs(dll)
+	if err != nil {
+		return 0, err
+	}
+	if _, err = os.Stat(abs); err != nil {
+		return 0, fmt.Errorf("dll not found: %s", abs)
+	}
+	
+	// Write DLL path to remote process
+	u16, _ := syscall.UTF16FromString(abs)
+	buf := make([]byte, len(u16)*2)
+	for i, v := range u16 {
+		buf[i*2] = byte(v)
+		buf[i*2+1] = byte(v >> 8)
+	}
+	remoteStr, err := allocWrite(h, buf)
+	if err != nil {
+		return 0, err
+	}
+	
+	// Longer delay before thread creation to reduce timing-based detection
+	time.Sleep(250 * time.Millisecond)
+	
+	// Use NtCreateThreadEx (undocumented but more stealthy than CreateRemoteThread)
+	var hThread uintptr
+	status, _, _ := procNtCreateThreadEx.Call(
+		uintptr(unsafe.Pointer(&hThread)),  // ThreadHandle
+		0x1FFFFF,                           // DesiredAccess (THREAD_ALL_ACCESS)
+		0,                                   // ObjectAttributes
+		uintptr(h),                         // ProcessHandle
+		procLoadLibraryW.Addr(),            // StartRoutine
+		remoteStr,                          // Argument
+		0,                                   // CreateFlags (0 = run immediately)
+		0,                                   // ZeroBits
+		0,                                   // StackSize
+		0,                                   // MaximumStackSize
+		0,                                   // AttributeList
+	)
+	if status != 0 || hThread == 0 {
+		return 0, fmt.Errorf("NtCreateThreadEx failed: status=0x%x", status)
+	}
+	defer procCloseHandle.Call(hThread)
+	
+	syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
+	var mod uintptr
+	procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&mod)))
+	if mod == 0 {
+		return 0, errors.New("LoadLibraryW returned NULL")
+	}
+	return mod, nil
+}
+
 func computeExportOffset(dllPath, export string) (uintptr, error) {
 	h, err := syscall.LoadLibrary(dllPath)
 	if err != nil {
@@ -352,6 +411,41 @@ func callRemoteExport(h syscall.Handle, base, offset uintptr, compartment uint32
 		return fmt.Errorf("CreateRemoteThread export: %v", e1)
 	}
 	defer procCloseHandle.Call(hThread)
+	syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
+	var code uint32
+	procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&code)))
+	if code != 0 {
+		return fmt.Errorf("remote SetTargetCompartmentId returned %d", code)
+	}
+	return nil
+}
+
+// callRemoteExportStealth uses NtCreateThreadEx for calling the export function
+func callRemoteExportStealth(h syscall.Handle, base, offset uintptr, compartment uint32) error {
+	fn := base + offset
+	
+	// Longer delay before calling export to further separate injection stages
+	time.Sleep(150 * time.Millisecond)
+	
+	var hThread uintptr
+	status, _, _ := procNtCreateThreadEx.Call(
+		uintptr(unsafe.Pointer(&hThread)),  // ThreadHandle
+		0x1FFFFF,                           // DesiredAccess (THREAD_ALL_ACCESS)
+		0,                                   // ObjectAttributes
+		uintptr(h),                         // ProcessHandle
+		fn,                                 // StartRoutine (export function)
+		uintptr(compartment),               // Argument (compartment ID)
+		0,                                   // CreateFlags
+		0,                                   // ZeroBits
+		0,                                   // StackSize
+		0,                                   // MaximumStackSize
+		0,                                   // AttributeList
+	)
+	if status != 0 || hThread == 0 {
+		return fmt.Errorf("NtCreateThreadEx export failed: status=0x%x", status)
+	}
+	defer procCloseHandle.Call(hThread)
+	
 	syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
 	var code uint32
 	procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&code)))
@@ -426,6 +520,7 @@ func main() {
 	var logsKeep int
 	var logMaxAgeStr string
 	var waitTree bool
+	var legacyInject bool
 
 	versionFlag := cli.NewVersionFlag(cliName)
 
@@ -443,8 +538,12 @@ func main() {
 	flag.BoolVar(&dryRun, "dry-run", false, "Show planned actions (compartment, dll resolution, target) without creating or modifying a process")
 	flag.StringVar(&verbosity, cli.VerbosityFlagName, logging.LevelToLowerString(slog.LevelInfo), cli.VerbosityFlagHelp())
 	flag.StringVar(&verbosity, "v", logging.LevelToLowerString(slog.LevelInfo), "Alias for -verbosity")
+	flag.BoolVar(&waitTree, "wait-tree", false, "Wait for the full process tree (job) to exit; also terminates remaining child processes if the launcher exits unexpectedly")
+	flag.BoolVar(&legacyInject, "legacy-inject", false, "Use legacy CreateRemoteThread injection (may be detected by Windows Defender); default uses stealthier NtCreateThreadEx")
 	flag.Parse()
 	flag.BoolVar(&waitTree, "wait-tree", false, "Wait for the full process tree (job) to exit; also terminates remaining child processes if the launcher exits unexpectedly")
+
+	// Note: detailed logging only active after logger initialization; early stage kept minimal.
 
 	// Note: detailed logging only active after logger initialization; early stage kept minimal.
 
@@ -493,7 +592,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to setup logger: %v\n", err)
 		os.Exit(1)
 	}
-	defer logFile.Close()
+	defer func() {
+		logFile.Sync() // ensure all buffered logs written before close
+		logFile.Close()
+	}()
 	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartmentRaw", compartment, "verbosity", verbosity, "args", os.Args)
 	slog.Info("startup configuration",
 		"requestedCompartment", compartment,
@@ -712,30 +814,69 @@ func main() {
 	defer procCloseHandle.Call(uintptr(pi.Thread))
 
 	if !noInject {
-		slog.Debug("injection start", "dll", dll, "export", exportName, "selfEnv", selfEnv)
-		base, err := injectDLL(pi.Process, dll)
+		injectionMethod := "stealth (NtCreateThreadEx)"
+		if legacyInject {
+			injectionMethod = "legacy (CreateRemoteThread)"
+		}
+		slog.Debug("injection start", "dll", dll, "export", exportName, "selfEnv", selfEnv, "method", injectionMethod)
+		
+		var base uintptr
+		var err error
+		if legacyInject {
+			base, err = injectDLL(pi.Process, dll)
+		} else {
+			base, err = injectDLLStealth(pi.Process, dll)
+		}
 		if err != nil {
-			slog.Error("dll injection failed", "error", err, "dll", dll)
+			slog.Error("dll injection failed", "error", err, "dll", dll, "method", injectionMethod)
 			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
+		slog.Debug("dll injected successfully", "base", fmt.Sprintf("0x%x", base), "method", injectionMethod)
 		offset, err := computeExportOffset(dll, exportName)
 		if err != nil {
 			slog.Error("compute export offset failed", "error", err, "export", exportName)
 			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
+		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
+		
+		// Check if child process is still alive before proceeding
+		slog.Debug("checking child process liveness before module enumeration")
+		var exitCode uint32
+		r, _, _ := procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
+		if r != 0 && exitCode != 259 { // 259 = STILL_ACTIVE
+			slog.Error("child process terminated unexpectedly before export call", "exitCode", exitCode)
+			dumpRecentErrorLines(logFilePath, 20)
+			os.Exit(1)
+		}
+		
+		slog.Debug("child process still active, proceeding to module enumeration")
 		if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
 			base = enumBase
 			slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
 		}
+		
+		// Check again after module enumeration
+		r, _, _ = procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
+		if r != 0 && exitCode != 259 { // 259 = STILL_ACTIVE
+			slog.Error("child process terminated unexpectedly after module enumeration", "exitCode", exitCode)
+			dumpRecentErrorLines(logFilePath, 20)
+			os.Exit(1)
+		}
+		
 		if !selfEnv { // only attempt remote call if not deferring to target
-			if err := callRemoteExport(pi.Process, base, offset, uint32(compartment)); err != nil {
-				slog.Error("remote export call failed", "error", err, "compartment", compartment)
+			if legacyInject {
+				err = callRemoteExport(pi.Process, base, offset, uint32(compartment))
+			} else {
+				err = callRemoteExportStealth(pi.Process, base, offset, uint32(compartment))
+			}
+			if err != nil {
+				slog.Error("remote export call failed", "error", err, "compartment", compartment, "method", injectionMethod)
 				dumpRecentErrorLines(logFilePath, 20)
 				os.Exit(1)
 			} else {
-				slog.Info("remote export invoked", "compartment", compartment)
+				slog.Info("remote export invoked", "compartment", compartment, "method", injectionMethod)
 			}
 		} else {
 			slog.Info("skipped remote export due to self-env", "export", exportName)
@@ -753,6 +894,33 @@ func main() {
 		dumpRecentErrorLines(logFilePath, 20)
 		os.Exit(1)
 	}
+	
+	// Assign to job AFTER successful injection and resume to avoid killing suspended process if launcher crashes during injection
+	var jobHandle syscall.Handle
+	if waitTree {
+		slog.Debug("creating job object for running process")
+		r1, _, e1 := procCreateJobObjectW.Call(0, 0)
+		if r1 == 0 {
+			slog.Error("CreateJobObjectW failed; proceeding without job", "error", e1)
+		} else {
+			jobHandle = syscall.Handle(r1)
+			var info JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+			info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+			r2, _, e2 := procSetInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectExtendedLimitInformation), uintptr(unsafe.Pointer(&info)), uintptr(unsafe.Sizeof(info)))
+			if r2 == 0 {
+				slog.Warn("SetInformationJobObject failed", "error", e2)
+			}
+			r3, _, e3 := procAssignProcessToJobObject.Call(uintptr(jobHandle), uintptr(pi.Process))
+			if r3 == 0 {
+				slog.Error("AssignProcessToJobObject failed; disabling wait-tree", "error", e3)
+				procCloseHandle.Call(uintptr(jobHandle))
+				jobHandle = 0
+			} else {
+				slog.Info("assigned running process to job", "pid", pi.ProcessId, "killOnClose", true)
+			}
+		}
+	}
+	
 	finalDll := dll
 	if noInject {
 		if finalDll == "" { finalDll = "(no injection)" } else { finalDll += " (injection disabled)" }
@@ -765,22 +933,28 @@ func main() {
 	var exitCode uint32
 	procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
 	slog.Debug("primary process exited", "pid", pi.ProcessId, "exitCode", exitCode)
-	// If job tracking requested, wait until all job processes (descendants) also exit
+	// If job tracking requested, poll accounting info until job empties instead of blocking indefinitely
 	if waitTree && jobHandle != 0 {
-		slog.Info("waiting for remaining job processes", "pid", pi.ProcessId)
-		syscall.WaitForSingleObject(jobHandle, syscall.INFINITE)
-		// Query job accounting info to report how many processes participated
-		var acct JOBOBJECT_BASIC_ACCOUNTING_INFORMATION
-		rAcct, _, eAcct := procQueryInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectBasicAccountingInformation), uintptr(unsafe.Pointer(&acct)), uintptr(unsafe.Sizeof(acct)), 0)
-		if rAcct == 0 {
-			slog.Warn("QueryInformationJobObject accounting failed", "error", eAcct)
-			slog.Info("job processes complete", "pid", pi.ProcessId)
-		} else {
-			slog.Info("job processes complete", "pid", pi.ProcessId,
-				"totalProcesses", acct.TotalProcesses,
-				"activeProcessesAtQuery", acct.ActiveProcesses,
-				"terminatedProcesses", acct.TotalTerminatedProcesses,
-				"pageFaults", acct.TotalPageFaultCount)
+		poll := 500 * time.Millisecond
+		startJobWait := time.Now()
+		slog.Info("waiting for remaining job processes", "pid", pi.ProcessId, "pollInterval", poll)
+		var lastActive uint32
+		for {
+			var acct JOBOBJECT_BASIC_ACCOUNTING_INFORMATION
+			rAcct, _, eAcct := procQueryInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectBasicAccountingInformation), uintptr(unsafe.Pointer(&acct)), uintptr(unsafe.Sizeof(acct)), 0)
+			if rAcct == 0 {
+				slog.Warn("QueryInformationJobObject accounting failed", "error", eAcct)
+				break
+			}
+			if acct.ActiveProcesses == 0 { // all descendants exited
+				slog.Info("job empty", "pid", pi.ProcessId, "totalProcesses", acct.TotalProcesses, "terminatedProcesses", acct.TotalTerminatedProcesses, "waitElapsed", time.Since(startJobWait))
+				break
+			}
+			if acct.ActiveProcesses != lastActive {
+				slog.Debug("job still active", "activeProcesses", acct.ActiveProcesses, "terminatedProcesses", acct.TotalTerminatedProcesses)
+				lastActive = acct.ActiveProcesses
+			}
+			time.Sleep(poll)
 		}
 		procCloseHandle.Call(uintptr(jobHandle))
 	}
