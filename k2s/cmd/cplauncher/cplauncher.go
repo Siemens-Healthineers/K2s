@@ -348,14 +348,21 @@ func getModuleBase(pid uint32, module string) (uintptr, error) {
 
 func callRemoteExport(h syscall.Handle, base, offset uintptr, compartment uint32) error {
 	fn := base + offset
+	slog.Debug("CreateRemoteThread for export", "fn", fmt.Sprintf("0x%x", fn), "compartment", compartment)
 	hThread, _, e1 := procCreateRemoteThread.Call(uintptr(h), 0, 0, fn, uintptr(compartment), 0, 0)
 	if hThread == 0 {
 		return fmt.Errorf("CreateRemoteThread export: %v", e1)
 	}
 	defer procCloseHandle.Call(hThread)
-	syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
+	slog.Debug("waiting for remote export thread", "hThread", fmt.Sprintf("0x%x", hThread))
+	waitResult, _ := syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
+	slog.Debug("remote export thread wait returned", "result", waitResult)
 	var code uint32
-	procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&code)))
+	r, _, eGet := procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&code)))
+	if r == 0 {
+		slog.Warn("GetExitCodeThread failed", "error", eGet)
+	}
+	slog.Debug("remote export thread exit code", "code", code)
 	if code != 0 {
 		return fmt.Errorf("remote SetTargetCompartmentId returned %d", code)
 	}
@@ -643,31 +650,6 @@ func main() {
 		dumpRecentErrorLines(logFilePath, 20)
 		os.Exit(1)
 	}
-	// Optionally create & assign job object while process is still suspended
-	var jobHandle syscall.Handle
-	if waitTree {
-		slog.Debug("creating job object")
-		r1, _, e1 := procCreateJobObjectW.Call(0, 0)
-		if r1 == 0 {
-			slog.Error("CreateJobObjectW failed; proceeding without job", "error", e1)
-		} else {
-			jobHandle = syscall.Handle(r1)
-			var info JOBOBJECT_EXTENDED_LIMIT_INFORMATION
-			info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-			r2, _, e2 := procSetInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectExtendedLimitInformation), uintptr(unsafe.Pointer(&info)), uintptr(unsafe.Sizeof(info)))
-			if r2 == 0 {
-				slog.Warn("SetInformationJobObject failed", "error", e2)
-			}
-			r3, _, e3 := procAssignProcessToJobObject.Call(uintptr(jobHandle), uintptr(pi.Process))
-			if r3 == 0 {
-				slog.Error("AssignProcessToJobObject failed; disabling wait-tree", "error", e3)
-				procCloseHandle.Call(uintptr(jobHandle))
-				jobHandle = 0
-			} else {
-				slog.Info("assigned process to job", "pid", pi.ProcessId, "killOnClose", true)
-			}
-		}
-	}
 	// Parent no longer needs write ends
 	procCloseHandle.Call(uintptr(stdoutW))
 	procCloseHandle.Call(uintptr(stderrW))
@@ -770,6 +752,33 @@ func main() {
 		dumpRecentErrorLines(logFilePath, 20)
 		os.Exit(1)
 	}
+	
+	// Assign to job AFTER successful injection and resume to avoid killing suspended process if launcher crashes during injection
+	var jobHandle syscall.Handle
+	if waitTree {
+		slog.Debug("creating job object for running process")
+		r1, _, e1 := procCreateJobObjectW.Call(0, 0)
+		if r1 == 0 {
+			slog.Error("CreateJobObjectW failed; proceeding without job", "error", e1)
+		} else {
+			jobHandle = syscall.Handle(r1)
+			var info JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+			info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+			r2, _, e2 := procSetInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectExtendedLimitInformation), uintptr(unsafe.Pointer(&info)), uintptr(unsafe.Sizeof(info)))
+			if r2 == 0 {
+				slog.Warn("SetInformationJobObject failed", "error", e2)
+			}
+			r3, _, e3 := procAssignProcessToJobObject.Call(uintptr(jobHandle), uintptr(pi.Process))
+			if r3 == 0 {
+				slog.Error("AssignProcessToJobObject failed; disabling wait-tree", "error", e3)
+				procCloseHandle.Call(uintptr(jobHandle))
+				jobHandle = 0
+			} else {
+				slog.Info("assigned running process to job", "pid", pi.ProcessId, "killOnClose", true)
+			}
+		}
+	}
+	
 	finalDll := dll
 	if noInject {
 		if finalDll == "" { finalDll = "(no injection)" } else { finalDll += " (injection disabled)" }
