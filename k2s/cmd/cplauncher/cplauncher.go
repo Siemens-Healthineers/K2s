@@ -541,6 +541,9 @@ func main() {
 	flag.BoolVar(&waitTree, "wait-tree", false, "Wait for the full process tree (job) to exit; also terminates remaining child processes if the launcher exits unexpectedly")
 	flag.BoolVar(&legacyInject, "legacy-inject", false, "Use legacy CreateRemoteThread injection (may be detected by Windows Defender); default uses stealthier NtCreateThreadEx")
 	flag.Parse()
+	flag.BoolVar(&waitTree, "wait-tree", false, "Wait for the full process tree (job) to exit; also terminates remaining child processes if the launcher exits unexpectedly")
+
+	// Note: detailed logging only active after logger initialization; early stage kept minimal.
 
 	// Note: detailed logging only active after logger initialization; early stage kept minimal.
 
@@ -737,6 +740,31 @@ func main() {
 		slog.Error("create process failed", "error", err, "exe", exe)
 		dumpRecentErrorLines(logFilePath, 20)
 		os.Exit(1)
+	}
+	// Optionally create & assign job object while process is still suspended
+	var jobHandle syscall.Handle
+	if waitTree {
+		slog.Debug("creating job object")
+		r1, _, e1 := procCreateJobObjectW.Call(0, 0)
+		if r1 == 0 {
+			slog.Error("CreateJobObjectW failed; proceeding without job", "error", e1)
+		} else {
+			jobHandle = syscall.Handle(r1)
+			var info JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+			info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+			r2, _, e2 := procSetInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectExtendedLimitInformation), uintptr(unsafe.Pointer(&info)), uintptr(unsafe.Sizeof(info)))
+			if r2 == 0 {
+				slog.Warn("SetInformationJobObject failed", "error", e2)
+			}
+			r3, _, e3 := procAssignProcessToJobObject.Call(uintptr(jobHandle), uintptr(pi.Process))
+			if r3 == 0 {
+				slog.Error("AssignProcessToJobObject failed; disabling wait-tree", "error", e3)
+				procCloseHandle.Call(uintptr(jobHandle))
+				jobHandle = 0
+			} else {
+				slog.Info("assigned process to job", "pid", pi.ProcessId, "killOnClose", true)
+			}
+		}
 	}
 	// Parent no longer needs write ends
 	procCloseHandle.Call(uintptr(stdoutW))
