@@ -724,8 +724,8 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] before slog export offset computed\n")
 		os.Stderr.Sync()
-		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
-		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after export offset computed, offset=%x\n", offset)
+		// slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset)) // COMMENTED: This line kills the process!
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after export offset computed (slog skipped), offset=%x\n", offset)
 		os.Stderr.Sync()
 		
 		// TEMPORARILY SKIP getModuleBase to test if AV/Defender is killing us
