@@ -722,8 +722,10 @@ func main() {
 			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] before slog export offset computed\n")
+		os.Stderr.Sync()
 		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
-		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after export offset computed\n")
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after export offset computed, offset=%x\n", offset)
 		os.Stderr.Sync()
 		
 		// TEMPORARILY SKIP getModuleBase to test if AV/Defender is killing us
