@@ -723,6 +723,8 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
+		logFile.Sync() // Force flush before potentially risky operation
+		slog.Debug("about to enumerate module base")
 		slog.Debug("attempting to enumerate module base", "pid", pi.ProcessId, "dll", filepath.Base(dll))
 		func() {
 			defer func() {
