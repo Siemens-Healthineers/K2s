@@ -716,7 +716,11 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Debug("dll injected successfully", "base", fmt.Sprintf("0x%x", base))
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] before computeExportOffset\n")
+		os.Stderr.Sync()
 		offset, err := computeExportOffset(dll, exportName)
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after computeExportOffset, offset=%x\n", offset)
+		os.Stderr.Sync()
 		if err != nil {
 			slog.Error("compute export offset failed", "error", err, "export", exportName)
 			dumpRecentErrorLines(logFilePath, 20)
