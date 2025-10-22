@@ -814,6 +814,7 @@ func main() {
 		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
 		
 		// Check if child process is still alive before proceeding
+		slog.Debug("checking child process liveness before module enumeration")
 		var exitCode uint32
 		r, _, _ := procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
 		if r != 0 && exitCode != 259 { // 259 = STILL_ACTIVE
@@ -822,6 +823,7 @@ func main() {
 			os.Exit(1)
 		}
 		
+		slog.Debug("child process still active, proceeding to module enumeration")
 		if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
 			base = enumBase
 			slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))

@@ -149,11 +149,23 @@ c:\ws\k2s\bin\cni\cplauncher.exe -label app=albums-win1 -namespace k2s -- c:\ws\
 
 **Required Solution - Add Windows Defender Exclusion** (requires administrator privileges on the test/deployment machine):
 ```powershell
-# Recommended: Exclude the entire cplauncher directory
+# RECOMMENDED: Exclude the entire cplauncher directory (most reliable)
 Add-MpPreference -ExclusionPath "C:\ws\k2s\bin\cni"
 
-# OR exclude just the process:
+# If you need to exclude just the specific executable, use FULL PATH:
+Add-MpPreference -ExclusionPath "C:\ws\k2s\bin\cni\cplauncher.exe"
+
+# Process-based exclusion (less reliable, may not work in all cases):
 Add-MpPreference -ExclusionProcess "cplauncher.exe"
+```
+
+**IMPORTANT**: If you used process-based exclusion (`-ExclusionProcess`) and still see crashes, **remove it and use path-based exclusion instead**:
+```powershell
+# Remove process exclusion
+Remove-MpPreference -ExclusionProcess "cplauncher.exe"
+
+# Add path exclusion (more reliable)
+Add-MpPreference -ExclusionPath "C:\ws\k2s\bin\cni"
 ```
 
 **Verify exclusion was added:**
