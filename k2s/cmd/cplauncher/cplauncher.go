@@ -765,22 +765,28 @@ func main() {
 	var exitCode uint32
 	procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
 	slog.Debug("primary process exited", "pid", pi.ProcessId, "exitCode", exitCode)
-	// If job tracking requested, wait until all job processes (descendants) also exit
+	// If job tracking requested, poll accounting info until job empties instead of blocking indefinitely
 	if waitTree && jobHandle != 0 {
-		slog.Info("waiting for remaining job processes", "pid", pi.ProcessId)
-		syscall.WaitForSingleObject(jobHandle, syscall.INFINITE)
-		// Query job accounting info to report how many processes participated
-		var acct JOBOBJECT_BASIC_ACCOUNTING_INFORMATION
-		rAcct, _, eAcct := procQueryInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectBasicAccountingInformation), uintptr(unsafe.Pointer(&acct)), uintptr(unsafe.Sizeof(acct)), 0)
-		if rAcct == 0 {
-			slog.Warn("QueryInformationJobObject accounting failed", "error", eAcct)
-			slog.Info("job processes complete", "pid", pi.ProcessId)
-		} else {
-			slog.Info("job processes complete", "pid", pi.ProcessId,
-				"totalProcesses", acct.TotalProcesses,
-				"activeProcessesAtQuery", acct.ActiveProcesses,
-				"terminatedProcesses", acct.TotalTerminatedProcesses,
-				"pageFaults", acct.TotalPageFaultCount)
+		poll := 500 * time.Millisecond
+		startJobWait := time.Now()
+		slog.Info("waiting for remaining job processes", "pid", pi.ProcessId, "pollInterval", poll)
+		var lastActive uint32
+		for {
+			var acct JOBOBJECT_BASIC_ACCOUNTING_INFORMATION
+			rAcct, _, eAcct := procQueryInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectBasicAccountingInformation), uintptr(unsafe.Pointer(&acct)), uintptr(unsafe.Sizeof(acct)), 0)
+			if rAcct == 0 {
+				slog.Warn("QueryInformationJobObject accounting failed", "error", eAcct)
+				break
+			}
+			if acct.ActiveProcesses == 0 { // all descendants exited
+				slog.Info("job empty", "pid", pi.ProcessId, "totalProcesses", acct.TotalProcesses, "terminatedProcesses", acct.TotalTerminatedProcesses, "waitElapsed", time.Since(startJobWait))
+				break
+			}
+			if acct.ActiveProcesses != lastActive {
+				slog.Debug("job still active", "activeProcesses", acct.ActiveProcesses, "terminatedProcesses", acct.TotalTerminatedProcesses)
+				lastActive = acct.ActiveProcesses
+			}
+			time.Sleep(poll)
 		}
 		procCloseHandle.Call(uintptr(jobHandle))
 	}
