@@ -723,9 +723,17 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after export offset computed\n")
+		os.Stderr.Sync()
 		logFile.Sync() // Force flush before potentially risky operation
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after logFile.Sync()\n")
+		os.Stderr.Sync()
 		slog.Debug("about to enumerate module base")
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after slog about to enumerate\n")
+		os.Stderr.Sync()
 		slog.Debug("attempting to enumerate module base", "pid", pi.ProcessId, "dll", filepath.Base(dll))
+		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] before getModuleBase call\n")
+		os.Stderr.Sync()
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
