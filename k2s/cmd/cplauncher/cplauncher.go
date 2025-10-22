@@ -348,21 +348,14 @@ func getModuleBase(pid uint32, module string) (uintptr, error) {
 
 func callRemoteExport(h syscall.Handle, base, offset uintptr, compartment uint32) error {
 	fn := base + offset
-	slog.Debug("CreateRemoteThread for export", "fn", fmt.Sprintf("0x%x", fn), "compartment", compartment)
 	hThread, _, e1 := procCreateRemoteThread.Call(uintptr(h), 0, 0, fn, uintptr(compartment), 0, 0)
 	if hThread == 0 {
 		return fmt.Errorf("CreateRemoteThread export: %v", e1)
 	}
 	defer procCloseHandle.Call(hThread)
-	slog.Debug("waiting for remote export thread", "hThread", fmt.Sprintf("0x%x", hThread))
-	waitResult, _ := syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
-	slog.Debug("remote export thread wait returned", "result", waitResult)
+	syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
 	var code uint32
-	r, _, eGet := procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&code)))
-	if r == 0 {
-		slog.Warn("GetExitCodeThread failed", "error", eGet)
-	}
-	slog.Debug("remote export thread exit code", "code", code)
+	procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&code)))
 	if code != 0 {
 		return fmt.Errorf("remote SetTargetCompartmentId returned %d", code)
 	}
@@ -697,16 +690,6 @@ func main() {
 	defer procCloseHandle.Call(uintptr(pi.Process))
 	defer procCloseHandle.Call(uintptr(pi.Thread))
 
-	// Recover from panics during injection to ensure logs are captured
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("panic during injection or setup", "panic", r, "stack", string(debug.Stack()))
-			logFile.Sync()
-			dumpRecentErrorLines(logFilePath, 30)
-			os.Exit(1)
-		}
-	}()
-
 	if !noInject {
 		slog.Debug("injection start", "dll", dll, "export", exportName, "selfEnv", selfEnv)
 		base, err := injectDLL(pi.Process, dll)
@@ -716,24 +699,18 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Debug("dll injected successfully", "base", fmt.Sprintf("0x%x", base))
-		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] before computeExportOffset\n")
-		os.Stderr.Sync()
 		offset, err := computeExportOffset(dll, exportName)
-		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] after computeExportOffset, offset=%x, err=%v\n", offset, err)
-		os.Stderr.Sync()
-		// Skip problematic error check and logging that triggers external termination
-		// Just bail if offset is 0 (which would indicate failure)
-		if offset == 0 {
-			fmt.Fprintf(os.Stderr, "[ERROR] offset is zero, bailing\n")
+		if err != nil {
+			slog.Error("compute export offset failed", "error", err, "export", exportName)
+			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
-		
-		// Skip getModuleBase - use injected base directly
-		fmt.Fprintf(os.Stderr, "[DIAGNOSTIC] proceeding to remote call, base=%x offset=%x\n", base, offset)
-		os.Stderr.Sync()
-		
+		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
+		if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
+			base = enumBase
+			slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
+		}
 		if !selfEnv { // only attempt remote call if not deferring to target
-			slog.Debug("calling remote export", "export", exportName, "compartment", compartment)
 			if err := callRemoteExport(pi.Process, base, offset, uint32(compartment)); err != nil {
 				slog.Error("remote export call failed", "error", err, "compartment", compartment)
 				dumpRecentErrorLines(logFilePath, 20)
