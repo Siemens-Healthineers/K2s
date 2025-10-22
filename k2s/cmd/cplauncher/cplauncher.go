@@ -46,6 +46,11 @@ var (
 	procCreateToolhelp32Snapshot = kernel32.NewProc("CreateToolhelp32Snapshot")
 	procModule32FirstW           = kernel32.NewProc("Module32FirstW")
 	procModule32NextW            = kernel32.NewProc("Module32NextW")
+	// Job object related procs
+	procCreateJobObjectW         = kernel32.NewProc("CreateJobObjectW")
+	procSetInformationJobObject  = kernel32.NewProc("SetInformationJobObject")
+	procAssignProcessToJobObject = kernel32.NewProc("AssignProcessToJobObject")
+	procQueryInformationJobObject = kernel32.NewProc("QueryInformationJobObject")
 	iphlpapi                     = syscall.NewLazyDLL("iphlpapi.dll")
 )
 
@@ -59,6 +64,13 @@ const (
 	TH32CS_SNAPMODULE32        = 0x00000010
 	STARTF_USESTDHANDLES      = 0x00000100
 	HANDLE_FLAG_INHERIT       = 0x00000001
+)
+
+// Job object constants
+const (
+	JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+	JobObjectExtendedLimitInformation  = 9
+	JobObjectBasicAccountingInformation = 1
 )
 
 // startupInfo mirrors Windows STARTUPINFOW (only fields we need) for std handle redirection.
@@ -101,6 +113,49 @@ type moduleEntry32 struct {
 	HModule       syscall.Handle
 	SzModule      [256]uint16
 	SzExePath     [260]uint16
+}
+
+// Job object related structs (subset)
+type JOBOBJECT_BASIC_LIMIT_INFORMATION struct {
+	PerProcessUserTimeLimit int64
+	PerJobUserTimeLimit     int64
+	LimitFlags              uint32
+	MinimumWorkingSetSize   uintptr
+	MaximumWorkingSetSize   uintptr
+	ActiveProcessLimit      uint32
+	Affinity                uintptr
+	PriorityClass           uint32
+	SchedulingClass         uint32
+}
+
+type IO_COUNTERS struct {
+	ReadOperationCount  uint64
+	WriteOperationCount uint64
+	OtherOperationCount uint64
+	ReadTransferCount   uint64
+	WriteTransferCount  uint64
+	OtherTransferCount  uint64
+}
+
+type JOBOBJECT_EXTENDED_LIMIT_INFORMATION struct {
+	BasicLimitInformation JOBOBJECT_BASIC_LIMIT_INFORMATION
+	IoInfo                IO_COUNTERS
+	ProcessMemoryLimit    uintptr
+	JobMemoryLimit        uintptr
+	PeakProcessMemoryUsed uintptr
+	PeakJobMemoryUsed     uintptr
+}
+
+// Basic accounting info for job object (subset; matching Windows layout)
+type JOBOBJECT_BASIC_ACCOUNTING_INFORMATION struct {
+	TotalUserTime              int64
+	TotalKernelTime            int64
+	ThisPeriodTotalUserTime    int64
+	ThisPeriodTotalKernelTime  int64
+	TotalPageFaultCount        uint32
+	TotalProcesses             uint32
+	ActiveProcesses            uint32
+	TotalTerminatedProcesses   uint32
 }
 
 func utf16Ptr(s string) *uint16 { p, _ := syscall.UTF16PtrFromString(s); return p }
@@ -370,6 +425,7 @@ func main() {
 	var labelTimeoutStr string
 	var logsKeep int
 	var logMaxAgeStr string
+	var waitTree bool
 
 	versionFlag := cli.NewVersionFlag(cliName)
 
@@ -388,6 +444,7 @@ func main() {
 	flag.StringVar(&verbosity, cli.VerbosityFlagName, logging.LevelToLowerString(slog.LevelInfo), cli.VerbosityFlagHelp())
 	flag.StringVar(&verbosity, "v", logging.LevelToLowerString(slog.LevelInfo), "Alias for -verbosity")
 	flag.Parse()
+	flag.BoolVar(&waitTree, "wait-tree", false, "Wait for the full process tree (job) to exit; also terminates remaining child processes if the launcher exits unexpectedly")
 
 	// Note: detailed logging only active after logger initialization; early stage kept minimal.
 
@@ -575,12 +632,37 @@ func main() {
 	stderrR, stderrW, err := makePipe()
 	if err != nil { slog.Error("pipe setup failed", "stream", "stderr", "error", err); os.Exit(1) }
 
-	slog.Debug("creating suspended child", "exe", exe, "args", args)
+	slog.Debug("creating suspended child", "exe", exe, "args", args, "waitTree", waitTree)
 	pi, err := createSuspended(exe, args, stdoutW, stderrW)
 	if err != nil {
 		slog.Error("create process failed", "error", err, "exe", exe)
 		dumpRecentErrorLines(logFilePath, 20)
 		os.Exit(1)
+	}
+	// Optionally create & assign job object while process is still suspended
+	var jobHandle syscall.Handle
+	if waitTree {
+		slog.Debug("creating job object")
+		r1, _, e1 := procCreateJobObjectW.Call(0, 0)
+		if r1 == 0 {
+			slog.Error("CreateJobObjectW failed; proceeding without job", "error", e1)
+		} else {
+			jobHandle = syscall.Handle(r1)
+			var info JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+			info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+			r2, _, e2 := procSetInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectExtendedLimitInformation), uintptr(unsafe.Pointer(&info)), uintptr(unsafe.Sizeof(info)))
+			if r2 == 0 {
+				slog.Warn("SetInformationJobObject failed", "error", e2)
+			}
+			r3, _, e3 := procAssignProcessToJobObject.Call(uintptr(jobHandle), uintptr(pi.Process))
+			if r3 == 0 {
+				slog.Error("AssignProcessToJobObject failed; disabling wait-tree", "error", e3)
+				procCloseHandle.Call(uintptr(jobHandle))
+				jobHandle = 0
+			} else {
+				slog.Info("assigned process to job", "pid", pi.ProcessId, "killOnClose", true)
+			}
+		}
 	}
 	// Parent no longer needs write ends
 	procCloseHandle.Call(uintptr(stdoutW))
@@ -677,11 +759,31 @@ func main() {
 	}
 	slog.Info("child running", "pid", pi.ProcessId, "dll", finalDll, "compartment", compartment, "selfEnv", selfEnv, "noInject", noInject, "logFile", logFilePath, "stdoutCapture", childStdoutPath, "stderrCapture", childStderrPath)
 
-	// Wait for child exit
-	slog.Debug("waiting for child to exit", "pid", pi.ProcessId)
+	// Wait for primary process exit
+	slog.Debug("waiting for primary process exit", "pid", pi.ProcessId, "waitTree", waitTree)
 	syscall.WaitForSingleObject(syscall.Handle(pi.Process), syscall.INFINITE)
 	var exitCode uint32
 	procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
+	slog.Debug("primary process exited", "pid", pi.ProcessId, "exitCode", exitCode)
+	// If job tracking requested, wait until all job processes (descendants) also exit
+	if waitTree && jobHandle != 0 {
+		slog.Info("waiting for remaining job processes", "pid", pi.ProcessId)
+		syscall.WaitForSingleObject(jobHandle, syscall.INFINITE)
+		// Query job accounting info to report how many processes participated
+		var acct JOBOBJECT_BASIC_ACCOUNTING_INFORMATION
+		rAcct, _, eAcct := procQueryInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectBasicAccountingInformation), uintptr(unsafe.Pointer(&acct)), uintptr(unsafe.Sizeof(acct)), 0)
+		if rAcct == 0 {
+			slog.Warn("QueryInformationJobObject accounting failed", "error", eAcct)
+			slog.Info("job processes complete", "pid", pi.ProcessId)
+		} else {
+			slog.Info("job processes complete", "pid", pi.ProcessId,
+				"totalProcesses", acct.TotalProcesses,
+				"activeProcessesAtQuery", acct.ActiveProcesses,
+				"terminatedProcesses", acct.TotalTerminatedProcesses,
+				"pageFaults", acct.TotalPageFaultCount)
+		}
+		procCloseHandle.Call(uintptr(jobHandle))
+	}
 	// Wait for stream goroutines to finish consuming remaining buffered data
 	streamWG.Wait()
 
