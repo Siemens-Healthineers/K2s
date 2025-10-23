@@ -186,6 +186,43 @@ func startPodWatcher(ctx context.Context) {
 		for scanner.Scan() {
 			line := scanner.Text()
 			GinkgoWriter.Printf("[POD-WATCH] %s\n", line)
+			
+			// Check for error conditions and dump deployment logs
+			lineUpper := strings.ToUpper(line)
+			if strings.Contains(lineUpper, "ERROR") || strings.Contains(lineUpper, "CRASHLOOPBACKOFF") {
+				GinkgoWriter.Printf("[POD-WATCH] Error condition detected! Dumping deployment logs...\n")
+				
+				// Run kubectl logs in a separate goroutine to avoid blocking the watcher
+				go func(errorLine string) {
+					defer func() {
+						if r := recover(); r != nil {
+							GinkgoWriter.Printf("[POD-WATCH] Panic while dumping logs: %v\n", r)
+						}
+					}()
+					
+					// Create a new context with timeout for log retrieval
+					logCtx, logCancel := context.WithTimeout(context.Background(), 30*time.Second)
+					defer logCancel()
+					
+					deploymentName := "albums-win-hp-app-hostprocess"
+					
+					// Execute kubectl logs
+					logCmd := exec.CommandContext(logCtx, kubectlPath, "logs", 
+						"deployment/"+deploymentName, 
+						"-n", namespace,
+						"--tail=100",
+						"--timestamps")
+					
+					output, err := logCmd.CombinedOutput()
+					if err != nil {
+						GinkgoWriter.Printf("[POD-WATCH] Failed to retrieve logs for deployment/%s: %v\n", deploymentName, err)
+					} else {
+						GinkgoWriter.Printf("[POD-WATCH] ========== DEPLOYMENT LOGS (triggered by: %s) ==========\n", errorLine)
+						GinkgoWriter.Printf("%s\n", string(output))
+						GinkgoWriter.Printf("[POD-WATCH] ========== END DEPLOYMENT LOGS ==========\n")
+					}
+				}(line)
+			}
 		}
 		
 		if err := scanner.Err(); err != nil && watchCtx.Err() == nil {
