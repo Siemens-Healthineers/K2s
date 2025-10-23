@@ -246,12 +246,13 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx, framework.RestartKubeProxy)
 })
 
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
+})
+
 var _ = Describe("HostProcess Workloads", func() {
-	var _ = AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			testFailed = true
-		}
-	})
 
 	It("anchor pod becomes Ready", func(ctx SpecContext) {
 		// The anchor pod is a single Pod object.
