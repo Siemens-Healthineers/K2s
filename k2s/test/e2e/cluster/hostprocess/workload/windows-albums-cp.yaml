@@ -78,7 +78,7 @@ spec:
             - -NoLogo
             - -NoProfile
             - -Command
-            - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -label-timeout 30s -wait-tree -- "$env:ALBUMS_WIN"'
+            - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -label-timeout 30s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
           readinessProbe:
             httpGet:
               host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local   # Service DNS name (same namespace)
