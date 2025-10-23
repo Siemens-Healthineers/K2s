@@ -24,7 +24,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/ory/hydra-client-go v1.11.8
 	github.com/pkg/errors v0.9.1
-	github.com/pkg/sftp v1.13.9
+	github.com/pkg/sftp v1.13.10
 	github.com/pterm/pterm v0.12.82
 	github.com/samber/lo v1.52.0
 	github.com/samber/slog-multi v1.5.0
