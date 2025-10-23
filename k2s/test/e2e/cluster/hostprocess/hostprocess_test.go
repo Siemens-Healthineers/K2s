@@ -156,8 +156,9 @@ func startPodWatcher(ctx context.Context) {
 	
 	GinkgoWriter.Println("Starting background pod watcher for namespace", namespace)
 	
-	// Build kubectl command with watch flag
-	kubectlPath := filepath.Join(suite.K2sTestConfig().BinariesRootDirectory(), "kubectl.exe")
+	// Get kubectl path from the test suite framework
+	kubectlPath := suite.Kubectl().Path()
+	
 	podWatcherCmd = exec.CommandContext(watchCtx, kubectlPath, "get", "pods", "-n", namespace, "-o", "wide", "-w")
 	
 	// Create a pipe to capture stdout
