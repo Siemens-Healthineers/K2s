@@ -325,7 +325,11 @@ var _ = AfterSuite(func(ctx context.Context) {
 	isRunning := status.IsClusterRunning()
 	GinkgoWriter.Println("Cluster is running:", isRunning)
 
-	if testFailed {
+	// Check if any tests failed using CurrentSpecReport
+	// This works even if BeforeSuite failed or if testFailed wasn't set
+	hasFailed := testFailed || CurrentSpecReport().Failed()
+	
+	if hasFailed {
 		GinkgoWriter.Println("Test failed; dumping system diagnostics")
 		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
 		return // keep workloads for inspection
