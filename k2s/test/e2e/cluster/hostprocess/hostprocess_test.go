@@ -4,6 +4,7 @@
 package hostprocess
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -39,7 +40,9 @@ var (
 
 	manifestDir string
 	testFailed  bool
-    createdSystemRole bool
+	createdSystemRole bool
+	podWatcherCmd *exec.Cmd
+	podWatcherCancel context.CancelFunc
 )
 
 const (
@@ -146,6 +149,112 @@ func isRunningAsSystem() bool {
 	return strings.EqualFold(user, "NT AUTHORITY\\SYSTEM")
 }
 
+// startPodWatcher starts a background kubectl watch process that continuously logs pod status
+func startPodWatcher(ctx context.Context) {
+	watchCtx, cancel := context.WithCancel(ctx)
+	podWatcherCancel = cancel
+	
+	GinkgoWriter.Println("Starting background pod watcher for namespace", namespace)
+	
+	// Get kubectl path from the test suite framework
+	kubectlPath := suite.Kubectl().Path()
+	
+	podWatcherCmd = exec.CommandContext(watchCtx, kubectlPath, "get", "pods", "-n", namespace, "-o", "wide", "-w")
+	
+	// Create a pipe to capture stdout
+	stdout, err := podWatcherCmd.StdoutPipe()
+	if err != nil {
+		GinkgoWriter.Printf("Warning: failed to create stdout pipe for pod watcher: %v\n", err)
+		return
+	}
+	
+	// Start the command
+	if err := podWatcherCmd.Start(); err != nil {
+		GinkgoWriter.Printf("Warning: failed to start pod watcher: %v\n", err)
+		return
+	}
+	
+	// Read output in a goroutine and write to GinkgoWriter
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				GinkgoWriter.Printf("Pod watcher goroutine panic: %v\n", r)
+			}
+		}()
+		
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			line := scanner.Text()
+			GinkgoWriter.Printf("[POD-WATCH] %s\n", line)
+			
+			// Check for error conditions and dump deployment logs
+			lineUpper := strings.ToUpper(line)
+			if strings.Contains(lineUpper, "ERROR") || strings.Contains(lineUpper, "CRASHLOOPBACKOFF") {
+				GinkgoWriter.Printf("[POD-WATCH] Error condition detected! Dumping deployment logs...\n")
+				
+				// Run kubectl logs in a separate goroutine to avoid blocking the watcher
+				go func(errorLine string) {
+					defer func() {
+						if r := recover(); r != nil {
+							GinkgoWriter.Printf("[POD-WATCH] Panic while dumping logs: %v\n", r)
+						}
+					}()
+					
+					// Create a new context with timeout for log retrieval
+					logCtx, logCancel := context.WithTimeout(context.Background(), 30*time.Second)
+					defer logCancel()
+					
+					deploymentName := "albums-win-hp-app-hostprocess"
+					
+					// Execute kubectl logs
+					logCmd := exec.CommandContext(logCtx, kubectlPath, "logs", 
+						"deployment/"+deploymentName, 
+						"-n", namespace,
+						"--tail=100",
+						"--timestamps")
+					
+					output, err := logCmd.CombinedOutput()
+					if err != nil {
+						GinkgoWriter.Printf("[POD-WATCH] Failed to retrieve logs for deployment/%s: %v\n", deploymentName, err)
+					} else {
+						GinkgoWriter.Printf("[POD-WATCH] ========== DEPLOYMENT LOGS (triggered by: %s) ==========\n", errorLine)
+						GinkgoWriter.Printf("%s\n", string(output))
+						GinkgoWriter.Printf("[POD-WATCH] ========== END DEPLOYMENT LOGS ==========\n")
+					}
+				}(line)
+			}
+		}
+		
+		if err := scanner.Err(); err != nil && watchCtx.Err() == nil {
+			GinkgoWriter.Printf("Pod watcher scanner error: %v\n", err)
+		}
+	}()
+	
+	GinkgoWriter.Println("Pod watcher started successfully")
+}
+
+// stopPodWatcher stops the background pod watcher process
+func stopPodWatcher() {
+	if podWatcherCancel != nil {
+		GinkgoWriter.Println("Stopping pod watcher...")
+		podWatcherCancel()
+		podWatcherCancel = nil
+	}
+	
+	if podWatcherCmd != nil && podWatcherCmd.Process != nil {
+		// Give it a moment to terminate gracefully
+		time.Sleep(500 * time.Millisecond)
+		
+		// Force kill if still running
+		if err := podWatcherCmd.Process.Kill(); err != nil && !strings.Contains(err.Error(), "already finished") {
+			GinkgoWriter.Printf("Warning: failed to kill pod watcher process: %v\n", err)
+		}
+		
+		podWatcherCmd = nil
+		GinkgoWriter.Println("Pod watcher stopped")
+	}
+}
+
 var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = resolveManifestDir()
 
@@ -176,6 +285,9 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	suite.Kubectl().Run(ctx, "delete", "namespace", namespace, "--ignore-not-found=true")
 	suite.Kubectl().Run(ctx, "create", "namespace", namespace)
 
+	// Start pod watcher in background after namespace is created
+	startPodWatcher(ctx)
+
 	// Create log directory for albumswin
 	albumsLogDir := `C:\var\log\albumswin`
 	if err := os.MkdirAll(albumsLogDir, 0755); err != nil {
@@ -205,12 +317,19 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	// Stop the pod watcher before cleanup
+	stopPodWatcher()
+	
 	GinkgoWriter.Println("Status of cluster after hostprocess test runs...")
 	status := suite.K2sCli().GetStatus(ctx)
 	isRunning := status.IsClusterRunning()
 	GinkgoWriter.Println("Cluster is running:", isRunning)
 
-	if testFailed {
+	// Check if any tests failed using CurrentSpecReport
+	// This works even if BeforeSuite failed or if testFailed wasn't set
+	hasFailed := testFailed || CurrentSpecReport().Failed()
+	
+	if hasFailed {
 		GinkgoWriter.Println("Test failed; dumping system diagnostics")
 		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
 		return // keep workloads for inspection
@@ -246,12 +365,13 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx, framework.RestartKubeProxy)
 })
 
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
+})
+
 var _ = Describe("HostProcess Workloads", func() {
-	var _ = AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			testFailed = true
-		}
-	})
 
 	It("anchor pod becomes Ready", func(ctx SpecContext) {
 		// The anchor pod is a single Pod object.
