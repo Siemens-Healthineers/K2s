@@ -251,11 +251,15 @@ try {
 
             if ($null -ne $implementation.offline_usage) {
                 $linuxPackages = $implementation.offline_usage.linux
-                $additionImages = $linuxPackages.additionalImages
-                $linuxImages += $additionImages
+                $linuxImages += $linuxPackages.additionalImages
+                
+                if ($linuxPackages.additionalImagesFiles) {
+                    $linuxImages += Get-ImagesFromYamlFiles -YamlFiles $linuxPackages.additionalImagesFiles -BaseDirectory $dirPath
+                }
             }
 
             $linuxImages = $linuxImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
+            $linuxImages = Remove-VersionlessImages -Images $linuxImages
             $windowsImages = $windowsImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
             $images += $linuxImages
             $images += $windowsImages
