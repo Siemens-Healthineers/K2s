@@ -20,25 +20,25 @@ Host $SshHost
     $ConfigPath = Join-Path -Path $env:USERPROFILE -ChildPath ".ssh\config"
 
     if (-Not (Test-Path -Path $ConfigPath)) {
-        Write-Log -Message "SSH config file not found. Creating new file at $ConfigPath." -Console
+        Write-Log -Message "SSH config file not found. Creating new file at $ConfigPath."
         New-Item -ItemType File -Path $ConfigPath -Force | Out-Null
     }
 
     $ExistingConfig = Get-Content -Path $ConfigPath -ErrorAction SilentlyContinue
     if ($ExistingConfig -notcontains "Host $SshHost") {
-        Write-Log -Message "Adding $SshHost entry to SSH config file." -Console
+        Write-Log -Message "Adding $SshHost entry to SSH config file."
         Add-Content -Path $ConfigPath -Value $ConfigEntry
     } else {
-        Write-Log -Message "$SshHost entry already exists in SSH config file. Skipping update." -Console
+        Write-Log -Message "$SshHost entry already exists in SSH config file. Skipping update."
     }
 }
 
 function Remove-SshConfigFile {
     $ConfigPath = Join-Path -Path $env:USERPROFILE -ChildPath ".ssh\config"
     if (Test-Path -Path $ConfigPath) {
-        Write-Log -Message "[SSHConfig] Removing SSH config file at $ConfigPath." -Console
+        Write-Log -Message "[SSHConfig] Removing SSH config file at $ConfigPath."
         Remove-Item -Path $ConfigPath -Force
     } else {
-        Write-Log -Message "[SSHConfig] SSH config file not found at $ConfigPath. Nothing to remove." -Console
+        Write-Log -Message "[SSHConfig] SSH config file not found at $ConfigPath. Nothing to remove."
     }
 }
