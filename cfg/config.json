@@ -73,7 +73,7 @@
         },
         "upgrade": {
             "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gateway,gpu-node,ingress-nginx,kubevirt,monitoring,registry",
-            "excludednamespacedresources": "",
+            "excludednamespacedresources": "endpoints,endpointslices",
             "excludedclusterresources": "componentstatuses,nodes,csinodes"
         }
     },
