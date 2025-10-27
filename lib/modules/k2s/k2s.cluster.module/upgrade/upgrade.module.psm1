@@ -192,7 +192,11 @@ function Export-NamespacedResources {
 		$excludednamespaces = $enspaces.Split(',')
 	}
 	# excluded resource list
-	$excludednamespacedresources = $rootConfig.upgrade.excludednamespacedresources
+	$excludednamespacedresources = @()
+	$enamespacedres = $rootConfig.upgrade.excludednamespacedresources
+	if ( $enamespacedres ) {
+		$excludednamespacedresources = $enamespacedres.Split(',')
+	}
 
 	# iterate over all namespaces
 	foreach ($namespace in $namespaces) {
