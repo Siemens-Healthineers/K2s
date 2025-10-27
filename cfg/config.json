@@ -74,7 +74,7 @@
         "upgrade": {
             "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gateway,gpu-node,ingress-nginx,kubevirt,monitoring,registry",
             "excludednamespacedresources": "endpoints,endpointslices",
-            "excludedclusterresources": "componentstatuses,nodes,csinodes"
+            "excludedclusterresources": "componentstatuses,nodes,csinodes,ipaddresses,certificatesigningrequests,storageclasses,servicecidrs,apiservices,flowschemas,prioritylevelconfigurations,ingressclasses,runtimeclasses,storageclasses"
         }
     },
     "configDir": {
