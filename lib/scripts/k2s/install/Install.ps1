@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 Param(
-# Main parameters
+    # Main parameters
     [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of Control Plane VM (Linux)')]
     [long] $MasterVMMemory = 8GB,
     [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for Control Plane VM (Linux)')]
@@ -23,7 +23,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
     [switch] $ForceOnlineInstallation = $false,
 
-# These are specific developer options
+    # These are specific developer options
     [parameter(Mandatory = $false, HelpMessage = 'Exit after initial checks')]
     [switch] $CheckOnly = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Do not call the StartK8s at end')]
@@ -93,10 +93,8 @@ $controlPlaneNodeParams = @{
 }
 & "$PSScriptRoot\..\..\control-plane\Install.ps1" @controlPlaneNodeParams
 
-# --- SSH config for KubeMaster ---
-Write-Log -Message "Configuring SSH for KubeMaster..." -Console
+Write-Log -Message "Configuring SSH for KubeMaster..."
 Write-SshConfig
-# --- End SSH config ---
 
 $workerNodeParams = @{
     ShowLogs = $ShowLogs
