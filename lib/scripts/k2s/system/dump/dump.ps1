@@ -171,7 +171,7 @@ function Invoke-HostDiagnosticsCollection(
     Write-Log '[HostDiag] Collecting ipconfig /allcompartments...'
     ipconfig /allcompartments | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir "ipconfig-allcompartments.txt") -Description "ipconfig /allcompartments"
     Write-Log '[HostDiag] Collecting NetConnectionProfile...'
-    Get-NetConnectionProfile | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir "netconnectionprofile.txt") -Description "Get-NetConnectionProfile"
+    Get-NetConnectionProfile | Sort-Object InterfaceAlias -Unique | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir "netconnectionprofile.txt") -Description "Get-NetConnectionProfile"
     Write-Log '[HostDiag] Collecting MSINFO32...'
     $msinfoFile = Join-Path $HostDiagnosticsDir "$env:COMPUTERNAME`_MSINFO32.NFO"
     Start-Process -FilePath "MSINFO32.exe" -ArgumentList "/nfo $msinfoFile /categories +all" -Wait
@@ -205,6 +205,7 @@ try {
     Invoke-HostDetailsCollection -NodeDetailsDirectory $hostInfoDir
     Invoke-LinuxNodeDetailsCollection -NodeDetailsDirectory $hostInfoDir
 
+    # Cluster and host diagnostics collection
     $clusterDiagnosticsDir = Join-Path $tempDir 'cluster'
     $hostDiagnosticsDir = Join-Path $tempDir 'host'
     Write-Log 'Gathering cluster diagnostics..' -Console
