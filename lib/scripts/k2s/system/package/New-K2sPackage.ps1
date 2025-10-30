@@ -33,7 +33,9 @@ Param(
     [string] $Password,
     [parameter(Mandatory = $false, HelpMessage = 'Packaging profile: Dev (default) or Lite (reduced footprint)')]
     [ValidateSet('Dev','Lite')]
-    [string] $Profile = 'Dev'
+    [string] $Profile = 'Dev',
+    [parameter(Mandatory = $false, HelpMessage = 'Comma-separated list of addons to include in the package (default: all available addons)')]
+    [string] $AddonsList = ''
 )
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -48,6 +50,7 @@ Write-Log "- Proxy to be used: $Proxy"
 Write-Log "- Target Directory: $TargetDirectory"
 Write-Log "- Package file name: $ZipPackageFileName"
 Write-Log "- Profile: $Profile"
+Write-Log "- Addons List: $AddonsList"
 
 Add-type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -406,28 +409,129 @@ $exclusionList += "$kubePath\bin\debian-12-genericcloud-amd64.qcow2"  # Large gu
 # Inclusion list (whitelist) - initialized empty; may be populated per profile
 $inclusionList = @()
 
+# Parse addons list if provided
+$selectedAddons = @()
+if ($AddonsList -ne '') {
+    $selectedAddons = $AddonsList.Split(',') | ForEach-Object { $_.Trim() }
+    Write-Log "[Addons] Custom addon list specified: $($selectedAddons -join ', ')" -Console
+}
+
+# Dynamically discover all available addon implementations by scanning the addons directory
+function Get-AvailableAddons {
+    param(
+        [string]$AddonsRootPath
+    )
+    
+    $addonPaths = @{}
+    
+    if (-not (Test-Path $AddonsRootPath)) {
+        Write-Log "[Addons] Warning: Addons directory not found at '$AddonsRootPath'" -Console
+        return $addonPaths
+    }
+    
+    # Get all addon directories (exclude 'common' and module files)
+    $addonDirs = Get-ChildItem -Path $AddonsRootPath -Directory | Where-Object { $_.Name -ne 'common' }
+    
+    foreach ($addonDir in $addonDirs) {
+        $manifestPath = Join-Path $addonDir.FullName 'addon.manifest.yaml'
+        
+        if (Test-Path $manifestPath) {
+            # Check if this addon has multiple implementations (subdirectories with Enable.ps1)
+            $implDirs = Get-ChildItem -Path $addonDir.FullName -Directory | Where-Object {
+                Test-Path (Join-Path $_.FullName 'Enable.ps1')
+            }
+            
+            if ($implDirs.Count -gt 0) {
+                # Multi-implementation addon (e.g., ingress with nginx/traefik)
+                foreach ($implDir in $implDirs) {
+                    $addonKey = "$($addonDir.Name) $($implDir.Name)"
+                    $relativePath = "addons/$($addonDir.Name)/$($implDir.Name)"
+                    $addonPaths[$addonKey] = $relativePath
+                }
+            } else {
+                # Single-implementation addon (Enable.ps1 directly in addon folder)
+                $enableScript = Join-Path $addonDir.FullName 'Enable.ps1'
+                if (Test-Path $enableScript) {
+                    $addonKey = $addonDir.Name
+                    $relativePath = "addons/$($addonDir.Name)"
+                    $addonPaths[$addonKey] = $relativePath
+                }
+            }
+        }
+    }
+    
+    return $addonPaths
+}
+
+# Discover all available addons
+$addonsRootPath = Join-Path $kubePath 'addons'
+$allAddonPaths = Get-AvailableAddons -AddonsRootPath $addonsRootPath
+Write-Log "[Addons] Discovered $($allAddonPaths.Count) addon implementations" -Console
+
+
 if ($Profile -eq 'Lite') {
     Write-Log '[Profile] Applying Lite profile exclusions for reduced package size' -Console
     $liteExclude = @(
         (Join-Path $kubePath 'docs'),
         (Join-Path $kubePath 'k2s/test/e2e/addons'),
         (Join-Path $kubePath 'build'),
-        (Join-Path $kubePath 'addons/autoscaling'),  
-        (Join-Path $kubePath 'addons/dashboard'),
-        (Join-Path $kubePath 'addons/dicom'), 
-        (Join-Path $kubePath 'addons/gpu-node'),
-        (Join-Path $kubePath 'addons/ingress'),
-        (Join-Path $kubePath 'addons/kubevirt'),
-        (Join-Path $kubePath 'addons/logging'),
-        (Join-Path $kubePath 'addons/metrics'),
-        (Join-Path $kubePath 'addons/monitoring'),
-        (Join-Path $kubePath 'addons/registry'),
-        (Join-Path $kubePath 'addons/rollout'),
-        (Join-Path $kubePath 'addons/security'),
-        (Join-Path $kubePath 'addons/storage'),
-        (Join-Path $kubePath 'addons/viewer'),
         (Join-Path $kubePath 'bin/Kubemaster-Base.rootfs.tar.gz')
     )
+    
+    # Handle addon selection for Lite profile
+    if ($selectedAddons.Count -gt 0) {
+        # Specific addons requested: exclude those NOT selected
+        $pathsToInclude = @()
+        foreach ($addon in $selectedAddons) {
+            if ($allAddonPaths.ContainsKey($addon)) {
+                $pathsToInclude += $allAddonPaths[$addon]
+            } else {
+                Write-Log "[Addons] Warning: Unknown addon '$addon' - will be ignored" -Console
+            }
+        }
+        
+        # Exclude all addon paths NOT in the include list
+        foreach ($addonPath in $allAddonPaths.Values) {
+            if ($pathsToInclude -notcontains $addonPath) {
+                $liteExclude += (Join-Path $kubePath $addonPath)
+            }
+        }
+        
+        # For multi-implementation addons, exclude manifest if NO implementations are selected
+        $addonDirs = Get-ChildItem -Path $addonsRootPath -Directory | Where-Object { $_.Name -ne 'common' }
+        foreach ($addonDir in $addonDirs) {
+            # Check if this is a multi-implementation addon
+            $implDirs = Get-ChildItem -Path $addonDir.FullName -Directory | Where-Object {
+                Test-Path (Join-Path $_.FullName 'Enable.ps1')
+            }
+            
+            if ($implDirs.Count -gt 0) {
+                # Multi-implementation addon - check if any implementation is selected
+                $anyImplSelected = $false
+                foreach ($implDir in $implDirs) {
+                    $addonKey = "$($addonDir.Name) $($implDir.Name)"
+                    if ($selectedAddons -contains $addonKey) {
+                        $anyImplSelected = $true
+                        break
+                    }
+                }
+                
+                # If no implementations selected, exclude the manifest
+                if (-not $anyImplSelected) {
+                    $manifestPath = Join-Path $addonDir.FullName 'addon.manifest.yaml'
+                    if (Test-Path $manifestPath) {
+                        $liteExclude += (Join-Path $kubePath "addons/$($addonDir.Name)/addon.manifest.yaml")
+                    }
+                }
+            }
+        }
+        
+        Write-Log "[Profile+Addons] Lite profile with selected addons: $($selectedAddons -join ', ')" -Console
+    } else {
+        # No addons list specified: include ALL addons (default behavior)
+        Write-Log "[Profile] Lite profile: including all addons (default)" -Console
+    }
+    
     foreach ($p in $liteExclude) {
         if (-not ($exclusionList -contains $p)) { $exclusionList += $p }
     }
@@ -437,6 +541,63 @@ if ($Profile -eq 'Lite') {
     if (Test-Path $rootK2sExe) { $inclusionList += $rootK2sExe }
     $rootK2sExeLicense = Join-Path $kubePath 'k2s.exe.license'
     if (Test-Path $rootK2sExeLicense) { $inclusionList += $rootK2sExeLicense }
+} elseif ($selectedAddons.Count -gt 0) {
+    # Dev profile with custom addon list: exclude addons NOT in the selected list
+    Write-Log "[Addons] Dev profile with custom addon list: $($selectedAddons -join ', ')" -Console
+    
+    $pathsToInclude = @()
+    foreach ($addon in $selectedAddons) {
+        if ($allAddonPaths.ContainsKey($addon)) {
+            $pathsToInclude += $allAddonPaths[$addon]
+        } else {
+            Write-Log "[Addons] Warning: Unknown addon '$addon' - will be ignored" -Console
+        }
+    }
+    
+    # Exclude all addon paths NOT in the include list
+    foreach ($addonPath in $allAddonPaths.Values) {
+        if ($pathsToInclude -notcontains $addonPath) {
+            $fullPath = Join-Path $kubePath $addonPath
+            if (-not ($exclusionList -contains $fullPath)) { 
+                $exclusionList += $fullPath 
+            }
+        }
+    }
+    
+    # For multi-implementation addons, exclude manifest if NO implementations are selected
+    $addonDirs = Get-ChildItem -Path $addonsRootPath -Directory | Where-Object { $_.Name -ne 'common' }
+    foreach ($addonDir in $addonDirs) {
+        # Check if this is a multi-implementation addon
+        $implDirs = Get-ChildItem -Path $addonDir.FullName -Directory | Where-Object {
+            Test-Path (Join-Path $_.FullName 'Enable.ps1')
+        }
+        
+        if ($implDirs.Count -gt 0) {
+            # Multi-implementation addon - check if any implementation is selected
+            $anyImplSelected = $false
+            foreach ($implDir in $implDirs) {
+                $addonKey = "$($addonDir.Name) $($implDir.Name)"
+                if ($selectedAddons -contains $addonKey) {
+                    $anyImplSelected = $true
+                    break
+                }
+            }
+            
+            # If no implementations selected, exclude the manifest
+            if (-not $anyImplSelected) {
+                $manifestPath = Join-Path $addonDir.FullName 'addon.manifest.yaml'
+                if (Test-Path $manifestPath) {
+                    $fullPath = Join-Path $kubePath "addons/$($addonDir.Name)/addon.manifest.yaml"
+                    if (-not ($exclusionList -contains $fullPath)) {
+                        $exclusionList += $fullPath
+                    }
+                }
+            }
+        }
+    }
+} else {
+    # Dev profile with no addon list: include ALL addons (default behavior)
+    Write-Log "[Addons] Dev profile: including all addons (default)" -Console
 }
 
 # if the zip package is to be used for offline installation then use existing base image and windows node artifacts file
