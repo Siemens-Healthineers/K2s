@@ -249,20 +249,33 @@ try {
                 }
             }
 
+            # Process addon.manifest.yaml offline_usage section for image declarations
             if ($null -ne $implementation.offline_usage) {
                 $linuxPackages = $implementation.offline_usage.linux
-                $linuxImages += $linuxPackages.additionalImages
                 
+                # Collect Linux-only images from additionalImages
+                if ($linuxPackages.additionalImages) {
+                    $linuxImages += $linuxPackages.additionalImages
+                }
+                
+                # Extract images from referenced YAML manifest files (e.g., deployment.yaml)
                 if ($linuxPackages.additionalImagesFiles) {
                     $linuxImages += Get-ImagesFromYamlFiles -YamlFiles $linuxPackages.additionalImagesFiles -BaseDirectory $dirPath
+                }
+
+                # Collect Windows-specific images from additionalImages
+                $windowsPackages = $implementation.offline_usage.windows
+                if ($null -ne $windowsPackages -and $windowsPackages.additionalImages) {
+                    $windowsImages += $windowsPackages.additionalImages
                 }
             }
 
             $linuxImages = $linuxImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
             $linuxImages = Remove-VersionlessImages -Images $linuxImages
-            $windowsImages = $windowsImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
+            $windowsImages = $windowsImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }         
             $images += $linuxImages
             $images += $windowsImages
+            $images = $images | Select-Object -Unique
 
             mkdir -Force "${tmpExportDir}\addons\$dirName" | Out-Null
 
