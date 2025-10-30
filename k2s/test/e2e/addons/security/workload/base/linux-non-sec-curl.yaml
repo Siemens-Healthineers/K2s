@@ -19,9 +19,9 @@ spec:
     spec:
       containers:
         - name: curl1
-          image: curlimages/curl:8.5.0
+          image: docker.io/curlimages/curl:8.5.0
           command: [sh]
-          args: ['-c', 'echo +++ curl is now available +++; tail -f /dev/null']
+          args: ["-c", "echo +++ curl is now available +++; tail -f /dev/null"]
       nodeSelector:
         kubernetes.io/os: linux
       terminationGracePeriodSeconds: 5 #SIGKIL is not used and default is 30 seconds wait, so terminate early.

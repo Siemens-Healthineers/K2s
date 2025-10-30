@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: curl
-          image: curlimages/curl:8.5.0
+          image: docker.io/curlimages/curl:8.5.0
           command: [sh]
           args: ["-c", "echo +++ curl is now available +++; tail -f /dev/null"]
       nodeSelector:
