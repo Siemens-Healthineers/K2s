@@ -2010,7 +2010,7 @@ In addition, these solutions introduce packet-processing overhead and extra <abb
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>      hostPID: true
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>      containers:
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>      - name: iptables-configurator
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>        image: alpine:latest # A minimal, secure base image
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>        image: docker.io/library/alpine:latest # A minimal, secure base image
 <a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>        # This pod requires elevated privileges to modify host iptables
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>        securityContext:
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>          privileged: true
