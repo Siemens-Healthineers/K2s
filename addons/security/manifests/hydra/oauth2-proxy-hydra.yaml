@@ -23,15 +23,15 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7.2.4
+          image: docker.io/library/redis:7.2.4
           ports:
             - containerPort: 6379
           resources:
             limits:
-              cpu: '0.5'
-              memory: '512Mi'
-          command: ['redis-server']
-          args: ['--save', '', '--appendonly', 'no']
+              cpu: "0.5"
+              memory: "512Mi"
+          command: ["redis-server"]
+          args: ["--save", "", "--appendonly", "no"]
 ---
 apiVersion: v1
 kind: Service
