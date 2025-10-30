@@ -74,9 +74,9 @@
       "type": "application"
     },
     {
-      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubelet.exe",
+      "group": "https://dl.k8s.io/v1.34.1/bin/windows/amd64/kubelet.exe",
       "name": "kubelet",
-      "version": "v1.33.4",
+      "version": "v1.34.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -93,13 +93,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes/kubelet@v1.33.4",
+      "purl": "pkg:github/kubernetes/kubelet@v1.34.1",
       "type": "application"
     },
     {
-      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubeadm.exe",
+      "group": "https://dl.k8s.io/v1.34.1/bin/windows/amd64/kubeadm.exe",
       "name": "kubeadm",
-      "version": "v1.33.4",
+      "version": "v1.34.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -116,13 +116,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes/kubeadm@v1.33.4",
+      "purl": "pkg:github/kubernetes/kubeadm@v1.34.1",
       "type": "application"
     },
     {
-      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kube-proxy.exe",
+      "group": "https://dl.k8s.io/v1.34.1/bin/windows/amd64/kube-proxy.exe",
       "name": "kube-proxy",
-      "version": "v1.33.4",
+      "version": "v1.34.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -139,13 +139,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes/kube-proxy@v1.33.4",
+      "purl": "pkg:github/kubernetes/kube-proxy@v1.34.1",
       "type": "application"
     },
     {
-      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubectl.exe",
+      "group": "https://dl.k8s.io/v1.34.1/bin/windows/amd64/kubectl.exe",
       "name": "kubectl",
-      "version": "v1.33.4",
+      "version": "v1.34.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -162,7 +162,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes/kubectl@v1.33.4",
+      "purl": "pkg:github/kubernetes/kubectl@v1.34.1",
       "type": "application"
     },
     {
