@@ -1,10 +1,18 @@
 # SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
+$GlobalVarsRelative = Join-Path $PSScriptRoot "..\..\..\..\..\smallsetup\common\GlobalVariables.ps1"
+$GlobalVarsPath = Resolve-Path $GlobalVarsRelative -ErrorAction SilentlyContinue
+
+if (-not $GlobalVarsPath) {
+    throw "[HostSshConfig] GlobalVariables.ps1 not found at $GlobalVarsRelative"
+}
+. $GlobalVarsPath
+
 function Write-SshConfig {
-    $SshHost = "Kubemaster"
-    $HostName = "172.19.1.100"
-    $User = "remote"
+    $SshHost = $global:VMName
+    $HostName = $global:IP_Master
+    $User = $global:RemoteUserName_Master
     $Port = 22
     $IdentityFile = "C:\Users\$env:USERNAME\.ssh\K2s\id_rsa"
 
