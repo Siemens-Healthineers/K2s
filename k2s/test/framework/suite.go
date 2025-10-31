@@ -265,3 +265,8 @@ func determineRootDir() string {
 
 	return rootDir
 }
+
+func (s *K2sTestSuite) LogsDir() string {
+	return path.Join("C:\\var\\log")
+}
+
