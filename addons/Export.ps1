@@ -211,7 +211,7 @@ try {
                         # extracting yaml files from the helm chart
                         $valuesFile = "$dirPath\manifests\chart\values.yaml"
                         # extract release from chart file name by removing the .tgz extension and the version
-                        # from kubernetes-dashboard-7.12.0.tgz -> kubernetes-dashboard
+                        # from kubernetes-dashboard-x.x.x.tgz -> kubernetes-dashboard
                         $chartNameParts = [System.IO.Path]::GetFileNameWithoutExtension($chart).Split('-')
                         $release = $chartNameParts[0..($chartNameParts.Length - 2)] -join '-'
                         # check if value file exists
