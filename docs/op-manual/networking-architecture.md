@@ -109,7 +109,7 @@ spec:
       hostPID: true
       containers:
       - name: iptables-configurator
-        image: alpine:latest # A minimal, secure base image
+        image: docker.io/library/alpine:latest # A minimal, secure base image
         # This pod requires elevated privileges to modify host iptables
         securityContext:
           privileged: true
