@@ -131,7 +131,7 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 			chartName := filepath.Base(chartFile)
 			GinkgoWriter.Println("Converting chart", chartName)
 			// get the release name from the chart file name
-			// kubernetes-dashboard-7.12.0.tgz -> kubernetes-dashboard
+			// kubernetes-dashboard-x.x.x.tgz -> kubernetes-dashboard
 			chartNameParts := strings.Split(chartName, "-")
 			chartNameParts = chartNameParts[:len(chartNameParts)-1]
 			release := strings.Join(chartNameParts, "-")
@@ -237,13 +237,13 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 func waitForKeycloakReady(keycloakServer, realm string) error {
 	realmUrl := fmt.Sprintf("%s/keycloak/realms/%s", keycloakServer, realm)
 	maxRetries := 30 // Wait up to 5 minutes (30 * 10s)
-	
+
 	GinkgoWriter.Printf("Checking Keycloak readiness at %s\n", realmUrl)
-	
+
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
-	
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		resp, err := client.Get(realmUrl)
 		if err != nil {
@@ -252,7 +252,7 @@ func waitForKeycloakReady(keycloakServer, realm string) error {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				GinkgoWriter.Printf("Keycloak is ready (realm accessible) after %d attempts\n", attempt)
-				
+
 				// Additional check: verify the token endpoint is accessible
 				tokenEndpointUrl := fmt.Sprintf("%s/protocol/openid-connect/token", realmUrl)
 				tokenResp, tokenErr := client.Get(tokenEndpointUrl)
@@ -271,14 +271,14 @@ func waitForKeycloakReady(keycloakServer, realm string) error {
 				GinkgoWriter.Printf("Readiness check %d/%d: Realm not ready (status: %d)\n", attempt, maxRetries, resp.StatusCode)
 			}
 		}
-		
+
 		if attempt < maxRetries {
 			backoffTime := 10 * time.Second
 			GinkgoWriter.Printf("Waiting %v before next readiness check...\n", backoffTime)
 			time.Sleep(backoffTime)
 		}
 	}
-	
+
 	return fmt.Errorf("keycloak did not become ready after %d attempts", maxRetries)
 }
 
@@ -290,12 +290,12 @@ func GetKeycloakToken() (string, error) {
 	username := "demo-user"
 	password := "password"
 	tokenUrl := fmt.Sprintf("%s/keycloak/realms/%s/protocol/openid-connect/token", keycloakServer, realm)
-	
+
 	// First, wait for Keycloak to be fully operational
 	if err := waitForKeycloakReady(keycloakServer, realm); err != nil {
 		return "", fmt.Errorf("keycloak is not ready: %v", err)
 	}
-	
+
 	data := url.Values{}
 	data.Set("client_id", clientId)
 	data.Set("client_secret", clientSecret)
@@ -309,14 +309,14 @@ func GetKeycloakToken() (string, error) {
 	client := &http.Client{
 		Timeout: 30 * time.Second, // Increased timeout for better reliability
 	}
-	
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		req, err := http.NewRequest("POST", tokenUrl, strings.NewReader(data.Encode()))
 		if err != nil {
 			return "", fmt.Errorf("failed to create request: %v", err)
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		
+
 		resp, err := client.Do(req)
 		if err != nil {
 			if attempt == maxRetries {
@@ -446,7 +446,7 @@ func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expect
 
 		// Pause before the next attempt with exponential backoff
 		if attempt < maxRetries {
-			backoffTime := time.Duration(attempt * 5) * time.Second
+			backoffTime := time.Duration(attempt*5) * time.Second
 			GinkgoWriter.Printf("Waiting %v before next attempt...\n", backoffTime)
 			time.Sleep(backoffTime)
 		}
