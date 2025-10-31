@@ -28,6 +28,8 @@ $clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.clus
 $addonsModule = "$PSScriptRoot\..\..\..\..\addons\addons.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
+. "$PSScriptRoot\..\system\ssh\HostSshConfig.ps1"
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
 # make sure we are at the right place for executing this script
@@ -62,6 +64,8 @@ if (!$SkipPurge) {
 }
 
 Remove-K2sHostsFromNoProxyEnvVar
+
+Remove-SshConfigFile
 
 Invoke-AddonsHooks -HookType 'AfterUninstall'
 
