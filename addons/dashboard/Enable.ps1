@@ -96,7 +96,7 @@ $dashboardChartDirectory = Get-DashboardChartDirectory
 (Invoke-Kubectl -Params 'create', 'namespace', 'dashboard').Output | Write-Log
 
 # apply the chart
-$dashboardChart = "$dashboardChartDirectory/kubernetes-dashboard-7.12.0.tgz"
+$dashboardChart = "$dashboardChartDirectory/kubernetes-dashboard-7.14.0.tgz"
 $dashboardValues = "$dashboardChartDirectory/values.yaml"
 (Invoke-Helm -Params 'install', 'kubernetes-dashboard', $dashboardChart, '--namespace', 'dashboard', '-f', $dashboardValues).Output | Write-Log 
 

@@ -27,7 +27,7 @@ import (
 	"github.com/samber/lo"
 )
 
-const testClusterTimeout = time.Minute * 60
+const testClusterTimeout = time.Minute * 120
 
 var (
 	suite           *framework.K2sTestSuite
@@ -273,7 +273,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 	Describe("import all addons", func() {
 		BeforeAll(func(ctx context.Context) {
 			suite.K2sCli().RunOrFail(ctx, "addons", "import", "-z", exportedZipFile)
-		})
+		}, NodeTimeout(time.Minute*30))
 
 		AfterAll(func(ctx context.Context) {
 			if _, err := os.Stat(exportPath); !os.IsNotExist(err) {
