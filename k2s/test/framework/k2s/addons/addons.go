@@ -185,15 +185,29 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 
 		yamlContent := string(content)
 
-		r, _ := regexp.Compile(".*image: .+")
+		// Match only YAML image keys (with proper indentation/structure)
+		r, _ := regexp.Compile(`(?m)^\s*image:\s+.+`)
 		findings := r.FindAllString(yamlContent, -1)
 
 		var trimedFindings []string
 		for _, f := range findings {
 			trimed := strings.TrimSpace(f)
-			splitted := strings.Split(strings.Split(trimed, "image: ")[1], "#")[0]
+			// Split on 'image:' and take the part after it
+			parts := strings.Split(trimed, "image:")
+			if len(parts) < 2 {
+				continue
+			}
+			// Remove comments (everything after #)
+			imageWithComment := strings.TrimSpace(parts[1])
+			splitted := strings.Split(imageWithComment, "#")[0]
 			trimed = strings.Trim(splitted, "\"")
 			trimed = strings.TrimSpace(trimed)
+
+			// Skip empty or invalid entries
+			if trimed == "" {
+				continue
+			}
+
 			GinkgoWriter.Println("After trim and split: ", trimed)
 			trimedFindings = append(trimedFindings, trimed)
 		}
@@ -201,18 +215,46 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 		return trimedFindings
 	})
 
-	// add additional images
-	if len(implementation.OfflineUsage.LinuxResources.AdditionalImages) > 0 {
-		images = append(images, implementation.OfflineUsage.LinuxResources.AdditionalImages...)
-	}
-
 	// add images from additionalImagesFiles
+	var yamlFileImages []string
 	if len(implementation.OfflineUsage.LinuxResources.AdditionalImagesFiles) > 0 {
 		extractedImages, err := implementation.ExtractImagesFromFiles()
 		if err != nil {
 			GinkgoWriter.Printf("Warning: Failed to extract images from files for %s: %v\n", implementation.Name, err)
 		} else {
+			yamlFileImages = extractedImages
 			images = append(images, extractedImages...)
+		}
+	}
+
+	// add additional images, but skip versionless ones if versioned equivalent exists in YAML files
+	if len(implementation.OfflineUsage.LinuxResources.AdditionalImages) > 0 {
+		for _, additionalImage := range implementation.OfflineUsage.LinuxResources.AdditionalImages {
+			// Check if this is a versionless image (no :tag)
+			hasTag := strings.Contains(additionalImage, ":")
+			if !hasTag {
+				// Check if a versioned variant exists in YAML file images
+				hasVersionedVariant := false
+				for _, yamlImage := range yamlFileImages {
+					// Extract base image name from YAML image (before the :tag)
+					parts := strings.Split(yamlImage, ":")
+					if len(parts) > 1 {
+						yamlBaseName := parts[0]
+						if additionalImage == yamlBaseName {
+							hasVersionedVariant = true
+							GinkgoWriter.Printf("Skipping versionless image '%s' from additionalImages because versioned variant '%s' exists in additionalImagesFiles\n", additionalImage, yamlImage)
+							break
+						}
+					}
+				}
+				// Only add if no versioned variant found
+				if !hasVersionedVariant {
+					images = append(images, additionalImage)
+				}
+			} else {
+				// Already versioned, add it
+				images = append(images, additionalImage)
+			}
 		}
 	}
 

@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -414,27 +413,6 @@ func extractImagesFromYAMLContent(content interface{}) []string {
 	case []interface{}:
 		for _, item := range v {
 			images = append(images, extractImagesFromYAMLContent(item)...)
-		}
-	case string:
-		images = append(images, extractImagesFromString(v)...)
-	}
-
-	return images
-}
-
-func extractImagesFromString(content string) []string {
-	var images []string
-
-	imagePattern := `(?:--[a-zA-Z-]+=|=)?([a-zA-Z0-9\.\-_/]+/[a-zA-Z0-9\.\-_/]+:[a-zA-Z0-9\.\-_]+)`
-
-	re := regexp.MustCompile(imagePattern)
-	matches := re.FindAllStringSubmatch(content, -1)
-
-	for _, match := range matches {
-		if len(match) > 1 && match[1] != "" {
-			if strings.Contains(match[1], "/") && strings.Contains(match[1], ":") {
-				images = append(images, match[1])
-			}
 		}
 	}
 
