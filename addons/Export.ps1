@@ -153,7 +153,7 @@ try {
                 # For single implementation exports
                 if (-not $All -and $Names.Count -eq 1 -and $implementation.name -ne $manifest.metadata.name) {
                     $kubeBinPath = Get-KubeBinPath
-                    $yqExe = Join-Path $kubeBinPath "yq.exe"
+                    $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
                     
                     try {
                         Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
@@ -167,7 +167,7 @@ try {
                         Write-Log "Filtered manifest for single implementation: $($implementation.name)" -Console
                         Remove-Item -Path $tempFilterFile -Force -ErrorAction SilentlyContinue
                     } catch {
-                        Write-Log "Failed to filter manifest with yq.exe, falling back to copy: $_" -Console
+                        Write-Log "Failed to filter manifest with yq.exe (Path: $yqExe), falling back to copy: $_" -Console
                         Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
                     }
                 } else {
