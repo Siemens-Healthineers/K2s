@@ -114,6 +114,70 @@ function Invoke-HostDetailsCollection(
 
 }
 
+function Invoke-ClusterDiagnosticsCollection(
+        [string] $ClusterDiagnosticsDir
+) {
+    Write-Log '[ClusterDiag] Starting cluster diagnostics collection...'
+
+    if (-not (Test-Path $ClusterDiagnosticsDir)) {
+        New-Item -ItemType Directory -Path $ClusterDiagnosticsDir -Force | Out-Null
+    }
+
+    Write-Log '[ClusterDiag] Collecting pods and namespaces...'
+    $podsWide = (Invoke-CmdOnControlPlaneViaSSHKey "kubectl get pods -A -o wide").Output
+    $podsFile = Join-Path $ClusterDiagnosticsDir "pods-wide.txt"
+    $podsWide | Out-String | Write-OutputIntoDumpFile -DumpFilePath $podsFile -Description "kubectl get pods -A -o wide"
+
+    Write-Log '[ClusterDiag] Parsing pod names and namespaces...'
+    $podLines = $podsWide -split "`n" | Select-Object -Skip 1
+    foreach ($line in $podLines) {
+        $fields = $line -split '\s+'
+        if ($fields.Length -ge 2) {
+            $namespace = $fields[0]
+            $podName = $fields[1]
+            $podDir = Join-Path $ClusterDiagnosticsDir "$namespace-$podName"
+            if (-not (Test-Path $podDir)) {
+                New-Item -ItemType Directory -Path $podDir -Force | Out-Null
+            }
+            Write-Log "[ClusterDiag] Collecting diagnostics for pod $podName in namespace $namespace..."
+            # Describe pod
+            (Invoke-CmdOnControlPlaneViaSSHKey "kubectl describe pod $podName -n $namespace").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $podDir "describe.txt") -Description "kubectl describe pod $podName -n $namespace"
+            # Logs
+            (Invoke-CmdOnControlPlaneViaSSHKey "kubectl logs $podName -n $namespace").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $podDir "logs.txt") -Description "kubectl logs $podName -n $namespace"
+            # Previous logs
+            (Invoke-CmdOnControlPlaneViaSSHKey "kubectl logs --previous $podName -n $namespace").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $podDir "logs-previous.txt") -Description "kubectl logs --previous $podName -n $namespace"
+        }
+    }
+
+    Write-Log '[ClusterDiag] Collecting cluster events...'
+    (Invoke-CmdOnControlPlaneViaSSHKey "kubectl get events -A").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $ClusterDiagnosticsDir "events.txt") -Description "kubectl get events -A"
+
+    Write-Log '[ClusterDiag] Collecting node descriptions...'
+    (Invoke-CmdOnControlPlaneViaSSHKey "kubectl describe node kubemaster").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $ClusterDiagnosticsDir "describe-kubemaster.txt") -Description "kubectl describe node kubemaster"
+
+    $workerNode = (hostname).ToLower()
+    (Invoke-CmdOnControlPlaneViaSSHKey "kubectl describe node $workerNode").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $ClusterDiagnosticsDir "describe-worker.txt") -Description "kubectl describe node $workerNode"
+
+    Write-Log '[ClusterDiag] Cluster diagnostics collection finished.'
+}
+
+function Invoke-HostDiagnosticsCollection(
+        [string] $HostDiagnosticsDir
+) {
+    Write-Log '[HostDiag] Starting host diagnostics collection...'
+    if (-not (Test-Path $HostDiagnosticsDir)) {
+        New-Item -ItemType Directory -Path $HostDiagnosticsDir -Force | Out-Null
+    }
+    Write-Log '[HostDiag] Collecting ipconfig /allcompartments...'
+    ipconfig /allcompartments | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir "ipconfig-allcompartments.txt") -Description "ipconfig /allcompartments"
+    Write-Log '[HostDiag] Collecting NetConnectionProfile...'
+    Get-NetConnectionProfile | Sort-Object InterfaceAlias -Unique | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir "netconnectionprofile.txt") -Description "Get-NetConnectionProfile"
+    Write-Log '[HostDiag] Collecting MSINFO32...'
+    $msinfoFile = Join-Path $HostDiagnosticsDir "$env:COMPUTERNAME`_MSINFO32.NFO"
+    Start-Process -FilePath "MSINFO32.exe" -ArgumentList "/nfo $msinfoFile /categories +all" -Wait
+    Write-Log '[HostDiag] Host diagnostics collection finished.'
+}
+
 Write-Log 'k2s system dump started' -Console
 
 try {
@@ -140,6 +204,14 @@ try {
     Write-Log 'Gathering node details..' -Console
     Invoke-HostDetailsCollection -NodeDetailsDirectory $hostInfoDir
     Invoke-LinuxNodeDetailsCollection -NodeDetailsDirectory $hostInfoDir
+
+    # Cluster and host diagnostics collection
+    $clusterDiagnosticsDir = Join-Path $tempDir 'cluster'
+    $hostDiagnosticsDir = Join-Path $tempDir 'host'
+    Write-Log 'Gathering cluster diagnostics..' -Console
+    Invoke-ClusterDiagnosticsCollection -ClusterDiagnosticsDir $clusterDiagnosticsDir
+    Write-Log 'Gathering host diagnostics..' -Console
+    Invoke-HostDiagnosticsCollection -HostDiagnosticsDir $hostDiagnosticsDir
 
     # Log Collection
     Write-Log 'Gathering logs..' -Console
