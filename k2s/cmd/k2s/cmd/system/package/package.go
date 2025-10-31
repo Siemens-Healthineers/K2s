@@ -30,6 +30,9 @@ var (
 	# Creates K2s package for offline installation and optimized
 	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation --profile "Lite"
 
+	# Creates K2s package with only specific addons
+	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --addons-list "ingress nginx,monitoring,logging"
+
 	# Creates K2s package with code signing (certificate and password are both required)
 	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --certificate "path\to\cert.pfx" --password "mycertpassword"
 
@@ -94,6 +97,9 @@ const (
 
 	ProfileFlagName  = "profile"
 	ProfileFlagUsage = "Packaging profile: Dev (default) or Lite (skips optional parts like documentation, source code etc.)"
+
+	AddonsListFlagName  = "addons-list"
+	AddonsListFlagUsage = "Comma-separated list of addons to include (e.g., 'ingress nginx,monitoring,logging'). For ingress, specify implementation: 'ingress nginx' or 'ingress traefik'. Default: all addons"
 )
 
 func init() {
@@ -151,6 +157,9 @@ func init() {
 	PackageCmd.Flags().StringP(CertificateFlagName, "c", "", CertificateFlagUsage)
 	PackageCmd.Flags().StringP(PasswordFlagName, "w", "", PasswordFlagUsage)
 	PackageCmd.Flags().String(ProfileFlagName, "Dev", ProfileFlagUsage)
+
+	// Addons list flag
+	PackageCmd.Flags().String(AddonsListFlagName, "", AddonsListFlagUsage)
 	
 	PackageCmd.Flags().SortFlags = false
 	PackageCmd.Flags().PrintDefaults()
@@ -239,6 +248,7 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String()); if forOfflineInstallation { params = append(params, " -ForOfflineInstallation") }
 	profile := flags.Lookup(ProfileFlagName).Value.String(); if profile != "" { params = append(params, " -Profile "+profile) }
 	k8sBins := flags.Lookup(K8sBinsFlagName).Value.String(); if k8sBins != "" { params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins)) }
+	addonsList := flags.Lookup(AddonsListFlagName).Value.String(); if addonsList != "" { params = append(params, " -AddonsList "+utils.EscapeWithSingleQuotes(addonsList)) }
 
 	return systemPackageCommand, params, nil
 }
