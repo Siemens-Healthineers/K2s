@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -398,6 +399,10 @@ func extractImagesFromYAMLFile(filePath string) ([]string, error) {
 }
 
 func extractImagesFromYAMLContent(content interface{}) []string {
+	return extractImagesFromYAMLContentWithContext(content, "")
+}
+
+func extractImagesFromYAMLContentWithContext(content interface{}, parentKey string) []string {
 	var images []string
 
 	switch v := content.(type) {
@@ -408,11 +413,35 @@ func extractImagesFromYAMLContent(content interface{}) []string {
 					images = append(images, imageStr)
 				}
 			}
-			images = append(images, extractImagesFromYAMLContent(value)...)
+			images = append(images, extractImagesFromYAMLContentWithContext(value, key)...)
 		}
 	case []interface{}:
 		for _, item := range v {
-			images = append(images, extractImagesFromYAMLContent(item)...)
+			images = append(images, extractImagesFromYAMLContentWithContext(item, parentKey)...)
+		}
+	case string:
+		// Only extract images from strings that are values of args/command keys
+		if parentKey == "args" || parentKey == "command" {
+			images = append(images, extractImagesFromString(v)...)
+		}
+	}
+
+	return images
+}
+
+func extractImagesFromString(content string) []string {
+	var images []string
+
+	imagePattern := `(?:--[a-zA-Z-]+=|=)?([a-zA-Z0-9\.\-_/]+/[a-zA-Z0-9\.\-_/]+:[a-zA-Z0-9\.\-_]+)`
+
+	re := regexp.MustCompile(imagePattern)
+	matches := re.FindAllStringSubmatch(content, -1)
+
+	for _, match := range matches {
+		if len(match) > 1 && match[1] != "" {
+			if strings.Contains(match[1], "/") && strings.Contains(match[1], ":") {
+				images = append(images, match[1])
+			}
 		}
 	}
 
