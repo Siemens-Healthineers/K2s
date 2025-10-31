@@ -131,7 +131,7 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 			chartName := filepath.Base(chartFile)
 			GinkgoWriter.Println("Converting chart", chartName)
 			// get the release name from the chart file name
-			// kubernetes-dashboard-7.12.0.tgz -> kubernetes-dashboard
+			// kubernetes-dashboard-x.x.x.tgz -> kubernetes-dashboard
 			chartNameParts := strings.Split(chartName, "-")
 			chartNameParts = chartNameParts[:len(chartNameParts)-1]
 			release := strings.Join(chartNameParts, "-")
