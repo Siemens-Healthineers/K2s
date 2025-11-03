@@ -18,6 +18,8 @@ import (
 )
 
 func main() {
+	fmt.Println("[K2s] CLI startup: main.go reached") // Startup log
+
 	exitCode := cli.ExitCodeSuccess
 
 	logger := logging.NewSlogger()
