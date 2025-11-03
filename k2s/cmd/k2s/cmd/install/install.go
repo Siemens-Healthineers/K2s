@@ -76,6 +76,7 @@ var (
 )
 
 func init() {
+	fmt.Println("[Install] install.go loaded") // Log when package is loaded
 	InstallCmd.AddCommand(buildonly.InstallCmd)
 
 	installer = &core.Installer{
@@ -123,46 +124,129 @@ func bindFlags(cmd *cobra.Command) {
 }
 
 func createTimezoneConfigHandle(config *config_contracts.KubeConfig) (tz.ConfigWorkspaceHandle, error) {
+	fmt.Println("[Install] Creating timezone config handle")
 	tzConfigWorkspace, err := tz.NewTimezoneConfigWorkspace(config)
 	if err != nil {
+		fmt.Println("[Install] Error creating timezone config workspace:", err)
 		return nil, err
 	}
 	tzConfigHandle, err := tzConfigWorkspace.CreateHandle()
 	if err != nil {
+		fmt.Println("[Install] Error creating timezone config handle:", err)
 		return nil, err
 	}
+	fmt.Println("[Install] Timezone config handle created successfully")
 	return tzConfigHandle, nil
 }
 
+// --- ADDED LOGIC FOR ISSUE #1307 ---
+func findExecutablesInPath(exeName string) ([]string, error) {
+	fmt.Println("[Install] Scanning PATH for", exeName)
+	pathEnv := os.Getenv("PATH")
+	if pathEnv == "" {
+		fmt.Println("[Install] PATH environment variable is empty")
+		return nil, nil
+	}
+	var found []string
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" || dir == "." {
+			continue // skip empty and current directory entries
+		}
+		exePath := filepath.Join(dir, exeName)
+		absExePath, err := filepath.Abs(exePath)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(absExePath); err == nil && !info.IsDir() {
+			fmt.Println("[Install] Found executable:", absExePath)
+			found = append(found, absExePath)
+		}
+	}
+	return found, nil
+}
+
+
+// ------------------------------------
+
 func install(cmd *cobra.Command, args []string) error {
+	fmt.Println("[Install] install() function executed") // Console print for execution check
+
+	// --- BEGIN: PATH CHECK FOR MULTIPLE k2s.exe ---
+	exeName := "k2s.exe"
+	fmt.Println("[Install] Checking for multiple k2s.exe in PATH")
+	currentExe, err := os.Executable()
+	if err != nil {
+		fmt.Println("[Install] Error: unable to determine current executable path:", err)
+		return fmt.Errorf("[Install] Error: unable to determine current executable path: %v", err)
+	}
+	fmt.Println("[Install] Current executable path:", currentExe)
+	paths, err := findExecutablesInPath(exeName)
+	if err != nil {
+		fmt.Println("[Install] Error scanning PATH for k2s.exe:", err)
+		return fmt.Errorf("[Install] Error scanning PATH for k2s.exe: %v", err)
+	}
+	var otherK2s []string
+	for _, p := range paths {
+		absP, _ := filepath.Abs(p)
+		if absP != currentExe {
+			otherK2s = append(otherK2s, absP)
+		}
+	}
+	if len(otherK2s) > 0 {
+		fmt.Fprintf(os.Stderr, "[Install] Multiple k2s.exe found in PATH:\n")
+		for _, p := range otherK2s {
+			fmt.Fprintf(os.Stderr, "  %s\n", p)
+		}
+		fmt.Fprintf(os.Stderr, "\n[Install] Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.\n")
+		fmt.Println("[Install] Halting due to multiple k2s.exe found in PATH")
+		return fmt.Errorf("multiple k2s.exe found in PATH")
+	}
+	fmt.Println("[Install] Only one k2s.exe found in PATH, proceeding with installation")
+	// --- END: PATH CHECK FOR MULTIPLE k2s.exe ---
+
 	cmdSession := cc.StartCmdSession(cmd.CommandPath())
+	fmt.Println("[Install] Command session started")
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
 	if err != nil {
+		fmt.Println("[Install] Error reading linux-only flag:", err)
 		return err
 	}
+	fmt.Println("[Install] linuxOnly flag value:", linuxOnly)
 
 	context := cmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
+	fmt.Println("[Install] CmdContext loaded")
 
 	tzConfigHandle, err := createTzHandleFunc(context.Config().Host().KubeConfig())
 	if err != nil {
+		fmt.Println("[Install] Error creating timezone config handle:", err)
 		return err
 	}
 	defer tzConfigHandle.Release()
+	fmt.Println("[Install] Timezone config handle released after use")
 
 	buildCmdFunc := buildInstallCmd
 
 	if linuxOnly {
+		fmt.Println("[Install] Switching to Linux-only install command")
 		slog.Info("Switching to Linux-only")
-
 		buildCmdFunc = buildLinuxOnlyCmdFunc
 	}
 
-	return installer.Install(kind, cmd, buildCmdFunc, cmdSession)
+	fmt.Println("[Install] Starting installer.Install")
+	err = installer.Install(kind, cmd, buildCmdFunc, cmdSession)
+	if err != nil {
+		fmt.Println("[Install] Error during installation:", err)
+		return err
+	}
+	fmt.Println("[Install] Installation completed successfully")
+	return nil
 }
 
 func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
+	fmt.Println("[Install] buildInstallCmd called")
 	node, err := c.GetNodeByRole(ic.ControlPlaneRoleName)
 	if err != nil {
+		fmt.Println("[Install] Error getting control plane node:", err)
 		return "", err
 	}
 
@@ -204,5 +288,6 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 	if c.Behavior.AppendLog {
 		cmd += " -AppendLogFile"
 	}
+	fmt.Println("[Install] buildInstallCmd generated command:", cmd)
 	return cmd, nil
 }
