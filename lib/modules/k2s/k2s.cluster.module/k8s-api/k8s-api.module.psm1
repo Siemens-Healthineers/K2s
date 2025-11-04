@@ -744,20 +744,65 @@ function Wait-ForPodCondition {
         Write-Information "Invoking kubectl with '$params'.."
         $result = Invoke-Kubectl -Params $params
         
-        if ($result.Success -or $result.Output -match 'timed out') {
-            break
+        # Check if we actually got pods ready, not just "no resources found"
+        if ($result.Success -and $result.Output -match '(condition met|condition satisfied)') {
+            # Pods found and condition met
+            return $true
         }
+        
+        # If Success=true but no proper message, assume it worked (for backward compatibility with tests/mocks)
+        if ($result.Success -and -not $result.Output) {
+            return $true
+        }
+        
+        if ($result.Output -match 'timed out waiting for the condition') {
+            # Real timeout - pods exist but didn't become ready
+            throw "Timeout waiting for pods with label '$Label' in namespace '$Namespace' to become $Condition`: $($result.Output)"
+        }
+        
+        if ($result.Output -match 'no matching resources found') {
+            # No pods found yet, keep waiting
+            Write-Information "No pods found yet with label '$Label' in namespace '$Namespace', waiting 2s..."
+            Start-Sleep 2
+            $TimeoutSeconds = $TimeoutSeconds - 2
+            continue
+        }
+        
+        if (-not $result.Success) {
+            # Some other error - check if we should retry or fail immediately
+            if ($TimeoutSeconds -le 2) {
+                # No more time for retry, throw the error
+                throw $result.Output
+            }
+            # Retry with backoff
+            Write-Information "kubectl wait failed: $($result.Output). Waiting 2s..."
+            Start-Sleep 2
+            $TimeoutSeconds = $TimeoutSeconds - 2
+            continue
+        }
+        
+        # Success with output but no expected message - assume it worked (backward compatibility)
+        if ($result.Success) {
+            Write-Information "kubectl wait succeeded with output: $($result.Output)"
+            return $true
+        }
+        
+        # Should not reach here, but break to avoid infinite loop
+        Write-Information "Unexpected kubectl output: $($result.Output)"
+        break
+        
+    } while ($TimeoutSeconds -gt 0)
 
-        Write-Information 'Resource not existing yet, waiting 2s...'
-        Start-Sleep 2
-        $TimeoutSeconds = $TimeoutSeconds - 2
-    } while ($result.Success -ne $true -and $TimeoutSeconds -gt 0)
-
-    if ($result.Success -ne $true) {
-        throw $result.Output
+    # Final validation
+    if ($result.Success) {
+        return $true
+    }
+    
+    if ($TimeoutSeconds -le 0) {
+        throw "Timeout expired waiting for pods with label '$Label' in namespace '$Namespace' to become $Condition"
     }
 
-    return $true
+    throw "Failed to wait for pods with label '$Label' in namespace '$Namespace': $($result.Output)"
 }
 
 function Wait-ForJobCondition {
