@@ -46,7 +46,6 @@ func (i *Installer) Install(
 	ccmd *cobra.Command,
 	buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error),
 	cmdSession cc.CmdSession) error {
-	fmt.Println("[Install] Installer.Install() reached") // Log entry
 	context := ccmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
 	configDir := context.Config().Host().K2sSetupConfigDir()
 
@@ -75,7 +74,6 @@ func (i *Installer) Install(
 
 	cmd, err := buildCmdFunc(config)
 	if err != nil {
-		fmt.Println("[Install] Error building PowerShell command:", err)
 		return err
 	}
 
@@ -84,13 +82,10 @@ func (i *Installer) Install(
 	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc())
 
 	outputWriter := cc.NewPtermWriter()
-	fmt.Println("[Install] Executing PowerShell script...")
 
 	err = i.ExecutePsScript(cmd, outputWriter)
 	if err != nil {
 		// Check for pre-requisites first
-		fmt.Println("[Install] PowerShell execution error:", err)
-
 		errorLine, found := cc.GetInstallPreRequisiteError(outputWriter.ErrorLines)
 		if found {
 			i.Printer.PrintWarning("Prerequisite check failed,", errorLine)
