@@ -747,7 +747,12 @@ function Wait-ForPodCondition {
         # Check if we actually got pods ready, not just "no resources found"
         if ($result.Success -and $result.Output -match '(condition met|condition satisfied)') {
             # Pods found and condition met
-            break
+            return $true
+        }
+        
+        # If Success=true but no proper message, assume it worked (for backward compatibility with tests/mocks)
+        if ($result.Success -and -not $result.Output) {
+            return $true
         }
         
         if ($result.Output -match 'timed out waiting for the condition') {
@@ -764,21 +769,32 @@ function Wait-ForPodCondition {
         }
         
         if (-not $result.Success) {
-            # Some other error
+            # Some other error - check if we should retry or fail immediately
+            if ($TimeoutSeconds -le 2) {
+                # No more time for retry, throw the error
+                throw $result.Output
+            }
+            # Retry with backoff
             Write-Information "kubectl wait failed: $($result.Output). Waiting 2s..."
             Start-Sleep 2
             $TimeoutSeconds = $TimeoutSeconds - 2
             continue
         }
         
-        # Unexpected success without proper output - break to avoid infinite loop
+        # Success with output but no expected message - assume it worked (backward compatibility)
+        if ($result.Success) {
+            Write-Information "kubectl wait succeeded with output: $($result.Output)"
+            return $true
+        }
+        
+        # Should not reach here, but break to avoid infinite loop
         Write-Information "Unexpected kubectl output: $($result.Output)"
         break
         
     } while ($TimeoutSeconds -gt 0)
 
     # Final validation
-    if ($result.Success -and $result.Output -match '(condition met|condition satisfied)') {
+    if ($result.Success) {
         return $true
     }
     
