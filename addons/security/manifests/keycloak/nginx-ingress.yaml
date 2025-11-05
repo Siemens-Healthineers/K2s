@@ -9,6 +9,10 @@ metadata:
   namespace: security
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - k2s.cluster.local
+      secretName: k2s-cluster-local-tls
   rules:
     - host: k2s.cluster.local
       http:
@@ -27,9 +31,13 @@ metadata:
   name: keycloak
   namespace: security
   annotations:
-    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/enable-cors: 'true'
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - k2s.cluster.local
+      secretName: k2s-cluster-local-tls
   rules:
     - host: k2s.cluster.local
       http:
@@ -42,3 +50,4 @@ spec:
                 port:
                   number: 8080
 ---
+
