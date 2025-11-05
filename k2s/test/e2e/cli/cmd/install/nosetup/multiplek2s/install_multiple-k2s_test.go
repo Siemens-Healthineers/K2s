@@ -18,7 +18,7 @@ var suite *framework.K2sTestSuite
 
 func TestStatus(t *testing.T) {
     RegisterFailHandler(Fail)
-    RunSpecs(t, "install CLI Command Acceptance Tests", Label("cli", "install", "acceptance", "no-setup", "corrupted-state"))
+    RunSpecs(t, "install CLI Command Acceptance Tests", Label("cli", "install", "acceptance", "no-setup"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -30,28 +30,18 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("install", Ordered, func() {
-// Go
-It("prints error when multiple k2s.exe found in PATH", func(ctx SpecContext) {
-    tmpDir := GinkgoT().TempDir()
-    exeName := "k2s.exe"
-    dummyExePath := filepath.Join(tmpDir, exeName)
-    Expect(os.WriteFile(dummyExePath, []byte{}, 0755)).To(Succeed())
+    It("prints error when multiple k2s.exe found in PATH", func(ctx SpecContext) {
+        tmpDir := GinkgoT().TempDir()
+        exeName := "k2s.exe"
+        dummyExePath := filepath.Join(tmpDir, exeName)
+        Expect(os.WriteFile(dummyExePath, []byte{}, 0755)).To(Succeed())
+        origPath := os.Getenv("PATH")
+        defer os.Setenv("PATH", origPath)
+        os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+origPath)
+        args := []string{"install"}
+        output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
+        GinkgoWriter.Println("[TestLog] CLI Output:\n" + output)
 
-    origPath := os.Getenv("PATH")
-    defer os.Setenv("PATH", origPath)
-    os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+origPath)
-
-    args := []string{"install"}
-    output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
-
-    GinkgoWriter.Println("[TestLog] CLI Output:\n" + output)
-
-    // Assert error message is present anywhere in output
-    Expect(output).To(ContainSubstring("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation"))
-})
-
-
-
-
-
+        Expect(output).To(ContainSubstring("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation"))
+    })
 })
