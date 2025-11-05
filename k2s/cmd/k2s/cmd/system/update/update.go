@@ -33,24 +33,34 @@ var updateCommandShortDescription = "[EXPERIMENTAL] Update the installed K2s clu
 var updateCommandLongDescription = `
 [EXPERIMENTAL] Updates the installed K2s cluster to a newer version using an in-place update with a delta package.
 
-⚠  This command must be called within the folder containing the new K2s version, e.g. '<new-version-dir>\k2s.exe system update'
+⚠  This command must be executed from within the extracted delta package directory, e.g.:
+   1. Extract the delta package: Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
+   2. Navigate to the extracted directory: cd .\delta
+   3. Run the update: .\k2s.exe system update
 
 The following tasks will be executed:
-1. Update all windows executables and scripts from the delta package
-2. Update all debian packages from the delta package
-3. Update all containers images from the delta package
+1. Detect delta package root (current directory with delta-manifest.json)
+2. Detect target installation folder (from setup.json)
+3. Update all Windows executables and scripts from the delta package to the target installation
+4. Update all Debian packages from the delta package (if cluster is running)
+5. Update all container images from the delta package
+6. Automatically stop and restart the cluster if it was running
 
-By default all existing cluster resources (e.g. namespaces, deployments, services, etc.) will remain also in the new cluster.
+By default all existing cluster resources (e.g. namespaces, deployments, services, etc.) will remain in the updated cluster.
 `
 
 var updateCommandExample = `
-  # Updates the cluster using a delta package
-  k2s system update -f .\k2s-delta-<version1>-to-<version2>.zip
+  # Extract and prepare the delta package
+  Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
+  cd .\delta
+  
+  # Update the cluster from the extracted delta package
+  .\k2s.exe system update
 
 `
 
 const (
-	deltaPackageFlagName   = "delta-package"
+	// No longer using delta-package flag
 )
 
 var UpdateCmd = &cobra.Command{
@@ -66,7 +76,7 @@ func init() {
 }
 
 func AddInitFlags(cmd *cobra.Command) {
-	cmd.Flags().StringP(deltaPackageFlagName, "f", "", "Path to the delta package to use for the update")
+	// No flags needed - delta package is detected from current directory
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }
@@ -170,10 +180,7 @@ func createUpdateCommand(cmd *cobra.Command) string {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		slog.Debug("Param", "name", f.Name, "value", f.Value)
 	})
-	config := cmd.Flags().Lookup(deltaPackageFlagName).Value.String()
-	if len(config) > 0 {
-		psCmd += " -DeltaPackage " + config
-	}
+	// No delta package parameter needed - PowerShell script detects from current directory
 	return psCmd
 }
 

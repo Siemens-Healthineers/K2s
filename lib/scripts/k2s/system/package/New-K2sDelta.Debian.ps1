@@ -41,7 +41,12 @@ function Initialize-DebAcquisitionEnvironment {
     function _BaseArgsLocal() {
         if ($UsingPlink) {
             $sshArgs = @('-batch','-noagent','-P','22')
-            if ($PlinkHostKey) { $sshArgs += @('-hostkey', $PlinkHostKey) }
+            if ($PlinkHostKey) { 
+                $sshArgs += @('-hostkey', $PlinkHostKey) 
+            } else {
+                # For ephemeral VMs without a known host key, auto-accept to avoid security warnings
+                $sshArgs += @('-auto_store_key_in_cache')
+            }
             if ($SshKey) { $sshArgs += @('-i', $SshKey) } elseif ($SshPassword) { $sshArgs += @('-pw', $SshPassword) }
             $sshArgs += ("$SshUser@$GuestIp")
             return ,$sshArgs
@@ -89,7 +94,12 @@ function Invoke-DebSinglePackageDownload {
     function _BaseArgsLocal() {
         if ($UsingPlink) {
             $sshArgs = @('-batch','-noagent','-P','22')
-            if ($PlinkHostKey) { $sshArgs += @('-hostkey', $PlinkHostKey) }
+            if ($PlinkHostKey) { 
+                $sshArgs += @('-hostkey', $PlinkHostKey) 
+            } else {
+                # For ephemeral VMs without a known host key, auto-accept to avoid security warnings
+                $sshArgs += @('-auto_store_key_in_cache')
+            }
             if ($SshKey) { $sshArgs += @('-i', $SshKey) } elseif ($SshPassword) { $sshArgs += @('-pw', $SshPassword) }
             $sshArgs += ("$SshUser@$GuestIp")
             return ,$sshArgs
@@ -100,7 +110,7 @@ function Invoke-DebSinglePackageDownload {
             return ,$sshArgs
         }
     }
-    $escaped = $Spec.Replace("'", "'\\''")
+    $escaped = $Spec.Replace("'", "'\\'")
     $cmdScript = @(
         'set -euo pipefail',
         "mkdir -p $RemoteDir",
@@ -175,7 +185,12 @@ function Invoke-DebCacheFallback {
     function _BaseArgsLocal() {
         if ($UsingPlink) {
             $sshArgs = @('-batch','-noagent','-P','22')
-            if ($PlinkHostKey) { $sshArgs += @('-hostkey', $PlinkHostKey) }
+            if ($PlinkHostKey) { 
+                $sshArgs += @('-hostkey', $PlinkHostKey) 
+            } else {
+                # For ephemeral VMs without a known host key, auto-accept to avoid security warnings
+                $sshArgs += @('-auto_store_key_in_cache')
+            }
             if ($SshKey) { $sshArgs += @('-i', $SshKey) } elseif ($SshPassword) { $sshArgs += @('-pw', $SshPassword) }
             $sshArgs += ("$SshUser@$GuestIp")
             return ,$sshArgs
@@ -211,7 +226,12 @@ function Resolve-DebRevisionBumps {
     function _BaseArgsLocal() {
         if ($UsingPlink) {
             $sshArgs = @('-batch','-noagent','-P','22')
-            if ($PlinkHostKey) { $sshArgs += @('-hostkey', $PlinkHostKey) }
+            if ($PlinkHostKey) { 
+                $sshArgs += @('-hostkey', $PlinkHostKey) 
+            } else {
+                # For ephemeral VMs without a known host key, auto-accept to avoid security warnings
+                $sshArgs += @('-auto_store_key_in_cache')
+            }
             if ($SshKey) { $sshArgs += @('-i', $SshKey) } elseif ($SshPassword) { $sshArgs += @('-pw', $SshPassword) }
             $sshArgs += ("$SshUser@$GuestIp")
             return ,$sshArgs
@@ -292,7 +312,12 @@ function Invoke-GuestDebAcquisition {
     function _BaseArgs([string]$extra='') {
         if ($UsingPlink) {
             $sshArgs = @('-batch','-noagent','-P','22')
-            if ($PlinkHostKey) { $sshArgs += @('-hostkey', $PlinkHostKey) }
+            if ($PlinkHostKey) { 
+                $sshArgs += @('-hostkey', $PlinkHostKey) 
+            } else {
+                # For ephemeral VMs without a known host key, auto-accept to avoid security warnings
+                $sshArgs += @('-auto_store_key_in_cache')
+            }
             if ($SshKey) { $sshArgs += @('-i', $SshKey) } elseif ($SshPassword) { $sshArgs += @('-pw', $SshPassword) }
             $sshArgs += ("$SshUser@$GuestIp")
             return ,$sshArgs

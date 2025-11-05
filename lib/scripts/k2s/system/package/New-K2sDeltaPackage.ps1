@@ -87,7 +87,7 @@ if ($errMsg -ne '') {
         return
     }
 
-    Write-Log $errMsg -Error
+    Write-Log $errMsg -Error -Console
     exit 1
 }
 
@@ -242,6 +242,154 @@ for ($i = 0; $i -lt $deltaTotal; $i++) {
 }
 if ($ShowLogs) { Write-Progress -Activity 'Staging delta files' -Completed }
 Stop-Phase "Staging" $stagePhase
+
+# --- MANDATORY: Ensure k2s.exe is always included (for update execution from delta package) ---
+$k2sExePath = 'k2s.exe'
+$k2sExeSource = Join-Path $newExtract $k2sExePath
+$k2sExeDest = Join-Path $stageDir $k2sExePath
+if (Test-Path -LiteralPath $k2sExeSource) {
+    if (-not (Test-Path -LiteralPath $k2sExeDest)) {
+        Write-Log "[Mandatory] Adding k2s.exe to delta package (not in diff but required for update execution)" -Console
+        Copy-Item -LiteralPath $k2sExeSource -Destination $k2sExeDest -Force
+        # Add to changed list if not already present
+        if ($k2sExePath -notin $added -and $k2sExePath -notin $changed) {
+            $changed += $k2sExePath
+        }
+    } else {
+        Write-Log "[Mandatory] k2s.exe already staged" -Console
+    }
+} else {
+    Write-Log "[Warning] k2s.exe not found in new package - delta update may fail!" -Console
+}
+
+# --- MANDATORY: Copy update module to delta package for standalone execution ---
+$updateModuleName = 'update.module.psm1'
+$updateModuleRelPath = "lib/modules/k2s/k2s.cluster.module/update/$updateModuleName"
+$updateModuleSource = Join-Path $newExtract $updateModuleRelPath
+$updateModuleDest = Join-Path $stageDir $updateModuleRelPath
+if (Test-Path -LiteralPath $updateModuleSource) {
+    $updateModuleDestDir = Split-Path $updateModuleDest -Parent
+    if (-not (Test-Path -LiteralPath $updateModuleDestDir)) {
+        New-Item -ItemType Directory -Path $updateModuleDestDir -Force | Out-Null
+    }
+    if (-not (Test-Path -LiteralPath $updateModuleDest)) {
+        Write-Log "[Mandatory] Adding update module to delta package (required for update execution)" -Console
+        Copy-Item -LiteralPath $updateModuleSource -Destination $updateModuleDest -Force
+        # Add to changed list if not already present
+        if ($updateModuleRelPath -notin $added -and $updateModuleRelPath -notin $changed) {
+            $changed += $updateModuleRelPath
+        }
+    } else {
+        Write-Log "[Mandatory] Update module already staged" -Console
+    }
+} else {
+    Write-Log "[Warning] Update module not found in new package - delta update may fail!" -Console
+}
+
+# --- MANDATORY: Create Apply-Delta.ps1 wrapper script for easy execution ---
+$applyScriptContent = @'
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
+<#
+.SYNOPSIS
+    Applies the K2s delta update package.
+.DESCRIPTION
+    This script provides a convenient wrapper to apply the delta update using the
+    update.module.psm1 included in this delta package. It must be executed from
+    the extracted delta package directory.
+.PARAMETER ShowLogs
+    Display detailed log output during the update process.
+.PARAMETER ShowProgress
+    Show progress indicators during the update phases.
+#>
+
+#Requires -RunAsAdministrator
+
+Param(
+    [Parameter(Mandatory = $false)]
+    [switch] $ShowLogs = $false,
+    [Parameter(Mandatory = $false)]
+    [switch] $ShowProgress = $false
+)
+
+$ErrorActionPreference = 'Stop'
+
+# Determine the delta package path (this script's directory contains the extracted delta)
+$scriptRoot = $PSScriptRoot
+$deltaManifestPath = Join-Path $scriptRoot 'delta-manifest.json'
+
+if (-not (Test-Path -LiteralPath $deltaManifestPath)) {
+    Write-Host "[ERROR] delta-manifest.json not found in $scriptRoot" -ForegroundColor Red
+    Write-Host "[ERROR] This script must be run from the root of the extracted delta package directory." -ForegroundColor Red
+    exit 1
+}
+
+# Load the update module from the delta package
+$updateModulePath = Join-Path $scriptRoot 'lib\modules\k2s\k2s.cluster.module\update\update.module.psm1'
+if (-not (Test-Path -LiteralPath $updateModulePath)) {
+    Write-Host "[ERROR] Update module not found at: $updateModulePath" -ForegroundColor Red
+    Write-Host "[ERROR] The delta package may be incomplete or corrupted." -ForegroundColor Red
+    exit 2
+}
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "K2s Delta Update" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Importing update module..." -ForegroundColor Yellow
+
+try {
+    Import-Module $updateModulePath -Force
+} catch {
+    Write-Host "[ERROR] Failed to import update module: $($_.Exception.Message)" -ForegroundColor Red
+    exit 3
+}
+
+Write-Host "Starting delta update process..." -ForegroundColor Yellow
+Write-Host ""
+
+# Test the update by executing from the current directory (delta root)
+# No need to repackage - PerformClusterUpdate now expects to run from extracted delta directory
+Write-Host "Testing delta update from current directory..." -ForegroundColor Yellow
+Write-Host "Delta root: $scriptRoot" -ForegroundColor Gray
+
+try {
+    # Change to the script root directory (where delta-manifest.json is)
+    Push-Location $scriptRoot
+    
+    # Execute the update - it will detect delta-manifest.json in current directory
+    $result = PerformClusterUpdate -ShowLogs:$ShowLogs -ShowProgress:$ShowProgress
+    
+    Pop-Location
+    
+    if ($result) {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Green
+        Write-Host "Delta update completed successfully!" -ForegroundColor Green
+        Write-Host "========================================" -ForegroundColor Green
+    } else {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host "Delta update failed!" -ForegroundColor Red
+        Write-Host "========================================" -ForegroundColor Red
+        exit 4
+    }
+} catch {
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "Delta update encountered an error:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    exit 5
+} finally {
+    # No temporary zip to cleanup - we execute directly from the directory
+}
+'@
+
+$applyScriptPath = Join-Path $stageDir 'Apply-Delta.ps1'
+$applyScriptContent | Out-File -FilePath $applyScriptPath -Encoding UTF8 -Force
+Write-Log "[Mandatory] Created Apply-Delta.ps1 wrapper script" -Console
 
 # Staging summary
 $stagedFileCount = (Get-ChildItem -Path $stageDir -Recurse -File | Measure-Object).Count
@@ -517,10 +665,14 @@ if ($overallError) {
 }
 
 if ($EncodeStructuredOutput -eq $true) {
+    # CRITICAL: Suppress all console output to prevent contamination of base64 stream
+    # Re-initialize logging with ShowLogs=$false to ensure Send-ToCli output is clean
+    Initialize-Logging -ShowLogs:$false
+    
     Send-ToCli -MessageType $MessageType -Message @{ 
         Error = $null;
     Delta = @{ WholeDirectories = $wholeDirsNormalized; SpecialSkippedFiles = $SpecialSkippedFiles; Added = $added; Changed = $changed; Removed = $removed; Manifest = 'delta-manifest.json'; DebianPackageDiff = $debianPackageDiff }
     }
+} else {
+    Write-Log "DONE" -Console
 }
-
-Write-Log "DONE" -Console

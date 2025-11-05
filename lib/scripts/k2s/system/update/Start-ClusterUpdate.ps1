@@ -22,9 +22,7 @@ Param(
 	[Parameter(Mandatory = $false, HelpMessage = 'Show progress bar')]
 	[switch] $ShowProgress = $false,
 	[parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-	[switch] $ShowLogs = $false,
-	[parameter(Mandatory = $false, HelpMessage = 'Delta package for setting up new cluster')]
-	[string] $DeltaPackage
+	[switch] $ShowLogs = $false
 )
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -59,14 +57,12 @@ function Start-ClusterUpdate {
 		[Parameter(Mandatory = $false, HelpMessage = 'Show progress bar')]
 		[switch] $ShowProgress = $false,
 		[parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-		[switch] $ShowLogs = $false,
-		[parameter(Mandatory = $false, HelpMessage = 'Delta package file to use for update')]
-		[string] $DeltaPackage
+		[switch] $ShowLogs = $false
 	)
 	$errUpdate = $null
 
 	try {
-		PerformClusterUpdate -ExecuteHooks:$true -ShowProgress:$ShowProgress -ShowLogs:$ShowLogs -DeltaPackage $DeltaPackage
+		PerformClusterUpdate -ExecuteHooks:$true -ShowProgress:$ShowProgress -ShowLogs:$ShowLogs
 	}
 	catch {
 		Write-Log 'System update failed '
@@ -92,4 +88,4 @@ function Start-ClusterUpdate {
 #####################################################
 
 Write-Log 'Starting updating cluster' -Console
-Start-ClusterUpdate -ShowProgress:$ShowProgress -ShowLogs:$ShowLogs -DeltaPackage $DeltaPackage
+Start-ClusterUpdate -ShowProgress:$ShowProgress -ShowLogs:$ShowLogs
