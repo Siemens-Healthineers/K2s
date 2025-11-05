@@ -2,13 +2,43 @@
 #
 # SPDX-License-Identifier: MIT
 
-$infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
+<#
+.DESCRIPTION
+	This module implements delta update functionality for K2s clusters.
+	
+	EXECUTION CONTEXT DETECTION:
+	This module can run in two contexts:
+	1. From installed k2s folder (e.g., C:\k\lib\modules\...) - uses relative paths
+	2. From extracted delta package - expects modules already loaded by Start-ClusterUpdate.ps1
+	
+	When running from delta package:
+	- Start-ClusterUpdate.ps1 detects delta context and loads modules from target installation
+	- This module skips duplicate module loading
+	- References target installation via Get-ClusterInstalledFolder for file operations
+#>
 
-Import-Module $infraModule
+# Detect if we're running from a delta package (extracted) or from installed k2s
+# If delta-manifest.json exists 5 levels up, we're in a delta package
+$deltaManifestCheck = Join-Path (Split-Path (Split-Path (Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent) -Parent) -Parent) 'delta-manifest.json'
+$runningFromDelta = Test-Path -LiteralPath $deltaManifestCheck
 
-# Import runningstate module for k2s running check
-$runningStateModule = "$PSScriptRoot/../runningstate/runningstate.module.psm1"
-Import-Module $runningStateModule
+if ($runningFromDelta) {
+	# Running from delta package - modules should already be loaded by Start-ClusterUpdate.ps1
+	# No need to import again, but verify key functions are available
+	if (-not (Get-Command -Name Write-Log -ErrorAction SilentlyContinue)) {
+		Write-Warning "[Update] Running from delta package but Write-Log not available - modules may not be loaded"
+	}
+	$script:DeferredModuleLoad = $false  # Already loaded by caller
+} else {
+	# Running from installed k2s - use normal relative paths
+	$infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
+	Import-Module $infraModule
+	
+	# Import runningstate module for k2s running check
+	$runningStateModule = "$PSScriptRoot/../runningstate/runningstate.module.psm1"
+	Import-Module $runningStateModule
+	$script:DeferredModuleLoad = $false
+}
 
 # Helper functions for version validation (from upgrade module)
 function Get-ClusterInstalledFolder {
@@ -78,7 +108,6 @@ function PerformClusterUpdate {
 		[switch] $ShowProgress,
 		[switch] $ShowLogs
 	)
-
 
 	$consoleSwitch = $ShowLogs
 	Write-Log '#####################################################################' -Console:$consoleSwitch
@@ -451,8 +480,8 @@ function Invoke-CommandInMasterVM {
 
 	Write-Log "[DebPkg][VM] Staging Debian delta script '$remoteScriptName'" -Console:$consoleSwitch
 	try {
-		# Ensure remote directory
-		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase" -Retries $RetryCount -Timeout 2).Output | Out-Null
+		# Ensure remote directory and make it writable by the user
+		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Retries $RetryCount -Timeout 2).Output | Out-Null
 
 		# Copy only the script (avoid large recursive transfers unless needed)
 		Copy-ToControlPlaneViaSSHKey -Source $ScriptPath -Target $remoteBase -IgnoreErrors:$false

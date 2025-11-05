@@ -263,6 +263,8 @@ if (Test-Path -LiteralPath $k2sExeSource) {
 }
 
 # --- MANDATORY: Copy update module to delta package for standalone execution ---
+# Note: The update module will dynamically load other required modules (infra, runningstate, etc.) 
+# from the target installation folder, so we only need to include update.module.psm1 itself.
 $updateModuleName = 'update.module.psm1'
 $updateModuleRelPath = "lib/modules/k2s/k2s.cluster.module/update/$updateModuleName"
 $updateModuleSource = Join-Path $newExtract $updateModuleRelPath
