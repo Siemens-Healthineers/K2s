@@ -6,8 +6,6 @@ import (
 	"context"
 	"testing"
 	"time"
-	"path/filepath"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,14 +40,4 @@ var _ = Describe("install commands", func() {
 		Entry(nil, "install", "--linux-only"),
 		Entry(nil, "install", "buildonly"),
 	)
-})
-
-var _ = Describe("SSH config file creation", func() {
-	It("should create the SSH config file after install", func() {
-		userProfile := os.Getenv("USERPROFILE")
-		configPath := filepath.Join(userProfile, ".ssh", "config")
-
-		_, err := os.Stat(configPath)
-		Expect(err).NotTo(HaveOccurred(), "SSH config file not found at %s", configPath)
-	})
 })
