@@ -48,8 +48,6 @@ $clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.clus
 
 Import-Module $infraModule, $nodeModule, $clusterModule
 
-. "$PSScriptRoot\..\system\ssh\HostSshConfig.ps1"
-
 Initialize-Logging -ShowLogs:$ShowLogs
 Reset-LogFile -AppendLogFile:$AppendLogFile
 
@@ -92,9 +90,6 @@ $controlPlaneNodeParams = @{
     WSL = $WSL
 }
 & "$PSScriptRoot\..\..\control-plane\Install.ps1" @controlPlaneNodeParams
-
-Write-Log -Message "Configuring SSH for KubeMaster..."
-Write-SshConfig
 
 $workerNodeParams = @{
     ShowLogs = $ShowLogs
