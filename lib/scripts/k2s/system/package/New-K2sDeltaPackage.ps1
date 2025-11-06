@@ -41,7 +41,12 @@ $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.c
 $signingModule = "$PSScriptRoot/../../../../modules/k2s/k2s.signing.module/k2s.signing.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $signingModule
 
-Initialize-Logging -ShowLogs:$ShowLogs
+# CRITICAL: When encoding structured output, suppress ALL console output to prevent base64 contamination
+if ($EncodeStructuredOutput) {
+    Initialize-Logging -ShowLogs:$false
+} else {
+    Initialize-Logging -ShowLogs:$ShowLogs
+}
 
 ### Dot-source helper methods
 $script:DeltaHelperParts = @(
@@ -99,10 +104,6 @@ if (Test-Path $zipPackagePath) {
 }
 
 Write-Log "Zip package available at '$zipPackagePath'." -Console
-
-if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
-}
 
 # --- Delta Package Construction -------------------------------------------------
 
@@ -667,10 +668,6 @@ if ($overallError) {
 }
 
 if ($EncodeStructuredOutput -eq $true) {
-    # CRITICAL: Suppress all console output to prevent contamination of base64 stream
-    # Re-initialize logging with ShowLogs=$false to ensure Send-ToCli output is clean
-    Initialize-Logging -ShowLogs:$false
-    
     # Send CmdResult structure expected by Go CLI (lowercase 'error' field)
     Send-ToCli -MessageType $MessageType -Message @{ 
         error = $null
