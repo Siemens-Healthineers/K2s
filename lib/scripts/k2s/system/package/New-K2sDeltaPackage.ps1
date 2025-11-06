@@ -671,9 +671,9 @@ if ($EncodeStructuredOutput -eq $true) {
     # Re-initialize logging with ShowLogs=$false to ensure Send-ToCli output is clean
     Initialize-Logging -ShowLogs:$false
     
+    # Send CmdResult structure expected by Go CLI (lowercase 'error' field)
     Send-ToCli -MessageType $MessageType -Message @{ 
-        Error = $null;
-    Delta = @{ WholeDirectories = $wholeDirsNormalized; SpecialSkippedFiles = $SpecialSkippedFiles; Added = $added; Changed = $changed; Removed = $removed; Manifest = 'delta-manifest.json'; DebianPackageDiff = $debianPackageDiff }
+        error = $null
     }
 } else {
     Write-Log "DONE" -Console
