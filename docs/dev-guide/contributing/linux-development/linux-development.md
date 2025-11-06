@@ -5,9 +5,15 @@ SPDX-License-Identifier: MIT
 
 ## Remote Linux Development via SSH and VS Code
 
-### 1\. Check SSH Config File
+### 1\. Create SSH Config File
 
-- On your Windows machine, verify that the file `C:\Users\<YourUsername>\.ssh\config` is created automatically after installing K2s.
+- On your Windows machine, open the file `C:\Users\<YourUsername>\.ssh\config` (create it if it doesn’t exist).
+- Add the following entry, adjusting paths and IP as needed:
+![SSHConfig.png](images/SSHConfig.png)
+  - HostName is the IP address of your Linux VM created after K2s installation.
+  - User is the username you set up during K2s installation (default is `remote`)
+  - After K2s is successfully installed, `id_rsa` file is created in `C:\Users\<YourUsername>\.ssh\K2s\id_rsa` and is the private key used to connect to the Linux VM.
+- Replace `<YourUsername>` with your actual Windows username.
 
 ### 2\. Install Remote-SSH Extension in VS Code
 
