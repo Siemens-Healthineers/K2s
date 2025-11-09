@@ -322,8 +322,22 @@ timeout: 30
     &$kubeBinPath\nssm set containerd Start SERVICE_AUTO_START | Out-Null
 
     Write-Log "Proxy to use with containerd: '$Proxy'"
+    
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
+    
+    $k2sHosts = Get-K2sHosts
+    $allNoProxyHosts = @()
+    
     if ( $Proxy -ne '' ) {
-        &$kubeBinPath\nssm set containerd AppEnvironmentExtra HTTP_PROXY=$Proxy HTTPS_PROXY=$Proxy NO_PROXY=.local | Out-Null
+        $allNoProxyHosts += $k2sHosts
+        $noProxyValue = $allNoProxyHosts -join ','
+        &$kubeBinPath\nssm set containerd AppEnvironmentExtra "HTTP_PROXY=$httpProxyUrl;HTTPS_PROXY=$httpProxyUrl;NO_PROXY=$noProxyValue" | Out-Null
+        Write-Log "Containerd service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
+    } else {
+        $noProxyValue = $k2sHosts -join ','
+        &$kubeBinPath\nssm set containerd AppEnvironmentExtra "NO_PROXY=$noProxyValue" | Out-Null
+        Write-Log "Containerd service configured with NO_PROXY: $noProxyValue"
     }
 
     # add firewall entries (else firewall will keep your CPU busy)

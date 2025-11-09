@@ -125,12 +125,13 @@ var _ = Describe("install", func() {
 		Context("with all switches", func() {
 			It("returns correct command", func() {
 				const staticPartOfExpectedCmd = `\lib\scripts\k2s\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
-					` -Proxy my_proxy -AdditionalHooksDir 'c:\hooks\dir' -RestartAfterInstallCount 123 -K8sBinsPath 'c:\k8sBins\dir' -ShowLogs -SkipStart -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -WSL -AppendLogFile`
+					` -Proxy my_proxy -NoProxy 'localhost','127.0.0.1','.local' -AdditionalHooksDir 'c:\hooks\dir' -RestartAfterInstallCount 123 -K8sBinsPath 'c:\k8sBins\dir' -ShowLogs -SkipStart -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -WSL -AppendLogFile`
 				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
 					Env: ic.EnvConfig{
 						Proxy:              "my_proxy",
+						NoProxy:            []string{"localhost", "127.0.0.1", ".local"},
 						AdditionalHooksDir: "c:\\hooks\\dir",
 						RestartPostInstall: "123",
 						K8sBins:            "c:\\k8sBins\\dir",
@@ -142,6 +143,32 @@ var _ = Describe("install", func() {
 						Wsl:                               true,
 						AppendLog:                         true,
 						SkipStart:                         true,
+					},
+					Nodes: []ic.NodeConfig{{
+						Role: ic.ControlPlaneRoleName,
+						Resources: ic.ResourceConfig{
+							Cpu:    "5",
+							Memory: "6GB",
+							Disk:   "7GB",
+						}}},
+				}
+
+				actual, err := buildInstallCmd(config)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actual).To(Equal(expected))
+			})
+		})
+
+		Context("with NoProxy only", func() {
+			It("returns correct command with NoProxy parameter", func() {
+				const staticPartOfExpectedCmd = `\lib\scripts\k2s\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
+					` -NoProxy 'localhost','127.0.0.1'`
+				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
+
+				config := &ic.InstallConfig{
+					Env: ic.EnvConfig{
+						NoProxy: []string{"localhost", "127.0.0.1"},
 					},
 					Nodes: []ic.NodeConfig{{
 						Role: ic.ControlPlaneRoleName,
