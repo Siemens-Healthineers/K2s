@@ -332,7 +332,9 @@ timeout: 30
     if ( $Proxy -ne '' ) {
         $allNoProxyHosts += $k2sHosts
         $noProxyValue = $allNoProxyHosts -join ','
-        &$kubeBinPath\nssm set containerd AppEnvironmentExtra "HTTP_PROXY=$httpProxyUrl;HTTPS_PROXY=$httpProxyUrl;NO_PROXY=$noProxyValue" | Out-Null
+        # Build environment variables as separate lines for NSSM
+        $envVars = "HTTP_PROXY=$httpProxyUrl`r`nHTTPS_PROXY=$httpProxyUrl`r`nNO_PROXY=$noProxyValue"
+        &$kubeBinPath\nssm set containerd AppEnvironmentExtra $envVars | Out-Null
         Write-Log "Containerd service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
     } else {
         $noProxyValue = $k2sHosts -join ','

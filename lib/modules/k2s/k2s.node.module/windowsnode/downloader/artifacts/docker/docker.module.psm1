@@ -127,7 +127,9 @@ function Install-WinDocker {
             $uniqueNoProxyHosts = $allNoProxyHosts | Sort-Object -Unique
             $NoProxy = $uniqueNoProxyHosts -join ','
             
-            &$kubeBinPath\nssm set docker AppEnvironmentExtra "HTTP_PROXY=$httpProxyUrl;HTTPS_PROXY=$httpProxyUrl;NO_PROXY=$NoProxy" | Out-Null
+            # Build environment variables as separate lines for NSSM
+            $envVars = "HTTP_PROXY=$httpProxyUrl`r`nHTTPS_PROXY=$httpProxyUrl`r`nNO_PROXY=$NoProxy"
+            &$kubeBinPath\nssm set docker AppEnvironmentExtra $envVars | Out-Null
             Write-Log "Docker service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $NoProxy"
             &$kubeBinPath\nssm get docker AppEnvironmentExtra
         }
