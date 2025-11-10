@@ -173,8 +173,8 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
                 $Proxy -eq 'http://proxy.example.com:8080' -and
-                $ProxyOverride -contains 'localhost' -and
-                $ProxyOverride -contains '127.0.0.1'
+                $ProxyOverrides -contains 'localhost' -and
+                $ProxyOverrides -contains '127.0.0.1'
             }
         }
 
@@ -190,8 +190,8 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
-                ($ProxyOverride | Measure-Object).Count -eq 1 -and
-                $ProxyOverride[0] -eq 'example.com'
+                ($ProxyOverrides | Measure-Object).Count -eq 1 -and
+                $ProxyOverrides[0] -eq 'example.com'
             }
         }
 
@@ -207,7 +207,7 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
-                $ProxyOverride.Count -eq 0
+                $ProxyOverrides.Count -eq 0
             }
         }
 
@@ -334,10 +334,11 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
-                ($ProxyOverride | Measure-Object).Count -eq 2 -and
-                $ProxyOverride -contains 'entry1' -and
-                $ProxyOverride -contains 'entry2'
+                ($ProxyOverrides | Measure-Object).Count -eq 2 -and
+                $ProxyOverrides -contains 'entry1' -and
+                $ProxyOverrides -contains 'entry2'
             }
         }
     }
 }
+

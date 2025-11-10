@@ -185,11 +185,11 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
             & $scriptPath -Overrides '*.newly-added.com'
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
-                $ProxyOverride -contains 'localhost' -and
-                $ProxyOverride -contains '*.example.com' -and
-                $ProxyOverride -contains '*.newly-added.com' -and
-                $ProxyOverride -contains '172.19.1.100' -and
-                $ProxyOverride -contains '.local'
+                $ProxyOverrides -contains 'localhost' -and
+                $ProxyOverrides -contains '*.example.com' -and
+                $ProxyOverrides -contains '*.newly-added.com' -and
+                $ProxyOverrides -contains '172.19.1.100' -and
+                $ProxyOverrides -contains '.local'
             }
         }
 
@@ -206,7 +206,7 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
-                ($ProxyOverride | Where-Object { $_ -eq 'localhost' } | Measure-Object).Count -eq 1
+                ($ProxyOverrides | Where-Object { $_ -eq 'localhost' } | Measure-Object).Count -eq 1
             }
         }
 
@@ -223,8 +223,8 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
-                $ProxyOverride -contains '172.19.1.100' -and
-                $ProxyOverride -contains '.local'
+                $ProxyOverrides -contains '172.19.1.100' -and
+                $ProxyOverrides -contains '.local'
             }
         }
     }
@@ -344,3 +344,4 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
     }
 }
+

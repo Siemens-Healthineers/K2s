@@ -158,9 +158,9 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
                 $Proxy -eq '' -and
-                $ProxyOverride -contains 'localhost' -and
-                $ProxyOverride -contains '127.0.0.1' -and
-                $ProxyOverride -contains '.local'
+                $ProxyOverrides -contains 'localhost' -and
+                $ProxyOverrides -contains '127.0.0.1' -and
+                $ProxyOverrides -contains '.local'
             }
         }
 
@@ -180,9 +180,9 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             & $scriptPath
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
-                ($ProxyOverride | Measure-Object).Count -eq 2 -and
-                $ProxyOverride -contains '172.19.1.100' -and
-                $ProxyOverride -contains '172.19.1.1'
+                ($ProxyOverrides | Measure-Object).Count -eq 2 -and
+                $ProxyOverrides -contains '172.19.1.100' -and
+                $ProxyOverrides -contains '172.19.1.1'
             }
         }
     }
@@ -268,3 +268,4 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
     }
 }
+

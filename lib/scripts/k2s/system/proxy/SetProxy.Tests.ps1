@@ -169,10 +169,10 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             & $scriptPath -Uri 'http://proxy.test.com:8080'
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
-                $ProxyOverride -contains 'example.com' -and
-                $ProxyOverride -contains 'test.local' -and
-                $ProxyOverride -contains 'localhost' -and
-                $ProxyOverride -contains '127.0.0.1'
+                $ProxyOverrides -contains 'example.com' -and
+                $ProxyOverrides -contains 'test.local' -and
+                $ProxyOverrides -contains 'localhost' -and
+                $ProxyOverrides -contains '127.0.0.1'
             }
         }
 
@@ -190,7 +190,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
                 # Count occurrences of 'localhost' - should be only 1
-                ($ProxyOverride | Where-Object { $_ -eq 'localhost' } | Measure-Object).Count -eq 1
+                ($ProxyOverrides | Where-Object { $_ -eq 'localhost' } | Measure-Object).Count -eq 1
             }
         }
 
@@ -207,8 +207,8 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             & $scriptPath -Uri 'http://proxy.test.com:8080'
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
-                $ProxyOverride -contains 'localhost' -and
-                $ProxyOverride -contains '127.0.0.1'
+                $ProxyOverrides -contains 'localhost' -and
+                $ProxyOverrides -contains '127.0.0.1'
             }
         }
     }
@@ -318,3 +318,4 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
     }
 }
+
