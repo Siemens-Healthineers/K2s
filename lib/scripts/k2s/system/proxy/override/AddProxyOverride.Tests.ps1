@@ -18,7 +18,7 @@ BeforeAll {
     function global:Get-K2sHosts { return @('172.19.1.100', '172.19.1.1', '.local', '.cluster.local') }
     function global:Stop-WinHttpProxy { }
     function global:Start-WinHttpProxy { }
-    function global:Set-ProxyConfigInHttpProxy { param($Proxy, $ProxyOverride) }
+    function global:Set-ProxyConfigInHttpProxy { param($Proxy, $ProxyOverrides) }
     function global:Send-ToCli { param($MessageType, $Message) }
     function global:Write-Log { param([string]$Message, [switch]$Error) }
     

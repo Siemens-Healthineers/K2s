@@ -19,7 +19,7 @@ BeforeAll {
     
     function global:Stop-WinHttpProxy { }
     function global:Start-WinHttpProxy { }
-    function global:Set-ProxyConfigInHttpProxy { param($Proxy, $ProxyOverride) }
+    function global:Set-ProxyConfigInHttpProxy { param($Proxy, $ProxyOverrides) }
     function global:Add-NoProxyEntry { param($Entries) }
     function global:Remove-NoProxyEntry { param($Entries) }
     function global:Set-ProxyServer { param($Proxy) }

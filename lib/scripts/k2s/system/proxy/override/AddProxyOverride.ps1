@@ -37,7 +37,7 @@ try {
     $allNoProxyHosts += $k2sHosts
     $uniqueNoProxyHosts = $allNoProxyHosts | Sort-Object -Unique
     
-    Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverride $uniqueNoProxyHosts
+    Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverrides $uniqueNoProxyHosts
     Start-WinHttpProxy
     if ($EncodeStructuredOutput) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null}
