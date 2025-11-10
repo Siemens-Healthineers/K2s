@@ -265,11 +265,10 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             Mock -CommandName Start-WinHttpProxy { }
             Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
         }
         
         It 'logs completion message' {
-            Mock -CommandName Write-Log { }
-            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Write-Log -ParameterFilter {

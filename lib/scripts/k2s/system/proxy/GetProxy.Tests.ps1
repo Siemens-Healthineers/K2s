@@ -179,11 +179,10 @@ Describe 'GetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
                 return [PSCustomObject]@{ HttpProxy = 'http://proxy.example.com:8080' }
             }
             Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
         }
         
         It 'logs completion message' {
-            Mock -CommandName Write-Log { }
-            
             & $scriptPath
             
             Should -Invoke Write-Log -ParameterFilter {

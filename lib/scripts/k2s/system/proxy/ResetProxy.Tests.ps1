@@ -231,11 +231,10 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             Mock -CommandName Start-WinHttpProxy { }
             Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
         }
         
         It 'logs completion message' {
-            Mock -CommandName Write-Log { }
-            
             & $scriptPath
             
             Should -Invoke Write-Log -ParameterFilter {
