@@ -5,6 +5,9 @@
 $logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
 Import-Module $logModule
 
+$configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
+Import-Module $configModule
+
 $proxyConfigFp = "C:\ProgramData\k2s\proxy.conf"
 
 class ProxyConfig {
@@ -30,52 +33,25 @@ function Get-K2sHosts {
     
     $k2sHosts += @('localhost', '127.0.0.1', '::1')
     
-    try {
-        $ipControlPlane = Get-ConfiguredIPControlPlane
-        if (![string]::IsNullOrWhiteSpace($ipControlPlane)) {
-            $k2sHosts += $ipControlPlane
-        }
-    } catch { 
-        Write-Log "Unable to get control plane IP: $($_.Exception.Message)" -Console
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+    if ([string]::IsNullOrWhiteSpace($ipControlPlane)) {
+        throw "Control Plane IP is not configured. Unable to determine K2s hosts for proxy configuration."
     }
+    $k2sHosts += $ipControlPlane
     
-    try {
-        $kubeSwitchIP = Get-ConfiguredKubeSwitchIP
-        if (![string]::IsNullOrWhiteSpace($kubeSwitchIP)) {
-            $k2sHosts += $kubeSwitchIP
-        }
-    } catch { 
-        Write-Log "Unable to get kube switch IP: $($_.Exception.Message)" -Console
+    $clusterCIDR = Get-ConfiguredClusterCIDR
+    if ([string]::IsNullOrWhiteSpace($clusterCIDR)) {
+        throw "Cluster CIDR is not configured. Unable to determine K2s hosts for proxy configuration."
     }
+    $k2sHosts += $clusterCIDR
     
-    try {
-        $clusterCIDR = Get-ConfiguredClusterCIDR
-        if (![string]::IsNullOrWhiteSpace($clusterCIDR)) {
-            $k2sHosts += $clusterCIDR
-        }
-    } catch { 
-        Write-Log "Unable to get cluster CIDR: $($_.Exception.Message)" -Console
+    $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
+    if ([string]::IsNullOrWhiteSpace($clusterCIDRServices)) {
+        throw "Cluster Service CIDR is not configured. Unable to determine K2s hosts for proxy configuration."
     }
-    
-    try {
-        $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
-        if (![string]::IsNullOrWhiteSpace($clusterCIDRServices)) {
-            $k2sHosts += $clusterCIDRServices
-        }
-    } catch { 
-        Write-Log "Unable to get cluster CIDR services: $($_.Exception.Message)" -Console
-    }
-    
-    try {
-        $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-        if (![string]::IsNullOrWhiteSpace($ipControlPlaneCIDR)) {
-            $k2sHosts += $ipControlPlaneCIDR
-        }
-    } catch { 
-        Write-Log "Unable to get control plane CIDR: $($_.Exception.Message)" -Console
-    }
-    
-    $k2sHosts += @('10.81.0.0/16', '.local', '.cluster.local')
+    $k2sHosts += $clusterCIDRServices
+       
+    $k2sHosts += @('.local', '.cluster.local')
     
     $k2sHosts = $k2sHosts | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
     
