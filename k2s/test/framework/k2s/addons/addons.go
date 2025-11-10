@@ -5,6 +5,8 @@ package addons
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,7 +18,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
@@ -131,7 +135,7 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 			chartName := filepath.Base(chartFile)
 			GinkgoWriter.Println("Converting chart", chartName)
 			// get the release name from the chart file name
-			// kubernetes-dashboard-7.12.0.tgz -> kubernetes-dashboard
+			// kubernetes-dashboard-x.x.x.tgz -> kubernetes-dashboard
 			chartNameParts := strings.Split(chartName, "-")
 			chartNameParts = chartNameParts[:len(chartNameParts)-1]
 			release := strings.Join(chartNameParts, "-")
@@ -234,16 +238,126 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 	}
 }
 
+// loadWindowsRootCAs loads certificates from the Windows certificate store and returns a cert pool
+func loadWindowsRootCAs() (*x509.CertPool, error) {
+	// Start with system cert pool
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		GinkgoWriter.Printf("Warning: Failed to load system cert pool: %v\n", err)
+		pool = x509.NewCertPool()
+	}
+
+	// Load certificates from Windows Root CA store
+	storeNames := []string{"ROOT", "CA"}
+	
+	for _, storeName := range storeNames {
+		store, err := openWindowsCertStore(storeName)
+		if err != nil {
+			GinkgoWriter.Printf("Warning: Failed to open Windows cert store %s: %v\n", storeName, err)
+			continue
+		}
+		defer closeCertStore(store)
+
+		// Enumerate all certificates in the store
+		var cert *syscall.CertContext
+		for {
+			cert, err = enumCertificates(store, cert)
+			if err != nil {
+				break
+			}
+			if cert == nil {
+				break
+			}
+
+			// Convert Windows cert to x509 certificate
+			certBytes := (*[1 << 20]byte)(unsafe.Pointer(cert.EncodedCert))[:cert.Length:cert.Length]
+			x509Cert, err := x509.ParseCertificate(certBytes)
+			if err != nil {
+				GinkgoWriter.Printf("Warning: Failed to parse certificate: %v\n", err)
+				continue
+			}
+
+			// Add to pool
+			pool.AddCert(x509Cert)
+		}
+	}
+
+	return pool, nil
+}
+
+// Windows API functions for certificate store access
+var (
+	crypt32                     = syscall.NewLazyDLL("crypt32.dll")
+	certOpenSystemStoreW        = crypt32.NewProc("CertOpenSystemStoreW")
+	certCloseStore              = crypt32.NewProc("CertCloseStore")
+	certEnumCertificatesInStore = crypt32.NewProc("CertEnumCertificatesInStore")
+)
+
+func openWindowsCertStore(storeName string) (syscall.Handle, error) {
+	storeNamePtr, err := syscall.UTF16PtrFromString(storeName)
+	if err != nil {
+		return 0, err
+	}
+
+	store, _, err := certOpenSystemStoreW.Call(0, uintptr(unsafe.Pointer(storeNamePtr)))
+	if store == 0 {
+		return 0, fmt.Errorf("failed to open cert store: %v", err)
+	}
+
+	return syscall.Handle(store), nil
+}
+
+func closeCertStore(store syscall.Handle) error {
+	ret, _, err := certCloseStore.Call(uintptr(store), 0)
+	if ret == 0 {
+		return err
+	}
+	return nil
+}
+
+func enumCertificates(store syscall.Handle, prevContext *syscall.CertContext) (*syscall.CertContext, error) {
+	var prevContextPtr uintptr
+	if prevContext != nil {
+		prevContextPtr = uintptr(unsafe.Pointer(prevContext))
+	}
+
+	context, _, err := certEnumCertificatesInStore.Call(uintptr(store), prevContextPtr)
+	if context == 0 {
+		return nil, err
+	}
+
+	// Safe conversion: context is a pointer returned from Windows API
+	certContext := *(**syscall.CertContext)(unsafe.Pointer(&context))
+	return certContext, nil
+}
+
+// createHTTPClientWithWindowsCerts creates an HTTP client that trusts Windows certificate store
+func createHTTPClientWithWindowsCerts(timeout time.Duration) *http.Client {
+	rootCAs, err := loadWindowsRootCAs()
+	if err != nil {
+		GinkgoWriter.Printf("Warning: Failed to load Windows root CAs: %v. Using system defaults.\n", err)
+		return &http.Client{Timeout: timeout}
+	}
+
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: rootCAs,
+			},
+		},
+	}
+}
+
 func waitForKeycloakReady(keycloakServer, realm string) error {
 	realmUrl := fmt.Sprintf("%s/keycloak/realms/%s", keycloakServer, realm)
 	maxRetries := 30 // Wait up to 5 minutes (30 * 10s)
-	
+
 	GinkgoWriter.Printf("Checking Keycloak readiness at %s\n", realmUrl)
-	
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-	
+
+	// Create HTTP client with Windows certificate store trust
+	client := createHTTPClientWithWindowsCerts(10 * time.Second)
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		resp, err := client.Get(realmUrl)
 		if err != nil {
@@ -252,7 +366,7 @@ func waitForKeycloakReady(keycloakServer, realm string) error {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				GinkgoWriter.Printf("Keycloak is ready (realm accessible) after %d attempts\n", attempt)
-				
+
 				// Additional check: verify the token endpoint is accessible
 				tokenEndpointUrl := fmt.Sprintf("%s/protocol/openid-connect/token", realmUrl)
 				tokenResp, tokenErr := client.Get(tokenEndpointUrl)
@@ -271,14 +385,14 @@ func waitForKeycloakReady(keycloakServer, realm string) error {
 				GinkgoWriter.Printf("Readiness check %d/%d: Realm not ready (status: %d)\n", attempt, maxRetries, resp.StatusCode)
 			}
 		}
-		
+
 		if attempt < maxRetries {
 			backoffTime := 10 * time.Second
 			GinkgoWriter.Printf("Waiting %v before next readiness check...\n", backoffTime)
 			time.Sleep(backoffTime)
 		}
 	}
-	
+
 	return fmt.Errorf("keycloak did not become ready after %d attempts", maxRetries)
 }
 
@@ -290,12 +404,12 @@ func GetKeycloakToken() (string, error) {
 	username := "demo-user"
 	password := "password"
 	tokenUrl := fmt.Sprintf("%s/keycloak/realms/%s/protocol/openid-connect/token", keycloakServer, realm)
-	
+
 	// First, wait for Keycloak to be fully operational
 	if err := waitForKeycloakReady(keycloakServer, realm); err != nil {
 		return "", fmt.Errorf("keycloak is not ready: %v", err)
 	}
-	
+
 	data := url.Values{}
 	data.Set("client_id", clientId)
 	data.Set("client_secret", clientSecret)
@@ -306,17 +420,16 @@ func GetKeycloakToken() (string, error) {
 	GinkgoWriter.Printf("Getting Keycloak token from %s\n", tokenUrl)
 
 	maxRetries := 15 // Increased from 10 to handle sporadic failures
-	client := &http.Client{
-		Timeout: 30 * time.Second, // Increased timeout for better reliability
-	}
-	
+	// Create HTTP client with Windows certificate store trust
+	client := createHTTPClientWithWindowsCerts(30 * time.Second)
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		req, err := http.NewRequest("POST", tokenUrl, strings.NewReader(data.Encode()))
 		if err != nil {
 			return "", fmt.Errorf("failed to create request: %v", err)
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		
+
 		resp, err := client.Do(req)
 		if err != nil {
 			if attempt == maxRetries {
@@ -446,7 +559,7 @@ func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expect
 
 		// Pause before the next attempt with exponential backoff
 		if attempt < maxRetries {
-			backoffTime := time.Duration(attempt * 5) * time.Second
+			backoffTime := time.Duration(attempt*5) * time.Second
 			GinkgoWriter.Printf("Waiting %v before next attempt...\n", backoffTime)
 			time.Sleep(backoffTime)
 		}

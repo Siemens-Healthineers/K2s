@@ -368,6 +368,82 @@ function Wait-ForTrustManagerAvailable($waiTime = 120) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=trust-manager' -Namespace 'cert-manager' -TimeoutSeconds $waiTime)
 }
 
+function Wait-ForTrustManagerWebhookReady {
+    <#
+    .SYNOPSIS
+    Waits for trust-manager webhook to be ready to accept requests.
+    .DESCRIPTION
+    After trust-manager pods are ready, the webhook endpoint may still need additional time
+    to become available. This function retries creating a test Bundle resource to verify
+    webhook readiness before proceeding with actual cert-manager resource creation.
+    .PARAMETER MaxRetries
+    Maximum number of retry attempts (default: 10)
+    .PARAMETER RetryDelaySeconds
+    Delay between retries in seconds (default: 3)
+    #>
+    param(
+        [int]$MaxRetries = 10,
+        [int]$RetryDelaySeconds = 3
+    )
+
+    Write-Log "Waiting for trust-manager webhook to be ready (max retries: $MaxRetries)" -Console
+
+    $testBundleYaml = @"
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: trust-manager-webhook-test
+spec:
+  sources:
+  - useDefaultCAs: true
+  target:
+    configMap:
+      key: trust-bundle.pem
+"@
+
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $testBundleYaml | Out-File -FilePath $tempFile -Encoding UTF8 -Force
+
+        for ($i = 1; $i -le $MaxRetries; $i++) {
+            Write-Log "Webhook readiness check attempt $i of $MaxRetries"
+            
+            # Try to create the test bundle
+            $result = Invoke-Kubectl -Params 'apply', '-f', $tempFile
+            
+            if ($result.Success) {
+                Write-Log "Trust-manager webhook is ready" -Console
+                # Clean up test bundle
+                $null = Invoke-Kubectl -Params 'delete', '-f', $tempFile, '--ignore-not-found=true'
+                return $true
+            }
+            
+            # Check if error is webhook-related
+            if ($result.Output -match 'failed calling webhook.*trust\.cert-manager\.io|connection refused|timeout') {
+                Write-Log "Webhook not ready yet (attempt $i): connection issue detected. Waiting ${RetryDelaySeconds}s..."
+                if ($i -lt $MaxRetries) {
+                    Start-Sleep -Seconds $RetryDelaySeconds
+                    continue
+                }
+            } else {
+                # Different error - may be a real problem
+                Write-Log "Unexpected error during webhook check: $($result.Output)" -Console
+                return $false
+            }
+        }
+
+        Write-Log "Trust-manager webhook did not become ready after $MaxRetries attempts" -Console
+        return $false
+    }
+    finally {
+        # Clean up temp file and test bundle
+        if (Test-Path $tempFile) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
+        $null = Invoke-Kubectl -Params 'delete', 'bundle', 'trust-manager-webhook-test', '--ignore-not-found=true'
+    }
+}
+
 function Save-LinkerdMarkerConfig {
     # write info file for enhanced security
     $jsonFile = Get-EnhancedSecurityFileLocation
