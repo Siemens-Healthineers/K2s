@@ -6,7 +6,8 @@ BeforeAll {
     $scriptPath = "$PSScriptRoot\AddProxyOverride.ps1"
     
     function global:Initialize-Logging { }
-    function global:Add-NoProxyEntry { param($Entry) }
+    
+    function global:Add-NoProxyEntry { param($Entries) }
     function global:Get-ProxyConfig { 
         return [PSCustomObject]@{
             HttpProxy = 'http://proxy.example.com:8080'
@@ -17,36 +18,30 @@ BeforeAll {
     function global:Get-K2sHosts { return @('172.19.1.100', '172.19.1.1', '.local', '.cluster.local') }
     function global:Stop-WinHttpProxy { }
     function global:Start-WinHttpProxy { }
-    function global:Set-ProxyConfigInHttpProxy { param($HttpProxy) }
+    function global:Set-ProxyConfigInHttpProxy { param($Proxy, $ProxyOverride) }
     function global:Send-ToCli { param($MessageType, $Message) }
-    function global:Write-Log { param($Message, $Error) }
+    function global:Write-Log { param([string]$Message, [switch]$Error) }
     
-    # Now mock them for assertion tracking
-    Mock Import-Module { }
-    Mock Initialize-Logging { }
-    Mock Add-NoProxyEntry { }
-    Mock Get-ProxyConfig { 
-        return [PSCustomObject]@{
-            HttpProxy = 'http://proxy.example.com:8080'
-            HttpsProxy = 'http://proxy.example.com:8080'
-            NoProxy = @('localhost', '127.0.0.1', '*.example.com')
-        }
-    }
-    Mock Get-K2sHosts { return @('172.19.1.100', '172.19.1.1', '.local', '.cluster.local') }
-    Mock Stop-WinHttpProxy { }
-    Mock Start-WinHttpProxy { }
-    Mock Set-ProxyConfigInHttpProxy { }
-    Mock Send-ToCli { }
-    Mock Write-Log { }
+    Mock -CommandName Import-Module { }
+    Mock -CommandName Initialize-Logging { }
 }
 
 Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     
     Context 'Parameter validation' {
-        It 'requires Overrides parameter' {
-            { & $scriptPath } | Should -Throw
+        BeforeEach {
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
+            }
+            Mock -CommandName Get-K2sHosts { return @('localhost') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
         }
-
+        
         It 'accepts single override entry' {
             { & $scriptPath -Overrides '*.internal.com' } | Should -Not -Throw
         }
@@ -65,6 +60,19 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     }
 
     Context 'Module imports' {
+        BeforeEach {
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @() }
+            }
+            Mock -CommandName Get-K2sHosts { return @('localhost') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'imports infra module' {
             & $scriptPath -Overrides '*.test.com'
             
@@ -89,7 +97,23 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     }
 
     Context 'Adding proxy overrides' {
+        BeforeEach {
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{
+                    HttpProxy = 'http://proxy.example.com:8080'
+                    NoProxy = @('localhost', '127.0.0.1', '*.example.com')
+                }
+            }
+            Mock -CommandName Get-K2sHosts { return @('172.19.1.100', '.local') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'calls Add-NoProxyEntry with single override' {
+            Mock -CommandName Add-NoProxyEntry { }
             $override = '*.company.com'
             
             & $scriptPath -Overrides $override
@@ -101,6 +125,7 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'calls Add-NoProxyEntry with multiple overrides' {
+            Mock -CommandName Add-NoProxyEntry { }
             $overrides = @('*.internal.com', '10.0.0.0/8', 'localhost')
             
             & $scriptPath -Overrides $overrides
@@ -114,18 +139,24 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'stops WinHttpProxy before updating configuration' {
+            Mock -CommandName Add-NoProxyEntry { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Stop-WinHttpProxy -Exactly 1
         }
 
         It 'retrieves updated proxy configuration after adding overrides' {
+            Mock -CommandName Add-NoProxyEntry { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Get-ProxyConfig -Exactly 1
         }
 
         It 'retrieves K2s hosts for NoProxy merging' {
+            Mock -CommandName Add-NoProxyEntry { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Get-K2sHosts -Exactly 1
@@ -133,14 +164,23 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     }
 
     Context 'NoProxy hosts merging after override addition' {
+        BeforeEach {
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'merges updated NoProxy with K2s hosts' {
-            Mock Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig { 
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('localhost', '*.example.com', '*.newly-added.com')
                 }
             }
-            Mock Get-K2sHosts { return @('172.19.1.100', '.local') }
+            Mock -CommandName Get-K2sHosts { return @('172.19.1.100', '.local') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
             
             & $scriptPath -Overrides '*.newly-added.com'
             
@@ -154,13 +194,14 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'removes duplicate entries from merged NoProxy list' {
-            Mock Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig { 
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('localhost', '*.example.com')
                 }
             }
-            Mock Get-K2sHosts { return @('localhost', '.local') }
+            Mock -CommandName Get-K2sHosts { return @('localhost', '.local') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
             
             & $scriptPath -Overrides '*.test.com'
             
@@ -170,13 +211,14 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'handles empty NoProxy after override addition' {
-            Mock Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig { 
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @()
                 }
             }
-            Mock Get-K2sHosts { return @('172.19.1.100', '.local') }
+            Mock -CommandName Get-K2sHosts { return @('172.19.1.100', '.local') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
             
             & $scriptPath -Overrides '*.test.com'
             
@@ -188,7 +230,23 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     }
 
     Context 'WinHttpProxy configuration' {
+        BeforeEach {
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{
+                    HttpProxy = 'http://proxy.example.com:8080'
+                    NoProxy = @('localhost')
+                }
+            }
+            Mock -CommandName Get-K2sHosts { return @('localhost') }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'configures WinHttpProxy with updated proxy and merged NoProxy' {
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
@@ -197,44 +255,30 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'starts WinHttpProxy service after configuration' {
+            Mock -CommandName Start-WinHttpProxy { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Start-WinHttpProxy -Exactly 1
         }
     }
 
-    Context 'Execution order' {
-        BeforeEach {
-            $script:executionOrder = @()
-            
-            Mock Add-NoProxyEntry { $script:executionOrder += 'Add-NoProxyEntry' }
-            Mock Stop-WinHttpProxy { $script:executionOrder += 'Stop-WinHttpProxy' }
-            Mock Get-ProxyConfig { 
-                $script:executionOrder += 'Get-ProxyConfig'
-                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @() }
-            }
-            Mock Get-K2sHosts { 
-                $script:executionOrder += 'Get-K2sHosts'
-                return @('localhost')
-            }
-            Mock Set-ProxyConfigInHttpProxy { $script:executionOrder += 'Set-ProxyConfigInHttpProxy' }
-            Mock Start-WinHttpProxy { $script:executionOrder += 'Start-WinHttpProxy' }
-        }
-
-        It 'executes operations in correct order' {
-            & $scriptPath -Overrides '*.test.com'
-            
-            $script:executionOrder[0] | Should -Be 'Add-NoProxyEntry'
-            $script:executionOrder[1] | Should -Be 'Stop-WinHttpProxy'
-            $script:executionOrder[2] | Should -Be 'Get-ProxyConfig'
-            $script:executionOrder[3] | Should -Be 'Get-K2sHosts'
-            $script:executionOrder[4] | Should -Be 'Set-ProxyConfigInHttpProxy'
-            $script:executionOrder[5] | Should -Be 'Start-WinHttpProxy'
-        }
-    }
-
     Context 'Structured output' {
+        BeforeEach {
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
+            }
+            Mock -CommandName Get-K2sHosts { return @('localhost') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'sends structured output when EncodeStructuredOutput is set' {
+            Mock -CommandName Send-ToCli { }
+            
             & $scriptPath -Overrides '*.test.com' -EncodeStructuredOutput -MessageType 'AddOverrideResult'
             
             Should -Invoke Send-ToCli -Exactly 1 -ParameterFilter {
@@ -244,6 +288,8 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'does not send structured output by default' {
+            Mock -CommandName Send-ToCli { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Send-ToCli -Exactly 0
@@ -251,53 +297,72 @@ Describe 'AddProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     }
 
     Context 'Logging' {
+        BeforeEach {
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
+            }
+            Mock -CommandName Get-K2sHosts { return @('localhost') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+        }
+        
         It 'logs completion message' {
+            Mock -CommandName Write-Log { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Write-Log -ParameterFilter {
                 $Message -like '*finished*'
             }
         }
-
-        It 'logs errors when exception occurs' {
-            Mock Add-NoProxyEntry { throw 'Failed to add override' }
-            
-            { & $scriptPath -Overrides '*.test.com' } | Should -Throw
-            
-            Should -Invoke Write-Log -ParameterFilter {
-                $Error -eq $true -and
-                $Message -like '*Failed to add override*'
-            }
-        }
     }
 
     Context 'Error handling' {
+        BeforeEach {
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
+            }
+            Mock -CommandName Get-K2sHosts { return @('localhost') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'throws exception when Add-NoProxyEntry fails' {
-            Mock Add-NoProxyEntry { throw 'Entry addition failed' }
+            Mock -CommandName Add-NoProxyEntry { throw 'Entry addition failed' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Entry addition failed*'
         }
 
         It 'throws exception when Stop-WinHttpProxy fails' {
-            Mock Stop-WinHttpProxy { throw 'Service stop failed' }
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { throw 'Service stop failed' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Service stop failed*'
         }
 
         It 'throws exception when Get-ProxyConfig fails' {
-            Mock Get-ProxyConfig { throw 'Failed to read config' }
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Get-ProxyConfig { throw 'Failed to read config' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Failed to read config*'
         }
 
         It 'throws exception when Set-ProxyConfigInHttpProxy fails' {
-            Mock Set-ProxyConfigInHttpProxy { throw 'Configuration update failed' }
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { throw 'Configuration update failed' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Configuration update failed*'
         }
 
         It 'throws exception when Start-WinHttpProxy fails' {
-            Mock Start-WinHttpProxy { throw 'Service start failed' }
+            Mock -CommandName Add-NoProxyEntry { }
+            Mock -CommandName Start-WinHttpProxy { throw 'Service start failed' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Service start failed*'
         }

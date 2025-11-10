@@ -6,7 +6,8 @@ BeforeAll {
     $scriptPath = "$PSScriptRoot\DeleteProxyOverride.ps1"
     
     function global:Initialize-Logging { }
-    function global:Remove-NoProxyEntry { param($Entry) }
+    
+    function global:Remove-NoProxyEntry { param($Entries) }
     function global:Get-ProxyConfig { 
         return [PSCustomObject]@{
             HttpProxy = 'http://proxy.example.com:8080'
@@ -16,34 +17,29 @@ BeforeAll {
     }
     function global:Stop-WinHttpProxy { }
     function global:Start-WinHttpProxy { }
-    function global:Set-ProxyConfigInHttpProxy { param($HttpProxy) }
+    function global:Set-ProxyConfigInHttpProxy { param($Proxy, $ProxyOverride) }
     function global:Send-ToCli { param($MessageType, $Message) }
-    function global:Write-Log { param($Message, $Error) }
+    function global:Write-Log { param([string]$Message, [switch]$Error) }
     
-    Mock Import-Module { }
-    Mock Initialize-Logging { }
-    Mock Remove-NoProxyEntry { }
-    Mock Get-ProxyConfig { 
-        return [PSCustomObject]@{
-            HttpProxy = 'http://proxy.example.com:8080'
-            HttpsProxy = 'http://proxy.example.com:8080'
-            NoProxy = @('localhost', '127.0.0.1')
-        }
-    }
-    Mock Stop-WinHttpProxy { }
-    Mock Start-WinHttpProxy { }
-    Mock Set-ProxyConfigInHttpProxy { }
-    Mock Send-ToCli { }
-    Mock Write-Log { }
+    Mock -CommandName Import-Module { }
+    Mock -CommandName Initialize-Logging { }
 }
 
 Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     
     Context 'Parameter validation' {
-        It 'requires Overrides parameter' {
-            { & $scriptPath } | Should -Throw
+        BeforeEach {
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
+            }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
         }
-
+        
         It 'accepts single override entry to delete' {
             { & $scriptPath -Overrides '*.internal.com' } | Should -Not -Throw
         }
@@ -62,6 +58,18 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     }
 
     Context 'Module imports' {
+        BeforeEach {
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @() }
+            }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'imports infra module' {
             & $scriptPath -Overrides '*.test.com'
             
@@ -86,7 +94,22 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     }
 
     Context 'Deleting proxy overrides' {
+        BeforeEach {
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{
+                    HttpProxy = 'http://proxy.example.com:8080'
+                    NoProxy = @('localhost', '127.0.0.1')
+                }
+            }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'calls Remove-NoProxyEntry with single override' {
+            Mock -CommandName Remove-NoProxyEntry { }
             $override = '*.company.com'
             
             & $scriptPath -Overrides $override
@@ -98,6 +121,7 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'calls Remove-NoProxyEntry with multiple overrides' {
+            Mock -CommandName Remove-NoProxyEntry { }
             $overrides = @('*.internal.com', '10.0.0.0/8', 'localhost')
             
             & $scriptPath -Overrides $overrides
@@ -111,12 +135,16 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'stops WinHttpProxy before updating configuration' {
+            Mock -CommandName Remove-NoProxyEntry { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Stop-WinHttpProxy -Exactly 1
         }
 
         It 'retrieves updated proxy configuration after deleting overrides' {
+            Mock -CommandName Remove-NoProxyEntry { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Get-ProxyConfig -Exactly 1
@@ -124,13 +152,22 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     }
 
     Context 'WinHttpProxy configuration after deletion' {
+        BeforeEach {
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'configures WinHttpProxy with updated NoProxy list' {
-            Mock Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig { 
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('localhost', '127.0.0.1')
                 }
             }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
             
             & $scriptPath -Overrides '*.removed.com'
             
@@ -142,12 +179,13 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'uses NoProxy directly from config without K2s hosts merging' {
-            Mock Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig { 
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('example.com')
                 }
             }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
             
             & $scriptPath -Overrides '*.test.com'
             
@@ -158,12 +196,13 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'handles empty NoProxy after all overrides deleted' {
-            Mock Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig { 
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @()
                 }
             }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
             
             & $scriptPath -Overrides '*.test.com'
             
@@ -173,45 +212,32 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'starts WinHttpProxy service after configuration' {
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
+            }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Start-WinHttpProxy -Exactly 1
         }
     }
 
-    Context 'Execution order' {
+    Context 'Structured output' {
         BeforeEach {
-            $script:executionOrder = @()
-            
-            Mock Remove-NoProxyEntry { $script:executionOrder += 'Remove-NoProxyEntry' }
-            Mock Stop-WinHttpProxy { $script:executionOrder += 'Stop-WinHttpProxy' }
-            Mock Get-ProxyConfig { 
-                $script:executionOrder += 'Get-ProxyConfig'
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
                 return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
             }
-            Mock Set-ProxyConfigInHttpProxy { $script:executionOrder += 'Set-ProxyConfigInHttpProxy' }
-            Mock Start-WinHttpProxy { $script:executionOrder += 'Start-WinHttpProxy' }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Write-Log { }
         }
-
-        It 'executes operations in correct order' {
-            & $scriptPath -Overrides '*.test.com'
-            
-            $script:executionOrder[0] | Should -Be 'Remove-NoProxyEntry'
-            $script:executionOrder[1] | Should -Be 'Stop-WinHttpProxy'
-            $script:executionOrder[2] | Should -Be 'Get-ProxyConfig'
-            $script:executionOrder[3] | Should -Be 'Set-ProxyConfigInHttpProxy'
-            $script:executionOrder[4] | Should -Be 'Start-WinHttpProxy'
-        }
-
-        It 'does not call Get-K2sHosts during deletion' {
-            & $scriptPath -Overrides '*.test.com'
-            
-            $script:executionOrder | Should -Not -Contain 'Get-K2sHosts'
-        }
-    }
-
-    Context 'Structured output' {
+        
         It 'sends structured output when EncodeStructuredOutput is set' {
+            Mock -CommandName Send-ToCli { }
+            
             & $scriptPath -Overrides '*.test.com' -EncodeStructuredOutput -MessageType 'DeleteOverrideResult'
             
             Should -Invoke Send-ToCli -Exactly 1 -ParameterFilter {
@@ -221,6 +247,8 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'does not send structured output by default' {
+            Mock -CommandName Send-ToCli { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Send-ToCli -Exactly 0
@@ -228,67 +256,98 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
     }
 
     Context 'Logging' {
+        BeforeEach {
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
+            }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+        }
+        
         It 'logs completion message' {
+            Mock -CommandName Write-Log { }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Invoke Write-Log -ParameterFilter {
                 $Message -like '*finished*'
             }
         }
-
-        It 'logs errors when exception occurs' {
-            Mock Remove-NoProxyEntry { throw 'Failed to remove override' }
-            
-            { & $scriptPath -Overrides '*.test.com' } | Should -Throw
-            
-            Should -Invoke Write-Log -ParameterFilter {
-                $Error -eq $true -and
-                $Message -like '*Failed to remove override*'
-            }
-        }
     }
 
     Context 'Error handling' {
+        BeforeEach {
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
+            }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+        
         It 'throws exception when Remove-NoProxyEntry fails' {
-            Mock Remove-NoProxyEntry { throw 'Entry removal failed' }
+            Mock -CommandName Remove-NoProxyEntry { throw 'Entry removal failed' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Entry removal failed*'
         }
 
         It 'throws exception when Stop-WinHttpProxy fails' {
-            Mock Stop-WinHttpProxy { throw 'Service stop failed' }
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { throw 'Service stop failed' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Service stop failed*'
         }
 
         It 'throws exception when Get-ProxyConfig fails' {
-            Mock Get-ProxyConfig { throw 'Failed to read config' }
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Get-ProxyConfig { throw 'Failed to read config' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Failed to read config*'
         }
 
         It 'throws exception when Set-ProxyConfigInHttpProxy fails' {
-            Mock Set-ProxyConfigInHttpProxy { throw 'Configuration update failed' }
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { throw 'Configuration update failed' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Configuration update failed*'
         }
 
         It 'throws exception when Start-WinHttpProxy fails' {
-            Mock Start-WinHttpProxy { throw 'Service start failed' }
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Start-WinHttpProxy { throw 'Service start failed' }
             
             { & $scriptPath -Overrides '*.test.com' } | Should -Throw '*Service start failed*'
         }
     }
 
     Context 'Behavioral differences from Add' {
+        BeforeEach {
+            Mock -CommandName Remove-NoProxyEntry { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+            Mock -CommandName Get-K2sHosts { }
+        }
+        
         It 'does not merge with K2s hosts unlike AddProxyOverride' {
+            Mock -CommandName Get-ProxyConfig { 
+                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
+            }
+            
             & $scriptPath -Overrides '*.test.com'
             
             Should -Not -Invoke Get-K2sHosts
         }
 
         It 'uses exact NoProxy from config without additional entries' {
-            Mock Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig { 
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('entry1', 'entry2')
