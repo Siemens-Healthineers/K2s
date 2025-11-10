@@ -363,6 +363,21 @@ try {
 			throw $errMsg
 		}
 
+		# Wait for trust manager webhook to be ready before creating resources that require validation
+		Write-Log 'Waiting for trust manager webhook to be ready' -Console
+		$webhookStatus = Wait-ForTrustManagerWebhookReady
+		if ($webhookStatus -ne $true) {
+			$errMsg = "Trust manager webhook did not become ready. The webhook endpoint may not be accepting connections.`nInstallation of security addon failed."
+			if ($EncodeStructuredOutput -eq $true) {
+				$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+				Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+				return
+			}
+
+			Write-Log $errMsg -Error
+			throw $errMsg
+		}
+
 		# install cert-manager addons
 		Write-Log 'Install trust manager and cert-manager resources, creating bundle' -Console
 		$linkerdYamlCertManager = Get-LinkerdConfigCertManager
