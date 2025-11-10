@@ -22,8 +22,6 @@ Param (
 	[parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
 	[ValidateSet('nginx', 'traefik')]
 	[string] $Ingress = 'nginx',
-	[parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-	[string] $Proxy,
 	[parameter(Mandatory = $false, HelpMessage = 'Security type setting')]
 	[ValidateSet('basic', 'enhanced')]
 	[string] $Type = 'basic',
@@ -56,7 +54,8 @@ Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
 
 Write-Log 'Checking cluster status' -Console
 
