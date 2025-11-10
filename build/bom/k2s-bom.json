@@ -319,9 +319,9 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/flannel-io/flannel/releases/download/0.27.2/flanneld.exe",
+      "group": "https://github.com/flannel-io/flannel/releases/download/0.27.4/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.27.2",
+      "version": "v0.27.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -332,7 +332,7 @@
           }
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.27.2",
+      "purl": "pkg:github/flannel-io/flannel@v0.27.4",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -3570,10 +3570,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/api@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/api@v0.27.4",
       "name": "k8s.io/api",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/api@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/api@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -3587,10 +3587,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.4",
       "name": "k8s.io/apiextensions-apiserver",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -3604,10 +3604,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/apimachinery@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/apimachinery@v0.27.4",
       "name": "k8s.io/apimachinery",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/apimachinery@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/apimachinery@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -3621,10 +3621,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/client-go@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/client-go@v0.27.4",
       "name": "k8s.io/client-go",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/client-go@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/client-go@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -3638,10 +3638,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/component-base@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/component-base@v0.27.4",
       "name": "k8s.io/component-base",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/component-base@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/component-base@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -9160,10 +9160,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/api@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/api@v0.27.4",
       "name": "k8s.io/api",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/api@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/api@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -9177,10 +9177,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.4",
       "name": "k8s.io/apiextensions-apiserver",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -9194,10 +9194,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/apimachinery@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/apimachinery@v0.27.4",
       "name": "k8s.io/apimachinery",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/apimachinery@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/apimachinery@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -9211,10 +9211,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/client-go@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/client-go@v0.27.4",
       "name": "k8s.io/client-go",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/client-go@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/client-go@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -9228,10 +9228,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/component-base@v0.27.2",
+      "bom-ref": "pkg:golang/k8s.io/component-base@v0.27.4",
       "name": "k8s.io/component-base",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/component-base@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/component-base@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -15561,10 +15561,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240227224415-6ceb2ff114de",
+      "bom-ref": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240.27.44415-6ceb2ff114de",
       "name": "google.golang.org/genproto/googleapis/rpc",
-      "version": "v0.0.0-20240227224415-6ceb2ff114de",
-      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240227224415-6ceb2ff114de",
+      "version": "v0.0.0-20240.27.44415-6ceb2ff114de",
+      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240.27.44415-6ceb2ff114de",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -53046,7 +53046,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "cfcbc2c0-2722-4f88-b103-7b3b859352e4",
+      "bom-ref": "cfcbc2c0.27.4-4f88-b103-7b3b859352e4",
       "name": "process",
       "version": "0.11.10",
       "licenses": [
@@ -119217,10 +119217,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200327222509-2487e7298839",
+      "bom-ref": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200.27.42509-2487e7298839",
       "name": "github.com/influxdata/line-protocol",
-      "version": "v0.0.0-20200327222509-2487e7298839",
-      "purl": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200327222509-2487e7298839",
+      "version": "v0.0.0-20200.27.42509-2487e7298839",
+      "purl": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200.27.42509-2487e7298839",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -139927,8 +139927,8 @@
       "type": "library",
       "bom-ref": "7bf2cb12-a23b-4bdb-8ede-47408013180d",
       "name": "google.golang.org/genproto/googleapis/rpc",
-      "version": "v0.0.0-20240227224415-6ceb2ff114de",
-      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240227224415-6ceb2ff114de",
+      "version": "v0.0.0-20240.27.44415-6ceb2ff114de",
+      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240.27.44415-6ceb2ff114de",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -140263,7 +140263,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "8f1b1cf2-1eb6-43fd-8713-bd01278270b2",
+      "bom-ref": "8f1b1cf2-1eb6-43fd-8713-bd0.27.470b2",
       "name": "github.com/urfave/cli/v2",
       "version": "v2.27.1",
       "purl": "pkg:golang/github.com/urfave/cli/v2@v2.27.1",
@@ -140569,8 +140569,8 @@
       "type": "library",
       "bom-ref": "b0336d14-5cff-428c-b70c-58b616a72c3e",
       "name": "google.golang.org/genproto/googleapis/rpc",
-      "version": "v0.0.0-20240227224415-6ceb2ff114de",
-      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240227224415-6ceb2ff114de",
+      "version": "v0.0.0-20240.27.44415-6ceb2ff114de",
+      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240.27.44415-6ceb2ff114de",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -144105,9 +144105,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:rpm/redhat/gpg-pubkey@d4082792-5b32db75?arch=None\u0026distro=redhat-8.9",
+      "bom-ref": "pkg:rpm/redhat/gpg-pubkey@d40.27.4-5b32db75?arch=None\u0026distro=redhat-8.9",
       "name": "gpg-pubkey",
-      "version": "d4082792-5b32db75",
+      "version": "d40.27.4-5b32db75",
       "licenses": [
         {
           "license": {
@@ -144115,7 +144115,7 @@
           }
         }
       ],
-      "purl": "pkg:rpm/redhat/gpg-pubkey@d4082792-5b32db75?arch=None\u0026distro=redhat-8.9",
+      "purl": "pkg:rpm/redhat/gpg-pubkey@d40.27.4-5b32db75?arch=None\u0026distro=redhat-8.9",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -144123,7 +144123,7 @@
         },
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "gpg-pubkey@d4082792-5b32db75."
+          "value": "gpg-pubkey@d40.27.4-5b32db75."
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -200682,10 +200682,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
+      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.4",
       "name": "github.com/flannel-io/flannel",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -217605,10 +217605,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200327222509-2487e7298839",
+      "bom-ref": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200.27.42509-2487e7298839",
       "name": "github.com/influxdata/line-protocol",
-      "version": "v0.0.0-20200327222509-2487e7298839",
-      "purl": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200327222509-2487e7298839",
+      "version": "v0.0.0-20200.27.42509-2487e7298839",
+      "purl": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200.27.42509-2487e7298839",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -262799,8 +262799,8 @@
       "type": "library",
       "bom-ref": "036512f1-3103-4317-b675-44374efe5de7",
       "name": "k8s.io/client-go",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/client-go@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/client-go@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -263231,8 +263231,8 @@
       "type": "library",
       "bom-ref": "0468fdea-026f-4152-b5c1-57e4dc4bd63c",
       "name": "k8s.io/component-base",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/component-base@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/component-base@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -265100,8 +265100,8 @@
       "type": "library",
       "bom-ref": "09d44740-58ed-42ec-83a7-4ca9577113c3",
       "name": "google.golang.org/genproto/googleapis/rpc",
-      "version": "v0.0.0-20240227224415-6ceb2ff114de",
-      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240227224415-6ceb2ff114de",
+      "version": "v0.0.0-20240.27.44415-6ceb2ff114de",
+      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240.27.44415-6ceb2ff114de",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -266318,8 +266318,8 @@
       "type": "library",
       "bom-ref": "0d55bc18-33c1-4152-9208-c10f3f23104d",
       "name": "k8s.io/api",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/api@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/api@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -271248,7 +271248,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "1c7181a0-c6a9-4b14-82c4-6a80627c2613",
+      "bom-ref": "1c7181a0-c6a9-4b14-82c4-6a80.27.4613",
       "name": "readable-stream",
       "version": "3.6.2",
       "licenses": [
@@ -275032,8 +275032,8 @@
       "type": "library",
       "bom-ref": "27c8bcd0-24e3-4b3f-b3b2-6186f536c4d3",
       "name": "k8s.io/apimachinery",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/apimachinery@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/apimachinery@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -280584,8 +280584,8 @@
       "type": "library",
       "bom-ref": "381575fe-9c35-47a1-9a19-903d5ba45387",
       "name": "github.com/influxdata/line-protocol",
-      "version": "v0.0.0-20200327222509-2487e7298839",
-      "purl": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200327222509-2487e7298839",
+      "version": "v0.0.0-20200.27.42509-2487e7298839",
+      "purl": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200.27.42509-2487e7298839",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -297903,8 +297903,8 @@
       "type": "library",
       "bom-ref": "68ee1456-510c-47ef-b874-ff98e11a7824",
       "name": "google.golang.org/genproto/googleapis/rpc",
-      "version": "v0.0.0-20240227224415-6ceb2ff114de",
-      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240227224415-6ceb2ff114de",
+      "version": "v0.0.0-20240.27.44415-6ceb2ff114de",
+      "purl": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240.27.44415-6ceb2ff114de",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -302431,8 +302431,8 @@
       "type": "library",
       "bom-ref": "76c9572c-ec75-47cf-a277-7a3622a62ce9",
       "name": "k8s.io/apiextensions-apiserver",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -303096,8 +303096,8 @@
       "type": "library",
       "bom-ref": "7874bcfc-0f64-4398-b415-4fcfbe5ba838",
       "name": "k8s.io/apimachinery",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/apimachinery@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/apimachinery@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -307278,8 +307278,8 @@
       "type": "library",
       "bom-ref": "84e398e5-1939-4849-acf8-c5b878c116cf",
       "name": "k8s.io/apiextensions-apiserver",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -325281,8 +325281,8 @@
       "type": "library",
       "bom-ref": "b88bc4a1-6931-45a3-aad4-de86788d97ee",
       "name": "k8s.io/component-base",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/component-base@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/component-base@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -333192,8 +333192,8 @@
       "type": "library",
       "bom-ref": "cfe87e99-562d-45d5-a0ee-1370c1920042",
       "name": "github.com/influxdata/line-protocol",
-      "version": "v0.0.0-20200327222509-2487e7298839",
-      "purl": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200327222509-2487e7298839",
+      "version": "v0.0.0-20200.27.42509-2487e7298839",
+      "purl": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200.27.42509-2487e7298839",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -341995,8 +341995,8 @@
       "type": "library",
       "bom-ref": "e8f5e392-2a4f-4671-af79-15432bf509cb",
       "name": "k8s.io/client-go",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/client-go@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/client-go@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -348993,8 +348993,8 @@
       "type": "library",
       "bom-ref": "fe247fae-c7f2-40d8-b15f-569c8d372b22",
       "name": "k8s.io/api",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/k8s.io/api@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/k8s.io/api@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -379122,10 +379122,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
+      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.4",
       "name": "github.com/flannel-io/flannel",
-      "version": "v0.27.2",
-      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
+      "version": "v0.27.4",
+      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.27.4",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -449369,11 +449369,11 @@
         "pkg:golang/gopkg.in/inf.v0@v0.9.1",
         "pkg:golang/gopkg.in/yaml.v2@v2.4.0",
         "pkg:golang/gopkg.in/yaml.v3@v3.0.1",
-        "pkg:golang/k8s.io/api@v0.27.2",
-        "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.2",
-        "pkg:golang/k8s.io/apimachinery@v0.27.2",
-        "pkg:golang/k8s.io/client-go@v0.27.2",
-        "pkg:golang/k8s.io/component-base@v0.27.2",
+        "pkg:golang/k8s.io/api@v0.27.4",
+        "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.4",
+        "pkg:golang/k8s.io/apimachinery@v0.27.4",
+        "pkg:golang/k8s.io/client-go@v0.27.4",
+        "pkg:golang/k8s.io/component-base@v0.27.4",
         "pkg:golang/k8s.io/kube-openapi@v0.0.0-20230501164219-8b0f38b5fd1f",
         "pkg:golang/k8s.io/utils@v0.0.0-20230505201702-9f6742963106",
         "pkg:golang/sigs.k8s.io/controller-runtime@v0.15.0",
@@ -449698,23 +449698,23 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/k8s.io/api@v0.27.2",
+      "ref": "pkg:golang/k8s.io/api@v0.27.4",
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.2",
+      "ref": "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.4",
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/k8s.io/apimachinery@v0.27.2",
+      "ref": "pkg:golang/k8s.io/apimachinery@v0.27.4",
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/k8s.io/client-go@v0.27.2",
+      "ref": "pkg:golang/k8s.io/client-go@v0.27.4",
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/k8s.io/component-base@v0.27.2",
+      "ref": "pkg:golang/k8s.io/component-base@v0.27.4",
       "dependsOn": []
     },
     {
@@ -450627,11 +450627,11 @@
         "pkg:golang/gopkg.in/inf.v0@v0.9.1",
         "pkg:golang/gopkg.in/yaml.v2@v2.4.0",
         "pkg:golang/gopkg.in/yaml.v3@v3.0.1",
-        "pkg:golang/k8s.io/api@v0.27.2",
-        "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.2",
-        "pkg:golang/k8s.io/apimachinery@v0.27.2",
-        "pkg:golang/k8s.io/client-go@v0.27.2",
-        "pkg:golang/k8s.io/component-base@v0.27.2",
+        "pkg:golang/k8s.io/api@v0.27.4",
+        "pkg:golang/k8s.io/apiextensions-apiserver@v0.27.4",
+        "pkg:golang/k8s.io/apimachinery@v0.27.4",
+        "pkg:golang/k8s.io/client-go@v0.27.4",
+        "pkg:golang/k8s.io/component-base@v0.27.4",
         "pkg:golang/k8s.io/kube-openapi@v0.0.0-20230501164219-8b0f38b5fd1f",
         "pkg:golang/k8s.io/utils@v0.0.0-20230505201702-9f6742963106",
         "pkg:golang/sigs.k8s.io/controller-runtime@v0.15.0",
@@ -451759,7 +451759,7 @@
         "pkg:golang/golang.org/x/net@v0.25.0",
         "pkg:golang/golang.org/x/sys@v0.20.0",
         "pkg:golang/golang.org/x/text@v0.15.0",
-        "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240227224415-6ceb2ff114de",
+        "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240.27.44415-6ceb2ff114de",
         "pkg:golang/google.golang.org/grpc@v1.63.2",
         "pkg:golang/google.golang.org/protobuf@v1.34.1",
         "pkg:golang/gopkg.in/inf.v0@v0.9.1",
@@ -451782,7 +451782,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240227224415-6ceb2ff114de",
+      "ref": "pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240.27.44415-6ceb2ff114de",
       "dependsOn": []
     },
     {
@@ -457719,7 +457719,7 @@
       "dependsOn": []
     },
     {
-      "ref": "cfcbc2c0-2722-4f88-b103-7b3b859352e4",
+      "ref": "cfcbc2c0.27.4-4f88-b103-7b3b859352e4",
       "dependsOn": []
     },
     {
@@ -458487,7 +458487,7 @@
         "cf9a2d3f-8c1c-468e-ab5c-2cb7b3145a45",
         "cf9ab501-dda0-49d9-8834-57a716868843",
         "cfbd1448-8754-4015-8e2c-60bb80ec8892",
-        "cfcbc2c0-2722-4f88-b103-7b3b859352e4",
+        "cfcbc2c0.27.4-4f88-b103-7b3b859352e4",
         "cff3040d-9824-4ea7-9120-1270898e5b32",
         "d00119b6-a7d9-4488-a2fa-2c192cf616a5",
         "d096bd0e-8ada-46a9-a939-6cf5ad006375",
@@ -468930,7 +468930,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200327222509-2487e7298839",
+      "ref": "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200.27.42509-2487e7298839",
       "dependsOn": []
     },
     {
@@ -469409,7 +469409,7 @@
         "pkg:golang/github.com/imdario/mergo@v0.3.16",
         "pkg:golang/github.com/influxdata/influxdb-client-go/v2@v2.7.0",
         "pkg:golang/github.com/influxdata/influxdb1-client@v0.0.0-20200827194710-b269163b24ab",
-        "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200327222509-2487e7298839",
+        "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200.27.42509-2487e7298839",
         "pkg:golang/github.com/infobloxopen/infoblox-go-client/v2@v2.9.0",
         "pkg:golang/github.com/jmespath/go-jmespath@v0.4.0",
         "pkg:golang/github.com/jonboulle/clockwork@v0.4.0",
@@ -472717,7 +472717,7 @@
         "8145f0fe-139a-4b11-9fac-bc2774b62894",
         "84fc954e-c116-49f7-964f-427784d30d33",
         "87eb0176-1544-46b5-9b76-361ad3777bbc",
-        "8f1b1cf2-1eb6-43fd-8713-bd01278270b2",
+        "8f1b1cf2-1eb6-43fd-8713-bd0.27.470b2",
         "90353447-16d9-419b-ade1-b0422a99a2fc",
         "94e77998-239d-4df3-a178-027d1123f7db",
         "99961272-d869-44c3-aae8-554ef8272314",
@@ -472760,7 +472760,7 @@
       "dependsOn": []
     },
     {
-      "ref": "8f1b1cf2-1eb6-43fd-8713-bd01278270b2",
+      "ref": "8f1b1cf2-1eb6-43fd-8713-bd0.27.470b2",
       "dependsOn": []
     },
     {
@@ -473047,7 +473047,7 @@
         "pkg:rpm/redhat/gnupg2@2.2.20-3.el8_6?arch=x86_64\u0026distro=redhat-8.9",
         "pkg:rpm/redhat/gnutls@3.6.16-8.el8_9.1?arch=x86_64\u0026distro=redhat-8.9",
         "pkg:rpm/redhat/gobject-introspection@1.56.1-1.el8?arch=x86_64\u0026distro=redhat-8.9",
-        "pkg:rpm/redhat/gpg-pubkey@d4082792-5b32db75?arch=None\u0026distro=redhat-8.9",
+        "pkg:rpm/redhat/gpg-pubkey@d40.27.4-5b32db75?arch=None\u0026distro=redhat-8.9",
         "pkg:rpm/redhat/gpg-pubkey@d42d0685-62589a51?arch=None\u0026distro=redhat-8.9",
         "pkg:rpm/redhat/gpg-pubkey@fd431d51-4ae0493b?arch=None\u0026distro=redhat-8.9",
         "pkg:rpm/redhat/gpgme@1.13.1-11.el8?arch=x86_64\u0026distro=redhat-8.9",
@@ -473715,7 +473715,7 @@
       ]
     },
     {
-      "ref": "pkg:rpm/redhat/gpg-pubkey@d4082792-5b32db75?arch=None\u0026distro=redhat-8.9",
+      "ref": "pkg:rpm/redhat/gpg-pubkey@d40.27.4-5b32db75?arch=None\u0026distro=redhat-8.9",
       "dependsOn": []
     },
     {
@@ -483794,7 +483794,7 @@
     {
       "ref": "27002a4f-af3c-4868-90fc-8f1eee39bcc0",
       "dependsOn": [
-        "pkg:golang/github.com/flannel-io/flannel@v0.27.2"
+        "pkg:golang/github.com/flannel-io/flannel@v0.27.4"
       ]
     },
     {
@@ -484264,7 +484264,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
+      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.4",
       "dependsOn": [
         "a53367a0-6c2f-430b-94b3-f0cd07043349",
         "pkg:golang/github.com/avast/retry-go/v4@v4.6.1",
@@ -487747,7 +487747,7 @@
         "pkg:golang/github.com/grafana/grafana-plugin-model@v0.0.0-20190930120109-1fc953a61fb4",
         "pkg:golang/github.com/grpc-ecosystem/grpc-gateway@v1.16.0",
         "pkg:golang/github.com/influxdata/influxdb-client-go/v2@v2.2.0",
-        "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200327222509-2487e7298839",
+        "pkg:golang/github.com/influxdata/line-protocol@v0.0.0-20200.27.42509-2487e7298839",
         "pkg:golang/github.com/jaegertracing/jaeger@v1.22.1-0.20210304164023-2fff3ca58910",
         "pkg:golang/github.com/jonboulle/clockwork@v0.2.2",
         "pkg:golang/github.com/jung-kurt/gofpdf@v1.16.2",
@@ -497496,7 +497496,7 @@
       "dependsOn": []
     },
     {
-      "ref": "1c7181a0-c6a9-4b14-82c4-6a80627c2613",
+      "ref": "1c7181a0-c6a9-4b14-82c4-6a80.27.4613",
       "dependsOn": []
     },
     {
@@ -504021,7 +504021,7 @@
         "1bb44453-e504-4f34-8214-a89803c98060",
         "1bd4b22e-62f8-4fce-967c-34b2a8e6f95d",
         "1c112bb3-5f37-4361-9cdd-66ea044dc7f5",
-        "1c7181a0-c6a9-4b14-82c4-6a80627c2613",
+        "1c7181a0-c6a9-4b14-82c4-6a80.27.4613",
         "1c9c3339-1b6a-4198-8669-a4f415ac2c79",
         "1cbc4793-6abd-4322-bbf7-1ab213cef957",
         "1ce8aa1e-417f-4f9b-85b0-1221489fd7fa",
@@ -516449,7 +516449,7 @@
     {
       "ref": "b12de0f1-9d30-4853-a4b8-10c62f2fd790",
       "dependsOn": [
-        "pkg:golang/github.com/flannel-io/flannel@v0.27.2"
+        "pkg:golang/github.com/flannel-io/flannel@v0.27.4"
       ]
     },
     {
@@ -530246,7 +530246,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
+      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.4",
       "dependsOn": [
         "02b448fd-0471-4277-93db-6d1a5393184f",
         "054dc640-3af9-4bca-9ade-9cb2a5115247",
