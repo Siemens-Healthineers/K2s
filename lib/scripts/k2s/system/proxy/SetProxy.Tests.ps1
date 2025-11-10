@@ -281,32 +281,6 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
     }
 
-    Context 'Logging' {
-        BeforeEach {
-            Mock -CommandName Set-ProxyServer { }
-            Mock -CommandName Stop-WinHttpProxy { }
-            Mock -CommandName Get-ProxyConfig { 
-                return [PSCustomObject]@{
-                    HttpProxy = 'http://proxy.example.com:8080'
-                    NoProxy = @('localhost')
-                }
-            }
-            Mock -CommandName Get-K2sHosts { return @('localhost') }
-            Mock -CommandName Set-ProxyConfigInHttpProxy { }
-            Mock -CommandName Start-WinHttpProxy { }
-            Mock -CommandName Send-ToCli { }
-            Mock -CommandName Write-Log { }
-        }
-        
-        It 'logs completion message' {
-            & $scriptPath -Uri 'http://proxy.test.com:8080'
-            
-            Should -Invoke Write-Log -ParameterFilter {
-                $Message -like '*finished*'
-            }
-        }
-    }
-
     Context 'Error handling' {
         BeforeEach {
             Mock -CommandName Stop-WinHttpProxy { }

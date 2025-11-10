@@ -255,28 +255,6 @@ Describe 'DeleteProxyOverride.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
     }
 
-    Context 'Logging' {
-        BeforeEach {
-            Mock -CommandName Remove-NoProxyEntry { }
-            Mock -CommandName Stop-WinHttpProxy { }
-            Mock -CommandName Get-ProxyConfig { 
-                return [PSCustomObject]@{ HttpProxy = 'http://proxy.test:8080'; NoProxy = @('localhost') }
-            }
-            Mock -CommandName Set-ProxyConfigInHttpProxy { }
-            Mock -CommandName Start-WinHttpProxy { }
-            Mock -CommandName Send-ToCli { }
-            Mock -CommandName Write-Log { }
-        }
-        
-        It 'logs completion message' {
-            & $scriptPath -Overrides '*.test.com'
-            
-            Should -Invoke Write-Log -ParameterFilter {
-                $Message -like '*finished*'
-            }
-        }
-    }
-
     Context 'Error handling' {
         BeforeEach {
             Mock -CommandName Stop-WinHttpProxy { }

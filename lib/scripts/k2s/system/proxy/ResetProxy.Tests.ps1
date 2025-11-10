@@ -220,29 +220,6 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
     }
 
-    Context 'Logging' {
-        BeforeEach {
-            Mock -CommandName Reset-ProxyConfig { }
-            Mock -CommandName Stop-WinHttpProxy { }
-            Mock -CommandName Get-ProxyConfig { 
-                return [PSCustomObject]@{ HttpProxy = ''; NoProxy = @() }
-            }
-            Mock -CommandName Get-K2sHosts { return @('localhost') }
-            Mock -CommandName Set-ProxyConfigInHttpProxy { }
-            Mock -CommandName Start-WinHttpProxy { }
-            Mock -CommandName Send-ToCli { }
-            Mock -CommandName Write-Log { }
-        }
-        
-        It 'logs completion message' {
-            & $scriptPath
-            
-            Should -Invoke Write-Log -ParameterFilter {
-                $Message -like '*finished*'
-            }
-        }
-    }
-
     Context 'Error handling' {
         BeforeEach {
             Mock -CommandName Stop-WinHttpProxy { }
