@@ -134,7 +134,53 @@ func createTimezoneConfigHandle(config *config_contracts.KubeConfig) (tz.ConfigW
 	return tzConfigHandle, nil
 }
 
+func findExecutablesInPath(exeName string) ([]string, error) {
+	pathEnv := os.Getenv("PATH")
+	if pathEnv == "" {
+		return nil, nil
+	}
+	var found []string
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" || dir == "." {
+			continue
+		}
+		exePath := filepath.Join(dir, exeName)
+		absExePath, err := filepath.Abs(exePath)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(absExePath); err == nil && !info.IsDir() {
+			found = append(found, absExePath)
+		}
+	}
+	return found, nil
+}
+
 func install(cmd *cobra.Command, args []string) error {
+	exeName := "k2s.exe"
+	currentExe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("[Install] Error: unable to determine current executable path: %v", err)
+	}
+	paths, err := findExecutablesInPath(exeName)
+	if err != nil {
+		return fmt.Errorf("[Install] Error scanning PATH for k2s.exe: %v", err)
+	}
+	var otherK2s []string
+	for _, p := range paths {
+		absP, _ := filepath.Abs(p)
+		if absP != currentExe {
+			otherK2s = append(otherK2s, absP)
+		}
+	}
+	if len(otherK2s) > 0 {
+	    fmt.Println("[Install] Found older k2s executables:")
+		for _, p := range otherK2s {
+			fmt.Fprintf(os.Stderr, "  %s\n", p)
+		}
+		return fmt.Errorf("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.")
+	}
+
 	cmdSession := cc.StartCmdSession(cmd.CommandPath())
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
 	if err != nil {
