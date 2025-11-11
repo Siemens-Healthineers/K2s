@@ -30,7 +30,7 @@
     {
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.76.1",
+      "version": "v0.77.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -47,7 +47,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.76.1",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.77.0",
       "type": "application"
     },
     {
