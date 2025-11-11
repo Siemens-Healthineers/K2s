@@ -1550,7 +1550,7 @@ data:
           "user.attribute" : "email"
         }
       }, {
-        "id" : "75ddcbb5-f7ae-45ee-84e2-3281a40e4206",
+        "id" : "75ddcbb5-f7ae-45ee-84e2-32.2.00e4206",
         "name" : "username-mapper",
         "identityProviderAlias" : "oidc",
         "identityProviderMapper" : "oidc-user-attribute-idp-mapper",
@@ -1978,7 +1978,7 @@ data:
           "userSetupAllowed" : false
         } ]
       }, {
-        "id" : "869effc3-1d7e-4b9c-8a26-6d822184f1f8",
+        "id" : "869effc3-1d7e-4b9c-8a26-6d82.2.0f1f8",
         "alias" : "docker auth",
         "description" : "Used by Docker clients to authenticate against the IDP",
         "providerId" : "basic-flow",
