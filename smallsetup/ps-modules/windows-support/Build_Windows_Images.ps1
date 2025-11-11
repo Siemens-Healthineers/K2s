@@ -18,7 +18,7 @@ Registry to push to, e.g. 'k2s-registry.local'
 Name of the image including paths, e.g. '/sig-storage/livenessprobe'
 
 .PARAMETER Tag
-Image tag, e.g. 'v1.2.3'
+Image tag, e.g. 'v1.3.0'
 
 .PARAMETER Dockerfile
 Dockerfile path
@@ -50,7 +50,7 @@ Param(
     [string] $Registry = '',
     [parameter(Mandatory = $true, HelpMessage = "Name of the image including paths, e.g. '/sig-storage/livenessprobe' or 'livenessprobe'")]
     [string] $Name,
-    [parameter(Mandatory = $true, HelpMessage = "Image tag, e.g. 'v1.2.3'")]
+    [parameter(Mandatory = $true, HelpMessage = "Image tag, e.g. 'v1.3.0'")]
     [string] $Tag,
     [parameter(Mandatory = $true, HelpMessage = 'Dockerfile path')]
     [string] $Dockerfile,

@@ -21,7 +21,7 @@ Describe 'Assert-UpgradeVersionIsValid' -Tag 'unit', 'ci', 'upgrade' {
 		@{ ExpectedResult = $true; Current = '1.0.0'; New = '1.1.0' }
 		@{ ExpectedResult = $true; Current = '1.0.0'; New = '1.1.11' }
 		@{ ExpectedResult = $true; Current = '1.1.1'; New = '1.2.0' }
-		@{ ExpectedResult = $true; Current = '1.2.3'; New = '1.3.444' }
+		@{ ExpectedResult = $true; Current = '1.3.0'; New = '1.3.444' }
 		@{ ExpectedResult = $true; Current = '2.3.4'; New = '2.4.0' }
 
 		@{ ExpectedResult = $false; Current = '1.0.0'; New = '1.2.0' }
@@ -156,7 +156,7 @@ Describe "Restart-ClusterIfBuildVersionMismatch" {
 
 	It "should restart the cluster if only the build version is different" {
 		InModuleScope -ModuleName $moduleName {
-			$currentVersion = "1.2.3"
+			$currentVersion = "1.3.0"
 			$nextVersion = "1.2.4"
 			$installFolder = "C:\Program Files\K2s"
 			$kubePath = "C:\Program Files\K2s\kube"
@@ -172,7 +172,7 @@ Describe "Restart-ClusterIfBuildVersionMismatch" {
 
 	It "should not restart the cluster if the major version is different" {
 		InModuleScope -ModuleName $moduleName {
-			$currentVersion = "1.2.3"
+			$currentVersion = "1.3.0"
 			$nextVersion = "2.0.0"
 			$installFolder = "C:\Program Files\K2s"
 			$kubePath = "C:\Program Files\K2s\kube"
@@ -189,7 +189,7 @@ Describe "Restart-ClusterIfBuildVersionMismatch" {
 
 	It "should not restart the cluster if the minor version is increased by more than one" {
 		InModuleScope -ModuleName $moduleName {
-			$currentVersion = "1.2.3"
+			$currentVersion = "1.3.0"
 			$nextVersion = "1.4.0"
 			$installFolder = "C:\Program Files\K2s"
 			$kubePath = "C:\Program Files\K2s\kube"
@@ -206,8 +206,8 @@ Describe "Restart-ClusterIfBuildVersionMismatch" {
 
 	It "should not restart the cluster if the minor version is the same and the build version is the same" {
 		InModuleScope -ModuleName $moduleName {
-			$currentVersion = "1.2.3"
-			$nextVersion = "1.2.3"
+			$currentVersion = "1.3.0"
+			$nextVersion = "1.3.0"
 			$installFolder = "C:\Program Files\K2s"
 			$kubePath = "C:\Program Files\K2s\kube"
 

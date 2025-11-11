@@ -1694,7 +1694,7 @@ function New-HnsEndpoint
         [HashTable[]][parameter(Mandatory=$false)] $RoutePolicies, # @( @ {"DestinationPrefix" = ""; "NeedEncap" = true; "NextHop" = ""} )
         [HashTable][parameter(Mandatory=$false)] $InboundNatPolicy, # @ {"InternalPort" = "80"; "ExternalPort" = "8080"}
         [HashTable][parameter(Mandatory=$false)] $InboundNatPolicyV6, #  @ {"InternalPort" = "80"; "ExternalPort" = "8080"}
-        [HashTable][parameter(Mandatory=$false)] $PAPolicy, # @ {"PA" = "1.2.3.4"; }
+        [HashTable][parameter(Mandatory=$false)] $PAPolicy, # @ {"PA" = "1.3.0.4"; }
         [parameter(Mandatory = $false)] [switch] $UseInternalDns
     )
 

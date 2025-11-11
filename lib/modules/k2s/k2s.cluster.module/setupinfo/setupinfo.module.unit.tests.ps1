@@ -37,7 +37,7 @@ Describe 'Get-SetupInfo' -Tag 'unit', 'ci' {
                 Mock -ModuleName $moduleName Get-ConfigSetupType { return 'k2s' }
                 Mock -ModuleName $moduleName Get-ConfigLinuxOnly { return $null }
                 Mock -ModuleName $moduleName Confirm-SetupNameIsValid { return $null } -ParameterFilter { $SetupName -eq 'k2s' }
-                Mock -ModuleName $moduleName Get-ProductVersion { return '1.2.3' }
+                Mock -ModuleName $moduleName Get-ProductVersion { return '1.3.0' }
             }
 
             It 'returns setup name without validation error' {
@@ -45,7 +45,7 @@ Describe 'Get-SetupInfo' -Tag 'unit', 'ci' {
                 $result.Name | Should -Be 'k2s'
                 $result.Error | Should -BeNullOrEmpty
                 $result.LinuxOnly | Should -BeFalse
-                $result.Version | Should -Be 'v1.2.3'
+                $result.Version | Should -Be 'v1.3.0'
             } 
         }
         
@@ -54,7 +54,7 @@ Describe 'Get-SetupInfo' -Tag 'unit', 'ci' {
                 Mock -ModuleName $moduleName Get-ConfigSetupType { return 'k2s' }
                 Mock -ModuleName $moduleName Get-ConfigLinuxOnly { return $true }
                 Mock -ModuleName $moduleName Confirm-SetupNameIsValid { return $null } -ParameterFilter { $SetupName -eq 'k2s' }
-                Mock -ModuleName $moduleName Get-ProductVersion { return '1.2.3' }
+                Mock -ModuleName $moduleName Get-ProductVersion { return '1.3.0' }
             }
 
             It 'returns setup name with Linux-only hint' {
@@ -62,7 +62,7 @@ Describe 'Get-SetupInfo' -Tag 'unit', 'ci' {
                 $result.Name | Should -Be 'k2s'
                 $result.Error | Should -BeNullOrEmpty
                 $result.LinuxOnly | Should -BeTrue
-                $result.Version | Should -Be 'v1.2.3'
+                $result.Version | Should -Be 'v1.3.0'
             } 
         }    
     }

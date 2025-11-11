@@ -24,7 +24,7 @@ Describe 'Confirm-ApiVersionIsValid' -Tag 'unit', 'ci' {
     Context 'API version is invalid' {
         It 'throws' {
             InModuleScope $moduleName {
-                { Confirm-ApiVersionIsValid -Version 'v1.2.3_test' } | Should -Throw
+                { Confirm-ApiVersionIsValid -Version 'v1.3.0_test' } | Should -Throw
             }
         }
     }
@@ -308,7 +308,7 @@ Describe 'Get-Node' -Tag 'unit', 'ci' {
             $expectedAge = 'old'
             $expectedIp = 'localhost'
             $expectedName = 'test node'
-            $expectedKubeletVersion = '1.2.3'
+            $expectedKubeletVersion = '1.3.0'
             $expectedOs = 'Linux'
             $expectedKernel = 'amd-x64'
             $expectedRuntime = 'CRY-OH'
