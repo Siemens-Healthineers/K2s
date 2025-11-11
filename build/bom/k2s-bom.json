@@ -22,7 +22,7 @@
       "type": "application",
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.76.1",
+      "version": "v0.77.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -33,7 +33,7 @@
           }
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.76.1",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.77.0",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -140162,7 +140162,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "87eb0176-1544-46b5-9b76-361ad3777bbc",
+      "bom-ref": "87eb0.77.0544-46b5-9b76-361ad3777bbc",
       "name": "sigs.k8s.io/yaml",
       "version": "v1.4.0",
       "purl": "pkg:golang/sigs.k8s.io/yaml@v1.4.0",
@@ -201940,7 +201940,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "25b50576-100c-4f21-b5b6-d7518582f7bf",
+      "bom-ref": "25b50.77.000c-4f21-b5b6-d7518582f7bf",
       "group": "com.fasterxml.jackson.core",
       "name": "jackson-databind",
       "version": "2.16.1",
@@ -217095,10 +217095,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/cloud.google.com/go@v0.76.1",
+      "bom-ref": "pkg:golang/cloud.google.com/go@v0.77.0",
       "name": "cloud.google.com/go",
-      "version": "v0.76.1",
-      "purl": "pkg:golang/cloud.google.com/go@v0.76.1",
+      "version": "v0.77.0",
+      "purl": "pkg:golang/cloud.google.com/go@v0.77.0",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -272566,7 +272566,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "207317a3-c00e-4123-8df6-98097a047651",
+      "bom-ref": "207317a3-c00e-4123-8df6-98097a0.77.0",
       "name": "gopkg.in/cheggaaa/pb.v1",
       "version": "v1.0.28",
       "purl": "pkg:golang/gopkg.in/cheggaaa/pb.v1@v1.0.28",
@@ -283562,7 +283562,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "40176c1f-d73f-4a38-875b-f3f97c72ee3a",
+      "bom-ref": "40.77.0f-d73f-4a38-875b-f3f97c72ee3a",
       "name": "github.com/felixge/httpsnoop",
       "version": "v1.0.4",
       "purl": "pkg:golang/github.com/felixge/httpsnoop@v1.0.4",
@@ -375176,10 +375176,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/cloud.google.com/go@v0.76.1",
+      "bom-ref": "pkg:golang/cloud.google.com/go@v0.77.0",
       "name": "cloud.google.com/go",
-      "version": "v0.76.1",
-      "purl": "pkg:golang/cloud.google.com/go@v0.76.1",
+      "version": "v0.77.0",
+      "purl": "pkg:golang/cloud.google.com/go@v0.77.0",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -472682,7 +472682,7 @@
       "dependsOn": []
     },
     {
-      "ref": "87eb0176-1544-46b5-9b76-361ad3777bbc",
+      "ref": "87eb0.77.0544-46b5-9b76-361ad3777bbc",
       "dependsOn": []
     },
     {
@@ -472716,7 +472716,7 @@
         "7fd84f02-b6e5-4f27-8a9c-7f384f8bb4ef",
         "8145f0fe-139a-4b11-9fac-bc2774b62894",
         "84fc954e-c116-49f7-964f-427784d30d33",
-        "87eb0176-1544-46b5-9b76-361ad3777bbc",
+        "87eb0.77.0544-46b5-9b76-361ad3777bbc",
         "8f1b1cf2-1eb6-43fd-8713-bd0.27.470b2",
         "90353447-16d9-419b-ade1-b0422a99a2fc",
         "94e77998-239d-4df3-a178-027d1123f7db",
@@ -484469,7 +484469,7 @@
       "dependsOn": []
     },
     {
-      "ref": "25b50576-100c-4f21-b5b6-d7518582f7bf",
+      "ref": "25b50.77.000c-4f21-b5b6-d7518582f7bf",
       "dependsOn": []
     },
     {
@@ -484550,7 +484550,7 @@
         "0ca0e24e-18b8-4805-a4cd-81ab1d8a8a0a",
         "109d0514-de46-4458-9a20-756ee06c367e",
         "22d45524-3191-4dc0-b050-5cfa6d9e48e8",
-        "25b50576-100c-4f21-b5b6-d7518582f7bf",
+        "25b50.77.000c-4f21-b5b6-d7518582f7bf",
         "25fb0056-adc8-4a48-9350-0109f62de972",
         "2bfc7ef3-5d81-44ab-8197-17ebdc75139d",
         "30c5ac0d-e551-4c92-ae23-1f6965e8c8a1",
@@ -487718,7 +487718,7 @@
         "fd0b2669-3315-4423-88eb-bbfb6b45fbb8",
         "ffb58eb8-18c0-4008-afd9-bb09d86d6ded",
         "pkg:golang/cloud.google.com/go/storage@v1.13.0",
-        "pkg:golang/cloud.google.com/go@v0.76.1",
+        "pkg:golang/cloud.google.com/go@v0.77.0",
         "pkg:golang/github.com/apache/thrift@v0.14.1",
         "pkg:golang/github.com/beevik/etree@v1.1.0",
         "pkg:golang/github.com/benbjohnson/clock@v1.0.3",
@@ -487987,7 +487987,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/cloud.google.com/go@v0.76.1",
+      "ref": "pkg:golang/cloud.google.com/go@v0.77.0",
       "dependsOn": []
     },
     {
@@ -497945,7 +497945,7 @@
       "dependsOn": []
     },
     {
-      "ref": "207317a3-c00e-4123-8df6-98097a047651",
+      "ref": "207317a3-c00e-4123-8df6-98097a0.77.0",
       "dependsOn": []
     },
     {
@@ -500914,7 +500914,7 @@
       "dependsOn": []
     },
     {
-      "ref": "40176c1f-d73f-4a38-875b-f3f97c72ee3a",
+      "ref": "40.77.0f-d73f-4a38-875b-f3f97c72ee3a",
       "dependsOn": []
     },
     {
@@ -512862,7 +512862,7 @@
         "fad64108-c0d9-4d3a-87de-bbe48fdf520a",
         "fb4132b4-e9ea-44ca-abc4-2e11d5c64972",
         "pkg:golang/cloud.google.com/go/storage@v1.13.0",
-        "pkg:golang/cloud.google.com/go@v0.76.1",
+        "pkg:golang/cloud.google.com/go@v0.77.0",
         "pkg:golang/github.com/apache/thrift@v0.14.1",
         "pkg:golang/github.com/beevik/etree@v1.1.0",
         "pkg:golang/github.com/benbjohnson/clock@v1.0.3",
@@ -513345,7 +513345,7 @@
         "3c9ea486-a0b9-45a8-a9d8-e517a65dc437",
         "3e419956-d069-4ac3-aaa7-b84ce0767a99",
         "3eae6ed7-15c2-4fe7-8439-9dde546cf23a",
-        "40176c1f-d73f-4a38-875b-f3f97c72ee3a",
+        "40.77.0f-d73f-4a38-875b-f3f97c72ee3a",
         "40563edf-4429-49a9-987b-d1c453e5168b",
         "40700e7d-c610-46f7-8ee4-a773f3672b80",
         "41781781-5ebe-47d5-b714-c58012d91373",
@@ -518615,7 +518615,7 @@
         "15cde117-2d33-454c-827e-ace940bea3b1",
         "1be32812-fe4c-425c-975e-991445dc17a4",
         "206fcf82-8802-41f3-89a0-5662213cf700",
-        "207317a3-c00e-4123-8df6-98097a047651",
+        "207317a3-c00e-4123-8df6-98097a0.77.0",
         "20c55f0d-3f55-4c2d-a718-1f4ef71539d9",
         "261349f4-f9b7-44df-9060-3caddd616179",
         "2eeb75c4-71b0-40a8-96f7-3ad965df6ccb",
