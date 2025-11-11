@@ -578,6 +578,29 @@
       ],
       "purl": "pkg:github/stedolan/jq@v1.8.1",
       "type": "application"
+    },
+    {
+      "group": "https://get.helm.sh/helm-v3.19.1-windows-amd64.zip",
+      "name": "helm",
+      "version": "v3.19.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/helm/helm/blob/main/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/helm/helm@v3.19.1",
+      "type": "application"
     }
   ],
   "dependencies": [],
