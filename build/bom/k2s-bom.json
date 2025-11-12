@@ -271717,7 +271717,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "1da34347-1f9f-4391-8cef-544ff0d5bead",
+      "bom-ref": "1da34.48.1f9f-4391-8cef-544ff0d5bead",
       "name": "golang.org/x/term",
       "version": "v0.30.0",
       "purl": "pkg:golang/golang.org/x/term@v0.30.0",
@@ -302186,7 +302186,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "75f3babb-d534-4761-a829-9df1ec068da1",
+      "bom-ref": "75f3babb-d534.48.1-a829-9df1ec068da1",
       "name": "google.golang.org/protobuf",
       "version": "v1.28.1",
       "purl": "pkg:golang/google.golang.org/protobuf@v1.28.1",
@@ -346749,7 +346749,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "f6f5a5a0-a774-4731-a17b-973b077d15e3",
+      "bom-ref": "f6f5a5a0-a774.48.1-a17b-973b077d15e3",
       "name": "github.com/pkg/browser",
       "version": "v0.0.0-20240102092130-5ac0b6a4141c",
       "purl": "pkg:golang/github.com/pkg/browser@v0.0.0-20240102092130-5ac0b6a4141c",
@@ -497713,7 +497713,7 @@
       "dependsOn": []
     },
     {
-      "ref": "1da34347-1f9f-4391-8cef-544ff0d5bead",
+      "ref": "1da34.48.1f9f-4391-8cef-544ff0d5bead",
       "dependsOn": []
     },
     {
@@ -510082,7 +510082,7 @@
       "dependsOn": []
     },
     {
-      "ref": "75f3babb-d534-4761-a829-9df1ec068da1",
+      "ref": "75f3babb-d534.48.1-a829-9df1ec068da1",
       "dependsOn": []
     },
     {
@@ -523519,7 +523519,7 @@
       ]
     },
     {
-      "ref": "f6f5a5a0-a774-4731-a17b-973b077d15e3",
+      "ref": "f6f5a5a0-a774.48.1-a17b-973b077d15e3",
       "dependsOn": []
     },
     {
@@ -529271,7 +529271,7 @@
         "f51bd749-18c8-4392-a062-30a3fddd8d6b",
         "f56635bb-1071-4b4d-a966-d53b17eccb84",
         "f6bac8df-61a5-453c-8828-ccf7e374925b",
-        "f6f5a5a0-a774-4731-a17b-973b077d15e3",
+        "f6f5a5a0-a774.48.1-a17b-973b077d15e3",
         "f896532f-d0ef-43b1-b30d-ce5f1ee489db",
         "f981332e-1dab-4bab-8fa1-f7c39e21e72b",
         "fa6595ac-10b5-41b7-8efd-d5454529cd9d",
@@ -530587,7 +530587,7 @@
         "639e9ec4-4ef7-45f8-aa07-280f3bf7821f",
         "6e814c4c-b2ac-4760-8d73-723eed5fba7e",
         "6f758799-83e9-401c-9671-151f1ade0cbf",
-        "75f3babb-d534-4761-a829-9df1ec068da1",
+        "75f3babb-d534.48.1-a829-9df1ec068da1",
         "7614f94e-42dc-4d72-9259-f78b2603125d",
         "78e95506-7578-41a2-8a61-646ffe9ad400",
         "79a3fef9-0a10-4196-9298-0fcc10d5ab52",
@@ -531736,7 +531736,7 @@
         "1b48a3aa-dd3c-4415-84e0-7e834b23dafd",
         "1be818b0-6234-4c6d-8ceb-73b2394c30fd",
         "1c290293-6544-495a-99a4-50fc22464fde",
-        "1da34347-1f9f-4391-8cef-544ff0d5bead",
+        "1da34.48.1f9f-4391-8cef-544ff0d5bead",
         "20327d56-cf8c-4803-973a-d4531a94d92d",
         "2085e421-7bc8-4da3-bf8c-2ab6fc447c63",
         "2312cd5b-ccbe-42d9-8bce-0fb69913bbb1",
