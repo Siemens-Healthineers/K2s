@@ -43,8 +43,9 @@ const (
 	implementationName = "smb"
 	namespace          = "smb-share-test"
 
-	linuxManifestDir   = "workloads/linux"
-	windowsManifestDir = "workloads/windows"
+	linuxManifestDir      = "workloads/linux"
+	windowsManifestDir    = "workloads/windows"
+	accessModeManifestDir = "workloads/accessmode"
 
 	linuxWorkloadName1   = "smb-share-test-linux1"
 	linuxWorkloadName2   = "smb-share-test-linux2"
@@ -621,6 +622,44 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 		})
 	})
+
+	Describe("enable with pvc access mode readwritemany deployment in Windows", func() {
+		if skipWindowsWorkloads {
+			Skip("Linux-only setup")
+		}
+		When("SMB host type is Windows", Ordered, func() {
+			It("enables the addon", func(ctx context.Context) {
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				expectEnableMessage(output, "windows")
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted("windows", ctx)
+			})
+
+			It("deploys Windows-based workloads", func(ctx context.Context) {
+
+				suite.Kubectl().Run(ctx, "apply", "-k", accessModeManifestDir)
+			})
+
+			It("runs Windows-based workloads", func(ctx context.Context) {
+				expectSmbDeploymentToRun(ctx, storageConfig[0].WinMountPath, windowsTestfileName)
+			})
+
+			It("deletes Windows-based workloads", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "delete", "-k", accessModeManifestDir)
+			})
+
+			It("disposes Windows-based workloads", func(ctx context.Context) {
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", windowsWorkloadName1, namespace)
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", windowsWorkloadName2, namespace)
+			})
+
+			It("disables the addon", func(ctx context.Context) {
+				disableAddon(ctx, "-f")
+			})
+		})
+	})
 })
 
 func expectWorkloadToRun(ctx context.Context, workloadName, mountPath, testFileName string) {
@@ -632,6 +671,27 @@ func expectWorkloadToRun(ctx context.Context, workloadName, mountPath, testFileN
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
 		Should(BeTrue(), fmt.Sprintf("Expected file check to pass for %s", workloadName))
+}
+
+func expectSmbDeploymentToRun(ctx context.Context, mountPath, testFileName string) {
+	pvcName := "smb-pvc"
+	suite.Cluster().ExpectPersistentVolumeToBeBound(pvcName, namespace, 1, ctx)
+
+	deploymentName1 := "smb-share-test-windows1"
+	deploymentName2 := "smb-share-test-windows2"
+
+	suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName1, namespace)
+	suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName1, namespace)
+
+	suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName2, namespace)
+	suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName2, namespace)
+
+	Eventually(os.IsFileYoungerThan).
+		WithArguments(testFileCheckInterval, mountPath, testFileName).
+		WithTimeout(testFileCheckTimeout).
+		WithPolling(suite.TestStepPollInterval()).
+		WithContext(ctx).
+		Should(BeTrue(), fmt.Sprintf("Expected file check to pass for %s", deploymentName1))
 }
 
 func disableAddon(ctx context.Context, option string) {
