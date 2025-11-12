@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	config_contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
@@ -162,6 +163,7 @@ func install(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("[Install] Error: unable to determine current executable path: %v", err)
 	}
+    currentExeAbs, _ := filepath.Abs(currentExe)
 	paths, err := findExecutablesInPath(exeName)
 	if err != nil {
 		return fmt.Errorf("[Install] Error scanning PATH for k2s.exe: %v", err)
@@ -169,9 +171,9 @@ func install(cmd *cobra.Command, args []string) error {
 	var otherK2s []string
 	for _, p := range paths {
 		absP, _ := filepath.Abs(p)
-		if absP != currentExe {
-			otherK2s = append(otherK2s, absP)
-		}
+        if !strings.EqualFold(absP, currentExeAbs) {
+            otherK2s = append(otherK2s, absP)
+        }
 	}
 	if len(otherK2s) > 0 {
 	    fmt.Println("[Install] Found older k2s executables:")
