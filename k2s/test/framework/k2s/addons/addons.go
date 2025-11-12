@@ -16,7 +16,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -31,6 +30,7 @@ import (
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 type Addon struct {
@@ -187,36 +187,14 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 			log.Fatal(err)
 		}
 
-		yamlContent := string(content)
-
-		// Match only YAML image keys (with proper indentation/structure)
-		r, _ := regexp.Compile(`(?m)^\s*image:\s+.+`)
-		findings := r.FindAllString(yamlContent, -1)
-
-		var trimedFindings []string
-		for _, f := range findings {
-			trimed := strings.TrimSpace(f)
-			// Split on 'image:' and take the part after it
-			parts := strings.Split(trimed, "image:")
-			if len(parts) < 2 {
-				continue
-			}
-			// Remove comments (everything after #)
-			imageWithComment := strings.TrimSpace(parts[1])
-			splitted := strings.Split(imageWithComment, "#")[0]
-			trimed = strings.Trim(splitted, "\"")
-			trimed = strings.TrimSpace(trimed)
-
-			// Skip empty or invalid entries
-			if trimed == "" {
-				continue
-			}
-
-			GinkgoWriter.Println("After trim and split: ", trimed)
-			trimedFindings = append(trimedFindings, trimed)
+		// Parse YAML properly instead of using regex
+		var yamlContent interface{}
+		if err := yaml.Unmarshal(content, &yamlContent); err != nil {
+			GinkgoWriter.Printf("Warning: Failed to parse YAML file %s: %v\n", path, err)
+			return []string{}
 		}
 
-		return trimedFindings
+		return extractImagesFromYAMLContent(yamlContent)
 	})
 
 	// add images from additionalImagesFiles
@@ -290,6 +268,30 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 	}
 }
 
+// extractImagesFromYAMLContent recursively extracts container image references from parsed YAML content
+func extractImagesFromYAMLContent(content interface{}) []string {
+	var images []string
+
+	switch v := content.(type) {
+	case map[string]interface{}:
+		for key, value := range v {
+			if key == "image" {
+				// Only extract if the value is a string (actual image reference)
+				if imageStr, ok := value.(string); ok && imageStr != "" {
+					images = append(images, imageStr)
+				}
+			}
+			images = append(images, extractImagesFromYAMLContent(value)...)
+		}
+	case []interface{}:
+		for _, item := range v {
+			images = append(images, extractImagesFromYAMLContent(item)...)
+		}
+	}
+
+	return images
+}
+
 // loadWindowsRootCAs loads certificates from the Windows certificate store and returns a cert pool
 func loadWindowsRootCAs() (*x509.CertPool, error) {
 	// Start with system cert pool
@@ -301,7 +303,7 @@ func loadWindowsRootCAs() (*x509.CertPool, error) {
 
 	// Load certificates from Windows Root CA store
 	storeNames := []string{"ROOT", "CA"}
-	
+
 	for _, storeName := range storeNames {
 		store, err := openWindowsCertStore(storeName)
 		if err != nil {
