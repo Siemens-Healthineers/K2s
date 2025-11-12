@@ -339,22 +339,90 @@ Describe 'Set-ProxyServer' -Tag 'unit', 'ci', 'proxy' {
         }
     }
 
-    It 'updates proxy server and preserves no_proxy' {
+    It 'updates both http_proxy and https_proxy and adds K2s hosts to no_proxy' {
         InModuleScope $moduleName {
             Mock Test-Path { return $true }
             Mock Get-ProxyConfig { 
                 return [ProxyConfig]@{
                     HttpProxy = 'http://old.proxy.com:8080'
                     HttpsProxy = 'http://old.proxy.com:8080'
-                    NoProxy = @('localhost', '127.0.0.1')
+                    NoProxy = @('example.com')
                 }
+            }
+            Mock Get-K2sHosts {
+                return @('localhost', '127.0.0.1', '.local', '.cluster.local', '172.19.1.100', '172.20.0.0/16', '172.21.0.0/16')
             }
             Mock Set-Content { }
             
             Set-ProxyServer -Proxy 'http://new.proxy.com:9090'
             
-            Should -Invoke Set-Content -Exactly 1 -ParameterFilter {
+            Should -Invoke Set-Content -ParameterFilter {
                 $Value -contains "http_proxy='http://new.proxy.com:9090'"
+            }
+            Should -Invoke Set-Content -ParameterFilter {
+                $Value -contains "https_proxy='http://new.proxy.com:9090'"
+            }
+            Should -Invoke Set-Content -ParameterFilter {
+                $Value -match "no_proxy='.*example\.com.*'" -and
+                $Value -match "no_proxy='.*localhost.*'" -and
+                $Value -match "no_proxy='.*\.local.*'" -and
+                $Value -match "no_proxy='.*\.cluster\.local.*'"
+            }
+        }
+    }
+
+    It 'merges existing no_proxy entries with K2s hosts without duplicates' {
+        InModuleScope $moduleName {
+            Mock Test-Path { return $true }
+            Mock Get-ProxyConfig { 
+                return [ProxyConfig]@{
+                    HttpProxy = 'http://old.proxy.com:8080'
+                    HttpsProxy = 'http://old.proxy.com:8080'
+                    NoProxy = @('localhost', 'example.com')  # localhost already exists
+                }
+            }
+            Mock Get-K2sHosts {
+                return @('localhost', '127.0.0.1', '.local')
+            }
+            Mock Set-Content { }
+            
+            Set-ProxyServer -Proxy 'http://new.proxy.com:9090'
+            
+            Should -Invoke Set-Content -ParameterFilter {
+                # Verify no duplicates - localhost should appear only once
+                $noProxyLine = $Value | Where-Object { $_ -match "no_proxy=" }
+                $noProxyValue = $noProxyLine -replace "no_proxy='", "" -replace "'", ""
+                $entries = $noProxyValue -split ","
+                ($entries | Where-Object { $_ -eq 'localhost' } | Measure-Object).Count -eq 1 -and
+                $entries -contains 'example.com' -and
+                $entries -contains '127.0.0.1' -and
+                $entries -contains '.local'
+            }
+        }
+    }
+
+    It 'adds K2s hosts even when no_proxy is initially empty' {
+        InModuleScope $moduleName {
+            Mock Test-Path { return $true }
+            Mock Get-ProxyConfig { 
+                return [ProxyConfig]@{
+                    HttpProxy = ''
+                    HttpsProxy = ''
+                    NoProxy = @()
+                }
+            }
+            Mock Get-K2sHosts {
+                return @('localhost', '127.0.0.1', '.local', '.cluster.local')
+            }
+            Mock Set-Content { }
+            
+            Set-ProxyServer -Proxy 'http://proxy.example.com:8080'
+            
+            Should -Invoke Set-Content -ParameterFilter {
+                $Value -match "no_proxy='.*localhost.*'" -and
+                $Value -match "no_proxy='.*127\.0\.0\.1.*'" -and
+                $Value -match "no_proxy='.*\.local.*'" -and
+                $Value -match "no_proxy='.*\.cluster\.local.*'"
             }
         }
     }

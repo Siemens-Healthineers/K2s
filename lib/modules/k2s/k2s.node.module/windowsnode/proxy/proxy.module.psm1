@@ -229,14 +229,16 @@ Sets the proxy server configuration.
 
 .DESCRIPTION
 This function allows you to set the proxy server configuration by providing the HTTP and HTTPS proxy server addresses.
+When a proxy is set, K2s specific hosts (localhost, cluster IPs, CIDRs, .local, .cluster.local) are automatically
+added to the no_proxy configuration to ensure K2s components can communicate directly without going through the proxy.
 If the configuration file does not exist at the specified path, an error will be thrown.
 
-.PARAMETER roxy
-The HTTP proxy server address to be set.
+.PARAMETER Proxy
+The HTTP/HTTPS proxy server address to be set.
 
 .EXAMPLE
 Set-ProxyServer -Proxy "http://proxy.example.com:8080"
-Sets the HTTP and HTTPS proxy server addresses to "http://proxy.example.com:8080".
+Sets the HTTP and HTTPS proxy server addresses to "http://proxy.example.com:8080" and automatically adds K2s hosts to no_proxy.
 #>
 function Set-ProxyServer {
     param (
@@ -254,13 +256,23 @@ function Set-ProxyServer {
     # Update the proxy settings
     if ($Proxy) {
         $proxyConfig.HttpProxy = $Proxy
+        $proxyConfig.HttpsProxy = $Proxy
+        
+        # Add K2s hosts to NoProxy to ensure K2s components can communicate directly
+        $k2sHosts = Get-K2sHosts
+        $allNoProxyHosts = @()
+        if ($proxyConfig.NoProxy.Count -gt 0) {
+            $allNoProxyHosts += $proxyConfig.NoProxy
+        }
+        $allNoProxyHosts += $k2sHosts
+        $proxyConfig.NoProxy = $allNoProxyHosts | Sort-Object -Unique
     }
 
     # Prepare the new content for the config file
     $newContent = @(
         "http_proxy='$($proxyConfig.HttpProxy)'"
         "https_proxy='$($proxyConfig.HttpsProxy)'"
-        "no_proxy='$($proxyConfig.NoProxy)'"
+        "no_proxy='$($proxyConfig.NoProxy -join ",")'"
     )
 
     # Write the updated configuration back to the file
