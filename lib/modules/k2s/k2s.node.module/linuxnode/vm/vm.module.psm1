@@ -48,6 +48,37 @@ function Invoke-SSHWithKey {
     &ssh.exe $params 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
 }
 
+function Invoke-PlinkWithAsciiEncoding {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$PlinkPath,
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+        [Parameter(Mandatory = $false)]
+        [string]$PipeInput = '',
+        [Parameter(Mandatory = $false)]
+        [switch]$LogOutput = $true
+    )
+    $oldInputEncoding = [Console]::InputEncoding
+    $oldOutputEncoding = [Console]::OutputEncoding
+    [Console]::InputEncoding = [System.Text.Encoding]::ASCII
+    [Console]::OutputEncoding = [System.Text.Encoding]::ASCII
+
+    if ($PipeInput) {
+        $output = Write-Output $PipeInput | & $PlinkPath @Arguments 2>&1
+    } else {
+        $output = & $PlinkPath @Arguments 2>&1
+    }
+
+    [Console]::InputEncoding = $oldInputEncoding
+    [Console]::OutputEncoding = $oldOutputEncoding
+
+    if ($LogOutput) {
+        $output | ForEach-Object { Write-Log $_ -Console -Raw }
+    }
+    return $output
+}
+
 function Invoke-CmdOnControlPlaneViaSSHKey(
     [Parameter(Mandatory = $false)]
     $CmdToExecute,
@@ -159,7 +190,8 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     [uint16]$Retrycount = 1
     do {
         try {
-            $output = &"$plinkExe" -ssh -4 -legacy-stdio-prompts $RemoteUser -pw $RemoteUserPwd -no-antispoof $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+            $plinkArgs = @('-ssh', '-4', '-legacy-stdio-prompts', $RemoteUser, '-pw', $RemoteUserPwd, '-no-antispoof', $CmdToExecute)
+            $output = Invoke-PlinkWithAsciiEncoding -PlinkPath $plinkExe -Arguments $plinkArgs
             $success = ($LASTEXITCODE -eq 0)
             if (!$success -and !$IgnoreErrors) { throw "Error occurred while executing command '$CmdToExecute' (exit code: '$LASTEXITCODE')" }
             $Stoploop = $true
@@ -175,7 +207,8 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
                 # try to repair the command
                 if ( ($null -ne $RepairCmd) -and !$IgnoreErrors) {
                     Write-Log "Executing repair cmd: $RepairCmd"
-                    &"$plinkExe" -ssh -4 -legacy-stdio-prompts $RemoteUser -pw $RemoteUserPwd -no-antispoof $RepairCmd 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+                    $repairArgs = @('-ssh', '-4', '-legacy-stdio-prompts', $RemoteUser, '-pw', $RemoteUserPwd, '-no-antispoof', $RepairCmd)
+                    Invoke-PlinkWithAsciiEncoding -PlinkPath $plinkExe -Arguments $repairArgs
                 }
 
                 Start-Sleep -Seconds $Timeout
@@ -538,7 +571,8 @@ function Wait-ForSshPossible {
             }
         }
         else {
-            $result = $(Write-Output y | &"$plinkExe" -ssh -4 -legacy-stdio-prompts $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)
+            $plinkArgs = @('-ssh', '-4', '-legacy-stdio-prompts', $User, '-pw', $UserPwd, '-no-antispoof', "$($SshTestCommand)")
+            $result = Invoke-PlinkWithAsciiEncoding -PlinkPath $plinkExe -Arguments $plinkArgs -PipeInput 'y' -LogOutput:$false
         }
 
         if ($StrictEqualityCheck -eq $true) {
