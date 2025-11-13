@@ -248,6 +248,15 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 		}
 	}
 
+	// add Windows images
+	windowsImageCount := 0
+	if len(implementation.OfflineUsage.WindowsResources.AdditionalImages) > 0 {
+		for _, windowsImage := range implementation.OfflineUsage.WindowsResources.AdditionalImages {
+			windowsImageCount++
+			GinkgoWriter.Printf("  Windows platform image: %s (will be exported as separate _win.tar)\n", windowsImage)
+		}
+	}
+
 	// delete folder if it was created
 	if tmpChartDir != "" {
 		GinkgoWriter.Println("Deleting temp directory", tmpChartDir)
@@ -257,8 +266,20 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 		}
 	}
 
-	// return unique images
-	return lo.Union(images), nil
+	// add count of Windows platform images
+	uniqueLinuxImages := lo.Union(images)
+	totalImageCount := len(uniqueLinuxImages) + windowsImageCount
+
+	GinkgoWriter.Printf("  Unique Linux images: %d, Windows platform images: %d, Total: %d\n",
+		len(uniqueLinuxImages), windowsImageCount, totalImageCount)
+
+	result := make([]string, 0, totalImageCount)
+	result = append(result, uniqueLinuxImages...)
+	for i := 0; i < windowsImageCount; i++ {
+		result = append(result, implementation.OfflineUsage.WindowsResources.AdditionalImages[i])
+	}
+
+	return result, nil
 }
 
 // recursively extracts container image references from parsed YAML content

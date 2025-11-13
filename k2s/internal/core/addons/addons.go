@@ -55,7 +55,8 @@ type LinuxResources struct {
 }
 
 type WindowsResources struct {
-	CurlPackages []CurlPackages `yaml:"curl"`
+	AdditionalImages []string       `yaml:"additionalImages"`
+	CurlPackages     []CurlPackages `yaml:"curl"`
 }
 
 type CurlPackages struct {
