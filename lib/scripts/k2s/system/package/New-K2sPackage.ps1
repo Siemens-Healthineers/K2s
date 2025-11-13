@@ -483,19 +483,30 @@ function Test-AddonTestFolderMatch {
     
     # Extract base addon name (remove implementation suffix for multi-impl addons)
     $addonBaseName = $AddonName
+    $implName = $null
+    
     if ($AddonName -match '^(.+)\s+(.+)$') {
         # Multi-implementation addon like "ingress nginx"
         $addonBaseName = $matches[1]
         $implName = $matches[2]
         
-        # Check if test dir matches base name or full implementation name
-        # e.g., "ingress" or "ingress-nginx" for "ingress nginx"
-        return ($TestDirName -eq $addonBaseName -or 
-                $TestDirName -eq "$addonBaseName-$implName" -or
-                $TestDirName -like "$addonBaseName*")
+        # For multi-impl addons, match:
+        # 1. Exact base name (e.g., "ingress" for common tests)
+        # 2. Base name with implementation (e.g., "ingress-nginx" or "ingress-nginx_sec_test")
+        if ($TestDirName -eq $addonBaseName) {
+            return $true
+        }
+        
+        # Check if test folder specifically matches this implementation
+        # Pattern: basename-implname (with optional suffix like _sec_test)
+        if ($TestDirName -like "$addonBaseName-$implName*") {
+            return $true
+        }
+        
+        return $false
     } else {
-        # Single-implementation addon
-        return ($TestDirName -eq $addonBaseName -or $TestDirName -like "$addonBaseName*")
+        # Single-implementation addon - match exact name or with suffix
+        return ($TestDirName -eq $addonBaseName -or $TestDirName -like "$addonBaseName`_*")
     }
 }
 
@@ -752,7 +763,9 @@ function New-SignedPackage {
         [bool]$ForOfflineInstallation,
         [string]$WindowsNodeArtifactsZipFilePath,
         [bool]$EncodeStructuredOutput,
-        [string]$MessageType
+        [string]$MessageType,
+        [string[]]$SelectedAddons,
+        [hashtable]$AllAddonPaths
     )
     
     Write-Log 'Code signing requested - signing executables and scripts...' -Console
@@ -785,6 +798,9 @@ function New-SignedPackage {
             Write-Log "WARNING: No files were copied for signing!" -Error
             return $false
         }
+        
+        # Filter addon manifests before signing (if applicable)
+        Update-AddonManifestsInPackage -PackageRootPath $tempSigningPath -SelectedAddons $SelectedAddons -AllAddonPaths $AllAddonPaths
         
         # Sign files in temporary directory
         Write-Log "Signing all executables and PowerShell scripts with certificate: $CertificatePath" -Console
@@ -838,12 +854,44 @@ function Add-TestFolderExclusions {
     param(
         [string]$KubePath,
         [string[]]$SelectedAddons,
-        [ref]$ExclusionListRef
+        [ref]$ExclusionListRef,
+        [hashtable]$AllAddonPaths
     )
     
     $testAddonsPath = Join-Path $KubePath 'k2s/test/e2e/addons'
     if (-not (Test-Path $testAddonsPath)) {
         return
+    }
+    
+    # Build a map of selected implementations per base addon
+    $selectedImplsByAddon = @{}
+    foreach ($addon in $SelectedAddons) {
+        if ($addon -match '^(.+)\s+(.+)$') {
+            # Multi-implementation addon like "ingress nginx"
+            $baseName = $matches[1]
+            $implName = $matches[2]
+            
+            if (-not $selectedImplsByAddon.ContainsKey($baseName)) {
+                $selectedImplsByAddon[$baseName] = @()
+            }
+            $selectedImplsByAddon[$baseName] += $implName
+        }
+    }
+    
+    # Build a list of all known implementation names from AllAddonPaths
+    $allKnownImpls = @{}
+    foreach ($addonKey in $AllAddonPaths.Keys) {
+        if ($addonKey -match '^(.+)\s+(.+)$') {
+            $baseName = $matches[1]
+            $implName = $matches[2]
+            
+            if (-not $allKnownImpls.ContainsKey($baseName)) {
+                $allKnownImpls[$baseName] = @()
+            }
+            if ($allKnownImpls[$baseName] -notcontains $implName) {
+                $allKnownImpls[$baseName] += $implName
+            }
+        }
     }
     
     $testAddonDirs = Get-ChildItem -Path $testAddonsPath -Directory
@@ -861,6 +909,33 @@ function Add-TestFolderExclusions {
         
         if ($shouldInclude) {
             Write-Log "[Addons] Including test folder for addon: k2s/test/e2e/addons/$testDirName" -Console
+            
+            # For multi-implementation addons, check if we need to exclude specific subdirectories
+            if ($selectedImplsByAddon.ContainsKey($testDirName)) {
+                $selectedImpls = $selectedImplsByAddon[$testDirName]
+                $knownImpls = $allKnownImpls[$testDirName]
+                
+                # Check for implementation-specific subdirectories
+                $implSubdirs = Get-ChildItem -Path $testDir.FullName -Directory -ErrorAction SilentlyContinue
+                foreach ($implSubdir in $implSubdirs) {
+                    $implSubdirName = $implSubdir.Name
+                    
+                    # Check if this subdirectory name matches a known implementation
+                    if ($knownImpls -contains $implSubdirName) {
+                        # This is an implementation-specific subdirectory
+                        if ($selectedImpls -notcontains $implSubdirName) {
+                            # Exclude this unselected implementation subdirectory
+                            $subdirFullPath = Join-Path $KubePath "k2s/test/e2e/addons/$testDirName/$implSubdirName"
+                            if (-not ($ExclusionListRef.Value -contains $subdirFullPath)) {
+                                $ExclusionListRef.Value += $subdirFullPath
+                            }
+                            Write-Log "[Addons] Excluding test subdirectory: k2s/test/e2e/addons/$testDirName/$implSubdirName" -Console
+                        } else {
+                            Write-Log "[Addons] Including test subdirectory: k2s/test/e2e/addons/$testDirName/$implSubdirName" -Console
+                        }
+                    }
+                }
+            }
         } else {
             # Exclude this test folder since it doesn't match any selected addon
             $testDirFullPath = Join-Path $KubePath "k2s/test/e2e/addons/$testDirName"
@@ -868,6 +943,158 @@ function Add-TestFolderExclusions {
                 $ExclusionListRef.Value += $testDirFullPath
             }
             Write-Log "[Addons] Excluding test folder: k2s/test/e2e/addons/$testDirName" -Console
+        }
+    }
+}
+
+# Filter addon manifest to only include selected implementations
+function Update-AddonManifestForSelectedImplementations {
+    param(
+        [string]$ManifestPath,
+        [string[]]$SelectedImplementations
+    )
+    
+    if (-not (Test-Path $ManifestPath)) {
+        Write-Log "Manifest not found: $ManifestPath" -Console
+        return
+    }
+    
+    Write-Log "Filtering manifest $ManifestPath to only include implementations: $($SelectedImplementations -join ', ')" -Console
+    
+    # Read the manifest file line by line
+    $lines = Get-Content -Path $ManifestPath
+    $filteredLines = @()
+    $inImplementationsSection = $false
+    $currentImplName = ''
+    $skipCurrentImpl = $false
+    $implementationLineIndent = 0
+    
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        
+        # Detect when we enter the implementations section
+        if ($line -match '^\s*implementations:\s*$') {
+            $inImplementationsSection = $true
+            $filteredLines += $line
+            continue
+        }
+        
+        # If we're in implementations section, check for implementation entries
+        if ($inImplementationsSection) {
+            # Check if this is a new implementation entry (- name: xxx at the correct indent level)
+            if ($line -match '^\s+- name:\s+(.+)$') {
+                # Calculate indent level of this "- name:" line
+                $currentIndent = ($line -replace '\S.*$', '').Length
+                
+                # If this is the first implementation, record the indent
+                if ($implementationLineIndent -eq 0) {
+                    $implementationLineIndent = $currentIndent
+                }
+                
+                # Only treat as new implementation if at the same indent as first one
+                if ($currentIndent -eq $implementationLineIndent) {
+                    $currentImplName = $matches[1].Trim()
+                    $skipCurrentImpl = $SelectedImplementations -notcontains $currentImplName
+                    
+                    if ($skipCurrentImpl) {
+                        Write-Log "  Excluding implementation: $currentImplName" -Console
+                        continue
+                    } else {
+                        Write-Log "  Including implementation: $currentImplName" -Console
+                        $filteredLines += $line
+                        continue
+                    }
+                }
+            }
+            
+            # Check if we're exiting the implementations section (back to top-level key)
+            if ($line -match '^\S' -and $line.Trim() -ne '') {
+                $inImplementationsSection = $false
+                $skipCurrentImpl = $false
+                $implementationLineIndent = 0
+                $filteredLines += $line
+                continue
+            }
+            
+            # We're inside implementations section - skip lines if current impl is not selected
+            if ($skipCurrentImpl) {
+                continue
+            }
+        }
+        
+        # Add all other lines
+        $filteredLines += $line
+    }
+    
+    # Validate that we have at least one implementation left
+    $hasImplementations = $false
+    $inImpls = $false
+    foreach ($line in $filteredLines) {
+        if ($line -match '^\s*implementations:\s*$') {
+            $inImpls = $true
+            continue
+        }
+        if ($inImpls -and $line -match '^\s+- name:\s+') {
+            $hasImplementations = $true
+            break
+        }
+        if ($inImpls -and $line -match '^\S') {
+            break
+        }
+    }
+    
+    if (-not $hasImplementations) {
+        Write-Log "  WARNING: No implementations left after filtering! Keeping original manifest." -Console
+        return
+    }
+    
+    # Write the filtered content back to the file
+    $filteredLines | Set-Content -Path $ManifestPath -Force
+    Write-Log "  Manifest filtered successfully" -Console
+}
+
+# Process all addon manifests and filter out non-selected implementations
+function Update-AddonManifestsInPackage {
+    param(
+        [string]$PackageRootPath,
+        [string[]]$SelectedAddons,
+        [hashtable]$AllAddonPaths
+    )
+    
+    if ($SelectedAddons.Count -eq 0) {
+        Write-Log "No addon filtering needed - all addons included" -Console
+        return
+    }
+    
+    Write-Log "Processing addon manifests to filter implementations..." -Console
+    
+    $addonsPath = Join-Path $PackageRootPath 'addons'
+    if (-not (Test-Path $addonsPath)) {
+        Write-Log "Addons directory not found in package: $addonsPath" -Console
+        return
+    }
+    
+    # Group selected addons by base name to find multi-implementation scenarios
+    $addonGroups = @{}
+    foreach ($addon in $SelectedAddons) {
+        if ($addon -match '^(.+)\s+(.+)$') {
+            # Multi-implementation addon like "ingress nginx"
+            $baseName = $matches[1]
+            $implName = $matches[2]
+            
+            if (-not $addonGroups.ContainsKey($baseName)) {
+                $addonGroups[$baseName] = @()
+            }
+            $addonGroups[$baseName] += $implName
+        }
+    }
+    
+    # Process each multi-implementation addon
+    foreach ($baseName in $addonGroups.Keys) {
+        $manifestPath = Join-Path $addonsPath "$baseName\addon.manifest.yaml"
+        if (Test-Path $manifestPath) {
+            $selectedImpls = $addonGroups[$baseName]
+            Update-AddonManifestForSelectedImplementations -ManifestPath $manifestPath -SelectedImplementations $selectedImpls
         }
     }
 }
@@ -952,7 +1179,7 @@ if ($Profile -eq 'Lite') {
         
         # Exclude test folders for NON-selected addons
         Add-TestFolderExclusions -KubePath $kubePath -SelectedAddons $selectedAddons `
-            -ExclusionListRef ([ref]$liteExclude)
+            -ExclusionListRef ([ref]$liteExclude) -AllAddonPaths $allAddonPaths
         
         # Include test folders for selected addons
         $testAddonsPath = Join-Path $kubePath 'k2s/test/e2e/addons'
@@ -1042,7 +1269,7 @@ if ($Profile -eq 'Lite') {
     
     # Exclude test folders for NON-selected addons
     Add-TestFolderExclusions -KubePath $kubePath -SelectedAddons $selectedAddons `
-        -ExclusionListRef ([ref]$exclusionList)
+        -ExclusionListRef ([ref]$exclusionList) -AllAddonPaths $allAddonPaths
 } else {
     # Dev profile with no addon list: include ALL addons (default behavior)
     Write-Log "[Addons] Dev profile: including all addons (default)" -Console
@@ -1137,7 +1364,8 @@ if ($CertificatePath) {
     $signingResult = New-SignedPackage -KubePath $kubePath -ExclusionList $exclusionList `
         -CertificatePath $CertificatePath -Password $Password -ZipPackagePath $zipPackagePath `
         -ForOfflineInstallation $ForOfflineInstallation -WindowsNodeArtifactsZipFilePath $winNodeArtifactsZipFilePath `
-        -EncodeStructuredOutput $EncodeStructuredOutput -MessageType $MessageType
+        -EncodeStructuredOutput $EncodeStructuredOutput -MessageType $MessageType `
+        -SelectedAddons $selectedAddons -AllAddonPaths $allAddonPaths
     
     if (-not $signingResult) {
         Write-Log "Code signing failed or was incomplete" -Error
@@ -1145,8 +1373,40 @@ if ($CertificatePath) {
     }
 } else {
     Write-Log 'No code signing requested - creating standard package.' -Console
-    Write-Log 'Start creation of zip package...' -Console
-    New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath" -InclusionList $inclusionList
+    
+    # Filter addon manifests if custom addon selection
+    if ($selectedAddons.Count -gt 0) {
+        Write-Log 'Custom addon selection detected - creating temporary copy for manifest filtering...' -Console
+        $tempPackagePath = Join-Path $env:TEMP "k2s-package-temp-$(Get-Random)"
+        
+        try {
+            # Copy files to temp directory for manifest filtering
+            $copiedCount = Copy-FilesForSigning -SourcePath $kubePath -DestinationPath $tempPackagePath `
+                -ExclusionList $exclusionList -IsOfflineInstallation $ForOfflineInstallation
+            
+            if ($copiedCount -eq 0) {
+                Write-Log "WARNING: No files were copied!" -Error
+                exit 1
+            }
+            
+            # Filter addon manifests in temp directory
+            Update-AddonManifestsInPackage -PackageRootPath $tempPackagePath -SelectedAddons $selectedAddons -AllAddonPaths $allAddonPaths
+            
+            Write-Log 'Start creation of zip package from filtered files...' -Console
+            New-ZipArchive -ExclusionList @() -BaseDirectory $tempPackagePath -TargetPath "$zipPackagePath"
+        }
+        finally {
+            # Clean up temporary directory
+            if (Test-Path $tempPackagePath) {
+                Write-Log "Cleaning up temporary package directory..." -Console
+                Remove-Item -Path $tempPackagePath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    } else {
+        # No filtering needed - create package directly from source
+        Write-Log 'Start creation of zip package...' -Console
+        New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath" -InclusionList $inclusionList
+    }
 }
 
 Write-Log "Zip package available at '$zipPackagePath'." -Console
