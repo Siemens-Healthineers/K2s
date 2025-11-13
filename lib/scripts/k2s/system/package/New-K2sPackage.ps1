@@ -1181,6 +1181,48 @@ if ($Profile -eq 'Lite') {
         Add-TestFolderExclusions -KubePath $kubePath -SelectedAddons $selectedAddons `
             -ExclusionListRef ([ref]$liteExclude) -AllAddonPaths $allAddonPaths
         
+        # Include test folders for selected addons
+        $testAddonsPath = Join-Path $kubePath 'k2s/test/e2e/addons'
+        if (Test-Path $testAddonsPath) {
+            $testAddonDirs = Get-ChildItem -Path $testAddonsPath -Directory
+            foreach ($testDir in $testAddonDirs) {
+                $testDirName = $testDir.Name
+                $shouldInclude = $false
+                
+                # Check if this test directory matches any selected addon
+                foreach ($addon in $selectedAddons) {
+                    # Extract base addon name (remove implementation suffix for multi-impl addons)
+                    $addonBaseName = $addon
+                    if ($addon -match '^(.+)\s+(.+)$') {
+                        # Multi-implementation addon like "ingress nginx"
+                        $addonBaseName = $matches[1]
+                        $implName = $matches[2]
+                        
+                        # Check if test dir matches base name or full implementation name
+                        # e.g., "ingress" or "ingress-nginx" for "ingress nginx"
+                        if ($testDirName -eq $addonBaseName -or 
+                            $testDirName -eq "$addonBaseName-$implName" -or
+                            $testDirName -like "$addonBaseName*") {
+                            $shouldInclude = $true
+                            break
+                        }
+                    } else {
+                        # Single-implementation addon
+                        if ($testDirName -eq $addonBaseName -or $testDirName -like "$addonBaseName*") {
+                            $shouldInclude = $true
+                            break
+                        }
+                    }
+                }
+                
+                if ($shouldInclude) {
+                    $testDirFullPath = Join-Path $kubePath "k2s/test/e2e/addons/$testDirName"
+                    $inclusionList += $testDirFullPath
+                    Write-Log "[Addons] Including test folder for addon: k2s/test/e2e/addons/$testDirName" -Console
+                }
+            }
+        }
+        
         Write-Log "[Profile+Addons] Lite profile with selected addons: $($selectedAddons -join ', ')" -Console
     } else {
         # No addons list specified: include ALL addons (default behavior)
