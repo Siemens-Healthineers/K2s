@@ -1983,7 +1983,7 @@
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:0ee1301886b1a2cc3dbb49a66be540315b83f0615d5841b797f5ae89c923ab89"
+          "value": "sha256:0ee13.19.1b1a2cc3dbb49a66be540315b83f0615d5841b797f5ae89c923ab89"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -215959,7 +215959,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "f13d1876-0036-4175-bc5c-00532bf41221",
+      "bom-ref": "f13.19.1-0036-4175-bc5c-00532bf41221",
       "name": "golang.org/x/net",
       "version": "v0.0.0-20211015210444-4f30a5c0130f",
       "purl": "pkg:golang/golang.org/x/net@v0.0.0-20211015210444-4f30a5c0130f",
@@ -275262,7 +275262,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "28318a4e-8142-40cd-93d9-63371816b5b7",
+      "bom-ref": "28318a4e-8142-40cd-93d9-633.19.1b5b7",
       "name": "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream",
       "version": "v1.6.3",
       "purl": "pkg:golang/github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.6.3",
@@ -319759,7 +319759,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "a8c82e63-18d6-4307-afa9-d229b79947fa",
+      "bom-ref": "a8c82e63.19.1-4307-afa9-d229b79947fa",
       "name": "set-function-name",
       "version": "2.0.1",
       "licenses": [
@@ -487710,7 +487710,7 @@
         "e69ef76f-9276-474c-80cc-4aff1cfbd995",
         "ee8115b0-512b-4fd2-926a-869c90230e4d",
         "ef4bb465-2ccd-462e-8019-f0aa9777fb16",
-        "f13d1876-0036-4175-bc5c-00532bf41221",
+        "f13.19.1-0036-4175-bc5c-00532bf41221",
         "f3185801-304b-4452-ab1c-bde73eaa26fb",
         "f49bacf4-c542-4683-9576-02a1515ed538",
         "f7613743-3dc1-4cf0-bd96-923c5d2b9b71",
@@ -487806,7 +487806,7 @@
       "dependsOn": []
     },
     {
-      "ref": "f13d1876-0036-4175-bc5c-00532bf41221",
+      "ref": "f13.19.1-0036-4175-bc5c-00532bf41221",
       "dependsOn": []
     },
     {
@@ -498641,7 +498641,7 @@
       "dependsOn": []
     },
     {
-      "ref": "28318a4e-8142-40cd-93d9-63371816b5b7",
+      "ref": "28318a4e-8142-40cd-93d9-633.19.1b5b7",
       "dependsOn": []
     },
     {
@@ -504702,7 +504702,7 @@
         "a88dccaa-0660-4494-b73d-5b285ddebbfb",
         "a89e53c1-9bac-45e6-9a66-2af4c9cd4456",
         "a8b94b83-4554-4d58-9d1e-6818bbdd8045",
-        "a8c82e63-18d6-4307-afa9-d229b79947fa",
+        "a8c82e63.19.1-4307-afa9-d229b79947fa",
         "a8fff29a-3cb6-437f-a54f-32ae0192c1f2",
         "a93f991c-93f5-43f1-88ec-6e60d3cf9d3b",
         "a953901a-2667-4e97-9ff7-1e8364b8a082",
@@ -513322,7 +513322,7 @@
         "278f208a-6c61-4452-9e71-1c636a9e4d78",
         "27a6a6a1-4418-4f8f-8b1e-f731e44c2f5e",
         "280acf2f-7dc0-42b2-bc4c-a6f5cdf43699",
-        "28318a4e-8142-40cd-93d9-63371816b5b7",
+        "28318a4e-8142-40cd-93d9-633.19.1b5b7",
         "283cbc17-c799-4754-872d-4b9a7e148a4e",
         "29258442-5615-49cf-a7ec-0dfc8bb9f75c",
         "2a166fb9-c187-41f6-b97d-8ed81.3.07af",
@@ -515544,7 +515544,7 @@
       "dependsOn": []
     },
     {
-      "ref": "a8c82e63-18d6-4307-afa9-d229b79947fa",
+      "ref": "a8c82e63.19.1-4307-afa9-d229b79947fa",
       "dependsOn": []
     },
     {
