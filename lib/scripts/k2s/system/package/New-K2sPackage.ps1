@@ -233,9 +233,20 @@ function New-ZipArchive() {
                         break
                     }
                 }
-                if ($shouldSkip -and $InclusionList -contains $file) {
-                    Write-Log "Re-including whitelisted file: $file" -Console
-                    $shouldSkip = $false
+                # Check inclusion list - both exact match and subdirectory match
+                if ($shouldSkip) {
+                    $shouldInclude = $false
+                    # Check if file/directory is explicitly included OR is within an included directory
+                    foreach ($inclusion in $InclusionList) {
+                        if ($file -eq $inclusion -or $file.StartsWith("$inclusion\")) {
+                            $shouldInclude = $true
+                            break
+                        }
+                    }
+                    if ($shouldInclude) {
+                        Write-Log "Re-including whitelisted file: $file" -Console
+                        $shouldSkip = $false
+                    }
                 }
                 if ($shouldSkip) {
                     Write-Log "Skipping excluded file: $file"
@@ -463,6 +474,445 @@ function Get-AvailableAddons {
     return $addonPaths
 }
 
+# Check if a test directory name matches a selected addon
+function Test-AddonTestFolderMatch {
+    param(
+        [string]$TestDirName,
+        [string]$AddonName
+    )
+    
+    # Extract base addon name (remove implementation suffix for multi-impl addons)
+    $addonBaseName = $AddonName
+    if ($AddonName -match '^(.+)\s+(.+)$') {
+        # Multi-implementation addon like "ingress nginx"
+        $addonBaseName = $matches[1]
+        $implName = $matches[2]
+        
+        # Check if test dir matches base name or full implementation name
+        # e.g., "ingress" or "ingress-nginx" for "ingress nginx"
+        return ($TestDirName -eq $addonBaseName -or 
+                $TestDirName -eq "$addonBaseName-$implName" -or
+                $TestDirName -like "$addonBaseName*")
+    } else {
+        # Single-implementation addon
+        return ($TestDirName -eq $addonBaseName -or $TestDirName -like "$addonBaseName*")
+    }
+}
+
+# Restore plink.exe and pscp.exe from WindowsNodeArtifacts.zip
+function Restore-PuttyToolsFromArchive {
+    param(
+        [string]$WindowsNodeArtifactsZipPath,
+        [string]$PlinkDestination,
+        [string]$PscpDestination
+    )
+    
+    Write-Log "Restoring plink.exe and pscp.exe to bin folder from WindowsNodeArtifacts.zip..." -Console
+    Write-Log "  WindowsNodeArtifacts.zip path: $WindowsNodeArtifactsZipPath (exists: $(Test-Path $WindowsNodeArtifactsZipPath))" -Console
+    
+    if (-not (Test-Path $WindowsNodeArtifactsZipPath)) {
+        Write-Log "ERROR: WindowsNodeArtifacts.zip not found, cannot restore plink/pscp!" -Error
+        return $false
+    }
+    
+    # Extract them from WindowsNodeArtifacts.zip
+    $tempExtractPath = Join-Path $env:TEMP "putty-restore-$(Get-Random)"
+    try {
+        New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
+        Write-Log "  Extracting WindowsNodeArtifacts.zip to temp location..." -Console
+        Expand-Archive -Path $WindowsNodeArtifactsZipPath -DestinationPath $tempExtractPath -Force
+        
+        Write-Log "  Temp extract path: $tempExtractPath" -Console
+        
+        # The structure is puttytools (one word, all lowercase) at root
+        $puttytoolsDir = Join-Path $tempExtractPath 'puttytools'
+        Write-Log "  Looking for puttytools directory: $puttytoolsDir (exists: $(Test-Path $puttytoolsDir))" -Console
+        
+        if (Test-Path $puttytoolsDir) {
+            $plinkSource = Join-Path $puttytoolsDir 'plink.exe'
+            $pscpSource = Join-Path $puttytoolsDir 'pscp.exe'
+            
+            Write-Log "  plink.exe source: $plinkSource (exists: $(Test-Path $plinkSource))" -Console
+            Write-Log "  pscp.exe source: $pscpSource (exists: $(Test-Path $pscpSource))" -Console
+            
+            $restoredCount = 0
+            if (Test-Path $plinkSource) {
+                Copy-Item -Path $plinkSource -Destination $PlinkDestination -Force
+                Write-Log "  Restored plink.exe" -Console
+                $restoredCount++
+            } else {
+                Write-Log "  WARNING: plink.exe not found at $plinkSource" -Console
+            }
+            
+            if (Test-Path $pscpSource) {
+                Copy-Item -Path $pscpSource -Destination $PscpDestination -Force
+                Write-Log "  Restored pscp.exe" -Console
+                $restoredCount++
+            } else {
+                Write-Log "  WARNING: pscp.exe not found at $pscpSource" -Console
+            }
+            
+            return ($restoredCount -eq 2)
+        } else {
+            Write-Log "  ERROR: puttytools directory not found at expected path: $puttytoolsDir" -Error
+            Write-Log "  Contents of temp extract path:" -Console
+            Get-ChildItem -Path $tempExtractPath -Recurse -Force | Select-Object -First 20 | ForEach-Object { Write-Log "    $($_.FullName)" -Console }
+            return $false
+        }
+    }
+    catch {
+        Write-Log "ERROR: Failed to restore putty tools: $_" -Error
+        return $false
+    }
+    finally {
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# Download plink.exe and pscp.exe using putty-tools module
+function Get-PuttyToolsViaDownload {
+    param(
+        [string]$PlinkDestination,
+        [string]$PscpDestination,
+        [string]$Proxy,
+        [string]$PuttyToolsModulePath
+    )
+    
+    Write-Log "Downloading plink.exe and pscp.exe for package..." -Console
+    
+    if (-not (Test-Path $PuttyToolsModulePath)) {
+        Write-Log "Warning: Could not find putty-tools module at $PuttyToolsModulePath" -Console
+        return $false
+    }
+    
+    try {
+        Import-Module $PuttyToolsModulePath -Force
+        
+        $downloadedCount = 0
+        if (-not (Test-Path $PlinkDestination)) {
+            Invoke-DownloadPlink -Destination $PlinkDestination -Proxy $Proxy
+            Write-Log "  Downloaded plink.exe" -Console
+            $downloadedCount++
+        }
+        if (-not (Test-Path $PscpDestination)) {
+            Invoke-DownloadPscp -Destination $PscpDestination -Proxy $Proxy
+            Write-Log "  Downloaded pscp.exe" -Console
+            $downloadedCount++
+        }
+        
+        return ($downloadedCount -gt 0)
+    }
+    catch {
+        Write-Log "ERROR: Failed to download putty tools: $_" -Error
+        return $false
+    }
+}
+
+# Ensure plink.exe and pscp.exe are available in bin folder
+function Ensure-PuttyToolsAvailable {
+    param(
+        [string]$PlinkPath,
+        [string]$PscpPath,
+        [bool]$IsOfflineInstallation,
+        [string]$WindowsNodeArtifactsZipPath,
+        [string]$Proxy
+    )
+    
+    Write-Log "Checking plink.exe and pscp.exe availability..." -Console
+    Write-Log "  plink.exe path: $PlinkPath (exists: $(Test-Path $PlinkPath))" -Console
+    Write-Log "  pscp.exe path: $PscpPath (exists: $(Test-Path $PscpPath))" -Console
+    
+    # Check if both tools already exist
+    if ((Test-Path $PlinkPath) -and (Test-Path $PscpPath)) {
+        Write-Log "  plink.exe and pscp.exe already present in bin folder" -Console
+        return $true
+    }
+    
+    if ($IsOfflineInstallation) {
+        # For offline packages: restore from WindowsNodeArtifacts.zip
+        return Restore-PuttyToolsFromArchive -WindowsNodeArtifactsZipPath $WindowsNodeArtifactsZipPath `
+            -PlinkDestination $PlinkPath -PscpDestination $PscpPath
+    } else {
+        # For non-offline packages: download if not present
+        $puttytoolsModulePath = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/windowsnode/downloader/artifacts/putty-tools/putty-tools.module.psm1"
+        return Get-PuttyToolsViaDownload -PlinkDestination $PlinkPath -PscpDestination $PscpPath `
+            -Proxy $Proxy -PuttyToolsModulePath $puttytoolsModulePath
+    }
+}
+
+# Copy files to temporary directory for signing, excluding items from exclusion list
+function Copy-FilesForSigning {
+    param(
+        [string]$SourcePath,
+        [string]$DestinationPath,
+        [string[]]$ExclusionList,
+        [bool]$IsOfflineInstallation
+    )
+    
+    Write-Log "Creating temporary copy for signing to avoid file locking issues..." -Console
+    Write-Log "Temporary signing directory: $DestinationPath" -Console
+    
+    New-Item -Path $DestinationPath -ItemType Directory -Force | Out-Null
+    
+    $filesToCopy = Get-ChildItem -Path $SourcePath -Force -Recurse
+    $copiedCount = 0
+    $skippedCount = 0
+    
+    foreach ($file in $filesToCopy) {
+        $relativePath = $file.FullName.Replace("$SourcePath\", '')
+        $targetPath = Join-Path $DestinationPath $relativePath
+        
+        # Skip files in exclusion list
+        $shouldExclude = $false
+        foreach ($exclusion in $ExclusionList) {
+            if ($file.FullName.StartsWith($exclusion)) {
+                $shouldExclude = $true
+                $skippedCount++
+                break
+            }
+        }
+        
+        if ($IsOfflineInstallation -and -not $shouldExclude) {
+            # No additional exclusions - let Set-K2sFileSignature handle file type filtering
+            Write-Log "Including file for potential signing: $($file.FullName)"
+        }
+        
+        if (-not $shouldExclude) {
+            if ($file.PSIsContainer) {
+                New-Item -Path $targetPath -ItemType Directory -Force | Out-Null
+            } else {
+                $targetDir = Split-Path -Path $targetPath -Parent
+                if (-not (Test-Path $targetDir)) {
+                    New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+                }
+                Copy-Item -Path $file.FullName -Destination $targetPath -Force
+                $copiedCount++
+            }
+        }
+    }
+    
+    Write-Log "Copied $copiedCount files/folders, skipped $skippedCount excluded items" -Console
+    return $copiedCount
+}
+
+# Sign contents of offline installation ZIP artifacts
+function Invoke-OfflineArtifactsSigning {
+    param(
+        [string]$TempSigningPath,
+        [string]$WindowsNodeArtifactsZipFilePath,
+        [string]$CertificatePath,
+        [securestring]$SecurePassword
+    )
+    
+    Write-Log 'Signing contents of offline installation ZIP files...' -Console
+    
+    # Sign Windows Node Artifacts ZIP contents
+    $winArtifactsZipInTemp = Join-Path (Join-Path $TempSigningPath "bin") (Split-Path $WindowsNodeArtifactsZipFilePath -Leaf)
+    if (-not (Test-Path $winArtifactsZipInTemp)) {
+        Write-Log "Windows Node Artifacts ZIP not found in temp directory, skipping signing" -Console
+        return
+    }
+    
+    Write-Log "Signing contents of Windows Node Artifacts: $winArtifactsZipInTemp" -Console
+    $winArtifactsExtractPath = Join-Path $TempSigningPath "win-artifacts-extract"
+    
+    try {
+        # Extract the ZIP
+        New-Item -Path $winArtifactsExtractPath -ItemType Directory -Force | Out-Null
+        Expand-Archive -Path $winArtifactsZipInTemp -DestinationPath $winArtifactsExtractPath -Force
+        
+        # Sign contents
+        Set-K2sFileSignature -SourcePath $winArtifactsExtractPath -CertificatePath $CertificatePath -Password $SecurePassword -ExclusionList @()
+        
+        # Remove old ZIP and create new one with signed contents
+        Remove-Item -Path $winArtifactsZipInTemp -Force
+        Compress-Archive -Path "$winArtifactsExtractPath\*" -DestinationPath $winArtifactsZipInTemp -CompressionLevel Optimal
+        
+        Write-Log "Windows Node Artifacts contents signed and repackaged." -Console
+    } 
+    finally {
+        if (Test-Path $winArtifactsExtractPath) {
+            Remove-Item -Path $winArtifactsExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    
+    Write-Log 'Offline installation ZIP contents signing completed.' -Console
+}
+
+# Create signed package with all code signing steps
+function New-SignedPackage {
+    param(
+        [string]$KubePath,
+        [string[]]$ExclusionList,
+        [string]$CertificatePath,
+        [string]$Password,
+        [string]$ZipPackagePath,
+        [bool]$ForOfflineInstallation,
+        [string]$WindowsNodeArtifactsZipFilePath,
+        [bool]$EncodeStructuredOutput,
+        [string]$MessageType
+    )
+    
+    Write-Log 'Code signing requested - signing executables and scripts...' -Console
+    
+    # Validate that Password is provided
+    if ([string]::IsNullOrEmpty($Password)) {
+        $errMsg = "Password is required when providing a certificate path."
+        Write-Log $errMsg -Error
+        
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'code-signing-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return $false
+        }
+        exit 1
+    }
+    
+    # Convert string password to SecureString for internal use
+    $securePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+    
+    # Create temporary directory for signing to avoid file locking issues
+    $tempSigningPath = Join-Path $env:TEMP "k2s-package-signing-$(Get-Random)"
+    
+    try {
+        # Copy files to temp directory
+        $copiedCount = Copy-FilesForSigning -SourcePath $KubePath -DestinationPath $tempSigningPath `
+            -ExclusionList $ExclusionList -IsOfflineInstallation $ForOfflineInstallation
+        
+        if ($copiedCount -eq 0) {
+            Write-Log "WARNING: No files were copied for signing!" -Error
+            return $false
+        }
+        
+        # Sign files in temporary directory
+        Write-Log "Signing all executables and PowerShell scripts with certificate: $CertificatePath" -Console
+        Set-K2sFileSignature -SourcePath $tempSigningPath -CertificatePath $CertificatePath -Password $securePassword -ExclusionList @()
+        Write-Log 'Code signing completed successfully.' -Console
+        
+        # For offline installation, sign contents of ZIP files
+        if ($ForOfflineInstallation) {
+            Invoke-OfflineArtifactsSigning -TempSigningPath $tempSigningPath `
+                -WindowsNodeArtifactsZipFilePath $WindowsNodeArtifactsZipFilePath `
+                -CertificatePath $CertificatePath -SecurePassword $securePassword
+        }
+        
+        # Create ZIP package from signed files
+        Write-Log 'Start creation of zip package from signed files...' -Console
+        Write-Log "About to create ZIP with the following parameters:" -Console
+        Write-Log "- Source directory: $tempSigningPath" -Console  
+        Write-Log "- Target ZIP: $ZipPackagePath" -Console
+        
+        # Check if temp directory has content
+        $tempFiles = Get-ChildItem -Path $tempSigningPath -Recurse -Force
+        Write-Log "Temp directory contains $($tempFiles.Count) items" -Console
+        if ($tempFiles.Count -eq 0) {
+            Write-Log "WARNING: Temp signing directory is empty!" -Error
+            return $false
+        }
+        
+        # Use signed files from temporary directory for ZIP creation
+        New-ZipArchive -ExclusionList @() -BaseDirectory $tempSigningPath -TargetPath $ZipPackagePath
+        
+        return $true
+    } 
+    catch {
+        Write-Log "Error during code signing: $_" -Error
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = "Code signing failed: $_" }
+        }
+        return $false
+    } 
+    finally {
+        # Clean up temporary signing directory
+        if (Test-Path $tempSigningPath) {
+            Write-Log "Cleaning up temporary signing directory..." -Console
+            Remove-Item -Path $tempSigningPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# Add exclusions for addon test folders that don't match selected addons
+function Add-TestFolderExclusions {
+    param(
+        [string]$KubePath,
+        [string[]]$SelectedAddons,
+        [ref]$ExclusionListRef
+    )
+    
+    $testAddonsPath = Join-Path $KubePath 'k2s/test/e2e/addons'
+    if (-not (Test-Path $testAddonsPath)) {
+        return
+    }
+    
+    $testAddonDirs = Get-ChildItem -Path $testAddonsPath -Directory
+    foreach ($testDir in $testAddonDirs) {
+        $testDirName = $testDir.Name
+        $shouldInclude = $false
+        
+        # Check if this test directory matches any selected addon
+        foreach ($addon in $SelectedAddons) {
+            if (Test-AddonTestFolderMatch -TestDirName $testDirName -AddonName $addon) {
+                $shouldInclude = $true
+                break
+            }
+        }
+        
+        if ($shouldInclude) {
+            Write-Log "[Addons] Including test folder for addon: k2s/test/e2e/addons/$testDirName" -Console
+        } else {
+            # Exclude this test folder since it doesn't match any selected addon
+            $testDirFullPath = Join-Path $KubePath "k2s/test/e2e/addons/$testDirName"
+            if (-not ($ExclusionListRef.Value -contains $testDirFullPath)) {
+                $ExclusionListRef.Value += $testDirFullPath
+            }
+            Write-Log "[Addons] Excluding test folder: k2s/test/e2e/addons/$testDirName" -Console
+        }
+    }
+}
+
+# Exclude addon manifests for multi-implementation addons where no implementations are selected
+function Add-UnselectedAddonManifestExclusions {
+    param(
+        [string]$KubePath,
+        [string]$AddonsRootPath,
+        [string[]]$SelectedAddons,
+        [ref]$ExclusionListRef
+    )
+    
+    $addonDirs = Get-ChildItem -Path $AddonsRootPath -Directory | Where-Object { $_.Name -ne 'common' }
+    foreach ($addonDir in $addonDirs) {
+        # Check if this is a multi-implementation addon
+        $implDirs = Get-ChildItem -Path $addonDir.FullName -Directory | Where-Object {
+            Test-Path (Join-Path $_.FullName 'Enable.ps1')
+        }
+        
+        if ($implDirs.Count -gt 0) {
+            # Multi-implementation addon - check if any implementation is selected
+            $anyImplSelected = $false
+            foreach ($implDir in $implDirs) {
+                $addonKey = "$($addonDir.Name) $($implDir.Name)"
+                if ($SelectedAddons -contains $addonKey) {
+                    $anyImplSelected = $true
+                    break
+                }
+            }
+            
+            # If no implementations selected, exclude the manifest
+            if (-not $anyImplSelected) {
+                $manifestPath = Join-Path $addonDir.FullName 'addon.manifest.yaml'
+                if (Test-Path $manifestPath) {
+                    $fullPath = Join-Path $KubePath "addons/$($addonDir.Name)/addon.manifest.yaml"
+                    if (-not ($ExclusionListRef.Value -contains $fullPath)) {
+                        $ExclusionListRef.Value += $fullPath
+                    }
+                }
+            }
+        }
+    }
+}
+
 # Discover all available addons
 $addonsRootPath = Join-Path $kubePath 'addons'
 $allAddonPaths = Get-AvailableAddons -AddonsRootPath $addonsRootPath
@@ -473,7 +923,6 @@ if ($Profile -eq 'Lite') {
     Write-Log '[Profile] Applying Lite profile exclusions for reduced package size' -Console
     $liteExclude = @(
         (Join-Path $kubePath 'docs'),
-        (Join-Path $kubePath 'k2s/test/e2e/addons'),
         (Join-Path $kubePath 'build'),
         (Join-Path $kubePath 'bin/Kubemaster-Base.rootfs.tar.gz')
     )
@@ -497,34 +946,13 @@ if ($Profile -eq 'Lite') {
             }
         }
         
-        # For multi-implementation addons, exclude manifest if NO implementations are selected
-        $addonDirs = Get-ChildItem -Path $addonsRootPath -Directory | Where-Object { $_.Name -ne 'common' }
-        foreach ($addonDir in $addonDirs) {
-            # Check if this is a multi-implementation addon
-            $implDirs = Get-ChildItem -Path $addonDir.FullName -Directory | Where-Object {
-                Test-Path (Join-Path $_.FullName 'Enable.ps1')
-            }
-            
-            if ($implDirs.Count -gt 0) {
-                # Multi-implementation addon - check if any implementation is selected
-                $anyImplSelected = $false
-                foreach ($implDir in $implDirs) {
-                    $addonKey = "$($addonDir.Name) $($implDir.Name)"
-                    if ($selectedAddons -contains $addonKey) {
-                        $anyImplSelected = $true
-                        break
-                    }
-                }
-                
-                # If no implementations selected, exclude the manifest
-                if (-not $anyImplSelected) {
-                    $manifestPath = Join-Path $addonDir.FullName 'addon.manifest.yaml'
-                    if (Test-Path $manifestPath) {
-                        $liteExclude += (Join-Path $kubePath "addons/$($addonDir.Name)/addon.manifest.yaml")
-                    }
-                }
-            }
-        }
+        # Exclude manifests for multi-implementation addons where no implementations are selected
+        Add-UnselectedAddonManifestExclusions -KubePath $kubePath -AddonsRootPath $addonsRootPath `
+            -SelectedAddons $selectedAddons -ExclusionListRef ([ref]$liteExclude)
+        
+        # Exclude test folders for NON-selected addons
+        Add-TestFolderExclusions -KubePath $kubePath -SelectedAddons $selectedAddons `
+            -ExclusionListRef ([ref]$liteExclude)
         
         # Include test folders for selected addons
         $testAddonsPath = Join-Path $kubePath 'k2s/test/e2e/addons'
@@ -571,6 +999,8 @@ if ($Profile -eq 'Lite') {
         Write-Log "[Profile+Addons] Lite profile with selected addons: $($selectedAddons -join ', ')" -Console
     } else {
         # No addons list specified: include ALL addons (default behavior)
+        # But still exclude the test folders entirely
+        $liteExclude += (Join-Path $kubePath 'k2s/test/e2e/addons')
         Write-Log "[Profile] Lite profile: including all addons (default)" -Console
     }
     
@@ -606,37 +1036,13 @@ if ($Profile -eq 'Lite') {
         }
     }
     
-    # For multi-implementation addons, exclude manifest if NO implementations are selected
-    $addonDirs = Get-ChildItem -Path $addonsRootPath -Directory | Where-Object { $_.Name -ne 'common' }
-    foreach ($addonDir in $addonDirs) {
-        # Check if this is a multi-implementation addon
-        $implDirs = Get-ChildItem -Path $addonDir.FullName -Directory | Where-Object {
-            Test-Path (Join-Path $_.FullName 'Enable.ps1')
-        }
-        
-        if ($implDirs.Count -gt 0) {
-            # Multi-implementation addon - check if any implementation is selected
-            $anyImplSelected = $false
-            foreach ($implDir in $implDirs) {
-                $addonKey = "$($addonDir.Name) $($implDir.Name)"
-                if ($selectedAddons -contains $addonKey) {
-                    $anyImplSelected = $true
-                    break
-                }
-            }
-            
-            # If no implementations selected, exclude the manifest
-            if (-not $anyImplSelected) {
-                $manifestPath = Join-Path $addonDir.FullName 'addon.manifest.yaml'
-                if (Test-Path $manifestPath) {
-                    $fullPath = Join-Path $kubePath "addons/$($addonDir.Name)/addon.manifest.yaml"
-                    if (-not ($exclusionList -contains $fullPath)) {
-                        $exclusionList += $fullPath
-                    }
-                }
-            }
-        }
-    }
+    # Exclude manifests for multi-implementation addons where no implementations are selected
+    Add-UnselectedAddonManifestExclusions -KubePath $kubePath -AddonsRootPath $addonsRootPath `
+        -SelectedAddons $selectedAddons -ExclusionListRef ([ref]$exclusionList)
+    
+    # Exclude test folders for NON-selected addons
+    Add-TestFolderExclusions -KubePath $kubePath -SelectedAddons $selectedAddons `
+        -ExclusionListRef ([ref]$exclusionList)
 } else {
     # Dev profile with no addon list: include ALL addons (default behavior)
     Write-Log "[Addons] Dev profile: including all addons (default)" -Console
@@ -710,141 +1116,32 @@ else {
 $kubenodeBaseVhdxPath = "$(Split-Path -Path $controlPlaneBaseVhdxPath)\Kubenode-Base.vhdx"
 $exclusionList += $kubenodeBaseVhdxPath
 
+# Ensure plink.exe and pscp.exe are available in bin folder for the package
+$kubeBinPath = Get-KubeBinPath
+$plinkPath = Join-Path $kubeBinPath 'plink.exe'
+$pscpPath = Join-Path $kubeBinPath 'pscp.exe'
+
+$puttytoolsResult = Ensure-PuttyToolsAvailable -PlinkPath $plinkPath -PscpPath $pscpPath `
+    -IsOfflineInstallation $ForOfflineInstallation -WindowsNodeArtifactsZipPath $winNodeArtifactsZipFilePath `
+    -Proxy $Proxy
+
+if (-not $puttytoolsResult) {
+    Write-Log "Warning: Could not ensure plink.exe and pscp.exe availability. Package may be incomplete." -Console
+}
+
 Write-Log 'Content of the exclusion list:' -Console
 $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
 
 # Code signing logic (if requested)
 if ($CertificatePath) {
-    Write-Log 'Code signing requested - signing executables and scripts...' -Console
+    $signingResult = New-SignedPackage -KubePath $kubePath -ExclusionList $exclusionList `
+        -CertificatePath $CertificatePath -Password $Password -ZipPackagePath $zipPackagePath `
+        -ForOfflineInstallation $ForOfflineInstallation -WindowsNodeArtifactsZipFilePath $winNodeArtifactsZipFilePath `
+        -EncodeStructuredOutput $EncodeStructuredOutput -MessageType $MessageType
     
-    # Validate that Password is provided when using a certificate
-    if ([string]::IsNullOrEmpty($Password)) {
-        $errMsg = "Password is required when providing a certificate path."
-        Write-Log $errMsg -Error
-        
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'code-signing-failed' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
+    if (-not $signingResult) {
+        Write-Log "Code signing failed or was incomplete" -Error
         exit 1
-    }
-    
-    # Convert string password to SecureString for internal use
-    $securePassword = ConvertTo-SecureString $Password -AsPlainText -Force
-    
-    # Create temporary directory for signing to avoid file locking issues
-    $tempSigningPath = Join-Path $env:TEMP "k2s-package-signing-$(Get-Random)"
-    
-    try {
-        Write-Log "Creating temporary copy for signing to avoid file locking issues..." -Console
-        Write-Log "Temporary signing directory: $tempSigningPath" -Console
-        
-        # Create temporary directory and copy all files
-        New-Item -Path $tempSigningPath -ItemType Directory -Force | Out-Null
-        
-        # Copy the entire kubePath structure to temp directory, excluding items in exclusion list
-        # For offline installation, we need special handling of large files
-        $filesToCopy = Get-ChildItem -Path $kubePath -Force -Recurse
-        foreach ($file in $filesToCopy) {
-            $relativePath = $file.FullName.Replace("$kubePath\", '')
-            $targetPath = Join-Path $tempSigningPath $relativePath
-            
-            # Skip files in exclusion list
-            $shouldExclude = $false
-            foreach ($exclusion in $exclusionList) {
-                if ($file.FullName.StartsWith($exclusion)) {
-                    $shouldExclude = $true
-                    break
-                }
-            }
-        
-            if ($ForOfflineInstallation -and -not $shouldExclude) {
-                # No additional exclusions - let Set-K2sFileSignature handle file type filtering
-                Write-Log "Including file for potential signing: $($file.FullName)" -Console
-            }
-            
-            if (-not $shouldExclude) {
-            if ($file.PSIsContainer) {
-                New-Item -Path $targetPath -ItemType Directory -Force | Out-Null
-            } else {
-                $targetDir = Split-Path -Path $targetPath -Parent
-                if (-not (Test-Path $targetDir)) {
-                    New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
-                }
-                Copy-Item -Path $file.FullName -Destination $targetPath -Force
-                }
-            }
-        }
-        
-        Write-Log "Signing all executables and PowerShell scripts with certificate: $CertificatePath" -Console
-        # Sign files in temporary directory
-        Set-K2sFileSignature -SourcePath $tempSigningPath -CertificatePath $CertificatePath -Password $securePassword -ExclusionList @()
-        
-        Write-Log 'Code signing completed successfully.' -Console
-        
-        # For offline installation, sign contents of ZIP files that were copied to temp directory
-        if ($ForOfflineInstallation) {
-            Write-Log 'Signing contents of offline installation ZIP files...' -Console
-            
-            # Sign Windows Node Artifacts ZIP contents
-            $winArtifactsZipInTemp = Join-Path (Join-Path $tempSigningPath "bin") (Split-Path $winNodeArtifactsZipFilePath -Leaf)
-            if (Test-Path $winArtifactsZipInTemp) {
-                Write-Log "Signing contents of Windows Node Artifacts: $winArtifactsZipInTemp" -Console
-                $winArtifactsExtractPath = Join-Path $tempSigningPath "win-artifacts-extract"
-                
-                try {
-                    # Extract the ZIP
-                    New-Item -Path $winArtifactsExtractPath -ItemType Directory -Force | Out-Null
-                    Expand-Archive -Path $winArtifactsZipInTemp -DestinationPath $winArtifactsExtractPath -Force
-                    
-                    # Sign contents
-                    Set-K2sFileSignature -SourcePath $winArtifactsExtractPath -CertificatePath $CertificatePath -Password $securePassword -ExclusionList @()
-                    
-                    # Remove old ZIP and create new one with signed contents
-                    Remove-Item -Path $winArtifactsZipInTemp -Force
-                    Compress-Archive -Path "$winArtifactsExtractPath\*" -DestinationPath $winArtifactsZipInTemp -CompressionLevel Optimal
-                    
-                    Write-Log "Windows Node Artifacts contents signed and repackaged." -Console
-                } finally {
-                    if (Test-Path $winArtifactsExtractPath) {
-                        Remove-Item -Path $winArtifactsExtractPath -Recurse -Force -ErrorAction SilentlyContinue
-                    }
-                }
-            }
-            
-            Write-Log 'Offline installation ZIP contents signing completed.' -Console
-        }
-        
-        Write-Log 'Start creation of zip package from signed files...' -Console
-        
-        # Add debugging information
-        Write-Log "About to create ZIP with the following parameters:" -Console
-        Write-Log "- Source directory: $tempSigningPath" -Console  
-        Write-Log "- Target ZIP: $zipPackagePath" -Console
-        
-        # Check if temp directory has content
-        $tempFiles = Get-ChildItem -Path $tempSigningPath -Recurse -Force
-        Write-Log "Temp directory contains $($tempFiles.Count) items" -Console
-        if ($tempFiles.Count -eq 0) {
-            Write-Log "WARNING: Temp signing directory is empty!" -Error
-        }
-        
-        # Use signed files from temporary directory for ZIP creation
-        New-ZipArchive -ExclusionList @() -BaseDirectory $tempSigningPath -TargetPath "$zipPackagePath"
-        
-    } catch {
-        Write-Log "Error during code signing: $_" -Error
-        if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = "Code signing failed: $_" }
-        }
-        exit 1
-    } finally {
-        # Clean up temporary signing directory
-        if (Test-Path $tempSigningPath) {
-            Write-Log "Cleaning up temporary signing directory..." -Console
-            Remove-Item -Path $tempSigningPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
     }
 } else {
     Write-Log 'No code signing requested - creating standard package.' -Console
