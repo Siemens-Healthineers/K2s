@@ -166,9 +166,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/nerdctl/releases/download/v2.1.3/nerdctl-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/nerdctl/releases/download/v2.2.0/nerdctl-2.2.0-windows-amd64.tar.gz",
       "name": "nerdctl",
-      "version": "v2.1.3",
+      "version": "v2.2.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -185,7 +185,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/nerdctl@v2.1.3",
+      "purl": "pkg:github/containerd/nerdctl@v2.2.0",
       "type": "application"
     },
     {
@@ -577,6 +577,29 @@
         }
       ],
       "purl": "pkg:github/stedolan/jq@v1.8.1",
+      "type": "application"
+    },
+    {
+      "group": "https://get.helm.sh/helm-v3.19.1-windows-amd64.zip",
+      "name": "helm",
+      "version": "v3.19.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/helm/helm/blob/main/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/helm/helm@v3.19.1",
       "type": "application"
     }
   ],
