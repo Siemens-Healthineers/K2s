@@ -232,6 +232,11 @@ try {
 
                 $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
                 foreach ($imageLine in $imageLines) {
+                    # Skip commented lines
+                    if ($imageLine.TrimStart() -match '^#') {
+                        continue
+                    }
+                    
                     $image = (($imageLine -split 'image: ')[1] -split '#')[0]
                     $parts = $image.Split(':')
                     if ($parts.Count -gt 1) {
