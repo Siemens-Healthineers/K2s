@@ -740,39 +740,94 @@ else {
 $kubenodeBaseVhdxPath = "$(Split-Path -Path $controlPlaneBaseVhdxPath)\Kubenode-Base.vhdx"
 $exclusionList += $kubenodeBaseVhdxPath
 
-# For offline installation packages, ensure plink.exe and pscp.exe are available in bin folder
-# They get deleted after provisioning but should be in the final package
+# Ensure plink.exe and pscp.exe are available in bin folder for the package
+# For offline packages: restore from WindowsNodeArtifacts.zip after provisioning deletes them
+# For non-offline packages: download them if not present
+$kubeBinPath = Get-KubeBinPath
+$plinkPath = Join-Path $kubeBinPath 'plink.exe'
+$pscpPath = Join-Path $kubeBinPath 'pscp.exe'
+
+Write-Log "Checking plink.exe and pscp.exe availability..." -Console
+Write-Log "  plink.exe path: $plinkPath (exists: $(Test-Path $plinkPath))" -Console
+Write-Log "  pscp.exe path: $pscpPath (exists: $(Test-Path $pscpPath))" -Console
+
 if ($ForOfflineInstallation) {
-    $kubeBinPath = Get-KubeBinPath
-    $plinkPath = Join-Path $kubeBinPath 'plink.exe'
-    $pscpPath = Join-Path $kubeBinPath 'pscp.exe'
-    
-    # Check if they're missing (deleted after provisioning)
+    # Check if they're missing (deleted after provisioning or never deployed)
     if ((-not (Test-Path $plinkPath)) -or (-not (Test-Path $pscpPath))) {
         Write-Log "Restoring plink.exe and pscp.exe to bin folder from WindowsNodeArtifacts.zip..." -Console
+        Write-Log "  WindowsNodeArtifacts.zip path: $winNodeArtifactsZipFilePath (exists: $(Test-Path $winNodeArtifactsZipFilePath))" -Console
         
-        # Extract them from WindowsNodeArtifacts.zip
-        $tempExtractPath = Join-Path $env:TEMP "putty-restore-$(Get-Random)"
-        try {
-            New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
-            Expand-Archive -Path $winNodeArtifactsZipFilePath -DestinationPath $tempExtractPath -Force
-            
-            $puttytoolsDir = Join-Path $tempExtractPath 'putty-tools'
-            if (Test-Path $puttytoolsDir) {
-                if (Test-Path (Join-Path $puttytoolsDir 'plink.exe')) {
-                    Copy-Item -Path (Join-Path $puttytoolsDir 'plink.exe') -Destination $plinkPath -Force
-                    Write-Log "  Restored plink.exe" -Console
+        if (-not (Test-Path $winNodeArtifactsZipFilePath)) {
+            Write-Log "ERROR: WindowsNodeArtifacts.zip not found, cannot restore plink/pscp!" -Error
+        } else {
+            # Extract them from WindowsNodeArtifacts.zip
+            $tempExtractPath = Join-Path $env:TEMP "putty-restore-$(Get-Random)"
+            try {
+                New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
+                Write-Log "  Extracting WindowsNodeArtifacts.zip to temp location..." -Console
+                Expand-Archive -Path $winNodeArtifactsZipFilePath -DestinationPath $tempExtractPath -Force
+                
+                Write-Log "  Temp extract path: $tempExtractPath" -Console
+                
+                # The structure is puttytools (one word, all lowercase) at root
+                $puttytoolsDir = Join-Path $tempExtractPath 'puttytools'
+                Write-Log "  Looking for puttytools directory: $puttytoolsDir (exists: $(Test-Path $puttytoolsDir))" -Console
+                
+                if (Test-Path $puttytoolsDir) {
+                    $plinkSource = Join-Path $puttytoolsDir 'plink.exe'
+                    $pscpSource = Join-Path $puttytoolsDir 'pscp.exe'
+                    
+                    Write-Log "  plink.exe source: $plinkSource (exists: $(Test-Path $plinkSource))" -Console
+                    Write-Log "  pscp.exe source: $pscpSource (exists: $(Test-Path $pscpSource))" -Console
+                    
+                    if (Test-Path $plinkSource) {
+                        Copy-Item -Path $plinkSource -Destination $plinkPath -Force
+                        Write-Log "  Restored plink.exe" -Console
+                    } else {
+                        Write-Log "  WARNING: plink.exe not found at $plinkSource" -Console
+                    }
+                    
+                    if (Test-Path $pscpSource) {
+                        Copy-Item -Path $pscpSource -Destination $pscpPath -Force
+                        Write-Log "  Restored pscp.exe" -Console
+                    } else {
+                        Write-Log "  WARNING: pscp.exe not found at $pscpSource" -Console
+                    }
+                } else {
+                    Write-Log "  ERROR: putty-tools directory not found at expected path: $puttytoolsDir" -Error
+                    Write-Log "  Contents of temp extract path:" -Console
+                    Get-ChildItem -Path $tempExtractPath -Recurse -Force | Select-Object -First 20 | ForEach-Object { Write-Log "    $($_.FullName)" -Console }
                 }
-                if (Test-Path (Join-Path $puttytoolsDir 'pscp.exe')) {
-                    Copy-Item -Path (Join-Path $puttytoolsDir 'pscp.exe') -Destination $pscpPath -Force
-                    Write-Log "  Restored pscp.exe" -Console
+            }
+            finally {
+                if (Test-Path $tempExtractPath) {
+                    Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
                 }
             }
         }
-        finally {
-            if (Test-Path $tempExtractPath) {
-                Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+    } else {
+        Write-Log "  plink.exe and pscp.exe already present in bin folder" -Console
+    }
+} else {
+    # For non-offline packages, download plink/pscp if they don't exist
+    if ((-not (Test-Path $plinkPath)) -or (-not (Test-Path $pscpPath))) {
+        Write-Log "Downloading plink.exe and pscp.exe for package..." -Console
+        
+        # Import the putty-tools module to access download functions
+        $puttytoolsModulePath = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/windowsnode/downloader/artifacts/putty-tools/putty-tools.module.psm1"
+        if (Test-Path $puttytoolsModulePath) {
+            Import-Module $puttytoolsModulePath -Force
+            
+            if (-not (Test-Path $plinkPath)) {
+                Invoke-DownloadPlink -Destination $plinkPath -Proxy $Proxy
+                Write-Log "  Downloaded plink.exe" -Console
             }
+            if (-not (Test-Path $pscpPath)) {
+                Invoke-DownloadPscp -Destination $pscpPath -Proxy $Proxy
+                Write-Log "  Downloaded pscp.exe" -Console
+            }
+        } else {
+            Write-Log "Warning: Could not find putty-tools module at $puttytoolsModulePath" -Console
         }
     }
 }
