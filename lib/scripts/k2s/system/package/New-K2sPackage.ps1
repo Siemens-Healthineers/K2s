@@ -233,9 +233,20 @@ function New-ZipArchive() {
                         break
                     }
                 }
-                if ($shouldSkip -and $InclusionList -contains $file) {
-                    Write-Log "Re-including whitelisted file: $file" -Console
-                    $shouldSkip = $false
+                # Check inclusion list - both exact match and subdirectory match
+                if ($shouldSkip) {
+                    $shouldInclude = $false
+                    # Check if file/directory is explicitly included OR is within an included directory
+                    foreach ($inclusion in $InclusionList) {
+                        if ($file -eq $inclusion -or $file.StartsWith("$inclusion\")) {
+                            $shouldInclude = $true
+                            break
+                        }
+                    }
+                    if ($shouldInclude) {
+                        Write-Log "Re-including whitelisted file: $file" -Console
+                        $shouldSkip = $false
+                    }
                 }
                 if ($shouldSkip) {
                     Write-Log "Skipping excluded file: $file"
@@ -463,6 +474,111 @@ function Get-AvailableAddons {
     return $addonPaths
 }
 
+# Check if a test directory name matches a selected addon
+function Test-AddonTestFolderMatch {
+    param(
+        [string]$TestDirName,
+        [string]$AddonName
+    )
+    
+    # Extract base addon name (remove implementation suffix for multi-impl addons)
+    $addonBaseName = $AddonName
+    if ($AddonName -match '^(.+)\s+(.+)$') {
+        # Multi-implementation addon like "ingress nginx"
+        $addonBaseName = $matches[1]
+        $implName = $matches[2]
+        
+        # Check if test dir matches base name or full implementation name
+        # e.g., "ingress" or "ingress-nginx" for "ingress nginx"
+        return ($TestDirName -eq $addonBaseName -or 
+                $TestDirName -eq "$addonBaseName-$implName" -or
+                $TestDirName -like "$addonBaseName*")
+    } else {
+        # Single-implementation addon
+        return ($TestDirName -eq $addonBaseName -or $TestDirName -like "$addonBaseName*")
+    }
+}
+
+# Add exclusions for addon test folders that don't match selected addons
+function Add-TestFolderExclusions {
+    param(
+        [string]$KubePath,
+        [string[]]$SelectedAddons,
+        [ref]$ExclusionListRef
+    )
+    
+    $testAddonsPath = Join-Path $KubePath 'k2s/test/e2e/addons'
+    if (-not (Test-Path $testAddonsPath)) {
+        return
+    }
+    
+    $testAddonDirs = Get-ChildItem -Path $testAddonsPath -Directory
+    foreach ($testDir in $testAddonDirs) {
+        $testDirName = $testDir.Name
+        $shouldInclude = $false
+        
+        # Check if this test directory matches any selected addon
+        foreach ($addon in $SelectedAddons) {
+            if (Test-AddonTestFolderMatch -TestDirName $testDirName -AddonName $addon) {
+                $shouldInclude = $true
+                break
+            }
+        }
+        
+        if ($shouldInclude) {
+            Write-Log "[Addons] Including test folder for addon: k2s/test/e2e/addons/$testDirName" -Console
+        } else {
+            # Exclude this test folder since it doesn't match any selected addon
+            $testDirFullPath = Join-Path $KubePath "k2s/test/e2e/addons/$testDirName"
+            if (-not ($ExclusionListRef.Value -contains $testDirFullPath)) {
+                $ExclusionListRef.Value += $testDirFullPath
+            }
+            Write-Log "[Addons] Excluding test folder: k2s/test/e2e/addons/$testDirName" -Console
+        }
+    }
+}
+
+# Exclude addon manifests for multi-implementation addons where no implementations are selected
+function Add-UnselectedAddonManifestExclusions {
+    param(
+        [string]$KubePath,
+        [string]$AddonsRootPath,
+        [string[]]$SelectedAddons,
+        [ref]$ExclusionListRef
+    )
+    
+    $addonDirs = Get-ChildItem -Path $AddonsRootPath -Directory | Where-Object { $_.Name -ne 'common' }
+    foreach ($addonDir in $addonDirs) {
+        # Check if this is a multi-implementation addon
+        $implDirs = Get-ChildItem -Path $addonDir.FullName -Directory | Where-Object {
+            Test-Path (Join-Path $_.FullName 'Enable.ps1')
+        }
+        
+        if ($implDirs.Count -gt 0) {
+            # Multi-implementation addon - check if any implementation is selected
+            $anyImplSelected = $false
+            foreach ($implDir in $implDirs) {
+                $addonKey = "$($addonDir.Name) $($implDir.Name)"
+                if ($SelectedAddons -contains $addonKey) {
+                    $anyImplSelected = $true
+                    break
+                }
+            }
+            
+            # If no implementations selected, exclude the manifest
+            if (-not $anyImplSelected) {
+                $manifestPath = Join-Path $addonDir.FullName 'addon.manifest.yaml'
+                if (Test-Path $manifestPath) {
+                    $fullPath = Join-Path $KubePath "addons/$($addonDir.Name)/addon.manifest.yaml"
+                    if (-not ($ExclusionListRef.Value -contains $fullPath)) {
+                        $ExclusionListRef.Value += $fullPath
+                    }
+                }
+            }
+        }
+    }
+}
+
 # Discover all available addons
 $addonsRootPath = Join-Path $kubePath 'addons'
 $allAddonPaths = Get-AvailableAddons -AddonsRootPath $addonsRootPath
@@ -473,7 +589,6 @@ if ($Profile -eq 'Lite') {
     Write-Log '[Profile] Applying Lite profile exclusions for reduced package size' -Console
     $liteExclude = @(
         (Join-Path $kubePath 'docs'),
-        (Join-Path $kubePath 'k2s/test/e2e/addons'),
         (Join-Path $kubePath 'build'),
         (Join-Path $kubePath 'bin/Kubemaster-Base.rootfs.tar.gz')
     )
@@ -497,80 +612,19 @@ if ($Profile -eq 'Lite') {
             }
         }
         
-        # For multi-implementation addons, exclude manifest if NO implementations are selected
-        $addonDirs = Get-ChildItem -Path $addonsRootPath -Directory | Where-Object { $_.Name -ne 'common' }
-        foreach ($addonDir in $addonDirs) {
-            # Check if this is a multi-implementation addon
-            $implDirs = Get-ChildItem -Path $addonDir.FullName -Directory | Where-Object {
-                Test-Path (Join-Path $_.FullName 'Enable.ps1')
-            }
-            
-            if ($implDirs.Count -gt 0) {
-                # Multi-implementation addon - check if any implementation is selected
-                $anyImplSelected = $false
-                foreach ($implDir in $implDirs) {
-                    $addonKey = "$($addonDir.Name) $($implDir.Name)"
-                    if ($selectedAddons -contains $addonKey) {
-                        $anyImplSelected = $true
-                        break
-                    }
-                }
-                
-                # If no implementations selected, exclude the manifest
-                if (-not $anyImplSelected) {
-                    $manifestPath = Join-Path $addonDir.FullName 'addon.manifest.yaml'
-                    if (Test-Path $manifestPath) {
-                        $liteExclude += (Join-Path $kubePath "addons/$($addonDir.Name)/addon.manifest.yaml")
-                    }
-                }
-            }
-        }
+        # Exclude manifests for multi-implementation addons where no implementations are selected
+        Add-UnselectedAddonManifestExclusions -KubePath $kubePath -AddonsRootPath $addonsRootPath `
+            -SelectedAddons $selectedAddons -ExclusionListRef ([ref]$liteExclude)
         
-        # Include test folders for selected addons
-        $testAddonsPath = Join-Path $kubePath 'k2s/test/e2e/addons'
-        if (Test-Path $testAddonsPath) {
-            $testAddonDirs = Get-ChildItem -Path $testAddonsPath -Directory
-            foreach ($testDir in $testAddonDirs) {
-                $testDirName = $testDir.Name
-                $shouldInclude = $false
-                
-                # Check if this test directory matches any selected addon
-                foreach ($addon in $selectedAddons) {
-                    # Extract base addon name (remove implementation suffix for multi-impl addons)
-                    $addonBaseName = $addon
-                    if ($addon -match '^(.+)\s+(.+)$') {
-                        # Multi-implementation addon like "ingress nginx"
-                        $addonBaseName = $matches[1]
-                        $implName = $matches[2]
-                        
-                        # Check if test dir matches base name or full implementation name
-                        # e.g., "ingress" or "ingress-nginx" for "ingress nginx"
-                        if ($testDirName -eq $addonBaseName -or 
-                            $testDirName -eq "$addonBaseName-$implName" -or
-                            $testDirName -like "$addonBaseName*") {
-                            $shouldInclude = $true
-                            break
-                        }
-                    } else {
-                        # Single-implementation addon
-                        if ($testDirName -eq $addonBaseName -or $testDirName -like "$addonBaseName*") {
-                            $shouldInclude = $true
-                            break
-                        }
-                    }
-                }
-                
-                if ($shouldInclude) {
-                    $testDirFullPath = Join-Path $kubePath "k2s/test/e2e/addons/$testDirName"
-                    $inclusionList += $testDirFullPath
-                    Write-Log "[Addons] Including test folder for addon: k2s/test/e2e/addons/$testDirName" -Console
-                }
-            }
-        }
+        # Exclude test folders for NON-selected addons
+        Add-TestFolderExclusions -KubePath $kubePath -SelectedAddons $selectedAddons `
+            -ExclusionListRef ([ref]$liteExclude)
         
         Write-Log "[Profile+Addons] Lite profile with selected addons: $($selectedAddons -join ', ')" -Console
     } else {
         # No addons list specified: include ALL addons (default behavior)
+        # But still exclude the test folders entirely
+        $liteExclude += (Join-Path $kubePath 'k2s/test/e2e/addons')
         Write-Log "[Profile] Lite profile: including all addons (default)" -Console
     }
     
@@ -606,37 +660,13 @@ if ($Profile -eq 'Lite') {
         }
     }
     
-    # For multi-implementation addons, exclude manifest if NO implementations are selected
-    $addonDirs = Get-ChildItem -Path $addonsRootPath -Directory | Where-Object { $_.Name -ne 'common' }
-    foreach ($addonDir in $addonDirs) {
-        # Check if this is a multi-implementation addon
-        $implDirs = Get-ChildItem -Path $addonDir.FullName -Directory | Where-Object {
-            Test-Path (Join-Path $_.FullName 'Enable.ps1')
-        }
-        
-        if ($implDirs.Count -gt 0) {
-            # Multi-implementation addon - check if any implementation is selected
-            $anyImplSelected = $false
-            foreach ($implDir in $implDirs) {
-                $addonKey = "$($addonDir.Name) $($implDir.Name)"
-                if ($selectedAddons -contains $addonKey) {
-                    $anyImplSelected = $true
-                    break
-                }
-            }
-            
-            # If no implementations selected, exclude the manifest
-            if (-not $anyImplSelected) {
-                $manifestPath = Join-Path $addonDir.FullName 'addon.manifest.yaml'
-                if (Test-Path $manifestPath) {
-                    $fullPath = Join-Path $kubePath "addons/$($addonDir.Name)/addon.manifest.yaml"
-                    if (-not ($exclusionList -contains $fullPath)) {
-                        $exclusionList += $fullPath
-                    }
-                }
-            }
-        }
-    }
+    # Exclude manifests for multi-implementation addons where no implementations are selected
+    Add-UnselectedAddonManifestExclusions -KubePath $kubePath -AddonsRootPath $addonsRootPath `
+        -SelectedAddons $selectedAddons -ExclusionListRef ([ref]$exclusionList)
+    
+    # Exclude test folders for NON-selected addons
+    Add-TestFolderExclusions -KubePath $kubePath -SelectedAddons $selectedAddons `
+        -ExclusionListRef ([ref]$exclusionList)
 } else {
     # Dev profile with no addon list: include ALL addons (default behavior)
     Write-Log "[Addons] Dev profile: including all addons (default)" -Console
@@ -709,6 +739,43 @@ else {
 
 $kubenodeBaseVhdxPath = "$(Split-Path -Path $controlPlaneBaseVhdxPath)\Kubenode-Base.vhdx"
 $exclusionList += $kubenodeBaseVhdxPath
+
+# For offline installation packages, ensure plink.exe and pscp.exe are available in bin folder
+# They get deleted after provisioning but should be in the final package
+if ($ForOfflineInstallation) {
+    $kubeBinPath = Get-KubeBinPath
+    $plinkPath = Join-Path $kubeBinPath 'plink.exe'
+    $pscpPath = Join-Path $kubeBinPath 'pscp.exe'
+    
+    # Check if they're missing (deleted after provisioning)
+    if ((-not (Test-Path $plinkPath)) -or (-not (Test-Path $pscpPath))) {
+        Write-Log "Restoring plink.exe and pscp.exe to bin folder from WindowsNodeArtifacts.zip..." -Console
+        
+        # Extract them from WindowsNodeArtifacts.zip
+        $tempExtractPath = Join-Path $env:TEMP "putty-restore-$(Get-Random)"
+        try {
+            New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
+            Expand-Archive -Path $winNodeArtifactsZipFilePath -DestinationPath $tempExtractPath -Force
+            
+            $puttytoolsDir = Join-Path $tempExtractPath 'putty-tools'
+            if (Test-Path $puttytoolsDir) {
+                if (Test-Path (Join-Path $puttytoolsDir 'plink.exe')) {
+                    Copy-Item -Path (Join-Path $puttytoolsDir 'plink.exe') -Destination $plinkPath -Force
+                    Write-Log "  Restored plink.exe" -Console
+                }
+                if (Test-Path (Join-Path $puttytoolsDir 'pscp.exe')) {
+                    Copy-Item -Path (Join-Path $puttytoolsDir 'pscp.exe') -Destination $pscpPath -Force
+                    Write-Log "  Restored pscp.exe" -Console
+                }
+            }
+        }
+        finally {
+            if (Test-Path $tempExtractPath) {
+                Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
 
 Write-Log 'Content of the exclusion list:' -Console
 $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
