@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1 
+kind: PersistentVolumeClaim
+metadata:
+  name: smb-pvc
+  namespace: smb-share-test 
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: smb1
