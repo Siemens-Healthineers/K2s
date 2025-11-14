@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -47,13 +48,15 @@ type OfflineUsage struct {
 }
 
 type LinuxResources struct {
-	DebPackages      []string       `yaml:"deb"`
-	CurlPackages     []CurlPackages `yaml:"curl"`
-	AdditionalImages []string       `yaml:"additionalImages"`
+	DebPackages           []string       `yaml:"deb"`
+	CurlPackages          []CurlPackages `yaml:"curl"`
+	AdditionalImages      []string       `yaml:"additionalImages"`
+	AdditionalImagesFiles []string       `yaml:"additionalImagesFiles"`
 }
 
 type WindowsResources struct {
-	CurlPackages []CurlPackages `yaml:"curl"`
+	AdditionalImages []string       `yaml:"additionalImages"`
+	CurlPackages     []CurlPackages `yaml:"curl"`
 }
 
 type CurlPackages struct {
@@ -361,4 +364,87 @@ func loadAndValidate(params loadParams) (addons []Addon, err error) {
 	})
 
 	return
+}
+
+func (impl Implementation) ExtractImagesFromFiles() ([]string, error) {
+	var images []string
+
+	for _, filePath := range impl.OfflineUsage.LinuxResources.AdditionalImagesFiles {
+		absolutePath := filePath
+		if !filepath.IsAbs(filePath) {
+			absolutePath = filepath.Join(impl.Directory, filePath)
+		}
+
+		fileImages, err := extractImagesFromYAMLFile(absolutePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract images from %s: %w", filePath, err)
+		}
+		images = append(images, fileImages...)
+	}
+
+	return lo.Uniq(images), nil
+}
+
+func extractImagesFromYAMLFile(filePath string) ([]string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var yamlContent interface{}
+	if err := yaml.Unmarshal(data, &yamlContent); err != nil {
+		return nil, err
+	}
+
+	return extractImagesFromYAMLContent(yamlContent), nil
+}
+
+func extractImagesFromYAMLContent(content interface{}) []string {
+	return extractImagesFromYAMLContentWithContext(content, "")
+}
+
+func extractImagesFromYAMLContentWithContext(content interface{}, parentKey string) []string {
+	var images []string
+
+	switch v := content.(type) {
+	case map[string]interface{}:
+		for key, value := range v {
+			if key == "image" {
+				if imageStr, ok := value.(string); ok && imageStr != "" {
+					images = append(images, imageStr)
+				}
+			}
+			images = append(images, extractImagesFromYAMLContentWithContext(value, key)...)
+		}
+	case []interface{}:
+		for _, item := range v {
+			images = append(images, extractImagesFromYAMLContentWithContext(item, parentKey)...)
+		}
+	case string:
+		// Only extract images from strings that are values of args/command keys
+		if parentKey == "args" || parentKey == "command" {
+			images = append(images, extractImagesFromString(v)...)
+		}
+	}
+
+	return images
+}
+
+func extractImagesFromString(content string) []string {
+	var images []string
+
+	imagePattern := `(?:--[a-zA-Z-]+=|=)?([a-zA-Z0-9\.\-_/]+/[a-zA-Z0-9\.\-_/]+:[a-zA-Z0-9\.\-_]+)`
+
+	re := regexp.MustCompile(imagePattern)
+	matches := re.FindAllStringSubmatch(content, -1)
+
+	for _, match := range matches {
+		if len(match) > 1 && match[1] != "" {
+			if strings.Contains(match[1], "/") && strings.Contains(match[1], ":") {
+				images = append(images, match[1])
+			}
+		}
+	}
+
+	return images
 }

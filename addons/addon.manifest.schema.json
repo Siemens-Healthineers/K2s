@@ -115,6 +115,13 @@
                             },
                             "uniqueItems": true
                         },
+                        "additionalImagesFiles": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "uniqueItems": true
+                        },
                         "curl": {
                             "type": "array",
                             "items": {

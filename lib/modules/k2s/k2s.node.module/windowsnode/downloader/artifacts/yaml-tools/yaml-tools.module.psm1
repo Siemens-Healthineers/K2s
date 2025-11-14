@@ -44,6 +44,6 @@ function Invoke-DeployYamlArtifacts($windowsNodeArtifactsDirectory) {
     if (!(Test-Path "$yamlDirectory")) {
         throw "Directory '$yamlDirectory' does not exist"
     }
-    Write-Log "Publish yaml artifacts"
-    Copy-Item -Path "$yamlDirectory\*" -Destination "$kubeBinPath" -Recurse -Force
+    Write-Log "Deploy yaml artifacts from '$yamlDirectory' to '$kubeBinPath'"
+    Copy-Item -Path "$yamlDirectory\*" -Destination "$kubeBinPath" -Force
 }
