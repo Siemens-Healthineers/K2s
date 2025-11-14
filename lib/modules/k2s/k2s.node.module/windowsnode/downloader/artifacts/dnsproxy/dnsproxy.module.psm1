@@ -54,6 +54,17 @@ function Install-WinDnsProxy {
     &$kubeBinPath\nssm install dnsproxy $kubeBinPath\dnsproxy.exe
     &$kubeBinPath\nssm set dnsproxy AppDirectory $kubeBinPath | Out-Null
 
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
+    
+    $k2sHosts = Get-K2sHosts
+    $noProxyValue = $k2sHosts -join ','
+    
+    # Build environment variables as separate lines for NSSM
+    $envVars = "HTTP_PROXY=$httpProxyUrl`r`nHTTPS_PROXY=$httpProxyUrl`r`nNO_PROXY=$noProxyValue"
+    &$kubeBinPath\nssm set dnsproxy AppEnvironmentExtra $envVars | Out-Null
+    Write-Log "DNS Proxy service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
+
     Write-Log 'Creating dnsproxy.yaml (config for dnsproxy.exe)'
     
     $configContent = @"

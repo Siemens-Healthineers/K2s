@@ -7,8 +7,6 @@
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Export directory of addon')]
     [string] $ExportDir,
     [parameter(Mandatory = $false, HelpMessage = 'Export all addons')]
@@ -108,6 +106,9 @@ else {
         $addonManifests += $foundManifest
     }
 }
+
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
 
 $currentHttpProxy = $env:http_proxy
 $currentHttpsProxy = $env:https_proxy
