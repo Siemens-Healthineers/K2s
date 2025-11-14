@@ -52,8 +52,7 @@ function Invoke-ExeWithAsciiEncoding {
     param(
         [Parameter(Mandatory = $true)][string]$ExePath,
         [Parameter(Mandatory = $true)][array]$Arguments,
-        [string]$PipeInput = $null,
-        [switch]$LogOutput
+        [string]$PipeInput = $null
     )
     $oldInputEncoding  = [Console]::InputEncoding
     $oldOutputEncoding = [Console]::OutputEncoding
@@ -61,11 +60,6 @@ function Invoke-ExeWithAsciiEncoding {
         [Console]::InputEncoding  = [System.Text.Encoding]::ASCII
         [Console]::OutputEncoding = [System.Text.Encoding]::ASCII
         $result = Write-Output $PipeInput | & $ExePath @Arguments 2>&1
-        if ($LogOutput) {
-            $result | ForEach-Object {
-                Write-Log $_ -Console -Raw
-            }
-        }
         return $result
     } finally {
         [Console]::InputEncoding  = $oldInputEncoding
