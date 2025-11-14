@@ -75,10 +75,11 @@ type ResourceConfig struct {
 }
 
 type EnvConfig struct {
-	Proxy              string `mapstructure:"httpProxy"`
-	AdditionalHooksDir string `mapstructure:"additionalHooksDir"`
-	RestartPostInstall string `mapstructure:"restartPostInstallCount"`
-	K8sBins            string `mapstructure:"k8sBins"`
+	Proxy              string   `mapstructure:"httpProxy"`
+	NoProxy            []string `mapstructure:"noProxy"`
+	AdditionalHooksDir string   `mapstructure:"additionalHooksDir"`
+	RestartPostInstall string   `mapstructure:"restartPostInstallCount"`
+	K8sBins            string   `mapstructure:"k8sBins"`
 }
 
 type BehaviorConfig struct {
@@ -109,6 +110,9 @@ const (
 	ProxyFlagName      = "proxy"
 	ProxyFlagShorthand = "p"
 	ProxyFlagUsage     = "HTTP Proxy"
+
+	NoProxyFlagName  = "no-proxy"
+	NoProxyFlagUsage = "No proxy hosts/domains (comma-separated list)"
 
 	ConfigFileFlagName      = "config"
 	ConfigFileFlagShorthand = "c"
@@ -309,6 +313,8 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.Memory = vConfig.GetString(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
+	case NoProxyFlagName:
+		iConfig.Env.NoProxy = vConfig.GetStringSlice(flagName)
 	case SkipStartFlagName:
 		iConfig.Behavior.SkipStart = vConfig.GetBool(flagName)
 	case WslFlagName:

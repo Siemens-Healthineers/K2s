@@ -28,7 +28,16 @@ try {
     Add-NoProxyEntry -Entries $Overrides
     Stop-WinHttpProxy
     $updatedProxyConfig = Get-ProxyConfig
-    Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverride $updatedProxyConfig.NoProxy
+    
+    $k2sHosts = Get-K2sHosts
+    $allNoProxyHosts = @()
+    if ($updatedProxyConfig.NoProxy.Count -gt 0) {
+        $allNoProxyHosts += $updatedProxyConfig.NoProxy
+    }
+    $allNoProxyHosts += $k2sHosts
+    $uniqueNoProxyHosts = $allNoProxyHosts | Sort-Object -Unique
+    
+    Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverrides $uniqueNoProxyHosts
     Start-WinHttpProxy
     if ($EncodeStructuredOutput) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null}

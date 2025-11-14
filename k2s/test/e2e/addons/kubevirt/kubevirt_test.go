@@ -102,11 +102,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 				if !isManualExecution {
 					Skip(automatedExecutionSkipMessage)
 				}
-				args := []string{"addons", "enable", "kubevirt", "-o"}
-				if suite.Proxy() != "" {
-					args = append(args, "-p", suite.Proxy())
-				}
-				suite.K2sCli().RunOrFail(ctx, args...)
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "kubevirt", "-o")
 			})
 
 			It("enables the addon", func(ctx context.Context) {
