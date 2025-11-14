@@ -16,7 +16,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -31,6 +30,7 @@ import (
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 type Addon struct {
@@ -187,27 +187,74 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 			log.Fatal(err)
 		}
 
-		yamlContent := string(content)
+		var imagesInFile []string
+		decoder := yaml.NewDecoder(strings.NewReader(string(content)))
 
-		r, _ := regexp.Compile(".*image: .+")
-		findings := r.FindAllString(yamlContent, -1)
-
-		var trimedFindings []string
-		for _, f := range findings {
-			trimed := strings.TrimSpace(f)
-			splitted := strings.Split(strings.Split(trimed, "image: ")[1], "#")[0]
-			trimed = strings.Trim(splitted, "\"")
-			trimed = strings.TrimSpace(trimed)
-			GinkgoWriter.Println("After trim and split: ", trimed)
-			trimedFindings = append(trimedFindings, trimed)
+		for {
+			var doc interface{}
+			if err := decoder.Decode(&doc); err != nil {
+				if err == io.EOF {
+					break
+				}
+				GinkgoWriter.Printf("Warning: Failed to parse YAML document in file %s: %v\n", path, err)
+				break
+			}
+			imagesInFile = append(imagesInFile, extractImagesFromYAMLContent(doc)...)
 		}
 
-		return trimedFindings
+		return imagesInFile
 	})
 
-	// add additional images
+	// add images from additionalImagesFiles
+	var yamlFileImages []string
+	if len(implementation.OfflineUsage.LinuxResources.AdditionalImagesFiles) > 0 {
+		extractedImages, err := implementation.ExtractImagesFromFiles()
+		if err != nil {
+			GinkgoWriter.Printf("Warning: Failed to extract images from files for %s: %v\n", implementation.Name, err)
+		} else {
+			yamlFileImages = extractedImages
+			images = append(images, extractedImages...)
+		}
+	}
+
+	// add additional images, but skip versionless ones if versioned equivalent exists in YAML files
 	if len(implementation.OfflineUsage.LinuxResources.AdditionalImages) > 0 {
-		images = append(images, implementation.OfflineUsage.LinuxResources.AdditionalImages...)
+		for _, additionalImage := range implementation.OfflineUsage.LinuxResources.AdditionalImages {
+			// Check if this is a versionless image (no :tag)
+			hasTag := strings.Contains(additionalImage, ":")
+			if !hasTag {
+				// Check if a versioned variant exists in YAML file images
+				hasVersionedVariant := false
+				for _, yamlImage := range yamlFileImages {
+					// Extract base image name from YAML image (before the :tag)
+					parts := strings.Split(yamlImage, ":")
+					if len(parts) > 1 {
+						yamlBaseName := parts[0]
+						if additionalImage == yamlBaseName {
+							hasVersionedVariant = true
+							GinkgoWriter.Printf("Skipping versionless image '%s' from additionalImages because versioned variant '%s' exists in additionalImagesFiles\n", additionalImage, yamlImage)
+							break
+						}
+					}
+				}
+				// Only add if no versioned variant found
+				if !hasVersionedVariant {
+					images = append(images, additionalImage)
+				}
+			} else {
+				// Already versioned, add it
+				images = append(images, additionalImage)
+			}
+		}
+	}
+
+	// add Windows images
+	windowsImageCount := 0
+	if len(implementation.OfflineUsage.WindowsResources.AdditionalImages) > 0 {
+		for _, windowsImage := range implementation.OfflineUsage.WindowsResources.AdditionalImages {
+			windowsImageCount++
+			GinkgoWriter.Printf("  Windows platform image: %s (will be exported as separate _win.tar)\n", windowsImage)
+		}
 	}
 
 	// delete folder if it was created
@@ -219,8 +266,46 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 		}
 	}
 
-	// return unique images
-	return lo.Union(images), nil
+	// add count of Windows platform images
+	uniqueLinuxImages := lo.Union(images)
+	totalImageCount := len(uniqueLinuxImages) + windowsImageCount
+
+	GinkgoWriter.Printf("  Unique Linux images: %d, Windows platform images: %d, Total: %d\n",
+		len(uniqueLinuxImages), windowsImageCount, totalImageCount)
+
+	result := make([]string, 0, totalImageCount)
+	result = append(result, uniqueLinuxImages...)
+	for i := 0; i < windowsImageCount; i++ {
+		result = append(result, implementation.OfflineUsage.WindowsResources.AdditionalImages[i])
+	}
+
+	return result, nil
+}
+
+// recursively extracts container image references from parsed YAML content
+func extractImagesFromYAMLContent(content interface{}) []string {
+	var images []string
+
+	switch v := content.(type) {
+	case map[string]interface{}:
+		for key, value := range v {
+			if key == "image" {
+				// Only extract if the value is a string (actual image reference)
+				if imageStr, ok := value.(string); ok && imageStr != "" {
+					images = append(images, imageStr)
+				}
+			}
+			// Recursively process nested structures
+			images = append(images, extractImagesFromYAMLContent(value)...)
+		}
+	case []interface{}:
+		// Process arrays
+		for _, item := range v {
+			images = append(images, extractImagesFromYAMLContent(item)...)
+		}
+	}
+
+	return images
 }
 
 func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, cmdName string)) {
@@ -249,7 +334,7 @@ func loadWindowsRootCAs() (*x509.CertPool, error) {
 
 	// Load certificates from Windows Root CA store
 	storeNames := []string{"ROOT", "CA"}
-	
+
 	for _, storeName := range storeNames {
 		store, err := openWindowsCertStore(storeName)
 		if err != nil {
