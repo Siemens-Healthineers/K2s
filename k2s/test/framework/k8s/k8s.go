@@ -237,6 +237,25 @@ func (c *Cluster) ExpectStatefulSetToBeReady(name string, namespace string, expe
 	}
 }
 
+func (c *Cluster) ExpectPersistentVolumeToBeBound(name string, namespace string, expectedPVClaims int32, ctx context.Context) {
+	var pvcList corev1.PersistentVolumeClaimList
+	err := c.Client().Resources(namespace).List(ctx, &pvcList)
+	Expect(err).ToNot(HaveOccurred(), "failed to list PVCs in namespace %s", namespace)
+
+	Expect(len(pvcList.Items)).To(Equal(int(expectedPVClaims)), "expected exactly %d PVC in namespace %s, found %d", expectedPVClaims, namespace, len(pvcList.Items))
+
+	pvc := pvcList.Items[0]
+	Expect(pvc.Name).To(Equal(name), "the only PVC in namespace %s should be %s", namespace, name)
+
+	condition := conditions.New(c.Client().Resources(namespace)).ResourceMatch(&pvc, func(object k8sklient.Object) bool {
+		foundPVC := object.(*corev1.PersistentVolumeClaim)
+		return foundPVC.Status.Phase == corev1.ClaimBound
+	})
+
+	GinkgoWriter.Println("Waiting for PersistentVolumeClaim <", name, "> to be bound..")
+	Expect(wait.For(condition, c.waitOptions()...)).To(Succeed())
+}
+
 func (c *Cluster) ExpectStatefulSetToBeDeleted(name string, namespace string, ctx context.Context) {
 	statefulSet := appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
 
@@ -509,8 +528,8 @@ func (c *Cluster) ExpectPodsUnderDeploymentReady(ctx context.Context, labelName 
 			}
 		}
 
-		GinkgoWriter.Println("Waiting for a pod with label name:", labelName, "label value:", 
-		deploymentName, "namespace", namespace, "to become ready...")
+		GinkgoWriter.Println("Waiting for a pod with label name:", labelName, "label value:",
+			deploymentName, "namespace", namespace, "to become ready...")
 		return false
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }
@@ -536,7 +555,7 @@ func (c *Cluster) ExpectPodsInReadyState(ctx context.Context, labelName string, 
 		}
 
 		GinkgoWriter.Println("Waiting for a pod with label name:", labelName, "label value:",
-		namespace, "to become ready...")
+			namespace, "to become ready...")
 		return false
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }

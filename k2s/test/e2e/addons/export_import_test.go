@@ -84,11 +84,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 
 			GinkgoWriter.Printf("Exporting all addons to %s", exportPath)
-			if suite.Proxy() != "" {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o", "-p", suite.Proxy())
-			} else {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o")
-			}
+			suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o")
 		})
 
 		AfterAll(func(ctx context.Context) {
@@ -423,11 +419,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 
 			GinkgoWriter.Printf("Exporting single implementation addon to %s", exportPath)
-			if suite.Proxy() != "" {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "ingress nginx", "-d", exportPath, "-p", suite.Proxy())
-			} else {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "ingress nginx", "-d", exportPath)
-			}
+			suite.K2sCli().RunOrFail(ctx, "addons", "export", "ingress nginx", "-d", exportPath)
 		})
 
 		AfterAll(func(ctx context.Context) {
