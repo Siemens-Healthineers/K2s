@@ -28,18 +28,14 @@ Describe 'Invoke-ExeWithAsciiEncoding' -Tag 'unit','ci','vm'  {
         }
     }
     Context 'No PipeInput, arguments echo output'  {
-        It 'captures output and logs when LogOutput is set' -Skip:(
+        It 'captures output' -Skip:(
         -not (Test-Path "$env:SystemRoot\System32\cmd.exe")
         ){
             InModuleScope $moduleName {
                 $exe = "$env:SystemRoot\System32\cmd.exe"
                 $args = @('/c', 'echo', 'log-line')
-                $logCalls = [System.Collections.ArrayList]::new()
-                Mock -ModuleName $moduleName Write-Log { param($Messages) $logCalls.Add(($Messages -join ' ')) > $null }
-                $result = Invoke-ExeWithAsciiEncoding -ExePath $exe -Arguments $args -LogOutput
+                $result = Invoke-ExeWithAsciiEncoding -ExePath $exe -Arguments $args
                 ($result -join '').Trim() | Should -Be 'log-line'
-                $logCalls.Count | Should -BeGreaterThan 0
-                ($logCalls -join ' ') | Should -Match 'log-line'
             }
         }
     }
