@@ -46,6 +46,7 @@ const (
 	linuxManifestDir      = "workloads/linux"
 	windowsManifestDir    = "workloads/windows"
 	accessModeManifestDir = "workloads/accessmode"
+	retainManifestDir     = "workloads/retain"
 
 	linuxWorkloadName1   = "smb-share-test-linux1"
 	linuxWorkloadName2   = "smb-share-test-linux2"
@@ -660,6 +661,249 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 		})
 	})
+
+	Describe("Reclaim Policy Delete", func() {
+		When("StorageClass with Delete reclaim policy", Ordered, func() {
+			It("enables the addon", func(ctx context.Context) {
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				expectEnableMessage(output, "windows")
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted("windows", ctx)
+			})
+
+			It("verifies the reclaim policy of storage class is Delete", func(ctx context.Context) {
+				reclaimPolicy1 := suite.Kubectl().Run(ctx, "get", "storageclass", storageConfig[0].StorageClassName, "-o", "jsonpath={.reclaimPolicy}")
+				GinkgoWriter.Printf("Reclaim policy for %s: %s\n", storageConfig[0].StorageClassName, reclaimPolicy1)
+				Expect(reclaimPolicy1).To(Equal("Delete"))
+
+				reclaimPolicy2 := suite.Kubectl().Run(ctx, "get", "storageclass", storageConfig[1].StorageClassName, "-o", "jsonpath={.reclaimPolicy}")
+				GinkgoWriter.Printf("Reclaim policy for %s: %s\n", storageConfig[1].StorageClassName, reclaimPolicy2)
+				Expect(reclaimPolicy2).To(Equal("Delete"))
+			})
+
+			It("deploys Linux-based workloads", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "apply", "-k", linuxManifestDir)
+			})
+
+			It("deploys Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
+				suite.Kubectl().Run(ctx, "apply", "-k", windowsManifestDir)
+			})
+
+			It("runs Linux-based workloads", func(ctx context.Context) {
+				// TODO: could be more generic
+				expectWorkloadToRun(ctx, linuxWorkloadName1, storageConfig[0].WinMountPath, linuxTestfileName)
+				expectWorkloadToRun(ctx, linuxWorkloadName2, storageConfig[1].WinMountPath, linuxTestfileName)
+			})
+
+			It("runs Windows-based workloads", func(ctx context.Context) {
+				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
+			})
+
+			workloadPVCNames := []string{
+				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName1),
+				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName2),
+				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
+				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
+			}
+
+			It("verifies PVCs are bound", func(ctx context.Context) {
+				for _, pvcName := range workloadPVCNames {
+					output := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+					Expect(output).To(Equal("Bound"), fmt.Sprintf("PVC %s should be Bound", pvcName))
+				}
+			})
+
+			It("deletes Linux-based workloads", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "delete", "-k", linuxManifestDir)
+			})
+
+			It("deletes Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
+				suite.Kubectl().Run(ctx, "delete", "-k", windowsManifestDir)
+			})
+
+			It("disposes Linux-based workloads", func(ctx context.Context) {
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName2, namespace, ctx)
+			})
+
+			It("disposes Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
+			})
+
+			pvNames := []string{}
+			It("verifies PVC still exists after StatefulSet deletion", func(ctx context.Context) {
+				for _, pvcName := range workloadPVCNames {
+					output := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+					GinkgoWriter.Printf("\nPVC %s status: %s\n", pvcName, output)
+					Expect(output).To(Equal("Bound"), fmt.Sprintf("PVC %s should be Bound", pvcName))
+
+					// get pv name from pvc
+					pvName := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.spec.volumeName}")
+					pvNames = append(pvNames, pvName)
+					GinkgoWriter.Printf("\nPVC %s is bound to PV %s\n", pvcName, pvName)
+				}
+			})
+
+			It("verifies content still exists after StatefulSet deletion", func(ctx context.Context) {
+				expectFileExists(ctx, storageConfig[0].WinMountPath, linuxTestfileName, linuxWorkloadName1)
+				expectFileExists(ctx, storageConfig[1].WinMountPath, linuxTestfileName, linuxWorkloadName2)
+				expectFileExists(ctx, storageConfig[0].WinMountPath, windowsTestfileName, windowsWorkloadName1)
+				expectFileExists(ctx, storageConfig[1].WinMountPath, windowsTestfileName, windowsWorkloadName2)
+			})
+
+			It("deletes the PVC", func(ctx context.Context) {
+				for _, pvcName := range workloadPVCNames {
+					suite.Kubectl().Run(ctx, "delete", "pvc", pvcName, "-n", namespace)
+				}
+			})
+
+			It("verifies PV is deleted with Delete reclaim policy", func(ctx context.Context) {
+				for _, pvName := range pvNames {
+					GinkgoWriter.Printf("Checking if PV %s is deleted\n", pvName)
+					Eventually(func(ctx context.Context) string {
+						return suite.Kubectl().Run(ctx, "get", "pv", pvName, "--ignore-not-found", "-o", "jsonpath={.metadata.name}")
+					}).
+						WithTimeout(time.Minute).
+						WithPolling(time.Second*2).
+						WithContext(ctx).
+						Should(BeEmpty(), "PV should be deleted with Delete reclaim policy")
+				}
+			})
+
+			It("verifies content is deleted with PV (Delete reclaim policy)", func(ctx context.Context) {
+				expectFileDoesNotExist(ctx, storageConfig[0].WinMountPath, linuxTestfileName, linuxWorkloadName1)
+				expectFileDoesNotExist(ctx, storageConfig[1].WinMountPath, linuxTestfileName, linuxWorkloadName2)
+				expectFileDoesNotExist(ctx, storageConfig[0].WinMountPath, windowsTestfileName, windowsWorkloadName1)
+				expectFileDoesNotExist(ctx, storageConfig[1].WinMountPath, windowsTestfileName, windowsWorkloadName2)
+			})
+
+			It("disables the addon", func(ctx context.Context) {
+				disableAddon(ctx, "-f")
+			})
+		})
+	})
+
+	Describe("Reclaim Policy Retain", func() {
+		if skipWindowsWorkloads {
+			Skip("Linux-only setup")
+		}
+		When("StorageClass with Retain reclaim policy", Ordered, func() {
+			It("enables the addon", func(ctx context.Context) {
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				expectEnableMessage(output, "windows")
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted("windows", ctx)
+			})
+
+			It("verifies the reclaim policy of storage class is Retain", func(ctx context.Context) {
+				reclaimPolicy := suite.Kubectl().Run(ctx, "get", "storageclass", storageConfig[2].StorageClassName, "-o", "jsonpath={.reclaimPolicy}")
+				GinkgoWriter.Printf("Reclaim policy for %s: %s\n", storageConfig[2].StorageClassName, reclaimPolicy)
+				Expect(reclaimPolicy).To(Equal("Retain"))
+			})
+
+			It("deploys Windows-based workloads", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "apply", "-k", retainManifestDir)
+			})
+
+			It("runs Windows-based workloads", func(ctx context.Context) {
+				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[2].WinMountPath, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[2].WinMountPath, windowsTestfileName)
+			})
+
+			workloadPVCNames := []string{
+				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
+				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
+			}
+
+			It("verifies PVCs are bound", func(ctx context.Context) {
+				for _, pvcName := range workloadPVCNames {
+					output := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+					GinkgoWriter.Printf("\nPVC %s status: %s\n", pvcName, output)
+					Expect(output).To(Equal("Bound"), fmt.Sprintf("PVC %s should be Bound", pvcName))
+				}
+			})
+
+			It("deletes Windows-based workloads", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "delete", "-k", retainManifestDir)
+			})
+
+			It("disposes Windows-based workloads", func(ctx context.Context) {
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
+			})
+
+			pvNames := []string{}
+			It("verifies PVC still exists after StatefulSet deletion", func(ctx context.Context) {
+				for _, pvcName := range workloadPVCNames {
+					output := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+					GinkgoWriter.Printf("\nPVC %s status: %s\n", pvcName, output)
+					Expect(output).To(Equal("Bound"), fmt.Sprintf("PVC %s should be Bound", pvcName))
+
+					// get pv name from pvc
+					pvName := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.spec.volumeName}")
+					pvNames = append(pvNames, pvName)
+					GinkgoWriter.Printf("\nPVC %s is bound to PV %s\n", pvcName, pvName)
+				}
+			})
+
+			It("verifies content still exists after StatefulSet deletion", func(ctx context.Context) {
+				expectFileExists(ctx, storageConfig[2].WinMountPath, windowsTestfileName, windowsWorkloadName1)
+				expectFileExists(ctx, storageConfig[2].WinMountPath, windowsTestfileName, windowsWorkloadName2)
+			})
+
+			It("deletes the PVC", func(ctx context.Context) {
+				for _, pvcName := range workloadPVCNames {
+					suite.Kubectl().Run(ctx, "delete", "pvc", pvcName, "-n", namespace)
+				}
+			})
+
+			It("verifies PV is retained with Retain reclaim policy", func(ctx context.Context) {
+				for _, pvName := range pvNames {
+					GinkgoWriter.Printf("\nChecking if PV %s is retained and in released state\n", pvName)
+					Eventually(func(ctx context.Context) string {
+						return suite.Kubectl().Run(ctx, "get", "pv", pvName, "-o", "jsonpath={.status.phase}")
+					}).
+						WithTimeout(time.Second*30).
+						WithPolling(time.Second*2).
+						WithContext(ctx).
+						Should(Equal("Released"), "PV should be in Released state with Retain reclaim policy")
+				}
+			})
+
+			It("verifies content still exists with PV (Retain reclaim policy)", func(ctx context.Context) {
+				expectFileExists(ctx, storageConfig[2].WinMountPath, windowsTestfileName, windowsWorkloadName1)
+				expectFileExists(ctx, storageConfig[2].WinMountPath, windowsTestfileName, windowsWorkloadName2)
+			})
+
+			It("cleans up the retained PV", func(ctx context.Context) {
+				for _, pvName := range pvNames {
+					suite.Kubectl().Run(ctx, "delete", "pv", pvName)
+				}
+			})
+
+			It("disables the addon", func(ctx context.Context) {
+				disableAddon(ctx, "-f")
+			})
+		})
+	})
 })
 
 func expectWorkloadToRun(ctx context.Context, workloadName, mountPath, testFileName string) {
@@ -823,4 +1067,22 @@ func deleteFilesOnLinuxMount(ctx context.Context) {
 	Expect(output2).To(SatisfyAll(
 		ContainSubstring("completed in"),
 	))
+}
+
+func expectFileExists(ctx context.Context, mountPath string, testFileName string, deploymentName string) {
+	Eventually(os.IsFileExists).
+		WithArguments(mountPath, testFileName).
+		WithTimeout(testFileCheckTimeout).
+		WithPolling(suite.TestStepPollInterval()).
+		WithContext(ctx).
+		Should(BeTrue(), fmt.Sprintf("Expected file check to pass for %s", deploymentName))
+}
+
+func expectFileDoesNotExist(ctx context.Context, mountPath string, testFileName string, deploymentName string) {
+	Eventually(os.IsFileExists).
+		WithArguments(mountPath, testFileName).
+		WithTimeout(testFileCheckTimeout).
+		WithPolling(suite.TestStepPollInterval()).
+		WithContext(ctx).
+		Should(BeFalse(), fmt.Sprintf("Expected file does not exist for %s", deploymentName))
 }
