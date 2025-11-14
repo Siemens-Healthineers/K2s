@@ -1983,7 +1983,7 @@
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:0ee1301886b1a2cc3dbb49a66be540315b83f0615d5841b797f5ae89c923ab89"
+          "value": "sha256:0ee13.19.1b1a2cc3dbb49a66be540315b83f0615d5841b797f5ae89c923ab89"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -10301,10 +10301,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/net@v0.0.0-20201110031124-69a78807bb2b",
+      "bom-ref": "pkg:golang/golang.org/x/net@v0.0.0-20201110.31.34-69a78807bb2b",
       "name": "golang.org/x/net",
-      "version": "v0.0.0-20201110031124-69a78807bb2b",
-      "purl": "pkg:golang/golang.org/x/net@v0.0.0-20201110031124-69a78807bb2b",
+      "version": "v0.0.0-20201110.31.34-69a78807bb2b",
+      "purl": "pkg:golang/golang.org/x/net@v0.0.0-20201110.31.34-69a78807bb2b",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -13922,10 +13922,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -18112,10 +18112,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -21028,10 +21028,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -23142,10 +23142,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -23533,10 +23533,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/exp@v0.0.0-20231226003508-02704c960a9b",
+      "bom-ref": "pkg:golang/golang.org/x/exp@v0.0.0-20.31.36003508-02704c960a9b",
       "name": "golang.org/x/exp",
-      "version": "v0.0.0-20231226003508-02704c960a9b",
-      "purl": "pkg:golang/golang.org/x/exp@v0.0.0-20231226003508-02704c960a9b",
+      "version": "v0.0.0-20.31.36003508-02704c960a9b",
+      "purl": "pkg:golang/golang.org/x/exp@v0.0.0-20.31.36003508-02704c960a9b",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -24428,10 +24428,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -27854,10 +27854,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -31693,10 +31693,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -101165,10 +101165,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230731223053-c322873962e3",
+      "bom-ref": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230.31.33053-c322873962e3",
       "name": "github.com/eapache/go-xerial-snappy",
-      "version": "v0.0.0-20230731223053-c322873962e3",
-      "purl": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230731223053-c322873962e3",
+      "version": "v0.0.0-20230.31.33053-c322873962e3",
+      "purl": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230.31.33053-c322873962e3",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -101675,10 +101675,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -105575,10 +105575,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -107406,10 +107406,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/exp@v0.0.0-20231226003508-02704c960a9b",
+      "bom-ref": "pkg:golang/golang.org/x/exp@v0.0.0-20.31.36003508-02704c960a9b",
       "name": "golang.org/x/exp",
-      "version": "v0.0.0-20231226003508-02704c960a9b",
-      "purl": "pkg:golang/golang.org/x/exp@v0.0.0-20231226003508-02704c960a9b",
+      "version": "v0.0.0-20.31.36003508-02704c960a9b",
+      "purl": "pkg:golang/golang.org/x/exp@v0.0.0-20.31.36003508-02704c960a9b",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -114072,10 +114072,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -128249,10 +128249,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -151781,10 +151781,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -163026,8 +163026,8 @@
       "type": "library",
       "bom-ref": "55db83ec-7f6e-4fa0-8de9-6081fda5d561",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -164979,8 +164979,8 @@
       "type": "library",
       "bom-ref": "b9086ef9-fa87-4c02-87f9-8e253af212db",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -200546,10 +200546,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20",
+      "bom-ref": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20.31.38135937-211cef3b0b20",
       "name": "github.com/bronze1man/goStrongswanVici",
-      "version": "v0.0.0-20231128135937-211cef3b0b20",
-      "purl": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20",
+      "version": "v0.0.0-20.31.38135937-211cef3b0b20",
+      "purl": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20.31.38135937-211cef3b0b20",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -215959,7 +215959,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "f13d1876-0036-4175-bc5c-00532bf41221",
+      "bom-ref": "f13.19.1-0036-4175-bc5c-00532bf41221",
       "name": "golang.org/x/net",
       "version": "v0.0.0-20211015210444-4f30a5c0130f",
       "purl": "pkg:golang/golang.org/x/net@v0.0.0-20211015210444-4f30a5c0130f",
@@ -216606,9 +216606,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:apk/alpine/libncursesw@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "bom-ref": "pkg:apk/alpine/libncursesw@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "name": "libncursesw",
-      "version": "6.4_p20231125-r0",
+      "version": "6.4_p20.31.35-r0",
       "hashes": [
         {
           "alg": "SHA-1",
@@ -216622,7 +216622,7 @@
           }
         }
       ],
-      "purl": "pkg:apk/alpine/libncursesw@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "purl": "pkg:apk/alpine/libncursesw@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -216630,7 +216630,7 @@
         },
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "libncursesw@6.4_p20231125-r0"
+          "value": "libncursesw@6.4_p20.31.35-r0"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -216642,7 +216642,7 @@
         },
         {
           "name": "aquasecurity:trivy:SrcVersion",
-          "value": "6.4_p20231125-r0"
+          "value": "6.4_p20.31.35-r0"
         }
       ]
     },
@@ -216784,9 +216784,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "bom-ref": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "name": "ncurses-terminfo-base",
-      "version": "6.4_p20231125-r0",
+      "version": "6.4_p20.31.35-r0",
       "hashes": [
         {
           "alg": "SHA-1",
@@ -216800,7 +216800,7 @@
           }
         }
       ],
-      "purl": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "purl": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -216808,7 +216808,7 @@
         },
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "ncurses-terminfo-base@6.4_p20231125-r0"
+          "value": "ncurses-terminfo-base@6.4_p20.31.35-r0"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -216820,7 +216820,7 @@
         },
         {
           "name": "aquasecurity:trivy:SrcVersion",
-          "value": "6.4_p20231125-r0"
+          "value": "6.4_p20.31.35-r0"
         }
       ]
     },
@@ -219548,9 +219548,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:apk/alpine/libncursesw@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "bom-ref": "pkg:apk/alpine/libncursesw@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "name": "libncursesw",
-      "version": "6.4_p20231125-r0",
+      "version": "6.4_p20.31.35-r0",
       "hashes": [
         {
           "alg": "SHA-1",
@@ -219564,7 +219564,7 @@
           }
         }
       ],
-      "purl": "pkg:apk/alpine/libncursesw@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "purl": "pkg:apk/alpine/libncursesw@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -219572,7 +219572,7 @@
         },
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "libncursesw@6.4_p20231125-r0"
+          "value": "libncursesw@6.4_p20.31.35-r0"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -219584,7 +219584,7 @@
         },
         {
           "name": "aquasecurity:trivy:SrcVersion",
-          "value": "6.4_p20231125-r0"
+          "value": "6.4_p20.31.35-r0"
         }
       ]
     },
@@ -220267,9 +220267,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "bom-ref": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "name": "ncurses-terminfo-base",
-      "version": "6.4_p20231125-r0",
+      "version": "6.4_p20.31.35-r0",
       "hashes": [
         {
           "alg": "SHA-1",
@@ -220283,7 +220283,7 @@
           }
         }
       ],
-      "purl": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "purl": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -220291,7 +220291,7 @@
         },
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "ncurses-terminfo-base@6.4_p20231125-r0"
+          "value": "ncurses-terminfo-base@6.4_p20.31.35-r0"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -220303,7 +220303,7 @@
         },
         {
           "name": "aquasecurity:trivy:SrcVersion",
-          "value": "6.4_p20231125-r0"
+          "value": "6.4_p20.31.35-r0"
         }
       ]
     },
@@ -234700,10 +234700,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -249297,10 +249297,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230731223053-c322873962e3",
+      "bom-ref": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230.31.33053-c322873962e3",
       "name": "github.com/eapache/go-xerial-snappy",
-      "version": "v0.0.0-20230731223053-c322873962e3",
-      "purl": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230731223053-c322873962e3",
+      "version": "v0.0.0-20230.31.33053-c322873962e3",
+      "purl": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230.31.33053-c322873962e3",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -249807,10 +249807,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -254042,8 +254042,8 @@
       "type": "library",
       "bom-ref": "623ce2cc-280d-4124-9ec3-3cb159b7e670",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -254144,8 +254144,8 @@
       "type": "library",
       "bom-ref": "68a479f6-1297-4b53-bf02-a58b41f5bee8",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -257263,8 +257263,8 @@
       "type": "library",
       "bom-ref": "55ed909b-daf8-46b0-a121-039f7914d55c",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -257450,8 +257450,8 @@
       "type": "library",
       "bom-ref": "d8ed3e71-2dbb-45b2-bfed-3e9a8d756106",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -263472,8 +263472,8 @@
       "type": "library",
       "bom-ref": "04c88f94-92f6-4110-b107-6286c88eb4c5",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -263795,8 +263795,8 @@
       "type": "library",
       "bom-ref": "057c9c9b-fc8d-4443-aa8d-82f1fd7c5d6a",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -263982,8 +263982,8 @@
       "type": "library",
       "bom-ref": "05df9221-faa1-43d4-ad44-7471776ce8cf",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -268814,8 +268814,8 @@
       "type": "library",
       "bom-ref": "149d7624-b5fe-4380-92d1-01335384fb98",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -271512,8 +271512,8 @@
       "type": "library",
       "bom-ref": "1d2fd4f3-24e6-4d04-a53d-2ee6ec621854",
       "name": "golang.org/x/exp",
-      "version": "v0.0.0-20231226003508-02704c960a9b",
-      "purl": "pkg:golang/golang.org/x/exp@v0.0.0-20231226003508-02704c960a9b",
+      "version": "v0.0.0-20.31.36003508-02704c960a9b",
+      "purl": "pkg:golang/golang.org/x/exp@v0.0.0-20.31.36003508-02704c960a9b",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -274151,8 +274151,8 @@
       "type": "library",
       "bom-ref": "24de9a96-2369-4d06-8daa-3fe6909db9e4",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -275262,7 +275262,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "28318a4e-8142-40cd-93d9-63371816b5b7",
+      "bom-ref": "28318a4e-8142-40cd-93d9-633.19.1b5b7",
       "name": "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream",
       "version": "v1.6.3",
       "purl": "pkg:golang/github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.6.3",
@@ -276682,8 +276682,8 @@
       "type": "library",
       "bom-ref": "2bcf4841-6d72-4cdc-add3-0703332ef09a",
       "name": "github.com/eapache/go-xerial-snappy",
-      "version": "v0.0.0-20230731223053-c322873962e3",
-      "purl": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230731223053-c322873962e3",
+      "version": "v0.0.0-20230.31.33053-c322873962e3",
+      "purl": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230.31.33053-c322873962e3",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -280710,8 +280710,8 @@
       "type": "library",
       "bom-ref": "385e6428-6c89-4862-95ca-ce1107c9660b",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -281362,8 +281362,8 @@
       "type": "library",
       "bom-ref": "3a2b8838-7e98-4814-9159-d5f6d618cc6f",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -296030,8 +296030,8 @@
       "type": "library",
       "bom-ref": "63a876de-9650-4ae9-b3cd-e4e8bed71376",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -301131,8 +301131,8 @@
       "type": "library",
       "bom-ref": "72cfd730-49b0-4fdd-8d1a-cdfce68eb5f1",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -302359,8 +302359,8 @@
       "type": "library",
       "bom-ref": "76778573-40db-49ee-acab-88b5f1220585",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -304252,8 +304252,8 @@
       "type": "library",
       "bom-ref": "7bc37bdd-ea2b-47c4-89a0-2ab54145ccca",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -306887,8 +306887,8 @@
       "type": "library",
       "bom-ref": "83c401db-260c-48bc-b4eb-40a8a1e72754",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -308402,8 +308402,8 @@
       "type": "library",
       "bom-ref": "87ffa75f-caf6-4a0f-b1fb-345560efd6b9",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -308846,8 +308846,8 @@
       "type": "library",
       "bom-ref": "8969157c-2dc4-479f-b668-58dfa5ff5d20",
       "name": "golang.org/x/exp",
-      "version": "v0.0.0-20231226003508-02704c960a9b",
-      "purl": "pkg:golang/golang.org/x/exp@v0.0.0-20231226003508-02704c960a9b",
+      "version": "v0.0.0-20.31.36003508-02704c960a9b",
+      "purl": "pkg:golang/golang.org/x/exp@v0.0.0-20.31.36003508-02704c960a9b",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -312287,8 +312287,8 @@
       "type": "library",
       "bom-ref": "93a2a02d-4212-4990-8a14-3ff2cd2d096b",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -314512,8 +314512,8 @@
       "type": "library",
       "bom-ref": "99616786-1512-4e74-8e34-0e3d6ab9e671",
       "name": "github.com/eapache/go-xerial-snappy",
-      "version": "v0.0.0-20230731223053-c322873962e3",
-      "purl": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230731223053-c322873962e3",
+      "version": "v0.0.0-20230.31.33053-c322873962e3",
+      "purl": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230.31.33053-c322873962e3",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -314774,8 +314774,8 @@
       "type": "library",
       "bom-ref": "9a45cd56-8c96-40d4-be8c-05d3b69ff171",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -319269,8 +319269,8 @@
       "type": "library",
       "bom-ref": "a70c36b5-5d9a-4619-bbe8-2c967114a6aa",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -319759,7 +319759,7 @@
     },
     {
       "type": "library",
-      "bom-ref": "a8c82e63-18d6-4307-afa9-d229b79947fa",
+      "bom-ref": "a8c82e63.19.1-4307-afa9-d229b79947fa",
       "name": "set-function-name",
       "version": "2.0.1",
       "licenses": [
@@ -320448,8 +320448,8 @@
       "type": "library",
       "bom-ref": "aa8b0c84-6d0c-4fbb-b134-d65639ef1217",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -328369,8 +328369,8 @@
       "type": "library",
       "bom-ref": "c138dfbe-cc13-43eb-99ad-4fb075030918",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -332894,8 +332894,8 @@
       "type": "library",
       "bom-ref": "cee60c1c-8991-4a22-97c7-3179c935a332",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -337082,8 +337082,8 @@
       "type": "library",
       "bom-ref": "dae81986-d8ac-4591-b3db-424e845e55a6",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -340591,8 +340591,8 @@
       "type": "library",
       "bom-ref": "e4a7ea42-8083-4990-8951-e9de6740842e",
       "name": "github.com/golang/groupcache",
-      "version": "v0.0.0-20210331224755-41bb18bfe9da",
-      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "version": "v0.0.0-20210.31.34755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -377828,10 +377828,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20",
+      "bom-ref": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20.31.38135937-211cef3b0b20",
       "name": "github.com/bronze1man/goStrongswanVici",
-      "version": "v0.0.0-20231128135937-211cef3b0b20",
-      "purl": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20",
+      "version": "v0.0.0-20.31.38135937-211cef3b0b20",
+      "purl": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20.31.38135937-211cef3b0b20",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -386828,10 +386828,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/golang.org/x/net@v0.0.0-20201110031124-69a78807bb2b",
+      "bom-ref": "pkg:golang/golang.org/x/net@v0.0.0-20201110.31.34-69a78807bb2b",
       "name": "golang.org/x/net",
-      "version": "v0.0.0-20201110031124-69a78807bb2b",
-      "purl": "pkg:golang/golang.org/x/net@v0.0.0-20201110031124-69a78807bb2b",
+      "version": "v0.0.0-20201110.31.34-69a78807bb2b",
+      "purl": "pkg:golang/golang.org/x/net@v0.0.0-20201110.31.34-69a78807bb2b",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -389431,10 +389431,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/k8s.io/utils@v0.0.0-20231127182322-b307cd553661",
+      "bom-ref": "pkg:golang/k8s.io/utils@v0.0.0-20.31.37182322-b307cd553661",
       "name": "k8s.io/utils",
-      "version": "v0.0.0-20231127182322-b307cd553661",
-      "purl": "pkg:golang/k8s.io/utils@v0.0.0-20231127182322-b307cd553661",
+      "version": "v0.0.0-20.31.37182322-b307cd553661",
+      "purl": "pkg:golang/k8s.io/utils@v0.0.0-20.31.37182322-b307cd553661",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -446594,9 +446594,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/golang/groupcache@0.0.0-20210331224755-41bb18bfe9da",
+      "bom-ref": "pkg:golang/github.com/golang/groupcache@0.0.0-20210.31.34755-41bb18bfe9da",
       "name": "github.com/golang/groupcache",
-      "version": "0.0.0-20210331224755-41bb18bfe9da",
+      "version": "0.0.0-20210.31.34755-41bb18bfe9da",
       "licenses": [
         {
           "license": {
@@ -446604,11 +446604,11 @@
           }
         }
       ],
-      "purl": "pkg:golang/github.com/golang/groupcache@0.0.0-20210331224755-41bb18bfe9da",
+      "purl": "pkg:golang/github.com/golang/groupcache@0.0.0-20210.31.34755-41bb18bfe9da",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da"
+          "value": "github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -450831,7 +450831,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/golang.org/x/net@v0.0.0-20201110031124-69a78807bb2b",
+      "ref": "pkg:golang/golang.org/x/net@v0.0.0-20201110.31.34-69a78807bb2b",
       "dependsOn": []
     },
     {
@@ -450962,7 +450962,7 @@
         "pkg:golang/go.uber.org/multierr@v1.1.0",
         "pkg:golang/go.uber.org/zap@v1.10.0",
         "pkg:golang/golang.org/x/crypto@v0.0.0-20200622213623-75b288015ac9",
-        "pkg:golang/golang.org/x/net@v0.0.0-20201110031124-69a78807bb2b",
+        "pkg:golang/golang.org/x/net@v0.0.0-20201110.31.34-69a78807bb2b",
         "pkg:golang/golang.org/x/oauth2@v0.0.0-20191202225959-858c2ad4c8b6",
         "pkg:golang/golang.org/x/sync@v0.0.0-20190911185100-cd5d95a43a6e",
         "pkg:golang/golang.org/x/sys@v0.0.0-20201112073958-5cba982894dd",
@@ -451565,7 +451565,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+      "ref": "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
       "dependsOn": []
     },
     {
@@ -451583,7 +451583,7 @@
         "pkg:golang/github.com/go-openapi/jsonreference@v0.20.2",
         "pkg:golang/github.com/go-openapi/swag@v0.22.3",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.3",
         "pkg:golang/github.com/google/gnostic@v0.6.9",
         "pkg:golang/github.com/google/go-cmp@v0.5.9",
@@ -452627,7 +452627,7 @@
         "pkg:golang/github.com/gofrs/uuid@v4.0.0%2Bincompatible",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
         "pkg:golang/github.com/golang-jwt/jwt/v4@v4.4.2",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.2",
         "pkg:golang/github.com/google/gnostic@v0.5.7-v3refs",
         "pkg:golang/github.com/google/go-cmp@v0.5.9",
@@ -452812,7 +452812,7 @@
         "pkg:golang/github.com/go-openapi/swag@v0.22.7",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
         "pkg:golang/github.com/golang-jwt/jwt/v5@v5.0.0",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.3",
         "pkg:golang/github.com/golang/snappy@v0.0.4",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
@@ -453338,7 +453338,7 @@
         "pkg:golang/github.com/go-openapi/jsonreference@v0.20.4",
         "pkg:golang/github.com/go-openapi/swag@v0.22.7",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.3",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
         "pkg:golang/github.com/google/go-cmp@v0.6.0",
@@ -453361,7 +453361,7 @@
         "pkg:golang/github.com/spf13/pflag@v1.0.5",
         "pkg:golang/go.uber.org/multierr@v1.11.0",
         "pkg:golang/go.uber.org/zap@v1.26.0",
-        "pkg:golang/golang.org/x/exp@v0.0.0-20231226003508-02704c960a9b",
+        "pkg:golang/golang.org/x/exp@v0.0.0-20.31.36003508-02704c960a9b",
         "pkg:golang/golang.org/x/net@v0.19.0",
         "pkg:golang/golang.org/x/oauth2@v0.15.0",
         "pkg:golang/golang.org/x/sys@v0.15.0",
@@ -453411,7 +453411,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/golang.org/x/exp@v0.0.0-20231226003508-02704c960a9b",
+      "ref": "pkg:golang/golang.org/x/exp@v0.0.0-20.31.36003508-02704c960a9b",
       "dependsOn": []
     },
     {
@@ -453457,7 +453457,7 @@
         "pkg:golang/github.com/go-openapi/jsonreference@v0.21.0",
         "pkg:golang/github.com/go-openapi/swag@v0.23.0",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
         "pkg:golang/github.com/google/go-cmp@v0.6.0",
@@ -453780,7 +453780,7 @@
         "pkg:golang/github.com/go-openapi/swag@v0.19.14",
         "pkg:golang/github.com/godbus/dbus/v5@v5.0.6",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.2",
         "pkg:golang/github.com/google/gnostic@v0.5.7-v3refs",
         "pkg:golang/github.com/google/go-cmp@v0.5.8",
@@ -454848,7 +454848,7 @@
         "pkg:golang/github.com/go-openapi/jsonreference@v0.20.2",
         "pkg:golang/github.com/go-openapi/swag@v0.22.3",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
         "pkg:golang/github.com/google/go-cmp@v0.6.0",
@@ -465925,7 +465925,7 @@
         "pkg:golang/github.com/dysnix/predictkube-libs@v0.0.4-0.20230109175007-5a82fccd31c7",
         "pkg:golang/github.com/dysnix/predictkube-proto@v0.0.0-20240703070754-1483183ce065",
         "pkg:golang/github.com/eapache/go-resiliency@v1.6.0",
-        "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230731223053-c322873962e3",
+        "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230.31.33053-c322873962e3",
         "pkg:golang/github.com/eapache/queue@v1.1.0",
         "pkg:golang/github.com/elastic/go-elasticsearch/v7@v7.17.10",
         "pkg:golang/github.com/emicklei/go-restful/v3@v3.12.0",
@@ -465955,7 +465955,7 @@
         "pkg:golang/github.com/golang-jwt/jwt@v3.2.2%2Bincompatible",
         "pkg:golang/github.com/golang-sql/civil@v0.0.0-20220223132316-b832511892a9",
         "pkg:golang/github.com/golang-sql/sqlexp@v0.1.0",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
         "pkg:golang/github.com/golang/snappy@v0.0.4",
         "pkg:golang/github.com/google/cel-go@v0.17.8",
@@ -466381,7 +466381,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230731223053-c322873962e3",
+      "ref": "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230.31.33053-c322873962e3",
       "dependsOn": []
     },
     {
@@ -466924,7 +466924,7 @@
         "pkg:golang/github.com/go-openapi/jsonreference@v0.20.2",
         "pkg:golang/github.com/go-openapi/swag@v0.22.4",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.3",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
         "pkg:golang/github.com/google/go-cmp@v0.6.0",
@@ -467116,7 +467116,7 @@
         "pkg:golang/go.uber.org/multierr@v1.11.0",
         "pkg:golang/go.uber.org/zap@v1.26.0",
         "pkg:golang/golang.org/x/crypto@v0.17.0",
-        "pkg:golang/golang.org/x/exp@v0.0.0-20231226003508-02704c960a9b",
+        "pkg:golang/golang.org/x/exp@v0.0.0-20.31.36003508-02704c960a9b",
         "pkg:golang/golang.org/x/net@v0.19.0",
         "pkg:golang/golang.org/x/oauth2@v0.15.0",
         "pkg:golang/golang.org/x/sync@v0.5.0",
@@ -468157,7 +468157,7 @@
         "pkg:golang/github.com/go-openapi/jsonreference@v0.20.1",
         "pkg:golang/github.com/go-openapi/swag@v0.22.3",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.3",
         "pkg:golang/github.com/google/gnostic@v0.5.7-v3refs",
         "pkg:golang/github.com/google/go-cmp@v0.5.9",
@@ -470639,7 +470639,7 @@
         "pkg:golang/github.com/go-logr/logr@v1.4.1",
         "pkg:golang/github.com/go-logr/stdr@v1.2.2",
         "pkg:golang/github.com/golang-jwt/jwt@v3.2.2%2Bincompatible",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.3",
         "pkg:golang/github.com/google/s2a-go@v0.1.7",
         "pkg:golang/github.com/google/uuid@v1.6.0",
@@ -475104,7 +475104,7 @@
         "pkg:golang/github.com/go-openapi/swag@v0.22.3",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
         "pkg:golang/github.com/golang-jwt/jwt/v4@v4.5.0",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
         "pkg:golang/github.com/google/go-cmp@v0.6.0",
@@ -484248,7 +484248,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20",
+      "ref": "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20.31.38135937-211cef3b0b20",
       "dependsOn": []
     },
     {
@@ -484268,7 +484268,7 @@
       "dependsOn": [
         "a53367a0-6c2f-430b-94b3-f0cd07043349",
         "pkg:golang/github.com/avast/retry-go/v4@v4.6.1",
-        "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20",
+        "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20.31.38135937-211cef3b0b20",
         "pkg:golang/github.com/containernetworking/plugins@v1.6.2",
         "pkg:golang/github.com/coreos/go-iptables@v0.8.0",
         "pkg:golang/github.com/coreos/go-semver@v0.3.1",
@@ -487365,11 +487365,11 @@
         "pkg:apk/alpine/ca-certificates@20230506-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/libc-utils@0.7.2-r5?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/libcrypto3@3.1.4-r5?arch=x86_64\u0026distro=3.19.1",
-        "pkg:apk/alpine/libncursesw@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+        "pkg:apk/alpine/libncursesw@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/libssl3@3.1.4-r5?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/musl-utils@1.2.4_git20230717-r4?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/musl@1.2.4_git20230717-r4?arch=x86_64\u0026distro=3.19.1",
-        "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+        "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/openssl@3.1.4-r5?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/readline@8.2.1-r2?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/scanelf@1.3.7-r2?arch=x86_64\u0026distro=3.19.1",
@@ -487710,7 +487710,7 @@
         "e69ef76f-9276-474c-80cc-4aff1cfbd995",
         "ee8115b0-512b-4fd2-926a-869c90230e4d",
         "ef4bb465-2ccd-462e-8019-f0aa9777fb16",
-        "f13d1876-0036-4175-bc5c-00532bf41221",
+        "f13.19.1-0036-4175-bc5c-00532bf41221",
         "f3185801-304b-4452-ab1c-bde73eaa26fb",
         "f49bacf4-c542-4683-9576-02a1515ed538",
         "f7613743-3dc1-4cf0-bd96-923c5d2b9b71",
@@ -487806,7 +487806,7 @@
       "dependsOn": []
     },
     {
-      "ref": "f13d1876-0036-4175-bc5c-00532bf41221",
+      "ref": "f13.19.1-0036-4175-bc5c-00532bf41221",
       "dependsOn": []
     },
     {
@@ -487915,10 +487915,10 @@
       ]
     },
     {
-      "ref": "pkg:apk/alpine/libncursesw@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "ref": "pkg:apk/alpine/libncursesw@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "dependsOn": [
         "pkg:apk/alpine/musl@1.2.4_git20230717-r4?arch=x86_64\u0026distro=3.19.1",
-        "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1"
+        "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1"
       ]
     },
     {
@@ -487940,7 +487940,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+      "ref": "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
       "dependsOn": []
     },
     {
@@ -487954,7 +487954,7 @@
     {
       "ref": "pkg:apk/alpine/readline@8.2.1-r2?arch=x86_64\u0026distro=3.19.1",
       "dependsOn": [
-        "pkg:apk/alpine/libncursesw@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+        "pkg:apk/alpine/libncursesw@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/musl@1.2.4_git20230717-r4?arch=x86_64\u0026distro=3.19.1"
       ]
     },
@@ -488279,7 +488279,7 @@
         "pkg:apk/alpine/libintl@0.22.3-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/libjpeg-turbo@3.0.1-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/libmd@1.1.0-r0?arch=x86_64\u0026distro=3.19.1",
-        "pkg:apk/alpine/libncursesw@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+        "pkg:apk/alpine/libncursesw@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/libpng@1.6.40-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/libsharpyuv@1.3.2-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/libsm@1.2.4-r3?arch=x86_64\u0026distro=3.19.1",
@@ -488298,7 +488298,7 @@
         "pkg:apk/alpine/libxt@1.3.0-r4?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/musl-utils@1.2.4_git20230717-r4?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/musl@1.2.4_git20230717-r4?arch=x86_64\u0026distro=3.19.1",
-        "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+        "pkg:apk/alpine/ncurses-terminfo-base@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/nghttp2-libs@1.58.0-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/nginx-module-geoip@1.25.5-r1?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/nginx-module-image-filter@1.25.5-r1?arch=x86_64\u0026distro=3.19.1",
@@ -488435,7 +488435,7 @@
     {
       "ref": "pkg:apk/alpine/libedit@20230828.3.1-r3?arch=x86_64\u0026distro=3.19.1",
       "dependsOn": [
-        "pkg:apk/alpine/libncursesw@6.4_p20231125-r0?arch=x86_64\u0026distro=3.19.1",
+        "pkg:apk/alpine/libncursesw@6.4_p20.31.35-r0?arch=x86_64\u0026distro=3.19.1",
         "pkg:apk/alpine/musl@1.2.4_git20230717-r4?arch=x86_64\u0026distro=3.19.1"
       ]
     },
@@ -490678,7 +490678,7 @@
         "pkg:golang/github.com/gogits/go-gogs-client@v0.0.0-20200905025246-8bb8a50cb355",
         "pkg:golang/github.com/golang-jwt/jwt/v4@v4.5.0",
         "pkg:golang/github.com/golang-jwt/jwt@v3.2.2%2Bincompatible",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/google/btree@v1.1.2",
         "pkg:golang/github.com/google/go-github/v35@v35.3.0",
         "pkg:golang/github.com/google/go-github/v41@v41.0.0",
@@ -492002,7 +492002,7 @@
         "pkg:golang/github.com/sergi/go-diff@v1.3.1",
         "pkg:golang/github.com/sirupsen/logrus@v1.9.3",
         "pkg:golang/github.com/sourcegraph/annotate@v0.0.0-20160123013949-f4cad6c6324d",
-        "pkg:golang/github.com/sourcegraph/syntaxhighlight@v0.0.0-201705312.2.08-bd320f5d308e",
+        "pkg:golang/github.com/sourcegraph/syntaxhighlight@v0.0.0-20170531221838-bd320f5d308e",
         "pkg:golang/github.com/spf13/cast@v1.6.0",
         "pkg:golang/github.com/spf13/cobra@v1.8.1",
         "pkg:golang/github.com/spf13/pflag@v1.0.5",
@@ -492134,7 +492134,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/sourcegraph/syntaxhighlight@v0.0.0-201705312.2.08-bd320f5d308e",
+      "ref": "pkg:golang/github.com/sourcegraph/syntaxhighlight@v0.0.0-20170531221838-bd320f5d308e",
       "dependsOn": []
     },
     {
@@ -492462,7 +492462,7 @@
         "pkg:golang/github.com/dysnix/predictkube-libs@v0.0.4-0.20230109175007-5a82fccd31c7",
         "pkg:golang/github.com/dysnix/predictkube-proto@v0.0.0-20240703070754-1483183ce065",
         "pkg:golang/github.com/eapache/go-resiliency@v1.6.0",
-        "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230731223053-c322873962e3",
+        "pkg:golang/github.com/eapache/go-xerial-snappy@v0.0.0-20230.31.33053-c322873962e3",
         "pkg:golang/github.com/eapache/queue@v1.1.0",
         "pkg:golang/github.com/elastic/go-elasticsearch/v7@v7.17.10",
         "pkg:golang/github.com/emicklei/go-restful/v3@v3.12.0",
@@ -492492,7 +492492,7 @@
         "pkg:golang/github.com/golang-jwt/jwt@v3.2.2%2Bincompatible",
         "pkg:golang/github.com/golang-sql/civil@v0.0.0-20220223132316-b832511892a9",
         "pkg:golang/github.com/golang-sql/sqlexp@v0.1.0",
-        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@v0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
         "pkg:golang/github.com/golang/snappy@v0.0.4",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
@@ -498641,7 +498641,7 @@
       "dependsOn": []
     },
     {
-      "ref": "28318a4e-8142-40cd-93d9-63371816b5b7",
+      "ref": "28318a4e-8142-40cd-93d9-633.19.1b5b7",
       "dependsOn": []
     },
     {
@@ -504702,7 +504702,7 @@
         "a88dccaa-0660-4494-b73d-5b285ddebbfb",
         "a89e53c1-9bac-45e6-9a66-2af4c9cd4456",
         "a8b94b83-4554-4d58-9d1e-6818bbdd8045",
-        "a8c82e63-18d6-4307-afa9-d229b79947fa",
+        "a8c82e63.19.1-4307-afa9-d229b79947fa",
         "a8fff29a-3cb6-437f-a54f-32ae0192c1f2",
         "a93f991c-93f5-43f1-88ec-6e60d3cf9d3b",
         "a953901a-2667-4e97-9ff7-1e8364b8a082",
@@ -513322,7 +513322,7 @@
         "278f208a-6c61-4452-9e71-1c636a9e4d78",
         "27a6a6a1-4418-4f8f-8b1e-f731e44c2f5e",
         "280acf2f-7dc0-42b2-bc4c-a6f5cdf43699",
-        "28318a4e-8142-40cd-93d9-63371816b5b7",
+        "28318a4e-8142-40cd-93d9-633.19.1b5b7",
         "283cbc17-c799-4754-872d-4b9a7e148a4e",
         "29258442-5615-49cf-a7ec-0dfc8bb9f75c",
         "2a166fb9-c187-41f6-b97d-8ed81.3.07af",
@@ -515544,7 +515544,7 @@
       "dependsOn": []
     },
     {
-      "ref": "a8c82e63-18d6-4307-afa9-d229b79947fa",
+      "ref": "a8c82e63.19.1-4307-afa9-d229b79947fa",
       "dependsOn": []
     },
     {
@@ -529461,7 +529461,7 @@
         "pkg:golang/helm.sh/helm/v3@v3.15.1",
         "pkg:golang/k8s.io/api@v0.30.1",
         "pkg:golang/k8s.io/apimachinery@v0.30.1",
-        "pkg:golang/k8s.io/utils@v0.0.0-20231127182322-b307cd553661",
+        "pkg:golang/k8s.io/utils@v0.0.0-20.31.37182322-b307cd553661",
         "pkg:golang/modernc.org/libc@v1.49.3",
         "pkg:golang/modernc.org/mathutil@v1.6.0",
         "pkg:golang/modernc.org/memory@v1.8.0",
@@ -530292,7 +530292,7 @@
         "fbb03722-105e-499d-8e0f-d79887a438e2",
         "ff335196-5247-4395-919d-2fb8faa57caa",
         "pkg:golang/github.com/avast/retry-go/v4@v4.6.1",
-        "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20",
+        "pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20.31.38135937-211cef3b0b20",
         "pkg:golang/github.com/containernetworking/plugins@v1.6.2",
         "pkg:golang/github.com/coreos/go-iptables@v0.8.0",
         "pkg:golang/github.com/coreos/pkg@v0.0.0-2024012.2.0842-bbd7aa9bf6fb",
@@ -532108,7 +532108,7 @@
       ]
     },
     {
-      "ref": "pkg:golang/k8s.io/utils@v0.0.0-20231127182322-b307cd553661",
+      "ref": "pkg:golang/k8s.io/utils@v0.0.0-20.31.37182322-b307cd553661",
       "dependsOn": []
     },
     {
@@ -532366,7 +532366,7 @@
         "pkg:golang/go.uber.org/multierr@v1.1.0",
         "pkg:golang/go.uber.org/zap@v1.10.0",
         "pkg:golang/golang.org/x/crypto@v0.0.0-20200622213623-75b288015ac9",
-        "pkg:golang/golang.org/x/net@v0.0.0-20201110031124-69a78807bb2b",
+        "pkg:golang/golang.org/x/net@v0.0.0-20201110.31.34-69a78807bb2b",
         "pkg:golang/golang.org/x/oauth2@v0.0.0-20191202225959-858c2ad4c8b6",
         "pkg:golang/golang.org/x/sync@v0.0.0-20190911185100-cd5d95a43a6e",
         "pkg:golang/golang.org/x/sys@v0.0.0-20201112073958-5cba982894dd",
@@ -534595,7 +534595,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/golang/groupcache@0.0.0-20210331224755-41bb18bfe9da",
+      "ref": "pkg:golang/github.com/golang/groupcache@0.0.0-20210.31.34755-41bb18bfe9da",
       "dependsOn": []
     },
     {
@@ -535095,7 +535095,7 @@
       "ref": "pkg:golang/go.opencensus.io@0.24.0",
       "dependsOn": [
         "371203dd-b208-4970-85da-94f9639cccb5",
-        "pkg:golang/github.com/golang/groupcache@0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@1.5.3",
         "pkg:golang/github.com/google/go-cmp@0.6.0",
         "pkg:golang/github.com/stretchr/testify@1.9.0",
@@ -535241,7 +535241,7 @@
       "dependsOn": [
         "371203dd-b208-4970-85da-94f9639cccb5",
         "pkg:golang/github.com/gogo/protobuf@1.3.2",
-        "pkg:golang/github.com/golang/groupcache@0.0.0-20210331224755-41bb18bfe9da",
+        "pkg:golang/github.com/golang/groupcache@0.0.0-20210.31.34755-41bb18bfe9da",
         "pkg:golang/github.com/golang/protobuf@1.5.3",
         "pkg:golang/github.com/google/gnostic-models@0.6.8",
         "pkg:golang/github.com/google/go-cmp@0.6.0",
