@@ -26,7 +26,9 @@ try {
     Reset-ProxyConfig
     Stop-WinHttpProxy
     $updatedProxyConfig = Get-ProxyConfig
-    Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverride $updatedProxyConfig.NoProxy
+    
+    $k2sHosts = Get-K2sHosts
+    Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverrides $k2sHosts
     Start-WinHttpProxy
     if ($EncodeStructuredOutput) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null}
