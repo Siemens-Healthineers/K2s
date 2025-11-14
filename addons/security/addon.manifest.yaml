@@ -42,10 +42,6 @@ spec:
                   validationSet:
                     - nginx
                     - traefik
-              - name: proxy
-                shorthand: p
-                default: ''
-                description: HTTP Proxy
               - name: type
                 shorthand: t
                 default: basic
@@ -70,8 +66,6 @@ spec:
             examples:
               - cmd: k2s addons enable security
                 comment: Enable security addon with CA issuer configured
-              - cmd: k2s addons enable security --proxy http://10.11.12.13:5000
-                comment: Enable security addon with CA issuer configured using an HTTP proxy
               - cmd: k2s addons enable security --type enhanced
                 comment: Enable security addon with zero trust settings
               - cmd: k2s addons enable security --omitHydra
@@ -87,8 +81,6 @@ spec:
           script:
             subPath: Enable.ps1
             parameterMappings:
-              - cliFlagName: proxy
-                scriptParameterName: Proxy
               - cliFlagName: ingress
                 scriptParameterName: Ingress
               - cliFlagName: type
