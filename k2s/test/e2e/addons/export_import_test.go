@@ -174,7 +174,8 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 					exportedImages, err := sos.GetFilesMatch(addonExportDir, "*.tar")
 					Expect(err).ToNot(HaveOccurred())
-					Expect(len(exportedImages)).To(Equal(len(images)))
+					Expect(len(exportedImages)).To(Equal(len(images)),
+						"Expected %d tar files to match %d images", len(exportedImages), len(images))
 
 					_, err = os.Stat(filepath.Join(addonExportDir, "version.info"))
 					Expect(os.IsNotExist(err)).To(BeFalse(), "version.info should exist for addon %s", expectedDirName)
