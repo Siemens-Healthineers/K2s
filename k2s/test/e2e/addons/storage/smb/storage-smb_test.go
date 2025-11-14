@@ -904,6 +904,78 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 		})
 	})
+
+	Describe("Static Provisioning", func() {
+		When("using static PV and PVC", Ordered, func() {
+			const (
+				staticWorkloadName = "smb-static-test"
+				staticPVName       = "smb-static-pv"
+				staticPVCName      = "smb-static-pvc"
+				staticTestFileName = "smb-share-test-linux.file"
+				staticManifestDir  = "workloads/staticpv"
+			)
+
+			It("enables the addon with Windows host", func(ctx context.Context) {
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				expectEnableMessage(output, "windows")
+			})
+
+			It("creates static PV and PVC", func(ctx context.Context) {
+				GinkgoWriter.Printf("Creating static PV with source: %s\n", storageConfig[2].WinMountPath)
+
+				suite.Kubectl().Run(ctx, "apply", "-k", staticManifestDir)
+			})
+
+			It("waits for PVC to be bound", func(ctx context.Context) {
+				Eventually(func(ctx context.Context) string {
+					return suite.Kubectl().Run(ctx, "get", "pvc", staticPVCName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+				}).
+					WithTimeout(testFileCheckTimeout).
+					WithPolling(time.Second*2).
+					WithContext(ctx).
+					Should(Equal("Bound"), "Static PVC should be bound to static PV")
+			})
+
+			It("waits for StatefulSet to be ready", func(ctx context.Context) {
+				suite.Cluster().ExpectStatefulSetToBeReady(staticWorkloadName, namespace, 1, ctx)
+			})
+
+			It("verifies file exists on SMB share (static provisioning)", func(ctx context.Context) {
+				Eventually(os.IsFileExists).
+					WithArguments(storageConfig[2].WinMountPath, staticTestFileName).
+					WithTimeout(testFileCheckTimeout).
+					WithPolling(testFileCheckInterval).
+					WithContext(ctx).
+					Should(BeTrue(), fmt.Sprintf("File %s should exist in static PV mount path", staticTestFileName))
+			})
+
+			It("deletes the StatefulSet", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "delete", "statefulset", staticWorkloadName, "-n", namespace)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(staticWorkloadName, namespace, ctx)
+			})
+
+			It("verifies file still exists after workload deletion", func(ctx context.Context) {
+				testFilePath := filepath.Join(storageConfig[2].WinMountPath, staticTestFileName)
+				_, err := bos.Stat(testFilePath)
+				Expect(err).ToNot(HaveOccurred(), "File should still exist after workload deletion")
+			})
+
+			It("deletes the PVC and PV", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "delete", "pvc", staticPVCName, "-n", namespace)
+				suite.Kubectl().Run(ctx, "delete", "pv", staticPVName)
+			})
+
+			It("verifies file still exists after PVC deletion (Retain policy)", func(ctx context.Context) {
+				testFilePath := filepath.Join(storageConfig[2].WinMountPath, staticTestFileName)
+				_, err := bos.Stat(testFilePath)
+				Expect(err).ToNot(HaveOccurred(), "File should still exist with Retain reclaim policy")
+			})
+
+			It("disables the addon", func(ctx context.Context) {
+				disableAddon(ctx, "-f")
+			})
+		})
+	})
 })
 
 func expectWorkloadToRun(ctx context.Context, workloadName, mountPath, testFileName string) {
