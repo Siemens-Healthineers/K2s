@@ -17,12 +17,17 @@ spec:
           deb: []
           curl: []
           additionalImages:
-            - registry.k8s.io/external-dns/external-dns:v0.19.0
+            - registry.k8s.io/external-dns/external-dns
             - cr.l5d.io/linkerd/policy-controller:edge-25.4.4
             - cr.l5d.io/linkerd/controller:edge-25.4.4
-            - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4 #windows_image
-            - shsk2s.azurecr.io/linkerd/proxy-init:v2.4.2 #windows_image
+            - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4
+            - shsk2s.azurecr.io/linkerd/proxy-init:v2.4.2
+          additionalImagesFiles:
+            - ../common/manifests/external-dns/deployment.yaml  
         windows:
+          additionalImages:
+            - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4
+            - shsk2s.azurecr.io/linkerd/proxy-init:v2.4.2
           curl:
             - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
@@ -42,10 +47,6 @@ spec:
                   validationSet:
                     - nginx
                     - traefik
-              - name: proxy
-                shorthand: p
-                default: ''
-                description: HTTP Proxy
               - name: type
                 shorthand: t
                 default: basic
@@ -70,8 +71,6 @@ spec:
             examples:
               - cmd: k2s addons enable security
                 comment: Enable security addon with CA issuer configured
-              - cmd: k2s addons enable security --proxy http://10.11.12.13:5000
-                comment: Enable security addon with CA issuer configured using an HTTP proxy
               - cmd: k2s addons enable security --type enhanced
                 comment: Enable security addon with zero trust settings
               - cmd: k2s addons enable security --omitHydra
@@ -87,8 +86,6 @@ spec:
           script:
             subPath: Enable.ps1
             parameterMappings:
-              - cliFlagName: proxy
-                scriptParameterName: Proxy
               - cliFlagName: ingress
                 scriptParameterName: Ingress
               - cliFlagName: type

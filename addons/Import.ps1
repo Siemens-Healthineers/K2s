@@ -188,7 +188,12 @@ foreach ($addon in $addonsToImport) {
                 }
                 
                 $kubeBinPath = Get-KubeBinPath
-                $yqExe = Join-Path $kubeBinPath "yq.exe"
+                $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
+                
+                if (-not (Test-Path $yqExe)) {
+                    throw "yq.exe not found at '$yqExe'"
+                }
+                
                 $tempJsonFile = New-TemporaryFile
                 try {
                     $originalContent = Get-Content -Path $parentManifestPath -Raw -Encoding UTF8
