@@ -102,6 +102,81 @@ function Wait-ForNodesReady {
 }
 
 <#
+.SYNOPSIS
+Patches the Windows node PodCIDR to match the expected value configured in config.json.
+
+.DESCRIPTION
+After a Windows node joins the cluster, Kubernetes controller-manager automatically allocates
+a PodCIDR from the podSubnet range. However, K2s expects a specific PodCIDR (podNetworkWorkerCIDR)
+that Flannel and other networking components are configured to use. This function patches the
+node's PodCIDR to match the expected value.
+
+.PARAMETER NodeName
+The name of the Windows node to patch.
+
+.PARAMETER PodSubnetworkNumber
+The pod subnetwork number (e.g., '1' for 172.20.1.0/24).
+#>
+function Set-WindowsNodePodCIDR {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+
+    Write-Log "Patching Windows node '$NodeName' PodCIDR to match expected value"
+
+    # Get expected PodCIDR from config.json
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
+    $expectedPodCIDR = $clusterCIDRWorkerTemplate.Replace('X', $PodSubnetworkNumber)
+
+    # Get current PodCIDR from node
+    $currentPodCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="{.spec.podCIDR}" 2>&1
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "[WARN] Failed to get current PodCIDR for node '$NodeName': $currentPodCIDR" -Console
+        return
+    }
+
+    Write-Log "Current PodCIDR: $currentPodCIDR"
+    Write-Log "Expected PodCIDR: $expectedPodCIDR"
+
+    if ($currentPodCIDR -eq $expectedPodCIDR) {
+        Write-Log "PodCIDR already matches expected value, no patching needed"
+        return
+    }
+
+    # Patch the node PodCIDR
+    Write-Log "Patching node '$NodeName' PodCIDR from '$currentPodCIDR' to '$expectedPodCIDR'"
+    
+    $patchJson = @"
+{
+  "spec": {
+    "podCIDR": "$expectedPodCIDR",
+    "podCIDRs": ["$expectedPodCIDR"]
+  }
+}
+"@
+
+    $patchResult = &"$kubeToolsPath\kubectl.exe" patch node $NodeName --type=merge -p $patchJson 2>&1
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "[ERROR] Failed to patch PodCIDR for node '$NodeName': $patchResult" -Console
+        throw "Failed to patch Windows node PodCIDR. Flannel may not work correctly."
+    }
+
+    # Verify the patch was successful
+    $verifyPodCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="{.spec.podCIDR}" 2>&1
+    
+    if ($verifyPodCIDR -eq $expectedPodCIDR) {
+        Write-Log "Successfully patched node PodCIDR to '$expectedPodCIDR'" -Console
+    }
+    else {
+        Write-Log "[WARN] PodCIDR patch may not have applied correctly. Expected: $expectedPodCIDR, Got: $verifyPodCIDR" -Console
+    }
+}
+
+<#
 Join the windows node with linux control plane node
 #>
 function Join-WindowsNode {
@@ -211,6 +286,9 @@ function Join-WindowsNode {
     # mark nodes as worker
     Write-Log 'Labeling windows node as worker node'
     &"$kubeToolsPath\kubectl.exe" label nodes $env:computername.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
+
+    # Patch node PodCIDR to match expected value for Flannel
+    Set-WindowsNodePodCIDR -NodeName $env:computername.ToLower() -PodSubnetworkNumber $PodSubnetworkNumber
 }
 
 function Join-LinuxNode {

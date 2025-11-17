@@ -266,7 +266,7 @@ spec:
               value: "{{ .AppName }}"
         {{ if eq .OS "linux" -}}
         - name: curl-sidecar
-          image: curlimages/curl:8.5.0
+          image: docker.io/curlimages/curl:8.5.0
           command: ["sleep", "infinity"]
         {{- end }}
       nodeSelector:

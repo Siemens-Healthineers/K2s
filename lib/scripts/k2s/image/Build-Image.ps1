@@ -154,11 +154,6 @@ $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
 $scriptStartLocation = Get-Location
 Write-Log "Script start location: $scriptStartLocation"
 
-$buildArgsString = Get-BuildArgs($BuildArgs)
-if ($buildArgsString -ne '') {
-    Write-Log "Build arguments $buildArgsString"
-}
-
 $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
 
 $kubeBinPath = Get-KubeBinPath
@@ -405,6 +400,24 @@ else {
             $RemoveColorSequences = ''
         }
     }
+}
+
+if ($Env:GOPRIVATE -ne '') {
+    Write-Log 'Passing your local GOPRIVATE environment as Build Argument'
+    $BuildArgs += "GOPRIVATE=$Env:GOPRIVATE"
+}
+if ($Env:GOPROXY -ne '') {
+    Write-Log 'Passing your local GOPROXY environment as Build Argument'
+    $BuildArgs += "GOPROXY=$Env:GOPROXY"
+}
+if ($Env:GOSUMDB -ne '') {
+    Write-Log 'Passing your local GOSUMDB environment as Build Argument'
+    $BuildArgs += "GOSUMDB=$Env:GOSUMDB"
+}
+
+$buildArgsString = Get-BuildArgs($BuildArgs)
+if ($buildArgsString -ne '') {
+    Write-Log "Build arguments $buildArgsString"
 }
 
 # Windows container

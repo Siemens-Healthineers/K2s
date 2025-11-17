@@ -233,7 +233,8 @@ function Set-LoopbackAdapterExtendedProperties {
     Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -Dhcp Disabled  | Out-Null
     $dnsServersAsArray = $DnsServers -split ','
     Set-IPAddressAndDnsClientServerAddress -IPAddress $ipAddressForLoopbackAdapter -DefaultGateway $gw -Index $loopbackAdapterIfIndex -DnsAddresses $dnsServersAsArray
-    Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
+    # Removed, not at the end of start cmd
+    # Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
     Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
     netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
     Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102  | Out-Null
@@ -274,9 +275,15 @@ function Set-NewNameForLoopbackAdapter {
     }
 }
 
+function Set-PrivateNetworkProfileForLoopbackAdapter {
+    $adapterName = Get-L2BridgeName
+    $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
+    Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
+}
+
 Export-ModuleMember New-LoopbackAdapter
 Export-ModuleMember Remove-LoopbackAdapter
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
 Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdapter, Get-L2BridgeName,
 Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath, Set-LoopbackAdapterExtendedProperties,
-Set-NewNameForLoopbackAdapter
+Set-NewNameForLoopbackAdapter, Set-PrivateNetworkProfileForLoopbackAdapter

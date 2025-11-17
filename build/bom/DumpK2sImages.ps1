@@ -173,9 +173,27 @@ foreach ($manifest in $addonManifests) {
                 }
                 $images.Add($additionImages)
             }
+
+            # extract additionalImagesFiles if present
+            if ($linuxPackages.additionalImagesFiles -and $linuxPackages.additionalImagesFiles.Count -gt 0) {
+                $extractedImages = Get-ImagesFromYamlFiles -YamlFiles $linuxPackages.additionalImagesFiles -BaseDirectory "$global:KubernetesPath\addons\"
+                if ($extractedImages.Count -gt 0) {
+                    if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
+                        $addonNameImagesMapping[$addonName] = @()
+                    }
+                    foreach ($extractedImage in $extractedImages) {
+                        if (-not ($addonNameImagesMapping[$addonName] -contains $extractedImage)) {
+                            $addonNameImagesMapping[$addonName] += $extractedImage
+                        }
+                    }
+                    $images.AddRange($extractedImages)
+                    Write-Output "Extracted $($extractedImages.Count) images from YAML files for addon $addonName"
+                }
+            }
         }
 
         $addonImages = $images | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'") }
+        $addonImages = Remove-VersionlessImages -Images $addonImages
     }
 }
 

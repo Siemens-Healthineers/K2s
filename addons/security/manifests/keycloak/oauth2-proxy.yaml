@@ -19,15 +19,15 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7.2.4
+          image: docker.io/library/redis:7.2.4
           ports:
             - containerPort: 6379
           resources:
             limits:
-              cpu: '0.5'
-              memory: '512Mi'
-          command: ['redis-server']
-          args: ['--save', '', '--appendonly', 'no']
+              cpu: "0.5"
+              memory: "512Mi"
+          command: ["redis-server"]
+          args: ["--save", "", "--appendonly", "no"]
 ---
 apiVersion: v1
 kind: Service
@@ -101,9 +101,9 @@ spec:
           configMap:
             name: oauth2-proxy-config
       hostAliases:
-        - ip: '172.19.1.100'
+        - ip: "172.19.1.100"
           hostnames:
-            - 'k2s.cluster.local'
+            - "k2s.cluster.local"
       containers:
         - name: oauth-proxy
           image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
