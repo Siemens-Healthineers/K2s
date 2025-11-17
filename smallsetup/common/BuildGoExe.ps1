@@ -56,6 +56,7 @@ $appsOutputMapping = @{
     'vfprules'            = $cniBinDir
     'yaml2json'           = $binDir
     'zap'                 = $binDir
+    'cplauncher'          = $cniBinDir
 }
 
 if ($ProjectDir -eq '') {

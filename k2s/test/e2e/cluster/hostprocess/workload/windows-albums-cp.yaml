@@ -1,0 +1,141 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
+# 1. Anchor Pod (non-HostProcess): simple pause container to own the compartment/network.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: albums-compartment-anchor
+  labels:
+    app: cp-albums-win # <== label selector used by cplauncher in part 2
+  annotations:
+    linkerd.io/inject: enabled
+spec:
+  nodeSelector:
+    kubernetes.io/os: windows
+  tolerations: # (optional) tolerate Windows specific taint
+    - key: 'OS'
+      operator: 'Equal'
+      value: 'Windows'
+      effect: 'NoSchedule'
+  containers:
+    - name: pause
+      image: shsk2s.azurecr.io/pause-win:v1.5.0
+      imagePullPolicy: IfNotPresent
+      # No custom command required: pause.exe in image keeps container alive.
+  restartPolicy: Always
+---
+# 2. HostProcess Deployment launching cplauncher from the host (single replica)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: albums-win-hp-app-hostprocess
+  labels:
+    app: albums-win-hp-app-hostprocess
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: albums-win-hp-app-hostprocess
+  template:
+    metadata:
+      labels:
+        app: albums-win-hp-app-hostprocess
+    spec:
+      nodeSelector:
+        kubernetes.io/os: windows
+      tolerations: # (optional) tolerate Windows taint
+        - key: 'OS'
+          operator: 'Equal'
+          value: 'Windows'
+          effect: 'NoSchedule'
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: "NT AUTHORITY\\SYSTEM"
+      hostNetwork: true
+      containers:
+        - name: cplauncher
+          image: shsk2s.azurecr.io/pause-win:v1.5.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CPLAUNCHER_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: hostprocess-launcher-env
+                  key: CPLAUNCHER_BASE
+            - name: ALBUMS_WIN
+              valueFrom:
+                configMapKeyRef:
+                  name: hostprocess-launcher-env
+                  key: ALBUMS_WIN
+            - name: RESOURCE
+              value: 'albums-win-hp-app-hostprocess'
+          # Invoke via PowerShell to avoid cmd.exe quoting ambiguities with paths containing spaces.
+          # PowerShell expands $env: vars and preserves quoted arguments precisely.
+          command:
+            - powershell.exe
+            - -NoLogo
+            - -NoProfile
+            - -Command
+            - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -label-timeout 30s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
+          readinessProbe:
+            httpGet:
+              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local   # Service DNS name (same namespace)
+              port: 8080
+              path: /health/readiness     
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 5
+            successThreshold: 1
+            timeoutSeconds: 6
+          livenessProbe:  # lightweight: slower period to reduce probe load
+            httpGet:
+              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
+              port: 8080
+              path: /health/liveness
+              scheme: HTTP
+            initialDelaySeconds: 30   # allow full startup & readiness first
+            periodSeconds: 30         # low frequency keeps overhead small
+            timeoutSeconds: 6
+            failureThreshold: 2       
+            successThreshold: 1
+          startupProbe:
+            httpGet:
+              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
+              port: 8080
+              path: /health/startup
+              scheme: HTTP
+            initialDelaySeconds: 30       # small delay before first check
+            periodSeconds: 10             # check every 5s during startup
+            failureThreshold: 2         
+            successThreshold: 1          # one successful connect is enough
+            timeoutSeconds: 5            # short timeout for TCP connect
+          volumeMounts:
+            - name: host-var-log
+              mountPath: C:/var/log
+      volumes:
+        - name: host-var-log
+          hostPath:
+            path: C:/var/log
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+# 3. Service exposing the hostprocess albums application
+apiVersion: v1
+kind: Service
+metadata:
+  name: albums-win-hp-app-hostprocess
+  labels:
+    app: albums-win-hp-app-hostprocess
+spec:
+  selector:
+    app: cp-albums-win # <== label selector used by cplauncher
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080 # Cluster IP port
+      targetPort: 8080 # Container listens on 8080 (adjust if different)
+      protocol: TCP
+  clusterIP: 172.21.1.211

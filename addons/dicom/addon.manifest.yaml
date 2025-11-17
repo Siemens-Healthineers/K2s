@@ -34,6 +34,9 @@ spec:
                   validationSet:
                     - none
                     - smb
+              - name: storagedir
+                default: none
+                description: Path to smb storage directory (e.g., /mnt/k8s-smb-share)
             examples:
               - cmd: k2s addons enable dicom
                 comment: Enable dicom in k2s
@@ -43,6 +46,8 @@ spec:
                 comment: Enable dicom in k2s with traefik ingres
               - cmd: k2s addons enable dicom --storage smb
                 comment: Enable dicom in k2s with storage addon smb
+              - cmd: k2s addons enable dicom --storage smb --storagedir /mnt/k8s-smb-share
+                comment: Enable dicom in k2s with storage addon smb at /mnt/k8s-smb-share
           script:
             subPath: Enable.ps1
             parameterMappings:
@@ -50,6 +55,8 @@ spec:
                 scriptParameterName: Ingress
               - cliFlagName: storage
                 scriptParameterName: Storage
+              - cliFlagName: storagedir
+                scriptParameterName: StorageDir
         disable:
           cli:
             flags:

@@ -27,13 +27,14 @@ import (
 	"github.com/samber/lo"
 )
 
-const testClusterTimeout = time.Minute * 60
+const testClusterTimeout = time.Minute * 120
 
 var (
-	suite      *framework.K2sTestSuite
-	linuxOnly  bool
-	exportPath string
-	allAddons  addons.Addons
+	suite           *framework.K2sTestSuite
+	linuxOnly       bool
+	exportPath      string
+	allAddons       addons.Addons
+	exportedZipFile string
 
 	linuxTestContainers   []string
 	windowsTestContainers []string
@@ -83,11 +84,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 
 			GinkgoWriter.Printf("Exporting all addons to %s", exportPath)
-			if suite.Proxy() != "" {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o", "-p", suite.Proxy())
-			} else {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o")
-			}
+			suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o")
 		})
 
 		AfterAll(func(ctx context.Context) {
@@ -97,19 +94,27 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 		})
 
-		It("addons are exported to zip file", func(ctx context.Context) {
-			_, err := os.Stat(filepath.Join(exportPath, "addons.zip"))
+		It("addons are exported to versioned zip file", func(ctx context.Context) {
+			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-all.zip"))
+			Expect(err).To(BeNil())
+			Expect(len(files)).To(Equal(1), "Should create exactly one versioned zip file")
+
+			exportedZipFile = files[0]
+			_, err = os.Stat(exportedZipFile)
 			Expect(os.IsNotExist(err)).To(BeFalse())
 		})
 
-		It("contains a folder for every exported addon and each folder is not empty", func(ctx context.Context) {
-			// addons.zip can be extracted
-			suite.Cli().ExecOrFail(ctx, "tar", "-xf", filepath.Join(exportPath, "addons.zip"), "-C", exportPath)
-			// check for extracted folder
+		It("contains a folder for every exported addon with flattened structure and version info", func(ctx context.Context) {
+			suite.Cli().ExecOrFail(ctx, "tar", "-xf", exportedZipFile, "-C", exportPath)
+
 			_, err := os.Stat(filepath.Join(exportPath, "addons"))
 			Expect(os.IsNotExist(err)).To(BeFalse())
 
-			// check for folder for each addon
+			_, err = os.Stat(filepath.Join(exportPath, "addons", "addons.json"))
+			Expect(os.IsNotExist(err)).To(BeFalse(), "addons.json metadata file should exist")
+
+			_, err = os.Stat(filepath.Join(exportPath, "addons", "version.json"))
+			Expect(os.IsNotExist(err)).To(BeFalse(), "version.json metadata file should exist")
 			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "addons"))
 			Expect(err).To(BeNil())
 
@@ -125,55 +130,65 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					GinkgoWriter.Println("Checking addon:", a.Metadata.Name, ", implementation:", i.Name, ", directory name:", i.ExportDirectoryName)
+					var expectedDirName string
+					if i.Name != a.Metadata.Name {
+						expectedDirName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
+					} else {
+						expectedDirName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
+					}
 
-					contains := slices.Contains(exportedAddons, i.ExportDirectoryName)
-					Expect(contains).To(BeTrue())
+					GinkgoWriter.Println("Checking addon:", a.Metadata.Name, ", implementation:", i.Name, ", expected directory name:", expectedDirName)
+
+					contains := slices.Contains(exportedAddons, expectedDirName)
+					Expect(contains).To(BeTrue(), "Expected directory %s not found in exported addons", expectedDirName)
 				}
 			}
 
 			for _, e := range exportedAddons {
 				addonsDir := filepath.Join(exportPath, "addons", e)
 
-				GinkgoWriter.Println("Checking addon directory:", addonsDir)
+				Expect(sos.IsEmptyDir(addonsDir)).To(BeFalse(), "addon directory should not be empty for addon %s", e)
 
-				Expect(sos.IsEmptyDir(addonsDir)).To(BeFalse())
+				versionInfoPath := filepath.Join(addonsDir, "version.info")
+				_, err = os.Stat(versionInfoPath)
+				Expect(os.IsNotExist(err)).To(BeFalse(), "version.info file should exist for addon %s", e)
 			}
 		})
 
 		It("all resources have been exported", func(ctx context.Context) {
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					GinkgoWriter.Println("-> Addon:", a.Metadata.Name, ", Implementation:", i.Name, ", Directory name:", i.ExportDirectoryName)
-					addonExportDir := filepath.Join(exportPath, "addons", i.ExportDirectoryName)
+					var expectedDirName string
+					if i.Name != a.Metadata.Name {
+						expectedDirName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
+					} else {
+						expectedDirName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
+					}
+
+					GinkgoWriter.Println("-> Addon:", a.Metadata.Name, ", Implementation:", i.Name, ", Expected Directory name:", expectedDirName)
+					addonExportDir := filepath.Join(exportPath, "addons", expectedDirName)
 
 					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
 
 					Expect(err).ToNot(HaveOccurred())
 
-					GinkgoWriter.Println("	check count of exported images is equal")
 					exportedImages, err := sos.GetFilesMatch(addonExportDir, "*.tar")
-
 					Expect(err).ToNot(HaveOccurred())
-					GinkgoWriter.Println("	exportedImages:", len(exportedImages), ", images:", len(images))
-					Expect(len(exportedImages)).To(Equal(len(images)))
+					Expect(len(exportedImages)).To(Equal(len(images)),
+						"Expected %d tar files to match %d images", len(exportedImages), len(images))
 
-					// check linux curl package count is equal
-					GinkgoWriter.Println("	check linux curl package count is equal")
+					_, err = os.Stat(filepath.Join(addonExportDir, "version.info"))
+					Expect(os.IsNotExist(err)).To(BeFalse(), "version.info should exist for addon %s", expectedDirName)
 					for _, lp := range i.OfflineUsage.LinuxResources.CurlPackages {
 						_, err = os.Stat(filepath.Join(addonExportDir, "linuxpackages", filepath.Base(lp.Url)))
 						Expect(os.IsNotExist(err)).To(BeFalse())
 					}
 
-					// check linux debian package count is equal
-					GinkgoWriter.Println("	check linux debian package count is equal")
 					for _, d := range i.OfflineUsage.LinuxResources.DebPackages {
 						_, err = os.Stat(filepath.Join(addonExportDir, "debianpackages", d))
 						Expect(os.IsNotExist(err)).To(BeFalse())
 					}
 
-					// check windows curl package count is equal
-					GinkgoWriter.Println("	check windows curl package count is equal")
 					for _, wp := range i.OfflineUsage.WindowsResources.CurlPackages {
 						_, err = os.Stat(filepath.Join(addonExportDir, "windowspackages", filepath.Base(wp.Url)))
 						Expect(os.IsNotExist(err)).To(BeFalse())
@@ -181,16 +196,55 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				}
 			}
 		})
+
+		It("metadata files contain correct information", func(ctx context.Context) {
+			addonsJsonPath := filepath.Join(exportPath, "addons", "addons.json")
+			addonsJsonBytes, err := os.ReadFile(addonsJsonPath)
+			Expect(err).To(BeNil())
+			Expect(string(addonsJsonBytes)).To(ContainSubstring("k2sVersion"))
+			Expect(string(addonsJsonBytes)).To(ContainSubstring("exportType"))
+			Expect(string(addonsJsonBytes)).To(ContainSubstring("addons"))
+
+			versionJsonPath := filepath.Join(exportPath, "addons", "version.json")
+			versionJsonBytes, err := os.ReadFile(versionJsonPath)
+			Expect(err).To(BeNil())
+			Expect(string(versionJsonBytes)).To(ContainSubstring("k2sVersion"))
+			Expect(string(versionJsonBytes)).To(ContainSubstring("exportType"))
+			Expect(string(versionJsonBytes)).To(ContainSubstring("addonCount"))
+		})
+
+		It("version.info files contain CD-friendly information", func(ctx context.Context) {
+			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "addons"))
+			Expect(err).To(BeNil())
+
+			addonDirs := []string{}
+			for _, entry := range exportedAddonsDir {
+				if entry.IsDir() {
+					addonDirs = append(addonDirs, entry.Name())
+				}
+			}
+
+			for _, addonDir := range addonDirs {
+				versionInfoPath := filepath.Join(exportPath, "addons", addonDir, "version.info")
+				versionInfoBytes, err := os.ReadFile(versionInfoPath)
+				Expect(err).To(BeNil(), "should be able to read version.info for addon %s", addonDir)
+
+				Expect(string(versionInfoBytes)).To(ContainSubstring("addonName"))
+				Expect(string(versionInfoBytes)).To(ContainSubstring("implementationName"))
+				Expect(string(versionInfoBytes)).To(ContainSubstring("k2sVersion"))
+				Expect(string(versionInfoBytes)).To(ContainSubstring("exportDate"))
+				Expect(string(versionInfoBytes)).To(ContainSubstring("exportType"))
+
+				GinkgoWriter.Printf("Version info for %s: %s", addonDir, string(versionInfoBytes)[:200])
+			}
+		})
 	})
 
 	Describe("clean up downloaded resources", func() {
 		BeforeAll(func(ctx context.Context) {
-			// clean up all images
 			GinkgoWriter.Println("cleanup images")
-			// to be more robust don't consider failing since many people have dangling images in their system
 			suite.K2sCli().Run(ctx, "image", "clean", "-o")
 
-			// clean all downloaded
 			GinkgoWriter.Println("remove all download debian packages")
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
@@ -215,10 +269,8 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 	Describe("import all addons", func() {
 		BeforeAll(func(ctx context.Context) {
-			// clean up all images
-			zipFile := filepath.Join(exportPath, "addons.zip")
-			suite.K2sCli().RunOrFail(ctx, "addons", "import", "-z", zipFile)
-		})
+			suite.K2sCli().RunOrFail(ctx, "addons", "import", "-z", exportedZipFile)
+		}, NodeTimeout(time.Minute*30))
 
 		AfterAll(func(ctx context.Context) {
 			if _, err := os.Stat(exportPath); !os.IsNotExist(err) {
@@ -271,6 +323,144 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 						Expect(os.IsNotExist(err)).To(BeFalse())
 					}
 				}
+			}
+		})
+
+		It("tar files are excluded during import but other content is imported", func(ctx context.Context) {
+			addonsDirs, err := os.ReadDir(filepath.Join(suite.RootDir(), "addons"))
+			Expect(err).To(BeNil())
+
+			for _, addonDir := range addonsDirs {
+				if !addonDir.IsDir() {
+					continue
+				}
+
+				addonPath := filepath.Join(suite.RootDir(), "addons", addonDir.Name())
+
+				err := filepath.WalkDir(addonPath, func(path string, d os.DirEntry, err error) error {
+					if err != nil {
+						return err
+					}
+
+					if !d.IsDir() && strings.HasSuffix(d.Name(), ".tar") {
+						Fail(fmt.Sprintf("Found .tar file in addon directory: %s", path))
+					}
+
+					return nil
+				})
+
+				Expect(err).To(BeNil())
+
+				manifestPath := filepath.Join(addonPath, "addon.manifest.yaml")
+				if _, err := os.Stat(manifestPath); err == nil {
+					GinkgoWriter.Printf("Verified manifest exists for addon: %s", addonDir.Name())
+				}
+			}
+
+			GinkgoWriter.Println("Verified: No .tar files found in addon directories after import")
+		})
+
+		It("version.info files are processed and removed during import", func(ctx context.Context) {
+			addonsDirs, err := os.ReadDir(filepath.Join(suite.RootDir(), "addons"))
+			Expect(err).To(BeNil())
+
+			for _, addonDir := range addonsDirs {
+				if !addonDir.IsDir() {
+					continue
+				}
+
+				addonPath := filepath.Join(suite.RootDir(), "addons", addonDir.Name())
+
+				err := filepath.WalkDir(addonPath, func(path string, d os.DirEntry, err error) error {
+					if err != nil {
+						return err
+					}
+
+					if !d.IsDir() && d.Name() == "version.info" {
+						Fail(fmt.Sprintf("Found version.info file in final addon directory: %s", path))
+					}
+
+					return nil
+				})
+
+				Expect(err).To(BeNil())
+			}
+
+			GinkgoWriter.Println("Verified: No version.info files found in final addon directories after import")
+		})
+
+		It("manifest merging preserves multiple implementations", func(ctx context.Context) {
+			ingressManifestPath := filepath.Join(suite.RootDir(), "addons", "ingress", "addon.manifest.yaml")
+			if _, err := os.Stat(ingressManifestPath); err == nil {
+				manifestContent, err := os.ReadFile(ingressManifestPath)
+				Expect(err).To(BeNil())
+				manifestStr := string(manifestContent)
+
+				Expect(manifestStr).To(ContainSubstring("nginx"), "Ingress manifest should contain nginx implementation")
+				Expect(manifestStr).To(ContainSubstring("traefik"), "Ingress manifest should contain traefik implementation")
+
+				Expect(manifestStr).To(ContainSubstring("SPDX-FileCopyrightText"), "Manifest should preserve SPDX header")
+				Expect(manifestStr).To(ContainSubstring("SPDX-License-Identifier"), "Manifest should preserve license identifier")
+
+				GinkgoWriter.Println("Verified: Ingress manifest contains both nginx and traefik implementations")
+			} else {
+				GinkgoWriter.Println("Ingress manifest not found - skipping manifest merging test")
+			}
+		})
+	})
+
+	Describe("export single implementation addon", func() {
+		var singleImplZipFile string
+
+		BeforeAll(func(ctx context.Context) {
+			extractedFolder := filepath.Join(exportPath, "addons")
+			if _, err := os.Stat(extractedFolder); !os.IsNotExist(err) {
+				os.RemoveAll(extractedFolder)
+			}
+
+			GinkgoWriter.Printf("Exporting single implementation addon to %s", exportPath)
+			suite.K2sCli().RunOrFail(ctx, "addons", "export", "ingress nginx", "-d", exportPath)
+		})
+
+		AfterAll(func(ctx context.Context) {
+			extractedFolder := filepath.Join(exportPath, "addons")
+			if _, err := os.Stat(extractedFolder); !os.IsNotExist(err) {
+				os.RemoveAll(extractedFolder)
+			}
+			if singleImplZipFile != "" && filepath.Ext(singleImplZipFile) == ".zip" {
+				os.Remove(singleImplZipFile)
+			}
+		})
+
+		It("single implementation addon is exported with filtered manifest", func(ctx context.Context) {
+			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-ingress-nginx.zip"))
+			Expect(err).To(BeNil())
+			Expect(len(files)).To(Equal(1), "Should create exactly one versioned zip file for single implementation")
+
+			singleImplZipFile = files[0]
+			_, err = os.Stat(singleImplZipFile)
+			Expect(os.IsNotExist(err)).To(BeFalse())
+
+			suite.Cli().ExecOrFail(ctx, "tar", "-xf", singleImplZipFile, "-C", exportPath)
+
+			ingressNginxDir := filepath.Join(exportPath, "addons", "ingress_nginx")
+			_, err = os.Stat(ingressNginxDir)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "ingress_nginx directory should exist")
+
+			versionInfoPath := filepath.Join(ingressNginxDir, "version.info")
+			_, err = os.Stat(versionInfoPath)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "version.info should exist")
+
+			manifestPath := filepath.Join(ingressNginxDir, "addon.manifest.yaml")
+			if _, err := os.Stat(manifestPath); err == nil {
+				manifestContent, err := os.ReadFile(manifestPath)
+				Expect(err).To(BeNil())
+				manifestStr := string(manifestContent)
+
+				Expect(manifestStr).To(ContainSubstring("nginx"))
+				Expect(manifestStr).ToNot(ContainSubstring("traefik"))
+
+				GinkgoWriter.Println("Single implementation manifest verified - contains only nginx implementation")
 			}
 		})
 	})

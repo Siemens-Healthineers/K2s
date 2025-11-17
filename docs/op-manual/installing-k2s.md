@@ -58,6 +58,9 @@ To inspect the different install options, run:
 ```console
 <repo>\k2s.exe install -h
 ```
+!!! warning
+    If the installer detects more than one `k2s.exe` in your system `PATH`, installation will fail.
+    Please review the error message for all detected `k2s.exe` locations and remove any outdated or duplicate directories from your `PATH` environment variable before retrying installation.
 
 !!! info
     By default, the installation assumes 6 CPU cores to be available on the host system. If less cores are available, reduce the number of virtual cores used by *K2s* according to the actual amount, e.g. when 4 cores are available, assign max. 4 virtual cores to *K2s*:

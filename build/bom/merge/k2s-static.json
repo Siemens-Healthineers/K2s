@@ -30,7 +30,7 @@
     {
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.76.1",
+      "version": "v0.77.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -47,7 +47,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.76.1",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.77.0",
       "type": "application"
     },
     {
@@ -74,9 +74,9 @@
       "type": "application"
     },
     {
-      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubelet.exe",
+      "group": "https://dl.k8s.io/v1.34.1/bin/windows/amd64/kubelet.exe",
       "name": "kubelet",
-      "version": "v1.33.4",
+      "version": "v1.34.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -93,13 +93,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes/kubelet@v1.33.4",
+      "purl": "pkg:github/kubernetes/kubelet@v1.34.1",
       "type": "application"
     },
     {
-      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubeadm.exe",
+      "group": "https://dl.k8s.io/v1.34.1/bin/windows/amd64/kubeadm.exe",
       "name": "kubeadm",
-      "version": "v1.33.4",
+      "version": "v1.34.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -116,13 +116,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes/kubeadm@v1.33.4",
+      "purl": "pkg:github/kubernetes/kubeadm@v1.34.1",
       "type": "application"
     },
     {
-      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kube-proxy.exe",
+      "group": "https://dl.k8s.io/v1.34.1/bin/windows/amd64/kube-proxy.exe",
       "name": "kube-proxy",
-      "version": "v1.33.4",
+      "version": "v1.34.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -139,13 +139,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes/kube-proxy@v1.33.4",
+      "purl": "pkg:github/kubernetes/kube-proxy@v1.34.1",
       "type": "application"
     },
     {
-      "group": "https://dl.k8s.io/v1.33.4/bin/windows/amd64/kubectl.exe",
+      "group": "https://dl.k8s.io/v1.34.1/bin/windows/amd64/kubectl.exe",
       "name": "kubectl",
-      "version": "v1.33.4",
+      "version": "v1.34.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -162,13 +162,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes/kubectl@v1.33.4",
+      "purl": "pkg:github/kubernetes/kubectl@v1.34.1",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/nerdctl/releases/download/v2.1.3/nerdctl-2.1.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/nerdctl/releases/download/v2.2.0/nerdctl-2.2.0-windows-amd64.tar.gz",
       "name": "nerdctl",
-      "version": "v2.1.3",
+      "version": "v2.2.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -185,7 +185,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/nerdctl@v2.1.3",
+      "purl": "pkg:github/containerd/nerdctl@v2.2.0",
       "type": "application"
     },
     {
@@ -258,9 +258,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.3.3.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.5.2.zip",
       "name": "dockerd",
-      "version": "v28.3.3",
+      "version": "v28.5.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -277,13 +277,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@28.3.3",
+      "purl": "pkg:github/moby/moby@28.5.2",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.3.3.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.5.2.zip",
       "name": "docker",
-      "version": "v28.3.3",
+      "version": "v28.5.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -300,13 +300,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@28.3.3",
+      "purl": "pkg:github/moby/moby@28.5.2",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.3.3.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.5.2.zip",
       "name": "docker-proxy",
-      "version": "v28.3.3",
+      "version": "v28.5.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -323,13 +323,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@28.3.3",
+      "purl": "pkg:github/moby/moby@28.5.2",
       "type": "application"
     },
     {
-      "group": "https://github.com/flannel-io/flannel/releases/download/0.27.2/flanneld.exe",
+      "group": "https://github.com/flannel-io/flannel/releases/download/0.27.4/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.27.2",
+      "version": "v0.27.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -346,7 +346,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.27.2",
+      "purl": "pkg:github/flannel-io/flannel@v0.27.4",
       "type": "application"
     },
     {
@@ -444,7 +444,7 @@
     {
       "group": "https://github.com/prometheus-community/windows_exporter",
       "name": "windows_exporter",
-      "version": "v0.31.2",
+      "version": "v0.31.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -461,13 +461,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/prometheus-community/windows_exporter@v0.31.2",
+      "purl": "pkg:github/prometheus-community/windows_exporter@v0.31.3",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.0/cri-containerd-cni-2.2.0-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
-      "version": "v2.1.4",
+      "version": "v2.2.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -484,13 +484,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.1.4",
+      "purl": "pkg:github/containerd/containerd@v2.2.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.0/cri-containerd-cni-2.2.0-windows-amd64.tar.gz",
       "name": "containerd-stress",
-      "version": "v2.1.4",
+      "version": "v2.2.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -507,13 +507,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.1.4",
+      "purl": "pkg:github/containerd/containerd@v2.2.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.0/cri-containerd-cni-2.2.0-windows-amd64.tar.gz",
       "name": "containerd",
-      "version": "v2.1.4",
+      "version": "v2.2.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -530,13 +530,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.1.4",
+      "purl": "pkg:github/containerd/containerd@v2.2.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.1.4/cri-containerd-cni-2.1.4-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.0/cri-containerd-cni-2.2.0-windows-amd64.tar.gz",
       "name": "ctr",
-      "version": "v2.1.4",
+      "version": "v2.2.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -553,7 +553,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.1.4",
+      "purl": "pkg:github/containerd/containerd@v2.2.0",
       "type": "application"
     },
     {
@@ -577,6 +577,29 @@
         }
       ],
       "purl": "pkg:github/stedolan/jq@v1.8.1",
+      "type": "application"
+    },
+    {
+      "group": "https://get.helm.sh/helm-v3.19.1-windows-amd64.zip",
+      "name": "helm",
+      "version": "v3.19.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/helm/helm/blob/main/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/helm/helm@v3.19.1",
       "type": "application"
     }
   ],
