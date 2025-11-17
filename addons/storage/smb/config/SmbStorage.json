@@ -4,6 +4,7 @@
         "linuxMountPath": "/mnt/k8s-smb-share",
         "linuxShareName":  "linux-smb-share",
         "winShareName":  "win-smb-share",
-        "storageClassName": "smb"
+        "storageClassName": "smb",
+        "storageClassReclaimPolicy": "Delete"
     }
 ]

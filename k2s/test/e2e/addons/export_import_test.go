@@ -84,11 +84,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 
 			GinkgoWriter.Printf("Exporting all addons to %s", exportPath)
-			if suite.Proxy() != "" {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o", "-p", suite.Proxy())
-			} else {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o")
-			}
+			suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o")
 		})
 
 		AfterAll(func(ctx context.Context) {
@@ -178,7 +174,8 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 					exportedImages, err := sos.GetFilesMatch(addonExportDir, "*.tar")
 					Expect(err).ToNot(HaveOccurred())
-					Expect(len(exportedImages)).To(Equal(len(images)))
+					Expect(len(exportedImages)).To(Equal(len(images)),
+						"Expected %d tar files to match %d images", len(exportedImages), len(images))
 
 					_, err = os.Stat(filepath.Join(addonExportDir, "version.info"))
 					Expect(os.IsNotExist(err)).To(BeFalse(), "version.info should exist for addon %s", expectedDirName)
@@ -422,11 +419,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 
 			GinkgoWriter.Printf("Exporting single implementation addon to %s", exportPath)
-			if suite.Proxy() != "" {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "ingress nginx", "-d", exportPath, "-p", suite.Proxy())
-			} else {
-				suite.K2sCli().RunOrFail(ctx, "addons", "export", "ingress nginx", "-d", exportPath)
-			}
+			suite.K2sCli().RunOrFail(ctx, "addons", "export", "ingress nginx", "-d", exportPath)
 		})
 
 		AfterAll(func(ctx context.Context) {
