@@ -23,7 +23,7 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
         - name: smb-share-test-linux2
-          image: curlimages/curl:8.5.0
+          image: docker.io/curlimages/curl:8.5.0
           command:
             - "/bin/sh"
             - "-c"

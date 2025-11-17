@@ -22,8 +22,6 @@ Param (
 	[parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
 	[ValidateSet('nginx', 'traefik')]
 	[string] $Ingress = 'nginx',
-	[parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-	[string] $Proxy,
 	[parameter(Mandatory = $false, HelpMessage = 'Security type setting')]
 	[ValidateSet('basic', 'enhanced')]
 	[string] $Type = 'basic',
@@ -56,7 +54,8 @@ Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
 
 Write-Log 'Checking cluster status' -Console
 
@@ -353,6 +352,21 @@ try {
 		$trustManagerPodStatus = Wait-ForTrustManagerAvailable
 		if ($trustManagerPodStatus -ne $true) {
 			$errMsg = "All trust manager pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
+			if ($EncodeStructuredOutput -eq $true) {
+				$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+				Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+				return
+			}
+
+			Write-Log $errMsg -Error
+			throw $errMsg
+		}
+
+		# Wait for trust manager webhook to be ready before creating resources that require validation
+		Write-Log 'Waiting for trust manager webhook to be ready' -Console
+		$webhookStatus = Wait-ForTrustManagerWebhookReady
+		if ($webhookStatus -ne $true) {
+			$errMsg = "Trust manager webhook did not become ready. The webhook endpoint may not be accepting connections.`nInstallation of security addon failed."
 			if ($EncodeStructuredOutput -eq $true) {
 				$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
 				Send-ToCli -MessageType $MessageType -Message @{Error = $err }
