@@ -13,6 +13,8 @@ Param(
     [long] $MasterVMProcessorCount = 4,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
+    [parameter(Mandatory = $false, HelpMessage = 'No proxy hosts/domains (comma-separated list or array)')]
+    [string[]] $NoProxy,
     [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
     [string[]]$DnsAddresses,
     [parameter(Mandatory = $false, HelpMessage = 'Do not call the StartK8s at end')]
@@ -45,6 +47,9 @@ $ErrorActionPreference = 'Continue'
 $script:SetupType = 'k2s'
 Set-ConfigSetupType -Value $script:SetupType
 Set-ConfigLinuxOnly -Value $true
+
+# Initialize the proxy settings before starting installation.
+New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 Add-K2sHostsToNoProxyEnvVar
