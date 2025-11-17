@@ -36,21 +36,11 @@ spec:
       commands:
         enable:
           cli:
-            flags:
-              - name: proxy
-                shorthand: p
-                default: ""
-                description: HTTP Proxy
             examples:
               - cmd: k2s addons enable kubevirt
                 comment: Enable kubevirt in k2s
-              - cmd: k2s addons enable kubevirt --proxy http://10.11.12.13:5000
-                comment: Enable kubevirt in k2s with proxy
           script:
             subPath: Enable.ps1
-            parameterMappings:
-              - cliFlagName: proxy
-                scriptParameterName: Proxy
         disable:
           cli:
             examples:

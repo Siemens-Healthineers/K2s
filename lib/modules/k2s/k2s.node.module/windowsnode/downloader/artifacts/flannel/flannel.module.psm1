@@ -93,6 +93,8 @@ function Invoke-DeployCniFlannelArtifacts($windowsNodeArtifactsDirectory) {
 }
 
 function Install-WinFlannel {
+    Write-Log 'Registering flanneld service'
+    mkdir -Force "$(Get-SystemDriveLetter):\var\log\flanneld" | Out-Null
     &$kubeBinPath\nssm install flanneld "$kubeBinPath\cni\flanneld.exe"
     $adapterName = Get-L2BridgeName
     Write-Log "Using network adapter '$adapterName'"
@@ -107,9 +109,20 @@ function Install-WinFlannel {
     }
 
     Write-Log "Using local IP $ipaddress for AppParameters of flanneld"
-    &$kubeBinPath\nssm set flanneld AppParameters "--kubeconfig-file=\`"$kubePath\config\`" --iface=$ipaddress --ip-masq=1 --kube-subnet-mgr=1" | Out-Null
+    
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
+    
+    $k2sHosts = Get-K2sHosts
+    $noProxyValue = $k2sHosts -join ','
+    
     $hn = ($(hostname)).ToLower()
-    &$kubeBinPath\nssm set flanneld AppEnvironmentExtra NODE_NAME=$hn | Out-Null
+    # Build environment variables as separate lines for NSSM
+    $envVars = "NODE_NAME=$hn`r`nHTTP_PROXY=$httpProxyUrl`r`nHTTPS_PROXY=$httpProxyUrl`r`nNO_PROXY=$noProxyValue"
+    &$kubeBinPath\nssm set flanneld AppEnvironmentExtra $envVars | Out-Null
+    Write-Log "Flanneld service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
+
+    &$kubeBinPath\nssm set flanneld AppParameters "--kubeconfig-file=\`"$kubePath\config\`" --iface=$ipaddress --ip-masq=1 --kube-subnet-mgr=1" | Out-Null
     &$kubeBinPath\nssm set flanneld AppDirectory "$(Get-SystemDriveLetter):\" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStdout "$(Get-SystemDriveLetter):\var\log\flanneld\flanneld_stdout.log" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStderr "$(Get-SystemDriveLetter):\var\log\flanneld\flanneld_stderr.log" | Out-Null

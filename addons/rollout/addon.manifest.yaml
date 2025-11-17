@@ -25,24 +25,16 @@ spec:
                     - none
                     - nginx
                     - traefik
-              - name: proxy
-                shorthand: p
-                default: ""
-                description: HTTP Proxy
             examples:
               - cmd: k2s addons enable rollout
                 comment: Enable rollout in k2s
               - cmd: k2s addons enable rollout --ingress traefik
                 comment: Enable rollout in k2s with traefik ingress
-              - cmd: k2s addons enable rollout --proxy http://10.11.12.13:5000
-                comment: Enable rollout in k2s with proxy
           script:
             subPath: Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
-              - cliFlagName: proxy
-                scriptParameterName: Proxy
         disable:
           cli:
             examples:
