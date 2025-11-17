@@ -46,9 +46,9 @@ func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
 		}).
 		Build()
 
-	return &ResilientHttpClient{
-		executor: failsafe.NewExecutor(retryPolicy),
-	}
+	// failsafe v0.9.0 removed NewExecutor in favor of the With(...) factory for composing policies.
+	// Migration: replace failsafe.NewExecutor(retryPolicy) with failsafe.With(retryPolicy).
+	return &ResilientHttpClient{executor: failsafe.With(retryPolicy)}
 }
 
 // func NewResilientHttpClient(requestTimeout time.Duration) *http.Client {

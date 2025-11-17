@@ -287,38 +287,47 @@ function Remove-AddonFromSetupJson {
 	$filePath = Get-SetupConfigFilePath
 	$parsedSetupJson = Get-Content -Raw $filePath | ConvertFrom-Json
 
-	$enabledAddonMemberExists = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
-	if ($enabledAddonMemberExists) {
-		$enabledAddons = $parsedSetupJson.EnabledAddons
-		$newEnabledAddons = $enabledAddons
+	$addonsMember = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
+	if ($null -eq $addonsMember) {
+		Write-Log 'No addons config found, skipping'
+		return
+	}
 
-		$addonExists = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name }
-		if ($addonExists) {
-			if ($null -ne $Addon.Implementation) {
-				$implementationExists = $addonExists | Where-Object { $_.Implementation -eq $Addon.Implementation }
-				if ($implementationExists) {
-					$newEnabledAddons = @($enabledAddons | Where-Object { $_.Implementation -ne $Addon.Implementation })
-				}
+	$enabledAddons = $parsedSetupJson.EnabledAddons
+	$newEnabledAddons = $enabledAddons
+
+	$addonExists = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name }
+	if ($addonExists) {
+		if ($null -ne $Addon.Implementation) {
+			$implementationExists = $addonExists | Where-Object { $_.Implementation -eq $Addon.Implementation }
+			if ($implementationExists) {
+				$newEnabledAddons = @($enabledAddons | Where-Object { $_.Implementation -ne $Addon.Implementation })
 			}
-			else {
-				$hasImplementationProperty = $addonExists | Where-Object { $null -ne $_.Implementation }
-				if (!$hasImplementationProperty) {
-					$newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
-				}
-				else {
-					throw "More than one implementation of addon '$($Addon.Name)'. Please specify the implementation!"
-				}
-			}
-		}
-		
-		if ($newEnabledAddons) {
-			$parsedSetupJson.EnabledAddons = $newEnabledAddons
 		}
 		else {
-			$parsedSetupJson.PSObject.Properties.Remove($ConfigKey_EnabledAddons)
+			$hasImplementationProperty = $addonExists | Where-Object { $null -ne $_.Implementation }
+			if (!$hasImplementationProperty) {
+				$newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
+			}
+			else {
+				throw "More than one implementation of addon '$($Addon.Name)'. Please specify the implementation!"
+			}
 		}
-		$parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
 	}
+	else {
+		if ($null -ne $Addon.Implementation) {
+			$name += " $($Addon.Implementation)"
+		}
+		Write-Log "Addon '$name' not found in addons config, skipping"
+	}
+		
+	if ($newEnabledAddons) {
+		$parsedSetupJson.EnabledAddons = $newEnabledAddons
+	}
+	else {
+		$parsedSetupJson.PSObject.Properties.Remove($ConfigKey_EnabledAddons)
+	}
+	$parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
 }
 
 function Install-DebianPackages {
@@ -750,9 +759,15 @@ function Update-Addons {
 		[string]
 		$AddonName = $(throw 'Addon name not specified')
 	)
-	Write-Log "Adapting addons called from addon: $AddonName" -Console
+	Write-Log "Adapting addons called from addon '$AddonName'" -Console
 
 	$addons = Get-AddonsConfig
+
+	if ($null -eq $addons) {
+		Write-Log 'No addons to adapt, skipping' -Console
+		return
+	}
+
 	$addons | ForEach-Object {
 		# Not for addons with the name from input
 		if ($_.Name -ne $AddonName) {
@@ -1127,6 +1142,92 @@ here: chrome://net-internals/#hsts (works in Chrome and Edge) and try again.
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
+<#
+.DESCRIPTION
+Extracts container images from YAML files referenced in additionalImagesFiles
+#>
+function Get-ImagesFromYamlFiles {
+    param(
+        [string[]]$YamlFiles,
+        [string]$BaseDirectory
+    )
+    
+    $allImages = @()
+    
+    foreach ($yamlFile in $YamlFiles) {
+        $filePath = if ([System.IO.Path]::IsPathRooted($yamlFile)) { $yamlFile } else { Join-Path $BaseDirectory $yamlFile }
+        
+        if (Test-Path $filePath) {
+            Write-Log "Extracting images from $filePath"
+            try {
+                $content = Get-Content -Path $filePath -Raw
+                $allImages += Get-ImagesFromYaml -YamlContent $content
+            }
+            catch {
+                Write-Log "Warning: Failed to parse YAML file $filePath`: $($_.Exception.Message)"
+            }
+        } else {
+            Write-Log "Warning: YAML file not found: $filePath"
+        }
+    }
+    
+    return $allImages | Select-Object -Unique | Where-Object { $_ -ne '' }
+}
+
+<#
+.DESCRIPTION
+Extracts container images from YAML content using pattern matching
+#>
+function Get-ImagesFromYaml {
+    param([string]$YamlContent)
+    
+    $images = @()
+    $lines = $YamlContent -split "`n"
+    
+    foreach ($line in $lines) {
+        if ($line -match '^\s*image:\s*(.+)$') {
+            $imageValue = $matches[1].Trim().Trim('"').Trim("'")
+            if ($imageValue -ne '') { $images += $imageValue }
+        } elseif ($line -match '--[a-zA-Z-]+=([a-zA-Z0-9\.\-_/]+/[a-zA-Z0-9\.\-_/]+:[a-zA-Z0-9\.\-_]+)') {
+            $imageValue = $matches[1].Trim()
+            if ($imageValue -ne '' -and $imageValue.Contains('/') -and $imageValue.Contains(':')) { $images += $imageValue }
+        }
+    }
+    
+    return $images
+}
+
+<#
+.DESCRIPTION
+Removes versionless images when versioned equivalents exist
+#>
+function Remove-VersionlessImages {
+    param([string[]]$Images)
+    
+    if (-not $Images) { return @() }
+    
+    $versioned = @{}
+    $result = @()
+    
+    foreach ($image in $Images) {
+        if ($image -match '^(.+):(.+)$' -and $matches[2].Trim()) {
+            $versioned[$matches[1]] = $image
+        }
+    }
+    
+    foreach ($image in $Images) {
+        if ($image -match '^(.+):(.+)$' -and $matches[2].Trim()) {
+            if ($result -notcontains $image) { $result += $image }
+        } elseif (-not $versioned.ContainsKey($image)) {
+            if ($result -notcontains $image) { $result += $image }
+        } else {
+            Write-Log "Skipping versionless '$image' - using versioned '$($versioned[$image])'"
+        }
+    }
+    
+    return $result
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
@@ -1134,4 +1235,5 @@ Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddo
 Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
-Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser
+Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
+Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages

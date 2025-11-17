@@ -7,7 +7,7 @@ app:
   # Mode determines if chart should deploy a full Dashboard with all containers or just the API.
   # - dashboard - deploys all the containers
   # - api - deploys just the API
-  mode: 'dashboard'
+  mode: "dashboard"
   image:
     pullPolicy: IfNotPresent
     pullSecrets: []
@@ -76,7 +76,7 @@ app:
     #  disableAccessDeniedNotifications: false
     #  # Hide all namespaces option in namespace selection dropdown to avoid accidental selection in large clusters thus preventing OOM errors
     #  hideAllNamespaces: false
-    # Namespace that should be selected by default after logging in.
+    #  # Namespace that should be selected by default after logging in.
     defaultNamespace: "dashboard"
     #  # List of namespaces that should be presented to user without namespace list privileges.
     #  namespaceFallbackList:
@@ -135,7 +135,7 @@ auth:
   role: auth
   image:
     repository: docker.io/kubernetesui/dashboard-auth
-    tag: 1.2.4
+    tag: 1.4.0
   scaling:
     replicas: 1
     revisionHistoryLimit: 10
@@ -177,7 +177,7 @@ api:
   role: api
   image:
     repository: docker.io/kubernetesui/dashboard-api
-    tag: 1.12.0
+    tag: 1.14.0
   scaling:
     replicas: 1
     revisionHistoryLimit: 10
@@ -237,7 +237,7 @@ web:
   role: web
   image:
     repository: docker.io/kubernetesui/dashboard-web
-    tag: 1.6.2
+    tag: 1.7.0
   scaling:
     replicas: 1
     revisionHistoryLimit: 10
@@ -371,11 +371,14 @@ metrics-server:
 ## Required Kong sub-chart with DBless configuration to act as a gateway
 ## for our all containers.
 kong:
+  image:
+    repository: docker.io/library/kong
+    tag: "3.9.0"
   enabled: true
   ## Configuration reference: https://docs.konghq.com/gateway/3.6.x/reference/configuration
   env:
     dns_order: LAST,A,CNAME,AAAA,SRV
-    plugins: 'off'
+    plugins: "off"
     nginx_worker_processes: 1
   ingressController:
     enabled: false

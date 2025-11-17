@@ -122,11 +122,23 @@ foreach ($addon in $addonsToImport) {
         $destinationPath = Join-Path -Path $destinationPath -ChildPath $part
     }
 
-    # Define source path (Content folder)
-    $dirPath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)\Content"
+    # Handle flattened structure and version info
+    $addonSourcePath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)"
+    
+    # Process version.info file if present
+    $versionInfoPath = Join-Path $addonSourcePath "version.info"
+    if (Test-Path $versionInfoPath) {
+        $versionInfo = Get-Content $versionInfoPath | ConvertFrom-Json
+        Write-Log "  -> Addon: $($versionInfo.addonName), Implementation: $($versionInfo.implementationName)"
+        Write-Log "  -> Exported from K2s version: $($versionInfo.k2sVersion), Export date: $($versionInfo.exportDate)"
+        
+        # Remove version.info after processing
+        Remove-Item -Path $versionInfoPath -Force -ErrorAction SilentlyContinue
+    }
+    
+    $dirPath = $addonSourcePath
 
-    # Log
-    Write-Log "Value of dirPath (source): $dirPath"
+    Write-Log "Value of dirPath (flattened source): $dirPath"
     Write-Log "Value of destinationPath : $destinationPath"
 
     # Ensure final destination exists
@@ -134,38 +146,101 @@ foreach ($addon in $addonsToImport) {
         New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
     }
 
-    # Copy *only the contents* of Content — EXCLUDING the manifest
+    # Copy addon contents excluding manifest and tar files
     Copy-Item -Path (Join-Path $dirPath '*') `
           -Destination $destinationPath `
           -Recurse -Force `
-          -Exclude 'addon.manifest.yaml'
+          -Exclude 'addon.manifest.yaml', '*.tar'
 
-    # ---------------------------
-    # Handle addon.manifest.yaml
-    # ---------------------------
+    # Handle addon.manifest.yaml merging 
     $manifestInContent = Join-Path $dirPath "addon.manifest.yaml"
     if (Test-Path $manifestInContent) {
+        $importedManifest = Get-FromYamlFile -Path $manifestInContent
+        
+        if ($folderParts.Count -gt 1) {
+            # Multi-implementation addon: merge with parent manifest
+            $parentAddonFolder = Split-Path -Path $destinationPath -Parent
+            $parentManifestPath = Join-Path $parentAddonFolder "addon.manifest.yaml"
 
-    if ($folderParts.Count -gt 1) {
-        # Two-level case (e.g., ingress nginx) → place manifest in parent (addons\ingress)
-        $parentAddonFolder = Split-Path -Path $destinationPath -Parent
+            if (-not (Test-Path $parentAddonFolder)) {
+                New-Item -ItemType Directory -Path $parentAddonFolder -Force | Out-Null
+            }
 
-        if (-not (Test-Path $parentAddonFolder)) {
-            New-Item -ItemType Directory -Path $parentAddonFolder -Force | Out-Null
+            if (Test-Path $parentManifestPath) {
+                # Merge with existing manifest to preserve multiple implementations
+                Write-Log "Merging with existing manifest at: $parentManifestPath" -Console
+                $existingManifest = Get-FromYamlFile -Path $parentManifestPath
+                $importedManifest = Get-FromYamlFile -Path $manifestInContent
+                $existingImplNames = $existingManifest.spec.implementations | ForEach-Object { $_.name }
+                foreach ($importedImpl in $importedManifest.spec.implementations) {
+                    if ($importedImpl.name -notin $existingImplNames) {
+                        Write-Log "Adding new implementation: $($importedImpl.name)" -Console
+                        $existingManifest.spec.implementations += $importedImpl
+                    } else {
+                        Write-Log "Implementation '$($importedImpl.name)' already exists, updating" -Console
+                        for ($i = 0; $i -lt $existingManifest.spec.implementations.Count; $i++) {
+                            if ($existingManifest.spec.implementations[$i].name -eq $importedImpl.name) {
+                                $existingManifest.spec.implementations[$i] = $importedImpl
+                                break
+                            }
+                        }
+                    }
+                }
+                
+                $kubeBinPath = Get-KubeBinPath
+                $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
+                
+                if (-not (Test-Path $yqExe)) {
+                    throw "yq.exe not found at '$yqExe'"
+                }
+                
+                $tempJsonFile = New-TemporaryFile
+                try {
+                    $originalContent = Get-Content -Path $parentManifestPath -Raw -Encoding UTF8
+                    
+                    $headerLines = @()
+                    foreach ($line in ($originalContent -split "`r?`n")) {
+                        if ($line.StartsWith("#") -or $line.Trim() -eq "") {
+                            $headerLines += $line
+                        } else {
+                            break
+                        }
+                    }
+                    
+                    $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
+                    Set-Content -Path $tempJsonFile.FullName -Value $mergedJson -Encoding UTF8
+                    
+                    $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
+                    
+                    if ($yamlOutput -is [array]) {
+                        $yamlContent = $yamlOutput -join "`n"
+                    } else {
+                        $yamlContent = $yamlOutput.ToString()
+                    }
+                    
+                    $finalContent = ($headerLines -join "`n") + "`n" + $yamlContent
+                    
+                    Set-Content -Path $parentManifestPath -Value $finalContent -Encoding UTF8
+                    Write-Log "Merged manifest saved to: $parentManifestPath" -Console
+                } finally {
+                    Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
+                }
+            } else {
+                Copy-Item -Path $manifestInContent -Destination $parentManifestPath -Force
+                Write-Log "New manifest created at: $parentManifestPath" -Console
+            }
+
+            # Safety: ensure no stray manifest remains in the flavor folder
+            $manifestAtFlavor = Join-Path $destinationPath "addon.manifest.yaml"
+            if (Test-Path $manifestAtFlavor) {
+                Remove-Item -Path $manifestAtFlavor -Force
+            }
         }
-
-        Copy-Item -Path $manifestInContent -Destination $parentAddonFolder -Force
-
-        # Safety: ensure no stray manifest remains in the flavor folder
-        $manifestAtFlavor = Join-Path $destinationPath "addon.manifest.yaml"
-        if (Test-Path $manifestAtFlavor) {
-            Remove-Item -Path $manifestAtFlavor -Force
+        else {
+            # One-level case (e.g., logging) → keep manifest in the addon folder
+            $finalManifestPath = Join-Path $destinationPath "addon.manifest.yaml"
+            Copy-Item -Path $manifestInContent -Destination $finalManifestPath -Force
         }
-    }
-    else {
-        # One-level case (e.g., logging) → keep manifest in the addon folder
-        Copy-Item -Path $manifestInContent -Destination $destinationPath -Force
-    }
     }
     foreach ($image in $images) {
         $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"

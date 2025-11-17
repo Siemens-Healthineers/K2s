@@ -25,6 +25,8 @@ $clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.clus
 $addonsModule = "$PSScriptRoot\..\..\..\..\addons\addons.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
+$startTime = Get-Date
+
 Initialize-Logging -ShowLogs:$ShowLogs
 $kubePath = Get-KubePath
 
@@ -45,6 +47,7 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
     $dnsServers = '8.8.8.8,8.8.4.4'
 }
 
+# start the control plane
 $controlPlaneParams = @{
     VmProcessors = $VmProcessors
     ShowLogs = $ShowLogs
@@ -55,6 +58,7 @@ $controlPlaneParams = @{
 }
 & "$PSScriptRoot\..\..\control-plane\Start.ps1" @controlPlaneParams
 
+# start the worker node on the host
 $workerNodeParams = @{
     HideHeaders = $SkipHeaderDisplay
     ShowLogs = $ShowLogs
@@ -64,6 +68,19 @@ $workerNodeParams = @{
     DnsAddresses = $dnsServers
 }
 & "$PSScriptRoot\..\..\worker\windows\windows-host\Start.ps1" @workerNodeParams
+
+# Actions which need to be done at the end in order to not block the commands before !!!
+# ensure cni0 interface is created (this needs to be done at the end in oder to ensure that initially no extra time is needed)
+$controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
+$WSL = Get-ConfigWslFlag
+Initialize-Cni0Interface -VmName $controlPlaneVMHostName -WSL:$WSL
+
+# change loopback adapter to private network profile
+# Set-PrivateNetworkProfileForLoopbackAdapter
+
+$endTime = Get-Date
+$durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
+Write-Log "K2s start command finished, total duration: ${durationSeconds} seconds" -Console
 
 Invoke-AddonsHooks -HookType 'AfterStart'
 

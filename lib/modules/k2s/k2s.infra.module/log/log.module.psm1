@@ -400,5 +400,19 @@ function Save-k2sLogDirectory {
     }
 }
 
+function Get-DurationInSeconds {
+    param (
+        [Parameter(Mandatory = $true)]
+        [DateTime]$StartTime,
+        [Parameter(Mandatory = $true)]
+        [DateTime]$EndTime
+    )
+
+    $duration = New-TimeSpan -Start $StartTime -End $EndTime
+    $durationSeconds = $duration.TotalSeconds
+
+    return $durationSeconds
+}
+
 Export-ModuleMember -Variable k2sLogFilePart, k2sLogFile
-Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory, Get-LogFilePath, Get-LogFilePathPart
+Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory, Get-LogFilePath, Get-LogFilePathPart, Get-DurationInSeconds

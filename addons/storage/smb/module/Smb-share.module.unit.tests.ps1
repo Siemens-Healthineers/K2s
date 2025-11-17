@@ -301,27 +301,9 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
     }
 }
 
-Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon', 'storage smb' {
-    Context 'SMB share non-existent' {
+Describe 'Remove-SmbHostOnWindows' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+    Context 'default scope' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SmbShare { return $null }
-            Mock -ModuleName $moduleName Write-Log { }
-        }
-
-        It 'does nothing' {
-            InModuleScope $moduleName {
-                $config = @{WinShareName = 'test-name' }
-
-                Remove-SmbHostOnWindowsIfExisting -Config $config
-                    
-                Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'nothing to remove' }
-            }
-        }
-    }
-
-    Context 'SMB share existing' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Get-SmbShare { return $true }
             Mock -ModuleName $moduleName Write-Log { }
             Mock -ModuleName $moduleName Remove-LocalUser { }
             Mock -ModuleName $moduleName Remove-Item { }
@@ -331,19 +313,13 @@ Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon', 'storag
             InModuleScope $moduleName {
                 $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
 
-                Remove-SmbHostOnWindowsIfExisting -Config $config
+                Remove-SmbHostOnWindows -Config $config
             }
         }
 
-        It 'removes the local SMB user' {
+        It 'removes firewall exceptions' {
             InModuleScope $moduleName {
-                Should -Invoke Remove-LocalUser -Times 1 -Scope Context
-            }
-        }
-
-        It 'removes the local SMB directory' {
-            InModuleScope $moduleName {
-                Should -Invoke Remove-Item -Times 1 -Scope Context
+                Should -Invoke Remove-FirewallExceptions -Times 1 -Scope Context
             }
         }
 
@@ -353,9 +329,15 @@ Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon', 'storag
             }
         }
 
-        It 'removes firewall exceptions' {
+        It 'removes the local SMB directory' {
             InModuleScope $moduleName {
-                Should -Invoke Remove-FirewallExceptions -Times 1 -Scope Context
+                Should -Invoke Remove-Item -Times 1 -Scope Context
+            }
+        }
+
+        It 'removes the local SMB user' {
+            InModuleScope $moduleName {
+                Should -Invoke Remove-LocalUser -Times 1 -Scope Context
             }
         }
     }
@@ -671,110 +653,107 @@ Describe 'New-StorageClasses' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 }
 
 Describe 'Remove-StorageClasses' -Tag 'unit', 'ci', 'addon', 'storage smb' {
-    Context 'Manifest file found' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Remove-PersistentVolumeClaimsForStorageClass {}
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
+        Mock -ModuleName $moduleName Wait-ForPodToBeDeleted {}
+        Mock -ModuleName $moduleName Remove-Secret {}
+        Mock -ModuleName $moduleName Write-Log {}
+    }
+
+    Context 'not Linux-only' {
         BeforeAll {
-            Mock -ModuleName $moduleName Remove-PersistentVolumeClaimsForStorageClass {}
-            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
-            Mock -ModuleName $moduleName Remove-Item {}
-            Mock -ModuleName $moduleName Wait-ForPodToBeDeleted {}
-            Mock -ModuleName $moduleName Remove-Secret {}
-            Mock -ModuleName $moduleName Write-Log {}
+            InModuleScope -ModuleName $moduleName {
+                $config = @{StorageClassName = 'sc-name-1' }, @{StorageClassName = 'sc-name-2' }
+
+                Remove-StorageClasses -Config $config
+            }
         }
 
-        Context 'not Linux-only' {
-            BeforeAll {
-                InModuleScope -ModuleName $moduleName {
-                    $config = @{StorageClassName = 'sc-name-1' }, @{StorageClassName = 'sc-name-2' }
-
-                    Remove-StorageClasses -Config $config
+        It 'removes PVCs related to the SC' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
+                    $StorageClass -eq 'sc-name-1'
                 }
-            }
-
-            It 'removes PVCs related to the SC' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                        $StorageClass -eq 'sc-name-1'
-                    }
-                    Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                        $StorageClass -eq 'sc-name-2'
-                    }
-                }
-            }
-
-            It 'deletes resources from windows manifests folder' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
-                        $Params -contains 'delete' -and $Params -contains '-k' -and $Params[2] -match '\\manifests\\windows'
-                    }
-                }
-            }
-
-            It 'waits for Pods deletion' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Wait-ForPodToBeDeleted -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
-                }
-            }
-
-            It 'deletes the SMB creds secret' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'storage-smb' }
+                Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
+                    $StorageClass -eq 'sc-name-2'
                 }
             }
         }
 
-        Context 'Linux-only' {
-            BeforeAll {
-                InModuleScope -ModuleName $moduleName {
-                    $config = @{StorageClassName = 'sc-name-1' }, @{StorageClassName = 'sc-name-2' }
-
-                    Remove-StorageClasses -LinuxOnly $true -Config $config
-                }
-            }
-
-            It 'removes PVCs related to the SC' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                        $StorageClass -eq 'sc-name-1'
-                    }
-                    Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                        $StorageClass -eq 'sc-name-2'
-                    }
-                }
-            }
-
-            It 'deletes resources from base manifesst folder' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
-                        $Params -contains 'delete' -and $Params -contains '-k' -and $Params[2] -match '\\manifests\\base'
-                    }
-                }
-            }
-
-            It 'waits for Pods deletion' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Wait-ForPodToBeDeleted -Times 1 -Scope Context -ParameterFilter { { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds } }
-                }
-            }
-
-            It 'deletes the SMB creds secret' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'storage-smb' }
+        It 'deletes resources from windows manifests folder' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'delete' -and $Params -contains '-k' -and $Params[2] -match '\\manifests\\windows'
                 }
             }
         }
 
-        Context 'Invoke-Kubectl failes' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Output = 'oops'; Success = $false } }
-                Mock -ModuleName $moduleName Write-Warning { }
+        It 'waits for Pods deletion' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Wait-ForPodToBeDeleted -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
             }
+        }
 
-            It 'logs a warning' {
-                InModuleScope -ModuleName $moduleName {
-                    Remove-StorageClasses -Config @{}
+        It 'deletes the SMB creds secret' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'storage-smb' }
+            }
+        }
+    }
 
-                    Should -Invoke Write-Warning -Times 1 -Scope Context -ParameterFilter { $Message -match 'oops' }
+    Context 'Linux-only' {
+        BeforeAll {
+            InModuleScope -ModuleName $moduleName {
+                $config = @{StorageClassName = 'sc-name-1' }, @{StorageClassName = 'sc-name-2' }
+
+                Remove-StorageClasses -LinuxOnly $true -Config $config
+            }
+        }
+
+        It 'removes PVCs related to the SC' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
+                    $StorageClass -eq 'sc-name-1'
                 }
+                Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
+                    $StorageClass -eq 'sc-name-2'
+                }
+            }
+        }
+
+        It 'deletes resources from base manifesst folder' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'delete' -and $Params -contains '-k' -and $Params[2] -match '\\manifests\\base'
+                }
+            }
+        }
+
+        It 'waits for Pods deletion' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Wait-ForPodToBeDeleted -Times 1 -Scope Context -ParameterFilter { { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds } }
+            }
+        }
+
+        It 'deletes the SMB creds secret' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'storage-smb' }
+            }
+        }
+    }
+
+    Context 'Invoke-Kubectl failes' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Output = 'oops'; Success = $false } }
+            Mock -ModuleName $moduleName Write-Warning { }
+        }
+
+        It 'logs a warning' {
+            InModuleScope -ModuleName $moduleName {
+                Remove-StorageClasses -Config @{}
+
+                Should -Invoke Write-Warning -Times 1 -Scope Context -ParameterFilter { $Message -match 'oops' }
             }
         }
     }
@@ -803,7 +782,7 @@ Describe 'Remove-SmbShareAndFolderWindowsHost' -Tag 'unit', 'ci', 'addon', 'stor
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
             Mock -ModuleName $moduleName Remove-SharedFolderMountOnLinuxClient {}
-            Mock -ModuleName $moduleName Remove-SmbHostOnWindowsIfExisting {}
+            Mock -ModuleName $moduleName Remove-SmbHostOnWindows {}
 
             InModuleScope -ModuleName $moduleName {
                 Remove-SmbShareAndFolderWindowsHost -SkipNodesCleanup -Config @{}
@@ -813,7 +792,7 @@ Describe 'Remove-SmbShareAndFolderWindowsHost' -Tag 'unit', 'ci', 'addon', 'stor
         It 'does not cleanup the Linux node' {
             InModuleScope -ModuleName $moduleName {
                 Should -Invoke Remove-SharedFolderMountOnLinuxClient -Times 0 -Scope Context
-                Should -Invoke Remove-SmbHostOnWindowsIfExisting -Times 1 -Scope Context
+                Should -Invoke Remove-SmbHostOnWindows -Times 1 -Scope Context
             }
         }
     }
@@ -822,7 +801,7 @@ Describe 'Remove-SmbShareAndFolderWindowsHost' -Tag 'unit', 'ci', 'addon', 'stor
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
             Mock -ModuleName $moduleName Remove-SharedFolderMountOnLinuxClient {}
-            Mock -ModuleName $moduleName Remove-SmbHostOnWindowsIfExisting {}
+            Mock -ModuleName $moduleName Remove-SmbHostOnWindows {}
 
             InModuleScope -ModuleName $moduleName {
                 Remove-SmbShareAndFolderWindowsHost -Config @{}
@@ -832,7 +811,7 @@ Describe 'Remove-SmbShareAndFolderWindowsHost' -Tag 'unit', 'ci', 'addon', 'stor
         It 'cleanups up the Linux node' {
             InModuleScope -ModuleName $moduleName {
                 Should -Invoke Remove-SharedFolderMountOnLinuxClient -Times 1 -Scope Context
-                Should -Invoke Remove-SmbHostOnWindowsIfExisting -Times 1 -Scope Context
+                Should -Invoke Remove-SmbHostOnWindows -Times 1 -Scope Context
             }
         }
     }
@@ -1012,6 +991,25 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 }
             }
         }
+       
+        Context 'Host type unknown' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Get-SmbHostType { return $null }
+                Mock -ModuleName $moduleName Remove-SmbShareAndFolderWindowsHost {}
+                Mock -ModuleName $moduleName Remove-SmbShareAndFolderLinuxHost {}
+
+                InModuleScope -ModuleName $moduleName {
+                    Remove-SmbShareAndFolder -Config @{}
+                }
+            }
+
+            It 'calls removal for both host types' {
+                InModuleScope -ModuleName $moduleName {
+                    Should -Invoke Remove-SmbShareAndFolderWindowsHost -Times 1 -Scope Context
+                    Should -Invoke Remove-SmbShareAndFolderLinuxHost -Times 1 -Scope Context
+                }
+            }
+        }
     }
 
     Context 'nodes cleanup not skipped' {
@@ -1156,40 +1154,22 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'node cleanup skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log { }
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
             Mock -ModuleName $moduleName Test-SystemAvailability { }
+            Mock -ModuleName $moduleName Get-StorageConfig { }
+            Mock -ModuleName $moduleName Remove-TempManifests { }
+            Mock -ModuleName $moduleName Remove-ScriptsFromHooksDir { }
+            Mock -ModuleName $moduleName Remove-AddonFromSetupJson { }
         }
 
         It 'does not test system availability' {
             InModuleScope -ModuleName $moduleName {
-                $err = (Disable-SmbShare -SkipNodesCleanup).Error
-                
-                $err.Severity | Should -Be Warning
-                $err.Code | Should -Be (Get-ErrCodeAddonAlreadyDisabled)
-                $err.Message | Should -Match 'already disabled'
-                
+                (Disable-SmbShare -SkipNodesCleanup).Error | Should -BeNullOrEmpty                
+                                
                 Should -Invoke Test-SystemAvailability -Times 0 -Scope Context
             }
         }
     }
 
-    Context 'system available' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
-        }
-
-        It 'does not return system error' {
-            InModuleScope -ModuleName $moduleName {
-                $err = (Disable-SmbShare).Error
-                
-                $err.Severity | Should -Be Warning
-                $err.Code | Should -Be (Get-ErrCodeAddonAlreadyDisabled)
-                $err.Message | Should -Match 'already disabled'
-            }
-        }
-    }        
-    
     Context 'system unavailable' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { return @{Code = 'err-code'; Message = 'err-msg' } }
@@ -1205,26 +1185,8 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         }
     }  
 
-    Context 'addon already disabled' {
+    Context 'system available' {
         BeforeAll {
-            Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
-        }
-
-        It 'returns error' {
-            InModuleScope -ModuleName $moduleName {
-                $err = (Disable-SmbShare).Error
-                    
-                $err.Severity | Should -Be Warning
-                $err.Code | Should -Be (Get-ErrCodeAddonAlreadyDisabled)
-                $err.Message | Should -Match 'already disabled'
-            }
-        }
-    }
-
-    Context 'addon enabled' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true }
             Mock -ModuleName $moduleName Remove-SmbShareAndFolder { }
             Mock -ModuleName $moduleName Remove-AddonFromSetupJson { }
             Mock -ModuleName $moduleName Remove-ScriptsFromHooksDir { }
