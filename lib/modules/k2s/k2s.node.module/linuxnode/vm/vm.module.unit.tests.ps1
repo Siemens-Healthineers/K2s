@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-# Unit tests for vm.module.psm1 internal helper Invoke-ExeWithAsciiEncoding
-# Pattern mirrors other *module.unit.tests.ps1 files.
-
 BeforeAll {
     $modulePath = "$PSScriptRoot/vm.module.psm1"
     $moduleName = (Import-Module $modulePath -PassThru -Force).Name
