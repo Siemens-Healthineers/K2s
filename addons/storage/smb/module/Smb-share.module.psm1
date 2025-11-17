@@ -34,6 +34,7 @@ $scKustomizeTemplateFilePath = "$manifestStorageClassesDir\$scKustomizeTemplateF
 $scTemplateFilePath = "$manifestStorageClassesDir\$scTemplateFileName"
 $storageClassNamePlaceholder = 'SC_NAME'
 $storageClassSourcePlaceholder = 'SC_SOURCE'
+$storageClassReclaimPlaceholder = 'SC_RECLAIM_POLICY'
 $kustomizeResourcesPlaceholder = 'SC_RESOURCES'
 $generatedPrefix = 'generated_'
 
@@ -615,7 +616,9 @@ function New-StorageClassManifest {
         [parameter(Mandatory = $false)]
         [string]$RemotePath = $(throw 'RemotePath not specified'),
         [parameter(Mandatory = $false)]
-        [string]$StorageClassName = $(throw 'StorageClassName not specified')
+        [string]$StorageClassName = $(throw 'StorageClassName not specified'),
+        [parameter(Mandatory = $false)]
+        [string]$ReclaimPolicy
     )
 
     $manifestFileName = "$($generatedPrefix)$($StorageClassName).yaml"
@@ -627,7 +630,13 @@ function New-StorageClassManifest {
 
     $remotePath = Convert-ToUnixPath -Path $RemotePath
 
-    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath
+    # sanitize/normalize reclaim policy to allowed values
+    if ($null -eq $ReclaimPolicy -or ($ReclaimPolicy -ne 'Retain' -and $ReclaimPolicy -ne 'Delete')) {
+        Write-Log "Invalid or missing reclaim policy '$ReclaimPolicy' for StorageClass '$StorageClassName', defaulting to 'Delete'"
+        $ReclaimPolicy = 'Delete'
+    }
+
+    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath -replace $storageClassReclaimPlaceholder, $ReclaimPolicy
 
     Set-Content -Value $manifestContent -Path $manifestPath -Force
 
@@ -696,7 +705,7 @@ function New-StorageClasses {
             $remotePath = $configEntry.LinuxHostRemotePath
         }
 
-        $manifest = New-StorageClassManifest -RemotePath $remotePath -StorageClassName $configEntry.StorageClassName
+        $manifest = New-StorageClassManifest -RemotePath $remotePath -StorageClassName $configEntry.StorageClassName -ReclaimPolicy $configEntry.StorageClassReclaimPolicy
         $scManifests.Add($manifest) | Out-Null
     }
 
@@ -1295,6 +1304,8 @@ function Get-StorageConfigFromRaw {
 
             [pscustomobject]@{
                 StorageClassName    = $_.storageClassName
+                # Default to 'Delete' if no reclaim policy is specified to ensure persistent volumes are cleaned up unless overridden.
+                StorageClassReclaimPolicy = if ($_.storageClassReclaimPolicy) { $_.storageClassReclaimPolicy } else { 'Delete' }
                 LinuxMountPath      = $_.linuxMountPath
                 WinMountPath        = $winMountPath
                 LinuxShareName      = $linuxShareName

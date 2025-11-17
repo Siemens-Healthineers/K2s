@@ -137,11 +137,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("enables the addon", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -265,11 +261,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	})
 
 	It("enables the addon", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "-t", "enhanced", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -511,11 +503,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 
 var _ = Describe("'security' addon with optional components", Ordered, func() {
 	It("enables the addon with --omitHydra", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "--omitHydra", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitHydra", "-o")
 	})
 
 	It("prints the status and shows hydra as omitted", func(ctx context.Context) {
@@ -541,11 +529,7 @@ var _ = Describe("'security' addon with optional components", Ordered, func() {
 	})
 
 	It("enables the addon with --omitKeycloak", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "--omitKeycloak", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitKeycloak", "-o")
 	})
 
 	It("prints the status and shows keycloak as omitted", func(ctx context.Context) {
@@ -571,11 +555,7 @@ var _ = Describe("'security' addon with optional components", Ordered, func() {
 	})
 
 	It("enables the addon with both --omitHydra and --omitKeycloak", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "-o")
 	})
 
 	It("prints the status and shows both hydra and keycloak as omitted", func(ctx context.Context) {
@@ -613,11 +593,7 @@ var _ = Describe("'security' addon with --omitOAuth2Proxy", Ordered, func() {
 	})
 
 	It("enables the addon with --omitOAuth2Proxy", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "--omitOAuth2Proxy", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitOAuth2Proxy", "-o")
 	})
 
 	It("prints the status and shows OAuth2 proxy as omitted", func(ctx context.Context) {
@@ -648,11 +624,7 @@ var _ = Describe("'security' addon with all omit flags", Ordered, func() {
 	})
 
 	It("enables the addon with --omitHydra --omitKeycloak --omitOAuth2Proxy", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
 	})
 
 	It("prints the status and shows all components as omitted", func(ctx context.Context) {
@@ -699,11 +671,7 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 	})
 
 	It("enables the addon with enhanced mode and omitKeycloak", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "-t", "enhanced", "--omitKeycloak", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitKeycloak", "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -824,11 +792,7 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra", Ordered, f
 	})
 
 	It("enables the addon with enhanced mode and omitHydra", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -944,11 +908,7 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra and omitKeyc
 	})
 
 	It("enables the addon with enhanced mode, omitHydra and omitKeycloak", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -1062,11 +1022,7 @@ var _ = Describe("'security' addon with enhanced mode and omitOAuth2Proxy", Orde
 	})
 
 	It("enables the addon with enhanced mode and omitOAuth2Proxy", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "-t", "enhanced", "--omitOAuth2Proxy", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitOAuth2Proxy", "-o")
 	})
 
 	It("prints the status and shows OAuth2 proxy as omitted", func(ctx context.Context) {
@@ -1097,11 +1053,7 @@ var _ = Describe("'security' addon with enhanced mode and all omit flags", Order
 	})
 
 	It("enables the addon with enhanced mode, omitHydra, omitKeycloak and omitOAuth2Proxy", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o"}
-		if suite.Proxy() != "" {
-			args = append(args, "-p", suite.Proxy())
-		}
-		suite.K2sCli().RunOrFail(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
 	})
 
 	It("prints the status and shows all components as omitted", func(ctx context.Context) {
