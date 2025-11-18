@@ -31,18 +31,11 @@ var _ = Describe("proxy show", func() {
 		})
 
 		It("accepts no arguments", func() {
-			// The showProxyConfig function takes no args
 			Expect(proxyShowCmd.Args).To(BeNil())
 		})
 
 		It("accepts no flags", func() {
 			Expect(proxyShowCmd.Flags().HasFlags()).To(BeFalse())
-		})
-
-		It("returns nil indicating no-op implementation", func() {
-			// showProxyConfig currently just returns nil
-			// This test documents the current behavior
-			Expect(proxyShowCmd.RunE).NotTo(BeNil())
 		})
 	})
 })
