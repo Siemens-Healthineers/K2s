@@ -18,8 +18,10 @@ spec:
           curl: []
           additionalImages:
             - quay.io/prometheus-operator/prometheus-config-reloader
+            - ghcr.io/prometheus-community/windows-exporter
           additionalImagesFiles:
             - manifests/monitoring/prometheus-operator/deployment.yaml
+            - ../common/manifests/windows-exporter/daemonset.yaml
         windows:
           curl: []
       commands:
