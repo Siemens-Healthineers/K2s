@@ -61,7 +61,20 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'metrics' })) -ne $tr
 
 Write-Log 'Uninstalling Kubernetes Metrics Server' -Console
 (Invoke-Kubectl -Params 'delete', '-f', (Get-MetricsServerConfig)).Output | Write-Log
+
+# Check if Windows Exporter is still needed by other addons
+$monitoringEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'monitoring' })
+
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'metrics' })
+
+if (-not $monitoringEnabled) {
+    Write-Log 'Removing Windows Exporter (no longer needed by any addon)' -Console
+    $windowsExporterManifest = Get-WindowsExporterManifestDir
+    (Invoke-Kubectl -Params 'delete', '-k', $windowsExporterManifest, '--ignore-not-found').Output | Write-Log
+} else {
+    Write-Log 'Windows Exporter kept (still needed by monitoring addon)' -Console
+}
+
 Write-Log 'Uninstallation of Kubernetes Metrics Server finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
