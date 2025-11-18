@@ -13,6 +13,8 @@ Param(
     [uint64] $MasterDiskSize = 50GB,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
+    [parameter(Mandatory = $false, HelpMessage = 'No proxy hosts/domains (comma-separated list or array)')]
+    [string[]] $NoProxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
@@ -48,6 +50,9 @@ Set-ConfigSetupType -Value $script:SetupType
 
 $installationType = 'Build-only'
 Write-Log "Installing $installationType setup"
+
+# Initialize the proxy settings before starting installation.
+New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 Add-K2sHostsToNoProxyEnvVar
