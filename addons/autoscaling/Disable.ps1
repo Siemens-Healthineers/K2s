@@ -33,7 +33,7 @@ Import-Module $clusterModule, $infraModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$kedaManifest = "$PSScriptRoot\manifests\keda-2.15.1.yaml"
+$kedaManifest = "$PSScriptRoot\manifests\keda-2.18.1.yaml"
 
 Write-Log 'Checking cluster status' -Console
 
