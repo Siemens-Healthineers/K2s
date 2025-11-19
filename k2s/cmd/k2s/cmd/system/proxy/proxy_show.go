@@ -4,6 +4,13 @@
 package proxy
 
 import (
+	"path"
+
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/terminal"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +21,44 @@ var proxyShowCmd = &cobra.Command{
 	RunE:  showProxyConfig,
 }
 
+type ProxyInfo struct {
+	common.CmdResult
+	Proxy          *string  `json:"proxy"`
+	ProxyOverrides []string `json:"proxyoverrides"`
+}
+
 func showProxyConfig(cmd *cobra.Command, args []string) error {
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	_, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
+	if err != nil {
+		return err
+	}
+
+	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "ShowProxy.ps1"))
+	var params []string
+	proxyInfo, err := powershell.ExecutePsWithStructuredResult[*ProxyInfo](psCmd, "ShowProxyResult", common.NewPtermWriter(), params...)
+	if err != nil {
+		return err
+	}
+
+	printer := terminal.NewTerminalPrinter()
+
+	// Display proxy configuration
+	if proxyInfo.Proxy != nil && *proxyInfo.Proxy != "" {
+		printer.Println("Proxy: " + *proxyInfo.Proxy)
+	} else {
+		printer.Println("Proxy: <not configured>")
+	}
+
+	// Display proxy overrides
+	if len(proxyInfo.ProxyOverrides) > 0 {
+		printer.Println("Proxy Overrides:")
+		for _, v := range proxyInfo.ProxyOverrides {
+			printer.Println("  - " + v)
+		}
+	} else {
+		printer.Println("Proxy Overrides: <none>")
+	}
+
 	return nil
 }
