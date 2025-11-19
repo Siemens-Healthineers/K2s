@@ -16,12 +16,14 @@ spec:
           repos: []
           deb: []
           curl: []
-          additionalImages: 
+          additionalImages: []
+          additionalImagesFiles: []
+        windows:
+          curl: []
+          additionalImages:
             - ghcr.io/prometheus-community/windows-exporter
           additionalImagesFiles:
             - ../common/manifests/windows-exporter/daemonset.yaml
-        windows:
-          curl: []
       commands:
         enable:
           cli:
