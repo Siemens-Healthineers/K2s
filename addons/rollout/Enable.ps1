@@ -23,8 +23,6 @@ powershell <installation folder>\addons\rollout\Enable.ps1 -Ingress "nginx"
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
-    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
@@ -46,9 +44,6 @@ $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
-
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
 Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured

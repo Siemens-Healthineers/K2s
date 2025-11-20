@@ -34,6 +34,7 @@ $scKustomizeTemplateFilePath = "$manifestStorageClassesDir\$scKustomizeTemplateF
 $scTemplateFilePath = "$manifestStorageClassesDir\$scTemplateFileName"
 $storageClassNamePlaceholder = 'SC_NAME'
 $storageClassSourcePlaceholder = 'SC_SOURCE'
+$storageClassReclaimPlaceholder = 'SC_RECLAIM_POLICY'
 $kustomizeResourcesPlaceholder = 'SC_RESOURCES'
 $generatedPrefix = 'generated_'
 
@@ -73,11 +74,13 @@ function Test-CsiPodsCondition {
 }
 
 function Add-FirewallExceptions {
+    Write-Log 'Adding firewall exceptions for SMB..'
     New-NetFirewallRule -DisplayName 'K8s open port 445' -Group 'k2s' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 445 | Out-Null
     New-NetFirewallRule -DisplayName 'K8s open port 139' -Group 'k2s' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 139 | Out-Null
 }
 
 function Remove-FirewallExceptions {
+    Write-Log 'Removing firewall exceptions for SMB..'
     Remove-NetFirewallRule -DisplayName 'K8s open port 445' -ErrorAction SilentlyContinue | Out-Null
     Remove-NetFirewallRule -DisplayName 'K8s open port 139' -ErrorAction SilentlyContinue | Out-Null
 }
@@ -119,23 +122,17 @@ function New-SmbHostOnWindowsIfNotExisting {
     Write-Log " '$($Config.WinShareName) 'SMB share host set up Windows."
 }
 
-function Remove-SmbHostOnWindowsIfExisting {
+function Remove-SmbHostOnWindows {
     param (
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified'),
         [parameter(Mandatory = $false)]
         [switch]$Keep = $false
     )
-
-    $smb = Get-SmbShare -Name $Config.WinShareName -ErrorAction SilentlyContinue
-    if ($null -eq $smb) {
-        Write-Log "SMB host '$($Config.WinShareName)' on Windows not existing, nothing to remove."
-        return
-    }
-
     Write-Log "Removing '$($Config.WinShareName)' SMB host from Windows.."
 
     Remove-FirewallExceptions
+
     Remove-SmbShare -Name $($Config.WinShareName) -Confirm:$False -ErrorAction SilentlyContinue
     if ( -not $Keep ) {
         # if we do not want to keep the mount point, we remove it
@@ -199,20 +196,20 @@ function Remove-SmbHostOnLinux {
     }
     else {
         Write-Log "Removing SMB share '$LinuxShareName' on Linux host."
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /srv/samba/$LinuxShareName").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /srv/samba/$LinuxShareName" -IgnoreErrors).Output | Write-Log
     }   
 
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo smbpasswd -x $smbUserName").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get purge cifs-utils samba samba-* -qq -y').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo smbpasswd -x $smbUserName" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get purge cifs-utils samba samba-* -qq -y' -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y' -IgnoreErrors).Output | Write-Log
     if ($Keep -eq $true) {
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /var/lib/samba /var/log/samba').Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /var/lib/samba /var/log/samba' -IgnoreErrors).Output | Write-Log
     }
     else {
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /srv/samba /var/lib/samba /var/log/samba').Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /srv/samba /var/lib/samba /var/log/samba' -IgnoreErrors).Output | Write-Log
     }
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo deluser $smbUserName").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo deluser $smbUserName" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload' -IgnoreErrors).Output | Write-Log
 
     Write-Log 'SMB host on Linux (Samba Share) removed'
 }
@@ -331,8 +328,7 @@ function Remove-SharedFolderMountOnLinuxClient {
         [pscustomobject]$Config = $(throw 'Config not specified'),
         [parameter(Mandatory = $false)]
         [switch]$Keep = $false 
-    ) 
-
+    )
     Write-Log "Unmounting '$($Config.LinuxMountPath) -> $($Config.WinHostRemotePath)' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
@@ -367,11 +363,11 @@ function Remove-SharedFolderMountOnLinuxClient {
     Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/'
     Remove-Item $tempUnmountScript -ErrorAction Ignore
 
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxClientScript").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sed 's/\r//g' ~/$tempUnmountOnLinuxClientScript > ~/$unmountOnLinuxClientScript").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$tempUnmountOnLinuxClientScript").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote  /home/remote/$unmountOnLinuxClientScript").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$unmountOnLinuxClientScript").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxClientScript" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sed 's/\r//g' ~/$tempUnmountOnLinuxClientScript > ~/$unmountOnLinuxClientScript" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$tempUnmountOnLinuxClientScript" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote  /home/remote/$unmountOnLinuxClientScript" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$unmountOnLinuxClientScript" -IgnoreErrors).Output | Write-Log
 
     Write-Log 'Executing on client unmount script inside Linux VM as remote user...'
     $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/$unmountOnLinuxClientScript' remote") *>&1
@@ -566,11 +562,11 @@ function Remove-SharedFolderMountOnLinuxHost {
     Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/'
     Remove-Item $tempUnmountScript -ErrorAction Ignore
 
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxHostScript").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sed 's/\r//g' ~/$tempUnmountOnLinuxHostScript > ~/$unmountOnLinuxHostScript").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$tempUnmountOnLinuxHostScript").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote /home/remote/$unmountOnLinuxHostScript").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$unmountOnLinuxHostScript").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxHostScript" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sed 's/\r//g' ~/$tempUnmountOnLinuxHostScript > ~/$unmountOnLinuxHostScript" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$tempUnmountOnLinuxHostScript" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote /home/remote/$unmountOnLinuxHostScript" -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$unmountOnLinuxHostScript" -IgnoreErrors).Output | Write-Log
 
     Write-Log 'Executing on host unmount script inside VM as remote user...'
     ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -l -c '~/$unmountOnLinuxHostScript' remote"
@@ -620,7 +616,9 @@ function New-StorageClassManifest {
         [parameter(Mandatory = $false)]
         [string]$RemotePath = $(throw 'RemotePath not specified'),
         [parameter(Mandatory = $false)]
-        [string]$StorageClassName = $(throw 'StorageClassName not specified')
+        [string]$StorageClassName = $(throw 'StorageClassName not specified'),
+        [parameter(Mandatory = $false)]
+        [string]$ReclaimPolicy
     )
 
     $manifestFileName = "$($generatedPrefix)$($StorageClassName).yaml"
@@ -632,7 +630,13 @@ function New-StorageClassManifest {
 
     $remotePath = Convert-ToUnixPath -Path $RemotePath
 
-    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath
+    # sanitize/normalize reclaim policy to allowed values
+    if ($null -eq $ReclaimPolicy -or ($ReclaimPolicy -ne 'Retain' -and $ReclaimPolicy -ne 'Delete')) {
+        Write-Log "Invalid or missing reclaim policy '$ReclaimPolicy' for StorageClass '$StorageClassName', defaulting to 'Delete'"
+        $ReclaimPolicy = 'Delete'
+    }
+
+    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath -replace $storageClassReclaimPlaceholder, $ReclaimPolicy
 
     Set-Content -Value $manifestContent -Path $manifestPath -Force
 
@@ -664,7 +668,6 @@ function Wait-ForPodToBeDeleted {
         [int]
         $TimeoutSeconds = 30
     )
-
     Write-Log " Waiting for Pod to be deleted (timeout: $($TimeoutSeconds)s).." -Console
 
     $deleted = Test-CsiPodsCondition -Condition 'Deleted' -TimeoutSeconds $TimeoutSeconds
@@ -702,7 +705,7 @@ function New-StorageClasses {
             $remotePath = $configEntry.LinuxHostRemotePath
         }
 
-        $manifest = New-StorageClassManifest -RemotePath $remotePath -StorageClassName $configEntry.StorageClassName
+        $manifest = New-StorageClassManifest -RemotePath $remotePath -StorageClassName $configEntry.StorageClassName -ReclaimPolicy $configEntry.StorageClassReclaimPolicy
         $scManifests.Add($manifest) | Out-Null
     }
 
@@ -727,8 +730,7 @@ function Remove-StorageClasses {
         [parameter(Mandatory = $false)]
         [array]$Config = $(throw 'Config not specified')
     )
-    
-
+    Write-Log 'Removing StorageClasses..'
     $manifestDir = $manifestWinDir
     if ($LinuxOnly -eq $true) {
         $manifestDir = $manifestBaseDir
@@ -740,12 +742,11 @@ function Remove-StorageClasses {
 
     $params = 'delete', '-k', $manifestDir, '--force', '--ignore-not-found', '--grace-period=0'
 
-    Write-Log "Invoking kubectl with '$params'.."
+    Write-Log "Deleting resources from manifest dir '$manifestDir'.."
 
     $result = Invoke-Kubectl -Params $params
     if ($result.Success -ne $true) {
         Write-Warning "Error occurred while invoking kubectl: $($result.Output)"
-        return
     }
 
     Wait-ForPodToBeDeleted -TimeoutSeconds $storageClassTimeoutSeconds
@@ -796,15 +797,14 @@ function Remove-SmbShareAndFolderWindowsHost {
         [switch]$SkipNodesCleanup = $false,
         [parameter(Mandatory = $false)]
         [switch]$Keep = $false
-    )    
-
+    )
     Write-Log 'Removing SMB shares and folders hosted on Windows..'
 
     if ($SkipNodesCleanup -ne $true) {
         Remove-SharedFolderMountOnLinuxClient -Config $Config -Keep:$Keep
     }
 
-    Remove-SmbHostOnWindowsIfExisting -Config $Config -Keep:$Keep
+    Remove-SmbHostOnWindows -Config $Config -Keep:$Keep
 }
 
 function Restore-SmbShareAndFolderLinuxHost {
@@ -876,7 +876,10 @@ function Remove-SmbShareAndFolder() {
             Remove-SmbShareAndFolderLinuxHost -SkipNodesCleanup:$SkipNodesCleanup -Config $Config -Keep:$Keep
         }
         Default {
-            throw "invalid SMB host type '$SmbHostType'"
+            Write-Log 'SMB host type not specified, trying to remove both Windows and Linux hosted SMB shares and folders..' -Console
+            
+            Remove-SmbShareAndFolderWindowsHost -SkipNodesCleanup:$SkipNodesCleanup -Config $Config -Keep:$Keep
+            Remove-SmbShareAndFolderLinuxHost -SkipNodesCleanup:$SkipNodesCleanup -Config $Config -Keep:$Keep
         }
     }
 }
@@ -1028,11 +1031,6 @@ function Disable-SmbShare {
         if ($systemError) {
             return @{Error = $systemError }
         }        
-    }
-
-    if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $AddonName })) -ne $true) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message "Addon '$AddonName $ImplementationName' is already disabled, nothing to do."
-        return @{Error = $err }
     }
 
     Write-Log " Disabling '$AddonName $ImplementationName'.."
@@ -1306,6 +1304,8 @@ function Get-StorageConfigFromRaw {
 
             [pscustomobject]@{
                 StorageClassName    = $_.storageClassName
+                # Default to 'Delete' if no reclaim policy is specified to ensure persistent volumes are cleaned up unless overridden.
+                StorageClassReclaimPolicy = if ($_.storageClassReclaimPolicy) { $_.storageClassReclaimPolicy } else { 'Delete' }
                 LinuxMountPath      = $_.linuxMountPath
                 WinMountPath        = $winMountPath
                 LinuxShareName      = $linuxShareName

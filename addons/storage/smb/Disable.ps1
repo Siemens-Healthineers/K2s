@@ -28,8 +28,6 @@ $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infr
 $smbShareModule = "$PSScriptRoot\module\Smb-share.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 
-$addonName = 'storage'
-
 Import-Module $infraModule, $smbShareModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -60,12 +58,17 @@ if (-not $Force -and -not $Keep) {
 
 Write-Log "Disabling addon '$addonName'.."
 
-$configPath = Get-StorageConfigPath
 $config = Get-AddonConfig -Name $addonName
+if ($null -eq $config) {
+    Write-Log ' No addon config found in setup config, using default addon config for disabling.'
+}
+else {
+    $configPath = Get-StorageConfigPath
 
-Write-Log "  Applying storage configuration from global addon config and overwriting default storage config '$configPath'" -Console
-$json = ConvertTo-Json $config.Storage -Depth 100 # no pipe to keep the array even for single storage config entry
-$json | Set-Content -Force $configPath -Confirm:$false
+    Write-Log "  Applying storage configuration from global addon config and overwriting default storage config '$configPath'"
+    $json = ConvertTo-Json $config.Storage -Depth 100 # no pipe to keep the array even for single storage config entry
+    $json | Set-Content -Force $configPath -Confirm:$false
+}
 
 $err = (Disable-SmbShare -Keep:$Keep).Error
 

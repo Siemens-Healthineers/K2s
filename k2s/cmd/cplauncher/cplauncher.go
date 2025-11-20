@@ -32,10 +32,13 @@ import (
 
 var (
 	kernel32                     = syscall.NewLazyDLL("kernel32.dll")
+	ntdll                        = syscall.NewLazyDLL("ntdll.dll")
 	procCreateProcessW           = kernel32.NewProc("CreateProcessW")
 	procCreateRemoteThread       = kernel32.NewProc("CreateRemoteThread")
+	procNtCreateThreadEx         = ntdll.NewProc("NtCreateThreadEx")
 	procResumeThread             = kernel32.NewProc("ResumeThread")
 	procVirtualAllocEx           = kernel32.NewProc("VirtualAllocEx")
+	procVirtualProtectEx         = kernel32.NewProc("VirtualProtectEx")
 	procWriteProcessMemory       = kernel32.NewProc("WriteProcessMemory")
 	procGetExitCodeThread        = kernel32.NewProc("GetExitCodeThread")
 	procGetExitCodeProcess       = kernel32.NewProc("GetExitCodeProcess")
@@ -46,6 +49,11 @@ var (
 	procCreateToolhelp32Snapshot = kernel32.NewProc("CreateToolhelp32Snapshot")
 	procModule32FirstW           = kernel32.NewProc("Module32FirstW")
 	procModule32NextW            = kernel32.NewProc("Module32NextW")
+	// Job object related procs
+	procCreateJobObjectW         = kernel32.NewProc("CreateJobObjectW")
+	procSetInformationJobObject  = kernel32.NewProc("SetInformationJobObject")
+	procAssignProcessToJobObject = kernel32.NewProc("AssignProcessToJobObject")
+	procQueryInformationJobObject = kernel32.NewProc("QueryInformationJobObject")
 	iphlpapi                     = syscall.NewLazyDLL("iphlpapi.dll")
 )
 
@@ -55,10 +63,18 @@ const (
 	MEM_COMMIT                 = 0x1000
 	MEM_RESERVE                = 0x2000
 	PAGE_READWRITE             = 0x04
+	PAGE_EXECUTE_READ          = 0x20
 	TH32CS_SNAPMODULE          = 0x00000008
 	TH32CS_SNAPMODULE32        = 0x00000010
 	STARTF_USESTDHANDLES      = 0x00000100
 	HANDLE_FLAG_INHERIT       = 0x00000001
+)
+
+// Job object constants
+const (
+	JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+	JobObjectExtendedLimitInformation  = 9
+	JobObjectBasicAccountingInformation = 1
 )
 
 // startupInfo mirrors Windows STARTUPINFOW (only fields we need) for std handle redirection.
@@ -101,6 +117,49 @@ type moduleEntry32 struct {
 	HModule       syscall.Handle
 	SzModule      [256]uint16
 	SzExePath     [260]uint16
+}
+
+// Job object related structs (subset)
+type JOBOBJECT_BASIC_LIMIT_INFORMATION struct {
+	PerProcessUserTimeLimit int64
+	PerJobUserTimeLimit     int64
+	LimitFlags              uint32
+	MinimumWorkingSetSize   uintptr
+	MaximumWorkingSetSize   uintptr
+	ActiveProcessLimit      uint32
+	Affinity                uintptr
+	PriorityClass           uint32
+	SchedulingClass         uint32
+}
+
+type IO_COUNTERS struct {
+	ReadOperationCount  uint64
+	WriteOperationCount uint64
+	OtherOperationCount uint64
+	ReadTransferCount   uint64
+	WriteTransferCount  uint64
+	OtherTransferCount  uint64
+}
+
+type JOBOBJECT_EXTENDED_LIMIT_INFORMATION struct {
+	BasicLimitInformation JOBOBJECT_BASIC_LIMIT_INFORMATION
+	IoInfo                IO_COUNTERS
+	ProcessMemoryLimit    uintptr
+	JobMemoryLimit        uintptr
+	PeakProcessMemoryUsed uintptr
+	PeakJobMemoryUsed     uintptr
+}
+
+// Basic accounting info for job object (subset; matching Windows layout)
+type JOBOBJECT_BASIC_ACCOUNTING_INFORMATION struct {
+	TotalUserTime              int64
+	TotalKernelTime            int64
+	ThisPeriodTotalUserTime    int64
+	ThisPeriodTotalKernelTime  int64
+	TotalPageFaultCount        uint32
+	TotalProcesses             uint32
+	ActiveProcesses            uint32
+	TotalTerminatedProcesses   uint32
 }
 
 func utf16Ptr(s string) *uint16 { p, _ := syscall.UTF16PtrFromString(s); return p }
@@ -252,6 +311,61 @@ func injectDLL(h syscall.Handle, dll string) (uintptr, error) {
 	return mod, nil
 }
 
+// injectDLLStealth uses NtCreateThreadEx instead of CreateRemoteThread and adds a small delay
+// to reduce detection by behavioral analysis in Windows Defender
+func injectDLLStealth(h syscall.Handle, dll string) (uintptr, error) {
+	abs, err := filepath.Abs(dll)
+	if err != nil {
+		return 0, err
+	}
+	if _, err = os.Stat(abs); err != nil {
+		return 0, fmt.Errorf("dll not found: %s", abs)
+	}
+	
+	// Write DLL path to remote process
+	u16, _ := syscall.UTF16FromString(abs)
+	buf := make([]byte, len(u16)*2)
+	for i, v := range u16 {
+		buf[i*2] = byte(v)
+		buf[i*2+1] = byte(v >> 8)
+	}
+	remoteStr, err := allocWrite(h, buf)
+	if err != nil {
+		return 0, err
+	}
+	
+	// Longer delay before thread creation to reduce timing-based detection
+	time.Sleep(250 * time.Millisecond)
+	
+	// Use NtCreateThreadEx (undocumented but more stealthy than CreateRemoteThread)
+	var hThread uintptr
+	status, _, _ := procNtCreateThreadEx.Call(
+		uintptr(unsafe.Pointer(&hThread)),  // ThreadHandle
+		0x1FFFFF,                           // DesiredAccess (THREAD_ALL_ACCESS)
+		0,                                   // ObjectAttributes
+		uintptr(h),                         // ProcessHandle
+		procLoadLibraryW.Addr(),            // StartRoutine
+		remoteStr,                          // Argument
+		0,                                   // CreateFlags (0 = run immediately)
+		0,                                   // ZeroBits
+		0,                                   // StackSize
+		0,                                   // MaximumStackSize
+		0,                                   // AttributeList
+	)
+	if status != 0 || hThread == 0 {
+		return 0, fmt.Errorf("NtCreateThreadEx failed: status=0x%x", status)
+	}
+	defer procCloseHandle.Call(hThread)
+	
+	syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
+	var mod uintptr
+	procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&mod)))
+	if mod == 0 {
+		return 0, errors.New("LoadLibraryW returned NULL")
+	}
+	return mod, nil
+}
+
 func computeExportOffset(dllPath, export string) (uintptr, error) {
 	h, err := syscall.LoadLibrary(dllPath)
 	if err != nil {
@@ -297,6 +411,41 @@ func callRemoteExport(h syscall.Handle, base, offset uintptr, compartment uint32
 		return fmt.Errorf("CreateRemoteThread export: %v", e1)
 	}
 	defer procCloseHandle.Call(hThread)
+	syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
+	var code uint32
+	procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&code)))
+	if code != 0 {
+		return fmt.Errorf("remote SetTargetCompartmentId returned %d", code)
+	}
+	return nil
+}
+
+// callRemoteExportStealth uses NtCreateThreadEx for calling the export function
+func callRemoteExportStealth(h syscall.Handle, base, offset uintptr, compartment uint32) error {
+	fn := base + offset
+	
+	// Longer delay before calling export to further separate injection stages
+	time.Sleep(150 * time.Millisecond)
+	
+	var hThread uintptr
+	status, _, _ := procNtCreateThreadEx.Call(
+		uintptr(unsafe.Pointer(&hThread)),  // ThreadHandle
+		0x1FFFFF,                           // DesiredAccess (THREAD_ALL_ACCESS)
+		0,                                   // ObjectAttributes
+		uintptr(h),                         // ProcessHandle
+		fn,                                 // StartRoutine (export function)
+		uintptr(compartment),               // Argument (compartment ID)
+		0,                                   // CreateFlags
+		0,                                   // ZeroBits
+		0,                                   // StackSize
+		0,                                   // MaximumStackSize
+		0,                                   // AttributeList
+	)
+	if status != 0 || hThread == 0 {
+		return fmt.Errorf("NtCreateThreadEx export failed: status=0x%x", status)
+	}
+	defer procCloseHandle.Call(hThread)
+	
 	syscall.WaitForSingleObject(syscall.Handle(hThread), syscall.INFINITE)
 	var code uint32
 	procGetExitCodeThread.Call(hThread, uintptr(unsafe.Pointer(&code)))
@@ -370,6 +519,8 @@ func main() {
 	var labelTimeoutStr string
 	var logsKeep int
 	var logMaxAgeStr string
+	var waitTree bool
+	var legacyInject bool
 
 	versionFlag := cli.NewVersionFlag(cliName)
 
@@ -387,7 +538,11 @@ func main() {
 	flag.BoolVar(&dryRun, "dry-run", false, "Show planned actions (compartment, dll resolution, target) without creating or modifying a process")
 	flag.StringVar(&verbosity, cli.VerbosityFlagName, logging.LevelToLowerString(slog.LevelInfo), cli.VerbosityFlagHelp())
 	flag.StringVar(&verbosity, "v", logging.LevelToLowerString(slog.LevelInfo), "Alias for -verbosity")
+	flag.BoolVar(&waitTree, "wait-tree", false, "Wait for the full process tree (job) to exit; also terminates remaining child processes if the launcher exits unexpectedly")
+	flag.BoolVar(&legacyInject, "legacy-inject", false, "Use legacy CreateRemoteThread injection (may be detected by Windows Defender); default uses stealthier NtCreateThreadEx")
 	flag.Parse()
+
+	// Note: detailed logging only active after logger initialization; early stage kept minimal.
 
 	if *versionFlag {
 		ve.GetVersion().Print(cliName)
@@ -434,8 +589,23 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to setup logger: %v\n", err)
 		os.Exit(1)
 	}
-	defer logFile.Close()
-	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartment", compartment, "verbosity", verbosity)
+	defer func() {
+		logFile.Sync() // ensure all buffered logs written before close
+		logFile.Close()
+	}()
+	slog.Debug("logger initialized", "logFile", logFile.Name(), "compartmentRaw", compartment, "verbosity", verbosity, "args", os.Args)
+	slog.Info("startup configuration",
+		"requestedCompartment", compartment,
+		"labelSelector", labelSelector,
+		"namespace", namespace,
+		"labelTimeout", labelTimeoutStr,
+		"dll", func() string { if dll=="" { return "(auto or none)"}; return dll }(),
+		"inject", !noInject,
+		"selfEnv", selfEnv,
+		"envVarName", envVarName,
+		"logsKeep", logsKeep,
+		"logMaxAge", logMaxAgeStr,
+		"dryRun", dryRun)
 
 	// Perform log retention maintenance (best-effort)
 	if err := cleanupOldLogs(logDir, logFileName, logsKeep, logMaxAgeStr); err != nil {
@@ -465,6 +635,7 @@ func main() {
 	// If label selector provided, resolve compartment ID from pod IP before potential dry-run output
 	var labelTimeout time.Duration
 	if labelSelector != "" {
+		slog.Debug("starting label-based pod lookup", "selector", labelSelector, "namespace", namespace)
 		var err error
 		labelTimeout, err = time.ParseDuration(labelTimeoutStr)
 		if err != nil {
@@ -518,6 +689,8 @@ func main() {
 
 	if err := createCompartmentIfNeeded(uint32(compartment)); err != nil {
 		slog.Warn("compartment provisioning attempt failed or skipped", "error", err)
+	} else {
+		slog.Debug("compartment ensured", "compartment", compartment)
 	}
 
 	// Always set COMPARTMENT_ID_ATTACH so the DLL's DllMain can attempt per-thread switching
@@ -558,6 +731,7 @@ func main() {
 	stderrR, stderrW, err := makePipe()
 	if err != nil { slog.Error("pipe setup failed", "stream", "stderr", "error", err); os.Exit(1) }
 
+	slog.Debug("creating suspended child", "exe", exe, "args", args, "waitTree", waitTree)
 	pi, err := createSuspended(exe, args, stdoutW, stderrW)
 	if err != nil {
 		slog.Error("create process failed", "error", err, "exe", exe)
@@ -612,29 +786,69 @@ func main() {
 	defer procCloseHandle.Call(uintptr(pi.Thread))
 
 	if !noInject {
-		base, err := injectDLL(pi.Process, dll)
+		injectionMethod := "stealth (NtCreateThreadEx)"
+		if legacyInject {
+			injectionMethod = "legacy (CreateRemoteThread)"
+		}
+		slog.Debug("injection start", "dll", dll, "export", exportName, "selfEnv", selfEnv, "method", injectionMethod)
+		
+		var base uintptr
+		var err error
+		if legacyInject {
+			base, err = injectDLL(pi.Process, dll)
+		} else {
+			base, err = injectDLLStealth(pi.Process, dll)
+		}
 		if err != nil {
-			slog.Error("dll injection failed", "error", err, "dll", dll)
+			slog.Error("dll injection failed", "error", err, "dll", dll, "method", injectionMethod)
 			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
+		slog.Debug("dll injected successfully", "base", fmt.Sprintf("0x%x", base), "method", injectionMethod)
 		offset, err := computeExportOffset(dll, exportName)
 		if err != nil {
 			slog.Error("compute export offset failed", "error", err, "export", exportName)
 			dumpRecentErrorLines(logFilePath, 20)
 			os.Exit(1)
 		}
+		slog.Debug("export offset computed", "offset", fmt.Sprintf("0x%x", offset))
+		
+		// Check if child process is still alive before proceeding
+		slog.Debug("checking child process liveness before module enumeration")
+		var exitCode uint32
+		r, _, _ := procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
+		if r != 0 && exitCode != 259 { // 259 = STILL_ACTIVE
+			slog.Error("child process terminated unexpectedly before export call", "exitCode", exitCode)
+			dumpRecentErrorLines(logFilePath, 20)
+			os.Exit(1)
+		}
+		
+		slog.Debug("child process still active, proceeding to module enumeration")
 		if enumBase, err2 := getModuleBase(pi.ProcessId, filepath.Base(dll)); err2 == nil {
 			base = enumBase
 			slog.Debug("module base enumerated", "base", fmt.Sprintf("0x%x", base))
 		}
+		
+		// Check again after module enumeration
+		r, _, _ = procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
+		if r != 0 && exitCode != 259 { // 259 = STILL_ACTIVE
+			slog.Error("child process terminated unexpectedly after module enumeration", "exitCode", exitCode)
+			dumpRecentErrorLines(logFilePath, 20)
+			os.Exit(1)
+		}
+		
 		if !selfEnv { // only attempt remote call if not deferring to target
-			if err := callRemoteExport(pi.Process, base, offset, uint32(compartment)); err != nil {
-				slog.Error("remote export call failed", "error", err, "compartment", compartment)
+			if legacyInject {
+				err = callRemoteExport(pi.Process, base, offset, uint32(compartment))
+			} else {
+				err = callRemoteExportStealth(pi.Process, base, offset, uint32(compartment))
+			}
+			if err != nil {
+				slog.Error("remote export call failed", "error", err, "compartment", compartment, "method", injectionMethod)
 				dumpRecentErrorLines(logFilePath, 20)
 				os.Exit(1)
 			} else {
-				slog.Info("remote export invoked", "compartment", compartment)
+				slog.Info("remote export invoked", "compartment", compartment, "method", injectionMethod)
 			}
 		} else {
 			slog.Info("skipped remote export due to self-env", "export", exportName)
@@ -646,21 +860,76 @@ func main() {
 	if !selfEnv {
 		slog.Info("note: unless target sets compartment for its own network threads it stays in default compartment")
 	}
+	slog.Debug("resuming child", "pid", pi.ProcessId)
 	if err := resume(pi); err != nil {
 		slog.Error("resume failed", "error", err)
 		dumpRecentErrorLines(logFilePath, 20)
 		os.Exit(1)
 	}
+	
+	// Assign to job AFTER successful injection and resume to avoid killing suspended process if launcher crashes during injection
+	var jobHandle syscall.Handle
+	if waitTree {
+		slog.Debug("creating job object for running process")
+		r1, _, e1 := procCreateJobObjectW.Call(0, 0)
+		if r1 == 0 {
+			slog.Error("CreateJobObjectW failed; proceeding without job", "error", e1)
+		} else {
+			jobHandle = syscall.Handle(r1)
+			var info JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+			info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+			r2, _, e2 := procSetInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectExtendedLimitInformation), uintptr(unsafe.Pointer(&info)), uintptr(unsafe.Sizeof(info)))
+			if r2 == 0 {
+				slog.Warn("SetInformationJobObject failed", "error", e2)
+			}
+			r3, _, e3 := procAssignProcessToJobObject.Call(uintptr(jobHandle), uintptr(pi.Process))
+			if r3 == 0 {
+				slog.Error("AssignProcessToJobObject failed; disabling wait-tree", "error", e3)
+				procCloseHandle.Call(uintptr(jobHandle))
+				jobHandle = 0
+			} else {
+				slog.Info("assigned running process to job", "pid", pi.ProcessId, "killOnClose", true)
+			}
+		}
+	}
+	
 	finalDll := dll
 	if noInject {
 		if finalDll == "" { finalDll = "(no injection)" } else { finalDll += " (injection disabled)" }
 	}
 	slog.Info("child running", "pid", pi.ProcessId, "dll", finalDll, "compartment", compartment, "selfEnv", selfEnv, "noInject", noInject, "logFile", logFilePath, "stdoutCapture", childStdoutPath, "stderrCapture", childStderrPath)
 
-	// Wait for child exit
+	// Wait for primary process exit
+	slog.Debug("waiting for primary process exit", "pid", pi.ProcessId, "waitTree", waitTree)
 	syscall.WaitForSingleObject(syscall.Handle(pi.Process), syscall.INFINITE)
 	var exitCode uint32
 	procGetExitCodeProcess.Call(uintptr(pi.Process), uintptr(unsafe.Pointer(&exitCode)))
+	slog.Debug("primary process exited", "pid", pi.ProcessId, "exitCode", exitCode)
+	// If job tracking requested, poll accounting info until job empties instead of blocking indefinitely
+	if waitTree && jobHandle != 0 {
+		poll := 500 * time.Millisecond
+		startJobWait := time.Now()
+		slog.Info("waiting for remaining job processes", "pid", pi.ProcessId, "pollInterval", poll)
+		var lastActive uint32
+		for {
+			var acct JOBOBJECT_BASIC_ACCOUNTING_INFORMATION
+			rAcct, _, eAcct := procQueryInformationJobObject.Call(uintptr(jobHandle), uintptr(JobObjectBasicAccountingInformation), uintptr(unsafe.Pointer(&acct)), uintptr(unsafe.Sizeof(acct)), 0)
+			if rAcct == 0 {
+				slog.Warn("QueryInformationJobObject accounting failed", "error", eAcct)
+				break
+			}
+			if acct.ActiveProcesses == 0 { // all descendants exited
+				slog.Info("job empty", "pid", pi.ProcessId, "totalProcesses", acct.TotalProcesses, "terminatedProcesses", acct.TotalTerminatedProcesses, "waitElapsed", time.Since(startJobWait))
+				break
+			}
+			if acct.ActiveProcesses != lastActive {
+				slog.Debug("job still active", "activeProcesses", acct.ActiveProcesses, "terminatedProcesses", acct.TotalTerminatedProcesses)
+				lastActive = acct.ActiveProcesses
+			}
+			time.Sleep(poll)
+		}
+		procCloseHandle.Call(uintptr(jobHandle))
+	}
 	// Wait for stream goroutines to finish consuming remaining buffered data
 	streamWG.Wait()
 
@@ -677,38 +946,66 @@ func main() {
 func resolveCompartmentFromLabel(selector, namespace string, timeout time.Duration) (int, string, string, string, error) {
 	kubeconfig := filepath.Join(os.Getenv("USERPROFILE"), ".kube", "config")
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return 0, "", "", "", fmt.Errorf("kubeconfig load: %w", err)
-	}
+	if err != nil { return 0, "", "", "", fmt.Errorf("kubeconfig load: %w", err) }
 	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return 0, "", "", "", fmt.Errorf("kube client: %w", err)
-	}
-	if timeout <= 0 {
-		timeout = 10 * time.Second
-	}
+	if err != nil { return 0, "", "", "", fmt.Errorf("kube client: %w", err) }
+	if timeout <= 0 { timeout = 10 * time.Second }
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	listNs := namespace // empty means all
-	pods, err := clientset.CoreV1().Pods(listNs).List(ctx, metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return 0, "", "", "", fmt.Errorf("list pods: %w", err)
+	pollInterval := 1 * time.Second
+	var state string // ""|"zero"|"many"|"one"
+	start := time.Now()
+	slog.Info("waiting for pod label resolution", "selector", selector, "namespace", listNs, "timeout", timeout, "pollInterval", pollInterval)
+	for {
+		select { case <-ctx.Done():
+			// timeout reached before single pod ready
+			switch state {
+			case "zero", "":
+				return 0, "", "", "", fmt.Errorf("no pods match label selector '%s' before timeout", selector)
+			case "many":
+				return 0, "", "", "", fmt.Errorf("label selector '%s' did not narrow to a single pod before timeout", selector)
+			case "one":
+				return 0, "", "", "", fmt.Errorf("pod never became ready with IP before timeout (selector '%s')", selector)
+			default:
+				return 0, "", "", "", fmt.Errorf("timeout resolving label selector '%s'", selector)
+			}
+		default: }
+
+		pods, err := clientset.CoreV1().Pods(listNs).List(ctx, metav1.ListOptions{LabelSelector: selector})
+		if err != nil { return 0, "", "", "", fmt.Errorf("list pods: %w", err) }
+		if len(pods.Items) == 0 {
+			if state != "zero" { slog.Debug("no pods match label yet; waiting", "selector", selector, "namespace", listNs) ; state = "zero" }
+			time.Sleep(pollInterval); continue
+		}
+		if len(pods.Items) > 1 {
+			if state != "many" { slog.Debug("multiple pods match; waiting for uniqueness", "selector", selector, "namespace", listNs, "count", len(pods.Items)) ; state = "many" }
+			time.Sleep(pollInterval); continue
+		}
+		pod := pods.Items[0]
+		if state != "one" { slog.Debug("single pod matched; checking IP", "pod", pod.Name, "namespace", pod.Namespace) ; state = "one" }
+		if pod.Status.PodIP == "" {
+			// wait for IP inside remaining timeout
+			ipAttempt := 0
+			for pod.Status.PodIP == "" {
+				select { case <-ctx.Done():
+					elapsed := time.Since(start)
+					return 0, "", pod.Name, pod.Namespace, fmt.Errorf("pod '%s/%s' still has no IP after %s (timeout); consider increasing -label-timeout", pod.Namespace, pod.Name, elapsed)
+				default: }
+				time.Sleep(1 * time.Second)
+				refreshed, err := clientset.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
+				if err != nil { slog.Warn("pod get during IP wait failed", "pod", pod.Name, "namespace", pod.Namespace, "error", err); continue }
+				pod = *refreshed
+				ipAttempt++
+				if ipAttempt%5 == 0 { slog.Debug("still waiting for pod IP", "pod", pod.Name, "namespace", pod.Namespace, "attempts", ipAttempt) }
+			}
+			slog.Info("pod IP resolved", "pod", pod.Name, "namespace", pod.Namespace, "podIP", pod.Status.PodIP, "waitElapsed", time.Since(start))
+		}
+		comp, err := compartmentFromIP(pod.Status.PodIP)
+		if err != nil { return 0, pod.Status.PodIP, pod.Name, pod.Namespace, fmt.Errorf("map pod ip to compartment: %w", err) }
+		slog.Debug("mapped pod IP to compartment", "pod", pod.Name, "namespace", pod.Namespace, "podIP", pod.Status.PodIP, "compartment", comp)
+		return comp, pod.Status.PodIP, pod.Name, pod.Namespace, nil
 	}
-	if len(pods.Items) == 0 {
-		return 0, "", "", "", fmt.Errorf("no pods match label selector '%s'", selector)
-	}
-	if len(pods.Items) > 1 {
-		return 0, "", "", "", fmt.Errorf("label selector '%s' matched %d pods (namespace='%s'); please refine with -namespace or a more specific selector", selector, len(pods.Items), namespace)
-	}
-	pod := pods.Items[0]
-	if pod.Status.PodIP == "" {
-		return 0, "", pod.Name, pod.Namespace, fmt.Errorf("pod '%s/%s' has no IP yet", pod.Namespace, pod.Name)
-	}
-	comp, err := compartmentFromIP(pod.Status.PodIP)
-	if err != nil {
-		return 0, pod.Status.PodIP, pod.Name, pod.Namespace, fmt.Errorf("map pod ip to compartment: %w", err)
-	}
-	return comp, pod.Status.PodIP, pod.Name, pod.Namespace, nil
 }
 
 // compartmentFromIP returns the compartment id for a given IP via parsing ipconfig /allcompartments.

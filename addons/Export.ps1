@@ -7,8 +7,6 @@
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Export directory of addon')]
     [string] $ExportDir,
     [parameter(Mandatory = $false, HelpMessage = 'Export all addons')]
@@ -109,6 +107,9 @@ else {
     }
 }
 
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
+
 $currentHttpProxy = $env:http_proxy
 $currentHttpsProxy = $env:https_proxy
 
@@ -153,7 +154,7 @@ try {
                 # For single implementation exports
                 if (-not $All -and $Names.Count -eq 1 -and $implementation.name -ne $manifest.metadata.name) {
                     $kubeBinPath = Get-KubeBinPath
-                    $yqExe = Join-Path $kubeBinPath "yq.exe"
+                    $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
                     
                     try {
                         Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
@@ -167,7 +168,7 @@ try {
                         Write-Log "Filtered manifest for single implementation: $($implementation.name)" -Console
                         Remove-Item -Path $tempFilterFile -Force -ErrorAction SilentlyContinue
                     } catch {
-                        Write-Log "Failed to filter manifest with yq.exe, falling back to copy: $_" -Console
+                        Write-Log "Failed to filter manifest with yq.exe (Path: $yqExe), falling back to copy: $_" -Console
                         Copy-Item -Path $manifestFile -Destination $copiedManifestPath -Force
                     }
                 } else {
@@ -211,7 +212,7 @@ try {
                         # extracting yaml files from the helm chart
                         $valuesFile = "$dirPath\manifests\chart\values.yaml"
                         # extract release from chart file name by removing the .tgz extension and the version
-                        # from kubernetes-dashboard-7.12.0.tgz -> kubernetes-dashboard
+                        # from kubernetes-dashboard-x.x.x.tgz -> kubernetes-dashboard
                         $chartNameParts = [System.IO.Path]::GetFileNameWithoutExtension($chart).Split('-')
                         $release = $chartNameParts[0..($chartNameParts.Length - 2)] -join '-'
                         # check if value file exists
@@ -232,6 +233,11 @@ try {
 
                 $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
                 foreach ($imageLine in $imageLines) {
+                    # Skip commented lines
+                    if ($imageLine.TrimStart() -match '^#') {
+                        continue
+                    }
+                    
                     $image = (($imageLine -split 'image: ')[1] -split '#')[0]
                     $parts = $image.Split(':')
                     if ($parts.Count -gt 1) {
@@ -249,16 +255,33 @@ try {
                 }
             }
 
+            # Process addon.manifest.yaml offline_usage section for image declarations
             if ($null -ne $implementation.offline_usage) {
                 $linuxPackages = $implementation.offline_usage.linux
-                $additionImages = $linuxPackages.additionalImages
-                $linuxImages += $additionImages
+                
+                # Collect Linux-only images from additionalImages
+                if ($linuxPackages.additionalImages) {
+                    $linuxImages += $linuxPackages.additionalImages
+                }
+                
+                # Extract images from referenced YAML manifest files (e.g., deployment.yaml)
+                if ($linuxPackages.additionalImagesFiles) {
+                    $linuxImages += Get-ImagesFromYamlFiles -YamlFiles $linuxPackages.additionalImagesFiles -BaseDirectory $dirPath
+                }
+
+                # Collect Windows-specific images from additionalImages
+                $windowsPackages = $implementation.offline_usage.windows
+                if ($null -ne $windowsPackages -and $windowsPackages.additionalImages) {
+                    $windowsImages += $windowsPackages.additionalImages
+                }
             }
 
             $linuxImages = $linuxImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
-            $windowsImages = $windowsImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
+            $linuxImages = Remove-VersionlessImages -Images $linuxImages
+            $windowsImages = $windowsImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }         
             $images += $linuxImages
             $images += $windowsImages
+            $images = $images | Select-Object -Unique
 
             mkdir -Force "${tmpExportDir}\addons\$dirName" | Out-Null
 
