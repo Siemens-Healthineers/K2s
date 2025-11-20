@@ -155,12 +155,9 @@ function Test-K2sDpkgQuery {
     $testCmd = 'dpkg-query --version 2>&1 || echo __DPKG_QUERY_FAILED__=$?'
     if ($UsingPlink) {
         $testArgs = @('-batch','-noagent','-P','22')
-        if ($PlinkHostKey) { 
-            $testArgs += @('-hostkey', $PlinkHostKey) 
-        } else {
-            # For ephemeral VMs, auto-accept any host key
-            $testArgs += @('-auto_store_key_in_cache')
-        }
+        if ($PlinkHostKey) {
+            $testArgs += @('-hostkey', $PlinkHostKey)
+         }
         if ($SshKey) { $testArgs += @('-i', $SshKey) } elseif ($SshPassword) { $testArgs += @('-pw', $SshPassword) }
         $testArgs += ("$SshUser@$GuestIp")
     } else {
@@ -170,15 +167,11 @@ function Test-K2sDpkgQuery {
     $testArgs += $testCmd
     $testOutput = & $SshClient @testArgs 2>&1
     $hasVersion = $false; $errorUnknown = $false
-    foreach ($line in $testOutput) { if ($line -match '^dpkg-query ') { $hasVersion = $true }; if ($line -match 'unknown option') { $errorUnknown = $true } }
-    # For ephemeral VMs, don't treat host key warnings as fatal errors
-    if ($UsingPlink -and ($testOutput -match 'POTENTIAL SECURITY BREACH') -and $PlinkHostKey) { 
-        Write-Log '[DebPkg][Warning] Host key mismatch detected but continuing with ephemeral VM' -Console
-        # Still allow the test to proceed since we're using an ephemeral VM
-    }
+    foreach ($line in $testOutput) { if ($line -match 'dpkg-query ') { $hasVersion = $true }; if ($line -match 'unknown option') { $errorUnknown = $true } }
+    if ($UsingPlink -and ($testOutput -match 'POTENTIAL SECURITY BREACH')) { return [pscustomobject]@{ Ok=$false; HostKeyMismatch=$true; Output=$testOutput } }
     $ok = ($hasVersion -and -not $errorUnknown)
     if ($ok) {
-        $firstLine = ($testOutput | Where-Object { $_ -match '^dpkg-query ' } | Select-Object -First 1)
+        $firstLine = ($testOutput | Where-Object { $_ -match 'dpkg-query ' } | Select-Object -First 1)
         Write-Log ("[DebPkg] dpkg self-test OK: {0}" -f $firstLine) -Console
     } else {
         $joined = ($testOutput | Select-Object -First 8) -join ' | '
@@ -201,12 +194,7 @@ function Get-K2sDpkgPackageMap {
     $baseQuery = "dpkg-query -W -f='$formatLiteral'"
     if ($UsingPlink) {
         $baseArgs = @('-batch','-noagent','-P','22')
-        if ($PlinkHostKey) { 
-            $baseArgs += @('-hostkey', $PlinkHostKey) 
-        } else {
-            # For ephemeral VMs without a known host key, auto-accept to avoid security warnings
-            $baseArgs += @('-auto_store_key_in_cache')
-        }
+        if ($PlinkHostKey) { $baseArgs += @('-hostkey', $PlinkHostKey) }
         if ($SshKey) { $baseArgs += @('-i', $SshKey) } elseif ($SshPassword) { $baseArgs += @('-pw', $SshPassword) }
         $baseArgs += ("$SshUser@$GuestIp")
     } else {
@@ -261,12 +249,7 @@ function Invoke-K2sGuestDebCopy {
         try {
             if ($usePlinkCopy) {
                 $copyArgs = @('-batch','-P','22')
-                if ($PlinkHostKey) { 
-                    $copyArgs += @('-hostkey', $PlinkHostKey) 
-                } else {
-                    # For ephemeral VMs without a known host key, auto-accept to avoid security warnings
-                    $copyArgs += @('-auto_store_key_in_cache')
-                }
+                if ($PlinkHostKey) { $copyArgs += @('-hostkey', $PlinkHostKey) }
                 if ($SshKey) { $copyArgs += @('-i', $SshKey) } elseif ($SshPassword) { $copyArgs += @('-pw', $SshPassword) }
                 $copyArgs += ("${SshUser}@${GuestIp}:${RemoteDir}/$deb")
                 $copyArgs += (Join-Path $DownloadLocalDir $deb)
@@ -387,11 +370,55 @@ function Get-DebianPackagesFromVHDX {
         # SSH client
         $sshInfo = Get-K2sHvSshClient -NewExtract $NewExtract -OldExtract $OldExtract
         $sshClient = $sshInfo.Path; $usingPlink = $sshInfo.UsingPlink; $plinkHostKey = $null
-        if ($usingPlink) { $plinkHostKey = Get-K2sPlinkHostKey -SshClient $sshClient -SshUser $sshUser -GuestIp $guestIp }
-        # dpkg self test
-        $dpkgTest = Test-K2sDpkgQuery -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd
-        if ($dpkgTest.HostKeyMismatch) { $result.Error = 'Host key mismatch detected (plink security warning). Provide correct fingerprint or clear cached host key.'; return $result }
-        # Query packages
+
+        Write-Log ("[DebPkg] Wait 1 minute until the SSH server is running") -Console
+        Start-Sleep -Seconds 60
+        # Poll SSH login with dpkg self-test (every 10s up to 120s) - VM needs time to fully boot  
+        Write-Log "[DebPkg] Polling SSH login readiness (polling every 10s, timeout 120s)..." -Console
+        $loginReadyDeadline = (Get-Date).AddSeconds(120)
+        $dpkgTest = $null
+        $loginSucceeded = $false
+        while ((Get-Date) -lt $loginReadyDeadline) {         
+            if ($usingPlink) { $plinkHostKey = Get-K2sPlinkHostKey -SshClient $sshClient -SshUser $sshUser -GuestIp $guestIp }
+            $dpkgTest = Test-K2sDpkgQuery -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey '' -SshPassword $sshPwd
+            if ($dpkgTest.HostKeyMismatch) { 
+                $result.Error = 'Host key mismatch detected (plink security warning). Provide correct fingerprint or clear cached host key.'
+                return $result 
+            }
+            if ($dpkgTest.Ok) { 
+                $loginSucceeded = $true
+                Write-Log "[DebPkg] SSH login successful with password, dpkg-query available" -Console
+                break 
+            }
+            $sampleOutput = ($dpkgTest.Output | Select-Object -First 3) -join ' | '
+            # Retry on transient SSH/auth errors that will resolve as VM boots
+            if ($sampleOutput -match 'Permission denied' -or 
+                $sampleOutput -match 'Connection refused' -or 
+                $sampleOutput -match 'Connection timed out' -or
+                $sampleOutput -match 'No supported authentication methods' -or
+                $sampleOutput -match 'server sent: publickey') {
+                # SSH not ready yet during boot, wait and retry
+                Write-Log "[DebPkg] SSH not ready yet (will retry): $sampleOutput" -Console
+                Start-Sleep -Seconds 10
+            } else {
+                # Non-SSH/non-timeout error; break early as it won't resolve with waiting
+                Write-Log ("[DebPkg][Warning] Unexpected error during SSH test: {0}" -f $sampleOutput) -Console
+                break
+            }
+        }
+        if (-not $loginSucceeded) {
+            $sampleOutput = ($dpkgTest.Output | Select-Object -First 3) -join ' | '
+            $authMethod = "password authentication"
+            if ($sampleOutput -match 'Permission denied' -or $sampleOutput -match 'authentication') {
+                $result.Error = "SSH $authMethod failed after 120s. Diagnostic output: $sampleOutput"
+                return $result
+            } else {
+                $result.Error = "SSH login not ready within 120s timeout. Diagnostic output: $sampleOutput"
+                return $result
+            }
+        }
+        
+        # Query packages (use the auth method that worked)
         $pkgMap = Get-K2sDpkgPackageMap -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd
         $result.Packages = $pkgMap
 
