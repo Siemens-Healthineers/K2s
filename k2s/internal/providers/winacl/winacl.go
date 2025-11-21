@@ -14,19 +14,24 @@ import (
 
 const (
 	replaceExistingEntries = true
-	dontInheritACEs        = false
-	adminUserGroup         = "Administrators"
+	doNotInheritACEs       = false
+	adminGroupSidString    = "S-1-5-32-544"
 )
 
 func TransferFileOwnership(path string, user *contracts.OSUser) error {
 	slog.Debug("Transferring file ownership", "path", path, "user", user.Name())
 
+	adminGroupSid, err := windows.StringToSid(adminGroupSidString)
+	if err != nil {
+		return fmt.Errorf("failed to convert SID string '%s' to SID: %w", adminGroupSidString, err)
+	}
+
 	if err := acl_pkg.Apply(
 		path,
 		replaceExistingEntries,
-		dontInheritACEs,
+		doNotInheritACEs,
 		acl_pkg.GrantName(windows.GENERIC_ALL, user.Name()),
-		acl_pkg.GrantName(windows.GENERIC_ALL, adminUserGroup),
+		acl_pkg.GrantSid(windows.GENERIC_ALL, adminGroupSid),
 	); err != nil {
 		return fmt.Errorf("failed to transfer ownership of '%s' to user '%s': %w", path, user.Name(), err)
 	}
