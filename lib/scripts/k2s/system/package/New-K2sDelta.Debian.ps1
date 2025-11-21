@@ -284,7 +284,7 @@ function Invoke-GuestDebAcquisition {
         [string] $SshKey,
         # NOTE: Legacy plain-text password to match existing calling pattern; avoid proliferating further. Prefer key auth.
         # PSScriptAnalyzer Suppression: Using string for backward compatibility with existing callers.
-    [string] $SshPassword
+        [string] $SshPassword
     )
     $result = [pscustomobject]@{ DebFiles=@(); Failures=@(); Logs=@(); RemoteDir=$RemoteDir; UsedFallback=$false; Diagnostics=@(); SatisfiedMeta=@(); Resolutions=@() }
     if (-not $PackageSpecs -or $PackageSpecs.Count -eq 0) { return $result }
