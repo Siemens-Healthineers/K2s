@@ -27,7 +27,32 @@ Param(
     [string] $Script
 )
 
-$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+# Detect if running from delta package (delta-manifest.json 4 levels up from base/)
+$possibleDeltaRoot = Split-Path (Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent) -Parent
+$deltaManifestPath = Join-Path $possibleDeltaRoot 'delta-manifest.json'
+$runningFromDelta = Test-Path -LiteralPath $deltaManifestPath
+
+if ($runningFromDelta) {
+	# Running from delta package - reference modules from target installation
+	# Get target installation path from setup.json
+	$setupConfigPath = "$env:SystemDrive\ProgramData\k2s\setup.json"
+	if (Test-Path -LiteralPath $setupConfigPath) {
+		$setupConfig = Get-Content -LiteralPath $setupConfigPath -Raw | ConvertFrom-Json
+		$targetInstallPath = $setupConfig.InstallFolder
+	} else {
+		$targetInstallPath = 'C:\k'
+	}
+	
+	if (-not (Test-Path -LiteralPath $targetInstallPath)) {
+		Write-Host "[Invoke-ExecScript][Error] Target installation not found at: $targetInstallPath" -ForegroundColor Red
+		exit 1
+	}
+	
+	$infraModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1'
+} else {
+	# Running from installed k2s - use relative path
+	$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+}
 
 Import-Module $infraModule
 
