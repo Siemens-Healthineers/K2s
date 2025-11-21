@@ -8,7 +8,7 @@ go 1.25.0
 
 require (
 	github.com/Microsoft/hcsshim v0.13.0
-	github.com/Microsoft/windows-container-networking v0.3.1
+	github.com/Microsoft/windows-container-networking v0.3.2
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v1.3.0
