@@ -83,7 +83,7 @@ if ($ExcludePowershellTests -and $ExcludeGoTests) {
 Import-Module "$PSScriptRoot\test.module.psm1" -Force
 
 $pesterVersion = '5.7.1'
-$ginkgoVersion = '2.26.0'
+$ginkgoVersion = '2.27.2'
 
 # Normalize and resolve repository root directory robustly (handles .. and spaces)
 $rootDir = Join-Path -Path $PSScriptRoot -ChildPath '..'
