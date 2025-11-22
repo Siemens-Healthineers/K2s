@@ -22,6 +22,10 @@ spec:
             - manifests/monitoring/prometheus-operator/deployment.yaml
         windows:
           curl: []
+          additionalImages:
+            - ghcr.io/prometheus-community/windows-exporter
+          additionalImagesFiles:
+            - ../common/manifests/windows-exporter/daemonset.yaml
       commands:
         enable:
           cli:

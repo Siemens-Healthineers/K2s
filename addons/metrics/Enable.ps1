@@ -64,6 +64,10 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'metrics' })) -eq $tr
 Write-Log 'Installing Kubernetes Metrics Server' -Console
 (Invoke-Kubectl -Params 'apply', '-f', (Get-MetricsServerConfig)).Output | Write-Log
 
+Write-Log 'Deploying Windows Exporter for Windows node metrics' -Console
+$windowsExporterPath = "$PSScriptRoot\..\common\manifests\windows-exporter"
+(Invoke-Kubectl -Params 'apply', '-k', $windowsExporterPath).Output | Write-Log
+
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=metrics-server' -Namespace 'metrics' -TimeoutSeconds 120)
 
 if ($allPodsAreUp -ne $true) {
