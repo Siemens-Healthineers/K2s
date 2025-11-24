@@ -41,7 +41,12 @@ $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.c
 $signingModule = "$PSScriptRoot/../../../../modules/k2s/k2s.signing.module/k2s.signing.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $signingModule
 
-Initialize-Logging -ShowLogs:$ShowLogs
+# CRITICAL: When encoding structured output, suppress ALL console output to prevent base64 contamination
+if ($EncodeStructuredOutput) {
+    Initialize-Logging -ShowLogs:$false
+} else {
+    Initialize-Logging -ShowLogs:$ShowLogs
+}
 
 ### Dot-source helper methods
 $script:DeltaHelperParts = @(
@@ -66,6 +71,26 @@ foreach ($part in $script:DeltaHelperParts) {
 Write-Log "- Target Directory: $TargetDirectory"
 Write-Log "- Package file name: $ZipPackageFileName"
 
+# Validate input packages BEFORE any resource allocation (SSH keys, temp dirs, etc.)
+if ([string]::IsNullOrWhiteSpace($InputPackageOne) -or -not (Test-Path -LiteralPath $InputPackageOne)) {
+    $errorMsg = "InputPackageOne missing or not found: '$InputPackageOne'"
+    Write-Log $errorMsg -Error
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'delta-package-input-not-found' -Message $errorMsg
+        Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
+    }
+    exit 2
+}
+if ([string]::IsNullOrWhiteSpace($InputPackageTwo) -or -not (Test-Path -LiteralPath $InputPackageTwo)) {
+    $errorMsg = "InputPackageTwo missing or not found: '$InputPackageTwo'"
+    Write-Log $errorMsg -Error
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'delta-package-input-not-found' -Message $errorMsg
+        Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
+    }
+    exit 3
+}
+
 $errMsg = ''
 if ('' -eq $TargetDirectory) {
     $errMsg = 'The passed target directory is empty'
@@ -87,7 +112,7 @@ if ($errMsg -ne '') {
         return
     }
 
-    Write-Log $errMsg -Error
+    Write-Log $errMsg -Error -Console
     exit 1
 }
 
@@ -100,20 +125,8 @@ if (Test-Path $zipPackagePath) {
 
 Write-Log "Zip package available at '$zipPackagePath'." -Console
 
-if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
-}
-
 # --- Delta Package Construction -------------------------------------------------
-
-if ([string]::IsNullOrWhiteSpace($InputPackageOne) -or -not (Test-Path -LiteralPath $InputPackageOne)) {
-    Write-Log "InputPackageOne missing or not found: '$InputPackageOne'" -Error
-    exit 2
-}
-if ([string]::IsNullOrWhiteSpace($InputPackageTwo) -or -not (Test-Path -LiteralPath $InputPackageTwo)) {
-    Write-Log "InputPackageTwo missing or not found: '$InputPackageTwo'" -Error
-    exit 3
-}
+# Input packages already validated at script start (before SSH key generation)
 
 Write-Log "Building delta between:'$InputPackageOne' -> '$InputPackageTwo'" -Console
 
@@ -243,6 +256,156 @@ for ($i = 0; $i -lt $deltaTotal; $i++) {
 if ($ShowLogs) { Write-Progress -Activity 'Staging delta files' -Completed }
 Stop-Phase "Staging" $stagePhase
 
+# --- MANDATORY: Ensure k2s.exe is always included (for update execution from delta package) ---
+$k2sExePath = 'k2s.exe'
+$k2sExeSource = Join-Path $newExtract $k2sExePath
+$k2sExeDest = Join-Path $stageDir $k2sExePath
+if (Test-Path -LiteralPath $k2sExeSource) {
+    if (-not (Test-Path -LiteralPath $k2sExeDest)) {
+        Write-Log "[Mandatory] Adding k2s.exe to delta package (not in diff but required for update execution)" -Console
+        Copy-Item -LiteralPath $k2sExeSource -Destination $k2sExeDest -Force
+        # Add to changed list if not already present
+        if ($k2sExePath -notin $added -and $k2sExePath -notin $changed) {
+            $changed += $k2sExePath
+        }
+    } else {
+        Write-Log "[Mandatory] k2s.exe already staged" -Console
+    }
+} else {
+    Write-Log "[Warning] k2s.exe not found in new package - delta update may fail!" -Console
+}
+
+# --- MANDATORY: Copy update module to delta package for standalone execution ---
+# Note: The update module will dynamically load other required modules (infra, runningstate, etc.) 
+# from the target installation folder, so we only need to include update.module.psm1 itself.
+$updateModuleName = 'update.module.psm1'
+$updateModuleRelPath = "lib/modules/k2s/k2s.cluster.module/update/$updateModuleName"
+$updateModuleSource = Join-Path $newExtract $updateModuleRelPath
+$updateModuleDest = Join-Path $stageDir $updateModuleRelPath
+if (Test-Path -LiteralPath $updateModuleSource) {
+    $updateModuleDestDir = Split-Path $updateModuleDest -Parent
+    if (-not (Test-Path -LiteralPath $updateModuleDestDir)) {
+        New-Item -ItemType Directory -Path $updateModuleDestDir -Force | Out-Null
+    }
+    if (-not (Test-Path -LiteralPath $updateModuleDest)) {
+        Write-Log "[Mandatory] Adding update module to delta package (required for update execution)" -Console
+        Copy-Item -LiteralPath $updateModuleSource -Destination $updateModuleDest -Force
+        # Add to changed list if not already present
+        if ($updateModuleRelPath -notin $added -and $updateModuleRelPath -notin $changed) {
+            $changed += $updateModuleRelPath
+        }
+    } else {
+        Write-Log "[Mandatory] Update module already staged" -Console
+    }
+} else {
+    Write-Log "[Warning] Update module not found in new package - delta update may fail!" -Console
+}
+
+# --- MANDATORY: Create Apply-Delta.ps1 wrapper script for easy execution ---
+$applyScriptContent = @'
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
+<#
+.SYNOPSIS
+    Applies the K2s delta update package.
+.DESCRIPTION
+    This script provides a convenient wrapper to apply the delta update using the
+    update.module.psm1 included in this delta package. It must be executed from
+    the extracted delta package directory.
+.PARAMETER ShowLogs
+    Display detailed log output during the update process.
+.PARAMETER ShowProgress
+    Show progress indicators during the update phases.
+#>
+
+#Requires -RunAsAdministrator
+
+Param(
+    [Parameter(Mandatory = $false)]
+    [switch] $ShowLogs = $false,
+    [Parameter(Mandatory = $false)]
+    [switch] $ShowProgress = $false
+)
+
+$ErrorActionPreference = 'Stop'
+
+# Determine the delta package path (this script's directory contains the extracted delta)
+$scriptRoot = $PSScriptRoot
+$deltaManifestPath = Join-Path $scriptRoot 'delta-manifest.json'
+
+if (-not (Test-Path -LiteralPath $deltaManifestPath)) {
+    Write-Host "[ERROR] delta-manifest.json not found in $scriptRoot" -ForegroundColor Red
+    Write-Host "[ERROR] This script must be run from the root of the extracted delta package directory." -ForegroundColor Red
+    exit 1
+}
+
+# Load the update module from the delta package
+$updateModulePath = Join-Path $scriptRoot 'lib\modules\k2s\k2s.cluster.module\update\update.module.psm1'
+if (-not (Test-Path -LiteralPath $updateModulePath)) {
+    Write-Host "[ERROR] Update module not found at: $updateModulePath" -ForegroundColor Red
+    Write-Host "[ERROR] The delta package may be incomplete or corrupted." -ForegroundColor Red
+    exit 2
+}
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "K2s Delta Update" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Importing update module..." -ForegroundColor Yellow
+
+try {
+    Import-Module $updateModulePath -Force
+} catch {
+    Write-Host "[ERROR] Failed to import update module: $($_.Exception.Message)" -ForegroundColor Red
+    exit 3
+}
+
+Write-Host "Starting delta update process..." -ForegroundColor Yellow
+Write-Host ""
+
+# Test the update by executing from the current directory (delta root)
+# No need to repackage - PerformClusterUpdate now expects to run from extracted delta directory
+Write-Host "Testing delta update from current directory..." -ForegroundColor Yellow
+Write-Host "Delta root: $scriptRoot" -ForegroundColor Gray
+
+try {
+    # Change to the script root directory (where delta-manifest.json is)
+    Push-Location $scriptRoot
+    
+    # Execute the update - it will detect delta-manifest.json in current directory
+    $result = PerformClusterUpdate -ShowLogs:$ShowLogs -ShowProgress:$ShowProgress
+    
+    Pop-Location
+    
+    if ($result) {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Green
+        Write-Host "Delta update completed successfully!" -ForegroundColor Green
+        Write-Host "========================================" -ForegroundColor Green
+    } else {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host "Delta update failed!" -ForegroundColor Red
+        Write-Host "========================================" -ForegroundColor Red
+        exit 4
+    }
+} catch {
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "Delta update encountered an error:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    exit 5
+} finally {
+    # No temporary zip to cleanup - we execute directly from the directory
+}
+'@
+
+$applyScriptPath = Join-Path $stageDir 'Apply-Delta.ps1'
+$applyScriptContent | Out-File -FilePath $applyScriptPath -Encoding UTF8 -Force
+Write-Log "[Mandatory] Created Apply-Delta.ps1 wrapper script" -Console
+
 # Staging summary
 $stagedFileCount = (Get-ChildItem -Path $stageDir -Recurse -File | Measure-Object).Count
 Write-Log "Staging summary: total staged files=$stagedFileCount (wholesale dirs=$($wholeDirsNormalized.Count), added=$($added.Count), changed=$($changed.Count))" -Console
@@ -251,57 +414,57 @@ Write-Log "Staging summary: total staged files=$stagedFileCount (wholesale dirs=
 $debianPackageDiff = $null
 $offlineDebInfo = $null
 if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
-    Write-Log 'Analyzing Debian packages in Kubemaster-Base.vhdx ...' -Console
-    $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx'
-    if ($debianPackageDiff.Processed) {
-        Write-Log ("Debian package diff: Added={0} Changed={1} Removed={2}" -f $debianPackageDiff.AddedCount, $debianPackageDiff.ChangedCount, $debianPackageDiff.RemovedCount) -Console
-        # --- Generate Debian delta artifact directory (lists + scripts) -----------------
-        try {
-            $debianDeltaDir = Join-Path $stageDir 'debian-delta'
-            if (-not (Test-Path -LiteralPath $debianDeltaDir)) { New-Item -ItemType Directory -Path $debianDeltaDir | Out-Null }
+        Write-Log 'Analyzing Debian packages in Kubemaster-Base.vhdx ...' -Console
+                $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx'
+        if ($debianPackageDiff.Processed) {
+            Write-Log ("Debian package diff: Added={0} Changed={1} Removed={2}" -f $debianPackageDiff.AddedCount, $debianPackageDiff.ChangedCount, $debianPackageDiff.RemovedCount) -Console
+                        # --- Generate Debian delta artifact directory (lists + scripts) -----------------
+            try {
+                $debianDeltaDir = Join-Path $stageDir 'debian-delta'
+                if (-not (Test-Path -LiteralPath $debianDeltaDir)) { New-Item -ItemType Directory -Path $debianDeltaDir | Out-Null }
 
-            # Collect offline package specs (added + upgraded new versions)
-            $offlineSpecs = @()
-            if ($debianPackageDiff.Added) { $offlineSpecs += $debianPackageDiff.Added }
-            if ($debianPackageDiff.Changed) {
-                foreach ($c in $debianPackageDiff.Changed) {
-                    if ($c -match '^(?<n>[^:]+):\s+[^ ]+\s+->\s+(?<nv>.+)$') { $offlineSpecs += ("{0}={1}" -f $matches['n'], $matches['nv']) }
+                # Collect offline package specs (added + upgraded new versions)
+                $offlineSpecs = @()
+                if ($debianPackageDiff.Added) { $offlineSpecs += $debianPackageDiff.Added }
+                if ($debianPackageDiff.Changed) {
+                    foreach ($c in $debianPackageDiff.Changed) {
+                        if ($c -match '^(?<n>[^:]+):\s+[^ ]+\s+->\s+(?<nv>.+)$') { $offlineSpecs += ("{0}={1}" -f $matches['n'], $matches['nv']) }
+                    }
                 }
-            }
-            $offlineSpecs = $offlineSpecs | Sort-Object -Unique
+                $offlineSpecs = $offlineSpecs | Sort-Object -Unique
 
-            # Added packages list (keep full pkg=version form)
-            $addedPkgs = $debianPackageDiff.Added
-            if ($addedPkgs) { $addedPkgs | Sort-Object | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.added') -Encoding ASCII -Force }
+                # Added packages list (keep full pkg=version form)
+                $addedPkgs = $debianPackageDiff.Added
+                if ($addedPkgs) { $addedPkgs | Sort-Object | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.added') -Encoding ASCII -Force }
 
-            # Removed packages list (strip versions to just names)
-            $removedNames = @()
-            foreach ($r in ($debianPackageDiff.Removed)) { if ($r -match '^(?<n>[^=]+)=(?<v>.+)$') { $removedNames += $matches['n'] } }
-            if ($removedNames) { $removedNames | Sort-Object -Unique | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.removed') -Encoding ASCII -Force }
+                # Removed packages list (strip versions to just names)
+                $removedNames = @()
+                foreach ($r in ($debianPackageDiff.Removed)) { if ($r -match '^(?<n>[^=]+)=(?<v>.+)$') { $removedNames += $matches['n'] } }
+                if ($removedNames) { $removedNames | Sort-Object -Unique | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.removed') -Encoding ASCII -Force }
 
-            # Upgraded packages (Changed list lines formatted: name: old -> new)
-            $upgradedLines = @()
-            foreach ($c in ($debianPackageDiff.Changed)) { if ($c -match '^(?<n>[^:]+):\s+(?<o>[^ ]+)\s+->\s+(?<nv>.+)$') { $upgradedLines += ("{0} {1} {2}" -f $matches['n'], $matches['o'], $matches['nv']) } }
-            if ($upgradedLines) { $upgradedLines | Sort-Object | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.upgraded') -Encoding ASCII -Force }
+                # Upgraded packages (Changed list lines formatted: name: old -> new)
+                $upgradedLines = @()
+                foreach ($c in ($debianPackageDiff.Changed)) { if ($c -match '^(?<n>[^:]+):\s+(?<o>[^ ]+)\s+->\s+(?<nv>.+)$') { $upgradedLines += ("{0} {1} {2}" -f $matches['n'], $matches['o'], $matches['nv']) } }
+                if ($upgradedLines) { $upgradedLines | Sort-Object | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.upgraded') -Encoding ASCII -Force }
 
-            # Debian delta manifest (JSON)
-            $debDeltaManifest = [pscustomobject]@{
-                SourceVhdxOld       = $debianPackageDiff.OldRelativePath
-                SourceVhdxNew       = $debianPackageDiff.NewRelativePath
-                Added               = $addedPkgs
-                Removed             = $removedNames
-                Upgraded            = $upgradedLines
-                AddedCount          = $debianPackageDiff.AddedCount
-                RemovedCount        = $debianPackageDiff.RemovedCount
-                UpgradedCount       = $upgradedLines.Count
-                OfflinePackages     = $offlineSpecs
-                OfflinePackagesCount = $offlineSpecs.Count
-                GeneratedUtc        = [DateTime]::UtcNow.ToString('o')
-            }
-            $debDeltaManifest | ConvertTo-Json -Depth 4 | Out-File -FilePath (Join-Path $debianDeltaDir 'debian-delta-manifest.json') -Encoding UTF8 -Force
+                # Debian delta manifest (JSON)
+                $debDeltaManifest = [pscustomobject]@{
+                    SourceVhdxOld       = $debianPackageDiff.OldRelativePath
+                    SourceVhdxNew       = $debianPackageDiff.NewRelativePath
+                    Added               = $addedPkgs
+                    Removed             = $removedNames
+                    Upgraded            = $upgradedLines
+                    AddedCount          = $debianPackageDiff.AddedCount
+                    RemovedCount        = $debianPackageDiff.RemovedCount
+                    UpgradedCount       = $upgradedLines.Count
+                    OfflinePackages     = $offlineSpecs
+                    OfflinePackagesCount = $offlineSpecs.Count
+                    GeneratedUtc        = [DateTime]::UtcNow.ToString('o')
+                }
+                $debDeltaManifest | ConvertTo-Json -Depth 4 | Out-File -FilePath (Join-Path $debianDeltaDir 'debian-delta-manifest.json') -Encoding UTF8 -Force
 
-            # Apply script (bash) - installs added + upgraded with explicit versions, removes removed
-            $applyScript = @('#!/usr/bin/env bash',
+                # Apply script (bash) - installs added + upgraded with explicit versions, removes removed
+                $applyScript = @('#!/usr/bin/env bash',
                 'set -euo pipefail',
                 'echo "[debian-delta] Apply start"',
                 'if [[ $EUID -ne 0 ]]; then echo "Run as root" >&2; exit 1; fi',
@@ -338,12 +501,12 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 'else',
                 '  echo "[debian-delta] No packages specified for install/upgrade"',
                 'fi',
-                'echo "[debian-delta] Apply complete"'
-            ) -join "`n"
-            $applyPath = Join-Path $debianDeltaDir 'apply-debian-delta.sh'
-            $applyScript | Out-File -FilePath $applyPath -Encoding ASCII -Force
-            # Verification script
-            $verifyScript = @('#!/usr/bin/env bash',
+                    'echo "[debian-delta] Apply complete"'
+                ) -join "`n"
+                $applyPath = Join-Path $debianDeltaDir 'apply-debian-delta.sh'
+                $applyScript | Out-File -FilePath $applyPath -Encoding ASCII -Force
+                # Verification script
+                $verifyScript = @('#!/usr/bin/env bash',
                 'set -euo pipefail',
                 'if [[ $EUID -ne 0 ]]; then echo "Run as root" >&2; exit 1; fi',
                 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
@@ -356,57 +519,64 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 'for entry in $ADDED; do P=${entry%%=*}; V=${entry#*=}; CV=$(dpkg-query -W -f="${Version}" "$P" 2>/dev/null || echo missing); if [[ "$CV" != "$V" ]]; then echo "[verify] Added pkg mismatch: $P expected $V got $CV"; FAIL=1; fi; done',
                 'while read -r line; do [[ -z "$line" ]] && continue; PKG=$(echo "$line" | awk "{print $1}"); OV=$(echo "$line" | awk "{print $2}"); NV=$(echo "$line" | awk "{print $3}"); CV=$(dpkg-query -W -f="${Version}" "$PKG" 2>/dev/null || echo missing); if [[ "$CV" != "$NV" ]]; then echo "[verify] Upgraded pkg mismatch: $PKG expected $NV got $CV"; FAIL=1; fi; done <<< "$UPG"',
                 'if [[ $FAIL -eq 0 ]]; then echo "[verify] Debian delta verification PASSED"; else echo "[verify] Debian delta verification FAILED"; fi',
-                'exit $FAIL'
-            ) -join "`n"
-            $verifyPath = Join-Path $debianDeltaDir 'verify-debian-delta.sh'
-            $verifyScript | Out-File -FilePath $verifyPath -Encoding ASCII -Force
-            
-            # Attempt offline .deb acquisition using a second VHDX scan pass (best effort)
-            try {
-                if ($offlineSpecs.Count -gt 0) {
-                    $debDownloadDir = Join-Path $debianDeltaDir 'packages'
-                    if (-not (Test-Path -LiteralPath $debDownloadDir)) { New-Item -ItemType Directory -Path $debDownloadDir | Out-Null }
-                    Write-Log ("Attempting offline .deb acquisition for {0} packages" -f $offlineSpecs.Count) -Console
-                    $kubemasterNewRel = $debianPackageDiff.NewRelativePath
-                    $kubemasterNewAbs = Join-Path $newExtract $kubemasterNewRel
-                    if (Test-Path -LiteralPath $kubemasterNewAbs) {
-                        $dlResult = Get-DebianPackagesFromVHDX -VhdxPath $kubemasterNewAbs -NewExtract $newExtract -OldExtract $oldExtract -switchNameEnding 'delta' -DownloadPackageSpecs $offlineSpecs -DownloadLocalDir $debDownloadDir -DownloadDebs -AllowPartialAcquisition
-                        if ($dlResult.Error) {
-                            Write-Log ("[Warning] Offline package acquisition error: {0}" -f $dlResult.Error) -Console
-                            throw "Offline deb acquisition failed: $($dlResult.Error)"    # mandatory failure
-                        }
-                        elseif ($dlResult.DownloadedDebs.Count -gt 0) {
-                            $debMeta = [pscustomobject]@{
-                                Downloaded = $dlResult.DownloadedDebs
-                                DownloadedCount = $dlResult.DownloadedDebs.Count
-                                GeneratedUtc = [DateTime]::UtcNow.ToString('o')
+                    'exit $FAIL'
+                ) -join "`n"
+                $verifyPath = Join-Path $debianDeltaDir 'verify-debian-delta.sh'
+                $verifyScript | Out-File -FilePath $verifyPath -Encoding ASCII -Force
+                
+                # Attempt offline .deb acquisition using a second VHDX scan pass (best effort)
+                try {
+                    if ($offlineSpecs.Count -gt 0) {
+                        $debDownloadDir = Join-Path $debianDeltaDir 'packages'
+                        if (-not (Test-Path -LiteralPath $debDownloadDir)) { New-Item -ItemType Directory -Path $debDownloadDir | Out-Null }
+                        Write-Log ("Attempting offline .deb acquisition for {0} packages" -f $offlineSpecs.Count) -Console
+                        $kubemasterNewRel = $debianPackageDiff.NewRelativePath
+                        $kubemasterNewAbs = Join-Path $newExtract $kubemasterNewRel
+                        if (Test-Path -LiteralPath $kubemasterNewAbs) {
+                            $dlResult = Get-DebianPackagesFromVHDX -VhdxPath $kubemasterNewAbs -NewExtract $newExtract -OldExtract $oldExtract -switchNameEnding 'delta' -DownloadPackageSpecs $offlineSpecs -DownloadLocalDir $debDownloadDir -DownloadDebs -AllowPartialAcquisition
+                            if ($dlResult.Error) {
+                                Write-Log ("[Warning] Offline package acquisition error: {0}" -f $dlResult.Error) -Console
+                                 throw "Offline deb acquisition failed: $($dlResult.Error)"    # mandatory failure
                             }
-                            $debMeta | ConvertTo-Json -Depth 3 | Out-File -FilePath (Join-Path $debDownloadDir 'download-manifest.json') -Encoding UTF8 -Force
-                            Write-Log ("Offline .deb acquisition completed: {0} files" -f $dlResult.DownloadedDebs.Count) -Console
-                            # FailureDetails removed; no failed-packages.json emitted
-                            $offlineDebInfo = [pscustomobject]@{
-                                Specs = $offlineSpecs
-                                Downloaded = $dlResult.DownloadedDebs | ForEach-Object { Join-Path 'debian-delta/packages' $_ }
+                            elseif ($dlResult.DownloadedDebs.Count -gt 0) {
+                                $debMeta = [pscustomobject]@{
+                                    Downloaded = $dlResult.DownloadedDebs
+                                    DownloadedCount = $dlResult.DownloadedDebs.Count
+                                    GeneratedUtc = [DateTime]::UtcNow.ToString('o')
+                                }
+                                $debMeta | ConvertTo-Json -Depth 3 | Out-File -FilePath (Join-Path $debDownloadDir 'download-manifest.json') -Encoding UTF8 -Force
+                                Write-Log ("Offline .deb acquisition completed: {0} files" -f $dlResult.DownloadedDebs.Count) -Console
+                                # FailureDetails removed; no failed-packages.json emitted
+                                $offlineDebInfo = [pscustomobject]@{
+                                    Specs = $offlineSpecs
+                                    Downloaded = $dlResult.DownloadedDebs | ForEach-Object { Join-Path 'debian-delta/packages' $_ }
+                                }
+                            } else {
+                                Write-Log '[Warning] No .deb files downloaded (empty list)' -Console
+                                throw 'Offline deb acquisition produced zero files (mandatory)'
                             }
                         } else {
-                            Write-Log '[Warning] No .deb files downloaded (empty list)' -Console
-                            throw 'Offline deb acquisition produced zero files (mandatory)'
+                            Write-Log ("[Warning] Expected VHDX for offline acquisition not found: {0}" -f $kubemasterNewAbs) -Console
+                            throw 'Offline deb acquisition VHDX missing (mandatory)'
                         }
-                    } else {
-                        Write-Log ("[Warning] Expected VHDX for offline acquisition not found: {0}" -f $kubemasterNewAbs) -Console
-                        throw 'Offline deb acquisition VHDX missing (mandatory)'
                     }
+                } catch {
+                    Write-Log ("[Warning] Offline acquisition attempt failed: {0}" -f $_.Exception.Message) -Console
+                    throw
                 }
-            } catch {
-                Write-Log ("[Warning] Offline acquisition attempt failed: {0}" -f $_.Exception.Message) -Console
-                throw
+                Write-Log "Created Debian delta artifact at '$debianDeltaDir'" -Console
             }
-            Write-Log "Created Debian delta artifact at '$debianDeltaDir'" -Console
-        }
-        catch {
-            Write-Log "[Error] Failed to generate Debian delta artifact: $($_.Exception.Message)" -Console
-            throw $_
-        }
+            catch {
+                Write-Log "[Error] Failed to generate Debian delta artifact: $($_.Exception.Message)"
+                if ($EncodeStructuredOutput -eq $true) {
+                    $err = New-Error -Severity Warning -Code '[Error] Failed to generate Debian delta artifact' -Message $_.Exception.Message
+                    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                    return
+                }
+                else {
+                    throw $_
+                }        
+            }
     } else {
         $err = "Debian package diff not processed: $($debianPackageDiff.Error)"
         # Attempt a quick verification that no temp Hyper-V artifacts remain (best effort)
@@ -417,7 +587,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 if ($leftVMs) { Write-Log ("[Warning] Residual VM objects after diff failure: {0}" -f ($leftVMs.Name -join ', ')) -Console }
                 if ($leftSwitches) { Write-Log ("[Warning] Residual VMSwitch objects after diff failure: {0}" -f ($leftSwitches.Name -join ', ')) -Console }
             }
-        } catch { Write-Log "[Warning] Cleanup verification failed: $($_.Exception.Message)" -Console }
+        } catch { Write-Log "[Warning] Cleanup verification failed: $($_.Exception.Message)" -Console }        
         Write-Log $err -Error
         $script:SuppressFinalErrorLog = $true
         throw $err
@@ -517,10 +687,10 @@ if ($overallError) {
 }
 
 if ($EncodeStructuredOutput -eq $true) {
+    # Send CmdResult structure expected by Go CLI (lowercase 'error' field)
     Send-ToCli -MessageType $MessageType -Message @{ 
-        Error = $null;
-    Delta = @{ WholeDirectories = $wholeDirsNormalized; SpecialSkippedFiles = $SpecialSkippedFiles; Added = $added; Changed = $changed; Removed = $removed; Manifest = 'delta-manifest.json'; DebianPackageDiff = $debianPackageDiff }
+        error = $null
     }
+} else {
+    Write-Log "DONE" -Console
 }
-
-Write-Log "DONE" -Console
