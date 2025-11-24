@@ -8,12 +8,12 @@ go 1.25.0
 
 require (
 	github.com/Microsoft/hcsshim v0.13.0
-	github.com/Microsoft/windows-container-networking v0.3.1
+	github.com/Microsoft/windows-container-networking v0.3.2
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v1.3.0
 	github.com/elazarl/goproxy v1.7.2
-	github.com/failsafe-go/failsafe-go v0.9.1
+	github.com/failsafe-go/failsafe-go v0.9.2
 	github.com/gentlemanautomaton/windevice v0.0.0-20250112023717-77498d8a77fe
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-logr/logr v1.4.3
@@ -40,9 +40,9 @@ require (
 	golang.org/x/text v0.31.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.34.1
-	k8s.io/apimachinery v0.34.1
-	k8s.io/client-go v0.34.1
+	k8s.io/api v0.34.2
+	k8s.io/apimachinery v0.34.2
+	k8s.io/client-go v0.34.2
 	sigs.k8s.io/e2e-framework v0.3.0
 )
 
