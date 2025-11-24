@@ -231,6 +231,9 @@ function Invoke-DownloadWindowsNodeArtifacts {
     # ORAS
     Invoke-DownloadOrasArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
 
+    # GPG
+    Invoke-DownloadAndInstallGpgArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
+
     #START OF DEPLOYMENT OF DOWNLOADED ARTIFACTS
     # NSSM
     Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
@@ -240,6 +243,10 @@ function Invoke-DownloadWindowsNodeArtifacts {
 
     # ORAS
     Invoke-DeployOrasArtifacts $windowsNodeArtifactsDirectory
+
+    # GPG
+    Invoke-DeployGpgArtifacts $windowsNodeArtifactsDirectory
+
     # CONTAINERD
     Invoke-DeployContainerdArtifacts $windowsNodeArtifactsDirectory
     Invoke-DeployCrictlArtifacts $windowsNodeArtifactsDirectory
