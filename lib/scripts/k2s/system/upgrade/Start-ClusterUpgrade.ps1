@@ -42,10 +42,35 @@ $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot/../../../../../addons\addons.module.psm1"
 
+Initialize-Logging -ShowLogs:$ShowLogs
+
+# Check if we're running from a delta package directory
+$deltaManifestPath = Join-Path $PSScriptRoot '..\..\..\..\..\delta-manifest.json'
+if (Test-Path $deltaManifestPath) {
+	Write-Log "Delta package detected at '$deltaManifestPath' - performing in-place update instead of full upgrade" -Console
+	
+	# Call the delta update script instead
+	$updateScriptPath = Join-Path $PSScriptRoot '..\..\..\..\..\lib\scripts\k2s\system\update\Start-ClusterUpdate.ps1'
+	
+	if (-not (Test-Path $updateScriptPath)) {
+		Write-Log "ERROR: Delta update script not found at '$updateScriptPath'" -Console
+		throw "Delta update script not found"
+	}
+	
+	# Pass through all parameters to the update script
+	$updateParams = @{}
+	if ($ShowLogs) { $updateParams['ShowLogs'] = $true }
+	
+	Write-Log "Executing delta update: $updateScriptPath" -Console
+	& $updateScriptPath @updateParams
+	
+	# Exit after delta update completes
+	exit $LASTEXITCODE
+}
 
 Import-Module $infraModule, $clusterModule, $addonsModule
-
-Initialize-Logging -ShowLogs:$ShowLogs
+# If we reach here, we're doing a normal full upgrade
+Write-Log "Performing full cluster upgrade from installation package" -Console
 
 <#
  .Synopsis
