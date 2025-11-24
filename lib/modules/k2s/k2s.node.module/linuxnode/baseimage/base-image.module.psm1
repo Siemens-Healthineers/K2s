@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
-Import-Module $infraModule 
+$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
+Import-Module $infraModule, $logModule
 
 # Base image
 
@@ -70,10 +71,34 @@ function Invoke-DownloadDebianImage {
 
         if ( $Proxy -ne '') {
             Write-Log "Using Proxy $Proxy to download SHA sum from $urlRoot"
-            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke -k
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy
+            $gpgSig = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS.gpg" --proxy $Proxy
         }
         else {
-            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --ssl-no-revoke --noproxy '*'
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --noproxy '*'
+            $gpgSig = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS.gpg" --noproxy '*'
+        }
+        Write-Log "[DebPkg] Downloaded SHA512SUMS.gpg, length: $($gpgSig.Length)"
+        if (-not $gpgSig) {
+            Write-Log "[DebPkg] WARNING: SHA512SUMS.gpg download failed or is empty"
+        }
+
+        # Save files for GPG verification
+        Write-log "env:TEMP $env:TEMP"
+        $shaFile = "$env:TEMP\SHA512SUMS"
+        $gpgFile = "$env:TEMP\SHA512SUMS.gpg"
+        Set-Content -Path $shaFile -Value $allHashes
+        Set-Content -Path $gpgFile -Value $gpgSig
+
+        # GPG signature verification for Debian
+        Write-Log "PSScriptRoot: $PSScriptRoot"
+        . "$PSScriptRoot\..\..\..\..\..\scripts\Verify-GpgSignature.ps1"
+        $verifyResult = Verify-GpgSignature -ChecksumFile $shaFile -SignatureFile $gpgFile
+        if (-not $verifyResult) {
+            Write-Log "[DebPkg] GPG signature verification failed for SHA512SUMS $verifyResult"
+        }
+        else {
+            Write-Log "[DebPkg] GPG signature verification succeeded for SHA512SUMS $verifyResult"
         }
 
         $sha1Hash = Get-FileHash $imgFile -Algorithm SHA512
