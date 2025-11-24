@@ -20,7 +20,7 @@ k2s addons enable autoscaling
 ```
 
 ## Scaling
-KEDA supports a wide range of [scalers](https://keda.sh/docs/2.15/scalers/) e.g. [CPU](https://keda.sh/docs/2.15/scalers/cpu/) or [Memory](https://keda.sh/docs/2.15/scalers/memory/). KEDA scalers can both detect if a deployment should be activated or deactivated, and feed custom metrics for a specific event source.
+KEDA supports a wide range of [scalers](https://keda.sh/docs/latest/scalers/) e.g. [CPU](https://keda.sh/docs/latest/scalers/cpu/) or [Memory](https://keda.sh/docs/latest/scalers/memory/). KEDA scalers can both detect if a deployment should be activated or deactivated, and feed custom metrics for a specific event source.
 
 ## Disable autoscaling
 
