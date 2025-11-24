@@ -415,4 +415,4 @@ function Get-DurationInSeconds {
 }
 
 Export-ModuleMember -Variable k2sLogFilePart, k2sLogFile
-Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory, Get-LogFilePath, Get-LogFilePathPart, Get-DurationInSeconds
+Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory, Get-LogFilePath, Get-LogFilePathPart, Get-DurationInSeconds, Write-ErrorMessage
