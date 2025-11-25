@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: windows-exporter
+  namespace: kube-system
+  labels:
+    app: windows-exporter
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: windows-exporter
+  ports:
+  - name: metrics
+    port: 9100
+    targetPort: 9100
+    protocol: TCP
