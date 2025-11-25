@@ -9,6 +9,11 @@ $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
 
 Import-Module $addonsModule, $monitoringModule
 
+# Deploy Windows Exporter as HostProcess container (shared resource, idempotent)
+Write-Log 'Deploying Windows Exporter (shared resource for metrics collection)' -Console
+$windowsExporterManifest = Get-WindowsExporterManifestDir
+(Invoke-Kubectl -Params 'apply', '-k', $windowsExporterManifest).Output | Write-Log
+
 Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'monitoring' })
 
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
@@ -24,6 +29,11 @@ if ($EnancedSecurityEnabled) {
 	(Invoke-Kubectl -Params 'patch', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-p', $annotations4, '--type=merge').Output | Write-Log
 	$annotations5 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-p', $annotations5).Output | Write-Log
+
+	# Patch Windows Exporter DaemonSet for service mesh
+	Write-Log "Updating Windows Exporter to be part of service mesh"
+	$annotations6 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations6, '--ignore-not-found').Output | Write-Log
 
 	$maxAttempts = 30
 	$attempt = 0
@@ -58,6 +68,11 @@ if ($EnancedSecurityEnabled) {
 	$annotations2 = '{\"spec\":{\"podMetadata\":{\"annotations\":{\"linkerd.io/inject\":null}}}}'
 	(Invoke-Kubectl -Params 'patch', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-p', $annotations2, '--type=merge').Output | Write-Log
 	(Invoke-Kubectl -Params 'patch', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-p', $annotations2, '--type=merge').Output | Write-Log
+
+	# Remove Linkerd injection from Windows Exporter
+	Write-Log "Updating Windows Exporter to not be part of service mesh"
+	$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":null}}}}}'
+	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations3, '--ignore-not-found').Output | Write-Log
 
 	$maxAttempts = 30
 	$attempt = 0

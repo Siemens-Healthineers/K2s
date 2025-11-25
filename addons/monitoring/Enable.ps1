@@ -77,6 +77,10 @@ Write-Log 'Installing Kube Prometheus Stack' -Console
 (Invoke-Kubectl -Params 'create', '-f', "$manifestsPath\crds").Output | Write-Log
 (Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
 
+Write-Log 'Deploying Windows Exporter for Windows node metrics' -Console
+$windowsExporterPath = "$PSScriptRoot\..\common\manifests\windows-exporter"
+(Invoke-Kubectl -Params 'apply', '-k', $windowsExporterPath).Output | Write-Log
+
 Write-Log 'Waiting for Pods..'
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=180s')
 Write-Log $kubectlCmd.Output

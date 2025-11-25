@@ -11,6 +11,14 @@ Import-Module $logModule, $k8sApiModule
 
 <#
 .DESCRIPTION
+Returns the path to the shared Windows Exporter manifests directory.
+#>
+function Get-WindowsExporterManifestDir {
+    return "$PSScriptRoot\..\common\manifests\windows-exporter"
+}
+
+<#
+.DESCRIPTION
 Writes the usage notes for dashboard for the user.
 #>
 function Write-UsageForUser {
