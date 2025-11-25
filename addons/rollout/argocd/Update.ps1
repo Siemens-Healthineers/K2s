@@ -9,7 +9,7 @@ $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
 Import-Module $addonsModule, $rolloutModule
 
-Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout' })
+Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })
 
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
