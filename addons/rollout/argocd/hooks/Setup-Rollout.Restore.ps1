@@ -15,8 +15,8 @@ param (
     [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to restore data from.')]
     [string]$BackupDir = $(throw 'Please specify the back-up directory.')
 )
-$logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-$rolloutModule = "$PSScriptRoot\..\rollout\rollout.module.psm1"
+$logModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
+$rolloutModule = "$PSScriptRoot\..\rollout.module.psm1"
 
 Import-Module $logModule, $rolloutModule
 

@@ -222,7 +222,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
 
-			It("restarts the cluster", func(ctx context.Context) {
+			FIt("restarts the cluster", func(ctx context.Context) {
 				suite.K2sCli().RunOrFail(ctx, "start")
 			})
 

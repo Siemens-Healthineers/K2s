@@ -15,10 +15,10 @@ either be used by directly accessing the argocd cli or using the exposed web int
 
 .EXAMPLE
 Enable rollout in k2s
-powershell <installation folder>\addons\rollout\Enable.ps1
+powershell <installation folder>\addons\rollout\argocd\Enable.ps1
 
 Enable rollout addon in k2s with ingress nginx addon
-powershell <installation folder>\addons\rollout\Enable.ps1 -Ingress "nginx"
+powershell <installation folder>\addons\rollout\argocd\Enable.ps1 -Ingress "nginx"
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
@@ -35,10 +35,10 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$nodeModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
+$nodeModule = "$PSScriptRoot/../../../lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
@@ -126,7 +126,7 @@ if ($Ingress -ne 'none') {
 
 Write-Log 'Installation of rollout addon finished.' -Console
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })
 
 Write-UsageForUser
 

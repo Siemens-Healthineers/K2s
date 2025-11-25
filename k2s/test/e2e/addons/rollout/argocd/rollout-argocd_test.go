@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package rollout
+package rolloutargocd
 
 import (
 	"context"
@@ -30,9 +30,9 @@ var (
 	linuxOnly             = false
 )
 
-func TestRollout(t *testing.T) {
+func TestRolloutArgoCD(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "rollout Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "rollout", "system-running"))
+	RunSpecs(t, "rollout argocd Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "rollout-argocd", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -44,11 +44,11 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe("'rollout' addon", Ordered, func() {
+var _ = Describe("'rollout argocd' addon", Ordered, func() {
 	When("no ingress controller is configured", func() {
 		AfterAll(func(ctx context.Context) {
 			portForwardingSession.Kill()
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "rollout", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "rollout", "argocd", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-applicationset-controller", "rollout")
 
@@ -61,11 +61,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-server", "rollout")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("rollout", "")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("rollout", "argocd")).To(BeFalse())
 		})
 
 		It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "rollout")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "rollout", "argocd")
 
 			Expect(output).To(ContainSubstring("already disabled"))
 		})
@@ -73,24 +73,25 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		Describe("status", func() {
 			Context("default output", func() {
 				It("displays disabled message", func(ctx context.Context) {
-					output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "rollout")
+					output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "rollout", "argocd")
 
 					Expect(output).To(SatisfyAll(
 						MatchRegexp(`ADDON STATUS`),
-						MatchRegexp(`Addon .+rollout.+ is .+disabled.+`),
+						MatchRegexp(`Implementation .+argocd.+ of Addon .+rollout.+ is .+disabled.+`),
 					))
 				})
 			})
 
 			Context("JSON output", func() {
 				It("displays JSON", func(ctx context.Context) {
-					output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "rollout", "-o", "json")
+					output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "rollout", "argocd", "-o", "json")
 
 					var status status.AddonPrintStatus
 
 					Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
 					Expect(status.Name).To(Equal("rollout"))
+					Expect(status.Implementation).To(Equal("argocd"))
 					Expect(status.Enabled).NotTo(BeNil())
 					Expect(*status.Enabled).To(BeFalse())
 					Expect(status.Props).To(BeNil())
@@ -100,7 +101,7 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "argocd", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", "rollout")
 
@@ -121,11 +122,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "argocd-server", "rollout")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("rollout", "")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("rollout", "argocd")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "rollout")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "rollout", "argocd")
 
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
@@ -152,7 +153,7 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "rollout", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "rollout", "argocd", "-o")
 			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-applicationset-controller", "rollout")
@@ -168,11 +169,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("rollout", "")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("rollout", "argocd")).To(BeFalse())
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "argocd", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", "rollout")
 
@@ -193,11 +194,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "argocd-server", "rollout")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("rollout", "")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("rollout", "argocd")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "rollout")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "rollout", "argocd")
 
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
@@ -220,7 +221,7 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "rollout", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "rollout", "argocd", "-o")
 			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-applicationset-controller", "rollout")
@@ -236,11 +237,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("rollout", "")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("rollout", "argocd")).To(BeFalse())
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "argocd", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", "rollout")
 
@@ -261,11 +262,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "argocd-server", "rollout")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("rollout", "")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("rollout", "argocd")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "rollout")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "rollout", "argocd")
 
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
@@ -283,11 +284,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 })
 
 func expectStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "rollout")
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "rollout", "argocd")
 
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
-		MatchRegexp(`Addon .+rollout.+ is .+enabled.+`),
+		MatchRegexp(`Implementation .+argocd.+ of Addon .+rollout.+ is .+enabled.+`),
 		MatchRegexp("ArgoCD Application Set Controller is working"),
 		MatchRegexp("ArgoCD Dex Server is working"),
 		MatchRegexp("ArgoCD Notification Controller is working"),
@@ -297,13 +298,14 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("ArgoCD Application Server is working"),
 	))
 
-	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "rollout", "-o", "json")
+	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "rollout", "argocd", "-o", "json")
 
 	var status status.AddonPrintStatus
 
 	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
 	Expect(status.Name).To(Equal("rollout"))
+	Expect(status.Implementation).To(Equal("argocd"))
 	Expect(status.Error).To(BeNil())
 	Expect(status.Enabled).NotTo(BeNil())
 	Expect(*status.Enabled).To(BeTrue())
