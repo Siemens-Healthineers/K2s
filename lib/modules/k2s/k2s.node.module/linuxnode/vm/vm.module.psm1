@@ -48,6 +48,25 @@ function Invoke-SSHWithKey {
     &ssh.exe $params 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
 }
 
+function Invoke-ExeWithAsciiEncoding {
+    param(
+        [Parameter(Mandatory = $true)][string]$ExePath,
+        [Parameter(Mandatory = $true)][array]$Arguments,
+        [string]$PipeInput = $null
+    )
+    $oldInputEncoding  = [Console]::InputEncoding
+    $oldOutputEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::InputEncoding  = [System.Text.Encoding]::ASCII
+        [Console]::OutputEncoding = [System.Text.Encoding]::ASCII
+        $result = Write-Output $PipeInput | & $ExePath @Arguments 2>&1
+        return $result
+    } finally {
+        [Console]::InputEncoding  = $oldInputEncoding
+        [Console]::OutputEncoding = $oldOutputEncoding
+    }
+}
+
 function Invoke-CmdOnControlPlaneViaSSHKey(
     [Parameter(Mandatory = $false)]
     $CmdToExecute,
@@ -275,7 +294,7 @@ function Copy-FromRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target' at '$IpAddress', ignoring errors: '$IgnoreErrors'"
 
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $UserPwd "${UserName}@${IpAddress}:$Source" "$Target" 2>&1
+    $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"${UserName}@${IpAddress}:$Source","$Target") -PipeInput 'yes'
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -350,7 +369,7 @@ function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${remoteUser}:$Target" 2>&1
+    $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$remotePwd,"$Source","${remoteUser}:$Target") -PipeInput 'yes'
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -367,7 +386,7 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $UserPwd "$Source" "${UserName}@${IpAddress}:$Target" 2>&1
+    $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -538,7 +557,8 @@ function Wait-ForSshPossible {
             }
         }
         else {
-            $result = $(Write-Output y | &"$plinkExe" -ssh -4 -legacy-stdio-prompts $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)
+            $plinkArgs = @('-ssh', '-4', '-legacy-stdio-prompts', $User, '-pw', $UserPwd, '-no-antispoof', "$($SshTestCommand)")
+            $result = Invoke-ExeWithAsciiEncoding -ExePath $plinkExe -Arguments $plinkArgs -PipeInput 'y'
         }
 
         if ($StrictEqualityCheck -eq $true) {
