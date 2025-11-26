@@ -8,11 +8,20 @@
 .SYNOPSIS
 Creates a JSON file with list of all container images used in K2s.
 .DESCRIPTION
-Scraps container images from yaml manifest under addons folder and images configured in addon manifests.
+Scraps container images from running K2s cluster workloads and yaml manifests under addons folder.
+Core images are retrieved from all running pods in the cluster.
+Addon images are scraped from YAML manifests and addon configuration files.
+.PARAMETER Addons
+Optional array of addon names to filter. If not specified, all addons are processed.
 .NOTES
-Requires only the source code, no cluster needed.
+Requires a running K2s cluster with kubectl access.
 .EXAMPLE
-    $>  .\build\bom\Dumpk2sImages.ps1
+    # Get all images from cluster and addons
+    .\build\bom\DumpK2sImages.ps1
+
+.EXAMPLE
+    # Get images for specific addons
+    .\build\bom\DumpK2sImages.ps1 -Addons "ingress nginx", "dashboard"
 #>
 
 Param(
@@ -24,8 +33,90 @@ Param(
 
 $addonsModule = "$PSScriptRoot\..\..\addons\addons.module.psm1"
 $yamlModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\yaml\yaml.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\path\path.module.psm1"
 
-Import-Module $addonsModule, $yamlModule
+Import-Module $addonsModule, $yamlModule, $pathModule
+
+<#
+.SYNOPSIS
+Gets container images from all running workloads in the K2s cluster.
+
+.DESCRIPTION
+Uses kubectl to query all pods in the cluster and extracts container images.
+Includes both init containers and regular containers.
+
+.OUTPUTS
+Array of unique container image names with tags.
+#>
+function Get-ImagesFromCluster {
+    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Getting container images from running K2s cluster..."
+    
+    $kubeToolsPath = Get-KubeToolsPath
+    $kubectlPath = Join-Path -Path $kubeToolsPath -ChildPath 'kubectl.exe'
+    
+    if (-not (Test-Path $kubectlPath)) {
+        throw "kubectl not found at $kubectlPath. Please ensure K2s is installed."
+    }
+    
+    $images = New-Object System.Collections.Generic.List[System.String]
+    
+    try {
+        # Get all pods from all namespaces
+        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Querying all pods in all namespaces..."
+        $podsJson = & $kubectlPath get pods --all-namespaces -o json 2>&1
+        
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to get pods from cluster: $podsJson"
+        }
+        
+        $pods = $podsJson | ConvertFrom-Json
+        
+        if ($null -eq $pods.items -or $pods.items.Count -eq 0) {
+            Write-Warning "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] No pods found in cluster"
+            return @()
+        }
+        
+        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found $($pods.items.Count) pods in cluster"
+        
+        foreach ($pod in $pods.items) {
+            $namespace = $pod.metadata.namespace
+            $podName = $pod.metadata.name
+            
+            # Extract images from init containers
+            if ($pod.spec.initContainers) {
+                foreach ($container in $pod.spec.initContainers) {
+                    if ($container.image) {
+                        $image = $container.image.Trim()
+                        if ($image -ne '' -and -not $images.Contains($image)) {
+                            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')]   Found init container image: $image (pod: $namespace/$podName)"
+                            $images.Add($image)
+                        }
+                    }
+                }
+            }
+            
+            # Extract images from regular containers
+            if ($pod.spec.containers) {
+                foreach ($container in $pod.spec.containers) {
+                    if ($container.image) {
+                        $image = $container.image.Trim()
+                        if ($image -ne '' -and -not $images.Contains($image)) {
+                            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')]   Found container image: $image (pod: $namespace/$podName)"
+                            $images.Add($image)
+                        }
+                    }
+                }
+            }
+        }
+        
+        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Total unique images found in cluster: $($images.Count)"
+        return $images.ToArray()
+    }
+    catch {
+        Write-Error "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Error getting images from cluster: $_"
+        throw
+    }
+}
 
 $addonManifests = @()
 
@@ -77,8 +168,16 @@ if (Test-Path -Path $finalJsonFile) {
     Remove-Item -Force $finalJsonFile -ErrorAction SilentlyContinue
 }
 
-# Read the static images
-$staticImages = Get-Content -Path "$global:KubernetesPath\build\bom\images\static-images.txt"
+# Get core images from running K2s cluster
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Getting core images from running K2s cluster..."
+$staticImages = Get-ImagesFromCluster
+
+if ($staticImages.Count -eq 0) {
+    throw "No images found in cluster. Please ensure the K2s cluster is running and accessible."
+}
+
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Core images count: $($staticImages.Count)"
+
 $images = New-Object System.Collections.Generic.List[System.Object]
 $addonImages = New-Object System.Collections.Generic.List[System.Object]
 $addonNameImagesMapping = @{}
