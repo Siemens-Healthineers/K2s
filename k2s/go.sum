@@ -58,8 +58,8 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/Microsoft/hcsshim v0.13.0 h1:/BcXOiS6Qi7N9XqUcv27vkIuVOkBEcWstd2pMlWSeaA=
 github.com/Microsoft/hcsshim v0.13.0/go.mod h1:9KWJ/8DgU+QzYGupX4tzMhRQE8h6w90lH6HAaclpEok=
-github.com/Microsoft/windows-container-networking v0.3.2 h1:i0/QqSGVZ4RlDGTEFf/cjF09Zdsw6jlHstqUjZs8YMc=
-github.com/Microsoft/windows-container-networking v0.3.2/go.mod h1:bLEC/K486jjuW6gxLMBZU+5Ta5pSsBKuLbcLj9HlGIo=
+github.com/Microsoft/windows-container-networking v0.3.3 h1:k09uzO5zwtpWGckbFpQHIMtoUFmwV/cigc4ObJfv6NA=
+github.com/Microsoft/windows-container-networking v0.3.3/go.mod h1:MDA1u6cx5N61oaiJaEi0KSA+OKQIum2yuakPy1Ek+2A=
 github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b h1:mimo19zliBX/vSQ6PWWSL9lK8qwHozUj03+zLoEB8O0=
 github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b/go.mod h1:fvzegU4vN3H1qMT+8wDmzjAcDONcgo2/SZ/TyfdUOFs=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
