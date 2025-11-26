@@ -177,6 +177,13 @@ if ($staticImages.Count -eq 0) {
 }
 
 Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Core images count: $($staticImages.Count)"
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Core images found from cluster:"
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Images: $([string]::Join(', ', $staticImages))"
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -----------------------------------------------------------------------------"
+foreach ($image in $staticImages) {
+    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -> Image: $image"
+}
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -----------------------------------------------------------------------------"
 
 $images = New-Object System.Collections.Generic.List[System.Object]
 $addonImages = New-Object System.Collections.Generic.List[System.Object]
