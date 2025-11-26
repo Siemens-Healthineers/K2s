@@ -167,7 +167,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		// The network must be created beforehand
 		nwConfig, err = plugin.nm.GetNetworkByName(cniConfig.Name)
 
-		if nwConfig.Type != network.L2Bridge {
+		if nwConfig.Type != hcn.L2Bridge {
 			slog.Error("dual stack specified with non l2bridge network", "network-type", nwConfig.Type)
 			return errors.New("dual stack specified with non l2bridge network")
 		}
