@@ -42,7 +42,7 @@ Includes both init containers and regular containers.
 Array of unique container image names with tags.
 #>
 function Get-ImagesFromCluster {
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Getting container images from running K2s cluster..."
+    Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Getting container images from running K2s cluster..."
     
     $kubeToolsPath = Get-KubeToolsPath
     $kubectlPath = Join-Path -Path $kubeToolsPath -ChildPath 'kubectl.exe'
@@ -55,7 +55,7 @@ function Get-ImagesFromCluster {
     
     try {
         # Get all pods from all namespaces
-        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Querying all pods in all namespaces..."
+        Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Querying all pods in all namespaces..."
         $podsJson = & $kubectlPath get pods --all-namespaces -o json 2>&1
         
         if ($LASTEXITCODE -ne 0) {
@@ -69,7 +69,7 @@ function Get-ImagesFromCluster {
             return @()
         }
         
-        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found $($pods.items.Count) pods in cluster"
+        Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found $($pods.items.Count) pods in cluster"
         
         foreach ($pod in $pods.items) {
             $namespace = $pod.metadata.namespace
@@ -81,7 +81,7 @@ function Get-ImagesFromCluster {
                     if ($container.image) {
                         $image = $container.image.Trim()
                         if ($image -ne '' -and -not $images.Contains($image)) {
-                            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')]   Found init container image: $image (pod: $namespace/$podName)"
+                            Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')]   Found init container image: $image (pod: $namespace/$podName)"
                             $images.Add($image)
                         }
                     }
@@ -94,7 +94,7 @@ function Get-ImagesFromCluster {
                     if ($container.image) {
                         $image = $container.image.Trim()
                         if ($image -ne '' -and -not $images.Contains($image)) {
-                            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')]   Found container image: $image (pod: $namespace/$podName)"
+                            Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')]   Found container image: $image (pod: $namespace/$podName)"
                             $images.Add($image)
                         }
                     }
@@ -102,7 +102,7 @@ function Get-ImagesFromCluster {
             }
         }
         
-        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Total unique images found in cluster: $($images.Count)"
+        Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Total unique images found in cluster: $($images.Count)"
         return $images.ToArray()
     }
     catch {
@@ -137,14 +137,14 @@ function Get-ImagesFromDirectory {
     $foundImages = New-Object System.Collections.Generic.List[System.String]
     
     if (-not (Test-Path $DirectoryPath)) {
-        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Directory not found: $DirectoryPath"
+        Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Directory not found: $DirectoryPath"
         return @{
             Images = @()
             Mapping = @{}
         }
     }
 
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Scanning $CategoryName directory: $DirectoryPath"
+    Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Scanning $CategoryName directory: $DirectoryPath"
     
     $files = Get-ChildItem -Path $DirectoryPath -Recurse -Filter "*.yaml" -File
     
@@ -197,14 +197,14 @@ function Get-ImagesFromDirectory {
 
             # Validate image has a tag
             if ($fullImageName.IndexOf(':') -eq -1) {
-                Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Skipping image without tag: $fullImageName (file: $($file.FullName))"
+                Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Skipping image without tag: $fullImageName (file: $($file.FullName))"
                 continue
             }
 
             # Additional validation: ensure there's actually a tag after the colon
             $parts = $fullImageName -split ':'
             if ($parts.Count -lt 2 -or [string]::IsNullOrWhiteSpace($parts[1])) {
-                Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Skipping image with empty tag: $fullImageName (file: $($file.FullName))"
+                Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Skipping image with empty tag: $fullImageName (file: $($file.FullName))"
                 continue
             }
 
@@ -214,7 +214,7 @@ function Get-ImagesFromDirectory {
         }
     }
 
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found $($foundImages.Count) unique images in $CategoryName directory"
+    Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found $($foundImages.Count) unique images in $CategoryName directory"
     
     return @{
         Images = $foundImages.ToArray()
