@@ -11,22 +11,15 @@ Creates a JSON file with list of all container images used in K2s.
 Scraps container images from running K2s cluster workloads and yaml manifests under addons folder.
 Core images are retrieved from all running pods in the cluster.
 Addon images are scraped from YAML manifests and addon configuration files.
-.PARAMETER Addons
-Optional array of addon names to filter. If not specified, all addons are processed.
+All available addons are automatically discovered and processed.
 .NOTES
 Requires a running K2s cluster with kubectl access.
 .EXAMPLE
     # Get all images from cluster and addons
     .\build\bom\DumpK2sImages.ps1
-
-.EXAMPLE
-    # Get images for specific addons
-    .\build\bom\DumpK2sImages.ps1 -Addons "ingress nginx", "dashboard"
 #>
 
 Param(
-    [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to dump container images')]
-    [string[]] $Addons
 )
 
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
@@ -242,36 +235,10 @@ $allAddonManifests = Find-AddonManifests -Directory "$global:KubernetesPath\addo
     $manifest
 }
 
-if ($Addons.Count -eq 0) {
-    $addonManifests += $allAddonManifests
-}
-else {
-    foreach ($name in $Addons) {
-        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Filter Container Images for addon: $name"
-        $foundManifest = $null
-        $addonName = ($name -split ' ')[0]
-        $implementationName = ($name -split ' ')[1]
+# Process all discovered addons
+$addonManifests += $allAddonManifests
 
-        foreach ($manifest in $allAddonManifests) {
-            if ($manifest.metadata.name -eq $addonName) {
-                $foundManifest = $manifest
-
-                # specific implementation specified
-                if ($null -ne $implementationName) {
-                    $foundManifest.spec.implementations = $foundManifest.spec.implementations | Where-Object { $_.name -eq $implementationName }
-                }
-                break
-            }
-        }
-
-        if ($null -eq $foundManifest) {
-            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] No addon manifest for addon: $name"
-        }
-        else {
-            $addonManifests += $foundManifest
-        }
-    }
-}
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found $($addonManifests.Count) addon manifests to process"
 
 $finalJsonFile = "$PSScriptRoot\container-images-used.json"
 

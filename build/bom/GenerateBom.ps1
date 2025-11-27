@@ -25,9 +25,6 @@ PS> .\build\bom\GenerateBom.ps1
 
 Generate SBOM with annotations for clearance purpose
 PS> .\build\bom\GenerateBom.ps1 -Annotate
-
-Generate SBOM with annotations for clearance for specific addons
-PS> .\build\bom\GenerateBom.ps1 -Annotate -Addons registry,traefik
 #>
 
 Param(
@@ -36,9 +33,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If true, final SBOM file will have component annotations, this is required only for component clearance')]
-    [switch] $Annotate = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to include for SBOM generation')]
-    [string[]] $Addons
+    [switch] $Annotate = $false
 )
 
 function EnsureTrivy() {
@@ -182,18 +177,13 @@ function LoadK2sImages() {
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
 
     # dump all images
-    &$bomRootDir\DumpK2sImages.ps1 -Addons $Addons
+    &$bomRootDir\DumpK2sImages.ps1
 
     # export all addons to have all images pull
     Write-Output "Exporting addons to trigger pulling of containers under $tempDir"
 
-    # check if addons are specified
-    if ($null -eq $Addons -or $Addons.Length -eq 0) {
-        &"$global:KubernetesPath\k2s.exe" addons export -d $tempDir -o
-    }
-    else {
-        &"$global:KubernetesPath\k2s.exe" addons export $Addons -d $tempDir -o
-    }
+    # export all available addons
+    &"$global:KubernetesPath\k2s.exe" addons export -d $tempDir -o
 
     # cleanup temp directory
     if ( Test-Path -Path $tempDir\addons.zip) {
@@ -360,12 +350,7 @@ if ($Annotate) {
     }
 }
 
-if ($Addons) {
-    Write-Output "Generating SBOM for addons '$Addons'"
-}
-else {
-    Write-Output 'Generating SBOM for all the available addons'
-}
+Write-Output 'Generating SBOM for all available addons'
 
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
