@@ -466,16 +466,44 @@ if ($($addonImages.Count) -ne $totalCountMapping) {
 }
 
 $finalImages = ($staticImages + $addonImages) | Select-Object -Unique
+
+# Final validation: Remove any images without tags
+$validatedImages = @()
+foreach ($img in $finalImages) {
+    if ($img -eq '') {
+        continue
+    }
+    
+    # Check if image has a colon (tag separator)
+    if ($img.IndexOf(':') -eq -1) {
+        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Excluding image without tag from final list: $img"
+        continue
+    }
+    
+    # Check if tag is not empty after colon
+    $parts = $img -split ':', 2
+    if ($parts.Count -lt 2 -or [string]::IsNullOrWhiteSpace($parts[1])) {
+        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Excluding image with empty tag from final list: $img"
+        continue
+    }
+    
+    $validatedImages += $img
+}
+
+$finalImages = $validatedImages
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Final validated images count: $($finalImages.Count)"
+
 $imageDetailsArray = New-Object System.Collections.ArrayList
 
 foreach ($image in $finalImages) {
-    $imageName, $imageVersion = $image -split ':'
+    $imageName, $imageVersion = $image -split ':', 2
 
     if ($image -eq '') {
         continue
     }
 
     if ($null -eq $imageVersion -Or $imageVersion -eq '') {
+        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Skipping image with null/empty version: $image"
         continue
     }
 
