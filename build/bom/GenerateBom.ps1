@@ -93,6 +93,31 @@ function GenerateBomGolang($dirname) {
     Write-Output "bom now available: $bomfile"
 }
 
+function Update-K2sStaticVersion() {
+    Write-Output 'Update k2s-static.json with current version from VERSION file'
+
+    # Read version from VERSION file
+    $versionFile = "$global:KubernetesPath\VERSION"
+    if (!(Test-Path $versionFile)) {
+        throw "VERSION file not found at: $versionFile"
+    }
+    
+    $version = (Get-Content -Path $versionFile -Raw).Trim()
+    Write-Output "  -> K2s version from VERSION file: $version"
+    
+    # Update k2s-static.json with the version
+    $staticJsonPath = "$bomRootDir\merge\k2s-static.json"
+    if (!(Test-Path $staticJsonPath)) {
+        throw "k2s-static.json not found at: $staticJsonPath"
+    }
+    
+    $jsonContent = Get-Content -Path $staticJsonPath -Raw
+    $jsonContent = $jsonContent -replace '"version":\s*"VERSION_PLACEHOLDER"', "`"version`": `"v$version`""
+    Set-Content -Path $staticJsonPath -Value $jsonContent -NoNewline
+    
+    Write-Output "  -> Updated k2s-static.json with version: v$version"
+}
+
 function MergeBomFilesFromDirectory() {
     Write-Output "Merge bom files from '$bomRootDir\merge'"
 
@@ -119,6 +144,13 @@ function MergeBomFilesFromDirectory() {
     $COMPOSE += '--output-file'
     $COMPOSE += "`"$bomRootDir\k2s-bom.xml`""
     & $CMD $COMPOSE
+    
+    # Restore placeholder in k2s-static.json to keep file clean in git
+    Write-Output "Restore VERSION_PLACEHOLDER in k2s-static.json"
+    $staticJsonPath = "$bomRootDir\merge\k2s-static.json"
+    $jsonContent = Get-Content -Path $staticJsonPath -Raw
+    $jsonContent = $jsonContent -replace '"version":\s*"v[\d\.]+(-[\w\.]+)?"', "`"version`": `"VERSION_PLACEHOLDER`""
+    Set-Content -Path $staticJsonPath -Value $jsonContent -NoNewline
 }
 
 function ValidateResultBom() {
@@ -370,7 +402,9 @@ Write-Output '7 -> Load k2s images'
 LoadK2sImages
 Write-Output '8 -> Generate bom for containers'
 GenerateBomContainers
-Write-Output '9 -> Merge bom files'
+Write-Output '9 -> Update k2s version in static BOM'
+Update-K2sStaticVersion
+Write-Output '10 -> Merge bom files'
 MergeBomFilesFromDirectory
 
 Write-Output '---------------------------------------------------------------'
