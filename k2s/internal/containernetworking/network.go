@@ -124,8 +124,13 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	}
 	slog.Error("ADD", "k8s-namespace", k8sNamespace)
 
+	// Normalize CNI config: replace "type": "bridge" with "type": "sdnbridge" for Windows compatibility
+	// The Linux bridge plugin uses "bridge" but Windows expects "sdnbridge" for L2Bridge networks
+	normalizedStdinData := strings.Replace(string(args.StdinData), `"type": "bridge"`, `"type": "sdnbridge"`, 1)
+	normalizedStdinData = strings.Replace(normalizedStdinData, `"type":"bridge"`, `"type":"sdnbridge"`, 1)
+
 	// Parse network configuration from stdin.
-	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
+	cniConfig, err := cni.ParseNetworkConfig([]byte(normalizedStdinData))
 	if err != nil {
 		slog.Error("failed to parse network configuration", "error", err)
 		return err
@@ -372,8 +377,14 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	if err == nil {
 		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
 	}
+
+	// Normalize CNI config: replace "type": "bridge" with "type": "sdnbridge" for Windows compatibility
+	// The Linux bridge plugin uses "bridge" but Windows expects "sdnbridge" for L2Bridge networks
+	normalizedStdinData := strings.Replace(string(args.StdinData), `"type": "bridge"`, `"type": "sdnbridge"`, 1)
+	normalizedStdinData = strings.Replace(normalizedStdinData, `"type":"bridge"`, `"type":"sdnbridge"`, 1)
+
 	// Parse network configuration from stdin.
-	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
+	cniConfig, err := cni.ParseNetworkConfig([]byte(normalizedStdinData))
 	if err != nil {
 		slog.Error("failed to parse network configuration", "error", err)
 		return err
