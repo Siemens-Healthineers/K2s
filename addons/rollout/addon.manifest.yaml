@@ -42,3 +42,36 @@ spec:
                 comment: Disable rollout ArgoCD addon in k2s
           script:
             subPath: argocd/Disable.ps1
+    - name: fluxcd
+      description: Automating the deployment/updating of applications using Flux CD
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: ingress
+                shorthand: i
+                default: none
+                description: Ingress controller to use for exposing the Flux dashboard
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - none
+                    - nginx
+                    - traefik
+            examples:
+              - cmd: k2s addons enable rollout fluxcd
+                comment: Enable rollout with Flux CD in k2s
+              - cmd: k2s addons enable rollout fluxcd --ingress nginx
+                comment: Enable rollout with Flux CD in k2s with nginx ingress
+          script:
+            subPath: fluxcd/Enable.ps1
+            parameterMappings:
+              - cliFlagName: ingress
+                scriptParameterName: Ingress
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable rollout fluxcd
+                comment: Disable rollout Flux CD addon in k2s
+          script:
+            subPath: fluxcd/Disable.ps1

@@ -64,8 +64,8 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'rollout'})) -eq $true) {
-    $errMsg = "Addon 'rollout' is already enabled, nothing to do."
+if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'rollout'; Implementation = 'argocd'})) -eq $true) {
+    $errMsg = "Addon 'rollout' with ArgoCD implementation is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg

@@ -48,8 +48,8 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'rollout', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout' })) -ne $true) {
-    $errMsg = "Addon 'rollout' is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'rollout', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd'})) -ne $true) {
+    $errMsg = "Addon 'rollout' with ArgoCD implementation is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
