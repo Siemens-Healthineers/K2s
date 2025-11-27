@@ -283,7 +283,8 @@ try {
 
             $linuxImages = $linuxImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
             $linuxImages = Remove-VersionlessImages -Images $linuxImages
-            $windowsImages = $windowsImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }         
+            $windowsImages = $windowsImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
+            $windowsImages = Remove-VersionlessImages -Images $windowsImages
             $images += $linuxImages
             $images += $windowsImages
             $images = $images | Select-Object -Unique
