@@ -336,18 +336,20 @@ try {
 
                 Write-Log "Exporting images for addon $addonName" -Console
 
+                $exportImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Export-Image.ps1"
                 $count = 0
-                foreach ($image in $images) {
-                    Write-Log $image
+                
+                # Export Linux images
+                foreach ($image in $linuxImages) {
+                    Write-Log "Processing Linux image: $image"
                     $imageNameWithoutTag = ($image -split ':')[0]
                     $imageTag = ($image -split ':')[1]
                     $linuxImageToExportArray = @($linuxContainerImages | Where-Object { $_.Repository -match ".*${imageNameWithoutTag}$" -and $_.Tag -eq $imageTag })
-                    $windowsImageToExportArray = @($windowsContainerImages | Where-Object { $_.Repository -match ".*${imageNameWithoutTag}$" -and $_.Tag -eq $imageTag })
-                    $exportImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Export-Image.ps1"
                     
                     if ($linuxImageToExportArray -and $linuxImageToExportArray.Count -gt 0) {
                         $imageToExport = $linuxImageToExportArray[0]
-                        &$exportImageScript -Id $imageToExport.ImageId -ExportPath "${tmpExportDir}\addons\$dirName\${count}.tar" -ShowLogs:$ShowLogs
+                        $imageFullName = "$($imageToExport.Repository):$($imageToExport.Tag)"
+                        &$exportImageScript -Name $imageFullName -ExportPath "${tmpExportDir}\addons\$dirName\${count}.tar" -ShowLogs:$ShowLogs
 
                         if (!$?) {
                             $errMsg = "Image $imageNameWithoutTag could not be exported."
@@ -363,10 +365,19 @@ try {
 
                         $count += 1
                     }
+                }
 
+                # Export Windows images
+                foreach ($image in $windowsImages) {
+                    Write-Log "Processing Windows image: $image"
+                    $imageNameWithoutTag = ($image -split ':')[0]
+                    $imageTag = ($image -split ':')[1]
+                    $windowsImageToExportArray = @($windowsContainerImages | Where-Object { $_.Repository -match ".*${imageNameWithoutTag}$" -and $_.Tag -eq $imageTag })
+                    
                     if ($windowsImageToExportArray -and $windowsImageToExportArray.Count -gt 0) {
                         $imageToExport = $windowsImageToExportArray[0]
-                        &$exportImageScript -Id $imageToExport.ImageId -ExportPath "${tmpExportDir}\addons\$dirName\${count}_win.tar" -ShowLogs:$ShowLogs
+                        $imageFullName = "$($imageToExport.Repository):$($imageToExport.Tag)"
+                        &$exportImageScript -Name $imageFullName -ExportPath "${tmpExportDir}\addons\$dirName\${count}_win.tar" -ShowLogs:$ShowLogs
 
                         if (!$?) {
                             $errMsg = "Image $imageNameWithoutTag could not be exported!"
