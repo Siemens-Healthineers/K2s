@@ -36,7 +36,7 @@ function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
 
 function Invoke-DownloadCniPlugins($downloadsBaseDirectory, $Proxy) {
     $cniPluginsDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CniPluginsDirectory"
-    $cniPluginVersion = 'v1.1.1'
+    $cniPluginVersion = 'v1.8.0'
     $cniPlugins = "cni-plugins-windows-amd64-$cniPluginVersion.tgz"
     $compressedFile = "$cniPluginsDownloadsDirectory\$cniPlugins"
 

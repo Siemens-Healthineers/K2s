@@ -30,7 +30,7 @@
     {
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.77.0",
+      "version": "v0.78.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -47,7 +47,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.77.0",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.78.1",
       "type": "application"
     },
     {
@@ -258,9 +258,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.5.2.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.0.4.zip",
       "name": "dockerd",
-      "version": "v28.5.2",
+      "version": "v29.0.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -277,13 +277,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@28.5.2",
+      "purl": "pkg:github/moby/moby@29.0.4",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.5.2.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.0.4.zip",
       "name": "docker",
-      "version": "v28.5.2",
+      "version": "v29.0.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -300,13 +300,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@28.5.2",
+      "purl": "pkg:github/moby/moby@29.0.4",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-28.5.2.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.0.4.zip",
       "name": "docker-proxy",
-      "version": "v28.5.2",
+      "version": "v29.0.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -323,7 +323,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@28.5.2",
+      "purl": "pkg:github/moby/moby@29.0.4",
       "type": "application"
     },
     {
@@ -350,9 +350,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.8.0/cni-plugins-windows-amd64-v1.8.0.tgz",
       "name": "flannel",
-      "version": "v1.1.1",
+      "version": "v1.8.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -369,13 +369,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/flannel-io/cni-plugin@v1.1.1",
+      "purl": "pkg:github/flannel-io/cni-plugin@v1.8.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.8.0/cni-plugins-windows-amd64-v1.8.0.tgz",
       "name": "host-local",
-      "version": "v1.1.1",
+      "version": "v1.8.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -392,13 +392,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containernetworking/plugins@v1.1.1",
+      "purl": "pkg:github/containernetworking/plugins@v1.8.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.8.0/cni-plugins-windows-amd64-v1.8.0.tgz",
       "name": "win-bridge",
-      "version": "v1.1.1",
+      "version": "v1.8.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -415,13 +415,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containernetworking/plugins@v1.1.1",
+      "purl": "pkg:github/containernetworking/plugins@v1.8.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.8.0/cni-plugins-windows-amd64-v1.8.0.tgz",
       "name": "win-overlay",
-      "version": "v1.1.1",
+      "version": "v1.8.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -438,7 +438,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containernetworking/plugins@v1.1.1",
+      "purl": "pkg:github/containernetworking/plugins@v1.8.0",
       "type": "application"
     },
     {
@@ -580,9 +580,9 @@
       "type": "application"
     },
     {
-      "group": "https://get.helm.sh/helm-v3.19.1-windows-amd64.zip",
+      "group": "https://get.helm.sh/helm-v4.0.1-windows-amd64.zip",
       "name": "helm",
-      "version": "v3.19.1",
+      "version": "v4.0.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -599,7 +599,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/helm/helm@v3.19.1",
+      "purl": "pkg:github/helm/helm@v4.0.1",
       "type": "application"
     }
   ],
