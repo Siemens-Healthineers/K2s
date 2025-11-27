@@ -25,9 +25,6 @@ PS> .\build\bom\GenerateBom.ps1
 
 Generate SBOM with annotations for clearance purpose
 PS> .\build\bom\GenerateBom.ps1 -Annotate
-
-Generate SBOM with annotations for clearance for specific addons
-PS> .\build\bom\GenerateBom.ps1 -Annotate -Addons registry,traefik
 #>
 
 Param(
@@ -36,9 +33,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If true, final SBOM file will have component annotations, this is required only for component clearance')]
-    [switch] $Annotate = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to include for SBOM generation')]
-    [string[]] $Addons
+    [switch] $Annotate = $false
 )
 
 function EnsureTrivy() {
@@ -98,6 +93,31 @@ function GenerateBomGolang($dirname) {
     Write-Output "bom now available: $bomfile"
 }
 
+function Update-K2sStaticVersion() {
+    Write-Output 'Update k2s-static.json with current version from VERSION file'
+
+    # Read version from VERSION file
+    $versionFile = "$global:KubernetesPath\VERSION"
+    if (!(Test-Path $versionFile)) {
+        throw "VERSION file not found at: $versionFile"
+    }
+    
+    $version = (Get-Content -Path $versionFile -Raw).Trim()
+    Write-Output "  -> K2s version from VERSION file: $version"
+    
+    # Update k2s-static.json with the version
+    $staticJsonPath = "$bomRootDir\merge\k2s-static.json"
+    if (!(Test-Path $staticJsonPath)) {
+        throw "k2s-static.json not found at: $staticJsonPath"
+    }
+    
+    $jsonContent = Get-Content -Path $staticJsonPath -Raw
+    $jsonContent = $jsonContent -replace '"version":\s*"VERSION_PLACEHOLDER"', "`"version`": `"v$version`""
+    Set-Content -Path $staticJsonPath -Value $jsonContent -NoNewline
+    
+    Write-Output "  -> Updated k2s-static.json with version: v$version"
+}
+
 function MergeBomFilesFromDirectory() {
     Write-Output "Merge bom files from '$bomRootDir\merge'"
 
@@ -124,6 +144,13 @@ function MergeBomFilesFromDirectory() {
     $COMPOSE += '--output-file'
     $COMPOSE += "`"$bomRootDir\k2s-bom.xml`""
     & $CMD $COMPOSE
+    
+    # Restore placeholder in k2s-static.json to keep file clean in git
+    Write-Output "Restore VERSION_PLACEHOLDER in k2s-static.json"
+    $staticJsonPath = "$bomRootDir\merge\k2s-static.json"
+    $jsonContent = Get-Content -Path $staticJsonPath -Raw
+    $jsonContent = $jsonContent -replace '"version":\s*"v[\d\.]+(-[\w\.]+)?"', "`"version`": `"VERSION_PLACEHOLDER`""
+    Set-Content -Path $staticJsonPath -Value $jsonContent -NoNewline
 }
 
 function ValidateResultBom() {
@@ -162,8 +189,13 @@ function GenerateBomDebian() {
         ExecCmdMaster 'sudo chmod +x /usr/local/bin/trivy'
     }
 
-    Write-Output 'Generate bom for debian'
-    ExecCmdMaster -CmdToExecute 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1' -Retries 6 -Timeout 10
+    Write-Output 'Generate bom for debian (this may take 5-15 minutes, please wait...)'
+    Write-Output 'Running: trivy rootfs / --scanners license --license-full --format cyclonedx'
+    Write-Output 'Note: Progress output from trivy may not be visible. The process is running in the background.'
+    $startTime = Get-Date
+    ExecCmdMaster -CmdToExecute 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1' -Retries 6 -Timeout 30
+    $elapsed = (Get-Date) - $startTime
+    Write-Output "Debian BOM generation completed in $($elapsed.TotalMinutes.ToString('F2')) minutes"
 
     Write-Output 'Copy bom file to local folder'
     $source = "$global:Remote_Master" + ':/home/remote/kubemaster.json'
@@ -182,18 +214,13 @@ function LoadK2sImages() {
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
 
     # dump all images
-    &$bomRootDir\DumpK2sImages.ps1 -Addons $Addons
+    &$bomRootDir\DumpK2sImages.ps1
 
     # export all addons to have all images pull
     Write-Output "Exporting addons to trigger pulling of containers under $tempDir"
 
-    # check if addons are specified
-    if ($null -eq $Addons -or $Addons.Length -eq 0) {
-        &"$global:KubernetesPath\k2s.exe" addons export -d $tempDir -o
-    }
-    else {
-        &"$global:KubernetesPath\k2s.exe" addons export $Addons -d $tempDir -o
-    }
+    # export all available addons
+    &"$global:KubernetesPath\k2s.exe" addons export -d $tempDir -o
 
     # cleanup temp directory
     if ( Test-Path -Path $tempDir\addons.zip) {
@@ -360,12 +387,7 @@ if ($Annotate) {
     }
 }
 
-if ($Addons) {
-    Write-Output "Generating SBOM for addons '$Addons'"
-}
-else {
-    Write-Output 'Generating SBOM for all the available addons'
-}
+Write-Output 'Generating SBOM for all available addons'
 
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
@@ -385,7 +407,9 @@ Write-Output '7 -> Load k2s images'
 LoadK2sImages
 Write-Output '8 -> Generate bom for containers'
 GenerateBomContainers
-Write-Output '9 -> Merge bom files'
+Write-Output '9 -> Update k2s version in static BOM'
+Update-K2sStaticVersion
+Write-Output '10 -> Merge bom files'
 MergeBomFilesFromDirectory
 
 Write-Output '---------------------------------------------------------------'
