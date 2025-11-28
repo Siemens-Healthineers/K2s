@@ -1788,7 +1788,7 @@ function AddAptRepo {
     Write-Log "adding apt-repository '$RepoDebString' with proxy '$ProxyApt' from '$RepoKeyUrl'"
     if ($RepoKeyUrl -ne '') {
         if ($ProxyApt -ne '') {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -s -k $RepoKeyUrl --proxy $ProxyApt | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -s $RepoKeyUrl --proxy $ProxyApt | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
         }
         else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -fsSL $RepoKeyUrl | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log

@@ -159,13 +159,13 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local for the ui app", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/ui/app"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
 			It("is reachable through k2s.cluster.local for DICOM Web", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/studies"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
@@ -212,13 +212,13 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local for the ui app", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/ui/app"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
 			It("is reachable through k2s.cluster.local for DICOM Web", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/studies"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 

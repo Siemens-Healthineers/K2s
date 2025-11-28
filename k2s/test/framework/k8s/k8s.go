@@ -577,11 +577,11 @@ func (c *Cluster) ExpectInternetToBeReachableFromPodOfDeployment(deploymentName 
 
 	Expect(err).ShouldNot(HaveOccurred())
 
-	command := []string{"curl", "-i", "-m", "10", "--retry", "3", "--insecure", "www.msftconnecttest.com/connecttest.txt"}
+	command := []string{"curl", "-i", "-m", "10", "--retry", "3", "www.msftconnecttest.com/connecttest.txt"}
 	if proxy != "" {
 		GinkgoWriter.Println("Using proxy for curl")
 
-		command = []string{"curl", "-i", "-m", "10", "--retry", "3", "--insecure", "-x", proxy, "www.msftconnecttest.com/connecttest.txt"}
+		command = []string{"curl", "-i", "-m", "10", "--retry", "3", "-x", proxy, "www.msftconnecttest.com/connecttest.txt"}
 	}
 
 	var stdout, stderr bytes.Buffer
