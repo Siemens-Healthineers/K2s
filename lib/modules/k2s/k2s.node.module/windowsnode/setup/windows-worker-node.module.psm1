@@ -177,7 +177,6 @@ function Start-WindowsWorkerNode {
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\flanneld"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\httpproxy"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\kubelet"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\windows_exporter"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containers"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\pods"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\bridge"
@@ -219,7 +218,6 @@ function Start-WindowsWorkerNode {
     Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
     Start-ServiceAndSetToAutoStart -Name 'kubelet'
     Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
-    Start-ServiceAndSetToAutoStart -Name 'windows_exporter'
 
     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
 
@@ -318,7 +316,6 @@ function Stop-WindowsWorkerNode {
     Stop-ServiceAndSetToManualStart 'kubelet'
     Stop-ServiceAndSetToManualStart 'flanneld'
     Stop-ServiceAndSetToManualStart 'httpproxy'
-    Stop-ServiceAndSetToManualStart 'windows_exporter'
     Stop-ServiceAndSetToManualStart 'containerd'
 
     $shallRestartDocker = $false

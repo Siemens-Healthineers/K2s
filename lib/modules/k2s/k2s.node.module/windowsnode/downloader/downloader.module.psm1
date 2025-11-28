@@ -216,9 +216,6 @@ function Invoke-DownloadWindowsNodeArtifacts {
     # KUBETOOLS
     Invoke-DownloadKubetoolsArtifacts $downloadsBaseDirectory $KubernetesVersion $Proxy $K8sBinsPath
 
-    # WINDOWS EXPORTER
-    Invoke-DownloadWindowsExporterArtifacts $downloadsBaseDirectory $Proxy
-
     #YAML TOOLS
     Invoke-DownloadYamlArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
 
@@ -384,8 +381,6 @@ function Install-WinNodeArtifacts {
         Install-WinFlannel
         Install-WinKubeProxy
 
-        Invoke-DeployWindowsExporterArtifacts $windowsNodeArtifactsDirectory
-        Install-WindowsExporter
     }
 
 }
