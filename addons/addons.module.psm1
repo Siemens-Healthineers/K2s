@@ -1155,7 +1155,12 @@ function Get-ImagesFromYamlFiles {
     $allImages = @()
     
     foreach ($yamlFile in $YamlFiles) {
-        $filePath = if ([System.IO.Path]::IsPathRooted($yamlFile)) { $yamlFile } else { Join-Path $BaseDirectory $yamlFile }
+        if ([System.IO.Path]::IsPathRooted($yamlFile)) {
+            $filePath = $yamlFile
+        } else {
+            $filePath = Join-Path $BaseDirectory $yamlFile
+            $filePath = [System.IO.Path]::GetFullPath($filePath)
+        }
         
         if (Test-Path $filePath) {
             Write-Log "Extracting images from $filePath"
@@ -1186,7 +1191,7 @@ function Get-ImagesFromYaml {
     
     foreach ($line in $lines) {
         if ($line -match '^\s*image:\s*(.+)$') {
-            $imageValue = $matches[1].Trim().Trim('"').Trim("'")
+            $imageValue = ($matches[1] -split '#')[0].Trim().Trim('"').Trim("'")
             if ($imageValue -ne '') { $images += $imageValue }
         } elseif ($line -match '--[a-zA-Z-]+=([a-zA-Z0-9\.\-_/]+/[a-zA-Z0-9\.\-_/]+:[a-zA-Z0-9\.\-_]+)') {
             $imageValue = $matches[1].Trim()
