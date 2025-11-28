@@ -29,33 +29,57 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
-var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version"
+var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade or in-place delta update)"
 
 var upgradeCommandLongDescription = `
 Upgrades the installed K2s cluster to this version.
 
-⚠  This command must be called within the folder containing the new K2s version, e.g. '<new-version-dir>\k2s.exe system upgrade'
+⚠  This command automatically detects whether to perform:
+   - FULL UPGRADE: if executed from a full K2s package directory (no delta-manifest.json)
+   - DELTA UPDATE: if executed from an extracted delta package directory (delta-manifest.json present)
 
-The following tasks will be executed:
-1. Export of current workloads (global resources and all namespaced resources)
-2. Keeping addons and their persistency to be re-enabled after cluster upgrade
-3. Uninstall existing cluster
-4. Install a new cluster based on this version
-5. Import previously exported workloads
-6. Enable addons and restore persistency
-7. Check if all workloads are running
-8. Finally check K2s cluster availability
+FULL UPGRADE:
+  ⚠  Call this command within the folder containing the new K2s version, e.g. '<new-version-dir>\k2s.exe system upgrade'
+  
+  The following tasks will be executed:
+  1. Export of current workloads (global resources and all namespaced resources)
+  2. Keeping addons and their persistency to be re-enabled after cluster upgrade
+  3. Uninstall existing cluster
+  4. Install a new cluster based on this version
+  5. Import previously exported workloads
+  6. Enable addons and restore persistency
+  7. Check if all workloads are running
+  8. Finally check K2s cluster availability
+
+DELTA UPDATE (EXPERIMENTAL):
+  ⚠  Extract the delta package and call this command from within the extracted directory:
+     1. Extract: Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
+     2. Navigate: cd .\delta
+     3. Update: .\k2s.exe system upgrade
+  
+  The following tasks will be executed:
+  1. Detect delta package root (current directory with delta-manifest.json)
+  2. Detect target installation folder (from setup.json)
+  3. Update all Windows executables and scripts from delta to target installation
+  4. Update all Debian packages from delta (if cluster is running)
+  5. Update all container images from delta
+  6. Automatically stop and restart the cluster if it was running
 `
 
 var upgradeCommandExample = `
-  # Upgrades the cluster to this version
+  # Full upgrade: Upgrades the cluster to this version
   k2s system upgrade
 
-  # Upgrades the cluster to this version, skips takeover of existing cluster resources
+  # Full upgrade: Skips takeover of existing cluster resources
   k2s system upgrade -s
 
-  # Upgrades the cluster to this version, deleting downloaded files after upgrade
+  # Full upgrade: Deleting downloaded files after upgrade
   k2s system upgrade -d
+  
+  # Delta update: From extracted delta package
+  Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
+  cd .\delta
+  .\k2s.exe system upgrade
 `
 
 const (
@@ -236,7 +260,7 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 func switchToUpgradeLogFile(showLog bool, logger *logging.Slogger) {
 	upgradeLogFilePath := bl.GlobalLogFilePath() + "_cli_upgrade_" + time.Now().Format("2006-01-02_15-04-05")
 
-	slog.Debug("Switching temporary to CLI upgrade log file", "path", upgradeLogFilePath)
+	slog.Debug("Switching temporary to CLI log file", "path", upgradeLogFilePath)
 
 	setLogger(showLog, logger, upgradeLogFilePath)
 }

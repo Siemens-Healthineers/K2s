@@ -274,11 +274,17 @@ try {
                 if ($null -ne $windowsPackages -and $windowsPackages.additionalImages) {
                     $windowsImages += $windowsPackages.additionalImages
                 }
+                
+                # Extract Windows images from referenced YAML manifest files (e.g., daemonset.yaml)
+                if ($null -ne $windowsPackages -and $windowsPackages.additionalImagesFiles) {
+                    $windowsImages += Get-ImagesFromYamlFiles -YamlFiles $windowsPackages.additionalImagesFiles -BaseDirectory $dirPath
+                }
             }
 
             $linuxImages = $linuxImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
             $linuxImages = Remove-VersionlessImages -Images $linuxImages
-            $windowsImages = $windowsImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }         
+            $windowsImages = $windowsImages | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'").Trim(' ') }
+            $windowsImages = Remove-VersionlessImages -Images $windowsImages
             $images += $linuxImages
             $images += $windowsImages
             $images = $images | Select-Object -Unique
