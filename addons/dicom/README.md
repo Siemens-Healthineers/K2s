@@ -78,7 +78,7 @@ Once the addons are enabled, then the dicom UI can be accessed at the following 
 DICOM Web APIS are available under the URL: <https://k2s.cluster.local/dicom/dicomweb>
 Example call which returns all studies:
 ```
-curl -sS --insecure https://k2s.cluster.local/dicom/dicomweb/studies
+curl -sS https://k2s.cluster.local/dicom/dicomweb/studies
 ```
 
 ## Disable dicom
