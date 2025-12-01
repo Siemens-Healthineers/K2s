@@ -213,6 +213,10 @@ function LoadK2sImages() {
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
 
+    # reset proxy
+    $env:GLOBAL_AGENT_HTTP_PROXY = ''
+    $env:https_proxy = ''
+
     # dump all images
     &$bomRootDir\DumpK2sImages.ps1
 
