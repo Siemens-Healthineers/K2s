@@ -405,17 +405,28 @@ foreach ($manifest in $addonManifests) {
             # extract additionalImagesFiles if present
             if ($linuxPackages.additionalImagesFiles -and $linuxPackages.additionalImagesFiles.Count -gt 0) {
                 $extractedImages = Get-ImagesFromYamlFiles -YamlFiles $linuxPackages.additionalImagesFiles -BaseDirectory $dirPath
-                if ($extractedImages.Count -gt 0) {
-                    if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
-                        $addonNameImagesMapping[$addonName] = @()
+                
+                # Ensure $extractedImages is always an array
+                if ($null -ne $extractedImages) {
+                    if ($extractedImages -is [string]) {
+                        $extractedImages = @($extractedImages)
                     }
-                    foreach ($extractedImage in $extractedImages) {
-                        if (-not ($addonNameImagesMapping[$addonName] -contains $extractedImage)) {
-                            $addonNameImagesMapping[$addonName] += $extractedImage
+                    
+                    if ($extractedImages.Count -gt 0) {
+                        if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
+                            $addonNameImagesMapping[$addonName] = @()
                         }
+                        foreach ($extractedImage in $extractedImages) {
+                            if (-not ($addonNameImagesMapping[$addonName] -contains $extractedImage)) {
+                                $addonNameImagesMapping[$addonName] += $extractedImage
+                            }
+                            # Add individual images to avoid AddRange type issues
+                            if (-not $images.Contains($extractedImage)) {
+                                $images.Add($extractedImage)
+                            }
+                        }
+                        Write-Output "Extracted $($extractedImages.Count) images from YAML files for addon $addonName"
                     }
-                    $images.AddRange($extractedImages)
-                    Write-Output "Extracted $($extractedImages.Count) images from YAML files for addon $addonName"
                 }
             }
         }
