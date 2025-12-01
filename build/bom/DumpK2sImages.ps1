@@ -404,7 +404,7 @@ foreach ($manifest in $addonManifests) {
 
             # extract additionalImagesFiles if present
             if ($linuxPackages.additionalImagesFiles -and $linuxPackages.additionalImagesFiles.Count -gt 0) {
-                $extractedImages = Get-ImagesFromYamlFiles -YamlFiles $linuxPackages.additionalImagesFiles -BaseDirectory "$global:KubernetesPath\addons\"
+                $extractedImages = Get-ImagesFromYamlFiles -YamlFiles $linuxPackages.additionalImagesFiles -BaseDirectory $dirPath
                 if ($extractedImages.Count -gt 0) {
                     if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
                         $addonNameImagesMapping[$addonName] = @()
