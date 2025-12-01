@@ -274,15 +274,54 @@ function GenerateBomContainers() {
             # create bom file entry for linux image
             # TODO: with license it does not work yet from cdxgen point of view
             #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageId.tar -o $imageName.json"
-            k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
+            
+            # Run trivy with error handling to continue on failure
+            try {
+                Write-Output "  -> Running trivy scan for image $imageName"
+                $trivyOutput = k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1" 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Output "  -> WARNING: Trivy scan failed for image ${fullname} with exit code $LASTEXITCODE"
+                    Write-Output "  -> Trivy output: $trivyOutput"
+                    Write-Output "  -> Skipping this image and continuing with next..."
+                    # Skip to cleanup and continue with next image
+                    ExecCmdMaster "sudo rm -f $imageName.tar" -IgnoreErrors
+                    ExecCmdMaster "sudo rm -f $imageName.json" -IgnoreErrors
+                    continue
+                }
+                Write-Output "  -> Trivy scan completed successfully"
+            }
+            catch {
+                Write-Output "  -> ERROR: Exception during trivy scan for image ${fullname}: $($_.Exception.Message)"
+                Write-Output "  -> Skipping this image and continuing with next..."
+                # Cleanup and continue
+                ExecCmdMaster "sudo rm -f $imageName.tar" -IgnoreErrors
+                ExecCmdMaster "sudo rm -f $imageName.json" -IgnoreErrors
+                continue
+            }
+            
             # copy bom file to local folder
             $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
-            Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+            try {
+                Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+            }
+            catch {
+                Write-Output "  -> ERROR: Failed to copy BOM file for image ${fullname}: $($_.Exception.Message)"
+                Write-Output "  -> Skipping this image and continuing with next..."
+                ExecCmdMaster "sudo rm -f $imageName.tar" -IgnoreErrors
+                ExecCmdMaster "sudo rm -f $imageName.json" -IgnoreErrors
+                continue
+            }
 
             if ($Annotate) {
                 $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
                 Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" "
-                &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+                try {
+                    &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+                }
+                catch {
+                    Write-Output "  -> WARNING: SBOM enrichment failed for image ${fullname}: $($_.Exception.Message)"
+                    Write-Output "  -> Continuing with unenriched SBOM..."
+                }
             }
 
             # delete tar file
@@ -334,16 +373,54 @@ function GenerateBomContainers() {
         Write-Output "  -> Creating bom for windows image: $imageName"
         # TODO: with license it does not work yet from cdxgen point of view
         #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
-        k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
+        
+        # Run trivy with error handling to continue on failure
+        try {
+            Write-Output "  -> Running trivy scan for windows image $imageName"
+            $trivyOutput = k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1" 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Output "  -> WARNING: Trivy scan failed for windows image ${imagefullname} with exit code $LASTEXITCODE"
+                Write-Output "  -> Trivy output: $trivyOutput"
+                Write-Output "  -> Skipping this image and continuing with next..."
+                # Cleanup and continue
+                ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar" -IgnoreErrors
+                Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
+                continue
+            }
+            Write-Output "  -> Trivy scan completed successfully"
+        }
+        catch {
+            Write-Output "  -> ERROR: Exception during trivy scan for windows image ${imagefullname}: $($_.Exception.Message)"
+            Write-Output "  -> Skipping this image and continuing with next..."
+            # Cleanup and continue
+            ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar" -IgnoreErrors
+            Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
+            continue
+        }
 
         # copy bom file to local folder
         $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
-        Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+        try {
+            Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+        }
+        catch {
+            Write-Output "  -> ERROR: Failed to copy BOM file for windows image ${imagefullname}: $($_.Exception.Message)"
+            Write-Output "  -> Skipping this image and continuing with next..."
+            ExecCmdMaster "sudo rm /home/remote/$imageName.tar" -IgnoreErrors
+            Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
+            continue
+        }
 
         if ($Annotate) {
             $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
             Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
-            &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+            try {
+                &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+            }
+            catch {
+                Write-Output "  -> WARNING: SBOM enrichment failed for windows image ${imagefullname}: $($_.Exception.Message)"
+                Write-Output "  -> Continuing with unenriched SBOM..."
+            }
         }
 
         # remove tar file
