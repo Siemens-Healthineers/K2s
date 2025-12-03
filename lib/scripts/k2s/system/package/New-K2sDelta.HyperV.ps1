@@ -331,9 +331,10 @@ function Get-DebianPackagesFromVHDX {
         [string[]] $DownloadPackageSpecs,
         [string] $DownloadLocalDir,
         [switch] $DownloadDebs,
-        [switch] $AllowPartialAcquisition
+        [switch] $AllowPartialAcquisition,
+        [switch] $QueryBuildahImages
     )
-    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); Resolutions=@() }
+    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); Resolutions=@(); BuildahImages=@() }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
     if (-not (Get-Module -ListAvailable -Name Hyper-V)) { $result.Error = 'Hyper-V module unavailable'; return $result }
     $sshUser = 'remote'; $sshPwd = 'admin'; $sshKey = ''  # TODO: parameterize via caller / env if needed
@@ -421,6 +422,54 @@ function Get-DebianPackagesFromVHDX {
         # Query packages (use the auth method that worked)
         $pkgMap = Get-K2sDpkgPackageMap -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd
         $result.Packages = $pkgMap
+
+        # Query buildah images (optional)
+        if ($QueryBuildahImages) {
+            Write-Log '[ImageDiff] Querying buildah images from VM...' -Console
+            $buildahCmd = 'buildah images --format "{{.Name}}:{{.Tag}}|{{.ID}}|{{.Size}}" 2>&1'
+            $buildahParams = @($buildahCmd)
+            if ($usingPlink) {
+                Write-Log "[ImageDiff] Executing via plink: $sshUser@$guestIp $buildahCmd" -Console
+                $buildahOut = & $sshClient -batch -hostkey $plinkHostKey $sshUser@$guestIp $buildahParams 2>&1
+            } else {
+                Write-Log "[ImageDiff] Executing via ssh: $sshUser@$guestIp $buildahCmd" -Console
+                $buildahOut = & $sshClient -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $sshUser@$guestIp $buildahParams 2>&1
+            }
+            
+            Write-Log "[ImageDiff] Buildah command exit code: $LASTEXITCODE" -Console
+            if ($buildahOut) {
+                $outputSample = ($buildahOut | Select-Object -First 5) -join ' | '
+                Write-Log "[ImageDiff] Buildah output (first 5 lines): $outputSample" -Console
+            } else {
+                Write-Log "[ImageDiff] Buildah output is empty" -Console
+            }
+            
+            if ($LASTEXITCODE -eq 0 -and $buildahOut) {
+                $images = @()
+                $lineCount = 0
+                foreach ($line in $buildahOut) {
+                    $lineCount++
+                    if ($line -match '^(.+?)\|(.+?)\|(.+?)$') {
+                        $images += [PSCustomObject]@{
+                            FullName = $matches[1]
+                            ImageId  = $matches[2]
+                            Size     = $matches[3]
+                        }
+                        Write-Log "[ImageDiff] Parsed image: $($matches[1]) (ID: $($matches[2]))" -Console
+                    } else {
+                        Write-Log "[ImageDiff] Line $lineCount did not match pattern: $line" -Console
+                    }
+                }
+                $result.BuildahImages = $images
+                Write-Log "[ImageDiff] Found $($images.Count) buildah images in VM (processed $lineCount lines)" -Console
+            } else {
+                Write-Log "[ImageDiff] Warning: buildah query returned no results or failed (exit=$LASTEXITCODE)" -Console
+                if ($buildahOut) {
+                    $fullOutput = $buildahOut -join "`n"
+                    Write-Log "[ImageDiff] Full buildah error output: $fullOutput" -Console
+                }
+            }
+        }
 
         # Offline acquisition (optional)
         if ($DownloadDebs -and $DownloadPackageSpecs -and $DownloadPackageSpecs.Count -gt 0) {
