@@ -13,7 +13,7 @@ require (
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v1.3.0
 	github.com/elazarl/goproxy v1.7.2
-	github.com/failsafe-go/failsafe-go v0.9.2
+	github.com/failsafe-go/failsafe-go v0.9.3
 	github.com/gentlemanautomaton/windevice v0.0.0-20250112023717-77498d8a77fe
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-logr/logr v1.4.3
@@ -53,7 +53,7 @@ require (
 	cyphar.com/go-pathrs v0.2.1 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/bits-and-blooms/bitset v1.24.0 // indirect
+	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
@@ -94,6 +94,7 @@ require (
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
