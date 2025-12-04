@@ -30,7 +30,7 @@ require (
 	github.com/samber/slog-multi v1.6.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/shirou/gopsutil/v3 v3.24.5
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
