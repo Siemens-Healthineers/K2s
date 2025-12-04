@@ -71,6 +71,19 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementa
     exit 1
 }
 
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })) -eq $true) {
+    $errMsg = "Addon 'rollout argocd' is enabled. Disable it first to avoid conflicts."
+
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 Write-Log 'Creating rollout namespace' -Console
 (Invoke-Kubectl -Params 'create', 'namespace', 'rollout').Output | Write-Log
 

@@ -77,6 +77,19 @@ if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'rollout'; Implementat
     exit 1
 }
 
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })) -eq $true) {
+    $errMsg = "Addon 'rollout fluxcd' is enabled. Disable it first to avoid conflicts."
+
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 $rolloutNamespace = 'rollout'
 
 $VERSION_ARGOCD = 'v2.12.1'
