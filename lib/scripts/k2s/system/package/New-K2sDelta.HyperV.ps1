@@ -374,6 +374,11 @@ function Get-DebianPackagesFromVHDX {
 
         Write-Log ("[DebPkg] Wait 1 minute until the SSH server is running") -Console
         Start-Sleep -Seconds 60
+
+        # wait on console for user input (just for now for debugging)
+        # Read-Host "Press Enter to continue after verifying SSH server is running"
+
+        # SSH login test
         # Poll SSH login with dpkg self-test (every 10s up to 120s) - VM needs time to fully boot  
         Write-Log "[DebPkg] Polling SSH login readiness (polling every 10s, timeout 120s)..." -Console
         $loginReadyDeadline = (Get-Date).AddSeconds(120)
@@ -426,48 +431,80 @@ function Get-DebianPackagesFromVHDX {
         # Query buildah images (optional)
         if ($QueryBuildahImages) {
             Write-Log '[ImageDiff] Querying buildah images from VM...' -Console
-            $buildahCmd = 'buildah images --format "{{.Name}}:{{.Tag}}|{{.ID}}|{{.Size}}" 2>&1'
-            $buildahParams = @($buildahCmd)
+            # Use single quotes and escape for proper shell passing
+            $buildahCmd = "sudo buildah images --format '{{.Name}}:{{.Tag}}|{{.ID}}|{{.Size}}'"
+            
             if ($usingPlink) {
-                Write-Log "[ImageDiff] Executing via plink: $sshUser@$guestIp $buildahCmd" -Console
-                $buildahOut = & $sshClient -batch -hostkey $plinkHostKey $sshUser@$guestIp $buildahParams 2>&1
+                Write-Log "[ImageDiff] Executing via plink: $sshUser@$guestIp" -Console
+                # Build plink args array the same way as dpkg query
+                $plinkArgs = @('-batch', '-noagent', '-P', '22')
+                if ($plinkHostKey) { $plinkArgs += @('-hostkey', $plinkHostKey) }
+                if ($sshKey) { $plinkArgs += @('-i', $sshKey) } elseif ($sshPwd) { $plinkArgs += @('-pw', $sshPwd) }
+                $plinkArgs += ("$sshUser@$guestIp")
+                $buildahOut = & $sshClient @($plinkArgs + $buildahCmd) 2>&1
             } else {
-                Write-Log "[ImageDiff] Executing via ssh: $sshUser@$guestIp $buildahCmd" -Console
-                $buildahOut = & $sshClient -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $sshUser@$guestIp $buildahParams 2>&1
+                Write-Log "[ImageDiff] Executing via ssh: $sshUser@$guestIp" -Console
+                $sshArgs = @('-p', '22', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null')
+                if ($sshKey) { $sshArgs += @('-i', $sshKey) }
+                $sshArgs += ("$sshUser@$guestIp")
+                $buildahOut = & $sshClient @($sshArgs + $buildahCmd) 2>&1
             }
             
             Write-Log "[ImageDiff] Buildah command exit code: $LASTEXITCODE" -Console
-            if ($buildahOut) {
-                $outputSample = ($buildahOut | Select-Object -First 5) -join ' | '
-                Write-Log "[ImageDiff] Buildah output (first 5 lines): $outputSample" -Console
+            
+            if ($buildahOut -and $buildahOut.Count -gt 0) {
+                Write-Log "[ImageDiff] Buildah returned $($buildahOut.Count) lines of output" -Console
+                $outputSample = ($buildahOut | Select-Object -First 3) -join ' | '
+                Write-Log "[ImageDiff] Output sample: $outputSample" -Console
             } else {
                 Write-Log "[ImageDiff] Buildah output is empty" -Console
             }
             
-            if ($LASTEXITCODE -eq 0 -and $buildahOut) {
-                $images = @()
-                $lineCount = 0
-                foreach ($line in $buildahOut) {
-                    $lineCount++
-                    if ($line -match '^(.+?)\|(.+?)\|(.+?)$') {
-                        $images += [PSCustomObject]@{
-                            FullName = $matches[1]
-                            ImageId  = $matches[2]
-                            Size     = $matches[3]
-                        }
-                        Write-Log "[ImageDiff] Parsed image: $($matches[1]) (ID: $($matches[2]))" -Console
+            if ($LASTEXITCODE -eq 0) {
+                if (-not $buildahOut -or $buildahOut.Count -eq 0) {
+                    Write-Log "[ImageDiff] Exit code 0 but no output - checking buildah store..." -Console
+                    
+                    # Try simple buildah images command without format
+                    $simpleCmd = "sudo buildah images"
+                    if ($usingPlink) {
+                        $simpleOut = & $sshClient @($plinkArgs[0..($plinkArgs.Count-2)] + $simpleCmd) 2>&1
                     } else {
-                        Write-Log "[ImageDiff] Line $lineCount did not match pattern: $line" -Console
+                        $simpleOut = & $sshClient @($sshArgs + $simpleCmd) 2>&1
                     }
+                    Write-Log "[ImageDiff] Simple 'sudo buildah images' output (exit=$LASTEXITCODE): $($simpleOut -join ' | ')" -Console
+                    
+                    # Check if buildah is using root vs user store
+                    $storeCmd = "ls -la ~/.local/share/containers/storage/overlay-images 2>&1 || echo 'User store not found'; sudo ls -la /var/lib/containers/storage/overlay-images 2>&1 || echo 'Root store not found'"
+                    if ($usingPlink) {
+                        $storeOut = & $sshClient @($plinkArgs[0..($plinkArgs.Count-2)] + $storeCmd) 2>&1
+                    } else {
+                        $storeOut = & $sshClient @($sshArgs + $storeCmd) 2>&1
+                    }
+                    Write-Log "[ImageDiff] Buildah storage check: $($storeOut -join ' | ')" -Console
+                    
+                    $result.BuildahImages = @()
+                } else {
+                    $images = @()
+                    foreach ($line in $buildahOut) {
+                        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                        if ($line -match '^(.+?)\|(.+?)\|(.+?)$') {
+                            $images += [PSCustomObject]@{
+                                FullName = $matches[1]
+                                ImageId  = $matches[2]
+                                Size     = $matches[3]
+                            }
+                        }
+                    }
+                    $result.BuildahImages = $images
+                    Write-Log "[ImageDiff] Successfully parsed $($images.Count) buildah images from VM" -Console
                 }
-                $result.BuildahImages = $images
-                Write-Log "[ImageDiff] Found $($images.Count) buildah images in VM (processed $lineCount lines)" -Console
             } else {
-                Write-Log "[ImageDiff] Warning: buildah query returned no results or failed (exit=$LASTEXITCODE)" -Console
+                Write-Log "[ImageDiff] Warning: buildah query failed (exit=$LASTEXITCODE)" -Console
                 if ($buildahOut) {
-                    $fullOutput = $buildahOut -join "`n"
-                    Write-Log "[ImageDiff] Full buildah error output: $fullOutput" -Console
+                    $errorSample = ($buildahOut | Select-Object -First 3) -join ' | '
+                    Write-Log "[ImageDiff] Error output: $errorSample" -Console
                 }
+                $result.BuildahImages = @()
             }
         }
 
