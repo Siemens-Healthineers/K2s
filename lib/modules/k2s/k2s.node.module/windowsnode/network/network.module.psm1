@@ -103,6 +103,28 @@ function New-ExternalSwitch {
     $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
     $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     Write-Log "Create l2 bridge network with subnet: $podNetworkCIDR, switch name: $l2BridgeSwitchName, DNS server: $dnsserver, gateway: $gatewayIpAddress, NAT exceptions: $clusterCIDRNatExceptions, adapter name: $adapterName"
+    
+    # Check if network already exists from previous failed setup and remove it
+    $existingNetwork = Invoke-HNSCommand -Command {
+        param($l2BridgeSwitchName)
+        Get-HnsNetwork | Where-Object -FilterScript { $_.Name -EQ "$l2BridgeSwitchName" }
+    } -ArgumentList $l2BridgeSwitchName
+    
+    if ($existingNetwork) {
+        Write-Log "Found existing l2 bridge network '$l2BridgeSwitchName', removing it before recreation..."
+        try {
+            Invoke-HNSCommand -Command {
+                param($existingNetwork)
+                Remove-HnsNetwork -InputObject $existingNetwork -ErrorAction Stop
+            } -ArgumentList $existingNetwork
+            Write-Log "Successfully removed existing network"
+            Start-Sleep -Seconds 2  # Give HNS time to clean up
+        }
+        catch {
+            Write-Log "[WARNING] Failed to remove existing network: $_. Continuing with creation attempt..."
+        }
+    }
+    
     $netResult = Invoke-HNSCommand -Command {
         param(
             $l2BridgeSwitchName,
@@ -522,7 +544,28 @@ function Wait-ForServiceRunning {
 }
 
 function Restart-HNSService {
-    Restart-Service $hnsService
+    Write-Log "Attempting to restart '$hnsService' service..."
+    
+    try {
+        # Try graceful restart first
+        Restart-Service $hnsService -ErrorAction Stop
+        Write-Log "Service '$hnsService' restarted successfully"
+    }
+    catch {
+        Write-Log "[WARNING] Graceful restart failed: $_. Attempting force stop..."
+        
+        try {
+            # Force stop the service if graceful restart fails
+            Stop-Service $hnsService -Force -ErrorAction Stop
+            Start-Sleep -Seconds 2
+            Start-Service $hnsService -ErrorAction Stop
+            Write-Log "Service '$hnsService' force-restarted successfully"
+        }
+        catch {
+            Write-Log "[WARNING] Force restart also failed: $_. Service may require manual intervention."
+        }
+    }
+    
     $serviceRestarted = Wait-ForServiceRunning -ServiceName $hnsService
     
     if ($serviceRestarted -eq $false) {
