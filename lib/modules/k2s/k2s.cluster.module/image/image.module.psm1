@@ -154,7 +154,7 @@ function Get-PushedContainerImages() {
     $isNodePort = $registryName -match ':'
 
     if (!$isNodePort) {
-        $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET https://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
+        $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
     }
     else {
         $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
@@ -164,7 +164,7 @@ function Get-PushedContainerImages() {
     $pushedContainerImages = @()
     foreach ($image in $images) {
         if (!$isNodePort) {
-            $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET https://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+            $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
         }
         else {
             $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
