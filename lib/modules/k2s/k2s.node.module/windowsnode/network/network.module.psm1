@@ -111,18 +111,19 @@ function New-ExternalSwitch {
     } -ArgumentList $l2BridgeSwitchName
     
     if ($existingNetwork) {
-        Write-Log "Found existing l2 bridge network '$l2BridgeSwitchName', removing it before recreation..."
-        try {
-            Invoke-HNSCommand -Command {
-                param($existingNetwork)
-                Remove-HnsNetwork -InputObject $existingNetwork -ErrorAction Stop
-            } -ArgumentList $existingNetwork
-            Write-Log "Successfully removed existing network"
-            Start-Sleep -Seconds 2  # Give HNS time to clean up
-        }
-        catch {
-            Write-Log "[WARNING] Failed to remove existing network: $_. Continuing with creation attempt..."
-        }
+        Write-Log "Found existing l2 bridge network '$l2BridgeSwitchName', will continue with creation attempt..."
+        # Write-Log "Found existing l2 bridge network '$l2BridgeSwitchName', removing it before recreation..."
+        # try {
+        #     Invoke-HNSCommand -Command {
+        #         param($existingNetwork)
+        #         Remove-HnsNetwork -InputObject $existingNetwork -ErrorAction Stop
+        #     } -ArgumentList $existingNetwork
+        #     Write-Log "Successfully removed existing network"
+        #     Start-Sleep -Seconds 2  # Give HNS time to clean up
+        # }
+        # catch {
+        #     Write-Log "[WARNING] Failed to remove existing network: $_. Continuing with creation attempt..."
+        # }
     }
     
     $netResult = Invoke-HNSCommand -Command {
