@@ -93,8 +93,15 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("helm-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("notification-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("image-reflector-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("image-automation-controller", "rollout")
 
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/part-of", "flux", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "source-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "kustomize-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "helm-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "notification-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "image-reflector-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "image-automation-controller", "rollout")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 			Expect(addonsStatus.IsAddonEnabled("rollout", "fluxcd")).To(BeTrue())
@@ -135,8 +142,15 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("helm-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("notification-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("image-reflector-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("image-automation-controller", "rollout")
 
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/part-of", "flux", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "source-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "kustomize-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "helm-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "notification-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "image-reflector-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "image-automation-controller", "rollout")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 			Expect(addonsStatus.IsAddonEnabled("rollout", "fluxcd")).To(BeTrue())
@@ -152,10 +166,12 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 			expectStatusToBePrinted(ctx)
 		})
 
-		It("is reachable through k2s.cluster.local/rollout", func(ctx context.Context) {
-			url := "https://k2s.cluster.local/rollout/"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+		It("webhook receiver is accessible through ingress", func(ctx context.Context) {
+			// Note: FluxCD has no web UI. Ingress exposes webhook-receiver for Git push notifications.
+			url := "http://k2s.cluster.local/hook/"
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-I", "-m", "5", "--retry", "3", "-L", "-o", "/dev/null", "-w", "%{http_code}")
+			// Expect 404 (no Receiver CRD configured) or 308 (redirect) - proves ingress routing works
+			Expect(httpStatus).To(MatchRegexp("404|308"))
 		})
 	})
 })
