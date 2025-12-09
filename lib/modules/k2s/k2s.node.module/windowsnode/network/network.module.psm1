@@ -302,8 +302,12 @@ function Set-IPAddressAndDnsClientServerAddress {
 
     )
     New-NetIPAddress -IPAddress $IPAddress -PrefixLength 24 -InterfaceIndex $Index -DefaultGateway $DefaultGateway -ErrorAction SilentlyContinue | Out-Null
+    
+    # Filter out empty strings and validate DNS addresses
+    $DnsAddresses = $DnsAddresses | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
     if ($DnsAddresses.Count -eq 0) {
-        $DnsAddresses = $('8.8.8.8', '8.8.4.4')
+        $DnsAddresses = @('8.8.8.8', '8.8.4.4')
+        Write-Log "No DNS addresses provided, using default: $($DnsAddresses -join ', ')"
     }
 
     Write-Log "Setting DNSProxy(6) server to empty addresses and no DNS partition on interface index $Index"
