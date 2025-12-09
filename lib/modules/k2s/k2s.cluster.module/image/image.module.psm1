@@ -215,7 +215,7 @@ function Remove-PushedImage($name, $tag) {
 
     $isNodePort = $registryName -match ':'
     if (!$isNodePort) {
-        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -I https://$registryName/v2/$name/manifests/$tag $concatenatedHeadersString -v 2>&1"
+        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -k -I https://$registryName/v2/$name/manifests/$tag $concatenatedHeadersString -v 2>&1"
     }
     else {
         $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatenatedHeadersString -v 2>&1"
@@ -244,7 +244,7 @@ function Remove-PushedImage($name, $tag) {
     $digest = $match.Matches.Groups[1].Value
 
     if (!$isNodePort) {
-        $deleteRequest = "curl.exe -m 10 -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE https://$registryName/v2/$name/manifests/$digest $concatenatedHeadersString -v 2>&1"
+        $deleteRequest = "curl.exe -m 10 -k -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE https://$registryName/v2/$name/manifests/$digest $concatenatedHeadersString -v 2>&1"
     }
     else {
         $deleteRequest = "curl.exe -m 10 -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatenatedHeadersString -v 2>&1"
