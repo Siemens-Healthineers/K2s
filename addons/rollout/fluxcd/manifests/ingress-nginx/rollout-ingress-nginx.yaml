@@ -18,8 +18,8 @@ spec:
         paths:
           - backend:
               service:
-                name: weave-gitops
+                name: webhook-receiver
                 port:
-                  number: 9001
-            path: /rollout
+                  number: 80
+            path: /hook
             pathType: Prefix
