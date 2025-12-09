@@ -544,6 +544,33 @@ function Wait-ForServiceRunning {
     }
 }
 
+function Wait-ForServiceStopped {
+    param (
+        [string] $ServiceName,
+        [int] $MaxRetries = 10,
+        [int] $SleepSeconds = 1
+    )
+
+    $iteration = 0
+    while ($true) {
+        $iteration++
+        $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        
+        # Service doesn't exist or is stopped
+        if ($null -eq $service -or $service.Status -eq 'Stopped') {
+            return $true
+        }
+        
+        if ($iteration -ge $MaxRetries) {
+            Write-Log "'$ServiceName' Service did not stop in time (status: $($service.Status))"
+            return $false
+        }
+        
+        Write-Log "'$ServiceName' Waiting for service to stop (current status: $($service.Status))..."
+        Start-Sleep -Seconds $SleepSeconds
+    }
+}
+
 function Restart-HNSService {
     Write-Log "Attempting to restart '$hnsService' service..."
     
@@ -649,4 +676,5 @@ Set-InterfacePrivate,
 Get-L2BridgeSwitchName,
 Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
-Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand
+Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand,
+Wait-ForServiceStopped
