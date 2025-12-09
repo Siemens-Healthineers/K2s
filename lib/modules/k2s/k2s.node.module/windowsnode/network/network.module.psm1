@@ -111,19 +111,18 @@ function New-ExternalSwitch {
     } -ArgumentList $l2BridgeSwitchName
     
     if ($existingNetwork) {
-        Write-Log "Found existing l2 bridge network '$l2BridgeSwitchName', will continue with creation attempt..."
-        # Write-Log "Found existing l2 bridge network '$l2BridgeSwitchName', removing it before recreation..."
-        # try {
-        #     Invoke-HNSCommand -Command {
-        #         param($existingNetwork)
-        #         Remove-HnsNetwork -InputObject $existingNetwork -ErrorAction Stop
-        #     } -ArgumentList $existingNetwork
-        #     Write-Log "Successfully removed existing network"
-        #     Start-Sleep -Seconds 2  # Give HNS time to clean up
-        # }
-        # catch {
-        #     Write-Log "[WARNING] Failed to remove existing network: $_. Continuing with creation attempt..."
-        # }
+        Write-Log "Found existing l2 bridge network '$l2BridgeSwitchName', removing it before recreation..."
+        try {
+            Invoke-HNSCommand -Command {
+                param($existingNetwork)
+                Remove-HnsNetwork -InputObject $existingNetwork -ErrorAction Stop
+            } -ArgumentList $existingNetwork
+            Write-Log "Successfully removed existing network"
+            Start-Sleep -Seconds 3  # Give HNS time to clean up
+        }
+        catch {
+            Write-Log "[WARNING] Failed to remove existing network: $_. Continuing with creation attempt..."
+        }
     }
     
     $netResult = Invoke-HNSCommand -Command {
@@ -183,7 +182,12 @@ function New-ExternalSwitch {
 
 function Remove-ExternalSwitch () {
     Write-Log "Remove l2 bridge network switch name: $l2BridgeSwitchName"
-    Get-HnsNetwork | Where-Object Name -Like "$l2BridgeSwitchName" | Remove-HnsNetwork -ErrorAction SilentlyContinue
+    
+    # Use Invoke-HNSCommand for retry logic on initial removal
+    Invoke-HNSCommand -Command { 
+        param($l2BridgeSwitchName)
+        Get-HnsNetwork | Where-Object Name -EQ $l2BridgeSwitchName | Remove-HnsNetwork -ErrorAction SilentlyContinue
+    } -ArgumentList $l2BridgeSwitchName
 
     $controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
 
@@ -193,27 +197,31 @@ function Remove-ExternalSwitch () {
         Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
         Invoke-HNSCommand -Command { 
             param($hns, $controlPlaneSwitchName)
-            $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue 
-            $hns | Where-Object Name -Like ('*' + $controlPlaneSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+            $hns | Where-Object Name -EQ 'cbr0' | Remove-HNSNetwork -ErrorAction SilentlyContinue 
+            $hns | Where-Object Name -EQ $controlPlaneSwitchName | Remove-HNSNetwork -ErrorAction SilentlyContinue
         } -ArgumentList @($hns, $controlPlaneSwitchName)
     }
+    
+    # Give HNS time to fully process the removal
+    Start-Sleep -Seconds 2
 
-    # check l2BridgeSwitchName still exists and if so remove it, do it with 3 tries
-    Write-Log 'Check l2BridgeSwitchName still exists and if so remove it, do it with 3 tries'
-    $iteration = 3
+    # check l2BridgeSwitchName still exists and if so remove it, do it with 5 tries
+    Write-Log 'Check l2BridgeSwitchName still exists and if so remove it, do it with 5 tries'
+    $iteration = 5
     while ($iteration -gt 0) {
         $iteration--
         $l2BridgeSwitchName = Get-L2BridgeSwitchName
         $found = Invoke-HNSCommand -Command { 
             param($l2BridgeSwitchName)
-            Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName 
+            Get-HNSNetwork | Where-Object Name -EQ $l2BridgeSwitchName 
         } -ArgumentList $l2BridgeSwitchName
         if ($found) {
-            Write-Log "$iteration L2 bridge network switch name: $l2BridgeSwitchName still exists"
+            Write-Log "$iteration L2 bridge network switch name: $l2BridgeSwitchName still exists, attempting removal"
             Invoke-HNSCommand -Command { 
                 param($l2BridgeSwitchName)
-                Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName | Remove-HNSNetwork -ErrorAction SilentlyContinue
+                Get-HNSNetwork | Where-Object Name -EQ $l2BridgeSwitchName | Remove-HNSNetwork -ErrorAction SilentlyContinue
             } -ArgumentList $l2BridgeSwitchName
+            Start-Sleep -Seconds 2
         }
         else {
             Write-Log "L2 bridge network switch name: $l2BridgeSwitchName removed"
