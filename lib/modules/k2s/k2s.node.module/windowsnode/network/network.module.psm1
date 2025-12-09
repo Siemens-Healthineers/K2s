@@ -103,6 +103,28 @@ function New-ExternalSwitch {
     $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
     $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     Write-Log "Create l2 bridge network with subnet: $podNetworkCIDR, switch name: $l2BridgeSwitchName, DNS server: $dnsserver, gateway: $gatewayIpAddress, NAT exceptions: $clusterCIDRNatExceptions, adapter name: $adapterName"
+    
+    # Check if network already exists from previous failed setup and remove it
+    $existingNetwork = Invoke-HNSCommand -Command {
+        param($l2BridgeSwitchName)
+        Get-HnsNetwork | Where-Object -FilterScript { $_.Name -EQ "$l2BridgeSwitchName" }
+    } -ArgumentList $l2BridgeSwitchName
+    
+    if ($existingNetwork) {
+        Write-Log "Found existing l2 bridge network '$l2BridgeSwitchName', removing it before recreation..."
+        try {
+            Invoke-HNSCommand -Command {
+                param($existingNetwork)
+                Remove-HnsNetwork -InputObject $existingNetwork -ErrorAction Stop
+            } -ArgumentList $existingNetwork
+            Write-Log "Successfully removed existing network"
+            Start-Sleep -Seconds 3  # Give HNS time to clean up
+        }
+        catch {
+            Write-Log "[WARNING] Failed to remove existing network: $_. Continuing with creation attempt..."
+        }
+    }
+    
     $netResult = Invoke-HNSCommand -Command {
         param(
             $l2BridgeSwitchName,
@@ -160,7 +182,12 @@ function New-ExternalSwitch {
 
 function Remove-ExternalSwitch () {
     Write-Log "Remove l2 bridge network switch name: $l2BridgeSwitchName"
-    Get-HnsNetwork | Where-Object Name -Like "$l2BridgeSwitchName" | Remove-HnsNetwork -ErrorAction SilentlyContinue
+    
+    # Use Invoke-HNSCommand for retry logic on initial removal
+    Invoke-HNSCommand -Command { 
+        param($l2BridgeSwitchName)
+        Get-HnsNetwork | Where-Object Name -EQ $l2BridgeSwitchName | Remove-HnsNetwork -ErrorAction SilentlyContinue
+    } -ArgumentList $l2BridgeSwitchName
 
     $controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
 
@@ -170,27 +197,31 @@ function Remove-ExternalSwitch () {
         Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
         Invoke-HNSCommand -Command { 
             param($hns, $controlPlaneSwitchName)
-            $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue 
-            $hns | Where-Object Name -Like ('*' + $controlPlaneSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+            $hns | Where-Object Name -EQ 'cbr0' | Remove-HNSNetwork -ErrorAction SilentlyContinue 
+            $hns | Where-Object Name -EQ $controlPlaneSwitchName | Remove-HNSNetwork -ErrorAction SilentlyContinue
         } -ArgumentList @($hns, $controlPlaneSwitchName)
     }
+    
+    # Give HNS time to fully process the removal
+    Start-Sleep -Seconds 2
 
-    # check l2BridgeSwitchName still exists and if so remove it, do it with 3 tries
-    Write-Log 'Check l2BridgeSwitchName still exists and if so remove it, do it with 3 tries'
-    $iteration = 3
+    # check l2BridgeSwitchName still exists and if so remove it, do it with 5 tries
+    Write-Log 'Check l2BridgeSwitchName still exists and if so remove it, do it with 5 tries'
+    $iteration = 5
     while ($iteration -gt 0) {
         $iteration--
         $l2BridgeSwitchName = Get-L2BridgeSwitchName
         $found = Invoke-HNSCommand -Command { 
             param($l2BridgeSwitchName)
-            Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName 
+            Get-HNSNetwork | Where-Object Name -EQ $l2BridgeSwitchName 
         } -ArgumentList $l2BridgeSwitchName
         if ($found) {
-            Write-Log "$iteration L2 bridge network switch name: $l2BridgeSwitchName still exists"
+            Write-Log "$iteration L2 bridge network switch name: $l2BridgeSwitchName still exists, attempting removal"
             Invoke-HNSCommand -Command { 
                 param($l2BridgeSwitchName)
-                Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName | Remove-HNSNetwork -ErrorAction SilentlyContinue
+                Get-HNSNetwork | Where-Object Name -EQ $l2BridgeSwitchName | Remove-HNSNetwork -ErrorAction SilentlyContinue
             } -ArgumentList $l2BridgeSwitchName
+            Start-Sleep -Seconds 2
         }
         else {
             Write-Log "L2 bridge network switch name: $l2BridgeSwitchName removed"
@@ -271,8 +302,12 @@ function Set-IPAddressAndDnsClientServerAddress {
 
     )
     New-NetIPAddress -IPAddress $IPAddress -PrefixLength 24 -InterfaceIndex $Index -DefaultGateway $DefaultGateway -ErrorAction SilentlyContinue | Out-Null
+    
+    # Filter out empty strings and validate DNS addresses
+    $DnsAddresses = $DnsAddresses | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
     if ($DnsAddresses.Count -eq 0) {
-        $DnsAddresses = $('8.8.8.8', '8.8.4.4')
+        $DnsAddresses = @('8.8.8.8', '8.8.4.4')
+        Write-Log "No DNS addresses provided, using default: $($DnsAddresses -join ', ')"
     }
 
     Write-Log "Setting DNSProxy(6) server to empty addresses and no DNS partition on interface index $Index"
@@ -521,8 +556,56 @@ function Wait-ForServiceRunning {
     }
 }
 
+function Wait-ForServiceStopped {
+    param (
+        [string] $ServiceName,
+        [int] $MaxRetries = 10,
+        [int] $SleepSeconds = 1
+    )
+
+    $iteration = 0
+    while ($true) {
+        $iteration++
+        $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        
+        # Service doesn't exist or is stopped
+        if ($null -eq $service -or $service.Status -eq 'Stopped') {
+            return $true
+        }
+        
+        if ($iteration -ge $MaxRetries) {
+            Write-Log "'$ServiceName' Service did not stop in time (status: $($service.Status))"
+            return $false
+        }
+        
+        Write-Log "'$ServiceName' Waiting for service to stop (current status: $($service.Status))..."
+        Start-Sleep -Seconds $SleepSeconds
+    }
+}
+
 function Restart-HNSService {
-    Restart-Service $hnsService
+    Write-Log "Attempting to restart '$hnsService' service..."
+    
+    try {
+        # Try graceful restart first
+        Restart-Service $hnsService -ErrorAction Stop
+        Write-Log "Service '$hnsService' restarted successfully"
+    }
+    catch {
+        Write-Log "[WARNING] Graceful restart failed: $_. Attempting force stop..."
+        
+        try {
+            # Force stop the service if graceful restart fails
+            Stop-Service $hnsService -Force -ErrorAction Stop
+            Start-Sleep -Seconds 2
+            Start-Service $hnsService -ErrorAction Stop
+            Write-Log "Service '$hnsService' force-restarted successfully"
+        }
+        catch {
+            Write-Log "[WARNING] Force restart also failed: $_. Service may require manual intervention."
+        }
+    }
+    
     $serviceRestarted = Wait-ForServiceRunning -ServiceName $hnsService
     
     if ($serviceRestarted -eq $false) {
@@ -605,4 +688,5 @@ Set-InterfacePrivate,
 Get-L2BridgeSwitchName,
 Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
-Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand
+Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand,
+Wait-ForServiceStopped
