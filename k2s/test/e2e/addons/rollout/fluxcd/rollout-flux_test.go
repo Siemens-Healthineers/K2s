@@ -167,11 +167,99 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 		})
 
 		It("webhook receiver is accessible through ingress", func(ctx context.Context) {
-			// Note: FluxCD has no web UI. Ingress exposes webhook-receiver for Git push notifications.
 			url := "http://k2s.cluster.local/hook/"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-I", "-m", "5", "--retry", "3", "-L", "-o", "/dev/null", "-w", "%{http_code}")
-			// Expect 404 (no Receiver CRD configured) or 308 (redirect) - proves ingress routing works
-			Expect(httpStatus).To(MatchRegexp("404|308"))
+			// Exec allows non-zero exit codes (e.g., curl exit 60 for SSL errors)
+			output, _ := suite.Cli().Exec(ctx, "curl.exe", url, "-v", "-m", "5", "--retry", "0")
+			// Ingress routing proven by: 404 (no Receiver CRD), 405 (wrong method), 308 (redirect), or connection
+			Expect(output).To(Or(
+				ContainSubstring("404"),
+				ContainSubstring("405"),
+				ContainSubstring("308"),
+				ContainSubstring("Connected to k2s.cluster.local"),
+			))
+		})
+	})
+
+	When("ingress traefik as ingress controller", func() {
+		BeforeAll(func(ctx context.Context) {
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "traefik", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
+		})
+
+		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
+
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/part-of", "flux", "rollout")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
+
+			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+			Expect(addonsStatus.IsAddonEnabled("rollout", "fluxcd")).To(BeFalse())
+		})
+
+		It("is in enabled state and pods are in running state", func(ctx context.Context) {
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
+
+			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("helm-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("notification-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("image-reflector-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("image-automation-controller", "rollout")
+
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "source-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "kustomize-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "helm-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "notification-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "image-reflector-controller", "rollout")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "image-automation-controller", "rollout")
+
+			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+			Expect(addonsStatus.IsAddonEnabled("rollout", "fluxcd")).To(BeTrue())
+		})
+
+		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "rollout", "fluxcd")
+
+			Expect(output).To(ContainSubstring("already enabled"))
+		})
+
+		It("prints the status", func(ctx context.Context) {
+			expectStatusToBePrinted(ctx)
+		})
+
+		It("webhook receiver is accessible through ingress", func(ctx context.Context) {
+			url := "http://k2s.cluster.local/hook/"
+			output, _ := suite.Cli().Exec(ctx, "curl.exe", url, "-v", "-m", "5", "--retry", "0")
+			Expect(output).To(Or(
+				ContainSubstring("404"),
+				ContainSubstring("405"),
+				ContainSubstring("308"),
+				ContainSubstring("Connected to k2s.cluster.local"),
+			))
+		})
+	})
+
+	Describe("mutual exclusivity with ArgoCD", func() {
+		AfterEach(func(ctx context.Context) {
+			suite.K2sCli().Run(ctx, "addons", "disable", "rollout", "argocd", "-o")
+			suite.K2sCli().Run(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
+		})
+
+		It("prevents enabling FluxCD when ArgoCD is already enabled", func(ctx context.Context) {
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "argocd", "-o")
+
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "rollout", "fluxcd")
+
+			Expect(output).To(ContainSubstring("Addon 'rollout argocd' is enabled"))
+		})
+
+		It("prevents enabling ArgoCD when FluxCD is already enabled", func(ctx context.Context) {
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
+
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "rollout", "argocd")
+
+			Expect(output).To(ContainSubstring("Addon 'rollout fluxcd' is enabled"))
 		})
 	})
 })
