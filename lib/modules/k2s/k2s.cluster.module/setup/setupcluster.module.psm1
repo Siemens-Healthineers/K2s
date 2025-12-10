@@ -149,16 +149,19 @@ function Set-WindowsNodePodCIDR {
     # Patch the node PodCIDR
     Write-Log "Patching node '$NodeName' PodCIDR from '$currentPodCIDR' to '$expectedPodCIDR'"
     
-    $patchJson = @"
-{
-  "spec": {
-    "podCIDR": "$expectedPodCIDR",
-    "podCIDRs": ["$expectedPodCIDR"]
-  }
-}
-"@
-
-    $patchResult = &"$kubeToolsPath\kubectl.exe" patch node $NodeName --type=merge -p $patchJson 2>&1
+    # Build patch object and convert to JSON to ensure proper formatting
+    $patchObject = @{
+        spec = @{
+            podCIDR = $expectedPodCIDR
+            podCIDRs = @($expectedPodCIDR)
+        }
+    }
+    
+    $patchJson = $patchObject | ConvertTo-Json -Compress -Depth 10
+    Write-Log "Patch JSON: $patchJson"
+    
+    # Use proper quoting to prevent PowerShell from mangling the JSON
+    $patchResult = &"$kubeToolsPath\kubectl.exe" patch node $NodeName --type=merge -p "$patchJson" 2>&1
     
     if ($LASTEXITCODE -ne 0) {
         Write-Log "[ERROR] Failed to patch PodCIDR for node '$NodeName': $patchResult" -Console
