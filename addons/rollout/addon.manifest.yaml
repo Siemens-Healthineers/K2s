@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -51,7 +51,7 @@ spec:
               - name: ingress
                 shorthand: i
                 default: none
-                description: Ingress controller to use for exposing the Flux dashboard
+                description: Ingress controller for webhook receiver (Git push notifications)
                 constraints:
                   kind: validation-set
                   validationSet:
@@ -62,7 +62,7 @@ spec:
               - cmd: k2s addons enable rollout fluxcd
                 comment: Enable rollout with Flux CD in k2s
               - cmd: k2s addons enable rollout fluxcd --ingress nginx
-                comment: Enable rollout with Flux CD in k2s with nginx ingress
+                comment: Enable rollout with Flux CD and webhook ingress in k2s
           script:
             subPath: fluxcd/Enable.ps1
             parameterMappings:

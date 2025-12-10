@@ -10,15 +10,13 @@ Flux CD is a GitOps tool that automatically syncs Kubernetes cluster state with 
 k2s addons enable rollout fluxcd
 ```
 
-### Optional: Enable Webhooks
-
-For push-based GitOps (Git server sends webhooks to trigger immediate reconciliation):
+### Optional: Enable Webhooks (for Git push notifications)
 
 ```powershell
 k2s addons enable rollout fluxcd --ingress nginx
 ```
 
-Most users don't need this. Flux polls Git repositories by default (e.g., every 1 minute).
+Most users don't need this—Flux polls Git by default (every 1 minute).
 
 ## Check Status
 
