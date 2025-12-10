@@ -59,7 +59,7 @@ function Write-UsageForUser {
  In this case, the orthanc dicom web will be accessible on the following URL: http://localhost:8042/ui/app/
                                         
  DICOM Web APIs are avalaible on the following URL: http(s)://k2s.cluster.local/dicom/dicom-web/
- Example: curl -sS http://k2s.cluster.local/dicom/dicomweb/studies will return alls studies in the dicom server.
+ Example: curl -sS --insecure http://k2s.cluster.local/dicom/dicomweb/studies will return alls studies in the dicom server.
                                         
  By activating this dicom addon you have downloaded at runtime some Orthanc components. 
  Even it is open source, please consider the following license terms for Orthanc components: https://orthanc.uclouvain.be/book/faq/licensing.html 

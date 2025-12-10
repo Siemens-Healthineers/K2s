@@ -132,7 +132,7 @@ function Assert-KubeApiServerHealth {
 
     $elapsedTime = 0
     while ($elapsedTime -lt $MaxWaitSeconds) {
-        $command = "curl -s -o /dev/null -w '%{http_code}' https://localhost:6443/readyz"
+        $command = "curl -k -s -o /dev/null -w '%{http_code}' https://localhost:6443/readyz"
 
         $responseCode = (Invoke-CmdOnControlPlaneViaSSHKey $command).Output
 
