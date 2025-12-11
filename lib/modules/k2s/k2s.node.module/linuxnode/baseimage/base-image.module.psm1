@@ -70,11 +70,10 @@ function Invoke-DownloadDebianImage {
 
         if ( $Proxy -ne '') {
             Write-Log "Using Proxy $Proxy to download SHA sum from $urlRoot"
-            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke
         }
         else {
-            Write-Log "Without Proxy $Proxy to download SHA sum from $urlRoot"
-            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --noproxy '*'
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --ssl-no-revoke --noproxy '*'
         }
 
         $sha1Hash = Get-FileHash $imgFile -Algorithm SHA512
