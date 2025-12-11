@@ -4,7 +4,7 @@
 
 module github.com/siemens-healthineers/k2s
 
-go 1.25.0
+go 1.25.5
 
 require (
 	github.com/Microsoft/hcsshim v0.13.0
