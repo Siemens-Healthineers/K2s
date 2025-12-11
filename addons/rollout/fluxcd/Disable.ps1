@@ -62,13 +62,9 @@ if (-not (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Imple
 
 Write-Log 'Uninstalling Flux addon' -Console
 
-Write-Log '  Deleting traefik ingress manifest for rollout...' -Console
+# Remove optional ingress manifests (silently skips if not present)
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
-
-Write-Log '  Applying nginx ingress manifest for rollout rollout...' -Console
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
-
-Write-Log '  Deleting nginx ingress manifest for rollout...' -Console
 
 Write-Log 'Uninstalling Flux resources...' -Console
 $kustomizationDir = Get-FluxConfig
