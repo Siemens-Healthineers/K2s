@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+---
+resources:
+  - ../base
+
+patchesStrategicMerge:
+  - patch.yaml
