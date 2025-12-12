@@ -64,10 +64,6 @@ function Enable-MissingWindowsFeatures($wsl) {
         $features += 'Microsoft-Hyper-V-All', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Management-Clients', 'Microsoft-Hyper-V-Services'
     }
 
-    if ($wsl) {
-        $features += 'Microsoft-Windows-Subsystem-Linux'
-    }
-
     foreach ($feature in $features) {
         if (Enable-MissingFeature -Name $feature) {
             $restartRequired = $true
@@ -85,6 +81,10 @@ function Enable-MissingWindowsFeatures($wsl) {
     if ($restartRequired) {
         Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature. Please call install after reboot again. !!! '
         throw '[PREREQ-FAILED] !!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
+    }
+
+    if(-not $wsl) {
+        Stop-InstallationIfHyperVApiAccessFailed
     }
 }
 
@@ -136,6 +136,9 @@ function Test-WindowsPrerequisites(
         throw "[PREREQ-FAILED] Windows release $ReleaseId not usable"
     }
 
+    if($WSL) {
+        Stop-InstallationIfWslNotEnabled
+    }
     Enable-MissingWindowsFeatures $([bool]$WSL)
 }
 
@@ -318,6 +321,60 @@ function Remove-K2sAppLockerRules {
        Remove-Item $AppLockerPolicyFile -Force
     }
 }
+
+<#
+.DESCRIPTION
+    Verifies if  Hyper-V PowerShell module can be loaded,
+    and whether calling Get-VM succeeds. Throws on error if the module cannot be loaded or Get-VM API is inaccessible.
+#>
+function Stop-InstallationIfHyperVApiAccessFailed {
+    try {
+        Import-Module Hyper-V -ErrorAction Stop
+        Get-VM -ErrorAction Stop
+        Write-Log "Hyper-V API accessible(Get-VM success)."
+    }
+    catch {
+         throw "Hyper-V API is not accessible (Get-VM failed): $($_.Exception.Message)"
+    }
+}
+
+<#
+.DESCRIPTION
+    Verifies if WSL is  installed or enabled, Does not throw if it is enabled.
+#>
+function Stop-InstallationIfWslNotEnabled {
+    try {
+        if (-not (Get-WindowsOptionalFeatureStatus -Name 'Microsoft-Windows-Subsystem-Linux')) {
+            throw "[PREREQ-FAILED] WSL is not enabled. Enable 'Microsoft-Windows-Subsystem-Linux', reboot, then rerun install."
+        }
+        Write-Log 'WSL is installed and enabled.'
+    }
+    catch {
+        throw "WSL feature check failed: $($_.Exception.Message)"
+    }
+}
+
+function Get-WindowsOptionalFeatureStatus {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Name = $(throw 'Please provide the feature name.')
+    )
+    try {
+        $feature = Get-WindowsOptionalFeature -Online -FeatureName $Name -ErrorAction Stop
+        if ($null -eq $feature -or $feature.State -ne 'Enabled') {
+            Write-Log "[PREREQ-FAILED] '$Name' feature is not installed or enabled."
+            return $false
+        }
+        return $true
+    }
+    catch {
+        Write-Log "[PREREQ-FAILED] Failed to query feature '$Name': $($_.Exception.Message)"
+        return $false
+    }
+}
+
+
 
 Export-ModuleMember -Function Add-K2sToDefenderExclusion,
 Test-WindowsPrerequisites,
