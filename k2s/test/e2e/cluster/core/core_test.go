@@ -39,7 +39,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = "workload/windows"
 	proxy = "http://172.19.1.1:8181"
 
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, 
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(time.Millisecond*200),
 		framework.ClusterTestStepTimeout(8*time.Minute)) // Increased timeout for Windows workloads
 	k2s = dsl.NewK2s(suite)
@@ -97,14 +97,14 @@ var _ = AfterSuite(func(ctx context.Context) {
 	}
 })
 
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
+})
+
 var _ = Describe("Cluster Core", func() {
 	systemNamespace := "kube-system"
-
-	var _ = AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			testFailed = true
-		}
-	})
 
 	Describe("Basic Components", func() {
 		Describe("System Nodes", func() {
