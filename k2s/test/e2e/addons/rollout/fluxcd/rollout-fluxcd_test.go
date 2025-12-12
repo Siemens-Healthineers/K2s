@@ -137,7 +137,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "fluxcd", "-ingress", "nginx", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
@@ -197,7 +197,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "rollout", "fluxcd", "-ingress", "traefik", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
