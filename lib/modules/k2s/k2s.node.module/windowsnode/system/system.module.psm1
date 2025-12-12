@@ -331,7 +331,7 @@ function Stop-InstallationIfHyperVApiAccessFailed {
         Write-Log "Hyper-V API accessible(Get-VM success)."
     }
     catch {
-         throw "Hyper-V API is not accessible (Get-VM failed): $($_.Exception.Message)"
+        throw "[PREREQ-FAILED] Hyper-V API is not accessible. Restart is required. Reason: Changes in WindowsOptionalFeature. Please call install after reboot again. Error: $($_.Exception.Message)"
     }
 }
 
