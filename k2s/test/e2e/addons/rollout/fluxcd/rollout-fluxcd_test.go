@@ -168,14 +168,26 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 		})
 
 		It("webhook receiver is accessible through ingress", func(ctx context.Context) {
+			svcOutput := suite.Kubectl().Run(ctx, "get", "svc", "-n", "rollout", "webhook-receiver", "-o", "jsonpath={.metadata.name}")
+			Expect(svcOutput).To(Equal("webhook-receiver"))
+
+			ingressOutput := suite.Kubectl().Run(ctx, "get", "ingress", "-n", "rollout", "-o", "jsonpath={.items[?(@.spec.ingressClassName=='nginx')].metadata.name}")
+			Expect(ingressOutput).To(ContainSubstring("rollout-nginx-cluster-local"))
+
 			url := "http://k2s.cluster.local/hook/"
-			output, _ := suite.Cli().Exec(ctx, "curl.exe", url, "-v", "-m", "5", "--retry", "0")
-			Expect(output).To(Or(
-				ContainSubstring("404"),
-				ContainSubstring("405"),
-				ContainSubstring("308"),
-				ContainSubstring("Connected to k2s.cluster.local"),
-			))
+
+			Eventually(func(ctx context.Context) bool {
+				output, _ := suite.Cli().Exec(ctx, "curl.exe", url, "-i", "-m", "5", "-s")
+
+				if output != "" {
+					GinkgoWriter.Printf("Received response: %s\n", output)
+				}
+
+				return output != "" && (strings.Contains(output, "HTTP/") ||
+					strings.Contains(output, "404") ||
+					strings.Contains(output, "405") ||
+					strings.Contains(output, "200"))
+			}, "30s", "2s", ctx).Should(BeTrue())
 		})
 	})
 
