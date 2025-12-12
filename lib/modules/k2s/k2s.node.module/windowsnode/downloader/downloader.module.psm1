@@ -154,7 +154,7 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
     foreach ($file in $files) {
         $fileFullName = $file.FullName
         Write-Log "Import image from file '$fileFullName'... ($fileIndex of $amountOfFiles)"
-        &$nerdctlExe -n k8s.io load -i `"$file`"
+        &$nerdctlExe -n k8s.io load -i `"$fileFullName`"
         if (!$?) {
             throw "The file '$fileFullName' could not be imported"
         }

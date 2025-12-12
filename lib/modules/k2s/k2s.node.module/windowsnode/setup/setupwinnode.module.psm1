@@ -61,7 +61,8 @@ function Initialize-Networking {
     $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
     Write-Log "Using local IP $ipaddress for setup of CNI"
 
-    $clusterCIDRHost = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+    $clusterCIDRHost = Get-ConfiguredClusterCIDRHost_2 -PodSubnetworkNumber $PodSubnetworkNumber
+    Write-Log "Using IP $clusterCIDRHost for setup of flannel net-conf.json"
     $NetworkAddress = "  ""Network"": ""$clusterCIDRHost"","
 
 

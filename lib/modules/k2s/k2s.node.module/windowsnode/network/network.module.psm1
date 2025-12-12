@@ -14,6 +14,7 @@ $setupConfigRoot = Get-RootConfigk2s
 $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
 $clusterCIDRGateway = $setupConfigRoot.psobject.properties['cbr0Gateway'].value
 $clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
+$clusterCIDRHost_2 = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
 $clusterCIDRNatExceptions = $setupConfigRoot.psobject.properties['clusterCIDRNatExceptions'].value
 
 $global:HNSRestarted = $false
@@ -35,9 +36,18 @@ function Get-ConfiguredClusterCIDRHost {
     param (
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-    # $podNetworkCIDR = $clusterCIDRHost.Replace('__SUBNETWORK_NUMBER__', $PodSubnetworkNumber)
-    # return $podNetworkCIDR
+    #$podNetworkCIDR = $clusterCIDRHost.Replace('X', $PodSubnetworkNumber)
+    #return $podNetworkCIDR
     return $clusterCIDRHost
+}
+
+function Get-ConfiguredClusterCIDRHost_2 {
+    param (
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+    $podNetworkCIDR = $clusterCIDRHost_2.Replace('X', $PodSubnetworkNumber)
+    return $podNetworkCIDR
+    
 }
 
 function Get-ConfiguredClusterCIDRNextHop {
@@ -597,7 +607,7 @@ function Set-KubeSwitchToPrivate {
 }
 
 Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
-Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
+Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,Get-ConfiguredClusterCIDRHost_2,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Set-InterfacePrivate,
 Get-L2BridgeSwitchName,

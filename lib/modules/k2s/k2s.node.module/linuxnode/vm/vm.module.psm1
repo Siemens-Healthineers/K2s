@@ -106,8 +106,8 @@ function Invoke-CmdOnVmViaSSHKey(
             $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -UserName $UserName -IpAddress $IpAddress
             $success = ($LASTEXITCODE -eq 0)
 
-            if (!$success -and !$IgnoreErrors) {
-                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')"
+            if (!$success -and !$IgnoreErrors) {throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')"
+                
             }
             $Stoploop = $true
         }
@@ -131,6 +131,71 @@ function Invoke-CmdOnVmViaSSHKey(
         }
     }
     While ($Stoploop -eq $false)
+
+    return [pscustomobject]@{ Success = $success; Output = $output }
+}
+
+function Invoke-PowerShellOnVmViaSSHKey {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'The PowerShell command to execute on the remote machine')]
+        [string]$CmdToExecute,
+        [Parameter(Mandatory = $false, HelpMessage = 'Ignore errors during the command execution')]
+        [switch]$IgnoreErrors = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'Number of retries for the command')]
+        [uint16]$Retries = 0,
+        [Parameter(Mandatory = $false, HelpMessage = 'Timeout in seconds between retries')]
+        [uint16]$Timeout = 1,
+        [Parameter(Mandatory = $false, HelpMessage = 'Disable logging for this command')]
+        [switch]$NoLog = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'When executing ssh.exe in nested environments, omit the -n flag')]
+        [switch]$Nested = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'Repair command to execute if the main command fails')]
+        [string]$RepairCmd = $null,
+        [Parameter(Mandatory = $true, HelpMessage = 'IP address of the remote machine')]
+        [string]$IpAddress,
+        [Parameter(Mandatory = $false, HelpMessage = 'Username for the remote machine')]
+        [string]$UserName = $defaultUserName
+    )
+
+    if (!$NoLog) {
+        Write-Log "PowerShell cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore errors: $IgnoreErrors, nested: $Nested, IP address: $IpAddress"
+    }
+
+    $StopLoop = $false
+    [uint16]$RetryCount = 1
+    do {
+        try {
+            # Wrap the command in a PowerShell invocation
+            $wrappedCommand = "powershell -Command `"$CmdToExecute`""
+            $output = Invoke-SSHWithKey -Command $wrappedCommand -Nested:$Nested -UserName $UserName -IpAddress $IpAddress
+            $success = ($LASTEXITCODE -eq 0)
+
+            if (!$success -and !$IgnoreErrors) {
+                throw "Error occurred while executing PowerShell command '$CmdToExecute' on VM (exit code: '$LASTEXITCODE')"
+            }
+
+            $StopLoop = $true
+        }
+        catch {
+            Write-Log $_
+            if ($RetryCount -gt $Retries) {
+                $StopLoop = $true
+            }
+            else {
+                Write-Log "PowerShell cmd: $CmdToExecute will be retried..."
+
+                if ($null -ne $RepairCmd -and !$IgnoreErrors) {
+                    Write-Log "Executing repair cmd: $RepairCmd"
+                    $repairWrappedCommand = "powershell -Command `"$RepairCmd`""
+                    Invoke-SSHWithKey -Command $repairWrappedCommand -Nested:$Nested -UserName $UserName -IpAddress $IpAddress
+                }
+
+                Start-Sleep -Seconds $Timeout
+                $RetryCount++
+            }
+        }
+    }
+    while ($StopLoop -eq $false)
 
     return [pscustomobject]@{ Success = $success; Output = $output }
 }
@@ -686,4 +751,5 @@ Get-DefaultUserNameWorkerNode,
 Get-DefaultUserPwdWorkerNode,
 Copy-KubeConfigFromControlPlaneNode,
 Get-ControlPlaneRemoteUser,
-Copy-FromRemoteComputerViaSSHKey
+Copy-FromRemoteComputerViaSSHKey,
+Invoke-PowerShellOnVmViaSSHKey

@@ -309,7 +309,7 @@ timeout: 30
     mkdir "$(Get-SystemDriveLetter):\var\log\containerd" -ErrorAction SilentlyContinue | Out-Null
     &$kubeBinPath\nssm install containerd $kubePath\bin\containerd\containerd.exe *>&1 | ForEach-Object { $_.Trim() }
     &$kubeBinPath\nssm set containerd AppDirectory $kubePath\bin\containerd | Out-Null
-    &$kubeBinPath\nssm set containerd AppParameters "--log-file=\`"$(Get-SystemDriveLetter):\var\log\containerd\logs.log\`" --config \`"$kubePath\cfg\containerd\config.toml\`"" | Out-Null
+    &$kubeBinPath\nssm set containerd AppParameters "--log-file=`"$(Get-SystemDriveLetter):\var\log\containerd\logs.log`" --config `"$kubePath\cfg\containerd\config.toml`"" | Out-Null
     &$kubeBinPath\nssm set containerd AppStdout "$(Get-SystemDriveLetter):\var\log\containerd\containerd_stdout.log" | Out-Null
     &$kubeBinPath\nssm set containerd AppStderr "$(Get-SystemDriveLetter):\var\log\containerd\containerd_stderr.log" | Out-Null
     &$kubeBinPath\nssm set containerd AppStdoutCreationDisposition 4 | Out-Null

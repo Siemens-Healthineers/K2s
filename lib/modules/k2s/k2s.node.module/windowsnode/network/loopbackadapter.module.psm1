@@ -22,31 +22,6 @@ function New-DefaultLoopbackAdapter {
     Set-LoopbackAdapterProperties -Name $AdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
 }
 
-function New-DefaultLoopbackAdaterRemote {
-    param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string]$UserName = $(throw 'Argument missing: UserName'),
-        [string]$UserPwd = '',
-        [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
-        [parameter(Mandatory = $false)]
-        [string] $Proxy = ''
-    )
-     # Define the remote path for devgon.exe
-     $remoteDevgonPath = "C:\Windows\Temp\devgon.exe"
-
-     # Copy devgon.exe to the remote machine
-     Write-Log "Copying devgon.exe to remote machine at $IpAddress..."
-     if (-not [string]::IsNullOrWhiteSpace($UserPwd)) {
-         # Use username and password for file transfer
-         Copy-ToRemoteComputerViaUserAndPwd -SourcePath $devgonPath -DestinationPath $remoteDevgonPath -HostName $IpAddress -UserName $UserName -Password $UserPwd
-     } else {
-         Copy-ToRemoteComputerViaSshKey -Source $devgonPath -Target $remoteDevgonPath -IpAddress $IpAddress -UserName $UserName
-     }
-    New-LoopbackAdapterRemote -Name $defaultLoopbackAdapterName -DevConExe $devgonPath -UserName $UserName -IpAddress $IpAddress | Out-Null
-    Set-LoopbackAdapterPropertiesRemote -Name $defaultLoopbackAdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
-}
-
 function Enable-LoopbackAdapter {
     $AdapterName = Get-L2BridgeName
     Write-Log "Enabling network adapter $AdapterName"
@@ -162,83 +137,6 @@ function New-LoopbackAdapter {
     Return $Adapter
 } # function New-LoopbackAdapter
 
-function New-LoopbackAdapterRemote {
-    [OutputType([Microsoft.Management.Infrastructure.CimInstance])]
-    [CmdLetBinding()]
-    param
-    (
-        [Parameter(
-            Mandatory = $true,
-            Position = 0)]
-        [string]
-        $Name,
-
-        [string]
-        $DevConExe,
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string]$UserName = $(throw 'Argument missing: UserName'),
-        [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
-    )
-
-    Write-Log "Creating new loopback adapter '$Name' on remote machine"
-
-    $scriptBlock = {
-        param (
-            $Name,
-            $DevConExe
-        )
-
-        # Check for the existing Loopback Adapter
-        $Adapter = Get-NetAdapter -Name $Name -ErrorAction SilentlyContinue
-
-        # Is the loopback adapter installed?
-        if ($Adapter) {
-            return $Adapter
-        }
-
-        Write-Log 'First remove all existing LoopbackAdapters'
-        Get-NetAdapter | Where-Object -Property InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*' | ForEach-Object { Remove-LoopbackAdapter -Name $_.Name -DevConExe $DevConExe }
-
-        # Use Devcon.exe to install the Microsoft Loopback adapter
-        # Requires local Admin privs.
-        $null = & $DevConExe @('install', '-p', "$($ENV:SystemRoot)\inf\netloop.inf", '-i', '*MSLOOP')
-
-        # Find the newly added Loopback Adapter
-        $Adapter = Get-NetAdapter | Where-Object { ($_.InterfaceDescription -eq 'Microsoft KM-TEST Loopback Adapter') }
-        if (!$Adapter) {
-            Throw 'The new Loopback Adapter was not found.'
-        }
-
-        # Rename the new Loopback adapter
-        $Adapter | Rename-NetAdapter -NewName $Name -ErrorAction Stop
-
-        # Set the metric to 254
-        Set-NetIPInterface -InterfaceAlias $Name -InterfaceMetric 254 -ErrorAction Stop
-
-        # Pull the newly named adapter (to be safe)
-        $Adapter = Get-NetAdapter -Name $Name -ErrorAction Stop
-
-        Return $Adapter
-    } 
-
-    $scriptBlockText = $scriptBlock.ToString()
-    $encodedScriptBlock = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($scriptBlockText))
-
-    $invokeParams = @{
-        CmdToExecute = "powershell.exe -EncodedCommand $encodedScriptBlock -ArgumentList $Name, $DevConExe"
-        UserName = $UserName
-        IpAddress = $IpAddress
-    }
-
-    $result = Invoke-CmdOnVmViaSSHKey @invokeParams
-
-    if (!$result.Success) {
-        throw "Failed to execute script on remote machine. Error message: $($result.Output)"
-    }
-
-    return $result.Output
-}# function New-LoopbackAdapter
 
 function Get-LoopbackAdapter {
     [OutputType([Microsoft.Management.Infrastructure.CimInstance[]])]
@@ -308,61 +206,6 @@ function Remove-LoopbackAdapter {
     $null = & $DevConExe @('remove', '-i', "$($Adapter.PnPDeviceID)")
 } # function Remove-LoopbackAdapter
 
-function Set-LoopbackAdapterPropertiesRemote {
-    param (
-        [Parameter()]
-        [string] $Name,
-        [Parameter()]
-        [string] $IPAddress,
-        [Parameter()]
-        [string] $Gateway,
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string]$RemoteUserName = $(throw 'Argument missing: UserName'),
-        [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$RemoteIpAddress = $(throw 'Argument missing: IpAddress')
-    )
-
-    $prefixLength = 24
-    $mask = [IPAddress](([UInt32]::MaxValue) -shl (32 - $prefixLength) -shr (32 - $prefixLength)).IPAddressToString
-
-    # Check for the existing Loopback Adapter
-    $checkAdapterCmd = "powershell.exe -Command { Get-NetIPInterface -InterfaceAlias '$Name' -ErrorAction SilentlyContinue }"
-    $checkAdapterResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $checkAdapterCmd -UserName $RemoteUserName -IpAddress $RemoteIpAddress
-
-    if ($checkAdapterResult.Success -and $checkAdapterResult.Output) {
-        # Disable DHCP
-        $disableDhcpCmd = "powershell.exe -Command { Set-NetIPInterface -InterfaceAlias '$Name' -Dhcp Disabled }"
-        $disableDhcpResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $disableDhcpCmd -UserName $RemoteUserName -IpAddress $RemoteIpAddress
-        if (!$disableDhcpResult.Success) {
-            throw "Failed to disable DHCP on remote machine. Error message: $($disableDhcpResult.Output)"
-        }
-
-        # Set static IP address
-        $setIpCmd = "powershell.exe -Command { netsh interface ipv4 set address name='$Name' static $IPAddress $mask $Gateway }"
-        $setIpResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $setIpCmd -UserName $RemoteUserName -IpAddress $RemoteIpAddress
-        if (!$setIpResult.Success) {
-            throw "Failed to set IP address on remote machine. Error message: $($setIpResult.Output)"
-        }
-
-        Write-Log "Loopback Adapter $Name configured with IP: $IPAddress, mask: $mask, gateway: $Gateway"
-
-        # Enable forwarding
-        $enableForwardingCmd = "powershell.exe -Command { netsh int ipv4 set int '$Name' forwarding=enabled }"
-        $enableForwardingResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $enableForwardingCmd -UserName $RemoteUserName -IpAddress $RemoteIpAddress
-        if (!$enableForwardingResult.Success) {
-            throw "Failed to enable forwarding on remote machine. Error message: $($enableForwardingResult.Output)"
-        }
-
-        # Reset DNS settings
-        $resetDnsCmd = "powershell.exe -Command { Set-DnsClient -InterfaceAlias '$Name' -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false }"
-        $resetDnsResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $resetDnsCmd -UserName $RemoteUserName -IpAddress $RemoteIpAddress
-        if (!$resetDnsResult.Success) {
-            throw "Failed to reset DNS settings on remote machine. Error message: $($resetDnsResult.Output)"
-        }
-    } else {
-        Write-Log "No loopback adapter '$Name' found to configure."
-    }
-}
 
 function Set-LoopbackAdapterProperties {
     param (

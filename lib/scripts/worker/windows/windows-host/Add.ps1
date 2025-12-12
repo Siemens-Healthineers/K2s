@@ -42,7 +42,6 @@ if ([string]::IsNullOrWhiteSpace($localPublicKey)) {
 $authorizedKeysFilePath = "C:\ProgramData\ssh\administrators_authorized_keys"
 
 $authorizedKeys = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "powershell.exe Get-Content $authorizedKeysFilePath" -UserName $UserName -IpAddress $IpAddress).Output
-# $authorizedKeys = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if (Test-Path $authorizedKeysFilePath) { Get-Content $authorizedKeysFilePath } else { 'File $authorizedKeysFilePath not available' }" -UserName $UserName -IpAddress $IpAddress).Output
 if (!($authorizedKeys.Contains($localPublicKey))) {
     throw "Precondition not met: the local public key from the file '$localPublicKeyFilePath' is present in the file '$authorizedKeysFilePath' of the computer with IP '$IpAddress'."
 }
@@ -58,49 +57,160 @@ if (![string]::IsNullOrWhiteSpace($NodeName) -and ($NodeName.ToLower() -ne $k8sF
 
 $NodeName = $actualHostname
 
-# Cluster membership check
 $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
 if ($clusterState -match $k8sFormattedNodeName) {
     throw "Precondition not met: the node '$k8sFormattedNodeName' is already part of the cluster."
 }
 
-# Determine Windows Host IP Address
-if ($WindowsHostIpAddress -eq '') {
-    $loopbackAdapter = Get-L2BridgeName
-    $WindowsHostIpAddress = Get-HostPhysicalIp -ExcludeNetworkInterfaceName $loopbackAdapter
+#Define paths
+$key = Get-SSHKeyControlPlane
+$sourcePath = "C:\K2s"
+$zipFilePath = "C:\K2s\windowsnode.zip"
+$remoteZipPath = "C:\Temp\windowsnode.zip"
+$extractPath = "C:\k2s"
+
+
+# Check if the zip file already exists
+if (-not (Test-Path $zipFilePath)) {
+    Write-Host "Creating zip file: $zipFilePath"
+
+       # Create a temp directory named 'bin' in temp
+    $tempDir = Join-Path $env:TEMP "k2s_temp_$(Get-Random)"
+    $tempBin = Join-Path $tempDir "bin"
+    New-Item -ItemType Directory -Path $tempBin -Force | Out-Null
+
+    # Copy bin contents excluding .vhdx
+    Copy-Item "$sourcePath\bin\*" $tempBin -Recurse -Exclude *.vhdx
+
+    # Create the zip file for the first time
+    Compress-Archive -Path "$sourcePath\cfg", "$sourcePath\lib", $tempBin, "$sourcePath\VERSION", "$sourcePath\smallsetup" -DestinationPath $zipFilePath -Force
+    
+    # Clean up temp directory
+    Remove-Item $tempDir -Recurse -Force
+    
+    Write-Host "Zip file created: $zipFilePath"
+} else {
+    Write-Host "Zip file already exists: $zipFilePath"
 }
-Write-Log "Windows Host IP address: $WindowsHostIpAddress"
 
-# Retrieve proxy configuration
-if ($Proxy -eq '') {
-    $proxyConfig = Get-ProxyConfig
-    $Proxy = $proxyConfig.HttpProxy
+$result = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'cmd /c "if not exist C:\Temp mkdir C:\Temp"' -UserName $UserName -IpAddress $IpAddress
+if (-not $result.Success) {
+    throw "Remote command failed: $($result.Output)"
 }
-$joinCommand = New-JoinCommand
-# Add Windows worker node
-$workerNodeParams = @{
-    NodeName = $NodeName
-    UserName = $UserName
-    IpAddress = $IpAddress
-    WindowsHostIpAddress = $WindowsHostIpAddress
-    Proxy = $Proxy
-    AdditionalHooksDir= $AdditionalHooksDir
-    PodSubnetworkNumber               = '1'
-    JoinCommand                       = $JoinCommand
+
+# Copy the zip file to the remote machine
+Write-Host "Copying zip file to the remote machine: $remoteZipPath"
+scp.exe -o StrictHostKeyChecking=no -i $key "$zipFilePath" "${UserName}@${IpAddress}:$remoteZipPath"
+
+# Extract the zip file on the remote machine
+Write-Host "Extracting zip file on the remote machine: $extractPath"
+$extractCmd = "powershell -Command `"Expand-Archive -Path '$remoteZipPath' -DestinationPath '$extractPath' -Force`""
+Invoke-CmdOnVmViaSSHKey -CmdToExecute $extractCmd -IpAddress $IpAddress -UserName $UserName
+
+# Copy the corrected InstallNode.ps1 file to override the one from the zip
+Write-Host "Copying corrected InstallNode.ps1 to remote machine"
+$localInstallNodeScript = "$PSScriptRoot\InstallNode.ps1"
+$remoteInstallNodeScript = "C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1"
+scp.exe -o StrictHostKeyChecking=no -i $key "$localInstallNodeScript" "${UserName}@${IpAddress}:$remoteInstallNodeScript"
+
+# Generate join command locally
+Write-Host "Generating join command for the cluster"
+$JoinCommand = New-JoinCommand
+Write-Host "Join command generated: $JoinCommand"
+
+# Write join command to a temporary file
+$joinCommandFile = "$env:TEMP\join-command.txt"
+Set-Content -Path $joinCommandFile -Value $JoinCommand -Encoding UTF8
+
+# Copy the join command file to the remote machine
+$remoteJoinCommandFile = "C:\Temp\join-command.txt"
+Write-Host "Copying join command file to remote machine"
+scp.exe -o StrictHostKeyChecking=no -i $key "$joinCommandFile" "${UserName}@${IpAddress}:$remoteJoinCommandFile"
+
+# Execute InstallNode.ps1 directly on the remote machine
+Write-Host "Executing InstallNode.ps1 on remote machine: $IpAddress"
+$executeScriptCmd = "powershell -ExecutionPolicy Bypass -File `"C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1`" -ShowLogs -IpAddress $IpAddress"
+
+$result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $executeScriptCmd -IpAddress $IpAddress -UserName $UserName
+
+# Simple error checking
+if (-not $result.Success) {
+    Write-Error "InstallNode.ps1 execution failed: $($result.Output)"
+    throw "Remote installation failed"
 }
-Add-WindowsWorkerNodeOnWindowsHostRemote @workerNodeParams
 
-# Start worker node
-Write-Log 'Starting worker node' -Console
-& "$PSScriptRoot\Start.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName
+if ($result.Output -match "Exception|Error:|Failed|Cannot|Unable") {
+    Write-Warning "Potential errors detected in output:"
+    Write-Host $result.Output -ForegroundColor Yellow
+    throw "InstallNode.ps1 encountered errors"
+}
 
-# Log cluster state
-Write-Log "Current state of cluster nodes:" -Console
-Start-Sleep 2
-$kubeToolsPath = Get-KubeToolsPath
-&"$kubeToolsPath\kubectl.exe" get nodes -o wide 2>&1 | ForEach-Object { "$_" } | Write-Log -Console
+Write-Host "✅ InstallNode.ps1 completed successfully" -ForegroundColor Green
 
-# Completion message
-Write-Log '---------------------------------------------------------------'
-Write-Log "Windows computer with IP '$IpAddress' and hostname '$NodeName' added to the cluster.   Total duration: $('{0:hh\:mm\:ss}' -f $durationStopwatch.Elapsed )"
-Write-Log '---------------------------------------------------------------'
+# Verify node was successfully added to the cluster
+Write-Host "Verifying node addition to cluster..." -ForegroundColor Yellow
+$maxWaitTime = 120 # 2 minutes
+$waitInterval = 10 # 10 seconds
+$elapsedTime = 0
+$nodeAdded = $false
+
+$expectedNodeName = $NodeName.ToLower()
+Write-Host "Looking for node: $expectedNodeName"
+
+while ($elapsedTime -lt $maxWaitTime -and -not $nodeAdded) {
+    try {
+        Write-Host "Checking cluster nodes... (attempt $($elapsedTime / $waitInterval + 1))"
+        $nodes = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
+        
+        if ($nodes -match $expectedNodeName) {
+            $nodeStatus = $nodes | Select-String -Pattern "$expectedNodeName\s+(\w+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+            Write-Host "Node '$expectedNodeName' found with status: $nodeStatus" -ForegroundColor Green
+            
+            if ($nodeStatus -eq "Ready") {
+                Write-Host "✅ SUCCESS: Node '$expectedNodeName' is Ready and successfully added to the cluster!" -ForegroundColor Green
+                $nodeAdded = $true
+            } else {
+                Write-Host "Node '$expectedNodeName' found but not Ready yet. Status: $nodeStatus" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "Node '$expectedNodeName' not found in cluster yet..." -ForegroundColor Yellow
+        }
+        
+        if (-not $nodeAdded) {
+            Write-Host "Waiting $waitInterval seconds before next check..."
+            Start-Sleep -Seconds $waitInterval
+            $elapsedTime += $waitInterval
+        }
+    } catch {
+        Write-Warning "Error checking cluster nodes: $($_.Exception.Message)"
+        Start-Sleep -Seconds $waitInterval
+        $elapsedTime += $waitInterval
+    }
+}
+
+if (-not $nodeAdded) {
+    Write-Host "❌ FAILED: Node '$expectedNodeName' was not successfully added to the cluster within $($maxWaitTime/60) minutes." -ForegroundColor Red
+    Write-Host "Please check the installation logs on the target machine at C:\var\log\k2s.log" -ForegroundColor Red
+    
+    # Show current cluster state for debugging
+    Write-Host "`nCurrent cluster nodes:" -ForegroundColor Cyan
+    try {
+        $currentNodes = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
+        Write-Host $currentNodes
+    } catch {
+        Write-Warning "Failed to retrieve current cluster nodes: $($_.Exception.Message)"
+    }
+    
+    exit 1
+} else {
+    Write-Host "`n🎉 Node addition completed successfully!" -ForegroundColor Green
+    Write-Host "Final cluster state:" -ForegroundColor Cyan
+    $finalNodes = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
+    Write-Host $finalNodes
+}
+
+# Display total duration
+$durationStopwatch.Stop()
+$totalDuration = $durationStopwatch.Elapsed
+Write-Host "`n⏱️  Total execution time: $($totalDuration.Hours):$($totalDuration.Minutes.ToString('00')):$($totalDuration.Seconds.ToString('00'))" -ForegroundColor Cyan
+Write-Log "Add.ps1 completed. Total duration: $('{0:hh\:mm\:ss}' -f $totalDuration)"
