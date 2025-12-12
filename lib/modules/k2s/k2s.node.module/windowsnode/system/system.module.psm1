@@ -82,10 +82,6 @@ function Enable-MissingWindowsFeatures($wsl) {
         Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature. Please call install after reboot again. !!! '
         throw '[PREREQ-FAILED] !!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
     }
-
-    if(-not $wsl) {
-        Stop-InstallationIfHyperVApiAccessFailed
-    }
 }
 
 function Set-WSL {
@@ -140,6 +136,7 @@ function Test-WindowsPrerequisites(
         Stop-InstallationIfWslNotEnabled
     }
     Enable-MissingWindowsFeatures $([bool]$WSL)
+    Stop-InstallationIfHyperVApiAccessFailed
 }
 
 function Get-StorageLocalFolderName{
@@ -343,15 +340,10 @@ function Stop-InstallationIfHyperVApiAccessFailed {
     Verifies if WSL is  installed or enabled, Does not throw if it is enabled.
 #>
 function Stop-InstallationIfWslNotEnabled {
-    try {
-        if (-not (Get-WindowsOptionalFeatureStatus -Name 'Microsoft-Windows-Subsystem-Linux')) {
-            throw "[PREREQ-FAILED] WSL is not enabled. Enable 'Microsoft-Windows-Subsystem-Linux', reboot, then rerun install."
-        }
-        Write-Log 'WSL is installed and enabled.'
+    if (-not (Get-WindowsOptionalFeatureStatus -Name 'Microsoft-Windows-Subsystem-Linux')) {
+        throw "[PREREQ-FAILED] WSL is not enabled , Please Enable 'Microsoft-Windows-Subsystem-Linux' then call install after reboot again. !!! "
     }
-    catch {
-        throw "WSL feature check failed: $($_.Exception.Message)"
-    }
+    Write-Log 'WSL is enabled.'
 }
 
 function Get-WindowsOptionalFeatureStatus {
