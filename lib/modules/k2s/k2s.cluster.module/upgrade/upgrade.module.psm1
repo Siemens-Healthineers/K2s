@@ -4,8 +4,9 @@
 
 $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 $imageBackupModule = "$PSScriptRoot/../image/ImageBackup.module.psm1"
+$pvBackupModule = "$PSScriptRoot/BackupPersistentVolumes.psm1"
 
-Import-Module $infraModule, $imageBackupModule
+Import-Module $infraModule, $imageBackupModule, $pvBackupModule
 
 $processTools = @'
 
@@ -837,7 +838,8 @@ function PrepareClusterUpgrade {
 		[ref] $addonsBackupPath,
 		[ref] $hooksBackupPath,
 		[ref] $logFilePathBeforeUninstall,
-		[ref] $imagesBackupPath
+		[ref] $imagesBackupPath,
+		[ref] $pvBackupPath
 	)
 	try {
 		# start progress
@@ -906,6 +908,29 @@ function PrepareClusterUpgrade {
 		# backup all addons
 		$addonsBackupPath.Value = Join-Path $BackupDir 'addons'
 		Backup-Addons -BackupDir $addonsBackupPath.Value
+
+		# backup persistent volumes
+		if ($ShowProgress -eq $true) {
+			Write-Progress -Activity 'Backing up persistent volumes..' -Id 1 -Status '4.3/10' -PercentComplete 43 -CurrentOperation 'Backing up PVs, please wait..'
+		}
+
+		try {
+			Write-Log "Starting PV backup process..." -Console
+			$pvBackupPath.Value = Join-Path $BackupDir 'pv'
+			$pvBackupResult = Backup-AllPersistentVolumes -ExportPath $pvBackupPath.Value
+			
+			if ($pvBackupResult) {
+				$successCount = ($pvBackupResult.GetEnumerator() | Where-Object { $_.Value -eq $true }).Count
+				Write-Log "PV backup completed: $successCount PV(s) backed up successfully" -Console
+			} else {
+				Write-Log "No persistent volumes found to backup" -Console
+				$pvBackupPath.Value = ""  # No PVs to backup
+			}
+		}
+		catch {
+			Write-Log "Warning: PV backup failed - $_. Continuing with upgrade..." -Console
+			$pvBackupPath.Value = ""  # Mark as failed
+		}
 
 		# backup user application images
 		if (-not $SkipImages) {
@@ -979,7 +1004,8 @@ function PerformClusterUpgrade {
 		[string] $addonsBackupPath,
 		[string] $hooksBackupPath,
 		[string] $logFilePathBeforeUninstall,
-		[string] $imagesBackupPath
+		[string] $imagesBackupPath,
+		[string] $pvBackupPath
 	)
 	try {
 		# uninstall of old cluster
@@ -1054,6 +1080,30 @@ function PerformClusterUpgrade {
 			Write-Log "Restore without executing hooks"
 			$addonsPath = Join-Path -Path $K2sPathToInstallFrom -ChildPath "addons"
 			Restore-Addons -BackupDir $addonsBackupPath -AvoidRestore -Root $addonsPath
+		}
+
+		# restore persistent volumes AFTER addons to replace addon content with backed up data
+		if (-not [string]::IsNullOrEmpty($pvBackupPath) -and (Test-Path $pvBackupPath)) {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Restoring persistent volumes..' -Id 1 -Status '7.5/10' -PercentComplete 75 -CurrentOperation 'Restoring PVs, please wait..'
+			}
+			
+			try {
+				Write-Log "Starting PV restore process (after addons to overwrite with backed up data)..." -Console
+				$pvRestoreResult = Restore-AllPersistentVolumes -BackupPath $pvBackupPath -Force
+				
+				if ($pvRestoreResult) {
+					$successCount = ($pvRestoreResult.GetEnumerator() | Where-Object { $_.Value -eq $true }).Count
+					Write-Log "Successfully restored $successCount persistent volume(s)" -Console
+				} else {
+					Write-Log "No persistent volumes were restored" -Console
+				}
+			}
+			catch {
+				Write-Log "Warning: PV restore failed - $_. Continuing with upgrade..." -Console
+			}
+		} else {
+			Write-Log "No PV backup found or PVs were skipped during backup" -Console
 		}
 
 		$kubeExeFolder = Get-KubeBinPathGivenKubePath -KubePathLocal $K2sPathToInstallFrom
