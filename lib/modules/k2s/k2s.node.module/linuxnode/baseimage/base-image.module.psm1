@@ -25,7 +25,7 @@ function Invoke-Download($destination, $source, $forceDownload,
     }
     else {
         Write-Log "Downloading '$source' to '$destination' (no proxy)"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --ssl-no-revoke --noproxy '*'
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --noproxy '*'
     }
 
     if (!$?) {
@@ -73,7 +73,7 @@ function Invoke-DownloadDebianImage {
             $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke
         }
         else {
-            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --ssl-no-revoke --noproxy '*'
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --noproxy '*'
         }
 
         $sha1Hash = Get-FileHash $imgFile -Algorithm SHA512
