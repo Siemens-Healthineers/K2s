@@ -234,6 +234,32 @@ function LoadK2sImages() {
     Write-Output 'Containers images now available'
 }
 
+function EnsureRegistryAddon() {
+    Write-Output 'Ensuring registry addon is enabled for Windows image scanning'
+    
+    $registryStatus = &"$global:KubernetesPath\k2s.exe" addons status registry -o json | ConvertFrom-Json
+    if ($registryStatus.enabled -ne $true) {
+        Write-Output '  -> Enabling registry addon...'
+        &"$global:KubernetesPath\k2s.exe" addons enable registry -o
+        Start-Sleep -Seconds 10
+        return $true  
+    }
+    else {
+        Write-Output '  -> Registry addon already enabled'
+        return $false  
+    }
+}
+
+function DisableRegistryIfNeeded($wasEnabledByScript) {
+    if ($wasEnabledByScript) {
+        Write-Output 'Disabling registry addon (was enabled by this script)'
+        &"$global:KubernetesPath\k2s.exe" addons disable registry -o
+    }
+    else {
+        Write-Output 'Registry addon was already enabled before script started, leaving it enabled'
+    }
+}
+
 function GenerateBomContainers() {
     Write-Output 'Generate bom for container images'
 
@@ -362,70 +388,141 @@ function GenerateBomContainers() {
             throw "Image $image not found in k2s, please use for containerd a drive with more space !"
         }
 
-        # copy to master
-        Write-Output "  -> Exporting windows image: $imageName with id: $img.imageid to $tempDir\$imageName.tar"
-        &"$global:KubernetesPath\k2s.exe" image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive
+        # Special handling for windows-exporter: use registry-based scanning to avoid tar format issues
+        if ($image -match 'windows-exporter') {
+            Write-Output "  -> Detected windows-exporter image, using registry-based scanning"
+            
+            # Tag and push to local registry for scanning
+            $registryImage = "k2s.registry.local:30500/$imageName"
+            $registryImageFull = "${registryImage}:${version}"
+            Write-Output "  -> Tagging image for local registry: $registryImageFull"
+            &"$global:KubernetesPath\k2s.exe" image tag -n $imagefullname -t $registryImageFull
+            
+            Write-Output "  -> Pushing image to local registry: $registryImageFull"
+            &"$global:KubernetesPath\k2s.exe" image push -n $registryImageFull
 
-        # copy to master since cdxgen is not available on windows
-        Write-Output "  -> Copied to kubemaster: $imageName.tar"
-        &"$global:KubernetesPath\k2s.exe" node copy -i 172.19.1.100 -u remote -s "$tempDir\\$imageName.tar" -t '/home/remote'
+            Write-Output "  -> Creating bom for windows-exporter from registry: $imageName"
+            
+            # Run trivy scanning from registry with error handling
+            try {
+                Write-Output "  -> Running trivy scan from registry for windows-exporter"
+                $trivyOutput = k2s node exec -i 172.19.1.100 -u remote -c "sudo trivy image --platform windows/amd64 --insecure localhost:30500/$imageName`:$version --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1" 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Output "  -> WARNING: Trivy scan failed for windows-exporter with exit code $LASTEXITCODE"
+                    Write-Output "  -> Trivy output: $trivyOutput"
+                    Write-Output "  -> Skipping this image and continuing with next..."
+                    &"$global:KubernetesPath\k2s.exe" image rm $registryImageFull -ErrorAction SilentlyContinue
+                    DisableRegistryIfNeeded -wasEnabledByScript $script:registryEnabledByScript
+                    continue
+                }
+                Write-Output "  -> Trivy scan completed successfully from registry"
+            }
+            catch {
+                Write-Output "  -> ERROR: Exception during trivy scan for windows-exporter: $($_.Exception.Message)"
+                Write-Output "  -> Skipping this image and continuing with next..."
+                
+                &"$global:KubernetesPath\k2s.exe" image rm $registryImageFull -ErrorAction SilentlyContinue
+                DisableRegistryIfNeeded -wasEnabledByScript $script:registryEnabledByScript
+                continue
+            }
 
-        Write-Output "  -> Creating bom for windows image: $imageName"
-        # TODO: with license it does not work yet from cdxgen point of view
-        #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
-        
-        # Run trivy with error handling to continue on failure
-        try {
-            Write-Output "  -> Running trivy scan for windows image $imageName"
-            $trivyOutput = k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1" 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                Write-Output "  -> WARNING: Trivy scan failed for windows image ${imagefullname} with exit code $LASTEXITCODE"
-                Write-Output "  -> Trivy output: $trivyOutput"
+            # copy bom file to local folder
+            $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
+            try {
+                Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+            }
+            catch {
+                Write-Output "  -> ERROR: Failed to copy BOM file for windows-exporter: $($_.Exception.Message)"
+                Write-Output "  -> Skipping this image and continuing with next..."
+                ExecCmdMaster "sudo rm -f $imageName.json" -IgnoreErrors
+                &"$global:KubernetesPath\k2s.exe" image rm $registryImageFull -ErrorAction SilentlyContinue
+                DisableRegistryIfNeeded -wasEnabledByScript $script:registryEnabledByScript
+                continue
+            }
+
+            if ($Annotate) {
+                $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
+                Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
+                try {
+                    &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+                }
+                catch {
+                    Write-Output "  -> WARNING: SBOM enrichment failed for windows-exporter: $($_.Exception.Message)"
+                    Write-Output "  -> Continuing with unenriched SBOM..."
+                }
+            }
+
+            # Cleanup: remove JSON from VM and image from registry
+            ExecCmdMaster "sudo rm -f $imageName.json" -IgnoreErrors
+            Write-Output "  -> Removing image from local registry: $registryImageFull"
+            &"$global:KubernetesPath\k2s.exe" image rm $registryImageFull -ErrorAction SilentlyContinue
+        }
+        else {
+            # copy to master
+            Write-Output "  -> Exporting windows image: $imageName with id: $img.imageid to $tempDir\$imageName.tar"
+            &"$global:KubernetesPath\k2s.exe" image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive
+
+            # copy to master since cdxgen is not available on windows
+            Write-Output "  -> Copied to kubemaster: $imageName.tar"
+            &"$global:KubernetesPath\k2s.exe" node copy -i 172.19.1.100 -u remote -s "$tempDir\\$imageName.tar" -t '/home/remote'
+
+            Write-Output "  -> Creating bom for windows image: $imageName"
+            # TODO: with license it does not work yet from cdxgen point of view
+            #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
+            
+            # Run trivy with error handling to continue on failure
+            try {
+                Write-Output "  -> Running trivy scan for windows image $imageName"
+                $trivyOutput = k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1" 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Output "  -> WARNING: Trivy scan failed for windows image ${imagefullname} with exit code $LASTEXITCODE"
+                    Write-Output "  -> Trivy output: $trivyOutput"
+                    Write-Output "  -> Skipping this image and continuing with next..."
+                    # Cleanup and continue
+                    ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar" -IgnoreErrors
+                    Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
+                    continue
+                }
+                Write-Output "  -> Trivy scan completed successfully"
+            }
+            catch {
+                Write-Output "  -> ERROR: Exception during trivy scan for windows image ${imagefullname}: $($_.Exception.Message)"
                 Write-Output "  -> Skipping this image and continuing with next..."
                 # Cleanup and continue
                 ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar" -IgnoreErrors
                 Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
                 continue
             }
-            Write-Output "  -> Trivy scan completed successfully"
-        }
-        catch {
-            Write-Output "  -> ERROR: Exception during trivy scan for windows image ${imagefullname}: $($_.Exception.Message)"
-            Write-Output "  -> Skipping this image and continuing with next..."
-            # Cleanup and continue
-            ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar" -IgnoreErrors
-            Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
-            continue
-        }
 
-        # copy bom file to local folder
-        $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
-        try {
-            Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
-        }
-        catch {
-            Write-Output "  -> ERROR: Failed to copy BOM file for windows image ${imagefullname}: $($_.Exception.Message)"
-            Write-Output "  -> Skipping this image and continuing with next..."
-            ExecCmdMaster "sudo rm /home/remote/$imageName.tar" -IgnoreErrors
-            Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
-            continue
-        }
-
-        if ($Annotate) {
-            $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
-            Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
+            # copy bom file to local folder
+            $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
             try {
-                &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+                Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
             }
             catch {
-                Write-Output "  -> WARNING: SBOM enrichment failed for windows image ${imagefullname}: $($_.Exception.Message)"
-                Write-Output "  -> Continuing with unenriched SBOM..."
+                Write-Output "  -> ERROR: Failed to copy BOM file for windows image ${imagefullname}: $($_.Exception.Message)"
+                Write-Output "  -> Skipping this image and continuing with next..."
+                ExecCmdMaster "sudo rm /home/remote/$imageName.tar" -IgnoreErrors
+                Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
+                continue
             }
-        }
 
-        # remove tar file
-        ExecCmdMaster "sudo rm /home/remote/$imageName.tar"
-        Remove-Item -Path "$tempDir\\$imageName.tar" -Force
+            if ($Annotate) {
+                $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
+                Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
+                try {
+                    &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+                }
+                catch {
+                    Write-Output "  -> WARNING: SBOM enrichment failed for windows image ${imagefullname}: $($_.Exception.Message)"
+                    Write-Output "  -> Continuing with unenriched SBOM..."
+                }
+            }
+
+            # remove tar file
+            ExecCmdMaster "sudo rm /home/remote/$imageName.tar"
+            Remove-Item -Path "$tempDir\\$imageName.tar" -Force
+        }
     }
 
     Write-Output 'Containers bom files now available'
@@ -484,13 +581,17 @@ Write-Output '5 -> Generate bom for directory: k2s'
 GenerateBomGolang('k2s')
 Write-Output '6 -> Generate bom for debian VM'
 GenerateBomDebian
-Write-Output '7 -> Load k2s images'
+Write-Output '7 -> Ensure registry addon is enabled'
+$script:registryEnabledByScript = EnsureRegistryAddon
+Write-Output '8 -> Load k2s images'
 LoadK2sImages
-Write-Output '8 -> Generate bom for containers'
+Write-Output '9 -> Generate bom for containers'
 GenerateBomContainers
-Write-Output '9 -> Update k2s version in static BOM'
+Write-Output '10 -> Disable registry addon if enabled by script'
+DisableRegistryIfNeeded -wasEnabledByScript $script:registryEnabledByScript
+Write-Output '11 -> Update k2s version in static BOM'
 Update-K2sStaticVersion
-Write-Output '10 -> Merge bom files'
+Write-Output '12 -> Merge bom files'
 MergeBomFilesFromDirectory
 
 Write-Output '---------------------------------------------------------------'
