@@ -8,10 +8,14 @@ metadata:
   name: oauth2-proxy
   namespace: security
   annotations:
-    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls: 'true'
     # traefik.ingress.kubernetes.io/router.middlewares: "security-auth-headers@kubernetescrd"
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - k2s.cluster.local
+      secretName: k2s-cluster-local-tls
   rules:
     - host: k2s.cluster.local
       http:
@@ -30,9 +34,13 @@ metadata:
   name: keycloak
   namespace: security
   annotations:
-    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls: 'true'
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - k2s.cluster.local
+      secretName: k2s-cluster-local-tls
   rules:
     - host: k2s.cluster.local
       http:
@@ -53,14 +61,14 @@ metadata:
 spec:
   errors:
     status:
-      - "401"  # Triggers on 401 Unauthorized errors
-    service: 
-      name: oauth2-proxy  # Service that will handle the error and initiate the redirect
+      - '401' # Triggers on 401 Unauthorized errors
+    service:
+      name: oauth2-proxy # Service that will handle the error and initiate the redirect
       namespace: security
-      port: 4180  
-    query: "/oauth2/start?rd={url}"  # The URL for the OAuth2 sign-in page with the redirect URL
-    statusRewrites: 
-      "401": 302
+      port: 4180
+    query: '/oauth2/start?rd={url}' # The URL for the OAuth2 sign-in page with the redirect URL
+    statusRewrites:
+      '401': 302
 ---
 # # Middleware for setting security headers (was 'auth-headers')
 # apiVersion: traefik.io/v1alpha1

@@ -154,11 +154,6 @@ $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
 $scriptStartLocation = Get-Location
 Write-Log "Script start location: $scriptStartLocation"
 
-$buildArgsString = Get-BuildArgs($BuildArgs)
-if ($buildArgsString -ne '') {
-    Write-Log "Build arguments $buildArgsString"
-}
-
 $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
 
 $kubeBinPath = Get-KubeBinPath
@@ -279,7 +274,7 @@ if (!$Windows) {
     }
 }
 
-$GO_VERSION = '1.24.2'
+$GO_VERSION = '1.25.5'
 if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
     Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
     # $env:GOVERSION will be go1.24.2, remove the go part.
@@ -405,6 +400,24 @@ else {
             $RemoveColorSequences = ''
         }
     }
+}
+
+if ($Env:GOPRIVATE -ne '') {
+    Write-Log 'Passing your local GOPRIVATE environment as Build Argument'
+    $BuildArgs += "GOPRIVATE=$Env:GOPRIVATE"
+}
+if ($Env:GOPROXY -ne '') {
+    Write-Log 'Passing your local GOPROXY environment as Build Argument'
+    $BuildArgs += "GOPROXY=$Env:GOPROXY"
+}
+if ($Env:GOSUMDB -ne '') {
+    Write-Log 'Passing your local GOSUMDB environment as Build Argument'
+    $BuildArgs += "GOSUMDB=$Env:GOSUMDB"
+}
+
+$buildArgsString = Get-BuildArgs($BuildArgs)
+if ($buildArgsString -ne '') {
+    Write-Log "Build arguments $buildArgsString"
 }
 
 # Windows container

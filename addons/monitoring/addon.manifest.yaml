@@ -17,9 +17,15 @@ spec:
           deb: []
           curl: []
           additionalImages:
-            - quay.io/prometheus-operator/prometheus-config-reloader:v0.66.0
+            - quay.io/prometheus-operator/prometheus-config-reloader
+          additionalImagesFiles:
+            - manifests/monitoring/prometheus-operator/deployment.yaml
         windows:
           curl: []
+          additionalImages:
+            - ghcr.io/prometheus-community/windows-exporter
+          additionalImagesFiles:
+            - ../common/manifests/windows-exporter/daemonset.yaml
       commands:
         enable:
           cli:

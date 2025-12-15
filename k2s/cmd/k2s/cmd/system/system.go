@@ -7,9 +7,9 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/certificate"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/dump"
 	systempackage "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/package"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/proxy"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/reset"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/upgrade"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/update"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/users"
 
 	"github.com/spf13/cobra"
@@ -23,9 +23,9 @@ var SystemCmd = &cobra.Command{
 func init() {
 	SystemCmd.AddCommand(dump.DumpCmd)
 	SystemCmd.AddCommand(upgrade.UpgradeCmd)
-	SystemCmd.AddCommand(update.UpdateCmd)
 	SystemCmd.AddCommand(reset.ResetCmd)
 	SystemCmd.AddCommand(systempackage.PackageCmd)
 	SystemCmd.AddCommand(users.NewCommand())
 	SystemCmd.AddCommand(certificate.CertificateCmd)
+	SystemCmd.AddCommand(proxy.ProxyCmd)
 }

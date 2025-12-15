@@ -4,13 +4,23 @@
         "linuxMountPath": "/mnt/k8s-smb-share1",
         "linuxShareName":  "linux-smb-share1",
         "winShareName":  "win-smb-share1",
-        "storageClassName": "smb1"
+        "storageClassName": "smb1",
+        "storageClassReclaimPolicy": "Delete"
     },
     {
         "winMountPath": "C:\\k8s-smb-share2",
         "linuxMountPath": "/mnt/k8s-smb-share2",
         "linuxShareName":  "linux-smb-share2",
         "winShareName":  "win-smb-share2",
-        "storageClassName": "smb2"
+        "storageClassName": "smb2",
+        "storageClassReclaimPolicy": "Delete"
+    },
+    {
+        "winMountPath": "C:\\k8s-smb-retain",
+        "linuxMountPath": "/mnt/k8s-smb-retain",
+        "linuxShareName":  "linux-smb-retain",
+        "winShareName":  "win-smb-retain",
+        "storageClassName": "smb-retain",
+        "storageClassReclaimPolicy": "Retain"
     }
 ]
