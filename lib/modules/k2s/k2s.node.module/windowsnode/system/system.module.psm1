@@ -341,7 +341,7 @@ function Stop-InstallationIfHyperVApiAccessFailed {
 #>
 function Stop-InstallationIfWslNotEnabled {
     if (-not (Get-WindowsOptionalFeatureStatus -Name 'Microsoft-Windows-Subsystem-Linux')) {
-        throw "[PREREQ-FAILED] WSL is not enabled , Please Enable 'Microsoft-Windows-Subsystem-Linux' then call install after reboot again. !!! "
+        throw "[PREREQ-FAILED] WSL is not enabled. Please enable 'Microsoft-Windows-Subsystem-Linux' and then call install after reboot again."
     }
     Write-Log 'WSL is enabled.'
 }
