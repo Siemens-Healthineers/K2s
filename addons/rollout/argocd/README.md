@@ -4,22 +4,22 @@ SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# Rollout
+# Rollout - ArgoCD Implementation
 
 ## Introduction
 
-The `rollout` addon provides a way to automate the deployment of applications. It uses ArgoCD under the hood. It automates the deployment of applications by continuously monitoring the live state of applications and comparing it to the desired state defined in a Git repository. New deployments can be created via a CLI or the [ArgoCD web-based UI](https://argo-cd.readthedocs.io/en/stable/getting_started/#creating-apps-via-ui)
+This is the ArgoCD implementation of the rollout addon. ArgoCD is a declarative, GitOps continuous delivery tool for Kubernetes that automates the deployment of applications by continuously monitoring the live state of applications and comparing it to the desired state defined in a Git repository. New deployments can be created via a CLI or the [ArgoCD web-based UI](https://argo-cd.readthedocs.io/en/stable/getting_started/#creating-apps-via-ui)
 
 ## Getting started
 
-The rollout addon can be enabled using the k2s CLI by running the following command:
+The rollout addon with ArgoCD implementation can be enabled using the k2s CLI by running the following command:
 ```
 k2s addons enable rollout
 ```
 
 ### Integration with ingress nginx and ingress traefik addons
 
-The rollout addon can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
+The ArgoCD dashboard can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
 
 For example, the rollout addon can be enabled along with traefik addon using the following command:
 ```
@@ -27,26 +27,26 @@ k2s addons enable rollout --ingress traefik
 ```
 _Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
 
-## Accessing the rollout dashboard
+## Accessing the ArgoCD dashboard
 
-The rollout dashboard can be accessed via the following methods.
+The ArgoCD dashboard can be accessed via the following methods.
 
 ### Access using ingress
 
-To access the rollout dashboard via ingress, the ingress nginx or the ingress traefik addon has to be enabled.
-Once the addons are enabled, then the rollout dashboard can be accessed at the following URL: <https://k2s.cluster.local/rollout>
+To access the ArgoCD dashboard via ingress, the ingress nginx or the ingress traefik addon has to be enabled.
+Once the addons are enabled, then the ArgoCD dashboard can be accessed at the following URL: <https://k2s.cluster.local/rollout>
 
 ### Access using port-forwarding
 
-To access the rollout dashboard via port-forwarding, the following command can be executed:
+To access the ArgoCD dashboard via port-forwarding, the following command can be executed:
 ```
 kubectl -n rollout port-forward svc/argocd-server 8080:443
 ```
-In this case, the rollout dashboard UI can be accessed at the following URL: <https://localhost:8080/rollout>
+In this case, the ArgoCD dashboard UI can be accessed at the following URL: <https://localhost:8080/rollout>
 
-### Deploy an application with the rollout addon
+### Deploy an application with ArgoCD
 
-There are two ways of deploying applications with the rollout addon, either by using the CLI or web UI:
+There are two ways of deploying applications with ArgoCD, either by using the CLI or web UI:
 
 #### Via CLI
 
@@ -54,7 +54,7 @@ Step 1 - Login via the CLI:
 ```
 argocd login k2s.cluster.local:443 --grpc-web-root-path "rollout"
 ```
-Proceed with the username and the password returend by the enable process.
+Proceed with the username and the password returned by the enable process.
 
 Step 2 - Add a repository 
 ```
@@ -104,7 +104,7 @@ _Note:_ The above command will only disable rollout addon. If other addons were 
 ## Further Information
 
 If you want to use `argocd admin export` and `argocd admin import` you have to specific the `rollout` namespace: e.g. `argocd admin export -n rollout > backup.yaml`.
-The reason for this is the scoped installtion of ArgoCD to the `rollout` namespace.
+The reason for this is the scoped installation of ArgoCD to the `rollout` namespace.
 
 To import:
 ```
