@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rollout-nginx-cluster-local
+  namespace: rollout
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: webhook-receiver
+                port:
+                  number: 80
+            path: /hook
+            pathType: Prefix
