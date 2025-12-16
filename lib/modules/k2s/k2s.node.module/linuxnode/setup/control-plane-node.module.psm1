@@ -39,8 +39,8 @@ function New-ControlPlaneNodeOnNewVM {
     Write-Log 'Prerequisites checks before installation' -Console
 
     Test-PathPrerequisites
-    Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
     Test-WindowsPrerequisites -WSL:$WSL
+    Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
     Stop-InstallationIfRequiredCurlVersionNotInstalled
     Write-WarningIfRequiredSshVersionNotInstalled
 
