@@ -1806,7 +1806,34 @@ var _ = Describe("node copy", Ordered, func() {
 })
 
 func (ssh sshExecutor) exec(ctx context.Context, remoteCmd string) string {
-	return ssh.execFunc(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
+	const maxRetries = 3
+	const baseDelay = 500 * time.Millisecond
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Use suite.Cli().Exec to get exit code without failing
+		output, exitCode := suite.Cli().Exec(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
+
+		// Exit code 0 means success
+		if exitCode == 0 {
+			return output
+		}
+
+		// Check for socket/connection errors that are retryable (exit code -1 or 255)
+		if exitCode == -1 || exitCode == 255 {
+			if attempt < maxRetries {
+				delay := baseDelay * time.Duration(attempt)
+				GinkgoWriter.Printf("SSH connection attempt %d/%d failed with exit code %d, retrying after %v...\n", attempt, maxRetries, exitCode, delay)
+				time.Sleep(delay)
+				continue
+			}
+		}
+
+		// For non-retryable errors or final attempt, use ExecOrFail to get proper error reporting
+		break
+	}
+
+	// If all retries failed, use the standard ExecOrFail which will fail the test with proper error
+	return ssh.execFunc(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
 }
 
 func (ssh sshExecutor) execBestEffort(ctx context.Context, remoteCmd string) {
@@ -1815,7 +1842,7 @@ func (ssh sshExecutor) execBestEffort(ctx context.Context, remoteCmd string) {
 			GinkgoWriter.Printf("Best effort command failed (ignored): %v\n", r)
 		}
 	}()
-	
+
 	// Use suite.Cli().Exec instead of ExecOrFail to avoid test failure on cleanup errors
 	suite.Cli().Exec(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
 }
