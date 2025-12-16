@@ -4,20 +4,20 @@
 package hostprocess
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
-	"strconv"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/siemens-healthineers/k2s/test/framework/watcher"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,11 +38,10 @@ var (
 	suite *framework.K2sTestSuite
 	k2s   *dsl.K2s
 
-	manifestDir string
-	testFailed  bool
+	manifestDir       string
+	testFailed        bool
 	createdSystemRole bool
-	podWatcherCmd *exec.Cmd
-	podWatcherCancel context.CancelFunc
+	podWatcher        *watcher.PodWatcher
 )
 
 const (
@@ -57,7 +56,9 @@ func TestClusterHostProcess(t *testing.T) {
 // resolveManifestDir attempts to locate the hostprocess workload directory in a flexible way so the test
 // can be run from repo root or within the package directory.
 func resolveManifestDir() string {
-	if st, err := os.Stat("workload"); err == nil && st.IsDir() { return "workload" }
+	if st, err := os.Stat("workload"); err == nil && st.IsDir() {
+		return "workload"
+	}
 	return "workload/" // default
 }
 
@@ -65,12 +66,16 @@ func resolveManifestDir() string {
 // It sets TEST_CPLAUNCHER_BASE and TEST_ALBUMS_WIN environment variables consumed when creating the ConfigMap.
 func computeAndSetLauncherEnv() {
 	_, file, _, ok := runtime.Caller(0)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	testDir := filepath.Dir(file)
 
 	// Ascend 5 levels: hostprocess -> cluster -> e2e -> test -> k2s -> repo root
 	repoRoot := testDir
-	for i := 0; i < 5; i++ { repoRoot = filepath.Dir(repoRoot) }
+	for i := 0; i < 5; i++ {
+		repoRoot = filepath.Dir(repoRoot)
+	}
 
 	// cplauncher
 	cplauncherBase := filepath.Join(repoRoot, "bin", "cni")
@@ -122,9 +127,13 @@ func toWindowsPath(p string) string {
 // Priority: explicit env vars (TEST_CPLAUNCHER_BASE, TEST_ALBUMS_WIN) -> defaults.
 func ensureLauncherConfigMap(ctx context.Context) {
 	base := os.Getenv("TEST_CPLAUNCHER_BASE")
-	if base == "" { base = `..\\..\\..\\..\\..\\..\\bin\\cni` }
+	if base == "" {
+		base = `..\\..\\..\\..\\..\\..\\bin\\cni`
+	}
 	albums := os.Getenv("TEST_ALBUMS_WIN")
-	if albums == "" { albums = `.\\albumswin.exe` }
+	if albums == "" {
+		albums = `.\\albumswin.exe`
+	}
 
 	// Normalize to Windows backslashes (in case someone passed forward slashes)
 	base = strings.ReplaceAll(base, `/`, `\\`)
@@ -144,113 +153,28 @@ func ensureLauncherConfigMap(ctx context.Context) {
 // Uses 'whoami' for portability across different Windows configurations.
 func isRunningAsSystem() bool {
 	out, err := exec.Command("whoami").CombinedOutput()
-	if err != nil { return false }
+	if err != nil {
+		return false
+	}
 	user := strings.TrimSpace(string(out))
 	return strings.EqualFold(user, "NT AUTHORITY\\SYSTEM")
 }
 
 // startPodWatcher starts a background kubectl watch process that continuously logs pod status
+// This version includes error detection and automatic log dumping for hostprocess tests
 func startPodWatcher(ctx context.Context) {
-	watchCtx, cancel := context.WithCancel(ctx)
-	podWatcherCancel = cancel
-	
-	GinkgoWriter.Println("Starting background pod watcher for namespace", namespace)
-	
-	// Get kubectl path from the test suite framework
-	kubectlPath := suite.Kubectl().Path()
-	
-	podWatcherCmd = exec.CommandContext(watchCtx, kubectlPath, "get", "pods", "-n", namespace, "-o", "wide", "-w")
-	
-	// Create a pipe to capture stdout
-	stdout, err := podWatcherCmd.StdoutPipe()
-	if err != nil {
-		GinkgoWriter.Printf("Warning: failed to create stdout pipe for pod watcher: %v\n", err)
-		return
-	}
-	
-	// Start the command
-	if err := podWatcherCmd.Start(); err != nil {
+	podWatcher = watcher.NewPodWatcher(GinkgoWriter, namespace)
+	if err := podWatcher.Start(ctx, suite.Kubectl().Path()); err != nil {
 		GinkgoWriter.Printf("Warning: failed to start pod watcher: %v\n", err)
 		return
 	}
-	
-	// Read output in a goroutine and write to GinkgoWriter
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				GinkgoWriter.Printf("Pod watcher goroutine panic: %v\n", r)
-			}
-		}()
-		
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			GinkgoWriter.Printf("[POD-WATCH] %s\n", line)
-			
-			// Check for error conditions and dump deployment logs
-			lineUpper := strings.ToUpper(line)
-			if strings.Contains(lineUpper, "ERROR") || strings.Contains(lineUpper, "CRASHLOOPBACKOFF") {
-				GinkgoWriter.Printf("[POD-WATCH] Error condition detected! Dumping deployment logs...\n")
-				
-				// Run kubectl logs in a separate goroutine to avoid blocking the watcher
-				go func(errorLine string) {
-					defer func() {
-						if r := recover(); r != nil {
-							GinkgoWriter.Printf("[POD-WATCH] Panic while dumping logs: %v\n", r)
-						}
-					}()
-					
-					// Create a new context with timeout for log retrieval
-					logCtx, logCancel := context.WithTimeout(context.Background(), 30*time.Second)
-					defer logCancel()
-					
-					deploymentName := "albums-win-hp-app-hostprocess"
-					
-					// Execute kubectl logs
-					logCmd := exec.CommandContext(logCtx, kubectlPath, "logs", 
-						"deployment/"+deploymentName, 
-						"-n", namespace,
-						"--tail=100",
-						"--timestamps")
-					
-					output, err := logCmd.CombinedOutput()
-					if err != nil {
-						GinkgoWriter.Printf("[POD-WATCH] Failed to retrieve logs for deployment/%s: %v\n", deploymentName, err)
-					} else {
-						GinkgoWriter.Printf("[POD-WATCH] ========== DEPLOYMENT LOGS (triggered by: %s) ==========\n", errorLine)
-						GinkgoWriter.Printf("%s\n", string(output))
-						GinkgoWriter.Printf("[POD-WATCH] ========== END DEPLOYMENT LOGS ==========\n")
-					}
-				}(line)
-			}
-		}
-		
-		if err := scanner.Err(); err != nil && watchCtx.Err() == nil {
-			GinkgoWriter.Printf("Pod watcher scanner error: %v\n", err)
-		}
-	}()
-	
 	GinkgoWriter.Println("Pod watcher started successfully")
 }
 
 // stopPodWatcher stops the background pod watcher process
 func stopPodWatcher() {
-	if podWatcherCancel != nil {
-		GinkgoWriter.Println("Stopping pod watcher...")
-		podWatcherCancel()
-		podWatcherCancel = nil
-	}
-	
-	if podWatcherCmd != nil && podWatcherCmd.Process != nil {
-		// Give it a moment to terminate gracefully
-		time.Sleep(500 * time.Millisecond)
-		
-		// Force kill if still running
-		if err := podWatcherCmd.Process.Kill(); err != nil && !strings.Contains(err.Error(), "already finished") {
-			GinkgoWriter.Printf("Warning: failed to kill pod watcher process: %v\n", err)
-		}
-		
-		podWatcherCmd = nil
+	if podWatcher != nil {
+		podWatcher.Stop()
 		GinkgoWriter.Println("Pod watcher stopped")
 	}
 }
@@ -319,7 +243,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 var _ = AfterSuite(func(ctx context.Context) {
 	// Stop the pod watcher before cleanup
 	stopPodWatcher()
-	
+
 	GinkgoWriter.Println("Status of cluster after hostprocess test runs...")
 	status := suite.K2sCli().GetStatus(ctx)
 	isRunning := status.IsClusterRunning()
@@ -328,7 +252,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	// Check if any tests failed using CurrentSpecReport
 	// This works even if BeforeSuite failed or if testFailed wasn't set
 	hasFailed := testFailed || CurrentSpecReport().Failed()
-	
+
 	if hasFailed {
 		GinkgoWriter.Println("Test failed; dumping system diagnostics")
 		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
@@ -348,7 +272,9 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	GinkgoWriter.Println("Deleting hostprocess workloads (best-effort)..")
 	_, code := suite.Kubectl().RunWithExitCode(ctx, "delete", "-k", manifestDir, "--force", "--ignore-not-found=true")
-	if code != 0 { GinkgoWriter.Println("(non-fatal) deletion returned exit code", code) }
+	if code != 0 {
+		GinkgoWriter.Println("(non-fatal) deletion returned exit code", code)
+	}
 	GinkgoWriter.Println("Hostprocess workloads delete step finished; manifests path:", manifestDir)
 
 	suite.Kubectl().Run(ctx, "delete", "namespace", namespace, "--ignore-not-found=true")
@@ -408,14 +334,18 @@ var _ = Describe("HostProcess Workloads", func() {
 			var podName string
 			Eventually(func(g Gomega) string {
 				out, code := suite.Kubectl().RunWithExitCode(ctx, "get", "pods", "-n", namespace, "-l", "app="+cplauncherLabel, "-o", "jsonpath={.items[0].metadata.name}")
-				if code != 0 { return "" }
+				if code != 0 {
+					return ""
+				}
 				podName = out
 				return out
 			}, suite.TestStepTimeout(), 2*time.Second).ShouldNot(BeEmpty())
 
 			Eventually(func() string {
 				logs, code := suite.Kubectl().RunWithExitCode(ctx, "logs", podName, "-n", namespace)
-				if code != 0 { return "" }
+				if code != 0 {
+					return ""
+				}
 				return logs
 			}, 60*time.Second, 2*time.Second).Should(And(ContainSubstring("IP Addresses"), ContainSubstring("172.20.1")))
 		})
@@ -429,15 +359,21 @@ var _ = Describe("HostProcess Workloads", func() {
 		It(serviceName+" service is reachable from host", func(ctx SpecContext) {
 			// Ensure service exists
 			_, code := suite.Kubectl().RunWithExitCode(ctx, "get", "service", serviceName, "-n", namespace)
-			if code != 0 { Skip("service not found: " + serviceName) }
+			if code != 0 {
+				Skip("service not found: " + serviceName)
+			}
 			k2s.VerifyDeploymentToBeReachableFromHostAtPort(ctx, hostProcDep, namespace, servicePort)
 		})
 
 		It(serviceName+" service is reachable from curl pod", func(ctx SpecContext) {
 			_, code := suite.Kubectl().RunWithExitCode(ctx, "get", "service", serviceName, "-n", namespace)
-			if code != 0 { Skip("service not found: " + serviceName) }
+			if code != 0 {
+				Skip("service not found: " + serviceName)
+			}
 			_, curlCode := suite.Kubectl().RunWithExitCode(ctx, "get", "deployment", "curl", "-n", namespace)
-			if curlCode != 0 { Skip("curl deployment not found; skipping pod->deployment reachability test") }
+			if curlCode != 0 {
+				Skip("curl deployment not found; skipping pod->deployment reachability test")
+			}
 			suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeploymentAtPort(hostProcDep, namespace, "curl", namespace, servicePort, ctx)
 		})
 
@@ -445,11 +381,15 @@ var _ = Describe("HostProcess Workloads", func() {
 			// Ensure curl deployment exists
 			GinkgoWriter.Println("Getting curl deployment: ")
 			_, curlCode := suite.Kubectl().RunWithExitCode(ctx, "get", "deployment", "curl", "-n", namespace)
-			if curlCode != 0 { Skip("curl deployment not found") }
+			if curlCode != 0 {
+				Skip("curl deployment not found")
+			}
 			// Get hostprocess pod IP
 			GinkgoWriter.Println("Getting hostprocess pod IP: ")
 			podIP, ipCode := suite.Kubectl().RunWithExitCode(ctx, "get", "pod", AnchorPodName, "-n", namespace, "-o", "jsonpath={.status.podIP}")
-			if ipCode != 0 || podIP == "" { Skip("pod IP not available yet") }
+			if ipCode != 0 || podIP == "" {
+				Skip("pod IP not available yet")
+			}
 			// Find curl pod name
 			var curlPodName string
 			Eventually(func() string {
@@ -471,7 +411,9 @@ var _ = Describe("HostProcess Workloads", func() {
 			// Get hostprocess pod IP
 			GinkgoWriter.Println("Getting hostprocess pod IP: ")
 			podIP, ipCode := suite.Kubectl().RunWithExitCode(ctx, "get", "pod", AnchorPodName, "-n", namespace, "-o", "jsonpath={.status.podIP}")
-			if ipCode != 0 || podIP == "" { Skip("pod IP not available yet") }
+			if ipCode != 0 || podIP == "" {
+				Skip("pod IP not available yet")
+			}
 			// Execute curl directly to pod IP:8080 expecting HTTP 200 (health endpoint or root)
 			url := fmt.Sprintf("http://%s:%d/%s", podIP, HostProcessContainerTargetPort, HostProcessDeploymentName)
 			GinkgoWriter.Println("Executing curl command: ", url)
