@@ -35,8 +35,12 @@ SPDX-License-Identifier: MIT
     ``` 
 - *Hyper-V configuration*: after the enabling of Hyper-V on your host using [Set-VMHost](https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost) different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !
 
-!!! tip
-    For installing in *WSL* mode, add the `Microsoft-Windows-Subsystem-Linux` feature to the prior command.
+
+- *Installing in WSL mode*: Enable the WSL 2 feature on Windows. For detailed instructions, see [Configure WSL](https://learn.microsoft.com/windows/wsl/install) or [Manual install (older WSL versions)](https://learn.microsoft.com/windows/wsl/install-manual)
+   ```powershell
+   Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Windows-Subsystem-Linux', 'VirtualMachinePlatform') -All
+   ``` 
+  
 - *VC Runtime 140*: please install the VC runtime dlls, either with choco
 
    ```choco install vcredist140 -y```
