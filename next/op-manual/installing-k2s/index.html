@@ -2229,14 +2229,17 @@ SPDX-License-Identifier: MIT
 <li><em>Windows Server</em> OSs
     <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">Enable-WindowsOptionalFeature</span> <span class="n">-Online</span> <span class="n">-FeatureName</span> <span class="p">$(</span><span class="s1">&#39;Microsoft-Hyper-V&#39;</span><span class="p">,</span> <span class="s1">&#39;Microsoft-Hyper-V-Management-PowerShell&#39;</span><span class="p">,</span> <span class="s1">&#39;Containers&#39;</span><span class="p">,</span> <span class="s1">&#39;VirtualMachinePlatform&#39;</span><span class="p">)</span> <span class="n">-All</span> <span class="n">-NoRestart</span>
 </code></pre></div></li>
-<li><em>Hyper-V configuration</em>: after the enabling of Hyper-V on your host using <a href="https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost">Set-VMHost</a> different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !</li>
-</ul>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>For installing in <em><abbr title="Windows Subsystem for Linux">WSL</abbr></em> mode, add the <code>Microsoft-Windows-Subsystem-Linux</code> feature to the prior command.</p>
-</div>
-<ul>
-<li><em>VC Runtime 140</em>: please install the VC runtime dlls, either with choco</li>
+<li>
+<p><em>Hyper-V configuration</em>: after the enabling of Hyper-V on your host using <a href="https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost">Set-VMHost</a> different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !</p>
+</li>
+<li>
+<p><em>Installing in <abbr title="Windows Subsystem for Linux">WSL</abbr> mode</em>: Enable the <abbr title="Windows Subsystem for Linux">WSL</abbr> 2 feature on Windows. For detailed instructions, see <a href="https://learn.microsoft.com/windows/wsl/install">Configure <abbr title="Windows Subsystem for Linux">WSL</abbr></a> or <a href="https://learn.microsoft.com/windows/wsl/install-manual">Manual install (older <abbr title="Windows Subsystem for Linux">WSL</abbr> versions)</a>
+   <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">Enable-WindowsOptionalFeature</span> <span class="n">-Online</span> <span class="n">-FeatureName</span> <span class="p">$(</span><span class="s1">&#39;Microsoft-Windows-Subsystem-Linux&#39;</span><span class="p">,</span> <span class="s1">&#39;VirtualMachinePlatform&#39;</span><span class="p">)</span> <span class="n">-All</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><em>VC Runtime 140</em>: please install the VC runtime dlls, either with choco</p>
+</li>
 </ul>
 <p><code>choco install vcredist140 -y</code></p>
 <p>or download them from <a href="https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist">Microsoft</a> directly and install the appropriate VC runtime.</p>
@@ -2252,7 +2255,7 @@ SPDX-License-Identifier: MIT
 <li><a href="#option-2-development-only">Option 2: Development-Only</a> (no <em><abbr title="Kubernetes">K8s</abbr></em> cluster, for building and testing containers only)</li>
 </ul>
 <p>To inspect the different install options, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -h</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -h</span>
 </code></pre></div></p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -2262,13 +2265,13 @@ Please review the error message for all detected <code>k2s.exe</code> locations 
 <div class="admonition info">
 <p class="admonition-title">Info</p>
 <p>By default, the installation assumes 6 <abbr title="Central Processing Unit">CPU</abbr> cores to be available on the host system. If less cores are available, reduce the number of virtual cores used by <em>K2s</em> according to the actual amount, e.g. when 4 cores are available, assign max. 4 virtual cores to <em>K2s</em>:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --master-cpus 4</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --master-cpus 4</span>
 </code></pre></div></p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>If you acquired <em>K2s</em> via <a href="../getting-k2s/#option-1-cloning-git-repository">Cloning the <em>Git</em> repository</a>, you might want to checkout a specific version first, e.g.:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">git checkout tags/v1.4.0</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">git checkout tags/v1.4.0</span>
 </code></pre></div></p>
 </div>
 <div class="admonition note">
@@ -2277,37 +2280,37 @@ Please review the error message for all detected <code>k2s.exe</code> locations 
 </div>
 <h3 id="installing-using-config-files">Installing Using Config Files</h3>
 <p>Instead of assembling many command-line parameters/flags to customize the installation, you can also pass a <abbr title="Yet Another Markup Language">YAML</abbr> file to the <code>k2s install</code> command configuring install parameters like node resource definitions (e.g. <abbr title="Central Processing Unit">CPU</abbr>, <abbr title="Random-Access Memory">RAM</abbr> or size of the hard drive):
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">&lt;repo&gt;\k2s.exe install [-c|--config] &lt;path-to-config-file&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">&lt;repo&gt;\k2s.exe install [-c|--config] &lt;path-to-config-file&gt;</span>
 </code></pre></div></p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <p>Create a custom install config:
-<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">my_config.yaml</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-8-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-8-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-8-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-8-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-8-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-8-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-8-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-8-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-8-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-8-10">10</a></span>
-<span class="normal"><a href="#__codelineno-8-11">11</a></span>
-<span class="normal"><a href="#__codelineno-8-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k2s</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3"></a><span class="nt">nodes</span><span class="p">:</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">control-plane</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5"></a><span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6"></a><span class="w">      </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7"></a><span class="w">      </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7GB</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8"></a><span class="w">      </span><span class="nt">disk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60GB</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9"></a><span class="nt">env</span><span class="p">:</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10"></a><span class="w">  </span><span class="nt">httpProxy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.178.100:8765</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11"></a><span class="nt">installBehavior</span><span class="p">:</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12"></a><span class="w">  </span><span class="nt">showOutput</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">my_config.yaml</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-1"> 1</a></span>
+<span class="normal"><a href="#__codelineno-9-2"> 2</a></span>
+<span class="normal"><a href="#__codelineno-9-3"> 3</a></span>
+<span class="normal"><a href="#__codelineno-9-4"> 4</a></span>
+<span class="normal"><a href="#__codelineno-9-5"> 5</a></span>
+<span class="normal"><a href="#__codelineno-9-6"> 6</a></span>
+<span class="normal"><a href="#__codelineno-9-7"> 7</a></span>
+<span class="normal"><a href="#__codelineno-9-8"> 8</a></span>
+<span class="normal"><a href="#__codelineno-9-9"> 9</a></span>
+<span class="normal"><a href="#__codelineno-9-10">10</a></span>
+<span class="normal"><a href="#__codelineno-9-11">11</a></span>
+<span class="normal"><a href="#__codelineno-9-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k2s</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3"></a><span class="nt">nodes</span><span class="p">:</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">control-plane</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5"></a><span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6"></a><span class="w">      </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7"></a><span class="w">      </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7GB</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8"></a><span class="w">      </span><span class="nt">disk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60GB</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9"></a><span class="nt">env</span><span class="p">:</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10"></a><span class="w">  </span><span class="nt">httpProxy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.178.100:8765</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11"></a><span class="nt">installBehavior</span><span class="p">:</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12"></a><span class="w">  </span><span class="nt">showOutput</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div></td></tr></table></div>
 Start the installation passing this config:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -c c:\temp\my_config.yaml</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -c c:\temp\my_config.yaml</span>
 </code></pre></div></p>
 </div>
 <p>To create a user-defined configuration for any of the hosting variants, take one of the corresponding <a href="https://github.com/Siemens-Healthineers/K2s/tree/main/k2s/cmd/k2s/cmd/install/config/embed" target="_blank" rel="noopener">Base Configuration Files</a> as a template.</p>
@@ -2315,10 +2318,10 @@ Start the installation passing this config:
 <p>Downloading all dependencies (i.e. binaries) on-the-fly is referred to as <em>online</em> installation, whereas <em>offline</em> refers to an installation package containing parts of or all the dependencies. If <em>K2s</em> was acquired via <a href="../getting-k2s/#option-2-downloading-official-release-package">Downloading the Official Release Package</a>, parts of the dependencies are already available locally. If an offline package was create according to <a href="../creating-offline-package/">Creating Offline Package</a>, all dependencies are available offline.</p>
 <p>As per default, the <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> keeps downloaded files as well as the <em>Linux</em>-based control-plane image and reuses them. To change this behavior, use the following <abbr title="Command-Line Interface">CLI</abbr> flags (they apply to all installation variants<sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></sup>).</p>
 <p>To delete all downloaded binaries and the control-plane image after installation, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -d</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -d</span>
 </code></pre></div></p>
 <p>To force the download of all binaries and the re-creation of the control-plane image regardless of their local presence, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -f</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -f</span>
 </code></pre></div></p>
 <details class="info">
 <summary>Offline vs. Online Installation Diagram</summary>
@@ -2338,15 +2341,15 @@ Start the installation passing this config:
     DeleteBaseImage --&gt; End</code></pre>
 <h3 id="option-1-host-default">[Option 1] Host (Default)</h3>
 <p>Simply run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">&lt;repo&gt;\k2s.exe install</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">&lt;repo&gt;\k2s.exe install</span>
 </code></pre></div></p>
 <h4 id="wsl"><abbr title="Windows Subsystem for Linux">WSL</abbr></h4>
 <p>To install the control-plane in <abbr title="Windows Subsystem for Linux">WSL</abbr> 2 instead of a dedicated <em>Linux</em> <abbr title="Virtual Machine">VM</abbr>, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --wsl</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --wsl</span>
 </code></pre></div></p>
 <h3 id="option-2-development-only">[Option 2] Development-Only</h3>
 <p>To build and test containers without a <em><abbr title="Kubernetes">K8s</abbr></em> cluster, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">&lt;repo&gt;\k2s.exe install buildonly</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">&lt;repo&gt;\k2s.exe install buildonly</span>
 </code></pre></div></p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
