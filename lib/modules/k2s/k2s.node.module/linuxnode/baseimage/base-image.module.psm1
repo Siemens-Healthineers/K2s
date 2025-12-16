@@ -21,6 +21,7 @@ function Invoke-Download($destination, $source, $forceDownload,
     }
     if ( $ProxyToUse -ne '' ) {
         Write-Log "Downloading '$source' to '$destination' with proxy: $ProxyToUse"
+        # NOTE: --ssl-no-revoke is still required for VMI proxy due to proxy/cert issues. Remove when fixed.
         curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke #ignore server certificate error for cloudbase.it
     }
     else {
@@ -70,6 +71,7 @@ function Invoke-DownloadDebianImage {
 
         if ( $Proxy -ne '') {
             Write-Log "Using Proxy $Proxy to download SHA sum from $urlRoot"
+            # NOTE: --ssl-no-revoke is still required for VMI proxy due to proxy/cert issues. Remove when fixed.
             $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke
         }
         else {
