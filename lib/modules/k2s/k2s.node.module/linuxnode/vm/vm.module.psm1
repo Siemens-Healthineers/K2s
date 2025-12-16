@@ -46,12 +46,10 @@ function Invoke-SSHWithKey {
     }
 
     # Capture all output (stdout + stderr)
-    $allOutput = @()
     $commandOutput = @()
     
     &ssh.exe $params 2>&1 | ForEach-Object {
         $line = "$_"
-        $allOutput += $line
         
         # Filter out SSH connection noise/errors that shouldn't be part of command output
         # These are typically Windows SSH socket warnings that appear on stderr
@@ -60,15 +58,23 @@ function Invoke-SSHWithKey {
             $line -notmatch '^Warning:' -and
             $line.Trim() -ne '') {
             $commandOutput += $line
-            Write-Log $line -Console -Raw
+            Write-Log $line -Console -Raw | Out-Null
         } else {
             # Log filtered noise separately for diagnostics
-            Write-Log $line -Raw
+            Write-Log $line -Raw | Out-Null
         }
     }
     
-    # Return clean command output, joined by newlines
-    return ($commandOutput -join "`n")
+    # Return clean command output, joined by newlines if multiple lines
+    if ($commandOutput.Count -eq 0) {
+        return ''
+    }
+    elseif ($commandOutput.Count -eq 1) {
+        return $commandOutput[0]
+    }
+    else {
+        return ($commandOutput -join "`n")
+    }
 }
 
 function Invoke-ExeWithAsciiEncoding {
