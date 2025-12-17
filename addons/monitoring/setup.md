@@ -54,6 +54,6 @@ SPDX-License-Identifier: MIT
 
 Grafana changed their license model to AGPL-3.0 license. In order to use sources still under Apache 2.0 license the following Github forks are used:
 
-- https://github.com/credativ/plutono (Plutono is a fork of Grafana 7.5.17 under the Apache 2.0 License.)
+- https://github.com/grafana/grafana (Grafana OSS is the upstream open-source dashboard and visualization platform maintained by Grafana Labs.)
 
 Follow replacement steps under 'About this fork'.
