@@ -19,7 +19,7 @@ data:
   provider.yaml: |-
     apiVersion: 1
     providers:
-      - name: sidecarProvider
+      - name: 'sidecarProvider'
         orgId: 1
         folder: ''
         type: file
@@ -29,4 +29,3 @@ data:
         options:
           foldersFromFilesStructure: false
           path: /tmp/dashboards
-

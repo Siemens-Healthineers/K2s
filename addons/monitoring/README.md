@@ -14,10 +14,6 @@ The `monitoring` addon provides a [Grafana web-based UI](https://github.com/graf
 
 The monitoring addon can be enabled using the k2s CLI by running the following command:
 
-```bash
-k2s addons enable monitoring
-
-
 ```
 k2s addons enable monitoring
 ```

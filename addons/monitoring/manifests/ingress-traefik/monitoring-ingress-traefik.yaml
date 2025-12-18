@@ -29,4 +29,3 @@ spec:
                   number: 80
             path: /monitoring
             pathType: Prefix
-

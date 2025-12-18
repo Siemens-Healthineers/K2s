@@ -23,4 +23,3 @@ subjects:
   - kind: ServiceAccount
     name: kube-prometheus-stack-grafana
     namespace: monitoring
-

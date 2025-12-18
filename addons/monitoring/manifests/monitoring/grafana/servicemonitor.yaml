@@ -30,4 +30,3 @@ spec:
   namespaceSelector:
     matchNames:
       - monitoring
-
