@@ -278,6 +278,22 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 	})
+
+	When("FluxCD is already enabled", func() {
+		BeforeEach(func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
+
+			DeferCleanup(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
+			})
+		})
+
+		It("prevents enabling ArgoCD", func(ctx context.Context) {
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "rollout", "argocd")
+
+			Expect(output).To(ContainSubstring("Addon 'rollout fluxcd' is enabled"))
+		})
+	})
 })
 
 func expectStatusToBePrinted(ctx context.Context) {

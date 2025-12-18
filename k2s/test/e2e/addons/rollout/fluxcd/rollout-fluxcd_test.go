@@ -260,26 +260,19 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 		})
 	})
 
-	Describe("mutual exclusivity with ArgoCD", func() {
-		AfterEach(func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "argocd", "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
-		})
-
-		It("prevents enabling FluxCD when ArgoCD is already enabled", func(ctx context.Context) {
+	When("ArgoCD is already enabled", func() {
+		BeforeEach(func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "argocd", "-o")
 
+			DeferCleanup(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "argocd", "-o")
+			})
+		})
+
+		It("prevents enabling FluxCD", func(ctx context.Context) {
 			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "rollout", "fluxcd")
 
 			Expect(output).To(ContainSubstring("Addon 'rollout argocd' is enabled"))
-		})
-
-		It("prevents enabling ArgoCD when FluxCD is already enabled", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
-
-			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "rollout", "argocd")
-
-			Expect(output).To(ContainSubstring("Addon 'rollout fluxcd' is enabled"))
 		})
 	})
 })
