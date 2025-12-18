@@ -9,6 +9,11 @@ import (
 
 type Registry string
 
+type Addon struct {
+	Name           string
+	Implementation string
+}
+
 type K2sRuntimeConfig struct {
 	clusterConfig      *K2sClusterConfig
 	installConfig      *K2sInstallConfig
@@ -19,13 +24,15 @@ type K2sClusterConfig struct {
 	name               string
 	registries         []Registry
 	controlPlaneConfig *K2sControlPlaneConfig
+	enabledAddons      []Addon
 }
 
 type K2sInstallConfig struct {
-	setupName string
-	linuxonly bool
-	version   string
-	corrupted bool
+	setupName  string
+	linuxOnly  bool
+	version    string
+	corrupted  bool
+	wslEnabled bool
 }
 
 type K2sControlPlaneConfig struct {
@@ -45,20 +52,22 @@ func NewK2sRuntimeConfig(clusterConfig *K2sClusterConfig, installConfig *K2sInst
 	}
 }
 
-func NewK2sClusterConfig(name string, registries []Registry, controlPlaneConfig *K2sControlPlaneConfig) *K2sClusterConfig {
+func NewK2sClusterConfig(name string, registries []Registry, controlPlaneConfig *K2sControlPlaneConfig, enabledAddons []Addon) *K2sClusterConfig {
 	return &K2sClusterConfig{
 		name:               name,
 		registries:         registries,
 		controlPlaneConfig: controlPlaneConfig,
+		enabledAddons:      enabledAddons,
 	}
 }
 
-func NewK2sInstallConfig(setupName string, linuxonly bool, version string, corrupted bool) *K2sInstallConfig {
+func NewK2sInstallConfig(setupName string, linuxOnly bool, version string, corrupted, wslEnabled bool) *K2sInstallConfig {
 	return &K2sInstallConfig{
-		setupName: setupName,
-		linuxonly: linuxonly,
-		version:   version,
-		corrupted: corrupted,
+		setupName:  setupName,
+		linuxOnly:  linuxOnly,
+		version:    version,
+		corrupted:  corrupted,
+		wslEnabled: wslEnabled,
 	}
 }
 
@@ -92,12 +101,16 @@ func (c *K2sClusterConfig) ControlPlaneConfig() *K2sControlPlaneConfig {
 	return c.controlPlaneConfig
 }
 
+func (c *K2sClusterConfig) EnabledAddons() []Addon {
+	return c.enabledAddons
+}
+
 func (c *K2sInstallConfig) SetupName() string {
 	return c.setupName
 }
 
 func (c *K2sInstallConfig) LinuxOnly() bool {
-	return c.linuxonly
+	return c.linuxOnly
 }
 
 func (c *K2sInstallConfig) Version() string {
@@ -106,6 +119,10 @@ func (c *K2sInstallConfig) Version() string {
 
 func (c *K2sInstallConfig) Corrupted() bool {
 	return c.corrupted
+}
+
+func (c *K2sInstallConfig) WslEnabled() bool {
+	return c.wslEnabled
 }
 
 func (c *K2sControlPlaneConfig) Hostname() string {

@@ -17,9 +17,7 @@ import (
 
 const autoscalingSecTimeout = time.Minute * 10
 
-var (
-	suite *framework.K2sTestSuite
-)
+var suite *framework.K2sTestSuite
 
 func TestAutoscalingSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -31,27 +29,26 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	// Disable addons after all tests
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "autoscaling", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
 	suite.TearDown(ctx)
 })
 
 var _ = Describe("'autoscaling and security enhanced' addons", Ordered, func() {
-
 	Describe("Security addon activated first then autoscaling addon", func() {
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
 		It("activates the autoscaling addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "autoscaling", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "autoscaling", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "autoscaling")
 			suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "autoscaling")
@@ -61,17 +58,17 @@ var _ = Describe("'autoscaling and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "autoscaling")
 			suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
 		})
-		
+
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "autoscaling", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 		})
 	})
 
 	Describe("Autoscaling addon activated first then security addon", func() {
 		It("activates the autoscaling addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "autoscaling", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "autoscaling", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "autoscaling")
 			suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
 		})
@@ -81,7 +78,7 @@ var _ = Describe("'autoscaling and security enhanced' addons", Ordered, func() {
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
@@ -90,6 +87,5 @@ var _ = Describe("'autoscaling and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "autoscaling")
 		})
-
 	})
 })

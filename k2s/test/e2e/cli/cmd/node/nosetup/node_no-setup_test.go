@@ -32,7 +32,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("node", func() {
 	Describe("copy", Label("copy"), func() {
 		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", "", "-s", "", "-t", "", "-u", "")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", "", "-s", "", "-t", "", "-u", "")
 
 			Expect(output).To(ContainSubstring("not installed"))
 		})
@@ -40,7 +40,7 @@ var _ = Describe("node", func() {
 
 	Describe("exec", Label("exec"), func() {
 		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "exec", "-i", "", "-u", "", "-c", "")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "exec", "-i", "", "-u", "", "-c", "")
 
 			Expect(output).To(ContainSubstring("not installed"))
 		})
@@ -48,7 +48,7 @@ var _ = Describe("node", func() {
 
 	Describe("connect", Label("connect"), func() {
 		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "connect", "-i", "", "-u", "")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "connect", "-i", "", "-u", "")
 
 			Expect(output).To(ContainSubstring("not installed"))
 		})
