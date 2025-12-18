@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package upgrade
@@ -27,29 +27,14 @@ const (
 	albumsImageRepo = "shsk2s.azurecr.io/example.albums-golang-win"
 )
 
-var suite *framework.K2sTestSuite
-var k2s *dsl.K2s
+var (
+	suite *framework.K2sTestSuite
+	k2s   *dsl.K2s
+)
 
 func TestUpgradeValidation(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Upgrade User Application Validation Tests", Label("upgrade-user-application-validation"))
-}
-
-func IsPodReady(pod corev1.Pod) bool {
-	for _, condition := range pod.Status.Conditions {
-		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
-}
-
-func GetPodRestarts(pod corev1.Pod) int32 {
-	var restarts int32 = 0
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		restarts += containerStatus.RestartCount
-	}
-	return restarts
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -61,7 +46,7 @@ var _ = Describe("Upgrade Validation", func() {
 	Describe("Image Preservation", Label("upgrade-image-validation"), func() {
 
 		It("user application images are preserved after upgrade", func(ctx SpecContext) {
-			output := suite.K2sCli().RunOrFail(ctx, "image", "ls")
+			output := suite.K2sCli().MustExec(ctx, "image", "ls")
 
 			// Only check for images, not specific tags
 			expectedImages := []string{
@@ -133,15 +118,15 @@ var _ = Describe("Upgrade Validation", func() {
 						!strings.HasPrefix(pod.Name, "test-") {
 
 						isOK := pod.Status.Phase == corev1.PodSucceeded ||
-							(pod.Status.Phase == corev1.PodRunning && IsPodReady(pod))
+							(pod.Status.Phase == corev1.PodRunning && isPodReady(pod))
 
 						if !isOK {
 							problematicPods = append(problematicPods,
 								fmt.Sprintf("Pod %s: %s (Ready: %t, Restarts: %d)",
 									pod.Name,
 									pod.Status.Phase,
-									IsPodReady(pod),
-									GetPodRestarts(pod)))
+									isPodReady(pod),
+									getPodRestarts(pod)))
 						}
 					}
 				}
@@ -206,3 +191,20 @@ var _ = Describe("Upgrade Validation", func() {
 		})
 	})
 })
+
+func isPodReady(pod corev1.Pod) bool {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func getPodRestarts(pod corev1.Pod) int32 {
+	var restarts int32 = 0
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		restarts += containerStatus.RestartCount
+	}
+	return restarts
+}

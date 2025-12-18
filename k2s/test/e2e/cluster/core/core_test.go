@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package core
@@ -39,7 +39,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = "workload/windows"
 	proxy = "http://172.19.1.1:8181"
 
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, 
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(time.Millisecond*200),
 		framework.ClusterTestStepTimeout(8*time.Minute)) // Increased timeout for Windows workloads
 	k2s = dsl.NewK2s(suite)
@@ -53,11 +53,11 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Using proxy <", proxy, "> for internet access")
 	GinkgoWriter.Println("Deploying workloads to cluster..")
 
-	suite.Kubectl().Run(ctx, "apply", "-k", manifestDir)
+	suite.Kubectl().MustExec(ctx, "apply", "-k", manifestDir)
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
-	suite.Kubectl().Run(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
 
 	for _, deploymentName := range linuxDeploymentNames {
 		suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
@@ -75,21 +75,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-
-	GinkgoWriter.Println("Status of cluster after test runs...")
-	status := suite.K2sCli().GetStatus(ctx)
-	isRunning := status.IsClusterRunning()
-	GinkgoWriter.Println("Cluster is running:", isRunning)
+	suite.StatusChecker().IsK2sRunning(ctx)
 
 	GinkgoWriter.Println("Deleting workloads..")
 
 	if testFailed {
-		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
 	// for finding out the sporadically failed test runs
 	if !testFailed {
-		suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)
+		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
 
 		GinkgoWriter.Println("Workloads deleted")
 
