@@ -36,7 +36,7 @@ var _ = Describe("image reset-win-storage", func() {
 			Skip("Linux-only")
 		}
 
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "reset-win-storage")
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("still running"))
 	})
@@ -46,7 +46,7 @@ var _ = Describe("image reset-win-storage", func() {
 			Skip("not Linux-only")
 		}
 
-		output := suite.K2sCli().RunWithExitCode(ctx, -1, "image", "reset-win-storage")
+		output, _ := suite.K2sCli().ExpectedExitCode(-1).Exec(ctx, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("Resetting WinContainerStorage for Linux-only setup is not supported."))
 	})
