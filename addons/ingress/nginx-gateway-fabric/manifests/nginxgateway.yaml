@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: gateway.nginx.org/v1alpha1
+kind: NginxGateway
+metadata:
+  name: nginx-gateway-config
+  namespace: nginx-gateway
+  labels:
+    app.kubernetes.io/part-of: nginx-gateway
+    app.kubernetes.io/name: nginx-gateway
+    app.kubernetes.io/instance: nginx-gateway
+    app.kubernetes.io/version: "2.2.2"
+spec:
+  logging:
+    level: info

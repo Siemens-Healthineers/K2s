@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Central cluster-local host using Gateway API with NGF (NGINX Gateway Fabric).
+# Gateway terminates TLS for k2s.cluster.local and allows routes from all namespaces
+# to attach via parentRefs. The TLS certificate is provisioned by cert-manager
+# (k2s-ca-issuer) into Secret 'k2s-cluster-local-tls'.
+# ---
+# apiVersion: cert-manager.io/v1
+# kind: Certificate
+# metadata:
+#   name: k2s-cluster-local-tls
+#   namespace: nginx-gateway
+# spec:
+#   secretName: k2s-cluster-local-tls
+#   commonName: k2s.cluster.local
+#   dnsNames:
+#   - k2s.cluster.local
+#   issuerRef:
+#     kind: ClusterIssuer
+#     name: k2s-ca-issuer
+# ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: nginx-cluster-local
+  namespace: nginx-gateway
+  labels:
+    app.kubernetes.io/part-of: nginx-gateway
+    app.kubernetes.io/name: nginx-gateway
+    app.kubernetes.io/instance: nginx-gateway
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - name: http
+    hostname: k2s.cluster.local
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https
+    hostname: k2s.cluster.local
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: k2s-cluster-local-tls
+    allowedRoutes:
+      namespaces:
+        from: All

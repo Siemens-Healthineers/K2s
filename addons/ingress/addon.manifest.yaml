@@ -65,3 +65,31 @@ spec:
                 comment: Disable addon ingress traefik in k2s
           script:
             subPath: traefik/Disable.ps1
+    - name: nginx-gateway-fabric
+      description: Ingress Controller for external access that uses Gateway API fabric
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages:
+          - registry.k8s.io/external-dns/external-dns
+          additionalImagesFiles:
+          - ../../common/manifests/external-dns/deployment.yaml
+        windows:
+          curl: []
+      commands:
+        enable:
+          cli:
+            examples:
+              - cmd: k2s addons enable ingress nginx-gateway-fabric
+                comment: Enable ingress nginx-gateway-fabric in k2s
+          script:
+            subPath: nginx-gateway-fabric/Enable.ps1
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable ingress nginx-gateway-fabric
+                comment: Disable addon ingress nginx-gateway-fabric in k2s
+          script:
+            subPath: nginx-gateway-fabric/Disable.ps1 
