@@ -20,9 +20,7 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
-var (
-	suite *framework.K2sTestSuite
-)
+var suite *framework.K2sTestSuite
 
 func TestIngressNginxSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -37,33 +35,33 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	suite.Kubectl().Run(ctx, "delete", "-k", "..\\ingress\\nginx\\workloads")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+	suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\nginx\\workloads")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
 	suite.TearDown(ctx)
 })
 
 var _ = Describe("'ingress-nginx and security enhanced' addons", Ordered, func() {
-
 	Describe("Security addon activated first then ingress-nginx addon", func() {
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
-		It("activates the ingress-nginx addon", func(ctx context.Context) {			
+		It("activates the ingress-nginx addon", func(ctx context.Context) {
 			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "ingress-nginx")
-			
+
 		})
 
 		It("applies sample workloads", func(ctx context.Context) {
-			suite.Kubectl().Run(ctx, "apply", "-k", "..\\ingress\\nginx\\workloads")
+			suite.Kubectl().MustExec(ctx, "apply", "-k", "..\\ingress\\nginx\\workloads")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "ingress-nginx-test")
 		})
 
@@ -78,21 +76,21 @@ var _ = Describe("'ingress-nginx and security enhanced' addons", Ordered, func()
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.Kubectl().Run(ctx, "delete", "-k", "..\\ingress\\nginx\\workloads")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+			suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\nginx\\workloads")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 		})
 	})
 
 	Describe("Ingress-nginx addon activated first then security addon", func() {
 		It("activates the ingress-nginx addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 		})
 
 		It("applies sample workloads", func(ctx context.Context) {
-			suite.Kubectl().Run(ctx, "apply", "-k", "..\\ingress\\nginx\\workloads")
+			suite.Kubectl().MustExec(ctx, "apply", "-k", "..\\ingress\\nginx\\workloads")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "ingress-nginx-test")
 		})
 
@@ -101,7 +99,7 @@ var _ = Describe("'ingress-nginx and security enhanced' addons", Ordered, func()
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "ingress-nginx")
 		})
