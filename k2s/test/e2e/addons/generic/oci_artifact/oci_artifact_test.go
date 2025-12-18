@@ -31,7 +31,7 @@ var orasFilePath string
 
 func TestOCIArtifact(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "OCI Artifact Functional Tests", Label("functional", "acceptance", "oci-artifact"))
+	RunSpecs(t, "OCI Artifact Functional Tests", Label("functional", "acceptance", "oci-artifact", "setup-required", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
