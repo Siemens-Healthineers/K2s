@@ -182,7 +182,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable command", func() {
-		When("SMB host type is Windows", Ordered, func() {
+		When("SMB host type is Windows", func() {
 			It("enables the addon", func(ctx context.Context) {
 				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 
@@ -218,12 +218,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
 
 			It("restarts the cluster", func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "start")
+				suite.K2sCli().MustExec(ctx, "start", "-o")
 			})
 
 			It("still runs Linux-based workloads after cluster restart", func(ctx context.Context) {
@@ -232,6 +236,10 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("still runs Windows-based workloads after cluster restart", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
@@ -266,10 +274,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				disableAddon(ctx, "-f")
 			})
 		})
-	})
 
-	Describe("enable command", func() {
-		When("SMB host type is linux", Ordered, func() {
+		When("SMB host type is linux", func() {
 			var smbHostPrefix string
 
 			BeforeAll(func() {
@@ -310,12 +316,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, windowsTestfileName)
 			})
 
 			It("restarts the cluster", func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "start")
+				suite.K2sCli().MustExec(ctx, "start", "-o")
 			})
 
 			It("still runs Linux-based workloads after cluster restart", func(ctx context.Context) {
@@ -324,6 +334,10 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("still runs Windows-based workloads after cluster restart", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, windowsTestfileName)
 			})
@@ -361,7 +375,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable and disable with keep in Windows", func() {
-		When("SMB host type is Windows", Ordered, func() {
+		When("SMB host type is Windows", func() {
 			It("enables the addon", func(ctx context.Context) {
 				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 
@@ -391,6 +405,10 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
@@ -448,7 +466,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable and disable with keep in Linux", func() {
-		When("SMB host type is Linux", Ordered, func() {
+		When("SMB host type is Linux", func() {
 			var smbHostPrefix string
 
 			BeforeAll(func() {
@@ -484,6 +502,10 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, windowsTestfileName)
 			})
@@ -540,7 +562,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable with preexisting folder in Windows", func() {
-		When("SMB host type is Windows", Ordered, func() {
+		When("SMB host type is Windows", func() {
 			It("creates the mount paths", func() {
 				createMountPath(storageConfig[0].WinMountPath)
 				createMountPath(storageConfig[1].WinMountPath)
@@ -583,6 +605,10 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
@@ -625,10 +651,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable with pvc access mode readwritemany deployment in Windows", func() {
-		if skipWindowsWorkloads {
-			Skip("Linux-only setup")
-		}
-		When("SMB host type is Windows", Ordered, func() {
+		BeforeAll(func() {
+			if skipWindowsWorkloads {
+				Skip("Linux-only setup")
+			}
+		})
+
+		When("SMB host type is Windows", func() {
 			It("enables the addon", func(ctx context.Context) {
 				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 				expectEnableMessage(output, "windows")
@@ -662,7 +691,22 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("Reclaim Policy Delete", func() {
-		When("StorageClass with Delete reclaim policy", Ordered, func() {
+		When("StorageClass with Delete reclaim policy", func() {
+			pvNames := []string{}
+			workloadPVCNames := []string{
+				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName1),
+				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName2),
+			}
+
+			BeforeAll(func() {
+				if !skipWindowsWorkloads {
+					workloadPVCNames = append(workloadPVCNames,
+						fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
+						fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
+					)
+				}
+			})
+
 			It("enables the addon", func(ctx context.Context) {
 				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 				expectEnableMessage(output, "windows")
@@ -701,16 +745,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
-
-			workloadPVCNames := []string{
-				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName1),
-				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName2),
-				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
-				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
-			}
 
 			It("verifies PVCs are bound", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
@@ -745,7 +786,6 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
-			pvNames := []string{}
 			It("verifies PVC still exists after StatefulSet deletion", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
 					output := suite.Kubectl().MustExec(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
@@ -762,6 +802,11 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			It("verifies content still exists after StatefulSet deletion", func(ctx context.Context) {
 				expectFileExists(ctx, storageConfig[0].WinMountPath, linuxTestfileName, linuxWorkloadName1)
 				expectFileExists(ctx, storageConfig[1].WinMountPath, linuxTestfileName, linuxWorkloadName2)
+
+				if skipWindowsWorkloads {
+					return
+				}
+
 				expectFileExists(ctx, storageConfig[0].WinMountPath, windowsTestfileName, windowsWorkloadName1)
 				expectFileExists(ctx, storageConfig[1].WinMountPath, windowsTestfileName, windowsWorkloadName2)
 			})
@@ -788,6 +833,11 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			It("verifies content is deleted with PV (Delete reclaim policy)", func(ctx context.Context) {
 				expectFileDoesNotExist(ctx, storageConfig[0].WinMountPath, linuxTestfileName, linuxWorkloadName1)
 				expectFileDoesNotExist(ctx, storageConfig[1].WinMountPath, linuxTestfileName, linuxWorkloadName2)
+
+				if skipWindowsWorkloads {
+					return
+				}
+
 				expectFileDoesNotExist(ctx, storageConfig[0].WinMountPath, windowsTestfileName, windowsWorkloadName1)
 				expectFileDoesNotExist(ctx, storageConfig[1].WinMountPath, windowsTestfileName, windowsWorkloadName2)
 			})
@@ -799,10 +849,19 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("Reclaim Policy Retain", func() {
-		if skipWindowsWorkloads {
-			Skip("Linux-only setup")
-		}
-		When("StorageClass with Retain reclaim policy", Ordered, func() {
+		BeforeAll(func() {
+			if skipWindowsWorkloads {
+				Skip("Linux-only setup")
+			}
+		})
+
+		When("StorageClass with Retain reclaim policy", func() {
+			pvNames := []string{}
+			workloadPVCNames := []string{
+				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
+				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
+			}
+
 			It("enables the addon", func(ctx context.Context) {
 				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 				expectEnableMessage(output, "windows")
@@ -827,11 +886,6 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[2].WinMountPath, windowsTestfileName)
 			})
 
-			workloadPVCNames := []string{
-				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
-				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
-			}
-
 			It("verifies PVCs are bound", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
 					output := suite.Kubectl().MustExec(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
@@ -849,7 +903,6 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
-			pvNames := []string{}
 			It("verifies PVC still exists after StatefulSet deletion", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
 					output := suite.Kubectl().MustExec(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
@@ -905,7 +958,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("Static Provisioning", func() {
-		When("using static PV and PVC", Ordered, func() {
+		When("using static PV and PVC", func() {
 			const (
 				staticWorkloadName = "smb-static-test"
 				staticPVName       = "smb-static-pv"
