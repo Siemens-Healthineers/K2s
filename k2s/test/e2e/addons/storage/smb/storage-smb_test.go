@@ -77,7 +77,7 @@ var (
 
 func TestSmbshare(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "storage Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "storage", "system-running"))
+	RunSpecs(t, "storage Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "invasive", "storage", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
