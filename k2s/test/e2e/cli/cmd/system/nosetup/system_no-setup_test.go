@@ -83,14 +83,14 @@ var _ = Describe("system", func() {
 			It("prints the passed target directory is empty", func(ctx context.Context) {
 				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "package", "-n", "package.zip")
 
-				Expect(output).To(ContainSubstring("The passed target directory is empty"))
+				Expect(output).To(ContainSubstring(`"target-dir" not set`))
 			})
 
 			It("prints the passed zip package name is empty", func(ctx context.Context) {
 				tempDir := GinkgoT().TempDir()
 				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "package", "-d", tempDir)
 
-				Expect(output).To(ContainSubstring("The passed zip package name is empty"))
+				Expect(output).To(ContainSubstring(`"name" not set`))
 			})
 
 			It("prints the passed zip package name does not have the extension zip", func(ctx context.Context) {
@@ -107,9 +107,7 @@ var _ = Describe("system", func() {
 			It("dumps system information", func(ctx context.Context) {
 				output := suite.K2sCli().MustExec(ctx, "system", "dump", "-S")
 
-				Expect(output).To(SatisfyAll(
-					ContainSubstring("SUCCESS"),
-				))
+				Expect(output).To(ContainSubstring("SUCCESS"))
 			})
 		})
 	})
