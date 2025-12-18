@@ -53,7 +53,7 @@
     {
       "group": "https://github.com/kubernetes-sigs/cri-tools",
       "name": "crictl",
-      "version": "v1.34.0",
+      "version": "v1.35.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -70,7 +70,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes-sigs/cri-tools@v1.34.0",
+      "purl": "pkg:github/kubernetes-sigs/cri-tools@v1.35.0",
       "type": "application"
     },
     {
@@ -580,9 +580,9 @@
       "type": "application"
     },
     {
-      "group": "https://get.helm.sh/helm-v4.0.1-windows-amd64.zip",
+      "group": "https://get.helm.sh/helm-v4.0.2-windows-amd64.zip",
       "name": "helm",
-      "version": "v4.0.1",
+      "version": "v4.0.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -599,7 +599,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/helm/helm@v4.0.1",
+      "purl": "pkg:github/helm/helm@v4.0.2",
       "type": "application"
     }
   ],

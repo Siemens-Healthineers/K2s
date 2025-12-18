@@ -96,7 +96,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 				GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-				sshExec.mustExec(ctx, "mkdir "+remoteTempDir)
+				sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
 			})
 
 			AfterEach(func(ctx context.Context) {
@@ -128,7 +128,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-							sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+							sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 						})
 
 						It("overwrites the existing file", func(ctx context.Context) {
@@ -138,7 +138,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.mustExec(ctx, "cat "+targetFile)
+							content := sshExec.mustExecEventually(ctx, "cat "+targetFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -149,7 +149,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-								sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+								sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 							})
 
 							AfterEach(func(ctx context.Context) {
@@ -165,7 +165,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.mustExec(ctx, "cat "+targetFile)
+								content := sshExec.mustExecEventually(ctx, "cat "+targetFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -181,7 +181,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-								sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+								sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 							})
 
 							It("overwrites the existing file", func(ctx context.Context) {
@@ -191,7 +191,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.mustExec(ctx, "cat "+existingRemoteFile)
+								content := sshExec.mustExecEventually(ctx, "cat "+existingRemoteFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -202,7 +202,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-									sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+									sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 								})
 
 								AfterEach(func(ctx context.Context) {
@@ -218,7 +218,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-									content := sshExec.mustExec(ctx, "cat "+existingRemoteFile)
+									content := sshExec.mustExecEventually(ctx, "cat "+existingRemoteFile)
 
 									Expect(content).To(Equal(sourceFileContent))
 								})
@@ -234,7 +234,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.mustExec(ctx, "cat "+expectedTargetFile)
+								content := sshExec.mustExecEventually(ctx, "cat "+expectedTargetFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -259,7 +259,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-									content := sshExec.mustExec(ctx, "cat "+expectedRemoteFile)
+									content := sshExec.mustExecEventually(ctx, "cat "+expectedRemoteFile)
 
 									Expect(content).To(Equal(sourceFileContent))
 								})
@@ -277,7 +277,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.mustExec(ctx, "cat "+targetFile)
+							content := sshExec.mustExecEventually(ctx, "cat "+targetFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -317,7 +317,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.mustExec(ctx, "cat "+expectedRemoteFile)
+							content := sshExec.mustExecEventually(ctx, "cat "+expectedRemoteFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -373,7 +373,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-							sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+							sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 						})
 
 						It("exits with failure", func(ctx context.Context) {
@@ -398,7 +398,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote folder <", existingRemoteFolder, ">")
 
-								sshExec.mustExec(ctx, "mkdir "+existingRemoteFolder)
+								sshExec.mustExecEventually(ctx, "mkdir "+existingRemoteFolder)
 							})
 
 							It("copies contents of source folder to existing folder in target dir", func(ctx context.Context) {
@@ -410,7 +410,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := path.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
-									content := sshExec.mustExec(ctx, "cat "+remotePath)
+									content := sshExec.mustExecEventually(ctx, "cat "+remotePath)
 
 									Expect(content).To(Equal(fileInfo.content))
 								}
@@ -425,13 +425,13 @@ var _ = Describe("node copy", Ordered, func() {
 											dir = path.Join(dir, fileInfo.subFolder)
 
 											GinkgoWriter.Println("Creating remote target sub folder <", dir, ">")
-											sshExec.mustExec(ctx, "mkdir "+dir)
+											sshExec.mustExecEventually(ctx, "mkdir "+dir)
 										}
 
 										filePath := path.Join(dir, fileInfo.name)
 
 										GinkgoWriter.Println("Writing remote target file <", filePath, ">")
-										sshExec.mustExec(ctx, "echo 'existing content' > "+filePath)
+										sshExec.mustExecEventually(ctx, "echo 'existing content' > "+filePath)
 									}
 								})
 
@@ -444,7 +444,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									for _, fileInfo := range sourceFileInfos {
 										remotePath := path.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
-										content := sshExec.mustExec(ctx, "cat "+remotePath)
+										content := sshExec.mustExecEventually(ctx, "cat "+remotePath)
 
 										Expect(content).To(Equal(fileInfo.content))
 									}
@@ -462,7 +462,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := path.Join(remoteTempDir, sourceFolderName, fileInfo.subFolder, fileInfo.name)
-									content := sshExec.mustExec(ctx, "cat "+remotePath)
+									content := sshExec.mustExecEventually(ctx, "cat "+remotePath)
 
 									Expect(content).To(Equal(fileInfo.content))
 								}
@@ -482,7 +482,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							for _, fileInfo := range sourceFileInfos {
 								remotePath := path.Join(targetFolder, fileInfo.subFolder, fileInfo.name)
-								content := sshExec.mustExec(ctx, "cat "+remotePath)
+								content := sshExec.mustExecEventually(ctx, "cat "+remotePath)
 
 								Expect(content).To(Equal(fileInfo.content))
 							}
@@ -540,7 +540,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 				GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-				sshExec.mustExec(ctx, "mkdir "+remoteTempDir)
+				sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
 			})
 
 			AfterEach(func(ctx context.Context) {
@@ -576,7 +576,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-							sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+							sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 						})
 
 						It("overwrites the existing file", func(ctx context.Context) {
@@ -586,7 +586,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.mustExec(ctx, "more "+targetFile)
+							content := sshExec.mustExecEventually(ctx, "more "+targetFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -597,7 +597,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-								sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+								sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 							})
 
 							AfterEach(func(ctx context.Context) {
@@ -613,7 +613,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.mustExec(ctx, "more "+targetFile)
+								content := sshExec.mustExecEventually(ctx, "more "+targetFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -629,7 +629,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-								sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+								sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 							})
 
 							It("overwrites the existing file", func(ctx context.Context) {
@@ -639,7 +639,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.mustExec(ctx, "more "+existingRemoteFile)
+								content := sshExec.mustExecEventually(ctx, "more "+existingRemoteFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -650,7 +650,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-									sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+									sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 								})
 
 								AfterEach(func(ctx context.Context) {
@@ -666,7 +666,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-									content := sshExec.mustExec(ctx, "more "+existingRemoteFile)
+									content := sshExec.mustExecEventually(ctx, "more "+existingRemoteFile)
 
 									Expect(content).To(Equal(sourceFileContent))
 								})
@@ -682,7 +682,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.mustExec(ctx, "more "+expectedTargetFile)
+								content := sshExec.mustExecEventually(ctx, "more "+expectedTargetFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -707,7 +707,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-									content := sshExec.mustExec(ctx, "more "+expectedRemoteFile)
+									content := sshExec.mustExecEventually(ctx, "more "+expectedRemoteFile)
 
 									Expect(content).To(Equal(sourceFileContent))
 								})
@@ -725,7 +725,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.mustExec(ctx, "more "+targetFile)
+							content := sshExec.mustExecEventually(ctx, "more "+targetFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -765,7 +765,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.mustExec(ctx, "more "+expectedRemoteFile)
+							content := sshExec.mustExecEventually(ctx, "more "+expectedRemoteFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -821,7 +821,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-							sshExec.mustExec(ctx, "echo 'existing content' > "+existingRemoteFile)
+							sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 						})
 
 						It("exits with failure", func(ctx context.Context) {
@@ -846,7 +846,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote folder <", existingRemoteFolder, ">")
 
-								sshExec.mustExec(ctx, "mkdir "+existingRemoteFolder)
+								sshExec.mustExecEventually(ctx, "mkdir "+existingRemoteFolder)
 							})
 
 							It("copies contents of source folder to existing folder in target dir", func(ctx context.Context) {
@@ -858,7 +858,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := filepath.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
-									content := sshExec.mustExec(ctx, "more "+remotePath)
+									content := sshExec.mustExecEventually(ctx, "more "+remotePath)
 
 									Expect(content).To(Equal(fileInfo.content))
 								}
@@ -873,13 +873,13 @@ var _ = Describe("node copy", Ordered, func() {
 											dir = filepath.Join(dir, fileInfo.subFolder)
 
 											GinkgoWriter.Println("Creating remote target sub folder <", dir, ">")
-											sshExec.mustExec(ctx, "mkdir "+dir)
+											sshExec.mustExecEventually(ctx, "mkdir "+dir)
 										}
 
 										filePath := filepath.Join(dir, fileInfo.name)
 
 										GinkgoWriter.Println("Writing remote target file <", filePath, ">")
-										sshExec.mustExec(ctx, "echo 'existing content' > "+filePath)
+										sshExec.mustExecEventually(ctx, "echo 'existing content' > "+filePath)
 									}
 								})
 
@@ -892,7 +892,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									for _, fileInfo := range sourceFileInfos {
 										remotePath := filepath.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
-										content := sshExec.mustExec(ctx, "more "+remotePath)
+										content := sshExec.mustExecEventually(ctx, "more "+remotePath)
 
 										Expect(content).To(Equal(fileInfo.content))
 									}
@@ -910,7 +910,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := filepath.Join(remoteTempDir, sourceFolderName, fileInfo.subFolder, fileInfo.name)
-									content := sshExec.mustExec(ctx, "more "+remotePath)
+									content := sshExec.mustExecEventually(ctx, "more "+remotePath)
 
 									Expect(content).To(Equal(fileInfo.content))
 								}
@@ -930,7 +930,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							for _, fileInfo := range sourceFileInfos {
 								remotePath := filepath.Join(targetFolder, fileInfo.subFolder, fileInfo.name)
-								content := sshExec.mustExec(ctx, "more "+remotePath)
+								content := sshExec.mustExecEventually(ctx, "more "+remotePath)
 
 								Expect(content).To(Equal(fileInfo.content))
 							}
@@ -1004,7 +1004,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 					GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-					sshExec.mustExec(ctx, "mkdir "+remoteTempDir)
+					sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
 				})
 
 				AfterEach(func(ctx context.Context) {
@@ -1023,7 +1023,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFile = path.Join(remoteTempDir, sourceFileName)
 
 						GinkgoWriter.Println("Creating remote file <", sourceFile, ">")
-						sshExec.mustExec(ctx, "echo -n '"+sourceFileContent+"' > "+sourceFile)
+						sshExec.mustExecEventually(ctx, "echo -n '"+sourceFileContent+"' > "+sourceFile)
 						GinkgoWriter.Println("Remote file <", sourceFile, "> created")
 					})
 
@@ -1211,7 +1211,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFolder = path.Join(remoteTempDir, sourceFolderName)
 
 						GinkgoWriter.Println("Creating remote source folder <", sourceFolder, ">")
-						sshExec.mustExec(ctx, "mkdir "+sourceFolder)
+						sshExec.mustExecEventually(ctx, "mkdir "+sourceFolder)
 
 						for _, fileInfo := range sourceFileInfos {
 							dir := sourceFolder
@@ -1220,13 +1220,13 @@ var _ = Describe("node copy", Ordered, func() {
 								dir = path.Join(dir, fileInfo.subFolder)
 
 								GinkgoWriter.Println("Creating remote source sub folder <", dir, ">")
-								sshExec.mustExec(ctx, "mkdir "+dir)
+								sshExec.mustExecEventually(ctx, "mkdir "+dir)
 							}
 
 							filePath := path.Join(dir, fileInfo.name)
 
 							GinkgoWriter.Println("Writing remote source file <", filePath, ">")
-							sshExec.mustExec(ctx, "echo -n '"+fileInfo.content+"' > "+filePath)
+							sshExec.mustExecEventually(ctx, "echo -n '"+fileInfo.content+"' > "+filePath)
 						}
 					})
 
@@ -1430,7 +1430,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 					GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-					sshExec.mustExec(ctx, "mkdir "+remoteTempDir)
+					sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
 				})
 
 				AfterEach(func(ctx context.Context) {
@@ -1449,7 +1449,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFile = filepath.Join(remoteTempDir, sourceFileName)
 
 						GinkgoWriter.Println("Creating remote file <", sourceFile, ">")
-						sshExec.mustExec(ctx, "echo | set /p tempVar=\""+sourceFileContent+"\" > "+sourceFile)
+						sshExec.mustExecEventually(ctx, "echo | set /p tempVar=\""+sourceFileContent+"\" > "+sourceFile)
 						GinkgoWriter.Println("Remote file <", sourceFile, "> created")
 					})
 
@@ -1637,7 +1637,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFolder = filepath.Join(remoteTempDir, sourceFolderName)
 
 						GinkgoWriter.Println("Creating remote source folder <", sourceFolder, ">")
-						sshExec.mustExec(ctx, "mkdir "+sourceFolder)
+						sshExec.mustExecEventually(ctx, "mkdir "+sourceFolder)
 
 						for _, fileInfo := range sourceFileInfos {
 							dir := sourceFolder
@@ -1646,13 +1646,13 @@ var _ = Describe("node copy", Ordered, func() {
 								dir = filepath.Join(dir, fileInfo.subFolder)
 
 								GinkgoWriter.Println("Creating remote source sub folder <", dir, ">")
-								sshExec.mustExec(ctx, "mkdir "+dir)
+								sshExec.mustExecEventually(ctx, "mkdir "+dir)
 							}
 
 							filePath := filepath.Join(dir, fileInfo.name)
 
 							GinkgoWriter.Println("Writing remote source file <", filePath, ">")
-							sshExec.mustExec(ctx, "echo | set /p tempVar=\""+fileInfo.content+"\" > "+filePath)
+							sshExec.mustExecEventually(ctx, "echo | set /p tempVar=\""+fileInfo.content+"\" > "+filePath)
 						}
 					})
 
@@ -1805,8 +1805,23 @@ var _ = Describe("node copy", Ordered, func() {
 	})
 })
 
-func (ssh sshExecutor) mustExec(ctx context.Context, remoteCmd string) string {
-	return ssh.executor.MustExec(ctx, "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
+func (ssh sshExecutor) mustExecEventually(ctx context.Context, remoteCmd string) string {
+	var output string
+
+	Eventually(func(ctx context.Context) int {
+		var exitCode int
+		output, exitCode = ssh.executor.Exec(ctx, "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
+
+		Expect(exitCode).To(SatisfyAny(
+			BeEquivalentTo(cli.ExitCodeSuccess),
+			Equal(-1),
+			Equal(255),
+		))
+
+		return exitCode
+	}).WithContext(ctx).WithTimeout(time.Minute).WithPolling(time.Second).Should(BeEquivalentTo(cli.ExitCodeSuccess))
+
+	return output
 }
 
 func (ssh sshExecutor) exec(ctx context.Context, remoteCmd string) {

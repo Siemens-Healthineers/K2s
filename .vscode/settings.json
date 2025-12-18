@@ -36,6 +36,7 @@
         "execute_all_tests.ps1",
         "failsafehttp",
         "flanneld",
+        "fluxcd",
         "gexec",
         "Goda",
         "Golang",

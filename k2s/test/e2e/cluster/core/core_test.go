@@ -10,6 +10,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/siemens-healthineers/k2s/test/framework/watcher"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,6 +30,7 @@ var manifestDir string
 var proxy string
 
 var testFailed = false
+var podWatcher *watcher.PodWatcher
 
 func TestClusterCore(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -41,7 +43,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(time.Millisecond*200),
-		framework.ClusterTestStepTimeout(8*time.Minute)) // Increased timeout for Windows workloads
+		framework.ClusterTestStepTimeout(8*time.Minute))
 	k2s = dsl.NewK2s(suite)
 
 	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
@@ -52,6 +54,12 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	GinkgoWriter.Println("Using proxy <", proxy, "> for internet access")
 	GinkgoWriter.Println("Deploying workloads to cluster..")
+
+	// Start pod watcher in background
+	podWatcher = watcher.NewPodWatcher(GinkgoWriter, namespace)
+	if err := podWatcher.Start(ctx, suite.Kubectl().Path()); err != nil {
+		GinkgoWriter.Printf("Warning: failed to start pod watcher: %v\n", err)
+	}
 
 	suite.Kubectl().MustExec(ctx, "apply", "-k", manifestDir)
 
@@ -75,6 +83,10 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if podWatcher != nil {
+		podWatcher.Stop()
+	}
+
 	suite.StatusChecker().IsK2sRunning(ctx)
 
 	GinkgoWriter.Println("Deleting workloads..")
@@ -93,14 +105,14 @@ var _ = AfterSuite(func(ctx context.Context) {
 	}
 })
 
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
+})
+
 var _ = Describe("Cluster Core", func() {
 	systemNamespace := "kube-system"
-
-	var _ = AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			testFailed = true
-		}
-	})
 
 	Describe("Basic Components", func() {
 		Describe("System Nodes", func() {
