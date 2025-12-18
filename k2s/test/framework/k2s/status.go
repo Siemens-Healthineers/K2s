@@ -6,7 +6,6 @@ package k2s
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/test/framework/os"
@@ -82,7 +81,14 @@ func (sc *StatusChecker) isWslRunning(ctx context.Context) bool {
 
 	distros := strings.Split(string(utf8Bytes), "\r\n")
 
-	isRunning := slices.Contains(distros, sc.setupInfo.RuntimeConfig.ControlPlaneConfig().Hostname())
+	isRunning := false
+
+	for _, distro := range distros {
+		if strings.EqualFold(distro, sc.setupInfo.RuntimeConfig.ControlPlaneConfig().Hostname()) {
+			isRunning = true
+			break
+		}
+	}
 
 	GinkgoWriter.Println("WSL running:", isRunning)
 
