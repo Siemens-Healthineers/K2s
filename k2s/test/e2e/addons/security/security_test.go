@@ -27,24 +27,22 @@ import (
 	"github.com/onsi/gomega/gstruct"
 )
 
+const addonName = "security"
 const (
-	addonName = "security"
 	namespace = "k2s"
 )
 
-var (
-	linuxDeploymentNames = []string{"albums-linux1", "albums-linux2", "albums-linux3"}
-	winDeploymentNames   = []string{"albums-win1", "albums-win2", "albums-win3"}
+var linuxDeploymentNames = []string{"albums-linux1", "albums-linux2", "albums-linux3"}
+var winDeploymentNames = []string{"albums-win1", "albums-win2", "albums-win3"}
 
-	manifestDir string
-	k2s         *dsl.K2s
+var manifestDir string
+var k2s *dsl.K2s
 
-	proxy           string
-	testFailed      = false
-	workloadCreated = false
-	suite           *framework.K2sTestSuite
-	testStepTimeout = time.Minute * 10
-)
+var proxy string
+var testFailed = false
+var workloadCreated = false
+var suite *framework.K2sTestSuite
+var testStepTimeout = time.Minute * 10
 
 func TestSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -70,7 +68,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.StatusChecker().IsK2sRunning(ctx)
 
 	GinkgoWriter.Println("Deleting workloads if necessary..")
-	deleteWorkloads(ctx)
+	DeleteWorkloads(ctx)
 
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
@@ -96,6 +94,42 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	suite.TearDown(ctx)
 })
+
+func DeployWorkloads(ctx context.Context) {
+	GinkgoWriter.Println("Deploying workloads to cluster..")
+
+	if manifestDir == "" {
+		Fail("Manifest directory is not set, cannot deploy workloads")
+	}
+	suite.Kubectl().MustExec(ctx, "apply", "-k", manifestDir)
+
+	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
+
+	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+
+	for _, deploymentName := range linuxDeploymentNames {
+		suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, namespace)
+	}
+
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		for _, deploymentName := range winDeploymentNames {
+			suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, namespace)
+		}
+	}
+	workloadCreated = true
+	GinkgoWriter.Println("Deployments ready for testing")
+}
+
+func DeleteWorkloads(ctx context.Context) {
+	// for finding out the sporadically failed test runs
+	if !testFailed && manifestDir != "" && workloadCreated {
+		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
+		workloadCreated = false
+		GinkgoWriter.Println("Workloads deleted")
+	}
+}
 
 var _ = Describe("'security' addon", Ordered, func() {
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
@@ -164,7 +198,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("Deploy the workloads after enabling the security addon", func(ctx context.Context) {
-		deployWorkloads(ctx)
+		DeployWorkloads(ctx)
 	})
 
 	headers := make(map[string]string)
@@ -198,7 +232,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 		Entry("albums-win2 is reachable from host", "albums-win2", true))
 
 	It("Delete the workloads", func(ctx context.Context) {
-		deleteWorkloads(ctx)
+		DeleteWorkloads(ctx)
 	})
 
 	It("disables the addon", func(ctx context.Context) {
@@ -318,7 +352,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	})
 
 	It("Deploy the workloads after enabling the security addon", func(ctx context.Context) {
-		deployWorkloads(ctx)
+		DeployWorkloads(ctx)
 	})
 
 	Describe("Communication", func() {
@@ -440,7 +474,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	})
 
 	It("Delete the workloads", func(ctx context.Context) {
-		deleteWorkloads(ctx)
+		DeleteWorkloads(ctx)
 	})
 
 	It("disables the addon", func(ctx context.Context) {
@@ -1059,40 +1093,3 @@ var _ = Describe("'security' addon with enhanced mode and all omit flags", Order
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 })
-
-func deployWorkloads(ctx context.Context) {
-	GinkgoWriter.Println("Deploying workloads to cluster..")
-
-	if manifestDir == "" {
-		Fail("Manifest directory is not set, cannot deploy workloads")
-	}
-
-	suite.Kubectl().MustExec(ctx, "apply", "-k", manifestDir)
-
-	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
-
-	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
-
-	for _, deploymentName := range linuxDeploymentNames {
-		suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, namespace)
-	}
-
-	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-		for _, deploymentName := range winDeploymentNames {
-			suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, namespace)
-		}
-	}
-	workloadCreated = true
-	GinkgoWriter.Println("Deployments ready for testing")
-}
-
-func deleteWorkloads(ctx context.Context) {
-	// for finding out the sporadically failed test runs
-	if !testFailed && manifestDir != "" && workloadCreated {
-		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
-		workloadCreated = false
-		GinkgoWriter.Println("Workloads deleted")
-	}
-}
