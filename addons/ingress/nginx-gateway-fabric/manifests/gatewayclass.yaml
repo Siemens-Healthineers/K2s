@@ -5,7 +5,7 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  name: nginx
+  name: nginx-gateway
   labels:
     app.kubernetes.io/part-of: nginx-gateway
     app.kubernetes.io/name: nginx-gateway

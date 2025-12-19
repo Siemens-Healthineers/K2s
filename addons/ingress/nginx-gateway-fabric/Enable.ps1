@@ -184,7 +184,7 @@ $allJobsAreCompleted = (Wait-ForJobCondition -Condition Complete -Label 'app.kub
     exit 1
 }
 
-$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-nginx-gateway.yml"
+$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-nginx-gateway.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
 Write-Log 'All nginx gateway pods are up and ready.'

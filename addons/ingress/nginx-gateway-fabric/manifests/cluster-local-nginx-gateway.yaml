@@ -2,25 +2,15 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Central cluster-local host using Gateway API with NGF (NGINX Gateway Fabric).
-# Gateway terminates TLS for k2s.cluster.local and allows routes from all namespaces
-# to attach via parentRefs. The TLS certificate is provisioned by cert-manager
-# (k2s-ca-issuer) into Secret 'k2s-cluster-local-tls'.
-# ---
-# apiVersion: cert-manager.io/v1
-# kind: Certificate
-# metadata:
-#   name: k2s-cluster-local-tls
-#   namespace: nginx-gateway
-# spec:
-#   secretName: k2s-cluster-local-tls
-#   commonName: k2s.cluster.local
-#   dnsNames:
-#   - k2s.cluster.local
-#   issuerRef:
-#     kind: ClusterIssuer
-#     name: k2s-ca-issuer
-# ---
+# This Ingress serves as central ingress host for the cluster.
+# Any ingress, in any namespace, can use the same hostname, and it will be
+# merged with this one. See for example:
+#  addons/dashboard/manifests/ingress-nginx/dashboard-traefik-ingress.yaml
+#  addons/logging/manifests/opensearch-dashboards/traefik.yaml
+# The certificate is taken from k8s secret 'k2s-cluster-local-tls'
+# This secret will be created by cert-manager, if it is running.
+# If cert-manager is not running, the secret will not be present and traefik
+# will use an own self-signed certificate.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -31,7 +21,7 @@ metadata:
     app.kubernetes.io/name: nginx-gateway
     app.kubernetes.io/instance: nginx-gateway
 spec:
-  gatewayClassName: nginx
+  gatewayClassName: nginx-gateway
   listeners:
   - name: http
     hostname: k2s.cluster.local

@@ -35,7 +35,7 @@ spec:
       - args:
         - controller
         - --gateway-ctlr-name=gateway.nginx.org/nginx-gateway-controller
-        - --gatewayclass=nginx
+        - --gatewayclass=nginx-gateway
         - --config=nginx-gateway-config
         - --service=nginx-gateway
         - --agent-tls-secret=agent-tls
@@ -112,4 +112,4 @@ spec:
       volumes:
       - name: nginx-agent-tls
         secret:
-          secretName: server-tls
+          secretName: agent-tls

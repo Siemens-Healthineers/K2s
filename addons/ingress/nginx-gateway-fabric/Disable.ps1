@@ -65,13 +65,16 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'nginx-gateway', '--ig
 }
 
 Write-Log 'Uninstalling ingress nginx gateway fabric' -Console
-$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-nginx-gateway"
-(Invoke-Kubectl -Params 'delete' , '-f', $clusterIngressConfig).Output | Write-Log
-$nginxGateWayYamlDir = Get-NginxGatewayYamlDir
-(Invoke-Kubectl -Params 'delete', '-k', $nginxGateWayYamlDir).Output | Write-Log
-$nginxGateWayYamlDir = Get-NginxGatewayCrdsDir
-(Invoke-Kubectl -Params 'delete', '-k', $nginxGateWayYamlDir).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'namespace', 'nginx-gateway').Output | Write-Log
+$clusterNginxGatewayConfig = "$PSScriptRoot\manifests\cluster-local-nginx-gateway.yaml"
+(Invoke-Kubectl -Params 'delete' , '-f', $clusterNginxGatewayConfig).Output | Write-Log
+
+$CrdsDirectory = Get-NginxGatewayCrdsDir
+(Invoke-Kubectl -Params 'delete', '-f', $CrdsDirectory).Output | Write-Log
+
+$nginxGatewayYamlDir = Get-NginxGatewayYamlDir
+(Invoke-Kubectl -Params 'delete', '-k', $nginxGatewayYamlDir, '--ignore-not-found').Output | Write-Log
+
+(Invoke-Kubectl -Params 'delete', 'namespace', 'nginx-gateway', '--ignore-not-found').Output | Write-Log
 
 Write-log 'Uninstalling ExternalDNS' -Console
 $externalDnsConfigDir = Get-ExternalDnsConfigDir
