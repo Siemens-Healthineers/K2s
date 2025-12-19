@@ -150,7 +150,6 @@ $ingressNginxGatewayNamespace = 'nginx-gateway'
 $CrdsDirectory = Get-NginxGatewayCrdsDir
 (Invoke-Kubectl -Params 'apply', '--server-side', '-f', $CrdsDirectory).Output | Write-Log
 
-(Invoke-Kubectl -Params 'create', 'ns', $ingressNginxGatewayNamespace).Output | Write-Log
 (Invoke-Kubectl -Params 'apply' , '-k', $kustomizationDir).Output | Write-Log
 
 # # delete the temporary directory

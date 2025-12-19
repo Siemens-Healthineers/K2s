@@ -19,7 +19,7 @@ spec:
       container:
         image:
           pullPolicy: IfNotPresent
-          repository: ghcr.io/nginx/nginx-gateway/nginx
+          repository: ghcr.io/nginx/nginx-gateway-fabric/nginx
           tag: 2.2.2
     service:
       externalTrafficPolicy: Local
