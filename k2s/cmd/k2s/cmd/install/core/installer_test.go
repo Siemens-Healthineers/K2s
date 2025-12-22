@@ -87,7 +87,7 @@ var _ = Describe("core", func() {
 				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
 				cmdContext := common.NewCmdContext(cfg, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
-				runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("existent", false, "", false), nil)
+				runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("existent", false, "", false, false), nil)
 
 				printerMock := &myMock{}
 
@@ -151,7 +151,7 @@ var _ = Describe("core", func() {
 					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 					expectedError := common.CreateSystemInCorruptedStateCmdFailure()
-					runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("existent", false, "", true), nil)
+					runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("existent", false, "", true, false), nil)
 
 					configMock := &myMock{}
 					configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(runtimeConfig, config.ErrSystemInCorruptedState)

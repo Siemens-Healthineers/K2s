@@ -5,39 +5,124 @@ package k2s
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
+	"strings"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
+	"github.com/siemens-healthineers/k2s/test/framework/os"
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/mgr"
+	"golang.org/x/text/encoding/unicode"
 
+	//lint:ignore ST1001 test framework code
+	. "github.com/onsi/ginkgo/v2"
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
 )
 
-type K2sStatus struct {
-	internal *status.PrintStatus
+type StatusChecker struct {
+	newCliFunc func(cliPath string) *os.CliExecutor
+	setupInfo  *SetupInfo
 }
 
-// wrapper around k2s.exe to retrieve and parse the cluster status
-func (r *K2sCliRunner) GetStatus(ctx context.Context) *K2sStatus {
-	output := r.RunOrFail(ctx, "status", "-o", "json")
+var winServices = []string{"flanneld", "kubelet", "kubeproxy"}
 
-	status := unmarshalStatus[status.PrintStatus](output)
-
-	return &K2sStatus{
-		internal: status,
+func NewStatusChecker(newCliFunc func(cliPath string) *os.CliExecutor, setupInfo *SetupInfo) *StatusChecker {
+	return &StatusChecker{
+		newCliFunc: newCliFunc,
+		setupInfo:  setupInfo,
 	}
 }
 
-func (status K2sStatus) IsClusterRunning() bool {
-	return status.internal.RunningState.IsRunning
+// IsK2sRunning checks whether the K2s system is running and prints the status to GinkgoWriter.
+func (sc *StatusChecker) IsK2sRunning(ctx context.Context) bool {
+	GinkgoWriter.Println("Checking K2s system status..")
+
+	sc.setupInfo.ReloadRuntimeConfig()
+
+	var controlPlaneRunning bool
+	if sc.setupInfo.RuntimeConfig.InstallConfig().WslEnabled() {
+		controlPlaneRunning = sc.isWslRunning(ctx)
+	} else {
+		controlPlaneRunning = sc.isVmRunning(ctx)
+	}
+
+	if sc.setupInfo.RuntimeConfig.InstallConfig().LinuxOnly() {
+		return controlPlaneRunning
+	}
+
+	isRunning := controlPlaneRunning && areWinServicesRunning()
+
+	GinkgoWriter.Println("K2s system running:", isRunning)
+
+	return isRunning
 }
 
-func unmarshalStatus[T any](statusJson string) *T {
-	var status T
+func (sc *StatusChecker) isVmRunning(ctx context.Context) bool {
+	GinkgoWriter.Println("Checking VM status for control-plane..")
 
-	err := json.Unmarshal([]byte(statusJson), &status)
+	cmd := fmt.Sprintf("(Get-VM -Name %s).State", sc.setupInfo.RuntimeConfig.ControlPlaneConfig().Hostname())
 
+	output := sc.newCliFunc("powershell").NoStdOut().MustExec(ctx, cmd)
+
+	isRunning := strings.TrimSuffix(output, "\r\n") == "Running"
+
+	GinkgoWriter.Println("VM running:", isRunning)
+
+	return isRunning
+}
+
+func (sc *StatusChecker) isWslRunning(ctx context.Context) bool {
+	GinkgoWriter.Println("Checking WSL status for control-plane..")
+
+	output := sc.newCliFunc("wsl.exe").MustExec(ctx, "-l", "-q", "--running")
+
+	utf8Bytes, err := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder().String(output)
 	Expect(err).ToNot(HaveOccurred())
 
-	return &status
+	distros := strings.Split(string(utf8Bytes), "\r\n")
+
+	isRunning := false
+
+	for _, distro := range distros {
+		if strings.EqualFold(distro, sc.setupInfo.RuntimeConfig.ControlPlaneConfig().Hostname()) {
+			isRunning = true
+			break
+		}
+	}
+
+	GinkgoWriter.Println("WSL running:", isRunning)
+
+	return isRunning
+}
+
+func areWinServicesRunning() bool {
+	manager, err := mgr.Connect()
+	Expect(err).ToNot(HaveOccurred())
+	defer manager.Disconnect()
+
+	for _, serviceName := range winServices {
+		isRunning := isWinServiceRunning(manager, serviceName)
+
+		if !isRunning {
+			return false
+		}
+	}
+	return true
+}
+
+func isWinServiceRunning(manager *mgr.Mgr, serviceName string) bool {
+	GinkgoWriter.Println("Checking Windows service <", serviceName, ">..")
+
+	service, err := manager.OpenService(serviceName)
+	Expect(err).ToNot(HaveOccurred())
+	defer service.Close()
+
+	status, err := service.Query()
+	Expect(err).ToNot(HaveOccurred())
+
+	isRunning := status.State == svc.Running
+
+	GinkgoWriter.Println("Windows service <", serviceName, "> running:", isRunning)
+
+	return isRunning
 }
