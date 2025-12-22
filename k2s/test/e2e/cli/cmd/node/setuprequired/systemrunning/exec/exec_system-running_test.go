@@ -49,7 +49,7 @@ var _ = Describe("node exec", Ordered, func() {
 		When("command execution succeeds", func() {
 			When("output is standard", func() {
 				It("prints standard output and exits with exit code zero", func(ctx context.Context) {
-					output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
+					output := suite.K2sCli().MustExec(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
 
 					Expect(output).To(SatisfyAll(
 						MatchRegexp("Hello, world!"),
@@ -60,16 +60,16 @@ var _ = Describe("node exec", Ordered, func() {
 
 			When("output is raw", func() {
 				It("prints raw output only and exits with exit code zero", func(ctx context.Context) {
-					output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-r", "-o")
+					output := suite.K2sCli().MustExec(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-r", "-o")
 
 					Expect(output).To(Equal("Hello, world!\n"))
 				})
 			})
 		})
 
-		When("command execution failes", func() {
+		When("command execution fails", func() {
 			It("prints the output and exits with non-zero exit code", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "mkdir /this/should/not/exist", "-o")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "mkdir /this/should/not/exist", "-o")
 
 				Expect(output).To(MatchRegexp("cannot create directory"))
 			})
@@ -95,7 +95,7 @@ var _ = Describe("node exec", Ordered, func() {
 		When("command execution succeeds", func() {
 			When("output is standard", func() {
 				It("prints standard output and exits with exit code zero", func(ctx context.Context) {
-					output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
+					output := suite.K2sCli().MustExec(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
 
 					Expect(output).To(SatisfyAll(
 						MatchRegexp("Hello, world!"),
@@ -106,16 +106,16 @@ var _ = Describe("node exec", Ordered, func() {
 
 			When("output is raw", func() {
 				It("prints raw output only and exits with exit code zero", func(ctx context.Context) {
-					output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-r", "-o")
+					output := suite.K2sCli().MustExec(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-r", "-o")
 
 					Expect(output).To(Equal("Hello, world!\n"))
 				})
 			})
 		})
 
-		When("command execution failes", func() {
+		When("command execution fails", func() {
 			It("prints the output and exits with non-zero exit code", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "non-existing-cmd", "-o")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "non-existing-cmd", "-o")
 
 				Expect(output).To(MatchRegexp("not recognized"))
 			})

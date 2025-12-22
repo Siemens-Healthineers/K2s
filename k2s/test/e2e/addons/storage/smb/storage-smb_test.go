@@ -77,7 +77,7 @@ var (
 
 func TestSmbshare(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "storage Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "storage", "system-running"))
+	RunSpecs(t, "storage Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "invasive", "storage", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -91,7 +91,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	GinkgoWriter.Println("Creating namespace <", namespace, "> on cluster..")
 
-	suite.Kubectl().Run(ctx, "apply", "-f", namespaceManifestPath)
+	suite.Kubectl().MustExec(ctx, "apply", "-f", namespaceManifestPath)
 
 	GinkgoWriter.Println("Namespace <", namespace, "> created on cluster")
 
@@ -109,12 +109,12 @@ var _ = BeforeSuite(func(ctx context.Context) {
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Deleting namespace <", namespace, "> on cluster..")
 
-	suite.Kubectl().Run(ctx, "delete", "-f", namespaceManifestPath)
+	suite.Kubectl().MustExec(ctx, "delete", "-f", namespaceManifestPath)
 
 	GinkgoWriter.Println("Namespace <", namespace, "> deleted on cluster")
 	GinkgoWriter.Println("Disabling addon..")
 
-	output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+	output := suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 	GinkgoWriter.Println(output)
 
@@ -128,7 +128,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	Describe("status command", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName)
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, implementationName)
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
@@ -139,7 +139,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName, "-o", "json")
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, implementationName, "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -158,7 +158,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	Describe("disable command", func() {
 		When("addon is disabled", func() {
 			It("disables the addon for both host types for cleanup", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+				output := suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 				Expect(output).To(SatisfyAll(
 					ContainSubstring("disable"),
@@ -171,7 +171,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 		When("both mutually exclusive flags are being used", func() {
 			It("displays error and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-k", "-o")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName, implementationName, "-f", "-k", "-o")
 
 				Expect(output).To(SatisfyAll(
 					ContainSubstring("ERROR"),
@@ -182,15 +182,15 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable command", func() {
-		When("SMB host type is Windows", Ordered, func() {
+		When("SMB host type is Windows", func() {
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 
 				expectEnableMessage(output, "windows")
 			})
 
 			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName, implementationName)
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName, implementationName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -200,7 +200,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deploys Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", linuxManifestDir)
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
@@ -208,7 +208,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "apply", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
 			})
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
@@ -218,12 +218,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
 
 			It("restarts the cluster", func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "start")
+				suite.K2sCli().MustExec(ctx, "start", "-o")
 			})
 
 			It("still runs Linux-based workloads after cluster restart", func(ctx context.Context) {
@@ -232,12 +236,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("still runs Windows-based workloads after cluster restart", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", linuxManifestDir)
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
@@ -245,7 +253,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "delete", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", windowsManifestDir)
 			})
 
 			It("disposes Linux-based workloads", func(ctx context.Context) {
@@ -266,10 +274,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				disableAddon(ctx, "-f")
 			})
 		})
-	})
 
-	Describe("enable command", func() {
-		When("SMB host type is linux", Ordered, func() {
+		When("SMB host type is linux", func() {
 			var smbHostPrefix string
 
 			BeforeAll(func() {
@@ -277,13 +283,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
 
 				expectEnableMessage(output, "linux")
 			})
 
 			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName, implementationName)
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName, implementationName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -293,7 +299,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deploys Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", linuxManifestDir)
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
@@ -301,7 +307,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "apply", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
 			})
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
@@ -310,12 +316,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, windowsTestfileName)
 			})
 
 			It("restarts the cluster", func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "start")
+				suite.K2sCli().MustExec(ctx, "start", "-o")
 			})
 
 			It("still runs Linux-based workloads after cluster restart", func(ctx context.Context) {
@@ -324,12 +334,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("still runs Windows-based workloads after cluster restart", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, windowsTestfileName)
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", linuxManifestDir)
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
@@ -337,7 +351,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "delete", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", windowsManifestDir)
 			})
 
 			It("disposes Linux-based workloads", func(ctx context.Context) {
@@ -361,9 +375,9 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable and disable with keep in Windows", func() {
-		When("SMB host type is Windows", Ordered, func() {
+		When("SMB host type is Windows", func() {
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 
 				expectEnableMessage(output, "windows")
 			})
@@ -373,7 +387,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deploys Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", linuxManifestDir)
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
@@ -381,7 +395,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "apply", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
 			})
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
@@ -391,12 +405,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", linuxManifestDir)
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
@@ -404,7 +422,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "delete", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", windowsManifestDir)
 			})
 
 			It("disposes Linux-based workloads", func(ctx context.Context) {
@@ -448,7 +466,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable and disable with keep in Linux", func() {
-		When("SMB host type is Linux", Ordered, func() {
+		When("SMB host type is Linux", func() {
 			var smbHostPrefix string
 
 			BeforeAll(func() {
@@ -456,7 +474,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
 
 				expectEnableMessage(output, "linux")
 			})
@@ -466,7 +484,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deploys Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", linuxManifestDir)
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
@@ -474,7 +492,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "apply", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
 			})
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
@@ -484,12 +502,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, windowsTestfileName)
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", linuxManifestDir)
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
@@ -497,7 +519,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "delete", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", windowsManifestDir)
 			})
 
 			It("disposes Linux-based workloads", func(ctx context.Context) {
@@ -540,7 +562,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable with preexisting folder in Windows", func() {
-		When("SMB host type is Windows", Ordered, func() {
+		When("SMB host type is Windows", func() {
 			It("creates the mount paths", func() {
 				createMountPath(storageConfig[0].WinMountPath)
 				createMountPath(storageConfig[1].WinMountPath)
@@ -550,7 +572,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 
 				expectEnableMessage(output, "windows")
 			})
@@ -565,7 +587,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deploys Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", linuxManifestDir)
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
@@ -573,7 +595,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "apply", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
 			})
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
@@ -583,12 +605,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", linuxManifestDir)
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
@@ -596,7 +622,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "delete", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", windowsManifestDir)
 			})
 
 			It("disposes Linux-based workloads", func(ctx context.Context) {
@@ -625,12 +651,15 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("enable with pvc access mode readwritemany deployment in Windows", func() {
-		if skipWindowsWorkloads {
-			Skip("Linux-only setup")
-		}
-		When("SMB host type is Windows", Ordered, func() {
+		BeforeAll(func() {
+			if skipWindowsWorkloads {
+				Skip("Linux-only setup")
+			}
+		})
+
+		When("SMB host type is Windows", func() {
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 				expectEnableMessage(output, "windows")
 			})
 
@@ -639,8 +668,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
-
-				suite.Kubectl().Run(ctx, "apply", "-k", accessModeManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", accessModeManifestDir)
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
@@ -648,7 +676,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-k", accessModeManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", accessModeManifestDir)
 			})
 
 			It("disposes Windows-based workloads", func(ctx context.Context) {
@@ -663,9 +691,24 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("Reclaim Policy Delete", func() {
-		When("StorageClass with Delete reclaim policy", Ordered, func() {
+		When("StorageClass with Delete reclaim policy", func() {
+			pvNames := []string{}
+			workloadPVCNames := []string{
+				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName1),
+				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName2),
+			}
+
+			BeforeAll(func() {
+				if !skipWindowsWorkloads {
+					workloadPVCNames = append(workloadPVCNames,
+						fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
+						fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
+					)
+				}
+			})
+
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 				expectEnableMessage(output, "windows")
 			})
 
@@ -674,17 +717,17 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("verifies the reclaim policy of storage class is Delete", func(ctx context.Context) {
-				reclaimPolicy1 := suite.Kubectl().Run(ctx, "get", "storageclass", storageConfig[0].StorageClassName, "-o", "jsonpath={.reclaimPolicy}")
+				reclaimPolicy1 := suite.Kubectl().MustExec(ctx, "get", "storageclass", storageConfig[0].StorageClassName, "-o", "jsonpath={.reclaimPolicy}")
 				GinkgoWriter.Printf("Reclaim policy for %s: %s\n", storageConfig[0].StorageClassName, reclaimPolicy1)
 				Expect(reclaimPolicy1).To(Equal("Delete"))
 
-				reclaimPolicy2 := suite.Kubectl().Run(ctx, "get", "storageclass", storageConfig[1].StorageClassName, "-o", "jsonpath={.reclaimPolicy}")
+				reclaimPolicy2 := suite.Kubectl().MustExec(ctx, "get", "storageclass", storageConfig[1].StorageClassName, "-o", "jsonpath={.reclaimPolicy}")
 				GinkgoWriter.Printf("Reclaim policy for %s: %s\n", storageConfig[1].StorageClassName, reclaimPolicy2)
 				Expect(reclaimPolicy2).To(Equal("Delete"))
 			})
 
 			It("deploys Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", linuxManifestDir)
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
@@ -692,7 +735,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "apply", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
 			})
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
@@ -702,26 +745,23 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
 				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
 			})
 
-			workloadPVCNames := []string{
-				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName1),
-				fmt.Sprintf("persistent-storage-%s-0", linuxWorkloadName2),
-				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
-				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
-			}
-
 			It("verifies PVCs are bound", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
-					output := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+					output := suite.Kubectl().MustExec(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
 					Expect(output).To(Equal("Bound"), fmt.Sprintf("PVC %s should be Bound", pvcName))
 				}
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-k", linuxManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", linuxManifestDir)
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
@@ -729,7 +769,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "delete", "-k", windowsManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", windowsManifestDir)
 			})
 
 			It("disposes Linux-based workloads", func(ctx context.Context) {
@@ -746,15 +786,14 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
-			pvNames := []string{}
 			It("verifies PVC still exists after StatefulSet deletion", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
-					output := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+					output := suite.Kubectl().MustExec(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
 					GinkgoWriter.Printf("\nPVC %s status: %s\n", pvcName, output)
 					Expect(output).To(Equal("Bound"), fmt.Sprintf("PVC %s should be Bound", pvcName))
 
 					// get pv name from pvc
-					pvName := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.spec.volumeName}")
+					pvName := suite.Kubectl().MustExec(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.spec.volumeName}")
 					pvNames = append(pvNames, pvName)
 					GinkgoWriter.Printf("\nPVC %s is bound to PV %s\n", pvcName, pvName)
 				}
@@ -763,13 +802,18 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			It("verifies content still exists after StatefulSet deletion", func(ctx context.Context) {
 				expectFileExists(ctx, storageConfig[0].WinMountPath, linuxTestfileName, linuxWorkloadName1)
 				expectFileExists(ctx, storageConfig[1].WinMountPath, linuxTestfileName, linuxWorkloadName2)
+
+				if skipWindowsWorkloads {
+					return
+				}
+
 				expectFileExists(ctx, storageConfig[0].WinMountPath, windowsTestfileName, windowsWorkloadName1)
 				expectFileExists(ctx, storageConfig[1].WinMountPath, windowsTestfileName, windowsWorkloadName2)
 			})
 
 			It("deletes the PVC", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
-					suite.Kubectl().Run(ctx, "delete", "pvc", pvcName, "-n", namespace)
+					suite.Kubectl().MustExec(ctx, "delete", "pvc", pvcName, "-n", namespace)
 				}
 			})
 
@@ -777,7 +821,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				for _, pvName := range pvNames {
 					GinkgoWriter.Printf("Checking if PV %s is deleted\n", pvName)
 					Eventually(func(ctx context.Context) string {
-						return suite.Kubectl().Run(ctx, "get", "pv", pvName, "--ignore-not-found", "-o", "jsonpath={.metadata.name}")
+						return suite.Kubectl().MustExec(ctx, "get", "pv", pvName, "--ignore-not-found", "-o", "jsonpath={.metadata.name}")
 					}).
 						WithTimeout(time.Minute).
 						WithPolling(time.Second*2).
@@ -789,6 +833,11 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			It("verifies content is deleted with PV (Delete reclaim policy)", func(ctx context.Context) {
 				expectFileDoesNotExist(ctx, storageConfig[0].WinMountPath, linuxTestfileName, linuxWorkloadName1)
 				expectFileDoesNotExist(ctx, storageConfig[1].WinMountPath, linuxTestfileName, linuxWorkloadName2)
+
+				if skipWindowsWorkloads {
+					return
+				}
+
 				expectFileDoesNotExist(ctx, storageConfig[0].WinMountPath, windowsTestfileName, windowsWorkloadName1)
 				expectFileDoesNotExist(ctx, storageConfig[1].WinMountPath, windowsTestfileName, windowsWorkloadName2)
 			})
@@ -800,12 +849,21 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("Reclaim Policy Retain", func() {
-		if skipWindowsWorkloads {
-			Skip("Linux-only setup")
-		}
-		When("StorageClass with Retain reclaim policy", Ordered, func() {
+		BeforeAll(func() {
+			if skipWindowsWorkloads {
+				Skip("Linux-only setup")
+			}
+		})
+
+		When("StorageClass with Retain reclaim policy", func() {
+			pvNames := []string{}
+			workloadPVCNames := []string{
+				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
+				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
+			}
+
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 				expectEnableMessage(output, "windows")
 			})
 
@@ -814,13 +872,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("verifies the reclaim policy of storage class is Retain", func(ctx context.Context) {
-				reclaimPolicy := suite.Kubectl().Run(ctx, "get", "storageclass", storageConfig[2].StorageClassName, "-o", "jsonpath={.reclaimPolicy}")
+				reclaimPolicy := suite.Kubectl().MustExec(ctx, "get", "storageclass", storageConfig[2].StorageClassName, "-o", "jsonpath={.reclaimPolicy}")
 				GinkgoWriter.Printf("Reclaim policy for %s: %s\n", storageConfig[2].StorageClassName, reclaimPolicy)
 				Expect(reclaimPolicy).To(Equal("Retain"))
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-k", retainManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", retainManifestDir)
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
@@ -828,21 +886,16 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[2].WinMountPath, windowsTestfileName)
 			})
 
-			workloadPVCNames := []string{
-				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName1),
-				fmt.Sprintf("persistent-storage-%s-0", windowsWorkloadName2),
-			}
-
 			It("verifies PVCs are bound", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
-					output := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+					output := suite.Kubectl().MustExec(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
 					GinkgoWriter.Printf("\nPVC %s status: %s\n", pvcName, output)
 					Expect(output).To(Equal("Bound"), fmt.Sprintf("PVC %s should be Bound", pvcName))
 				}
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-k", retainManifestDir)
+				suite.Kubectl().MustExec(ctx, "delete", "-k", retainManifestDir)
 			})
 
 			It("disposes Windows-based workloads", func(ctx context.Context) {
@@ -850,15 +903,14 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
-			pvNames := []string{}
 			It("verifies PVC still exists after StatefulSet deletion", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
-					output := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+					output := suite.Kubectl().MustExec(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.status.phase}")
 					GinkgoWriter.Printf("\nPVC %s status: %s\n", pvcName, output)
 					Expect(output).To(Equal("Bound"), fmt.Sprintf("PVC %s should be Bound", pvcName))
 
 					// get pv name from pvc
-					pvName := suite.Kubectl().Run(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.spec.volumeName}")
+					pvName := suite.Kubectl().MustExec(ctx, "get", "pvc", pvcName, "-n", namespace, "-o", "jsonpath={.spec.volumeName}")
 					pvNames = append(pvNames, pvName)
 					GinkgoWriter.Printf("\nPVC %s is bound to PV %s\n", pvcName, pvName)
 				}
@@ -871,7 +923,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 			It("deletes the PVC", func(ctx context.Context) {
 				for _, pvcName := range workloadPVCNames {
-					suite.Kubectl().Run(ctx, "delete", "pvc", pvcName, "-n", namespace)
+					suite.Kubectl().MustExec(ctx, "delete", "pvc", pvcName, "-n", namespace)
 				}
 			})
 
@@ -879,7 +931,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				for _, pvName := range pvNames {
 					GinkgoWriter.Printf("\nChecking if PV %s is retained and in released state\n", pvName)
 					Eventually(func(ctx context.Context) string {
-						return suite.Kubectl().Run(ctx, "get", "pv", pvName, "-o", "jsonpath={.status.phase}")
+						return suite.Kubectl().MustExec(ctx, "get", "pv", pvName, "-o", "jsonpath={.status.phase}")
 					}).
 						WithTimeout(time.Second*30).
 						WithPolling(time.Second*2).
@@ -895,7 +947,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 			It("cleans up the retained PV", func(ctx context.Context) {
 				for _, pvName := range pvNames {
-					suite.Kubectl().Run(ctx, "delete", "pv", pvName)
+					suite.Kubectl().MustExec(ctx, "delete", "pv", pvName)
 				}
 			})
 
@@ -906,7 +958,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("Static Provisioning", func() {
-		When("using static PV and PVC", Ordered, func() {
+		When("using static PV and PVC", func() {
 			const (
 				staticWorkloadName = "smb-static-test"
 				staticPVName       = "smb-static-pv"
@@ -916,19 +968,19 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			)
 
 			It("enables the addon with Windows host", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
 				expectEnableMessage(output, "windows")
 			})
 
 			It("creates static PV and PVC", func(ctx context.Context) {
 				GinkgoWriter.Printf("Creating static PV with source: %s\n", storageConfig[2].WinMountPath)
 
-				suite.Kubectl().Run(ctx, "apply", "-k", staticManifestDir)
+				suite.Kubectl().MustExec(ctx, "apply", "-k", staticManifestDir)
 			})
 
 			It("waits for PVC to be bound", func(ctx context.Context) {
 				Eventually(func(ctx context.Context) string {
-					return suite.Kubectl().Run(ctx, "get", "pvc", staticPVCName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+					return suite.Kubectl().MustExec(ctx, "get", "pvc", staticPVCName, "-n", namespace, "-o", "jsonpath={.status.phase}")
 				}).
 					WithTimeout(testFileCheckTimeout).
 					WithPolling(time.Second*2).
@@ -950,7 +1002,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deletes the StatefulSet", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "statefulset", staticWorkloadName, "-n", namespace)
+				suite.Kubectl().MustExec(ctx, "delete", "statefulset", staticWorkloadName, "-n", namespace)
 				suite.Cluster().ExpectStatefulSetToBeDeleted(staticWorkloadName, namespace, ctx)
 			})
 
@@ -961,8 +1013,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deletes the PVC and PV", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "pvc", staticPVCName, "-n", namespace)
-				suite.Kubectl().Run(ctx, "delete", "pv", staticPVName)
+				suite.Kubectl().MustExec(ctx, "delete", "pvc", staticPVCName, "-n", namespace)
+				suite.Kubectl().MustExec(ctx, "delete", "pv", staticPVName)
 			})
 
 			It("verifies file still exists after PVC deletion (Retain policy)", func(ctx context.Context) {
@@ -1014,7 +1066,7 @@ func disableAddon(ctx context.Context, option string) {
 	if len(option) == 0 {
 		option = "-f"
 	}
-	output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-o", option)
+	output := suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-o", option)
 
 	Expect(output).To(SatisfyAll(
 		ContainSubstring("disable"),
@@ -1024,7 +1076,7 @@ func disableAddon(ctx context.Context, option string) {
 }
 
 func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
-	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName)
+	output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, implementationName)
 
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
@@ -1035,7 +1087,7 @@ func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
 		MatchRegexp("CSI Pods are running"),
 	))
 
-	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName, "-o", "json")
+	output = suite.K2sCli().MustExec(ctx, "addons", "status", addonName, implementationName, "-o", "json")
 
 	var status status.AddonPrintStatus
 
@@ -1119,7 +1171,7 @@ func deleteMountPath(mountPath string) {
 
 func expectFileAreAvailableInLinux(ctx context.Context, sharefolder string) {
 	// execute command and check output if it contains the filename file1.txt and file2.txt
-	output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("ls %s", sharefolder))
+	output := suite.K2sCli().MustExec(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("ls %s", sharefolder))
 	Expect(output).To(ContainSubstring("file1.txt"))
 	Expect(output).To(ContainSubstring("file2.txt"))
 	Expect(output).To(ContainSubstring("file3.txt"))
@@ -1131,11 +1183,11 @@ func deleteFilesOnLinuxMount(ctx context.Context) {
 	share2 := "/srv/samba/linux-smb-share2"
 
 	// execute command and check output if it contains the filename file1.txt and file2.txt
-	output1 := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("sudo rm -r %s", share1))
+	output1 := suite.K2sCli().MustExec(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("sudo rm -r %s", share1))
 	Expect(output1).To(SatisfyAll(
 		ContainSubstring("completed in"),
 	))
-	output2 := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("sudo rm -r %s", share2))
+	output2 := suite.K2sCli().MustExec(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("sudo rm -r %s", share2))
 	Expect(output2).To(SatisfyAll(
 		ContainSubstring("completed in"),
 	))

@@ -32,7 +32,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("stop", Ordered, func() {
 	It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "stop")
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "stop")
 
 		Expect(output).To(ContainSubstring("not installed"))
 	})

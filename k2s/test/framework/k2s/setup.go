@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -8,21 +8,26 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"sync"
 
 	//lint:ignore ST1001 test framework code
+	. "github.com/onsi/ginkgo/v2"
+	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 )
 
 type SetupInfo struct {
-	Config        cconfig.K2sConfig
-	RuntimeConfig cconfig.K2sRuntimeConfig
+	Config        contracts.K2sConfig
+	RuntimeConfig contracts.K2sRuntimeConfig
 	ClusterConfig *clusterconfig.Cluster
 	WinNodeName   string
 }
+
+var lock sync.Mutex
 
 func CreateSetupInfo(installDir string) *SetupInfo {
 	config, err := config.ReadK2sConfig(installDir)
@@ -33,7 +38,13 @@ func CreateSetupInfo(installDir string) *SetupInfo {
 	}
 }
 
-func (si *SetupInfo) LoadSetupConfig() {
+// ReloadRuntimeConfig reloads the runtime config from file
+// It is recommended to call this before reading any values from RuntimeConfig
+func (si *SetupInfo) ReloadRuntimeConfig() {
+	lock.Lock()
+	defer lock.Unlock()
+	GinkgoWriter.Println("Reloading K2s runtime config..")
+
 	runtimeConfig, err := config.ReadRuntimeConfig(si.Config.Host().K2sSetupConfigDir())
 	Expect(err).ToNot(HaveOccurred())
 
@@ -42,15 +53,24 @@ func (si *SetupInfo) LoadSetupConfig() {
 
 	si.WinNodeName = winNodeName
 	si.RuntimeConfig = *runtimeConfig
+
+	GinkgoWriter.Println("K2s runtime config reloaded")
 }
 
 func (si *SetupInfo) LoadClusterConfig() {
+	lock.Lock()
+	defer lock.Unlock()
+
+	GinkgoWriter.Println("Loading cluster config..")
+
 	clusterConfig, err := clusterconfig.Read(si.Config.Host().K2sSetupConfigDir())
 	Expect(err).ToNot(HaveOccurred())
 
 	if clusterConfig != nil {
 		si.ClusterConfig = clusterConfig
 	}
+
+	GinkgoWriter.Println("Cluster config loaded")
 }
 
 func (si *SetupInfo) GetProxyForNode(nodeName string) string {

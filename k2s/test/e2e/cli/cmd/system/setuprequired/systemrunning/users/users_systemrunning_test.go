@@ -92,7 +92,7 @@ var _ = Describe("system users add", Ordered, func() {
 			})
 
 			It("grants Windows SYSTEM user access to K2s control-plane", MustPassRepeatedly(2), func(ctx context.Context) {
-				output := suite.Cli().ExecOrFail(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
+				output := suite.Cli("ssh.exe").MustExec(ctx, "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
 
 				Expect(output).To(ContainSubstring("SSH access test successful"))
 			})
@@ -152,7 +152,7 @@ users:
 			})
 
 			It("grants Windows SYSTEM user access to K2s control-plane", MustPassRepeatedly(2), func(ctx context.Context) {
-				output := suite.Cli().ExecOrFail(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
+				output := suite.Cli("ssh.exe").MustExec(ctx, "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
 
 				Expect(output).To(ContainSubstring("SSH access test successful"))
 			})
@@ -168,7 +168,7 @@ users:
 
 	When("user not found by name", func() {
 		It("prints not-found warning", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-u", "non-existent-name")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "users", "add", "-u", "non-existent-name")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("WARNING"),
@@ -180,7 +180,7 @@ users:
 
 	When("user not found by id", func() {
 		It("prints not-found warning", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-i", "non-existent-id")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "users", "add", "-i", "non-existent-id")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("WARNING"),
@@ -195,7 +195,7 @@ users:
 			currentUser, err := user.Current()
 			Expect(err).ToNot(HaveOccurred())
 
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-i", currentUser.Uid)
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "users", "add", "-i", currentUser.Uid)
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("ERROR"),

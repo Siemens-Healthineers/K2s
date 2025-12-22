@@ -37,7 +37,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("status", Ordered, func() {
 	Context("default output", func() {
 		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "status")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "status")
 
 			Expect(output).To(ContainSubstring("not installed"))
 		})
@@ -45,7 +45,7 @@ var _ = Describe("status", Ordered, func() {
 
 	Context("extended output", func() {
 		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "status", "-o", "wide")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "status", "-o", "wide")
 
 			Expect(output).To(ContainSubstring("not installed"))
 		})
@@ -55,7 +55,7 @@ var _ = Describe("status", Ordered, func() {
 		var status status.PrintStatus
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "status", "-o", "json")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "status", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})
