@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package cli
@@ -35,7 +35,7 @@ var _ = Describe("CLI", func() {
 	Describe("exit behavior", Ordered, func() {
 		When("error happened while CLI executions", func() {
 			It("prints the error and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "invalid", "command")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "invalid", "command")
 
 				Expect(output).To(SatisfyAll(
 					ContainSubstring("ERROR"),
@@ -46,7 +46,7 @@ var _ = Describe("CLI", func() {
 
 		When("CLI execution successful", func() {
 			It("prints no error", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeSuccess, "addons", "ls")
+				output := suite.K2sCli().MustExec(ctx, "addons", "ls")
 
 				Expect(output).ToNot(ContainSubstring("ERROR"))
 				Expect(output).To(ContainSubstring("Available Addons"))
@@ -55,7 +55,7 @@ var _ = Describe("CLI", func() {
 
 		When("non-leaf command is issued", func() {
 			It("prints help without errors", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeSuccess, "addons")
+				output := suite.K2sCli().MustExec(ctx, "addons")
 
 				Expect(output).ToNot(ContainSubstring("ERROR"))
 				Expect(output).To(ContainSubstring("Addons add optional functionality"))
@@ -64,7 +64,7 @@ var _ = Describe("CLI", func() {
 
 		When("help flag is used", func() {
 			It("prints help without errors", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeSuccess, "addons", "ls", "-h")
+				output := suite.K2sCli().MustExec(ctx, "addons", "ls", "-h")
 
 				Expect(output).ToNot(ContainSubstring("ERROR"))
 				Expect(output).To(ContainSubstring("List addons available"))

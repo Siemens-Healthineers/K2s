@@ -62,7 +62,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 	When("addon is disabled", func() {
 		Describe("disable", func() {
 			It("prints already-disabled message and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "kubevirt")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", "kubevirt")
 
 				Expect(output).To(ContainSubstring("already disabled"))
 			})
@@ -71,7 +71,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 		Describe("status", func() {
 			Context("default output", func() {
 				It("displays disabled message", func(ctx context.Context) {
-					output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "kubevirt")
+					output := suite.K2sCli().MustExec(ctx, "addons", "status", "kubevirt")
 
 					Expect(output).To(SatisfyAll(
 						MatchRegexp(`ADDON STATUS`),
@@ -82,7 +82,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 
 			Context("JSON output", func() {
 				It("displays JSON", func(ctx context.Context) {
-					output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "kubevirt", "-o", "json")
+					output := suite.K2sCli().MustExec(ctx, "addons", "status", "kubevirt", "-o", "json")
 
 					var status status.AddonPrintStatus
 
@@ -102,11 +102,11 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 				if !isManualExecution {
 					Skip(automatedExecutionSkipMessage)
 				}
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "kubevirt", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "kubevirt", "-o")
 			})
 
 			It("enables the addon", func(ctx context.Context) {
-				podNames := suite.Kubectl().Run(ctx, "get", "pods", "-n", "kubevirt", "-o", "jsonpath='{.items[*].metadata.name}'")
+				podNames := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "kubevirt", "-o", "jsonpath='{.items[*].metadata.name}'")
 
 				Expect(podNames).To(ContainSubstring("virt-controller"))
 			})
@@ -126,7 +126,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 		})
 
 		It("prints the status", func(ctx context.Context) {
-			output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "kubevirt")
+			output := suite.K2sCli().MustExec(ctx, "addons", "status", "kubevirt")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("ADDON STATUS"),
@@ -137,7 +137,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 				MatchRegexp("The virt-handler is working"),
 			))
 
-			output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "kubevirt", "-o", "json")
+			output = suite.K2sCli().MustExec(ctx, "addons", "status", "kubevirt", "-o", "json")
 
 			var status status.AddonPrintStatus
 
@@ -174,12 +174,12 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 
 		Describe("resource 'VirtualMachine'", func() {
 			AfterAll(func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-f", testWorkload)
+				suite.Kubectl().MustExec(ctx, "delete", "-f", testWorkload)
 			})
 
 			It("creates a VM", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-f", testWorkload)
-				vmStatusOutput := suite.Kubectl().Run(ctx, "get", "vms", "testvm")
+				suite.Kubectl().MustExec(ctx, "apply", "-f", testWorkload)
+				vmStatusOutput := suite.Kubectl().MustExec(ctx, "get", "vms", "testvm")
 				Expect(vmStatusOutput).To(ContainSubstring("Stopped"))
 
 				output, err := runVirtctlCommand([]string{"start", "testvm"})
@@ -187,32 +187,32 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 				Expect(err).To(BeNil())
 				Expect(output).To(ContainSubstring("VM testvm was scheduled to start"))
 
-				suite.Kubectl().Run(ctx, "wait", "--timeout=180s", "--for=condition=ContainersReady", "pod", "-l", "kubevirt.io/size=small,kubevirt.io/domain=testvm")
+				suite.Kubectl().MustExec(ctx, "wait", "--timeout=180s", "--for=condition=ContainersReady", "pod", "-l", "kubevirt.io/size=small,kubevirt.io/domain=testvm")
 
-				Eventually(suite.Kubectl().Run).
+				Eventually(suite.Kubectl().MustExec).
 					WithArguments("get", "vms", "testvm").
 					WithTimeout(3 * time.Minute).
 					WithPolling(30 * time.Second).
 					WithContext(ctx).
 					Should(ContainSubstring("Running"))
 
-				podName := suite.Kubectl().Run(ctx, "get", "pod", "-l", "kubevirt.io/size=small,kubevirt.io/domain=testvm", "-o", "jsonpath={.items[0].metadata.name}")
+				podName := suite.Kubectl().MustExec(ctx, "get", "pod", "-l", "kubevirt.io/size=small,kubevirt.io/domain=testvm", "-o", "jsonpath={.items[0].metadata.name}")
 				Expect(podName).To(ContainSubstring("testvm"))
 
-				runningVMsOutput := suite.Kubectl().Run(ctx, "exec", podName, "--", "virsh", "list", "--all")
+				runningVMsOutput := suite.Kubectl().MustExec(ctx, "exec", podName, "--", "virsh", "list", "--all")
 				Expect(runningVMsOutput).To(ContainSubstring("default_testvm   running"))
 			})
 		})
 
 		Describe("disable", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "kubevirt", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "kubevirt", "-o")
 
 				Eventually(isKubectlAvailable).WithTimeout(3 * time.Minute).WithPolling(30 * time.Second).Should(BeTrue())
 			})
 
 			It("disables the addon", func(ctx context.Context) {
-				podNames := suite.Kubectl().Run(ctx, "get", "pods", "-n", "kubevirt", "-o", "jsonpath='{.items[*].metadata.name}'")
+				podNames := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "kubevirt", "-o", "jsonpath='{.items[*].metadata.name}'")
 
 				Expect(podNames).To(BeComparableTo("''"))
 			})

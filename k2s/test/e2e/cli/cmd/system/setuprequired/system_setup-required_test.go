@@ -1,5 +1,6 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
+
 package systemrequired
 
 import (
@@ -47,7 +48,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 var _ = Describe("system", Ordered, func() {
 	Describe("package", Label("package", "acceptance"), func() {
 		It("prints system-installed-error and exits", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "package", "--target-dir", ".", "--name", "package.zip")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "package", "--target-dir", ".", "--name", "package.zip")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("is installed"),
@@ -71,26 +72,4 @@ var _ = Describe("system", Ordered, func() {
 			})
 		})
 	})
-
-	// TODO: set stdout?
-	// Describe("kubectl pkg", Label("integration", "internal", "core", "users", "k8s", "kubectl"), func() {
-	// 	Describe("Exec", func() {
-	// 		It("retrieves kubectl client version", func() {
-	// 			rootDir, err := os.RootDir()
-	// 			Expect(err).ToNot(HaveOccurred())
-
-	// 			writer := &outputWriter{messages: []string{}}
-	// 			executor := ios.NewCmdExecutor(writer)
-	// 			sut := kubectl.NewKubectl(rootDir, executor)
-
-	// 			Expect(sut.Exec("version", "--client", "-o", "json")).To(Succeed())
-
-	// 			jsonString := strings.Join(writer.messages, "")
-
-	// 			var output map[string]any
-	// 			Expect(json.Unmarshal([]byte(jsonString), &output)).To(Succeed())
-	// 			Expect(output["clientVersion"].(map[string]any)["major"]).To(Equal("1"))
-	// 		})
-	// 	})
-	// })
 })

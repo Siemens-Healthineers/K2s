@@ -35,7 +35,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("image", func() {
 	DescribeTable("print system-not-running message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, args...)
 
 			Expect(output).To(ContainSubstring("not running"))
 		},
@@ -56,7 +56,7 @@ var _ = Describe("image", func() {
 		var images image.PrintImages
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "ls", "-o", "json")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "image", "ls", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &images)).To(Succeed())
 		})
