@@ -54,7 +54,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		Context("JSON output", func() {
 			It("contains only system-not-running info and name and exits with non-zero", func(ctx context.Context) {
 				addons.Foreach(allAddons, func(addonName, implementationName, _ string) {
-					output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addonName, implementationName, "-o", "json")
+					output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "status", addonName, implementationName, "-o", "json")
 
 					var status status.AddonPrintStatus
 
@@ -92,14 +92,14 @@ var _ = Describe("addons commands", Ordered, func() {
 	Describe("export", func() {
 		It("prints system-not-running message for each addon and exits with non-zero", func(ctx context.Context) {
 			addons.Foreach(allAddons, func(_, _, cmdName string) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "export", cmdName, "-d", "test-dir")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "export", cmdName, "-d", "test-dir")
 
 				Expect(output).To(ContainSubstring("not running"))
 			})
 		})
 
 		It("prints system-not-running message for all addons", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "export", "-d", "test-dir")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "export", "-d", "test-dir")
 
 			Expect(output).To(ContainSubstring("not running"))
 		})
@@ -108,7 +108,7 @@ var _ = Describe("addons commands", Ordered, func() {
 	Describe("import", func() {
 		It("prints system-not-running message for each addon and exits with non-zero", func(ctx context.Context) {
 			addons.Foreach(allAddons, func(_, _, cmdName string) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "import", cmdName, "-z", "test-dir")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", cmdName, "-z", "test-dir")
 
 				Expect(output).To(ContainSubstring("not running"))
 
@@ -116,7 +116,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		})
 
 		It("prints system-not-running message for all addons", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "import", "-z", "test-dir")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", "-z", "test-dir")
 
 			Expect(output).To(ContainSubstring("not running"))
 		})

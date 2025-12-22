@@ -48,7 +48,7 @@ func (k2s *K2s) DisableAddon(ctx context.Context, addon, implementation string) 
 }
 
 func (k2s *K2s) runCmd(ctx context.Context, cliArgs ...string) *K2sCmdResult {
-	output, exitCode := k2s.suite.K2sCli().Run(ctx, cliArgs...)
+	output, exitCode := k2s.suite.K2sCli().Exec(ctx, cliArgs...)
 
 	return &K2sCmdResult{
 		output:   output,

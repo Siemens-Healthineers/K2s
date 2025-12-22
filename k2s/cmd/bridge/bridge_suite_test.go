@@ -9,10 +9,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	util "github.com/Microsoft/windows-container-networking/test/utilities"
-
-	"os"
 )
 
 var t *testing.T
@@ -26,17 +22,17 @@ var _ = Describe("Bridge Tests", func() {
 	It("executes add CMD", func() {
 		Skip("test currently not working")
 
-		testDualStack := (os.Getenv("TestDualStack") == "1")
-		imageToUse := os.Getenv("ImageToUse")
-		ipams := util.GetDefaultIpams()
+		// testDualStack := (os.Getenv("TestDualStack") == "1")
+		// imageToUse := os.Getenv("ImageToUse")
+		// ipams := util.GetDefaultIpams()
 
-		if testDualStack {
-			ipams = append(ipams, util.GetDefaultIpv6Ipams()...)
-		}
+		// if testDualStack {
+		// 	ipams = append(ipams, util.GetDefaultIpv6Ipams()...)
+		// }
 
-		testNetwork := util.CreateTestNetwork("bridgeNet", "L2Bridge", ipams, true)
-		pt := util.MakeTestStruct(t, testNetwork, "bridge", true, true, "", testDualStack, imageToUse)
-		pt.Ipv6Url = os.Getenv("Ipv6UrlToUse")
-		pt.RunAll(t)
+		// testNetwork := util.CreateTestNetwork(t, "bridgeNet", "L2Bridge", ipams, true)
+		// pt := util.MakeTestStruct(t, testNetwork, "bridge", true, true, "", testDualStack, imageToUse)
+		// pt.Ipv6Url = os.Getenv("Ipv6UrlToUse")
+		// pt.RunAll(t)
 	})
 })
