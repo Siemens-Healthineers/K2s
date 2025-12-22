@@ -45,36 +45,7 @@ function Invoke-SSHWithKey {
         $params = $params[1..($params.Length - 1)]
     }
 
-    # Capture all output (stdout + stderr)
-    $commandOutput = @()
-    
-    &ssh.exe $params 2>&1 | ForEach-Object {
-        $line = "$_"
-        
-        # Filter out SSH connection noise/errors that shouldn't be part of command output
-        # These are typically Windows SSH socket warnings that appear on stderr
-        if ($line -notmatch 'close - IO is still pending' -and 
-            $line -notmatch 'The system cannot find the file specified' -and
-            $line -notmatch '^Warning:' -and
-            $line.Trim() -ne '') {
-            $commandOutput += $line
-            Write-Log $line -Console -Raw | Out-Null
-        } else {
-            # Log filtered noise separately for diagnostics
-            Write-Log $line -Raw | Out-Null
-        }
-    }
-    
-    # Return clean command output, joined by newlines if multiple lines
-    if ($commandOutput.Count -eq 0) {
-        return ''
-    }
-    elseif ($commandOutput.Count -eq 1) {
-        return $commandOutput[0]
-    }
-    else {
-        return ($commandOutput -join "`n")
-    }
+    &ssh.exe $params 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
 }
 
 function Invoke-ExeWithAsciiEncoding {
