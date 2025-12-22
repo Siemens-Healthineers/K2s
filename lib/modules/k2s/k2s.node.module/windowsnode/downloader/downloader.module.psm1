@@ -154,9 +154,27 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
     foreach ($file in $files) {
         $fileFullName = $file.FullName
         Write-Log "Import image from file '$fileFullName'... ($fileIndex of $amountOfFiles)"
-        &$nerdctlExe -n k8s.io load -i `"$file`"
-        if (!$?) {
-            throw "The file '$fileFullName' could not be imported"
+        
+        # Retry mechanism for sporadic pipe connectivity issues
+        $maxRetries = 3
+        $retryDelay = 2
+        $success = $false
+        
+        for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+            &$nerdctlExe -n k8s.io load -i `"$file`" 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                $success = $true
+                break
+            }
+            
+            if ($attempt -lt $maxRetries) {
+                Write-Log "  Attempt $attempt failed, retrying after $retryDelay seconds..." -Console
+                Start-Sleep -Seconds $retryDelay
+            }
+        }
+        
+        if (!$success) {
+            throw "The file '$fileFullName' could not be imported after $maxRetries attempts"
         }
         Write-Log '  done'
         $fileIndex++
