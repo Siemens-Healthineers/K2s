@@ -160,11 +160,12 @@ function DownloadFile($destination, $source, $forceDownload,
     }
     if ( $ProxyToUse -ne '' ) {
         Write-Log "Downloading '$source' to '$destination' with proxy: $ProxyToUse"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
+        # NOTE: --ssl-no-revoke is still required for VMI proxy due to proxy/cert issues. Remove when fixed.
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke #ignore server certificate error for cloudbase.it
     }
     else {
         Write-Log "Downloading '$source' to '$destination' (no proxy)"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --ssl-no-revoke --noproxy '*'
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --noproxy '*'
     }
 
     if (!$?) {
