@@ -1,5 +1,6 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
+
 package corruptedstate
 
 import (
@@ -76,7 +77,7 @@ var _ = Describe("system", Ordered, func() {
 
 	DescribeTable("print system-in-corrupted-state message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, args...)
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		},

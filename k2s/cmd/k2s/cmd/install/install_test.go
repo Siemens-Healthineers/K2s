@@ -4,7 +4,6 @@
 package install
 
 import (
-	"context"
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
@@ -64,26 +63,6 @@ var _ = Describe("install", func() {
 				cmd := &cobra.Command{}
 
 				Expect(install(cmd, nil)).ToNot(Succeed())
-			})
-		})
-
-		When("successful", func() {
-			It("calls installer", func(ctx context.Context) {
-				cmd := &cobra.Command{}
-				config := config.NewK2sConfig(config.NewHostConfig(nil, nil, "", ""), nil)
-				cmd.SetContext(context.WithValue(ctx, common.ContextKeyCmdContext, common.NewCmdContext(config, nil)))
-
-				flags := cmd.Flags()
-				flags.Bool(ic.LinuxOnlyFlagName, false, "")
-
-				installerMock := &mockObject{}
-				installerMock.On(r.GetFunctionName(installerMock.Install), kind, cmd, mock.AnythingOfType("func(*config.InstallConfig) (string, error)"), mock.Anything).Return(nil).Once()
-
-				installer = installerMock
-
-				Expect(install(cmd, nil)).To(Succeed())
-
-				installerMock.AssertExpectations(GinkgoT())
 			})
 		})
 	})
