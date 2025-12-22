@@ -372,4 +372,30 @@ timeout: 30
         throw "Service 'containerd' is not running."
     }
     Write-Log "Service 'containerd' has status '$expectedServiceStatus'"
+    
+    # Wait for containerd named pipe to be ready
+    Write-Log 'Waiting for containerd pipe to be ready...'
+    $pipeReadyRetries = 0
+    $maxPipeRetries = 10
+    $pipeWaitSeconds = 1
+    $pipeReady = $false
+    
+    while ($pipeReadyRetries -lt $maxPipeRetries) {
+        # Test pipe accessibility using nerdctl version command (lightweight check)
+        $testResult = & $kubeBinPath\nerdctl.exe version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $pipeReady = $true
+            Write-Log 'Containerd pipe is ready'
+            break
+        }
+        
+        $pipeReadyRetries++
+        $totalPipeWaitTime = $pipeWaitSeconds * $pipeReadyRetries
+        Write-Log "Waiting for containerd pipe to be accessible ($totalPipeWaitTime seconds elapsed, attempt $pipeReadyRetries/$maxPipeRetries)"
+        Start-Sleep -Seconds $pipeWaitSeconds
+    }
+    
+    if (!$pipeReady) {
+        Write-Log 'WARNING: Containerd pipe not ready after maximum retries, proceeding anyway' -Console
+    }
 }
