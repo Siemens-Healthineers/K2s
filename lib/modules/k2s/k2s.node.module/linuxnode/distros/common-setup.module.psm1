@@ -1258,12 +1258,28 @@ clusterName: "$ClusterName"
 
     $getPodCidrOutput = Get-AssignedPodNetworkCIDR -NodeName $NodeName -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     if ($getPodCidrOutput.Success) {
-        $assignedPodNetworkCIDR = $($getPodCidrOutput.PodNetworkCIDR).Substring(0, $($getPodCidrOutput.PodNetworkCIDR).IndexOf('/'))
+        $fullPodCIDR = $getPodCidrOutput.PodNetworkCIDR
+        Write-Log "Retrieved pod network CIDR: '$fullPodCIDR'"
+        
+        $slashIndex = $fullPodCIDR.IndexOf('/')
+        if ($slashIndex -le 0) {
+            throw "Invalid pod network CIDR format: '$fullPodCIDR'. Expected format with slash (e.g., 172.20.0.0/24)"
+        }
+        
+        $assignedPodNetworkCIDR = $fullPodCIDR.Substring(0, $slashIndex)
+        Write-Log "Extracted pod network IP: '$assignedPodNetworkCIDR'"
+        
+        $lastDotIndex = $assignedPodNetworkCIDR.lastIndexOf('.')
+        if ($lastDotIndex -le 0) {
+            throw "Invalid pod network IP format: '$assignedPodNetworkCIDR'. Expected dotted notation (e.g., 172.20.0.0)"
+        }
+        
+        $networkInterfaceCni0IP = "$($assignedPodNetworkCIDR.Substring(0, $lastDotIndex)).1"
+        Write-Log "Calculated cni0 interface IP: '$networkInterfaceCni0IP'"
     }
     else {
         throw "Cannot obtain pod network information from node '$NodeName'"
     }
-    $networkInterfaceCni0IP = "$($assignedPodNetworkCIDR.Substring(0, $assignedPodNetworkCIDR.lastIndexOf('.'))).1"
 
     Write-Log 'Add DNS resolution rules to K8s DNS component'
     # change config map to forward all non cluster DNS request to proxy (dnsmasq) running on master
