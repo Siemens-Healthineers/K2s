@@ -34,10 +34,10 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	// Disable addons after all tests have run
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "logging", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
 	suite.TearDown(ctx)
 })
 
@@ -49,12 +49,12 @@ var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
 		It("activates the logging addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "logging", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "logging", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "logging")
 		})
@@ -70,15 +70,15 @@ var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "logging", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 		})
 	})
 
 	Describe("Logging addon activated first then security addon", func() {
 		It("activates the logging addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "logging", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "logging", "-o")
 			// Verify deployments from the logging addon are available.
 			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 			// Additional expectations can be added here if needed.
@@ -89,7 +89,7 @@ var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "logging")
 		})

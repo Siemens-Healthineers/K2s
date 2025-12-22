@@ -20,9 +20,7 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
-var (
-	suite *framework.K2sTestSuite
-)
+var suite *framework.K2sTestSuite
 
 func TestDicomSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -34,27 +32,28 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	// Disable the addons after all tests
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")	
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
 	suite.TearDown(ctx)
 })
 
 var _ = Describe("'dicom and security enhanced' addons", Ordered, func() {
-
 	Describe("Security addon activated first then dicom addon", func() {
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
+
 			time.Sleep(30 * time.Second)
 		})
 
 		It("activates the dicom addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
+
 			suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
 			suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
@@ -73,15 +72,15 @@ var _ = Describe("'dicom and security enhanced' addons", Ordered, func() {
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 		})
 	})
-	
+
 	Describe("Dicom addon activated first then security addon", func() {
 		It("activates the dicom addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
 			suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
@@ -93,7 +92,7 @@ var _ = Describe("'dicom and security enhanced' addons", Ordered, func() {
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "dicom")
 		})
@@ -106,6 +105,6 @@ var _ = Describe("'dicom and security enhanced' addons", Ordered, func() {
 			}
 			url := "https://k2s.cluster.local/dicom/ui/app"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
-		})	
+		})
 	})
 })

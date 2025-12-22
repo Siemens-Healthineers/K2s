@@ -18,6 +18,7 @@ import (
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
 
 	"slices"
@@ -40,6 +41,8 @@ var (
 	windowsTestContainers []string
 
 	controlPlaneIpAddress string
+
+	k2s *dsl.K2s
 )
 
 func TestExportImportAddons(t *testing.T) {
@@ -64,6 +67,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	controlPlaneIpAddress = suite.SetupInfo().Config.ControlPlane().IpAddress()
 
 	GinkgoWriter.Println("Using control-plane node IP address <", controlPlaneIpAddress, ">")
+
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -71,7 +76,6 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("export and import all addons and make sure all artifacts are available afterwards", Ordered, func() {
-
 	if linuxOnly {
 		Skip("Linux-only setup")
 	}
@@ -84,7 +88,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 
 			GinkgoWriter.Printf("Exporting all addons to %s", exportPath)
-			suite.K2sCli().RunOrFail(ctx, "addons", "export", "-d", exportPath, "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "export", "-d", exportPath, "-o")
 		})
 
 		AfterAll(func(ctx context.Context) {
@@ -105,7 +109,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		})
 
 		It("contains a folder for every exported addon with flattened structure and version info", func(ctx context.Context) {
-			suite.Cli().ExecOrFail(ctx, "tar", "-xf", exportedZipFile, "-C", exportPath)
+			suite.Cli("tar").MustExec(ctx, "-xf", exportedZipFile, "-C", exportPath)
 
 			_, err := os.Stat(filepath.Join(exportPath, "addons"))
 			Expect(os.IsNotExist(err)).To(BeFalse())
@@ -243,12 +247,12 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 	Describe("clean up downloaded resources", func() {
 		BeforeAll(func(ctx context.Context) {
 			GinkgoWriter.Println("cleanup images")
-			suite.K2sCli().Run(ctx, "image", "clean", "-o")
+			suite.K2sCli().Exec(ctx, "image", "clean", "-o")
 
 			GinkgoWriter.Println("remove all download debian packages")
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("sudo rm -rf .%s", i.ExportDirectoryName))
+					suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("sudo rm -rf .%s", i.ExportDirectoryName))
 				}
 			}
 		})
@@ -256,20 +260,21 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("no debian packages available before import", func(ctx context.Context) {
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s ]", i.ExportDirectoryName))
+					suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s ]", i.ExportDirectoryName))
 				}
 			}
 		})
 
 		It("no images available before import", func(ctx context.Context) {
-			images := suite.K2sCli().GetImages(ctx).GetContainerImages()
-			Expect(len(images)).To(Equal(0))
+			images := k2s.GetNonK8sImagesFromNodes(ctx)
+
+			Expect(images).To(BeEmpty())
 		})
 	})
 
 	Describe("import all addons", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "import", "-z", exportedZipFile)
+			suite.K2sCli().MustExec(ctx, "addons", "import", "-z", exportedZipFile)
 		}, NodeTimeout(time.Minute*30))
 
 		AfterAll(func(ctx context.Context) {
@@ -282,14 +287,14 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
 					for _, pkg := range i.OfflineUsage.LinuxResources.DebPackages {
-						suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s/%s ]", i.ExportDirectoryName, pkg))
+						suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s/%s ]", i.ExportDirectoryName, pkg))
 					}
 				}
 			}
 		})
 
 		It("images available after import", func(ctx context.Context) {
-			importedImages := suite.K2sCli().GetImages(ctx).GetContainerImages()
+			importedImages := k2s.GetNonK8sImagesFromNodes(ctx)
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
 					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
@@ -305,17 +310,17 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 		})
 
-		It("linux curl packagages available after import", func(ctx context.Context) {
+		It("linux curl packages available after import", func(ctx context.Context) {
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
 					for _, pkg := range i.OfflineUsage.LinuxResources.CurlPackages {
-						suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -f %s ]", pkg.Destination))
+						suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -f %s ]", pkg.Destination))
 					}
 				}
 			}
 		})
 
-		It("windows curl packagages available after import", func(ctx context.Context) {
+		It("windows curl packages available after import", func(ctx context.Context) {
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
 					for _, p := range i.OfflineUsage.WindowsResources.CurlPackages {
@@ -419,7 +424,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 
 			GinkgoWriter.Printf("Exporting single implementation addon to %s", exportPath)
-			suite.K2sCli().RunOrFail(ctx, "addons", "export", "ingress nginx", "-d", exportPath)
+			suite.K2sCli().MustExec(ctx, "addons", "export", "ingress nginx", "-d", exportPath)
 		})
 
 		AfterAll(func(ctx context.Context) {
@@ -441,7 +446,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			_, err = os.Stat(singleImplZipFile)
 			Expect(os.IsNotExist(err)).To(BeFalse())
 
-			suite.Cli().ExecOrFail(ctx, "tar", "-xf", singleImplZipFile, "-C", exportPath)
+			suite.Cli("tar").MustExec(ctx, "-xf", singleImplZipFile, "-C", exportPath)
 
 			ingressNginxDir := filepath.Join(exportPath, "addons", "ingress_nginx")
 			_, err = os.Stat(ingressNginxDir)
@@ -468,16 +473,19 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 	Describe("download test containers", func() {
 		It("test containers are available locally", func(ctx context.Context) {
 			for _, image := range linuxTestContainers {
-				suite.K2sCli().RunOrFail(ctx, "image", "pull", image)
-				images := suite.K2sCli().GetImages(ctx).GetContainerImages()
-				Expect(images).To(ContainElement(image))
+				suite.K2sCli().MustExec(ctx, "image", "pull", image)
 			}
 
 			for _, image := range windowsTestContainers {
-				suite.K2sCli().RunOrFail(ctx, "image", "pull", image, "-w")
-				images := suite.K2sCli().GetImages(ctx).GetContainerImages()
-				Expect(images).To(ContainElement(image))
+				suite.K2sCli().MustExec(ctx, "image", "pull", image, "-w")
 			}
+
+			images := k2s.GetNonK8sImagesFromNodes(ctx)
+
+			Expect(images).To(SatisfyAll(
+				ContainElements(linuxTestContainers),
+				ContainElements(windowsTestContainers),
+			))
 		})
 	})
 })

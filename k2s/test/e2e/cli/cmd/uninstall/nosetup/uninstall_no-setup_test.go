@@ -1,5 +1,6 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
+
 package corruptedstate
 
 import (
@@ -32,7 +33,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("uninstall", Ordered, func() {
 	It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "uninstall")
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "uninstall")
 
 		Expect(output).To(ContainSubstring("not installed"))
 	})

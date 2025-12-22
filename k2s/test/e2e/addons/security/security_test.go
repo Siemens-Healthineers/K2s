@@ -14,8 +14,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
@@ -63,31 +65,31 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	GinkgoWriter.Println("Status of cluster after test runs...")
-	status := suite.K2sCli().GetStatus(ctx)
-	isRunning := status.IsClusterRunning()
-	GinkgoWriter.Println("Cluster is running:", isRunning)
+	suite.StatusChecker().IsK2sRunning(ctx)
 
-	GinkgoWriter.Println("Deleting workloads if necessasry..")
+	GinkgoWriter.Println("Deleting workloads if necessary..")
 	DeleteWorkloads(ctx)
 
 	if testFailed {
-		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	GinkgoWriter.Println("Checking if addon is disabled..")
+	isEnabled := func(name string, implementation ...string) bool {
+		impl := ""
+		if len(implementation) > 0 {
+			impl = implementation[0]
+		}
+		return lo.ContainsBy(suite.SetupInfo().RuntimeConfig.ClusterConfig().EnabledAddons(), func(a config.Addon) bool {
+			return a.Name == name && a.Implementation == impl
+		})
+	}
 
-	addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-	enabled := addonsStatus.IsAddonEnabled(addonName, "")
+	if isEnabled(addonName) {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
+	}
 
-	if enabled {
-		GinkgoWriter.Println("Addon is still enabled, disabling it..")
-
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
-
-		GinkgoWriter.Println(output)
-	} else {
-		GinkgoWriter.Printf("Addon %s is disabled.\n", addonName)
+	if isEnabled("ingress", "nginx") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	}
 
 	suite.TearDown(ctx)
@@ -99,11 +101,11 @@ func DeployWorkloads(ctx context.Context) {
 	if manifestDir == "" {
 		Fail("Manifest directory is not set, cannot deploy workloads")
 	}
-	suite.Kubectl().Run(ctx, "apply", "-k", manifestDir)
+	suite.Kubectl().MustExec(ctx, "apply", "-k", manifestDir)
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
-	suite.Kubectl().Run(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
 
 	for _, deploymentName := range linuxDeploymentNames {
 		suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
@@ -123,7 +125,7 @@ func DeployWorkloads(ctx context.Context) {
 func DeleteWorkloads(ctx context.Context) {
 	// for finding out the sporadically failed test runs
 	if !testFailed && manifestDir != "" && workloadCreated {
-		suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)
+		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
 		workloadCreated = false
 		GinkgoWriter.Println("Workloads deleted")
 	}
@@ -131,23 +133,23 @@ func DeleteWorkloads(ctx context.Context) {
 
 var _ = Describe("'security' addon", Ordered, func() {
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
 
 	It("enables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName)
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName)
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName)
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -158,7 +160,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 
 		var status status.AddonPrintStatus
 
@@ -191,7 +193,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
@@ -234,11 +236,11 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
@@ -248,30 +250,30 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
 		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 	})
 })
 
 var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
 
 	It("enables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName)
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName)
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName)
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -282,7 +284,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	})
 
 	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 
 		var status status.AddonPrintStatus
 
@@ -345,7 +347,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	})
 
 	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
@@ -476,11 +478,11 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
@@ -496,18 +498,18 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	})
 
 	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
 		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 	})
 })
 
 var _ = Describe("'security' addon with optional components", Ordered, func() {
 	It("enables the addon with --omitHydra", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitHydra", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitHydra", "-o")
 	})
 
 	It("prints the status and shows hydra as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 		var status status.AddonPrintStatus
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		// Hydra should be reported as omitted
@@ -521,19 +523,19 @@ var _ = Describe("'security' addon with optional components", Ordered, func() {
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("enables the addon with --omitKeycloak", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitKeycloak", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitKeycloak", "-o")
 	})
 
 	It("prints the status and shows keycloak as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 		var status status.AddonPrintStatus
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		// Keycloak should be reported as omitted
@@ -547,19 +549,19 @@ var _ = Describe("'security' addon with optional components", Ordered, func() {
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("enables the addon with both --omitHydra and --omitKeycloak", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "-o")
 	})
 
 	It("prints the status and shows both hydra and keycloak as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 		var status status.AddonPrintStatus
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		Expect(status.Props).To(ContainElement(
@@ -579,25 +581,25 @@ var _ = Describe("'security' addon with optional components", Ordered, func() {
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 })
 
 var _ = Describe("'security' addon with --omitOAuth2Proxy", Ordered, func() {
 	It("enables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
 	})
 
 	It("enables the addon with --omitOAuth2Proxy", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitOAuth2Proxy", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitOAuth2Proxy", "-o")
 	})
 
 	It("prints the status and shows OAuth2 proxy as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 		var status status.AddonPrintStatus
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		Expect(status.Props).To(ContainElement(
@@ -610,25 +612,25 @@ var _ = Describe("'security' addon with --omitOAuth2Proxy", Ordered, func() {
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 })
 
 var _ = Describe("'security' addon with all omit flags", Ordered, func() {
 	It("enables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
 	})
 
 	It("enables the addon with --omitHydra --omitKeycloak --omitOAuth2Proxy", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
 	})
 
 	It("prints the status and shows all components as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 		var status status.AddonPrintStatus
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		Expect(status.Props).To(ContainElement(
@@ -655,33 +657,33 @@ var _ = Describe("'security' addon with all omit flags", Ordered, func() {
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 })
 
 var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered, func() {
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
 
 	It("enables the addon with enhanced mode and omitKeycloak", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitKeycloak", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitKeycloak", "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName)
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName)
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName)
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -691,7 +693,7 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 		))
 	})
 	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 
 		var status status.AddonPrintStatus
 
@@ -754,16 +756,16 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 	})
 
 	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
@@ -779,30 +781,30 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 	})
 
 	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
 		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 	})
 })
 
 var _ = Describe("'security' addon with enhanced mode and omitHydra", Ordered, func() {
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
 
 	It("enables the addon with enhanced mode and omitHydra", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName)
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName)
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName)
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -813,7 +815,7 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra", Ordered, f
 	})
 
 	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 
 		var status status.AddonPrintStatus
 
@@ -870,16 +872,16 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra", Ordered, f
 	})
 
 	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
@@ -895,30 +897,30 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra", Ordered, f
 	})
 
 	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
 		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 	})
 })
 
 var _ = Describe("'security' addon with enhanced mode and omitHydra and omitKeycloak", Ordered, func() {
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
 
 	It("enables the addon with enhanced mode, omitHydra and omitKeycloak", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "-o")
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName)
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName)
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName)
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -929,7 +931,7 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra and omitKeyc
 	})
 
 	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 
 		var status status.AddonPrintStatus
 
@@ -986,16 +988,16 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra and omitKeyc
 	})
 
 	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
@@ -1011,22 +1013,22 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra and omitKeyc
 	})
 
 	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
 		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 	})
 })
 
 var _ = Describe("'security' addon with enhanced mode and omitOAuth2Proxy", Ordered, func() {
 	It("enables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
 	})
 
 	It("enables the addon with enhanced mode and omitOAuth2Proxy", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitOAuth2Proxy", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitOAuth2Proxy", "-o")
 	})
 
 	It("prints the status and shows OAuth2 proxy as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 		var status status.AddonPrintStatus
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		Expect(status.Props).To(ContainElement(
@@ -1039,25 +1041,25 @@ var _ = Describe("'security' addon with enhanced mode and omitOAuth2Proxy", Orde
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 })
 
 var _ = Describe("'security' addon with enhanced mode and all omit flags", Ordered, func() {
 	It("enables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
 	})
 
 	It("enables the addon with enhanced mode, omitHydra, omitKeycloak and omitOAuth2Proxy", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
 	})
 
 	It("prints the status and shows all components as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
 		var status status.AddonPrintStatus
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		Expect(status.Props).To(ContainElement(
@@ -1084,10 +1086,10 @@ var _ = Describe("'security' addon with enhanced mode and all omit flags", Order
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 })

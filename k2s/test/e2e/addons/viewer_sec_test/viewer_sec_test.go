@@ -37,10 +37,10 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	// Disable viewer, security and ingress (nginx) addons after all tests
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "viewer", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
 	suite.TearDown(ctx)
 })
 
@@ -52,12 +52,13 @@ var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
 		It("activates the viewer addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "viewer", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "viewer", "-o")
+
 			suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "viewer")
@@ -72,19 +73,19 @@ var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {
 			url := "https://k2s.cluster.local/viewer/"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 		})
-		
+
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "viewer", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 		})
 	})
 
 	Describe("Viewer addon activated first then security addon", func() {
 		It("activates the viewer addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "viewer", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "viewer", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")            
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")
 		})
 
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
@@ -92,8 +93,7 @@ var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
-			// Allow enhanced security addon to settle.
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "viewer")
 		})
@@ -107,7 +107,5 @@ var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {
 			url := "https://k2s.cluster.local/viewer/"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 		})
-
 	})
-
 })
