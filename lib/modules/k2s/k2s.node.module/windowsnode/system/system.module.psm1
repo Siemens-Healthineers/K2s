@@ -64,10 +64,6 @@ function Enable-MissingWindowsFeatures($wsl) {
         $features += 'Microsoft-Hyper-V-All', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Management-Clients', 'Microsoft-Hyper-V-Services'
     }
 
-    if ($wsl) {
-        $features += 'Microsoft-Windows-Subsystem-Linux'
-    }
-
     foreach ($feature in $features) {
         if (Enable-MissingFeature -Name $feature) {
             $restartRequired = $true
@@ -136,7 +132,11 @@ function Test-WindowsPrerequisites(
         throw "[PREREQ-FAILED] Windows release $ReleaseId not usable"
     }
 
+    if($WSL) {
+        Stop-InstallationIfWslNotEnabled
+    }
     Enable-MissingWindowsFeatures $([bool]$WSL)
+    Stop-InstallationIfHyperVApiAccessFailed
 }
 
 function Get-StorageLocalFolderName{
@@ -205,11 +205,12 @@ function Invoke-DownloadFile($destination, $source, $forceDownload,
     }
     if ( $ProxyToUse -ne '' ) {
         Write-Log "Downloading '$source' to '$destination' with proxy: $ProxyToUse"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
+        # NOTE: --ssl-no-revoke is still required for VMI proxy due to proxy/cert issues. Remove when fixed.
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke #ignore server certificate error for cloudbase.it
     }
     else {
         Write-Log "Downloading '$source' to '$destination' (no proxy)"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --ssl-no-revoke --noproxy '*'
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --noproxy '*'
     }
 
     if (!$?) {
@@ -318,6 +319,55 @@ function Remove-K2sAppLockerRules {
        Remove-Item $AppLockerPolicyFile -Force
     }
 }
+
+<#
+.DESCRIPTION
+    Verifies if  Hyper-V PowerShell module can be loaded,
+    and whether calling Get-VM succeeds. Throws on error if the module cannot be loaded or Get-VM API is inaccessible.
+#>
+function Stop-InstallationIfHyperVApiAccessFailed {
+    try {
+        Import-Module Hyper-V -ErrorAction Stop
+        Get-VM -ErrorAction Stop
+        Write-Log "Hyper-V API accessible(Get-VM success)."
+    }
+    catch {
+        throw "[PREREQ-FAILED] Hyper-V API is not accessible. Restart is required. Reason: Changes in WindowsOptionalFeature. Please call install after reboot again. Error: $($_.Exception.Message)"
+    }
+}
+
+<#
+.DESCRIPTION
+    Verifies if WSL is  installed or enabled, Does not throw if it is enabled.
+#>
+function Stop-InstallationIfWslNotEnabled {
+    if (-not (Get-WindowsOptionalFeatureStatus -Name 'Microsoft-Windows-Subsystem-Linux')) {
+        throw "[PREREQ-FAILED] WSL is not enabled. Please enable 'Microsoft-Windows-Subsystem-Linux' and then call install after reboot again."
+    }
+    Write-Log 'WSL is enabled.'
+}
+
+function Get-WindowsOptionalFeatureStatus {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Name = $(throw 'Please provide the feature name.')
+    )
+    try {
+        $feature = Get-WindowsOptionalFeature -Online -FeatureName $Name -ErrorAction Stop
+        if ($null -eq $feature -or $feature.State -ne 'Enabled') {
+            Write-Log "[PREREQ-FAILED] '$Name' feature is not installed or enabled."
+            return $false
+        }
+        return $true
+    }
+    catch {
+        Write-Log "[PREREQ-FAILED] Failed to query feature '$Name': $($_.Exception.Message)"
+        return $false
+    }
+}
+
+
 
 Export-ModuleMember -Function Add-K2sToDefenderExclusion,
 Test-WindowsPrerequisites,

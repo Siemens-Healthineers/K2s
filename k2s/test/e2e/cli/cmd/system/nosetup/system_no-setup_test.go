@@ -1,5 +1,6 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
+
 package nosetup
 
 import (
@@ -39,7 +40,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("system", func() {
 	DescribeTable("print system-not-installed message and exits with non-zero", Label("cli", "ci", "system", "users", "acceptance", "no-setup"),
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, args...)
 
 			Expect(output).To(ContainSubstring("not installed"))
 		},
@@ -57,7 +58,7 @@ var _ = Describe("system", func() {
 				tempDir := GinkgoT().TempDir()
 				zipFilePath = filepath.Join(tempDir, zipFileName)
 
-				output = suite.K2sCli().RunOrFail(ctx, "system", "package", "--target-dir", tempDir, "--name", zipFileName, "--for-offline-installation", "-o")
+				output = suite.K2sCli().MustExec(ctx, "system", "package", "--target-dir", tempDir, "--name", zipFileName, "--for-offline-installation", "-o")
 			})
 
 			It("generates zip package", func() {
@@ -80,21 +81,21 @@ var _ = Describe("system", func() {
 
 		Context("invalid parameters", func() {
 			It("prints the passed target directory is empty", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "package", "-n", "package.zip")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "package", "-n", "package.zip")
 
-				Expect(output).To(ContainSubstring("The passed target directory is empty"))
+				Expect(output).To(ContainSubstring(`"target-dir" not set`))
 			})
 
 			It("prints the passed zip package name is empty", func(ctx context.Context) {
 				tempDir := GinkgoT().TempDir()
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "package", "-d", tempDir)
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "package", "-d", tempDir)
 
-				Expect(output).To(ContainSubstring("The passed zip package name is empty"))
+				Expect(output).To(ContainSubstring(`"name" not set`))
 			})
 
 			It("prints the passed zip package name does not have the extension zip", func(ctx context.Context) {
 				tempDir := GinkgoT().TempDir()
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "package", "-d", tempDir, "-n", "package")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "package", "-d", tempDir, "-n", "package")
 
 				Expect(output).To(ContainSubstring("does not have the extension '.zip'"))
 			})
@@ -104,11 +105,9 @@ var _ = Describe("system", func() {
 	Describe("k2s is not installed system dump", Ordered, Label("cli", "system", "dump", "acceptance", "no-setup"), func() {
 		When("CLI execution successful", func() {
 			It("dumps system information", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeSuccess, "system", "dump", "-S")
+				output := suite.K2sCli().MustExec(ctx, "system", "dump", "-S")
 
-				Expect(output).To(SatisfyAll(
-					ContainSubstring("SUCCESS"),
-				))
+				Expect(output).To(ContainSubstring("SUCCESS"))
 			})
 		})
 	})

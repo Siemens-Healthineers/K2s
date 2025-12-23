@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 
 ## Introduction
 
-The `registry` addon provides a local [Docker registry](https://github.com/distribution/distribution) running inside k2s which makes it easy to store container images locally and pull them during deployment.
+The `registry` addon provides a local [Zot Registry](https://github.com/project-zot/zot) running inside k2s which makes it easy to store container images locally and pull them during deployment.
 
 ## Getting started
 
@@ -63,4 +63,4 @@ k2s addons disable registry
 _Note:_ The above command will only disable registry addon. If other addons were enabled while enabling the registry addon, they will not be disabled.
 
 ## Further Reading
-- [Docker Registry](https://docs.docker.com/registry/)
+- [Zot Registry](https://github.com/project-zot/zot)
