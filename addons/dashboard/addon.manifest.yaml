@@ -23,6 +23,7 @@ spec:
                   validationSet:
                     - none
                     - nginx
+                    - nginx-gw
                     - traefik
               - name: enable-metrics
                 default: false

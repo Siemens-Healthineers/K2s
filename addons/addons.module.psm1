@@ -822,15 +822,23 @@ function Update-IngressForAddon {
 
 	if (Test-NginxIngressControllerAvailability) {
 		Remove-IngressForTraefik -Addon $Addon
+		Remove-IngressForNginxGateway -Addon $Addon
 		Update-IngressForNginx -Addon $Addon
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
 		Remove-IngressForNginx -Addon $Addon
+		Remove-IngressForNginxGateway -Addon $Addon
 		Update-IngressForTraefik -Addon $Addon
+	}
+	elseif( Test-NginxGatewayAvailability) {
+		Remove-IngressForTraefik -Addon $Addon
+		Remove-IngressForNginx -Addon $Addon
+		Update-IngressForNginxGateway -Addon $Addon
 	}
 	else {
 		Remove-IngressForNginx -Addon $Addon
 		Remove-IngressForTraefik -Addon $Addon
+		Remove-IngressForNginxGateway -Addon $Addon
 	}
 }
 
@@ -853,6 +861,18 @@ Determines if Traefik ingress controller is deployed in the cluster
 function Test-TraefikIngressControllerAvailability {
 	$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
 	if ("$existingServices" -match '.*traefik.*') {
+		return $true
+	}
+	return $false
+}
+
+<#
+.DESCRIPTION
+Determines if Nginx gateway controller is deployed in the cluster
+#>
+function Test-NginxGatewayAvailability {
+	$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'nginx-gw', '-o', 'yaml').Output
+	if ("$existingServices" -match '.*nginx.*') {
 		return $true
 	}
 	return $false
@@ -916,6 +936,10 @@ function Enable-IngressAddon([string]$Ingress) {
 			&"$PSScriptRoot\ingress\nginx\Enable.ps1"
 			break
 		}
+		'nginx-gw' {
+			&"$PSScriptRoot\ingress\nginx-gw\Enable.ps1"
+			break
+		}
 		'traefik' {
 			&"$PSScriptRoot\ingress\traefik\Enable.ps1"
 			break
@@ -945,6 +969,18 @@ function Get-IngressNginxConfigDirectory {
 		[string]$Directory = $(throw 'Directory of the ingress nginx config')
 	)
 	return "$PSScriptRoot\$Directory\manifests\ingress-nginx"
+}
+
+<#
+.DESCRIPTION
+Gets the location of nginx ingress gateway yaml
+#>
+function Get-IngressNginxGatewayConfig {
+	param (
+		[Parameter(Mandatory = $false)]
+		[string]$Directory = $(throw 'Directory of the ingress nginx gateway config')
+	)
+	return "$PSScriptRoot\$Directory\manifests\ingress-nginx-gw"
 }
 
 <#
@@ -1084,6 +1120,70 @@ function Remove-IngressForTraefik {
 		$kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
 	}
 	Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
+}
+
+<#
+.DESCRIPTION
+Deploys the addon's ingress manifest for ingress nginx gateway controller
+#>
+function Update-IngressForNginxGateway {
+	param (
+		[Parameter(Mandatory = $false)]
+		[pscustomobject]$Addon = $(throw 'Please specify the addon.')
+	)
+
+	$props = Get-AddonProperties -Addon $Addon
+	$kustomizationDir = ''
+
+	# Store each result separately for debugging
+	# $keycloakAvailable = Test-KeyCloakServiceAvailability
+	# Write-Log "KeyCloak available: $keycloakAvailable" -Console
+	
+	# # Always evaluate Hydra availability
+	# $hydraAvailable = Test-HydraAvailability
+	# Write-Log "Hydra available: $hydraAvailable" -Console
+
+	# if ($keycloakAvailable -or $hydraAvailable) {
+	# 	Write-Log "  Applying secure nginx ingress gateway manifest for $($props.Name)..." -Console
+	# 	$kustomizationDir = Get-IngressNginxGatewaySecureConfig -Directory $props.Directory
+	# 	# check if $kustomizationDir does not exist
+	# 	if (!(Test-Path -Path $kustomizationDir)) {
+	# 		Write-Log "  Applying nginx ingress gateway manifest for $($props.Name) $($props.Directory)..." -Console
+	# 		$kustomizationDir = Get-IngressNginxGatewayConfig -Directory $props.Directory
+	# 	}
+	# }
+	# else {
+		Write-Log "  Applying nginx ingress gateway manifest for $($props.Name) $($props.Directory)..." -Console
+		$kustomizationDir = Get-IngressNginxGatewayConfig -Directory $props.Directory
+	# }
+
+	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
+	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
+}
+
+<#
+.DESCRIPTION
+Delete the addon's ingress manifest for Gateway fabric controller
+#>
+function Remove-IngressForNginxGateway {
+	param (
+		[Parameter(Mandatory = $false)]
+		[pscustomobject]$Addon = $(throw 'Please specify the addon.')
+	)
+
+	$props = Get-AddonProperties -Addon $Addon
+
+	Write-Log "  Deleting gateway manifest for $($props.Name)..." -Console
+	$nginxGatewayConfig = Get-IngressNginxGatewayConfig -Directory $props.Directory
+	
+	Invoke-Kubectl -Params 'delete', '-k', $nginxGatewayConfig | Out-Null
+
+	# $kustomizationDir = Get-NginxGatewaySecureConfig -Directory $props.Directory
+	# if (!(Test-Path -Path $kustomizationDir)) {
+	# 	Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+	# 	$kustomizationDir = Get-NginxGatewaySecureConfig -Directory $props.Directory
+	# }
+	# Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
 }
 
 <#
@@ -1241,4 +1341,4 @@ Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-N
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
-Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages
+Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages,Get-IngressNginxGatewayConfig ,Remove-IngressForNginxGateway,Update-IngressForNginxGateway,Test-NginxGatewayAvailability

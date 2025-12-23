@@ -29,7 +29,7 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
-    [ValidateSet('nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'Enable metrics addon')]
     [switch] $EnableMetricsServer = $false,

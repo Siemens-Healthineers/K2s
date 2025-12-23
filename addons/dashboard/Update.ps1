@@ -24,8 +24,14 @@ if ($SecurityAddonEnabled) {
 		# remove middleware if exists
 		(Invoke-Kubectl -Params 'delete', 'middleware', 'add-bearer-token', '-n', 'dashboard', '--ignore-not-found').Output | Write-Log
 	}
+	elseif (Test-GatewayFabricApiAvailability) {
+		# remove HTTPRoute filter if exists
+		Write-Log 'Removing HTTPRoute authorization filter'
+		$patchRemoveFilter = '{\"spec\":{\"rules\":[{\"filters\":null}]}}'
+		(Invoke-Kubectl -Params 'patch', 'httproute', 'dashboard-gateway-fabric', '-n', 'dashboard', '-p', $patchRemoveFilter).Output | Write-Log
+	}
 	else {
-		Write-Log 'Nginx or Traefik ingress controller is not available'
+		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'
 	}	
 }
 else {
@@ -65,8 +71,33 @@ spec:
 		# delete middleware file
 		Remove-Item -Path "$tempPath\middleware.yaml"
 	}
+	elseif (Test-NginxGatewayAvailability) {
+		# create Bearer token for next 24h
+		Write-Log 'Creating Bearer token for next 24h'
+		$token = Get-BearerToken
+		# create HTTPRoute filter to add authorization header
+		$filterManifest = "apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+ name: dashboard-gateway-fabric
+ namespace: dashboard
+spec:
+ rules:
+  - filters:
+	 - type: RequestHeaderModifier
+	   requestHeaderModifier:
+		add:
+		 - name: Authorization
+		   value: Bearer $token"
+
+		$tempPath = [System.IO.Path]::GetTempPath()
+		$filterManifest | Out-File -FilePath "$tempPath\httproute-filter.yaml" -Encoding ascii
+		(Invoke-Kubectl -Params 'apply', '-f', "$tempPath\httproute-filter.yaml", '-n', 'dashboard').Output | Write-Log
+		# delete filter file
+		Remove-Item -Path "$tempPath\httproute-filter.yaml"
+	}
 	else {
-		Write-Log 'Nginx or Traefik ingress controller is not available'
+		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'
 	}
 }
 

@@ -17,19 +17,20 @@
 # NOTE: there is a glitch in dashboard,
 # causing the trailing / in bot URLs to be needed, i.e.
 # https://k2s.cluster.local/dashboard will not work!
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
 metadata:
-  name: dashboard-nginx-gw-cluster-local
-  namespace: dashboard
+  name: dashboard-to-nginx-gw
+  namespace: nginx-gw
 spec:
-  gatewayClassName: nginx-gw
-  listeners:
-  - hostname: k2s.cluster.local
-    name: k2s-cluster-local-http
-    port: 80
-    protocol: HTTP
-status: {}
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: dashboard
+  to:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: nginx-cluster-local
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -40,14 +41,26 @@ spec:
   hostnames:
   - k2s.cluster.local
   parentRefs:
-  - name: dashboard-nginx-gw-cluster-local
+  - name: nginx-cluster-local
+    namespace: nginx-gw
   rules:
-  - backendRefs:
-    - name: kubernetes-dashboard-kong-proxy
-      port: 443
-    matches:
+  - matches:
     - path:
         type: PathPrefix
-        value: /dashboard/(.*)
+        value: /dashboard/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-Forwarded-Prefix
+          value: /dashboard/
+    backendRefs:
+    - name: kubernetes-dashboard-kong-proxy
+      port: 443
 status:
   parents: []
