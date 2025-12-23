@@ -15,13 +15,13 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: nginx-cluster-local
-  namespace: nginx-gateway
+  namespace: nginx-gw
   labels:
-    app.kubernetes.io/part-of: nginx-gateway
-    app.kubernetes.io/name: nginx-gateway
-    app.kubernetes.io/instance: nginx-gateway
+    app.kubernetes.io/part-of: nginx-gw
+    app.kubernetes.io/name: nginx-gw
+    app.kubernetes.io/instance: nginx-gw
 spec:
-  gatewayClassName: nginx-gateway
+  gatewayClassName: nginx-gw
   listeners:
   - name: http
     hostname: k2s.cluster.local

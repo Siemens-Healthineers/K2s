@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
-$nginxGateWayModule = "$PSScriptRoot\nginx-gateway.module.psm1"
+$nginxGateWayModule = "$PSScriptRoot\nginx-gw.module.psm1"
 Import-Module $addonsModule, $nginxGateWayModule
 
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
@@ -15,13 +15,13 @@ $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
 	Write-Log "Updating nginx gateway fabric addon to be part of service mesh"
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
-	(Invoke-Kubectl -Params 'patch', 'deployment', 'nginx-gateway', '-n', 'nginx-gateway', '-p', $annotations).Output | Write-Log
+	(Invoke-Kubectl -Params 'patch', 'deployment', 'nginx-gw', '-n', 'nginx-gw', '-p', $annotations).Output | Write-Log
 	
 	$maxAttempts = 30
 	$attempt = 0
 	do {
 		$attempt++
-		$deployment = (Invoke-Kubectl -Params 'get', 'deployment', 'nginx-gateway', '-n', 'nginx-gateway', '-o', 'json').Output | ConvertFrom-Json
+		$deployment = (Invoke-Kubectl -Params 'get', 'deployment', 'nginx-gw', '-n', 'nginx-gw', '-o', 'json').Output | ConvertFrom-Json
 		$hasAnnotation = $deployment.spec.template.metadata.annotations.'linkerd.io/inject' -eq 'enabled'
 		if (-not $hasAnnotation) {
 			Write-Log "Waiting for patch to be applied (attempt $attempt of $maxAttempts)..."
@@ -35,13 +35,13 @@ if ($EnancedSecurityEnabled) {
 } else {
 	Write-Log "Updating nginx gateway fabric addon to not be part of service mesh"
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":null}}}}}'
-	(Invoke-Kubectl -Params 'patch', 'deployment', 'nginx-gateway', '-n', 'nginx-gateway', '-p', $annotations).Output | Write-Log
+	(Invoke-Kubectl -Params 'patch', 'deployment', 'nginx-gw', '-n', 'nginx-gw', '-p', $annotations).Output | Write-Log
 
 	$maxAttempts = 30
 	$attempt = 0
 	do {
 		$attempt++
-		$deployment = (Invoke-Kubectl -Params 'get', 'deployment', 'nginx-gateway', '-n', 'nginx-gateway', '-o', 'json').Output | ConvertFrom-Json
+		$deployment = (Invoke-Kubectl -Params 'get', 'deployment', 'nginx-gw', '-n', 'nginx-gw', '-o', 'json').Output | ConvertFrom-Json
 		$hasNoAnnotation = $null -eq $deployment.spec.template.metadata.annotations.'linkerd.io/inject'
 		if (-not $hasNoAnnotation) {
 			Write-Log "Waiting for patch to be applied (attempt $attempt of $maxAttempts)..."
@@ -53,5 +53,5 @@ if ($EnancedSecurityEnabled) {
 		throw "Timeout waiting for patch to be applied"
 	}
 }
-(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'nginx-gateway', '--timeout', '60s').Output | Write-Log
+(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'nginx-gw', '--timeout', '60s').Output | Write-Log
 Write-Log 'Updating nginx gateway fabric addon finished.' -Console

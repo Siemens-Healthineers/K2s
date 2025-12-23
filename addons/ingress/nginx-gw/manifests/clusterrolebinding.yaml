@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: nginx-gw
+    app.kubernetes.io/name: nginx-gw
+    app.kubernetes.io/version: 1.6.2
+  name: nginx-gw
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nginx-gw
+subjects:
+- kind: ServiceAccount
+  name: nginx-gw
+  namespace: nginx-gw
+---
+apiVersion: v1
+data:
+  main.conf: |
+    error_log stderr info;
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: nginx-gw
+    app.kubernetes.io/name: nginx-gw
+    app.kubernetes.io/version: 1.6.2
+  name: nginx-includes-bootstrap
+  namespace: nginx-gw

@@ -20,10 +20,10 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: dashboard-nginx-gateway-cluster-local
+  name: dashboard-nginx-gw-cluster-local
   namespace: dashboard
 spec:
-  gatewayClassName: nginx-gateway
+  gatewayClassName: nginx-gw
   listeners:
   - hostname: k2s.cluster.local
     name: k2s-cluster-local-http
@@ -34,13 +34,13 @@ status: {}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: dashboard-nginx-gateway-cluster-local
+  name: dashboard-nginx-gw-cluster-local
   namespace: dashboard
 spec:
   hostnames:
   - k2s.cluster.local
   parentRefs:
-  - name: dashboard-nginx-gateway-cluster-local
+  - name: dashboard-nginx-gw-cluster-local
   rules:
   - backendRefs:
     - name: kubernetes-dashboard-kong-proxy

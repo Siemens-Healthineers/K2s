@@ -6,14 +6,14 @@
 
 <#
 .SYNOPSIS
-Installs nginx-gateway - kubernetes gateway api controller(gateway controller)
+Installs nginx-gw - kubernetes gateway api controller(gateway controller)
 
 .DESCRIPTION
 NA
 
 .EXAMPLE
 # For k2sSetup.
-powershell <installation folder>\addons\ingress\nginx-gateway\Enable.ps1
+powershell <installation folder>\addons\ingress\nginx-gw\Enable.ps1
 #>
 
 Param (
@@ -29,7 +29,7 @@ Param (
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
-$gatewayModule = "$PSScriptRoot\nginx-gateway.module.psm1"
+$gatewayModule = "$PSScriptRoot\nginx-gw.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $gatewayModule
 
@@ -53,13 +53,13 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne 'k2s') {
-    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'ingress nginx-gateway' can only be enabled for 'k2s' setup type."  
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'ingress nginx-gw' can only be enabled for 'k2s' setup type."  
     Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
 }
 
-if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx-gateway' })) -eq $true) {
-    $errMsg = "Addon 'ingress nginx-gateway' is already enabled, nothing to do."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx-gw' })) -eq $true) {
+    $errMsg = "Addon 'ingress nginx-gw' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -98,6 +98,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementa
     exit 1
 }
 
+# has to be discussed 
 # if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq $true) {
 #     $errMsg = "Addon 'gateway-api' is enabled. Disable it first to avoid port conflicts."
 
@@ -111,9 +112,9 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementa
 #     exit 1
 # }
 
-$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'nginx-gateway', '-o', 'yaml').Output
-if ("$existingServices" -match '.*nginx-gateway.*') {
-    $errMsg = 'It seems as if ingress nginx gateway is already installed in the namespace nginx-gateway. Disable it before enabling it again.'
+$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'nginx-gw', '-o', 'yaml').Output
+if ("$existingServices" -match '.*nginx-gw.*') {
+    $errMsg = 'It seems as if ingress nginx gateway is already installed in the namespace nginx-gw. Disable it before enabling it again.'
     
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -143,7 +144,7 @@ $kustomizationFile = "$kustomizationDir\kustomization.yaml"
 $kustomization | Out-File $kustomizationFile
 
 Write-Log 'Installing nginx gateway' -Console
-$ingressNginxGatewayNamespace = 'nginx-gateway'
+$ingressNginxGatewayNamespace = 'nginx-gw'
 
 # Apply NGF CRDs first using server-side apply to avoid oversized
 # last-applied annotations on large CRDs
@@ -157,7 +158,7 @@ Remove-Item -Path $kustomizationDir -Recurse
 
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
-Write-Log "Setting $controlPlaneIp as an external IP for nginx-gateway service" -Console
+Write-Log "Setting $controlPlaneIp as an external IP for nginx-gw service" -Console
 $patchJson = ''
 if ($PSVersionTable.PSVersion.Major -gt 5) {
     $patchJson = '{"spec":{"externalIPs":["' + $controlPlaneIp + '"]}}'
@@ -165,14 +166,16 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
 else {
     $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $controlPlaneIp + '\"]}}'
 }
-$ingressNginxGatewaySvc = 'nginx-gateway'
+$ingressNginxGatewaySvc = 'nginx-gw'
 
 (Invoke-Kubectl -Params 'patch', 'svc', $ingressNginxGatewaySvc, '-p', "$patchJson", '-n', $ingressNginxGatewayNamespace).Output | Write-Log
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'nginx-gateway' -TimeoutSeconds 300)
-$allJobsAreCompleted = (Wait-ForJobCondition -Condition Complete -Label 'app.kubernetes.io/component=admission-webhook' -Namespace 'nginx-gateway' -TimeoutSeconds 300)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'nginx-gw' -TimeoutSeconds 300)
+# $allJobsAreCompleted = (Wait-ForJobCondition -Condition Complete -Label 'app.kubernetes.io/component=admission-webhook' -Namespace 'nginx-gw' -TimeoutSeconds 300)
 
- if ($allPodsAreUp -ne $true -or $allJobsAreCompleted -ne $true) {
+
+ if ($allPodsAreUp -ne $true) {
+#  if ($allPodsAreUp -ne $true -or $allJobsAreCompleted -ne $true) {
     $errMsg = "All ingress nginx pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress nginx failed."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
@@ -183,19 +186,19 @@ $allJobsAreCompleted = (Wait-ForJobCondition -Condition Complete -Label 'app.kub
     exit 1
 }
 
-$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-nginx-gateway.yaml"
+$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-nginx-gw.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
 Write-Log 'All nginx gateway pods are up and ready.'
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx-gateway' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx-gw' })
 
 &"$PSScriptRoot\Update.ps1"
 
 # adapt other addons
 Update-Addons -AddonName $addonName
 
-Write-Log 'nginx-gateway installed successfully' -Console
+Write-Log 'nginx-gw installed successfully' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

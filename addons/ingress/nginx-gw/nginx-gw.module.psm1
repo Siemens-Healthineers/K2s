@@ -6,7 +6,7 @@
 
 <#
 .SYNOPSIS
-Contains common methods for installing and uninstalling nginx-gateway
+Contains common methods for installing and uninstalling nginx-gw
 #>
 function Get-ExternalDnsConfigDir {
     return "$PSScriptRoot\..\..\common\manifests\external-dns"

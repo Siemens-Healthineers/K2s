@@ -4,23 +4,23 @@ SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# ingress nginx-gateway
+# ingress nginx-gw
 
 ## Introduction
 
-The `ingress nginx-gateway` addon provides an implementation of the Kubernetes Gateway API
-using [NGINX Gateway Fabric](https://github.com/nginxinc/nginx-gateway).
+The `ingress nginx-gw` addon provides an implementation of the Kubernetes Gateway API
+using [NGINX Gateway Fabric](https://github.com/nginxinc/nginx-gw).
 NGINX Gateway Fabric is a conformant implementation of the Gateway API that uses NGINX as the data plane.
 It acts as a reverse proxy and load balancer, accepting traffic from outside the Kubernetes platform
 and routing it to pods running inside the platform based on Gateway API resources.
 
 ## Getting started
 
-The ingress nginx-gateway addon can be enabled using the `k2s` CLI
+The ingress nginx-gw addon can be enabled using the `k2s` CLI
 by running the following command:
 
 ```cmd
-k2s addons enable ingress nginx-gateway
+k2s addons enable ingress nginx-gw
 ```
 
 ## Creating Gateway API routes
@@ -64,7 +64,7 @@ The Gateway API Resource definitions are worth being analyzed,
 to understand the different mechanisms:
 
 - Kubernetes Dashboard:
-  [NGINX Gateway Fabric Routes](../../dashboard/manifests/nginx-gateway/dashboard-httproute.yaml).
+  [NGINX Gateway Fabric Routes](../../dashboard/manifests/nginx-gw/dashboard-httproute.yaml).
 - Logging:
   [NGINX Gateway Fabric HTTPRoute](../../logging/manifests/opensearch-dashboards/httproute.yaml).
 - Monitoring:
@@ -73,5 +73,5 @@ to understand the different mechanisms:
 ## Further Reading
 
 - [Gateway API Documentation](https://gateway-api.sigs.k8s.io/)
-- [NGINX Gateway Fabric Documentation](https://docs.nginx.com/nginx-gateway/)
+- [NGINX Gateway Fabric Documentation](https://docs.nginx.com/nginx-gw/)
 
