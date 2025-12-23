@@ -8,7 +8,8 @@ function Get-SkippedFileDebianPackageDiff {
         [string] $OldRoot,
         [string] $NewRoot,
         [string] $FileName,
-        [switch] $QueryImages
+        [switch] $QueryImages,
+        [switch] $KeepNewVmAlive
     )
     Write-Log "[DebPkgDiff] Starting diff for skipped file '$FileName'" -Console
     $diffResult = [pscustomobject]@{
@@ -25,6 +26,7 @@ function Get-SkippedFileDebianPackageDiff {
         ChangedCount     = 0
         OldLinuxImages   = @()
         NewLinuxImages   = @()
+        NewVmContext     = $null
     }
     $oldMatch = Get-ChildItem -Path $OldRoot -Recurse -File -Filter $FileName -ErrorAction SilentlyContinue | Select-Object -First 1
     $newMatch = Get-ChildItem -Path $NewRoot -Recurse -File -Filter $FileName -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -32,7 +34,7 @@ function Get-SkippedFileDebianPackageDiff {
     $diffResult.OldRelativePath = ($oldMatch.FullName.Substring($OldRoot.Length)) -replace '^[\\/]+' , ''
     $diffResult.NewRelativePath = ($newMatch.FullName.Substring($NewRoot.Length)) -replace '^[\\/]+' , ''
     $oldPkgs = Get-DebianPackagesFromVHDX -VhdxPath $oldMatch.FullName -NewExtract $NewRoot -OldExtract $OldRoot -switchNameEnding 'old' -QueryBuildahImages:$QueryImages
-    $newPkgs = Get-DebianPackagesFromVHDX -VhdxPath $newMatch.FullName -NewExtract $NewRoot -OldExtract $OldRoot -switchNameEnding 'new' -QueryBuildahImages:$QueryImages
+    $newPkgs = Get-DebianPackagesFromVHDX -VhdxPath $newMatch.FullName -NewExtract $NewRoot -OldExtract $OldRoot -switchNameEnding 'new' -QueryBuildahImages:$QueryImages -KeepVmAlive:$KeepNewVmAlive
     if ($oldPkgs.Error -or $newPkgs.Error) { $diffResult.Error = "OldError=[$($oldPkgs.Error)] NewError=[$($newPkgs.Error)]"; return $diffResult }
     $oldMap = $oldPkgs.Packages
     $newMap = $newPkgs.Packages
@@ -55,6 +57,12 @@ function Get-SkippedFileDebianPackageDiff {
         $diffResult.OldLinuxImages = $oldPkgs.BuildahImages
         $diffResult.NewLinuxImages = $newPkgs.BuildahImages
         Write-Log "[ImageDiff] Linux images discovered: Old=$($oldPkgs.BuildahImages.Count), New=$($newPkgs.BuildahImages.Count)" -Console
+    }
+    
+    # Store new VM context if kept alive for reuse
+    if ($KeepNewVmAlive -and $newPkgs.VmContext) {
+        $diffResult.NewVmContext = $newPkgs.VmContext
+        Write-Log "[DebPkgDiff] New VM kept alive for reuse: $($newPkgs.VmContext.VmName)" -Console
     }
     
     return $diffResult

@@ -299,6 +299,195 @@ function Invoke-K2sGuestLocalDebFallback {
     return $staged
 }
 
+<#
+.SYNOPSIS
+Executes a command in the guest VM via SSH.
+
+.PARAMETER VmName
+Name of the VM.
+
+.PARAMETER Command
+Command to execute.
+
+.PARAMETER Timeout
+Timeout in seconds (default: 30).
+
+.OUTPUTS
+Hashtable with Success flag, Output, ExitCode, and ErrorMessage.
+#>
+function Invoke-K2sGuestCmd {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$VmName,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Command,
+        
+        [Parameter(Mandatory = $false)]
+        [int]$Timeout = 30
+    )
+    
+    $result = @{
+        Success      = $false
+        Output       = $null
+        ExitCode     = -1
+        ErrorMessage = ''
+    }
+    
+    try {
+        # Get VM context
+        $vm = Get-VM -Name $VmName -ErrorAction Stop
+        if ($vm.State -ne 'Running') {
+            $result.ErrorMessage = "VM is not running (State: $($vm.State))"
+            return $result
+        }
+        
+        # Get IP address
+        $guestIp = Wait-K2sHvGuestIp -VmName $VmName
+        if (-not $guestIp) {
+            $result.ErrorMessage = "Failed to get VM IP address"
+            return $result
+        }
+        
+        # Get SSH client
+        $sshClientInfo = Get-K2sHvSshClient
+        $sshClient = $sshClientInfo.Path
+        $usingPlink = $sshClientInfo.IsPlink
+        
+        # SSH credentials (hardcoded for K2s VMs)
+        $sshUser = 'remote'
+        $sshPwd = 'admin'
+        
+        # Build SSH args
+        if ($usingPlink) {
+            $plinkHostKey = Get-K2sPlinkHostKey -GuestIp $guestIp -SshClient $sshClient -SshUser $sshUser -SshPassword $sshPwd
+            $sshArgs = @('-batch','-noagent','-P','22')
+            if ($plinkHostKey) {
+                $sshArgs += @('-hostkey', $plinkHostKey)
+            }
+            $sshArgs += @('-pw', $sshPwd)
+            $sshArgs += ("$sshUser@$guestIp")
+            $sshArgs += $Command
+        } else {
+            $sshArgs = @('-p','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null',"$sshUser@$guestIp")
+            $sshArgs += $Command
+        }
+        
+        # Execute command with timeout
+        $job = Start-Job -ScriptBlock {
+            param($sshClient, $sshArgs)
+            & $sshClient @sshArgs 2>&1
+        } -ArgumentList $sshClient, $sshArgs
+        
+        $completed = Wait-Job -Job $job -Timeout $Timeout
+        if ($completed) {
+            $result.Output = Receive-Job -Job $job
+            $result.ExitCode = $job.JobStateInfo.Reason.ExitCode
+            if ($null -eq $result.ExitCode) { $result.ExitCode = 0 }
+            $result.Success = $true
+        } else {
+            Stop-Job -Job $job
+            $result.ErrorMessage = "Command timed out after $Timeout seconds"
+        }
+        
+        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+        
+    } catch {
+        $result.ErrorMessage = "Exception: $($_.Exception.Message)"
+    }
+    
+    return $result
+}
+
+<#
+.SYNOPSIS
+Copies a file from the guest VM to the host.
+
+.PARAMETER VmName
+Name of the VM.
+
+.PARAMETER RemotePath
+Path in the guest.
+
+.PARAMETER LocalPath
+Destination path on the host.
+
+.OUTPUTS
+Hashtable with Success flag and ErrorMessage.
+#>
+function Copy-K2sGuestFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$VmName,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$RemotePath,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$LocalPath
+    )
+    
+    $result = @{
+        Success      = $false
+        ErrorMessage = ''
+    }
+    
+    try {
+        # Get VM context
+        $vm = Get-VM -Name $VmName -ErrorAction Stop
+        if ($vm.State -ne 'Running') {
+            $result.ErrorMessage = "VM is not running (State: $($vm.State))"
+            return $result
+        }
+        
+        # Get IP address
+        $guestIp = Wait-K2sHvGuestIp -VmName $VmName
+        if (-not $guestIp) {
+            $result.ErrorMessage = "Failed to get VM IP address"
+            return $result
+        }
+        
+        # SSH credentials
+        $sshUser = 'remote'
+        $sshPwd = 'admin'
+        
+        # Use pscp (PuTTY's scp) if available, otherwise scp
+        $pscpPath = Join-Path $PSScriptRoot '..\..\..\..\bin\pscp.exe'
+        if (Test-Path $pscpPath) {
+            $plinkPath = Join-Path $PSScriptRoot '..\..\..\..\bin\plink.exe'
+            $plinkHostKey = Get-K2sPlinkHostKey -GuestIp $guestIp -SshClient $plinkPath -SshUser $sshUser -SshPassword $sshPwd
+            
+            $scpArgs = @('-batch','-P','22')
+            if ($plinkHostKey) {
+                $scpArgs += @('-hostkey', $plinkHostKey)
+            }
+            $scpArgs += @('-pw', $sshPwd)
+            $scpArgs += "$sshUser@${guestIp}:$RemotePath"
+            $scpArgs += $LocalPath
+            
+            $scpOutput = & $pscpPath @scpArgs 2>&1
+        } else {
+            # Fallback to scp
+            $scpArgs = @('-P','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
+            $scpArgs += "$sshUser@${guestIp}:$RemotePath"
+            $scpArgs += $LocalPath
+            
+            $scpOutput = & scp @scpArgs 2>&1
+        }
+        
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $LocalPath)) {
+            $result.Success = $true
+        } else {
+            $result.ErrorMessage = "Copy failed with exit code $LASTEXITCODE. Output: $($scpOutput -join ' ')"
+        }
+        
+    } catch {
+        $result.ErrorMessage = "Exception: $($_.Exception.Message)"
+    }
+    
+    return $result
+}
+
 function Remove-K2sHvEnvironment {
     param(
         [pscustomobject] $Context
@@ -332,9 +521,10 @@ function Get-DebianPackagesFromVHDX {
         [string] $DownloadLocalDir,
         [switch] $DownloadDebs,
         [switch] $AllowPartialAcquisition,
-        [switch] $QueryBuildahImages
+        [switch] $QueryBuildahImages,
+        [switch] $KeepVmAlive
     )
-    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); Resolutions=@(); BuildahImages=@() }
+    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); Resolutions=@(); BuildahImages=@(); VmContext=$null }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
     if (-not (Get-Module -ListAvailable -Name Hyper-V)) { $result.Error = 'Hyper-V module unavailable'; return $result }
     $sshUser = 'remote'; $sshPwd = 'admin'; $sshKey = ''  # TODO: parameterize via caller / env if needed
@@ -534,7 +724,12 @@ function Get-DebianPackagesFromVHDX {
     } catch {
         $result.Error = "Hyper-V SSH extraction failed: $($_.Exception.Message)"
     } finally {
-        Remove-K2sHvEnvironment -Context $ctx
+        if ($KeepVmAlive -and -not $result.Error) {
+            Write-Log "[DebPkg] Keeping VM alive for reuse: $vmName" -Console
+            $result.VmContext = $ctx
+        } else {
+            Remove-K2sHvEnvironment -Context $ctx
+        }
     }
     return $result
 }

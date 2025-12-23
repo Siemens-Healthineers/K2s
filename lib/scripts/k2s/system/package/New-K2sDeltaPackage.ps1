@@ -514,7 +514,7 @@ $offlineDebInfo = $null
 $imageDiffResult = $null
 if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
         Write-Log 'Analyzing Debian packages in Kubemaster-Base.vhdx ...' -Console
-                $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx' -QueryImages:(-not $SkipImageDelta)
+                $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx' -QueryImages:(-not $SkipImageDelta) -KeepNewVmAlive:(-not $SkipImageDelta)
         if ($debianPackageDiff.Processed) {
             Write-Log ("Debian package diff: Added={0} Changed={1} Removed={2}" -f $debianPackageDiff.AddedCount, $debianPackageDiff.ChangedCount, $debianPackageDiff.RemovedCount) -Console
             
@@ -536,6 +536,48 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                                                                 -NewWindowsImages $newWinImages.Images
                     
                     Write-Log "[ImageDiff] Image comparison complete: Added=$($imageDiffResult.Added.Count), Removed=$($imageDiffResult.Removed.Count), Changed=$($imageDiffResult.Changed.Count)" -Console
+                    
+                    # Extract layers for changed images (Added + Changed)
+                    $imagesToProcess = @()
+                    if ($imageDiffResult.Added) { $imagesToProcess += $imageDiffResult.Added }
+                    if ($imageDiffResult.Changed) { $imagesToProcess += $imageDiffResult.Changed }
+                    
+                    if ($imagesToProcess.Count -gt 0) {
+                        Write-Log "[ImageAcq] Starting image export for $($imagesToProcess.Count) images using existing VM..." -Console
+                        
+                        # Get path to new VHDX
+                        $newVhdxPath = Join-Path $newExtract 'bin\Kubemaster-Base.vhdx'
+                        
+                        if ((Test-Path $newVhdxPath) -and $debianPackageDiff.NewVmContext) {
+                            $layerExtractionResult = Export-ChangedImageLayers -NewPackageRoot $newExtract `
+                                                                                -NewVhdxPath $newVhdxPath `
+                                                                                -ChangedImages $imagesToProcess `
+                                                                                -StagingDir $stageDir `
+                                                                                -ExistingVmContext $debianPackageDiff.NewVmContext `
+                                                                                -ShowLogs:$false
+                            
+                            if ($layerExtractionResult.Success) {
+                                Write-Log "[ImageAcq] Image export successful: Exported $($layerExtractionResult.ExtractedLayers.Count) image archives, Total size: $([math]::Round($layerExtractionResult.TotalSize / 1MB, 2)) MB" -Console
+                                
+                                if ($layerExtractionResult.FailedImages.Count -gt 0) {
+                                    Write-Log "[ImageAcq] Warning: $($layerExtractionResult.FailedImages.Count) images failed extraction: $($layerExtractionResult.FailedImages -join ', ')" -Console
+                                }
+                            } else {
+                                Write-Log "[ImageAcq] Warning: Image export failed: $($layerExtractionResult.ErrorMessage)" -Console
+                            }
+                            
+                            # Clean up the reused VM
+                            Write-Log "[ImageAcq] Cleaning up reused VM: $($debianPackageDiff.NewVmContext.VmName)" -Console
+                            Remove-K2sHvEnvironment -Context $debianPackageDiff.NewVmContext
+                        } else {
+                            Write-Log "[ImageAcq] Warning: Cannot reuse VM - VHDX not found or VM context missing" -Console
+                            if ($debianPackageDiff.NewVmContext) {
+                                Remove-K2sHvEnvironment -Context $debianPackageDiff.NewVmContext
+                            }
+                        }
+                    } else {
+                        Write-Log "[ImageAcq] No images to process for layer extraction" -Console
+                    }
                     
                 } catch {
                     Write-Log "[ImageDiff] Warning: Image delta processing failed: $($_.Exception.Message)" -Console

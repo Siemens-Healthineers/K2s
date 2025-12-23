@@ -4,22 +4,27 @@
 
 <#
 .SYNOPSIS
-Helper functions for container image layer acquisition in delta packages.
+Helper functions for container image acquisition in delta packages.
 
 .DESCRIPTION
-Provides layer extraction and offline acquisition for delta package creation.
-Exports individual layers from changed images to minimize delta size.
+Exports complete container images (tar files) for delta packages.
+For Windows images, copies tar files from WindowsNodeArtifacts.zip.
+For Linux images, exports complete OCI archives from buildah.
 #>
 
 #Requires -RunAsAdministrator
 
 <#
 .SYNOPSIS
-Exports changed image layers for delta package.
+Exports changed container images for delta package.
 
 .DESCRIPTION
-Boots temporary VM with new package VHDX, exports only new/changed layers
-from modified images, organizes them in delta structure.
+Exports complete container image tar files that can be imported with k2s image import.
+For Windows: copies tar files from bin\WindowsNodeArtifacts.zip\images\
+For Linux: exports complete OCI archive from buildah in temporary VM.
+
+.PARAMETER NewPackageRoot
+Path to the extracted new package root directory.
 
 .PARAMETER NewVhdxPath
 Path to the new package's VHDX file.
@@ -28,16 +33,22 @@ Path to the new package's VHDX file.
 Array of changed image objects from Compare-ContainerImages.
 
 .PARAMETER StagingDir
-Directory to stage extracted layers.
+Directory to stage extracted images.
+
+.PARAMETER ExistingVmContext
+Optional VM context from previous operations to reuse instead of creating new VM.
 
 .PARAMETER ShowLogs
 Show detailed logs.
 
 .OUTPUTS
-Hashtable with Success flag, ExtractedLayers array, and statistics.
+Hashtable with Success flag, ExtractedImages array, and statistics.
 #>
 function Export-ChangedImageLayers {
     param(
+        [Parameter(Mandatory = $true)]
+        [string]$NewPackageRoot,
+        
         [Parameter(Mandatory = $true)]
         [string]$NewVhdxPath,
         
@@ -46,6 +57,9 @@ function Export-ChangedImageLayers {
         
         [Parameter(Mandatory = $true)]
         [string]$StagingDir,
+        
+        [Parameter(Mandatory = $false)]
+        [PSCustomObject]$ExistingVmContext,
         
         [Parameter(Mandatory = $false)]
         [switch]$ShowLogs
@@ -65,80 +79,39 @@ function Export-ChangedImageLayers {
         return $result
     }
     
-    Write-Log "[ImageAcq] Processing $($ChangedImages.Count) changed images for layer extraction" -Console
+    Write-Log "[ImageAcq] Exporting $($ChangedImages.Count) complete container images for delta package" -Console
     
     # Create staging directories
-    $linuxLayersDir = Join-Path $StagingDir 'image-delta\linux\layers'
-    $windowsLayersDir = Join-Path $StagingDir 'image-delta\windows\layers'
+    $linuxImagesDir = Join-Path $StagingDir 'image-delta\linux\images'
+    $windowsImagesDir = Join-Path $StagingDir 'image-delta\windows\images'
     
-    New-Item -ItemType Directory -Path $linuxLayersDir -Force | Out-Null
-    New-Item -ItemType Directory -Path $windowsLayersDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $linuxImagesDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $windowsImagesDir -Force | Out-Null
     
     $vmName = $null
     
     try {
-        # Create temporary VM for Linux image processing
-        $linuxImages = $ChangedImages | Where-Object { $_.Platform -eq 'linux' }
-        
-        if ($linuxImages.Count -gt 0) {
-            Write-Log "[ImageAcq] Creating temporary VM for Linux image layer extraction..." -Console
-            $vmParams = New-K2sHvTempVm -VhdxPath $NewVhdxPath
-            
-            if (-not $vmParams -or -not $vmParams.Name) {
-                $result.ErrorMessage = "Failed to create temporary VM"
-                return $result
-            }
-            
-            $vmName = $vmParams.Name
-            Write-Log "[ImageAcq] Temporary VM created: $vmName" -Console
-            
-            # Process each Linux image
-            foreach ($imgChange in $linuxImages) {
-                try {
-                    Write-Log "[ImageAcq] Processing Linux image: $($imgChange.FullName)" -Console
-                    
-                    $layerResult = Export-LinuxImageLayers -VmName $vmName `
-                                                           -ImageChange $imgChange `
-                                                           -LayersDir $linuxLayersDir `
-                                                           -ShowLogs:$ShowLogs
-                    
-                    if ($layerResult.Success) {
-                        $result.ExtractedLayers += $layerResult.Layers
-                        $result.TotalSize += $layerResult.Size
-                        Write-Log "[ImageAcq] Successfully extracted $($layerResult.Layers.Count) layers from $($imgChange.FullName)" -Console
-                    } else {
-                        Write-Log "[ImageAcq] Warning: Failed to extract layers from $($imgChange.FullName): $($layerResult.ErrorMessage)" -Console
-                        $result.FailedImages += $imgChange.FullName
-                    }
-                    
-                } catch {
-                    Write-Log "[ImageAcq] Error processing image $($imgChange.FullName): $_" -Console
-                    $result.FailedImages += $imgChange.FullName
-                }
-            }
-        }
-        
-        # Process Windows images (if any)
+        # Process Windows images first (simple file copy from zip)
         $windowsImages = $ChangedImages | Where-Object { $_.Platform -eq 'windows' }
         
         if ($windowsImages.Count -gt 0) {
             Write-Log "[ImageAcq] Processing $($windowsImages.Count) Windows images..." -Console
-            Write-Log "[ImageAcq] Note: Windows image delta extraction requires images loaded in local containerd" -Console
             
             foreach ($imgChange in $windowsImages) {
                 try {
-                    Write-Log "[ImageAcq] Processing Windows image: $($imgChange.FullName)" -Console
+                    Write-Log "[ImageAcq] Copying Windows image: $($imgChange.FullName)" -Console
                     
-                    $layerResult = Export-WindowsImageLayers -ImageChange $imgChange `
-                                                             -LayersDir $windowsLayersDir `
-                                                             -ShowLogs:$ShowLogs
+                    $copyResult = Copy-WindowsImageFromPackage -NewPackageRoot $NewPackageRoot `
+                                                                -ImageChange $imgChange `
+                                                                -ImagesDir $windowsImagesDir `
+                                                                -ShowLogs:$ShowLogs
                     
-                    if ($layerResult.Success) {
-                        $result.ExtractedLayers += $layerResult.Layers
-                        $result.TotalSize += $layerResult.Size
-                        Write-Log "[ImageAcq] Successfully extracted Windows image: $($imgChange.FullName)" -Console
+                    if ($copyResult.Success) {
+                        $result.ExtractedLayers += $copyResult.ImageInfo
+                        $result.TotalSize += $copyResult.Size
+                        Write-Log "[ImageAcq] Successfully copied Windows image: $($imgChange.FullName)" -Console
                     } else {
-                        Write-Log "[ImageAcq] Warning: Failed to extract Windows image $($imgChange.FullName): $($layerResult.ErrorMessage)" -Console
+                        Write-Log "[ImageAcq] Warning: Failed to copy Windows image $($imgChange.FullName): $($copyResult.ErrorMessage)" -Console
                         $result.FailedImages += $imgChange.FullName
                     }
                     
@@ -149,20 +122,124 @@ function Export-ChangedImageLayers {
             }
         }
         
+        # Process Linux images (export from VM)
+        $linuxImages = $ChangedImages | Where-Object { $_.Platform -eq 'linux' }
+        
+        if ($linuxImages.Count -gt 0) {
+            # Determine if we should use an existing VM or create a new one
+            if ($ExistingVmContext) {
+                Write-Log "[ImageAcq] Using existing VM for Linux image export: $($ExistingVmContext.VmName)" -Console
+                $vmName = $ExistingVmContext.VmName
+                $guestIp = $ExistingVmContext.GuestIp
+                $switchName = $ExistingVmContext.SwitchName
+                $natName = $ExistingVmContext.NatName
+                $hostSwitchIp = $ExistingVmContext.HostSwitchIp
+                $usingExistingVm = $true
+            } else {
+                Write-Log "[ImageAcq] Creating temporary VM for Linux image export..." -Console
+                
+                # Generate unique names for VM infrastructure
+                $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+                $switchNameEnding = "imgdelta-$timestamp"
+                $switchName = "k2s-sw-$switchNameEnding"
+                $natName = "k2s-nat-$switchNameEnding"
+                $vmName = "k2s-imgdelta-$switchNameEnding"
+                
+                # Network configuration
+                $networkPrefix = '192.168.99.0'
+                $prefixLen = 24
+                $hostSwitchIp = '192.168.99.1'
+                $guestIp = '192.168.99.10'
+                $usingExistingVm = $false
+                
+                Write-Log "[ImageAcq] VM='$vmName', Switch='$switchName', GuestIP='$guestIp'" -Console
+            }
+            
+            try {
+                # Create VM infrastructure only if not reusing existing VM
+                if (-not $usingExistingVm) {
+                    # Create network
+                    Write-Log "[ImageAcq] Creating VM network infrastructure..." -Console
+                    $netCtx = New-K2sHvNetwork -SwitchName $switchName -NatName $natName -HostSwitchIp $hostSwitchIp -NetworkPrefix $networkPrefix -PrefixLen $prefixLen
+                    if ($netCtx.SwitchName -ne $switchName) {
+                        $switchName = $netCtx.SwitchName
+                    }
+                    
+                    # Create and start VM
+                    New-K2sHvTempVm -VmName $vmName -VhdxPath $NewVhdxPath -SwitchName $switchName
+                    
+                    # Wait for VM to be ready
+                    if (-not (Wait-K2sHvGuestIp -Ip $guestIp -TimeoutSeconds 180)) {
+                        throw "Guest IP $guestIp not reachable within timeout"
+                    }
+                    Write-Log "[ImageAcq] VM ready at $guestIp" -Console
+                    
+                    # Wait for SSH to be ready
+                    Write-Log "[ImageAcq] Waiting 60 seconds for SSH server to initialize..." -Console
+                    Start-Sleep -Seconds 60
+                }
+                
+                # Process each Linux image
+                foreach ($imgChange in $linuxImages) {
+                    try {
+                        Write-Log "[ImageAcq] Exporting Linux image: $($imgChange.FullName)" -Console
+                        
+                        $exportResult = Export-LinuxImageFromBuildah -VmName $vmName `
+                                                                      -ImageChange $imgChange `
+                                                                      -ImagesDir $linuxImagesDir `
+                                                                      -ShowLogs:$ShowLogs
+                        
+                        if ($exportResult.Success) {
+                            $result.ExtractedLayers += $exportResult.ImageInfo
+                            $result.TotalSize += $exportResult.Size
+                            Write-Log "[ImageAcq] Successfully exported Linux image: $($imgChange.FullName)" -Console
+                        } else {
+                            Write-Log "[ImageAcq] Warning: Failed to export Linux image $($imgChange.FullName): $($exportResult.ErrorMessage)" -Console
+                            $result.FailedImages += $imgChange.FullName
+                        }
+                        
+                    } catch {
+                        Write-Log "[ImageAcq] Error processing Linux image $($imgChange.FullName): $_" -Console
+                        $result.FailedImages += $imgChange.FullName
+                    }
+                }
+                
+            } catch {
+                $linuxVmError = $_
+                Write-Log "[ImageAcq] Error setting up Linux VM: $linuxVmError" -Console
+                # Mark all Linux images as failed
+                foreach ($img in $linuxImages) {
+                    $result.FailedImages += $img.FullName
+                }
+            } finally {
+                # Cleanup VM and network infrastructure only if we created it
+                if ($vmName -and -not $usingExistingVm) {
+                    Write-Log "[ImageAcq] Cleaning up temporary VM infrastructure..." -Console
+                    
+                    # Create cleanup context
+                    $cleanupCtx = [pscustomobject]@{
+                        VmName       = $vmName
+                        SwitchName   = $switchName
+                        NatName      = $natName
+                        HostSwitchIp = $hostSwitchIp
+                        CreatedVm    = $true
+                    }
+                    
+                    Remove-K2sHvEnvironment -Context $cleanupCtx
+                }
+            }
+        }
+        
         $result.Success = $true
         $totalSizeMB = [math]::Round($result.TotalSize / 1MB, 2)
-        Write-Log "[ImageAcq] Layer extraction complete. Extracted: $($result.ExtractedLayers.Count) layers, Total size: ${totalSizeMB} MB, Failed: $($result.FailedImages.Count)" -Console
+        Write-Log "[ImageAcq] Image export complete. Exported: $($result.ExtractedLayers.Count) images, Total size: ${totalSizeMB} MB, Failed: $($result.FailedImages.Count)" -Console
         
     } catch {
-        $result.ErrorMessage = "Exception during layer extraction: $_"
+        $result.ErrorMessage = "Exception during image export: $_"
         Write-Log $result.ErrorMessage -Console
         
     } finally {
-        # Cleanup temporary VM
-        if ($vmName) {
-            Write-Log "[ImageAcq] Cleaning up temporary VM: $vmName" -Console
-            Remove-K2sHvEnvironment -VmName $vmName
-        }
+        # No global cleanup needed here - VM cleanup handled above
     }
     
     return $result
@@ -170,7 +247,112 @@ function Export-ChangedImageLayers {
 
 <#
 .SYNOPSIS
-Exports layers from a Linux image using buildah in the VM.
+Copies a Windows container image tar from the package WindowsNodeArtifacts.zip.
+
+.PARAMETER NewPackageRoot
+Root directory of the extracted new package.
+
+.PARAMETER ImageChange
+Image change object containing image metadata.
+
+.PARAMETER ImagesDir
+Directory to store copied image tar file.
+
+.OUTPUTS
+Hashtable with Success flag, ImageInfo, Size, and ErrorMessage.
+#>
+function Copy-WindowsImageFromPackage {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$NewPackageRoot,
+        
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$ImageChange,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$ImagesDir,
+        
+        [Parameter(Mandatory = $false)]
+        [switch]$ShowLogs
+    )
+    
+    $result = @{
+        Success      = $false
+        ImageInfo    = $null
+        Size         = 0
+        ErrorMessage = ''
+    }
+    
+    try {
+        $imageName = $ImageChange.FullName
+        
+        # Windows image tar filename format: registry.domain__repo__image_vtag.tar
+        $sanitizedName = $imageName -replace '/', '__' -replace ':', '_v'
+        $sourceTarName = "$sanitizedName.tar"
+        
+        # Path to WindowsNodeArtifacts.zip
+        $winArtifactsZip = Join-Path $NewPackageRoot 'bin\WindowsNodeArtifacts.zip'
+        
+        if (-not (Test-Path $winArtifactsZip)) {
+            $result.ErrorMessage = "WindowsNodeArtifacts.zip not found at $winArtifactsZip"
+            return $result
+        }
+        
+        Write-Log "[ImageAcq] Opening WindowsNodeArtifacts.zip to extract $sourceTarName" -Console
+        
+        # Open zip and find the image tar
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($winArtifactsZip)
+        
+        try {
+            # Look for the image in images/ folder
+            $imageEntry = $zip.Entries | Where-Object { 
+                ($_.FullName -eq "images/$sourceTarName") -or ($_.FullName -eq "images\$sourceTarName")
+            } | Select-Object -First 1
+            
+            if (-not $imageEntry) {
+                $result.ErrorMessage = "Image tar '$sourceTarName' not found in WindowsNodeArtifacts.zip images folder"
+                return $result
+            }
+            
+            # Extract to destination
+            $destTarPath = Join-Path $ImagesDir $sourceTarName
+            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($imageEntry, $destTarPath, $true)
+            
+            if (Test-Path $destTarPath) {
+                $fileInfo = Get-Item $destTarPath
+                $result.Size = $fileInfo.Length
+                
+                $result.ImageInfo = [PSCustomObject]@{
+                    ImageName    = $imageName
+                    Platform     = 'windows'
+                    FilePath     = $destTarPath
+                    RelativePath = "image-delta/windows/images/$sourceTarName"
+                    Size         = $result.Size
+                }
+                
+                $result.Success = $true
+                $sizeMB = [math]::Round($result.Size / 1MB, 2)
+                Write-Log "[ImageAcq] Windows image copied: ${sizeMB} MB" -Console
+            } else {
+                $result.ErrorMessage = "Failed to extract image tar to $destTarPath"
+            }
+            
+        } finally {
+            $zip.Dispose()
+        }
+        
+    } catch {
+        $result.ErrorMessage = "Exception during Windows image copy: $_"
+        Write-Log $result.ErrorMessage -Console
+    }
+    
+    return $result
+}
+
+<#
+.SYNOPSIS
+Exports a Linux container image from buildah as OCI archive tar.
 
 .PARAMETER VmName
 Name of the temporary VM.
@@ -178,13 +360,13 @@ Name of the temporary VM.
 .PARAMETER ImageChange
 Image change object containing OldImage and NewImage.
 
-.PARAMETER LayersDir
-Directory to store extracted layer tarballs.
+.PARAMETER ImagesDir
+Directory to store exported image tar file.
 
 .OUTPUTS
-Hashtable with Success flag, Layers array, Size, and ErrorMessage.
+Hashtable with Success flag, ImageInfo, Size, and ErrorMessage.
 #>
-function Export-LinuxImageLayers {
+function Export-LinuxImageFromBuildah {
     param(
         [Parameter(Mandatory = $true)]
         [string]$VmName,
@@ -193,7 +375,7 @@ function Export-LinuxImageLayers {
         [PSCustomObject]$ImageChange,
         
         [Parameter(Mandatory = $true)]
-        [string]$LayersDir,
+        [string]$ImagesDir,
         
         [Parameter(Mandatory = $false)]
         [switch]$ShowLogs
@@ -201,44 +383,20 @@ function Export-LinuxImageLayers {
     
     $result = @{
         Success      = $false
-        Layers       = @()
+        ImageInfo    = $null
         Size         = 0
         ErrorMessage = ''
     }
     
     try {
-        # Get layer information for new image
         $newImageId = $ImageChange.NewImage.Id
         $imageName = $ImageChange.FullName
         
-        Write-Log "[ImageAcq] Inspecting new image layers: $imageName" -Console
-        $cmd = "sudo buildah inspect --type image '$newImageId'"
-        $output = Invoke-K2sGuestCmd -VmName $VmName -Command $cmd -Timeout 30
-        
-        if (-not $output.Success) {
-            $result.ErrorMessage = "Failed to inspect image: $($output.ErrorMessage)"
-            return $result
-        }
-        
-        $inspectData = $output.Output | ConvertFrom-Json
-        $newLayers = @()
-        
-        if ($inspectData.RootFS -and $inspectData.RootFS.Layers) {
-            $newLayers = $inspectData.RootFS.Layers
-            Write-Log "[ImageAcq] New image has $($newLayers.Count) layers" -Console
-        } else {
-            $result.ErrorMessage = "No layers found in image"
-            return $result
-        }
-        
-        # Note: Layer-level extraction is complex and not yet implemented
-        # For now, export the entire image as a tar archive
-        # Future enhancement: extract only new/changed layers by comparing with old image
-        Write-Log "[ImageAcq] Exporting full image as OCI archive..." -Console
+        Write-Log "[ImageAcq] Exporting complete image as OCI archive: $imageName" -Console
         
         $sanitizedName = $imageName -replace '[/:]', '-'
         $remoteTarPath = "/tmp/delta-image-$sanitizedName.tar"
-        $localTarPath = Join-Path $LayersDir "$sanitizedName.tar"
+        $localTarPath = Join-Path $ImagesDir "$sanitizedName.tar"
         
         # Export image to tar (build command carefully to avoid PowerShell variable parsing issues)
         $ociArchivePath = "oci-archive:$remoteTarPath" + ":$imageName"
@@ -274,72 +432,25 @@ function Export-LinuxImageLayers {
             $fileInfo = Get-Item $localTarPath
             $result.Size = $fileInfo.Length
             
-            $result.Layers += [PSCustomObject]@{
+            $result.ImageInfo = [PSCustomObject]@{
                 ImageName    = $imageName
                 Platform     = 'linux'
                 FilePath     = $localTarPath
-                RelativePath = "image-delta/linux/layers/$sanitizedName.tar"
+                RelativePath = "image-delta/linux/images/$sanitizedName.tar"
                 Size         = $result.Size
-                LayerCount   = $newLayers.Count
             }
             
             $result.Success = $true
             $sizeMB = [math]::Round($result.Size / 1MB, 2)
-            Write-Log "[ImageAcq] Image exported successfully: ${sizeMB} MB" -Console
+            Write-Log "[ImageAcq] Linux image exported: ${sizeMB} MB" -Console
         } else {
             $result.ErrorMessage = "Exported tar not found at expected path"
         }
         
     } catch {
-        $result.ErrorMessage = "Exception during Linux layer export: $_"
+        $result.ErrorMessage = "Exception during Linux image export: $_"
         Write-Log $result.ErrorMessage -Console
     }
-    
-    return $result
-}
-
-<#
-.SYNOPSIS
-Exports a Windows image (placeholder for future implementation).
-
-.PARAMETER ImageChange
-Image change object.
-
-.PARAMETER LayersDir
-Directory to store extracted image.
-
-.OUTPUTS
-Hashtable with Success flag and ErrorMessage.
-#>
-function Export-WindowsImageLayers {
-    param(
-        [Parameter(Mandatory = $true)]
-        [PSCustomObject]$ImageChange,
-        
-        [Parameter(Mandatory = $true)]
-        [string]$LayersDir,
-        
-        [Parameter(Mandatory = $false)]
-        [switch]$ShowLogs
-    )
-    
-    $result = @{
-        Success      = $false
-        Layers       = @()
-        Size         = 0
-        ErrorMessage = ''
-    }
-    
-    # Windows image delta extraction requires nerdctl or ctr on the Windows host
-    # For now, mark as not implemented
-    
-    Write-Log "[ImageAcq] Windows image layer extraction not yet implemented: $($ImageChange.FullName)" -Console
-    Write-Log "[ImageAcq] Windows images will be included as full images in the delta package" -Console
-    
-    # Return success but with no layers extracted
-    # Full Windows images will be handled by the regular addon export mechanism
-    $result.Success = $true
-    $result.ErrorMessage = "Windows layer extraction not implemented - full image export required"
     
     return $result
 }
