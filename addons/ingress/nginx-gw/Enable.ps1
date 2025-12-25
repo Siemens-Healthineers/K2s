@@ -98,19 +98,18 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementa
     exit 1
 }
 
-# has to be discussed 
-# if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq $true) {
-#     $errMsg = "Addon 'gateway-api' is enabled. Disable it first to avoid port conflicts."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq $true) {
+    $errMsg = "Addon 'gateway-api' is enabled. Disable it first to avoid port conflicts."
 
-#     if ($EncodeStructuredOutput -eq $true) {
-#         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
-#         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-#         return
-#     }
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
 
-#     Write-Log $errMsg -Error
-#     exit 1
-# }
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'nginx-gw', '-o', 'yaml').Output
 if ("$existingServices" -match '.*nginx-gw.*') {
@@ -171,11 +170,8 @@ $ingressNginxGatewaySvc = 'nginx-gw'
 (Invoke-Kubectl -Params 'patch', 'svc', $ingressNginxGatewaySvc, '-p', "$patchJson", '-n', $ingressNginxGatewayNamespace).Output | Write-Log
 
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'nginx-gw' -TimeoutSeconds 300)
-# $allJobsAreCompleted = (Wait-ForJobCondition -Condition Complete -Label 'app.kubernetes.io/component=admission-webhook' -Namespace 'nginx-gw' -TimeoutSeconds 300)
-
 
  if ($allPodsAreUp -ne $true) {
-#  if ($allPodsAreUp -ne $true -or $allJobsAreCompleted -ne $true) {
     $errMsg = "All ingress nginx pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress nginx failed."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg

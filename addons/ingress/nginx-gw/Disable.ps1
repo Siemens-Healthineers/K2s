@@ -13,7 +13,7 @@ Ingress nginx-gw is using k8s load balancer and is bound to the IP of the master
 It allows applications to register their ingress nginx gateway resources and handles incomming HTTP/HTPPS traffic.
 
 .EXAMPLE
-powershell <installation folder>\addons\ingress\nginx\Disable.ps1
+powershell <installation folder>\addons\ingress\nginx-gw\Disable.ps1
 #>
 
 Param(
