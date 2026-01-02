@@ -170,9 +170,9 @@ func install(cmd *cobra.Command, args []string) error {
 	}
     currentExeAbs, _ := filepath.Abs(currentExe)
 
-    if(strings.HasSuffix(strings.ToLower(currentExeAbs), "k2s.exe")) {
+/*     if(strings.HasSuffix(strings.ToLower(currentExeAbs), "k2s.exe")) {
         fmt.Println("Running as k2s.exe (upgrade mode), Skipping PATH validation")
-    } else {
+    } else { */
         paths, err := findExecutablesInPath(exeName)
         if err != nil {
             return fmt.Errorf("[Install] Error scanning PATH for k2s.exe: %v", err)
@@ -191,7 +191,7 @@ func install(cmd *cobra.Command, args []string) error {
             }
             return fmt.Errorf("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.")
         }
-    }
+    /* } */
 
 	cmdSession := cc.StartCmdSession(cmd.CommandPath())
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)

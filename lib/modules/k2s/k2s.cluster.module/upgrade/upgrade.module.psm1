@@ -988,6 +988,7 @@ function PerformClusterUpgrade {
 		}
 		Invoke-ClusterUninstall -ShowLogs:$ShowLogs -DeleteFiles:$DeleteFiles
 
+
 		$logFilePath = Get-LogFilePath
 
 		# ensure UTF-8 even for legacy encodings
@@ -1006,6 +1007,14 @@ function PerformClusterUpgrade {
 		if ([string]::IsNullOrEmpty($K2sPathToInstallFrom)) {
 			$K2sPathToInstallFrom =  Get-KubePath
 		}
+		Write-Log "Refreshing PATH after uninstall.." -Console
+
+		$env:PATH =
+		[Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+				[Environment]::GetEnvironmentVariable("Path", "User")
+
+		Write-Log "PATH refreshed for current session" -Console
+
 		Invoke-ClusterInstall -K2sPathToInstallFrom $K2sPathToInstallFrom -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -DeleteFiles:$DeleteFiles -MasterVMMemory $memoryVM -MasterVMProcessorCount $coresVM -MasterDiskSize $storageVM
 		Wait-ForAPIServerInGivenKubePath -KubePath $K2sPathToInstallFrom
 
