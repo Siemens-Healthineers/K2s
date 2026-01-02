@@ -9,9 +9,19 @@ function Test-SpecialSkippedFile {
         [string[]] $List
     )
     $leaf = [IO.Path]::GetFileName($Path)
+    
+    # Check explicit skip list
     foreach ($f in $List) {
         if ($leaf -ieq $f) { return $true }
     }
+    
+    # Check for addon image tarballs (handled by image delta logic, not file diff)
+    # Pattern: addons/<addon-name>/*.tar or addons/<addon-name>/*_win.tar
+    if ($Path -match '^addons/[^/]+/[^/]+\.tar$' -or $Path -match '^addons/[^/]+/[^/]+_win\.tar$') {
+        Write-Log "[SkipList] Excluding addon image tarball from file diff: $Path (handled by image delta)" -Console
+        return $true
+    }
+    
     return $false
 }
 
