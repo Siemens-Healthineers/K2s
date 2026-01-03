@@ -173,6 +173,9 @@ func install(cmd *cobra.Command, args []string) error {
 /*     if(strings.HasSuffix(strings.ToLower(currentExeAbs), "k2s.exe")) {
         fmt.Println("Running as k2s.exe (upgrade mode), Skipping PATH validation")
     } else { */
+    		$env:PATH =
+    		[Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+    				[Environment]::GetEnvironmentVariable("Path", "User")
         paths, err := findExecutablesInPath(exeName)
         if err != nil {
             return fmt.Errorf("[Install] Error scanning PATH for k2s.exe: %v", err)

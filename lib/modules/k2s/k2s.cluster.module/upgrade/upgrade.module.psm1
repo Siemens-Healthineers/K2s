@@ -1009,10 +1009,6 @@ function PerformClusterUpgrade {
 		}
 		Write-Log "Refreshing PATH after uninstall.." -Console
 
-		$env:PATH =
-		[Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
-				[Environment]::GetEnvironmentVariable("Path", "User")
-
 		Write-Log "PATH refreshed for current session" -Console
 
 		Invoke-ClusterInstall -K2sPathToInstallFrom $K2sPathToInstallFrom -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -DeleteFiles:$DeleteFiles -MasterVMMemory $memoryVM -MasterVMProcessorCount $coresVM -MasterDiskSize $storageVM
