@@ -63,6 +63,10 @@ if (!$SkipPurge) {
 
 Remove-K2sHostsFromNoProxyEnvVar
 
+# Refresh PATH in current session so subsequent install does not see stale k2s entries
+$env:PATH = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+        [Environment]::GetEnvironmentVariable("Path", "User")
+
 Invoke-AddonsHooks -HookType 'AfterUninstall'
 
 Write-Log 'K2s uninstalled.'

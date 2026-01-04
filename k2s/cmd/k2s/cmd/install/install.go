@@ -163,8 +163,6 @@ func findExecutablesInPath(exeName string) ([]string, error) {
 }
 
 func checkForOldK2sExecutables(currentExe string, exeName string) ([]string, error) {
-	$env:PATH = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
-        				[Environment]::GetEnvironmentVariable("Path", "User")
 	currentExeAbs, _ := filepath.Abs(currentExe)
 	paths, err := findExecutablesInPath(exeName)
 	if err != nil {
