@@ -45,7 +45,30 @@ function Invoke-SSHWithKey {
         $params = $params[1..($params.Length - 1)]
     }
 
-    &ssh.exe $params 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+    # Capture output and filter SSH connection warnings/errors
+    $outputLines = @()
+    &ssh.exe $params 2>&1 | ForEach-Object {
+        $line = "$_"  # Ensure it's a string
+        # Filter out SSH-specific connection warnings that contaminate command output
+        if ($line -notmatch '^close - IO is still pending' -and 
+            $line -notmatch '^Connection .* closed' -and
+            $line -notmatch '^Warning: Permanently added') {
+            Write-Log $line -Console
+            $outputLines += $line
+        } else {
+            # Log SSH warnings separately but don't pass them to output stream
+            Write-Log "[SSH] $line"
+        }
+    }
+    
+    # Return clean output as a single string (joining with newlines if multiple lines)
+    if ($outputLines.Count -eq 0) {
+        return ''
+    } elseif ($outputLines.Count -eq 1) {
+        return $outputLines[0]
+    } else {
+        return ($outputLines -join "`n")
+    }
 }
 
 function Invoke-ExeWithAsciiEncoding {
