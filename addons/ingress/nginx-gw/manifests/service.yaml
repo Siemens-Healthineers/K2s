@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -8,21 +8,16 @@ metadata:
   labels:
     app.kubernetes.io/instance: nginx-gw
     app.kubernetes.io/name: nginx-gw
-    app.kubernetes.io/version: 1.6.2
-  name: nginx-gw
+    app.kubernetes.io/version: "2.3.0"
+  name: nginx-gw-controller
   namespace: nginx-gw
 spec:
-  externalTrafficPolicy: Local
-  ports:
-  - name: http
-    port: 80
-    protocol: TCP
-    targetPort: 80
-  - name: https
-    port: 443
-    protocol: TCP
-    targetPort: 443
+  type: LoadBalancer
   selector:
     app.kubernetes.io/instance: nginx-gw
     app.kubernetes.io/name: nginx-gw
-  type: LoadBalancer
+  ports:
+  - name: agent-grpc
+    port: 443
+    protocol: TCP
+    targetPort: 8443

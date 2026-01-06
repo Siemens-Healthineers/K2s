@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -23,12 +23,6 @@ if ($SecurityAddonEnabled) {
 	elseif (Test-TraefikIngressControllerAvailability) {
 		# remove middleware if exists
 		(Invoke-Kubectl -Params 'delete', 'middleware', 'add-bearer-token', '-n', 'dashboard', '--ignore-not-found').Output | Write-Log
-	}
-	elseif (Test-GatewayFabricApiAvailability) {
-		# remove HTTPRoute filter if exists
-		Write-Log 'Removing HTTPRoute authorization filter'
-		$patchRemoveFilter = '{\"spec\":{\"rules\":[{\"filters\":null}]}}'
-		(Invoke-Kubectl -Params 'patch', 'httproute', 'dashboard-gateway-fabric', '-n', 'dashboard', '-p', $patchRemoveFilter).Output | Write-Log
 	}
 	else {
 		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'
@@ -75,26 +69,13 @@ spec:
 		# create Bearer token for next 24h
 		Write-Log 'Creating Bearer token for next 24h'
 		$token = Get-BearerToken
-		# create HTTPRoute filter to add authorization header
-		$filterManifest = "apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
- name: dashboard-gateway-fabric
- namespace: dashboard
-spec:
- rules:
-  - filters:
-	 - type: RequestHeaderModifier
-	   requestHeaderModifier:
-		add:
-		 - name: Authorization
-		   value: Bearer $token"
-
+		# Apply HTTPRoute with Authorization header using template
+		Write-Log 'Applying HTTPRoute with Authorization header'
 		$tempPath = [System.IO.Path]::GetTempPath()
-		$filterManifest | Out-File -FilePath "$tempPath\httproute-filter.yaml" -Encoding ascii
-		(Invoke-Kubectl -Params 'apply', '-f', "$tempPath\httproute-filter.yaml", '-n', 'dashboard').Output | Write-Log
-		# delete filter file
-		Remove-Item -Path "$tempPath\httproute-filter.yaml"
+		Copy-Item -Path "$PSScriptRoot\manifests\ingress-nginx-gw\dashboard-nginx-gw.yaml" -Destination "$tempPath\dashboard-nginx-gw.yaml"
+		(Get-Content -Path "$tempPath\dashboard-nginx-gw.yaml").replace('BEARER-TOKEN', $token) | Out-File -FilePath "$tempPath\dashboard-nginx-gw.yaml"
+		(Invoke-Kubectl -Params 'apply', '-f', "$tempPath\dashboard-nginx-gw.yaml").Output | Write-Log
+		Remove-Item -Path "$tempPath\dashboard-nginx-gw.yaml"
 	}
 	else {
 		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'

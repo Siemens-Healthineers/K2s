@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -12,7 +12,7 @@ namespace: ingress-traefik
 
 resources:
   - namespace.yaml
-  - crds/gateway-api-v1.2.1.yaml
+  - crds/gateway-api-v1.4.1.yaml
   # - crds/gateway-api-v1.2.1-rbac.yaml
   - crds/traefik-crds.yaml
   # - crds/traefik-crds-rbac.yaml

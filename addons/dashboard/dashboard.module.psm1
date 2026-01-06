@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -98,4 +98,39 @@ function Get-BearerToken {
     # create Bearer token for next 24h
     $token = (Invoke-Kubectl -Params '-n', 'dashboard', 'create', 'token', 'admin-user', '--duration', '24h').Output 
     return $token
+}
+
+<#
+.DESCRIPTION
+Creates kong CA certificate ConfigMap for nginx-gw BackendTLSPolicy validation
+#>
+function New-KongCACertConfigMap {
+    Write-Log 'Extracting kong-proxy CA certificate for BackendTLSPolicy' -Console
+    
+    # Wait a moment for kong pod to be fully ready
+    Start-Sleep -Seconds 2
+    
+    # Get kong pod name
+    $kongPod = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'dashboard', '-l', 'app.kubernetes.io/name=kong', '-o', 'jsonpath={.items[0].metadata.name}').Output
+    
+    if ($kongPod) {
+        try {
+            # Extract certificate from kong pod
+            $certPath = [System.IO.Path]::GetTempPath() + 'kong-ca.crt'
+            $extractCmd = "echo | openssl s_client -connect localhost:8443 2>&1 | openssl x509 -outform PEM"
+            $cert = (Invoke-Kubectl -Params 'exec', '-n', 'dashboard', $kongPod, '--', 'sh', '-c', $extractCmd).Output
+            $cert | Out-File -FilePath $certPath -Encoding ascii
+            
+            # Create ConfigMap with the certificate
+            (Invoke-Kubectl -Params 'create', 'configmap', 'kong-ca-cert', '-n', 'dashboard', "--from-file=ca.crt=$certPath", '--dry-run=client', '-o', 'yaml').Output | & kubectl apply -f -
+            
+            # Clean up temp file
+            Remove-Item -Path $certPath -ErrorAction SilentlyContinue
+            
+            Write-Log 'Kong CA certificate ConfigMap created successfully' -Console
+        }
+        catch {
+            Write-Log "Warning: Could not extract kong certificate: $_" -Console
+        }
+    }
 }

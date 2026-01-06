@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -8,7 +8,12 @@ metadata:
   labels:
     app.kubernetes.io/instance: nginx-gw
     app.kubernetes.io/name: nginx-gw
-    app.kubernetes.io/version: 1.6.2
+    app.kubernetes.io/version: "2.3.0"
   name: nginx-gw
 spec:
   controllerName: gateway.nginx.org/nginx-gw-controller
+  parametersRef:
+    group: gateway.nginx.org
+    kind: NginxProxy
+    name: ngf-proxy-config
+    namespace: nginx-gw

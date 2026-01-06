@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -19,15 +19,15 @@ else {
     $isIngressNginxGatewayRunningProp.Message = "The nginx ingress gateway api controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress nginx-gw' and 'k2s addons enable ingress nginx-gw'"
 } 
 
-$externalIp = (Invoke-Kubectl -Params 'get', 'service', 'nginx-gw', '-n', 'nginx-gw', '-o', 'jsonpath="{.spec.externalIPs[0]}"').Output
+$externalIp = (Invoke-Kubectl -Params 'get', 'service', 'nginx-gw-controller', '-n', 'nginx-gw', '-o', 'jsonpath="{.spec.externalIPs[0]}"').Output
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
 $isExternalIPSetProp = @{Name = 'IsExternalIPSet'; Value = ($externalIp -eq $controlPlaneIp); Okay = ($externalIp -eq $controlPlaneIp) }
 if ($isExternalIPSetProp.Value -eq $true) {
-    $isExternalIPSetProp.Message = "The external IP for nginx-gw service is set to $controlPlaneIp"
+    $isExternalIPSetProp.Message = "The external IP for nginx-gw-controller service is set to $controlPlaneIp"
 }
 else {
-    $isExternalIPSetProp.Message = "The external IP for nginx-gw service is not set properly. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress nginx-gw' and 'k2s addons enable ingress nginx-gw'"
+    $isExternalIPSetProp.Message = "The external IP for nginx-gw-controller service is not set properly. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress nginx-gw' and 'k2s addons enable ingress nginx-gw'"
 }
 
 return $isIngressNginxGatewayRunningProp, $isExternalIPSetProp

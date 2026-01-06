@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -63,13 +63,21 @@ traffic routing rules:
 
 ### Gateway Resources
 
-This addon provides two pre-configured Gateway resources:
+This addon creates a central Gateway resource that handles both HTTP and HTTPS traffic:
 
-- **cluster-local-nginx-gw.yaml**: HTTP-only gateway (port 80) - ready to use without certificates
-- **cluster-local-nginx-gw-secure.yaml**: HTTP (port 80) and HTTPS (port 443) gateway - requires
-  the `k2s-cluster-local-tls` certificate secret (created by cert-manager when the security addon is enabled)
+**Gateway Configuration:**
+- **Name**: `nginx-cluster-local` (in `nginx-gw` namespace)
+- **HTTP Listener**: Port 80 - no certificate required
+- **HTTPS Listener**: Port 443 - uses `k2s-cluster-local-tls` secret
 
-Both gateways listen on hostname `k2s.cluster.local` and allow routes from all namespaces.
+The HTTPS listener uses a **self-signed certificate** that is automatically created during
+addon installation. For development and testing, this self-signed certificate is sufficient.
+For production use with proper certificate management, the security addon (cert-manager)
+can be enabled to provision trusted certificates.
+
+**Certificate Handling:**
+- Without security addon: Self-signed certificate is created by Enable.ps1 using OpenSSL
+- With security addon: cert-manager can manage the certificate (replace self-signed cert)
 
 ### Creating HTTPRoutes
 
@@ -103,65 +111,84 @@ For more details on Gateway API resources and routing patterns, see the
 
 ## Access of the gateway
 
-The gateway is exposed via a LoadBalancer service and configured to be reachable
-from outside the cluster using the external IP address `172.19.1.100`.
+The gateway is exposed via a LoadBalancer service with an external IP configured through
+the NginxProxy resource. The external IP is dynamically set during installation based on
+the K2s control plane IP (typically `172.19.1.100`).
+
+**How External IP is Configured:**
+1. Enable.ps1 retrieves the control plane IP
+2. NginxProxy resource template is populated with this IP
+3. When the Gateway is created, it triggers the data plane deployment
+4. The data plane service is created with the external IP from NginxProxy configuration
 
 **Access Points:**
-- HTTP: `http://172.19.1.100:80` or `http://k2s.cluster.local` (when using the HTTP-only gateway)
-- HTTPS: `https://172.19.1.100:443` or `https://k2s.cluster.local` (when using the secure gateway with cert-manager)
+- HTTP: `http://172.19.1.100:80` or `http://k2s.cluster.local`
+- HTTPS: `https://172.19.1.100:443` or `https://k2s.cluster.local`
 
 _Note:_ Only one ingress or gateway controller can be enabled at a time in K2s
 (nginx ingress, traefik ingress, or nginx-gw) since they all use the same external IP and ports.
 
 ### TLS/HTTPS Configuration
 
-This addon supports two deployment modes:
+The addon creates a Gateway with both HTTP and HTTPS listeners by default.
 
-1. **HTTP-only (default)**: Uses `cluster-local-nginx-gw.yaml` which provides HTTP on port 80.
-   No certificate configuration needed - works immediately after addon installation.
+**Frontend TLS (Browser → Gateway):**
+- **Self-signed certificate** is automatically created during installation
+- Certificate CN: `k2s.cluster.local`
+- Secret name: `k2s-cluster-local-tls` (in `nginx-gw` namespace)
+- Browser access: `https://k2s.cluster.local` (accept browser certificate warning)
 
-2. **HTTP + HTTPS (secure)**: Uses `cluster-local-nginx-gw-secure.yaml` which provides both
-   HTTP (port 80) and HTTPS (port 443). Requires the `security` addon to be installed for
-   automatic certificate provisioning via cert-manager.
+**Backend TLS (Gateway → Services):**
+When HTTPRoutes reference HTTPS backend services, a **BackendTLSPolicy** must be configured
+to enable secure backend connections. This is handled automatically by addons that require it.
 
-When the security addon is enabled, cert-manager automatically creates and manages the
-`k2s-cluster-local-tls` certificate secret. This certificate is used by the HTTPS listener
-for TLS termination at the gateway level.
+Example: The dashboard addon configures BackendTLSPolicy to connect to kong-proxy:443:
+- Extracts kong's certificate during installation
+- Creates `kong-ca-cert` ConfigMap with the CA certificate
+- BackendTLSPolicy references this ConfigMap for certificate validation
 
-**Without cert-manager:** The HTTP-only gateway works perfectly for testing and development.
-Simply access services via `http://k2s.cluster.local`.
+**Certificate Management Options:**
 
-**With cert-manager (security addon):** Services are accessible via both HTTP and HTTPS,
-with automatic certificate management. See also [Security Addon](../../security/README.md).
+1. **Self-signed (default)**: Works immediately after installation for development/testing
+   - Frontend: Self-signed cert created by Enable.ps1
+   - Backend: Service-specific certificates validated via BackendTLSPolicy
+
+2. **cert-manager (production)**: Enable the security addon for automatic certificate management
+   - Frontend: Replace k2s-cluster-local-tls with cert-manager Certificate
+   - Backend: cert-manager can provision certificates for backend services
+   - See also [Security Addon](../../security/README.md)
 
 ### Shared Hostname Pattern
 
 Web applications can use the shared hostname `k2s.cluster.local` in their HTTPRoute rules
-and do not need to manage TLS certificates themselves, since TLS termination is handled
+and do not need to manage frontend TLS certificates themselves, since TLS termination is handled
 centrally by the gateway. Multiple HTTPRoutes using the same hostname will be processed
 by the gateway controller - the key requirement is to have **distinct path matching rules**
 to avoid conflicts.
 
-All K2s addons with a web UI use this pattern and are configured to be reachable
-under two endpoint styles:
+**Important:** If your backend service uses HTTPS (like kong-proxy, some API servers), you must
+configure a BackendTLSPolicy to enable secure communication between the gateway and backend.
+See the dashboard addon for a complete example of BackendTLSPolicy configuration.
 
-- Dedicated subdomain: `k2s-<nameOfAddon>.cluster.local/`
-- Shared path-based: `k2s.cluster.local/<nameOfAddon>/`
+All K2s addons with a web UI use this pattern and are configured to be reachable
+under path-based routing: `k2s.cluster.local/<nameOfAddon>/`
 
 Making web applications available under different paths can be challenging and may
 require different approaches depending on the application. Each K2s addon demonstrates
-a different technique for achieving path-based routing. The HTTPRoute resource definitions
-are worth analyzing to understand these mechanisms:
+a different technique for achieving path-based routing. The HTTPRoute and BackendTLSPolicy
+resource definitions are worth analyzing to understand these mechanisms:
 
 - **Kubernetes Dashboard**:
-  [dashboard-nginx-gw.yaml](../../dashboard/manifests/ingress-nginx-gw/dashboard-nginx-gw.yaml)
+  - HTTPRoute: [dashboard-nginx-gw.yaml](../../dashboard/manifests/ingress-nginx-gw/dashboard-nginx-gw.yaml)
+  - BackendTLSPolicy: [dashboard-backend-tls.yaml](../../dashboard/manifests/ingress-nginx-gw/dashboard-backend-tls.yaml)
+  - Shows: Path rewrite, header modification, HTTPS backend with certificate validation
 - **Logging** (OpenSearch Dashboards):
   Check addon manifests for HTTPRoute examples
 - **Monitoring** (Plutono/Grafana):
   Check addon manifests for HTTPRoute examples
 
 These examples show various routing patterns including path rewrites, header modifications,
-and backend service configurations.
+backend service configurations, and secure backend communication with BackendTLSPolicy.
 
 ## Further Reading
 

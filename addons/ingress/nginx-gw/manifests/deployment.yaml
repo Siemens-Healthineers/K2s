@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -9,8 +9,8 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: nginx-gw
     app.kubernetes.io/name: nginx-gw
-    app.kubernetes.io/version: 1.6.2
-  name: nginx-gw
+    app.kubernetes.io/version: "2.3.0"
+  name: nginx-gw-controller
   namespace: nginx-gw
 spec:
   replicas: 1
@@ -29,21 +29,19 @@ spec:
         app.kubernetes.io/instance: nginx-gw
         app.kubernetes.io/name: nginx-gw
     spec:
+      automountServiceAccountToken: true
       containers:
       - args:
-        - static-mode
+        - controller
         - --gateway-ctlr-name=gateway.nginx.org/nginx-gw-controller
         - --gatewayclass=nginx-gw
         - --config=nginx-gw-config
-        - --service=nginx-gw
+        - --service=nginx-gw-controller
+        - --agent-tls-secret=agent-tls
         - --metrics-port=9113
         - --health-port=8081
         - --leader-election-lock-name=nginx-gw-leader-election
         env:
-        - name: POD_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -56,14 +54,22 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.uid
-        image: ghcr.io/nginx/nginx-gateway-fabric:1.6.2
+        - name: INSTANCE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['app.kubernetes.io/instance']
+        - name: IMAGE_NAME
+          value: ghcr.io/nginx/nginx-gateway-fabric:2.3.0
+        image: ghcr.io/nginx/nginx-gateway-fabric:2.3.0
         imagePullPolicy: IfNotPresent
-        name: nginx-gateway
+        name: nginx-gw
         ports:
-        - containerPort: 9113
-          name: metrics
-        - containerPort: 8081
-          name: health
+        - name: agent-grpc
+          containerPort: 8443
+        - name: metrics
+          containerPort: 9113
+        - name: health
+          containerPort: 8081
         readinessProbe:
           httpGet:
             path: /readyz
@@ -71,230 +77,25 @@ spec:
           initialDelaySeconds: 3
           periodSeconds: 1
         securityContext:
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
           allowPrivilegeEscalation: false
-          capabilities:
-            add:
-            - KILL
-            drop:
-            - ALL
           readOnlyRootFilesystem: true
-          runAsGroup: 1001
-          runAsUser: 102
-          seccompProfile:
-            type: RuntimeDefault
-        volumeMounts:
-        - mountPath: /etc/nginx/conf.d
-          name: nginx-conf
-        - mountPath: /etc/nginx/stream-conf.d
-          name: nginx-stream-conf
-        - mountPath: /etc/nginx/main-includes
-          name: nginx-main-includes
-        - mountPath: /etc/nginx/secrets
-          name: nginx-secrets
-        - mountPath: /var/run/nginx
-          name: nginx-run
-        - mountPath: /etc/nginx/includes
-          name: nginx-includes
-      - image: ghcr.io/nginx/nginx-gateway-fabric/nginx:1.6.2
-        imagePullPolicy: IfNotPresent
-        name: nginx
-        ports:
-        - containerPort: 80
-          name: http
-        - containerPort: 443
-          name: https
-        securityContext:
-          capabilities:
-            add:
-            - NET_BIND_SERVICE
-            drop:
-            - ALL
-          readOnlyRootFilesystem: true
-          runAsGroup: 1001
           runAsUser: 101
-          seccompProfile:
-            type: RuntimeDefault
-        volumeMounts:
-        - mountPath: /etc/nginx/conf.d
-          name: nginx-conf
-        - mountPath: /etc/nginx/stream-conf.d
-          name: nginx-stream-conf
-        - mountPath: /etc/nginx/main-includes
-          name: nginx-main-includes
-        - mountPath: /etc/nginx/secrets
-          name: nginx-secrets
-        - mountPath: /var/run/nginx
-          name: nginx-run
-        - mountPath: /var/cache/nginx
-          name: nginx-cache
-        - mountPath: /etc/nginx/includes
-          name: nginx-includes
-      initContainers:
-      - command:
-        - /usr/bin/gateway
-        - initialize
-        - --source
-        - /includes/main.conf
-        - --destination
-        - /etc/nginx/main-includes
-        env:
-        - name: POD_UID
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.uid
-        image: ghcr.io/nginx/nginx-gateway-fabric:1.6.2
-        imagePullPolicy: IfNotPresent
-        name: init
-        securityContext:
-          capabilities:
-            add:
-            - KILL
-            drop:
-            - ALL
-          readOnlyRootFilesystem: true
           runAsGroup: 1001
-          runAsUser: 102
-          seccompProfile:
-            type: RuntimeDefault
         volumeMounts:
-        - mountPath: /includes
-          name: nginx-includes-bootstrap
-        - mountPath: /etc/nginx/main-includes
-          name: nginx-main-includes
+        - name: nginx-agent-tls
+          mountPath: /var/run/secrets/ngf
+      terminationGracePeriodSeconds: 30
+      serviceAccountName: nginx-gw
       securityContext:
         fsGroup: 1001
         runAsNonRoot: true
-      serviceAccountName: nginx-gw
-      shareProcessNamespace: true
-      terminationGracePeriodSeconds: 30
       volumes:
-      - emptyDir: {}
-        name: nginx-conf
-      - emptyDir: {}
-        name: nginx-stream-conf
-      - emptyDir: {}
-        name: nginx-main-includes
-      - emptyDir: {}
-        name: nginx-secrets
-      - emptyDir: {}
-        name: nginx-run
-      - emptyDir: {}
-        name: nginx-cache
-      - emptyDir: {}
-        name: nginx-includes
-      - configMap:
-          name: nginx-includes-bootstrap
-        name: nginx-includes-bootstrap
+      - name: nginx-agent-tls
+        secret:
+          secretName: server-tls
 
-
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name: nginx-gw
-#   namespace: nginx-gw
-#   labels:
-#     app.kubernetes.io/component: controller
-#     app.kubernetes.io/part-of: nginx-gw
-#     app.kubernetes.io/name: nginx-gw
-#     app.kubernetes.io/instance: nginx-gw
-#     app.kubernetes.io/version: "2.2.2"
-# spec:
-#   replicas: 1
-#   selector:
-#     matchLabels:
-#       app.kubernetes.io/component: controller
-#       app.kubernetes.io/name: nginx-gw
-#       app.kubernetes.io/instance: nginx-gw
-#   template:
-#     metadata:
-#       labels:
-#         app.kubernetes.io/component: controller
-#         app.kubernetes.io/name: nginx-gw
-#         app.kubernetes.io/instance: nginx-gw
-#       annotations:
-#         prometheus.io/scrape: "true"
-#         prometheus.io/port: "9113"
-#     spec:
-#       automountServiceAccountToken: true
-#       containers:
-#       - args:
-#         - controller
-#         - --gateway-ctlr-name=gateway.nginx.org/nginx-gw-controller
-#         - --gatewayclass=nginx-gw
-#         - --config=nginx-gw-config
-#         - --service=nginx-gw
-#         - --agent-tls-secret=agent-tls
-#         - --metrics-port=9113
-#         - --health-port=8081
-#         - --leader-election-lock-name=nginx-gw-leader-election
-#         env:
-#         - name: POD_NAMESPACE
-#           valueFrom:
-#             fieldRef:
-#               fieldPath: metadata.namespace
-#         - name: POD_NAME
-#           valueFrom:
-#             fieldRef:
-#               fieldPath: metadata.name
-#         - name: POD_UID
-#           valueFrom:
-#             fieldRef:
-#               fieldPath: metadata.uid
-#         - name: INSTANCE_NAME
-#           valueFrom:
-#             fieldRef:
-#               fieldPath: metadata.labels['app.kubernetes.io/instance']
-#         - name: IMAGE_NAME
-#           value: ghcr.io/nginx/nginx-gateway-fabric:2.2.2
-#         image: ghcr.io/nginx/nginx-gateway-fabric:2.2.2
-#         imagePullPolicy: IfNotPresent
-#         livenessProbe:
-#           failureThreshold: 5
-#           httpGet:
-#             path: /healthz
-#             port: health
-#             scheme: HTTP
-#           initialDelaySeconds: 10
-#           periodSeconds: 10
-#           successThreshold: 1
-#           timeoutSeconds: 1
-#         name: nginx-gw-controller
-#         ports:
-#         - name: agent-grpc
-#           containerPort: 8443
-#         - name: metrics
-#           containerPort: 9113
-#         - name: health
-#           containerPort: 8081
-#         readinessProbe:
-#           failureThreshold: 3
-#           httpGet:
-#             path: /readyz
-#             port: health
-#           initialDelaySeconds: 3
-#           periodSeconds: 1
-#         # resources:
-#         #   requests:
-#         #     cpu: 100m
-#         #     memory: 90Mi
-#         securityContext:
-#           seccompProfile:
-#             type: RuntimeDefault
-#           capabilities:
-#             drop:
-#             - ALL
-#           allowPrivilegeEscalation: true
-#           runAsUser: 101
-#           runAsGroup: 1001
-#         volumeMounts:
-#         - name: nginx-agent-tls
-#           mountPath: /var/run/secrets/ngf
-#       terminationGracePeriodSeconds: 30
-#       serviceAccountName: nginx-gw
-#       securityContext:
-#         fsGroup: 1001
-#         runAsNonRoot: true
-#       volumes:
-#       - name: nginx-agent-tls
-#         secret:
-#           secretName: agent-tls

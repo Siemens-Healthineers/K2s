@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -117,6 +117,12 @@ if ($dashboardStatus -ne $true) {
 # create the service account
 $dashboardServiceAccount = "$dashboardChartDirectory/dashboard-service-account.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $dashboardServiceAccount).Output | Write-Log
+
+# If nginx-gw ingress is being used, create the kong CA certificate ConfigMap for BackendTLSPolicy
+if ($Ingress -eq 'nginx-gw') {
+    Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw' -Console
+    New-KongCACertConfigMap
+}
 
 &"$PSScriptRoot\Update.ps1"
 

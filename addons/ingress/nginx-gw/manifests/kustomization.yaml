@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -19,3 +19,4 @@ resources:
   - deployment.yaml
   - gatewayclass.yaml
   - nginxgateway.yaml
+  - certs-job.yaml

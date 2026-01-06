@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -111,7 +111,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq
     exit 1
 }
 
-$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'nginx-gw', '-o', 'yaml').Output
+$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'nginx-gw-controller', '-o', 'yaml').Output
 if ("$existingServices" -match '.*nginx-gw.*') {
     $errMsg = 'It seems as if ingress nginx gateway is already installed in the namespace nginx-gw. Disable it before enabling it again.'
     
@@ -157,17 +157,11 @@ Remove-Item -Path $kustomizationDir -Recurse
 
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
-Write-Log "Setting $controlPlaneIp as an external IP for nginx-gw service" -Console
-$patchJson = ''
-if ($PSVersionTable.PSVersion.Major -gt 5) {
-    $patchJson = '{"spec":{"externalIPs":["' + $controlPlaneIp + '"]}}'
-}
-else {
-    $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $controlPlaneIp + '\"]}}'
-}
-$ingressNginxGatewaySvc = 'nginx-gw'
-
-(Invoke-Kubectl -Params 'patch', 'svc', $ingressNginxGatewaySvc, '-p', "$patchJson", '-n', $ingressNginxGatewayNamespace).Output | Write-Log
+# Apply NginxProxy resource with the control plane IP configured
+Write-Log "Preparing NginxProxy resource with external IP $controlPlaneIp" -Console
+$nginxProxyTemplate = Get-Content "$PSScriptRoot\manifests\nginxproxy.yaml" -Raw
+$nginxProxyYaml = $nginxProxyTemplate.Replace('__CONTROL_PLANE_IP__', $controlPlaneIp)
+$nginxProxyYaml | & kubectl apply -f -
 
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'nginx-gw' -TimeoutSeconds 300)
 
@@ -182,8 +176,53 @@ $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io
     exit 1
 }
 
+# Check if cert-manager is running (security addon provides cert-manager)
+$certManagerRunning = $false
+$certManagerPods = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'cert-manager', '--ignore-not-found').Output
+if (-not [string]::IsNullOrWhiteSpace($certManagerPods)) {
+    $certManagerRunning = $true
+    Write-Log 'cert-manager detected - will use managed certificates' -Console
+}
+
+# Create self-signed TLS certificate only if cert-manager is not running and secret doesn't exist
+$secretExists = (Invoke-Kubectl -Params 'get', 'secret', 'k2s-cluster-local-tls', '-n', $ingressNginxGatewayNamespace, '--ignore-not-found').Output
+if ([string]::IsNullOrWhiteSpace($secretExists) -and -not $certManagerRunning) {
+    Write-Log 'Creating self-signed TLS certificate for k2s.cluster.local' -Console
+    
+    # Generate self-signed certificate
+    $certPath = [System.IO.Path]::GetTempPath() + 'k2s-gw-cert.pem'
+    $keyPath = [System.IO.Path]::GetTempPath() + 'k2s-gw-key.pem'
+    
+    # Use OpenSSL to generate self-signed cert (openssl should be available on Windows)
+    $opensslCmd = "openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout `"$keyPath`" -out `"$certPath`" -subj `"/CN=k2s.cluster.local`" 2>&1"
+    $opensslResult = Invoke-Expression $opensslCmd
+    
+    if (Test-Path $certPath) {
+        # Create Kubernetes TLS secret
+        (Invoke-Kubectl -Params 'create', 'secret', 'tls', 'k2s-cluster-local-tls', '--cert', $certPath, '--key', $keyPath, '-n', $ingressNginxGatewayNamespace).Output | Write-Log
+        
+        # Clean up temp files
+        Remove-Item -Path $certPath -ErrorAction SilentlyContinue
+        Remove-Item -Path $keyPath -ErrorAction SilentlyContinue
+        
+        Write-Log 'Self-signed TLS certificate created successfully' -Console
+    } else {
+        Write-Log 'Warning: Could not create self-signed certificate. HTTPS may not work until certificate is provided.' -Console
+    }
+} elseif ($certManagerRunning) {
+    Write-Log 'TLS certificate will be managed by cert-manager' -Console
+} else {
+    Write-Log 'TLS certificate already exists' -Console
+}
+
+# Now create the Gateway resource which will use the patched NginxProxy configuration
+Write-Log 'Creating Gateway resource' -Console
 $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-nginx-gw.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
+
+# Wait for controller to reconcile and create data plane service with external IP
+Write-Log 'Waiting for data plane service to be created with external IP...' -Console
+Start-Sleep -Seconds 5
 
 Write-Log 'All nginx gateway pods are up and ready.'
 

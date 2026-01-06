@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,7 +11,7 @@ metadata:
   labels:
     app.kubernetes.io/name: traefik
     app.kubernetes.io/instance: traefik-ingress-traefik
-    helm.sh/chart: traefik-34.3.0
+    helm.sh/chart: traefik-38.0.1
     app.kubernetes.io/managed-by: Helm
 spec:
   controllerName: traefik.io/gateway-controller

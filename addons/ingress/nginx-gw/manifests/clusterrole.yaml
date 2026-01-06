@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,33 +6,65 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
+    helm.sh/chart: nginx-gateway-fabric-2.3.0
     app.kubernetes.io/instance: nginx-gw
     app.kubernetes.io/name: nginx-gw
-    app.kubernetes.io/version: 1.6.2
+    app.kubernetes.io/version: "2.3.0"
   name: nginx-gw
 rules:
 - apiGroups:
   - ""
   resources:
-  - namespaces
-  - services
   - secrets
+  - configmaps
+  - serviceaccounts
+  - services
   verbs:
-  - get
+  - create
+  - update
+  - delete
   - list
+  - get
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  verbs:
+  - create
+  - update
+  - delete
+  - list
+  - get
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - create
+  - update
+  - delete
+  - list
+  - get
   - watch
 - apiGroups:
   - ""
   resources:
+  - namespaces
   - pods
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - apps
   resources:
   - replicasets
   verbs:
   - get
+  - list
 - apiGroups:
   - ""
   resources:
@@ -54,6 +86,12 @@ rules:
   - list
   - watch
 - apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
   - gateway.networking.k8s.io
   resources:
   - gatewayclasses
@@ -61,6 +99,7 @@ rules:
   - httproutes
   - referencegrants
   - grpcroutes
+  - backendtlspolicies
   verbs:
   - list
   - watch
@@ -71,6 +110,7 @@ rules:
   - gateways/status
   - gatewayclasses/status
   - grpcroutes/status
+  - backendtlspolicies/status
   verbs:
   - update
 - apiGroups:
@@ -115,155 +155,3 @@ rules:
   verbs:
   - list
   - watch
-
-# apiVersion: rbac.authorization.k8s.io/v1
-# kind: ClusterRole
-# metadata:
-#   name: nginx-gw
-#   labels:
-#     app.kubernetes.io/part-of: nginx-gw
-#     app.kubernetes.io/name: nginx-gw
-#     app.kubernetes.io/instance: nginx-gw
-#     app.kubernetes.io/version: "2.2.2"
-# rules:
-# - apiGroups:
-#   - ""
-#   resources:
-#   - secrets
-#   - configmaps
-#   - serviceaccounts
-#   - services
-#   verbs:
-#   - create
-#   - update
-#   - delete
-#   - list
-#   - get
-#   - watch
-# - apiGroups:
-#   - apps
-#   resources:
-#   - deployments
-#   - daemonsets
-#   verbs:
-#   - create
-#   - update
-#   - delete
-#   - list
-#   - get
-#   - watch
-# - apiGroups:
-#   - autoscaling
-#   resources:
-#   - horizontalpodautoscalers
-#   verbs:
-#   - create
-#   - update
-#   - delete
-#   - list
-#   - get
-#   - watch
-# - apiGroups:
-#   - ""
-#   resources:
-#   - namespaces
-#   - pods
-#   verbs:
-#   - get
-#   - list
-#   - watch
-# - apiGroups:
-#   - apps
-#   resources:
-#   - replicasets
-#   verbs:
-#   - get
-#   - list
-# - apiGroups:
-#   - ""
-#   resources:
-#   - nodes
-#   verbs:
-#   - list
-# - apiGroups:
-#   - ""
-#   resources:
-#   - events
-#   verbs:
-#   - create
-#   - patch
-# - apiGroups:
-#   - discovery.k8s.io
-#   resources:
-#   - endpointslices
-#   verbs:
-#   - list
-#   - watch
-# - apiGroups:
-#   - authentication.k8s.io
-#   resources:
-#   - tokenreviews
-#   verbs:
-#   - create
-# - apiGroups:
-#   - gateway.networking.k8s.io
-#   resources:
-#   - gatewayclasses
-#   - gateways
-#   - httproutes
-#   - referencegrants
-#   - grpcroutes
-#   verbs:
-#   - list
-#   - watch
-# - apiGroups:
-#   - gateway.networking.k8s.io
-#   resources:
-#   - httproutes/status
-#   - gateways/status
-#   - gatewayclasses/status
-#   - grpcroutes/status
-#   verbs:
-#   - update
-# - apiGroups:
-#   - gateway.nginx.org
-#   resources:
-#   - nginxgateways
-#   verbs:
-#   - get
-#   - list
-#   - watch
-# - apiGroups:
-#   - gateway.nginx.org
-#   resources:
-#   - nginxproxies
-#   - clientsettingspolicies
-#   - observabilitypolicies
-#   - upstreamsettingspolicies
-#   verbs:
-#   - list
-#   - watch
-# - apiGroups:
-#   - gateway.nginx.org
-#   resources:
-#   - nginxgateways/status
-#   - clientsettingspolicies/status
-#   - observabilitypolicies/status
-#   - upstreamsettingspolicies/status
-#   verbs:
-#   - update
-# - apiGroups:
-#   - coordination.k8s.io
-#   resources:
-#   - leases
-#   verbs:
-#   - create
-#   - get
-#   - update
-# - apiGroups:
-#   - apiextensions.k8s.io
-#   resources:
-#   - customresourcedefinitions
-#   verbs:
-#   - list
-#   - watch
