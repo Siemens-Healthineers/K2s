@@ -69,5 +69,13 @@ if ($HideHeaders -eq $false) {
     Write-Log 'K2s Linux-only uninstalled.'
 }
 
+# Refresh PATH in current session so subsequent install (invoked from same shell)
+# does not see stale k2s entries. PowerShell does not auto-reload env vars.
+$env:PATH =
+[Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+        [Environment]::GetEnvironmentVariable("Path", "User")
+
+Write-Log 'PATH refreshed for current PowerShell session after uninstall.'
+
 Save-k2sLogDirectory -RemoveVar
 
