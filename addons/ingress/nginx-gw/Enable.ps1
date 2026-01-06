@@ -176,43 +176,24 @@ $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io
     exit 1
 }
 
-# Check if cert-manager is running (security addon provides cert-manager)
-$certManagerRunning = $false
-$certManagerPods = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'cert-manager', '--ignore-not-found').Output
-if (-not [string]::IsNullOrWhiteSpace($certManagerPods)) {
-    $certManagerRunning = $true
-    Write-Log 'cert-manager detected - will use managed certificates' -Console
-}
-
-# Create self-signed TLS certificate only if cert-manager is not running and secret doesn't exist
-$secretExists = (Invoke-Kubectl -Params 'get', 'secret', 'k2s-cluster-local-tls', '-n', $ingressNginxGatewayNamespace, '--ignore-not-found').Output
-if ([string]::IsNullOrWhiteSpace($secretExists) -and -not $certManagerRunning) {
-    Write-Log 'Creating self-signed TLS certificate for k2s.cluster.local' -Console
-    
-    # Generate self-signed certificate
-    $certPath = [System.IO.Path]::GetTempPath() + 'k2s-gw-cert.pem'
-    $keyPath = [System.IO.Path]::GetTempPath() + 'k2s-gw-key.pem'
-    
-    # Use OpenSSL to generate self-signed cert (openssl should be available on Windows)
-    $opensslCmd = "openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout `"$keyPath`" -out `"$certPath`" -subj `"/CN=k2s.cluster.local`" 2>&1"
-    $opensslResult = Invoke-Expression $opensslCmd
-    
-    if (Test-Path $certPath) {
-        # Create Kubernetes TLS secret
-        (Invoke-Kubectl -Params 'create', 'secret', 'tls', 'k2s-cluster-local-tls', '--cert', $certPath, '--key', $keyPath, '-n', $ingressNginxGatewayNamespace).Output | Write-Log
-        
-        # Clean up temp files
-        Remove-Item -Path $certPath -ErrorAction SilentlyContinue
-        Remove-Item -Path $keyPath -ErrorAction SilentlyContinue
-        
-        Write-Log 'Self-signed TLS certificate created successfully' -Console
-    } else {
-        Write-Log 'Warning: Could not create self-signed certificate. HTTPS may not work until certificate is provided.' -Console
-    }
-} elseif ($certManagerRunning) {
-    Write-Log 'TLS certificate will be managed by cert-manager' -Console
+$SecurityAddonEnabled = Test-SecurityAddonAvailability
+if ($SecurityAddonEnabled) {
+    Write-Log 'Security addon is enabled - TLS certificates will be managed by security addon cert-manager' -Console
 } else {
-    Write-Log 'TLS certificate already exists' -Console
+    Write-Log 'Security addon is not enabled - creating self-signed certificate using temporary cert-manager' -Console
+    
+    $certCreated = New-TlsCertificateWithCertManager -Namespace $ingressNginxGatewayNamespace -SecretName 'k2s-cluster-local-tls' -DnsName 'k2s.cluster.local'
+    
+    if (-not $certCreated) {
+        $errMsg = "Failed to create TLS certificate. HTTPS functionality may not work. Check logs for details."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
 }
 
 # Now create the Gateway resource which will use the patched NginxProxy configuration

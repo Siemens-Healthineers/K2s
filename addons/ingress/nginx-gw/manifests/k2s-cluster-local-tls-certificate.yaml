@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Self-signed certificate issuer for k2s.cluster.local
+# Only applied when cert-manager is available (security addon enabled)
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: nginx-gw
+spec:
+  selfSigned: {}
+---
+# Certificate resource - cert-manager will automatically create the Secret
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: k2s-cluster-local-tls
+  namespace: nginx-gw
+spec:
+  secretName: k2s-cluster-local-tls
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days before expiry
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  dnsNames:
+    - k2s.cluster.local
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer

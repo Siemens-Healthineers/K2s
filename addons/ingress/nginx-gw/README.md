@@ -122,7 +122,6 @@ the K2s control plane IP (typically `172.19.1.100`).
 4. The data plane service is created with the external IP from NginxProxy configuration
 
 **Access Points:**
-- HTTP: `http://172.19.1.100:80` or `http://k2s.cluster.local`
 - HTTPS: `https://172.19.1.100:443` or `https://k2s.cluster.local`
 
 _Note:_ Only one ingress or gateway controller can be enabled at a time in K2s
