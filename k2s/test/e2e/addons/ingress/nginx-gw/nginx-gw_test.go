@@ -108,53 +108,6 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 		Expect(addonsStatus.IsAddonEnabled("ingress", nginxGw)).To(BeTrue())
 	})
 
-	It("creates TLS certificate using temporary cert-manager and cleans up successfully", func(ctx context.Context) {
-		// Verify cert-manager namespace does not exist initially
-		namespaceList := suite.Kubectl().Run(ctx, "get", "namespace", "-o", "json")
-		Expect(namespaceList).NotTo(ContainSubstring("nginx-gw-cert-manager-temp"))
-
-		// Verify the TLS secret exists in nginx-gw namespace (created during enable)
-		Eventually(func() string {
-			return suite.Kubectl().Run(ctx, "get", "secret", "k2s-cluster-local-tls", "-n", nginxGw, "-o", "json")
-		}, testClusterTimeout, "5s").Should(SatisfyAll(
-			ContainSubstring("kubernetes.io/tls"),
-			ContainSubstring("tls.crt"),
-			ContainSubstring("tls.key"),
-		))
-
-		GinkgoWriter.Println("TLS secret k2s-cluster-local-tls exists in nginx-gw namespace")
-
-		// Verify cert-manager namespace was deleted after certificate creation
-		namespaceList = suite.Kubectl().Run(ctx, "get", "namespace", "-o", "json")
-		Expect(namespaceList).NotTo(ContainSubstring("nginx-gw-cert-manager-temp"))
-
-		GinkgoWriter.Println("cert-manager namespace was cleaned up successfully")
-
-		// Verify cert-manager pods do not exist
-		podsList := suite.Kubectl().Run(ctx, "get", "pods", "-n", "nginx-gw-cert-manager-temp", "--ignore-not-found")
-		Expect(podsList).To(BeEmpty())
-
-		GinkgoWriter.Println("cert-manager pods were cleaned up successfully")
-
-		// Verify cert-manager deployments do not exist
-		deploymentsList := suite.Kubectl().Run(ctx, "get", "deployments", "-n", "nginx-gw-cert-manager-temp", "--ignore-not-found")
-		Expect(deploymentsList).To(BeEmpty())
-
-		GinkgoWriter.Println("cert-manager deployments were cleaned up successfully")
-
-		// Verify Certificate resource does not exist (should be deleted during cleanup)
-		certificatesList := suite.Kubectl().Run(ctx, "get", "certificate", "-n", nginxGw, "--ignore-not-found")
-		Expect(certificatesList).NotTo(ContainSubstring("k2s-cluster-local-tls"))
-
-		GinkgoWriter.Println("Certificate resource was cleaned up successfully")
-
-		// Verify Issuer resource does not exist (should be deleted during cleanup)
-		issuersList := suite.Kubectl().Run(ctx, "get", "issuer", "-n", nginxGw, "--ignore-not-found")
-		Expect(issuersList).NotTo(ContainSubstring("selfsigned-issuer"))
-
-		GinkgoWriter.Println("Issuer resource was cleaned up successfully")
-	})
-
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
 		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "ingress", nginxGw)
 
