@@ -44,8 +44,6 @@ $env:PATH =
 [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
         [Environment]::GetEnvironmentVariable("Path", "User")
 
-Write-Log 'PATH refreshed for current PowerShell session after uninstall.'
-
 Write-Log "K2s $installationType setup uninstalled."
 
 Save-k2sLogDirectory -RemoveVar
