@@ -39,11 +39,6 @@ $controlPlaneNodeParams = @{
 
 Remove-K2sHostsFromNoProxyEnvVar
 
-# Refresh PATH for current session to avoid stale k2s entries
-$env:PATH =
-[Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
-        [Environment]::GetEnvironmentVariable("Path", "User")
-
 Write-Log "K2s $installationType setup uninstalled."
 
 Save-k2sLogDirectory -RemoveVar
