@@ -83,7 +83,7 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
 				Expect(status.Name).To(Equal("ingress"))
-				Expect(status.Implementation).To(Equal("nginx-gw"))
+				Expect(status.Implementation).To(Equal(nginxGw))
 				Expect(status.Enabled).NotTo(BeNil())
 				Expect(*status.Enabled).To(BeFalse())
 				Expect(status.Props).To(BeNil())
@@ -97,7 +97,7 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", nginxGw)
 
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "nginx-gateway", nginxGw)
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", nginxGw, nginxGw)
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 		Expect(addonsStatus.IsAddonEnabled("ingress", nginxGw)).To(BeTrue())
@@ -106,7 +106,7 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 	It("creates TLS certificate using temporary cert-manager and cleans up successfully", func(ctx context.Context) {
 		// Verify cert-manager namespace does not exist initially
 		namespaceList := suite.Kubectl().Run(ctx, "get", "namespace", "-o", "json")
-		Expect(namespaceList).NotTo(ContainSubstring("cert-manager"))
+		Expect(namespaceList).NotTo(ContainSubstring("nginx-gw-cert-manager-temp"))
 
 		// Verify the TLS secret exists in nginx-gw namespace (created during enable)
 		Eventually(func() string {
@@ -121,18 +121,18 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 
 		// Verify cert-manager namespace was deleted after certificate creation
 		namespaceList = suite.Kubectl().Run(ctx, "get", "namespace", "-o", "json")
-		Expect(namespaceList).NotTo(ContainSubstring("cert-manager"))
+		Expect(namespaceList).NotTo(ContainSubstring("nginx-gw-cert-manager-temp"))
 
 		GinkgoWriter.Println("cert-manager namespace was cleaned up successfully")
 
 		// Verify cert-manager pods do not exist
-		podsList := suite.Kubectl().Run(ctx, "get", "pods", "-n", "cert-manager", "--ignore-not-found")
+		podsList := suite.Kubectl().Run(ctx, "get", "pods", "-n", "nginx-gw-cert-manager-temp", "--ignore-not-found")
 		Expect(podsList).To(BeEmpty())
 
 		GinkgoWriter.Println("cert-manager pods were cleaned up successfully")
 
 		// Verify cert-manager deployments do not exist
-		deploymentsList := suite.Kubectl().Run(ctx, "get", "deployments", "-n", "cert-manager", "--ignore-not-found")
+		deploymentsList := suite.Kubectl().Run(ctx, "get", "deployments", "-n", "nginx-gw-cert-manager-temp", "--ignore-not-found")
 		Expect(deploymentsList).To(BeEmpty())
 
 		GinkgoWriter.Println("cert-manager deployments were cleaned up successfully")
@@ -203,7 +203,7 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
 		Expect(status.Name).To(Equal("ingress"))
-		Expect(status.Implementation).To(Equal("nginx-gw"))
+		Expect(status.Implementation).To(Equal(nginxGw))
 		Expect(status.Error).To(BeNil())
 		Expect(status.Enabled).NotTo(BeNil())
 		Expect(*status.Enabled).To(BeTrue())

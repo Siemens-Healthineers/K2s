@@ -72,8 +72,9 @@ function New-TlsCertificateWithCertManager {
             return $true
         }
         
-        # Install cert-manager temporarily
+        # Install cert-manager temporarily in unique namespace to avoid conflicts
         Write-Log 'Installing temporary cert-manager for TLS certificate generation' -Console
+        $tempCertManagerNamespace = 'nginx-gw-cert-manager-temp'
         $certManagerYaml = "$PSScriptRoot\manifests\cert-manager.yaml"
         
         if (-not (Test-Path $certManagerYaml)) {
@@ -85,14 +86,36 @@ function New-TlsCertificateWithCertManager {
         
         # Wait for cert-manager pods to be ready
         Write-Log 'Waiting for cert-manager pods to become ready...' -Console
-        $certManagerReady = Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/instance=cert-manager' -Namespace 'cert-manager' -TimeoutSeconds 120
+        $certManagerReady = Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/instance=cert-manager' -Namespace $tempCertManagerNamespace -TimeoutSeconds 120
         
         if (-not $certManagerReady) {
             Write-Log 'Warning: cert-manager pods did not become ready within timeout' -Console
             return $false
         }
         
-        Write-Log 'cert-manager is ready' -Console
+        Write-Log 'cert-manager pods are ready, waiting for webhook to initialize...' -Console
+        
+        # Wait for webhook CA secret to exist (indicates webhook is fully ready)
+        $maxWebhookRetries = 30
+        $webhookRetryCount = 0
+        $webhookReady = $false
+        
+        while ($webhookRetryCount -lt $maxWebhookRetries) {
+            $caSecret = (Invoke-Kubectl -Params 'get', 'secret', 'cert-manager-webhook-ca', '-n', $tempCertManagerNamespace, '--ignore-not-found').Output
+            if (-not [string]::IsNullOrWhiteSpace($caSecret)) {
+                $webhookReady = $true
+                Write-Log 'cert-manager webhook is ready' -Console
+                break
+            }
+            
+            Start-Sleep -Seconds 2
+            $webhookRetryCount++
+        }
+        
+        if (-not $webhookReady) {
+            Write-Log 'Warning: cert-manager webhook did not become ready within timeout' -Console
+            return $false
+        }
         
         # Apply Certificate resource
         Write-Log 'Creating Certificate resource for self-signed certificate' -Console
@@ -135,8 +158,8 @@ function New-TlsCertificateWithCertManager {
         # Delete Certificate and Issuer resources first
         (Invoke-Kubectl -Params 'delete', '-f', $certificateYaml, '--ignore-not-found').Output | Write-Log
         
-        # Delete cert-manager deployment (keep CRDs for future use)
-        (Invoke-Kubectl -Params 'delete', 'namespace', 'cert-manager', '--ignore-not-found', '--wait=false').Output | Write-Log
+        # Delete cert-manager namespace (CRDs remain cluster-scoped)
+        (Invoke-Kubectl -Params 'delete', 'namespace', 'nginx-gw-cert-manager-temp', '--ignore-not-found', '--wait=false').Output | Write-Log
         
         Write-Log 'cert-manager cleanup completed' -Console
         
@@ -152,7 +175,7 @@ function New-TlsCertificateWithCertManager {
             if (Test-Path $certificateYaml) {
                 (Invoke-Kubectl -Params 'delete', '-f', $certificateYaml, '--ignore-not-found').Output | Write-Log
             }
-            (Invoke-Kubectl -Params 'delete', 'namespace', 'cert-manager', '--ignore-not-found', '--wait=false').Output | Write-Log
+            (Invoke-Kubectl -Params 'delete', 'namespace', 'nginx-gw-cert-manager-temp', '--ignore-not-found', '--wait=false').Output | Write-Log
             Write-Log 'Cleanup completed' -Console
         }
         catch {

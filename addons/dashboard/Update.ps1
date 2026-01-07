@@ -66,6 +66,10 @@ spec:
 		Remove-Item -Path "$tempPath\middleware.yaml"
 	}
 	elseif (Test-NginxGatewayAvailability) {
+		# Create kong CA certificate ConfigMap for BackendTLSPolicy validation
+		Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw' -Console
+		New-KongCACertConfigMap
+		
 		# create Bearer token for next 24h
 		Write-Log 'Creating Bearer token for next 24h'
 		$token = Get-BearerToken

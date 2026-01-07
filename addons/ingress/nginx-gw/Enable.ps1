@@ -158,7 +158,7 @@ Remove-Item -Path $kustomizationDir -Recurse
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
 # Apply NginxProxy resource with the control plane IP configured
-Write-Log "Preparing NginxProxy resource with external IP $controlPlaneIp" -Console
+Write-Log "Preparing NginxProxy resource and nginx-gw-controller service with external IP $controlPlaneIp" -Console
 $nginxProxyTemplate = Get-Content "$PSScriptRoot\manifests\nginxproxy.yaml" -Raw
 $nginxProxyYaml = $nginxProxyTemplate.Replace('__CONTROL_PLANE_IP__', $controlPlaneIp)
 $nginxProxyYaml | & kubectl apply -f -

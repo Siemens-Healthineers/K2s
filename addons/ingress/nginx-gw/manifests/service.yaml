@@ -12,7 +12,7 @@ metadata:
   name: nginx-gw-controller
   namespace: nginx-gw
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app.kubernetes.io/instance: nginx-gw
     app.kubernetes.io/name: nginx-gw
