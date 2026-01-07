@@ -160,11 +160,11 @@ function Set-WindowsNodePodCIDR {
     $patchJson = $patchObject | ConvertTo-Json -Compress -Depth 10
     Write-Log "Patch JSON: $patchJson"
     
-    # Use proper quoting to prevent PowerShell from mangling the JSON
-    $patchResult = &"$kubeToolsPath\kubectl.exe" patch node $NodeName --type=merge -p "$patchJson" 2>&1
+    # Use Invoke-Kubectl to avoid JSON escaping issues with direct kubectl invocation
+    $patchResult = Invoke-Kubectl -Params 'patch', 'node', $NodeName, '--type=merge', '-p', $patchJson
     
-    if ($LASTEXITCODE -ne 0) {
-        Write-Log "[ERROR] Failed to patch PodCIDR for node '$NodeName': $patchResult" -Console
+    if (-not $patchResult.Success) {
+        Write-Log "[ERROR] Failed to patch PodCIDR for node '$NodeName': $($patchResult.Output)" -Console
         throw "Failed to patch Windows node PodCIDR. Flannel may not work correctly."
     }
 

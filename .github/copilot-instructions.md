@@ -28,12 +28,15 @@ K2s is a Windows‑first Kubernetes distribution bundling a Linux VM (Hyper-V or
 
 ## 3. PowerShell Conventions
 - All logging goes through functions from `k2s.infra.module` (`Write-Log`, `Write-ErrorMessage`). Don’t use `Write-Host` directly for new code.
+  - Usage: `Write-Log "message" -Console` (logs to file + console) or `Write-Log "message"` (file only).
+  - Tag log messages with bracketed category prefixes: `Write-Log "[DebPkg] Processing packages"`.
 - Scripts meant for reuse go into a helper `.ps1` and are dot-sourced; keep orchestration thin (see `New-K2sDeltaPackage.ps1` + `New-K2sDeltaMethods.ps1`).
-- Long phases wrapped with `Start-Phase` / `Stop-Phase` for timing.
+- Long phases wrapped with `Start-Phase` / `Stop-Phase` for timing (imported from helper files like `New-K2sDelta.Phase.ps1`).
 - Hash objects expose both `.Sha256` and `.Hash` for backward compatibility.
 - Avoid assigning to automatic variables (`$args`). Use explicit names (`$sshParams`, `$scpParams`).
 - When adding guest/Hyper-V interactions, clean up resources (switch, NAT, VM) even on error.
-- Secure inputs: new code should accept `SecureString` or `PSCredential` for secrets (legacy plain strings exist—don’t proliferate).
+- Secure inputs: new code should accept `SecureString` or `PSCredential` for secrets (legacy plain strings exist—don't proliferate).
+- Path handling: Quote paths when passing to external tools (e.g., `kubectl delete -f "$path"`). PowerShell handles paths with spaces automatically in most contexts, but external tools need explicit quoting.
 
 ## 4. Delta Packaging Pattern
 - Extraction: `Expand-ZipWithProgress` with path sanitization & traversal prevention.
@@ -43,15 +46,26 @@ K2s is a Windows‑first Kubernetes distribution bundling a Linux VM (Hyper-V or
 
 ## 5. Addon Pattern
 Each addon folder contains:
-- `addon.manifest.yaml` (metadata, dependencies, toggles).
+- `addon.manifest.yaml` (metadata, dependencies, toggles) conforming to `addons/addon.manifest.schema.json`.
 - Enable/Disable scripts modify cluster state via kubectl/helm/yaml manifests under `manifests/`.
-- Status scripts typically query deployments/CRDs; follow existing naming.
+  - Import standard modules: `$clusterModule`, `$infraModule`, `$addonsModule` (see `addons/autoscaling/Enable.ps1` for template).
+  - Initialize logging: `Initialize-Logging -ShowLogs:$ShowLogs`.
+  - Check cluster status: `Test-SystemAvailability -Structured`.
+  - Test addon state: `Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'addonname'})`.
+  - Wait for resources: `Wait-ForPodCondition -Condition Ready -Label 'app=...' -Namespace '...' -TimeoutSeconds 120`.
+- Status scripts (optional) typically query deployments/CRDs; follow existing naming (`Get-Status.ps1`).
+- Update scripts (optional) for version/config changes (`Update.ps1`).
 New addon: copy a minimal existing one (e.g. `addons/autoscaling/`) and adjust manifest + scripts.
 
 ## 6. Go Code (CLI)
 - Each command in `k2s/cmd/<name>` with its own `main.go` or cobra-style setup (inspect existing patterns before introducing new flags/roots).
+  - CLI uses Cobra framework (`github.com/spf13/cobra`). See `k2s/cmd/k2s/main.go` for root command pattern.
+  - Structured logging via `slog` with custom logger from `k2s/cmd/k2s/utils/logging`.
+  - Exit codes defined in `internal/cli` (ExitCodeSuccess, ExitCodeFailure).
 - Shared functionality lives under `k2s/internal/...`. Reuse before creating duplicates.
+  - Common packages: `cli`, `host`, `powershell`, `logging`, `json`, `yaml`, `os`, `terminal`, `windows`, etc.
 - Keep binaries buildable offline: avoid introducing network-time fetches at runtime.
+- Build via `BuildGoExe.ps1` (or `bgo.cmd` shortcut): `bgo -ProjectDir "path/to/cmd" -ExeOutDir "path/to/bin"` or `bgo -BuildAll`.
 
 ## 7. Build & CI Workflows
 See `.github/workflows/` for canonical pipelines:
@@ -90,8 +104,11 @@ When adding a new packaging / diff feature:
 
 ## 13. Typical Commands (Local Dev)
 - Build CLI (Go): `go build ./k2s/cmd/k2s` (respect existing Go module).
+  - Or use build script: `bgo` (builds k2s.exe), `bgo -BuildAll` (all Go executables), `bgo -ProjectDir "..." -ExeOutDir "..."`.
 - Run delta packaging: `powershell -File lib/scripts/k2s/system/package/New-K2sDeltaPackage.ps1 ...`.
 - Serve docs locally: `mkdocs serve` (ensure python + mkdocs installed).
+- Test PowerShell modules: Execute unit test files like `addons.module.unit.tests.ps1` with Pester.
+- Run all tests: `powershell -File test/execute_all_tests.ps1`.
 
 ## 14. When Unsure
 Prefer searching existing examples (addon scripts, helper functions) before inventing new patterns. Keep new code incremental and testable.
