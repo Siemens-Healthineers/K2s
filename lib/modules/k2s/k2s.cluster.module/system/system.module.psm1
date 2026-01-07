@@ -210,6 +210,12 @@ function Get-AssignedPodNetworkCIDR {
         # Clean and validate CIDR format (should be like 172.20.0.0/24)
         $podNetworkCIDR = $podNetworkCIDR.Trim()
         
+        # Extract only the CIDR if SSH warnings contaminated the output
+        # Pattern: 172.20.0.0/24 close - IO is still pending...
+        if ($podNetworkCIDR -match '(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2})') {
+            $podNetworkCIDR = $matches[1]
+        }
+        
         if ($podNetworkCIDR -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$') {
             throw "The retrieved pod network CIDR for the node '$NodeName' has invalid format: '$podNetworkCIDR'. Expected format: x.x.x.x/xx"
         }
