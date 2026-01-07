@@ -33,7 +33,7 @@ function Get-CrictlExePath {
         }
         else {
             # Return default path instead of throwing error during installation
-            Write-Log "crictl.exe not found yet in k2s bin location '$crictlExe' or in PATH, returning default path for installation"
+            # Write-Log "crictl.exe not found yet in k2s bin location '$crictlExe' or in PATH, returning default path for installation"
             return $crictlExe
         }       
     }

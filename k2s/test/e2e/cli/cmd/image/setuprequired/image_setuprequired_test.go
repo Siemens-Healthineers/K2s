@@ -34,7 +34,7 @@ var _ = Describe("image", func() {
 	Describe("registry", Label("registry"), func() {
 		Describe("ls", Label("ls"), func() {
 			It("runs without error", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "image", "registry", "ls")
+				output := suite.K2sCli().MustExec(ctx, "image", "registry", "ls")
 
 				Expect(output).To(SatisfyAny(
 					ContainSubstring("No registries configured"),

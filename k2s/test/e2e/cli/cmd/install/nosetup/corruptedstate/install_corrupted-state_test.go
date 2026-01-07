@@ -77,7 +77,7 @@ var _ = Describe("install", Ordered, func() {
 	})
 
 	It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "install")
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "install")
 
 		Expect(output).To(ContainSubstring("corrupted state"))
 	})

@@ -27,7 +27,7 @@ function Get-CtrExePath {
 
 function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $containerdDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_ContainerdDirectory"
-    $versionContainerd = '2.2.0'
+    $versionContainerd = '2.2.1'
     $compressedContainerdFile = "containerd-$versionContainerd-windows-amd64.tar.gz"
     $compressedFile = "$containerdDownloadsDirectory\$compressedContainerdFile"
 
@@ -105,13 +105,13 @@ function Invoke-DeployCrictlArtifacts($windowsNodeArtifactsDirectory) {
 
 function Invoke-DownloadNerdctlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $nerdctlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_NerdctlDirectory"
-    $compressedNerdFile = 'nerdctl-2.2.0-windows-amd64.tar.gz'
+    $compressedNerdFile = 'nerdctl-2.2.1-windows-amd64.tar.gz'
     $compressedFile = "$nerdctlDownloadsDirectory\$compressedNerdFile"
 
     Write-Log "Create folder '$nerdctlDownloadsDirectory'"
     mkdir $nerdctlDownloadsDirectory | Out-Null
     Write-Log 'Download nerdctl'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v2.2.0/$compressedNerdFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v2.2.1/$compressedNerdFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$nerdctlDownloadsDirectory`"
@@ -372,4 +372,30 @@ timeout: 30
         throw "Service 'containerd' is not running."
     }
     Write-Log "Service 'containerd' has status '$expectedServiceStatus'"
+    
+    # Wait for containerd named pipe to be ready
+    Write-Log 'Waiting for containerd pipe to be ready...'
+    $pipeReadyRetries = 0
+    $maxPipeRetries = 10
+    $pipeWaitSeconds = 1
+    $pipeReady = $false
+    
+    while ($pipeReadyRetries -lt $maxPipeRetries) {
+        # Test pipe accessibility using nerdctl version command (lightweight check)
+        $testResult = & $kubeBinPath\nerdctl.exe version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $pipeReady = $true
+            Write-Log 'Containerd pipe is ready'
+            break
+        }
+        
+        $pipeReadyRetries++
+        $totalPipeWaitTime = $pipeWaitSeconds * $pipeReadyRetries
+        Write-Log "Waiting for containerd pipe to be accessible ($totalPipeWaitTime seconds elapsed, attempt $pipeReadyRetries/$maxPipeRetries)"
+        Start-Sleep -Seconds $pipeWaitSeconds
+    }
+    
+    if (!$pipeReady) {
+        Write-Log 'WARNING: Containerd pipe not ready after maximum retries, proceeding anyway' -Console
+    }
 }

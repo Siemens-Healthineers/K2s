@@ -27,6 +27,8 @@ Param(
 	[switch] $DeleteFiles = $false,
 	[parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
 	[switch] $ShowLogs = $false,
+	[Parameter(Mandatory = $false, HelpMessage = 'Skip takeover of container images')]
+	[switch] $SkipImages = $false,
 	[parameter(Mandatory = $false, HelpMessage = 'Config file for setting up new cluster')]
 	[string] $Config,
 	[parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
@@ -184,7 +186,7 @@ function Start-ClusterUpgrade {
 #####################################################
 
 Write-Log 'Starting upgrading cluster' -Console
-$ret = Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -Force:$Force
+$ret = Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy -SkipImages:$SkipImages -BackupDir $BackupDir -Force:$Force
 if ( $ret ) {
 	Restore-MergeLogFiles
 }
