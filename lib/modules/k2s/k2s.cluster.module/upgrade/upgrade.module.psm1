@@ -628,7 +628,8 @@ function Invoke-ClusterInstall {
 	)
    
 	Write-Log 'Install cluster with the new version' -Console
-	# Refresh PATH in current session so subsequent install does not see stale k2s entries
+
+	# Refresh PATH for current session to avoid stale k2s entries
 	$env:PATH = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
 			[Environment]::GetEnvironmentVariable("Path", "User")
 
