@@ -44,8 +44,13 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
+	BeforeAll(func(ctx context.Context) {
+		// Clean up any leftover cert-manager namespace from previous failed test runs
+		suite.Kubectl().Run(ctx, "delete", "namespace", "nginx-gw-cert-manager-temp", "--ignore-not-found")
+	})
+
 	AfterAll(func(ctx context.Context) {
-		suite.Kubectl().Run(ctx, "delete", "-k", "workloads")
+		suite.Kubectl().Run(ctx, "delete", "-k", "workloads", "--ignore-not-found")
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", nginxGw, "-o")
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", nginxGw)
