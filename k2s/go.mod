@@ -21,7 +21,7 @@ require (
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
 	github.com/kdomanski/iso9660 v0.4.0
 	github.com/onsi/ginkgo/v2 v2.27.3
-	github.com/onsi/gomega v1.38.3
+	github.com/onsi/gomega v1.39.0
 	github.com/ory/hydra-client-go v1.11.8
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.10
