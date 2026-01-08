@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -9,12 +9,7 @@
 # - Without security addon: kong uses self-signed cert (CN=localhost)
 #   → Enable.ps1 extracts the certificate and creates kong-ca-cert ConfigMap
 #   → This policy references that ConfigMap for validation
-# 
 # - With security addon (cert-manager): kong may use cert-manager issued cert
-#   → Enable.ps1 skips ConfigMap creation (trust-manager handles CA distribution)
-#   → Update this policy to use wellKnownCACertificates: System
-#   → Or reference trust-manager's CA bundle
-#
 # Current configuration: Uses extracted kong certificate (works for both scenarios)
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy

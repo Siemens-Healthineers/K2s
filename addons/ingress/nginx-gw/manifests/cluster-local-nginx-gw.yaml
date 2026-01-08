@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -7,8 +7,6 @@
 # traffic for k2s.cluster.local. See for example:
 #  addons/dashboard/manifests/ingress-nginx/dashboard-nginx-gw-route.yaml
 #  addons/logging/manifests/opensearch-dashboards/nginx-gw-route.yaml
-# This is the non-secure version that only provides HTTP (no HTTPS).
-# Use cluster-local-nginx-gw-secure.yaml if you need HTTPS with cert-manager.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:

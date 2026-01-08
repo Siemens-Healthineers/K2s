@@ -172,6 +172,7 @@ function New-TlsCertificateWithCertManager {
         Write-Log 'Cleaning up cert-manager due to failure...' -Console
         try {
             $certificateYaml = "$PSScriptRoot\manifests\k2s-cluster-local-tls-certificate.yaml"
+            # Delete Certificate and Issuer resources on failure since they're not functional
             if (Test-Path $certificateYaml) {
                 (Invoke-Kubectl -Params 'delete', '-f', $certificateYaml, '--ignore-not-found').Output | Write-Log
             }

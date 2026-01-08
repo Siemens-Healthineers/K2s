@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -76,35 +76,8 @@ For production use with proper certificate management, the security addon (cert-
 can be enabled to provision trusted certificates.
 
 **Certificate Handling:**
-- Without security addon: Self-signed certificate is created by Enable.ps1 using OpenSSL
+- Without security addon: Self-signed certificate is created by Enable.ps1 using cert-manager
 - With security addon: cert-manager can manage the certificate (replace self-signed cert)
-
-### Creating HTTPRoutes
-
-To expose a service via the gateway, create an HTTPRoute resource that references
-the Gateway. Example:
-
-```yaml
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: my-app-route
-  namespace: my-namespace
-spec:
-  parentRefs:
-  - name: nginx-cluster-local
-    namespace: nginx-gw
-  hostnames:
-  - k2s.cluster.local
-  rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /my-app/
-    backendRefs:
-    - name: my-app-service
-      port: 8080
-```
 
 For more details on Gateway API resources and routing patterns, see the
 [Gateway API documentation](https://gateway-api.sigs.k8s.io/).
@@ -181,10 +154,6 @@ resource definitions are worth analyzing to understand these mechanisms:
   - HTTPRoute: [dashboard-nginx-gw.yaml](../../dashboard/manifests/ingress-nginx-gw/dashboard-nginx-gw.yaml)
   - BackendTLSPolicy: [dashboard-backend-tls.yaml](../../dashboard/manifests/ingress-nginx-gw/dashboard-backend-tls.yaml)
   - Shows: Path rewrite, header modification, HTTPS backend with certificate validation
-- **Logging** (OpenSearch Dashboards):
-  Check addon manifests for HTTPRoute examples
-- **Monitoring** (Plutono/Grafana):
-  Check addon manifests for HTTPRoute examples
 
 These examples show various routing patterns including path rewrites, header modifications,
 backend service configurations, and secure backend communication with BackendTLSPolicy.

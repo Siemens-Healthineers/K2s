@@ -1,23 +1,22 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
 # The kubernetes-dashboard service exposes an angular application on port 443
-# The angular application is design in such a way that it constructs the
-# relative paths based on the value stored in the x-forwarded-prefix header
+# The angular application is designed in such a way that it constructs the
+# relative paths based on the value stored in the X-Forwarded-Prefix header
 # of the request. So if the application is exposed on another path than root,
 # this header must have as value that path.
 
-# this ingress will be merged with ingress provided in:
+# This HTTPRoute attaches to the nginx-cluster-local Gateway provided in:
 # addons/ingress/nginx/manifests/cluster-local-ingress.yaml
 # and exposes the kubernetes-dashboard angular application on:
 # https://k2s.cluster.local/dashboard/
 # The certificate is taken from k8s secret 'k2s.cluster.local-tls'
 # (see addons/ingress/nginx/manifests/cluster-local-ingress.yaml)
-# NOTE: there is a glitch in dashboard,
-# causing the trailing / in bot URLs to be needed, i.e.
-# https://k2s.cluster.local/dashboard will not work!
-# This secure version does NOT inject bearer token - requires OAuth2 Proxy authentication
+# The URLRewrite filter strips the /dashboard prefix and replaces it with /
+# while the RequestHeaderModifier adds X-Forwarded-Prefix: /dashboard/
+# This secure version does NOT inject bearer token 
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:

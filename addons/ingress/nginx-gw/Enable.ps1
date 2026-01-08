@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -158,6 +158,8 @@ Remove-Item -Path $kustomizationDir -Recurse
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
 # Apply NginxProxy resource with the control plane IP configured
+# External IP is required to make the nginx gateway accessible from the Windows host
+# and external clients, enabling ingress traffic to reach services running in the cluster
 Write-Log "Preparing NginxProxy resource and nginx-gw-controller service with external IP $controlPlaneIp" -Console
 $nginxProxyTemplate = Get-Content "$PSScriptRoot\manifests\nginxproxy.yaml" -Raw
 $nginxProxyYaml = $nginxProxyTemplate.Replace('__CONTROL_PLANE_IP__', $controlPlaneIp)
