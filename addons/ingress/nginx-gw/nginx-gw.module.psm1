@@ -152,16 +152,16 @@ function New-TlsCertificateWithCertManager {
             return $false
         }
         
-        # Clean up cert-manager to avoid conflicts with security addon
+        # Clean up temporary cert-manager to avoid conflicts with security addon
+        # Keep both Certificate and Issuer resources so:
+        # - Certificate remains valid (references selfsigned-issuer)
+        # - Security addon can patch Certificate to use k2s-ca-issuer later
         Write-Log 'Cleaning up temporary cert-manager installation...' -Console
         
-        # Delete Certificate and Issuer resources first
-        (Invoke-Kubectl -Params 'delete', '-f', $certificateYaml, '--ignore-not-found').Output | Write-Log
-        
-        # Delete cert-manager namespace (CRDs remain cluster-scoped)
+        # Delete only the cert-manager namespace (Certificate and Issuer stay in nginx-gw namespace)
         (Invoke-Kubectl -Params 'delete', 'namespace', 'nginx-gw-cert-manager-temp', '--ignore-not-found', '--wait=false').Output | Write-Log
         
-        Write-Log 'cert-manager cleanup completed' -Console
+        Write-Log 'cert-manager cleanup completed (Certificate and Issuer preserved)' -Console
         
         return $true
     }

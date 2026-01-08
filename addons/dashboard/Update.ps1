@@ -24,6 +24,11 @@ if ($SecurityAddonEnabled) {
 		# remove middleware if exists
 		(Invoke-Kubectl -Params 'delete', 'middleware', 'add-bearer-token', '-n', 'dashboard', '--ignore-not-found').Output | Write-Log
 	}
+	elseif (Test-NginxGatewayAvailability) {
+		# Create kong CA certificate ConfigMap for BackendTLSPolicy validation
+		Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw with security addon' -Console
+		New-KongCACertConfigMap
+	}
 	else {
 		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'
 	}	

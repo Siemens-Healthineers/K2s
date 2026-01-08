@@ -20,7 +20,7 @@ powershell <installation folder>\addons\security\Enable.ps1
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
 	[parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
-	[ValidateSet('nginx', 'traefik')]
+	[ValidateSet('nginx', 'traefik','nginx-gw')]
 	[string] $Ingress = 'nginx',
 	[parameter(Mandatory = $false, HelpMessage = 'Security type setting')]
 	[ValidateSet('basic', 'enhanced')]
@@ -183,6 +183,25 @@ try {
 		$activeIngress = 'traefik'
 		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
 		&$cmctlExe renew k2s-cluster-local-tls -n ingress-traefik
+	}
+	elseif (Test-NginxGatewayAvailability) {
+		$activeIngress = 'nginx-gw'
+		Write-Log 'Patching nginx-gw Certificate to use k2s-ca-issuer ClusterIssuer' -Console
+		
+		# Delete the old self-signed secret to force regeneration
+		(Invoke-Kubectl -Params 'delete', 'secret', 'k2s-cluster-local-tls', '-n', 'nginx-gw', '--ignore-not-found=true').Output | Write-Log
+		
+		# Patch the Certificate's issuerRef to use k2s-ca-issuer ClusterIssuer
+		$patchJson = @'
+[
+  {"op": "replace", "path": "/spec/issuerRef/name", "value": "k2s-ca-issuer"},
+  {"op": "replace", "path": "/spec/issuerRef/kind", "value": "ClusterIssuer"}
+]
+'@
+		(Invoke-Kubectl -Params 'patch', 'certificate', 'k2s-cluster-local-tls', '-n', 'nginx-gw', '--type=json', "-p=$patchJson").Output | Write-Log
+		
+		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
+		&$cmctlExe renew k2s-cluster-local-tls -n nginx-gw
 	}
 	else {
 		#Enable required ingress addon

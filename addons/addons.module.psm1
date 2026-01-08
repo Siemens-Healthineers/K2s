@@ -976,11 +976,16 @@ function Get-IngressNginxConfigDirectory {
 Gets the location of nginx ingress gateway yaml
 #>
 function Get-IngressNginxGatewayConfig {
-	param (
-		[Parameter(Mandatory = $false)]
-		[string]$Directory = $(throw 'Directory of the ingress nginx gateway config')
-	)
-	return "$PSScriptRoot\$Directory\manifests\ingress-nginx-gw"
+	return 'ingress-nginx-gw'
+}
+
+
+<#
+.DESCRIPTION
+Gets the location of nginx secure ingress yaml
+#>
+function Get-IngressNginxGatewaySecureConfig {
+	return 'ingress-nginx-gw-secure'
 }
 
 <#
@@ -1135,27 +1140,30 @@ function Update-IngressForNginxGateway {
 	$props = Get-AddonProperties -Addon $Addon
 	$kustomizationDir = ''
 
-	# Store each result separately for debugging
-	# $keycloakAvailable = Test-KeyCloakServiceAvailability
-	# Write-Log "KeyCloak available: $keycloakAvailable" -Console
+	#Store each result separately for debugging
+	$keycloakAvailable = Test-KeyCloakServiceAvailability
+	Write-Log "KeyCloak available: $keycloakAvailable" -Console
 	
-	# # Always evaluate Hydra availability
-	# $hydraAvailable = Test-HydraAvailability
-	# Write-Log "Hydra available: $hydraAvailable" -Console
+	# Always evaluate Hydra availability
+	$hydraAvailable = Test-HydraAvailability
+	Write-Log "Hydra available: $hydraAvailable" -Console
 
-	# if ($keycloakAvailable -or $hydraAvailable) {
-	# 	Write-Log "  Applying secure nginx ingress gateway manifest for $($props.Name)..." -Console
-	# 	$kustomizationDir = Get-IngressNginxGatewaySecureConfig -Directory $props.Directory
-	# 	# check if $kustomizationDir does not exist
-	# 	if (!(Test-Path -Path $kustomizationDir)) {
-	# 		Write-Log "  Applying nginx ingress gateway manifest for $($props.Name) $($props.Directory)..." -Console
-	# 		$kustomizationDir = Get-IngressNginxGatewayConfig -Directory $props.Directory
-	# 	}
-	# }
-	# else {
+	if ($keycloakAvailable -or $hydraAvailable) {
+		Write-Log "  Applying secure nginx ingress gateway manifest for $($props.Name)..." -Console
+		$ingressDir = Get-IngressNginxGatewaySecureConfig
+		$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
+		# check if $kustomizationDir does not exist
+		if (!(Test-Path -Path $kustomizationDir)) {
+			Write-Log "  Applying nginx ingress gateway manifest for $($props.Name) $($props.Directory)..." -Console
+			$ingressDir = Get-IngressNginxGatewayConfig
+			$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
+		}
+	}
+	else {
 		Write-Log "  Applying nginx ingress gateway manifest for $($props.Name) $($props.Directory)..." -Console
-		$kustomizationDir = Get-IngressNginxGatewayConfig -Directory $props.Directory
-	# }
+		$ingressDir = Get-IngressNginxGatewayConfig
+		$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
+	}
 
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
 	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
@@ -1178,12 +1186,12 @@ function Remove-IngressForNginxGateway {
 	
 	Invoke-Kubectl -Params 'delete', '-k', $nginxGatewayConfig | Out-Null
 
-	# $kustomizationDir = Get-NginxGatewaySecureConfig -Directory $props.Directory
-	# if (!(Test-Path -Path $kustomizationDir)) {
-	# 	Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
-	# 	$kustomizationDir = Get-NginxGatewaySecureConfig -Directory $props.Directory
-	# }
-	# Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
+	$kustomizationDir = Get-IngressNginxGatewaySecureConfig -Directory $props.Directory
+	if (!(Test-Path -Path $kustomizationDir)) {
+		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+		$kustomizationDir = Get-IngressNginxGatewaySecureConfig -Directory $props.Directory
+	}
+	Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
 }
 
 <#
@@ -1341,4 +1349,4 @@ Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-N
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
-Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages,Get-IngressNginxGatewayConfig ,Remove-IngressForNginxGateway,Update-IngressForNginxGateway,Test-NginxGatewayAvailability
+Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages,Get-IngressNginxGatewayConfig ,Remove-IngressForNginxGateway,Update-IngressForNginxGateway,Test-NginxGatewayAvailability,Get-IngressNginxGatewaySecureConfig

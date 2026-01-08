@@ -992,3 +992,101 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
         }
     }
 }
+
+Describe 'Get-IngressNginxGatewayConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns correct path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-IngressNginxGatewayConfig
+
+            $result | Should -Be 'ingress-nginx-gw'
+        }
+    }
+}
+
+Describe 'Get-IngressNginxGatewaySecureConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns correct secure path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-IngressNginxGatewaySecureConfig
+
+            $result | Should -Be 'ingress-nginx-gw-secure'
+        }
+    }
+}
+
+Describe 'Update-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
+        Mock -ModuleName $moduleName Update-IngressForAddon { }
+        Mock -ModuleName $moduleName Invoke-Kubectl { }
+    }
+
+    Context 'security addon not enabled' {
+        It 'applies non-secure config' {
+            InModuleScope -ModuleName $moduleName {
+                $testAddon = [pscustomobject]@{ Name = 'dashboard' }
+                Update-IngressForNginxGateway -Addon $testAddon
+
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-k'
+                }
+            }
+        }
+    }
+
+    Context 'security addon enabled without keycloak and hydra' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-KeyCloakServiceAvailability { return $false }
+            Mock -ModuleName $moduleName Test-HydraAvailability { return $false }
+        }
+
+        It 'applies non-secure config' {
+            InModuleScope -ModuleName $moduleName {
+                $testAddon = [pscustomobject]@{ Name = 'dashboard' }
+                Update-IngressForNginxGateway -Addon $testAddon
+
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-k'
+                }
+            }
+        }
+    }
+
+    Context 'security addon enabled with keycloak' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-KeyCloakServiceAvailability { return $true }
+            Mock -ModuleName $moduleName Test-HydraAvailability { return $false }
+            Mock -ModuleName $moduleName Test-Path { return $true }
+        }
+
+        It 'applies secure config' {
+            InModuleScope -ModuleName $moduleName {
+                $testAddon = [pscustomobject]@{ Name = 'dashboard' }
+                Update-IngressForNginxGateway -Addon $testAddon
+
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-k'
+                }
+            }
+        }
+    }
+
+    Context 'security addon enabled with hydra' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-KeyCloakServiceAvailability { return $false }
+            Mock -ModuleName $moduleName Test-HydraAvailability { return $true }
+            Mock -ModuleName $moduleName Test-Path { return $true }
+        }
+
+        It 'applies secure config' {
+            InModuleScope -ModuleName $moduleName {
+                $testAddon = [pscustomobject]@{ Name = 'dashboard' }
+                Update-IngressForNginxGateway -Addon $testAddon
+
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-k'
+                }
+            }
+        }
+    }
+}

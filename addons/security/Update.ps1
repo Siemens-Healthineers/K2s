@@ -16,5 +16,8 @@ if (Test-NginxIngressControllerAvailability) {
 elseif (Test-TraefikIngressControllerAvailability) {
     Enable-IngressForSecurity -Ingress:'traefik'
 }
+elseif (Test-NginxGatewayAvailability) {
+    Enable-IngressForSecurity -Ingress:'nginx-gw'
+}
 
 Write-Log 'Updating security addon finished.' -Console
