@@ -5,11 +5,11 @@
 # This web application can be configured to re-encode its relative URLs
 # with a configurable prefix, see file `configmap.yaml`:
 # root_url = https://k2s.cluster.local/monitoring
-# This enables us to expose it trough the ingress under this configured path
+# This enables us to expose it through the ingress under this configured path
 ---
 # This ingress will be merged with ingress provided in:
 # addons/ingress/nginx/manifests/cluster-local-ingress.yaml
-# and exposes the plutono web application on:
+# and exposes the Grafana OSS web application on:
 # https://k2s.cluster.local/monitoring
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -24,7 +24,7 @@ spec:
         paths:
           - backend:
               service:
-                name: kube-prometheus-stack-plutono
+                name: kube-prometheus-stack-grafana
                 port:
                   number: 80
             path: /monitoring

@@ -9,11 +9,11 @@ kind: ConfigMap
 metadata:
   labels:
     helm.sh/chart: grafana-6.57.4
-    app.kubernetes.io/name: kube-prometheus-stack-plutono
+    app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: kube-prometheus-stack
     app.kubernetes.io/version: "9.5.5"
     app.kubernetes.io/managed-by: Helm
-  name: kube-prometheus-stack-plutono-config-dashboards
+  name: kube-prometheus-stack-grafana-config-dashboards
   namespace: monitoring
 data:
   provider.yaml: |-
