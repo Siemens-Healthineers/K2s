@@ -205,21 +205,36 @@ function New-GinkgoTestCmd {
 function Install-GinkgoIfNecessary {
     param (
         [Parameter(Mandatory = $false)]
-        [string]
-        $Proxy,
+        [string] $Proxy,
+
         [Parameter(Mandatory = $false)]
-        [string]
-        $GinkgoVersion = $(throw 'GinkgoVersion not specified')
+        [string] $GinkgoVersion = $(throw 'GinkgoVersion not specified')
     )
+
+    # Ensure Go bin is on PATH for this session
+    $goBinPath = if ($env:GOPATH) {
+        Join-Path $env:GOPATH 'bin'
+    } else {
+        Join-Path $env:USERPROFILE 'go\bin'
+    }
+
+    if ($env:PATH -notmatch [regex]::Escape($goBinPath)) {
+        $env:PATH = "$goBinPath;$env:PATH"
+    }
+
     $ginkgoCmd = Get-Command -ErrorAction Ignore -Type Application ginkgo
 
     if (!$ginkgoCmd) {
         Write-Output 'Ginkgo not found, installing it..'
         Invoke-GoCommand -Proxy $Proxy -Cmd "go.exe install 'github.com/onsi/ginkgo/v2/ginkgo@v$GinkgoVersion'"
+
+        # Re-check after install
+        if ($env:PATH -notmatch [regex]::Escape($goBinPath)) {
+            $env:PATH = "$goBinPath;$env:PATH"
+        }
     }
 
     $foundVersion = (ginkgo.exe version).Split(' ')[2].Trim()
-
     Write-Output "Found Ginkgo version $foundVersion"
 
     if ($foundVersion -ne $GinkgoVersion) {
@@ -227,6 +242,7 @@ function Install-GinkgoIfNecessary {
         Invoke-GoCommand -Proxy $Proxy -Cmd "go.exe install 'github.com/onsi/ginkgo/v2/ginkgo@v$GinkgoVersion'"
     }
 }
+
 
 function Install-PesterIfNecessary {
     param (
