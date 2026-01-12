@@ -271,8 +271,9 @@ function Copy-FromRemoteComputerViaSSHKey($Source, $Target,
     $leaf = Split-Path $linuxSourceDirectory -Leaf
     $filter = $leaf
 
-    ssh.exe -n -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 -i $key $userOnRemoteMachine "[ -d '$linuxSourceDirectory' ]; exit"
-    $isDir = $?
+    # Use Invoke-CmdOnVmViaSSHKey with retry logic to handle transient SSH errors like "close - IO is still pending"
+    $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute "[ -d '$linuxSourceDirectory' ]" -IpAddress $IpAddress -UserName $UserName -IgnoreErrors -NoLog -Retries 2 -Timeout 2
+    $isDir = $result.Success
 
     if ($leaf.Contains("*")) {
         # copy all/specific files in directory e.g. pvc-* or *
