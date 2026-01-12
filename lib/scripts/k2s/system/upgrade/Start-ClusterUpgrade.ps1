@@ -38,9 +38,7 @@ Param(
 	[parameter(Mandatory = $false, HelpMessage = 'Directory for resource backup')]
 	[string] $BackupDir = '',
 	[parameter(Mandatory = $false, HelpMessage = 'Force upgrade even if versions are not consecutive')]
-	[switch] $Force = $false,
-	[parameter(Mandatory = $false, HelpMessage = 'Skip backup and restore of Windows container images')]
-	[switch] $SkipImages = $false
+	[switch] $Force = $false
 )
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
