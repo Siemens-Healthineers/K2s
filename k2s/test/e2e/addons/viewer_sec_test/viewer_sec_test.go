@@ -49,9 +49,6 @@ var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {
 	Describe("Security addon activated first then viewer addon", func() {
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
-			if suite.Proxy() != "" {
-				args = append(args, "-p", suite.Proxy())
-			}
 			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
@@ -90,9 +87,6 @@ var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {
 
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
-			if suite.Proxy() != "" {
-				args = append(args, "-p", suite.Proxy())
-			}
 			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "viewer")
