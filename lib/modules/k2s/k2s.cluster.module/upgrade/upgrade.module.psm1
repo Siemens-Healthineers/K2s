@@ -933,7 +933,10 @@ function PrepareClusterUpgrade {
 		}
 
 		# backup user application images
-		if (-not $SkipImages) {
+		if ($SkipImages) {
+			Write-Log "Skipping image backup as requested" -Console
+			$imagesBackupPath.Value = ""  # Explicitly skipped
+		} else {
 			if ($ShowProgress -eq $true) {
 				Write-Progress -Activity 'Backing up user application images..' -Id 1 -Status '4.5/10' -PercentComplete 45 -CurrentOperation 'Backing up images, please wait..'
 			}
@@ -969,9 +972,6 @@ function PrepareClusterUpgrade {
 				Write-Log "Warning: Image backup failed - $_. Continuing with upgrade..." -Console
 				$imagesBackupPath.Value = ""  # Mark as failed
 			}
-		} else {
-			Write-Log "Skipping image backup as requested" -Console
-			$imagesBackupPath.Value = ""  # Explicitly skipped
 		}
 
 		# backup log file
@@ -1005,7 +1005,9 @@ function PerformClusterUpgrade {
 		[string] $hooksBackupPath,
 		[string] $logFilePathBeforeUninstall,
 		[string] $imagesBackupPath,
-		[string] $pvBackupPath
+		[string] $pvBackupPath,
+		[switch] $skipImages,
+		[switch] $skipResources
 	)
 	try {
 		# uninstall of old cluster
@@ -1109,15 +1111,19 @@ function PerformClusterUpgrade {
 		$kubeExeFolder = Get-KubeBinPathGivenKubePath -KubePathLocal $K2sPathToInstallFrom
 		
 		# import of resources - images are already restored, so no pulls needed
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
+		if ($skipResources) {
+			Write-Log 'Skipping resource import as requested' -Console
+		} else {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
+			}
+			Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+			
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Apply namespaced resources, please wait..'
+			}
+			Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
 		}
-		Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
-		
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Apply namespaced resources, please wait..'
-		}
-		Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
 		
 		# show completion
 		if ($ShowProgress -eq $true) {

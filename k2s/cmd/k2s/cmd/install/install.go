@@ -168,24 +168,31 @@ func install(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("[Install] Error: unable to determine current executable path: %v", err)
 	}
-    currentExeAbs, _ := filepath.Abs(currentExe)
-	paths, err := findExecutablesInPath(exeName)
-	if err != nil {
-		return fmt.Errorf("[Install] Error scanning PATH for k2s.exe: %v", err)
-	}
-	var otherK2s []string
-	for _, p := range paths {
-		absP, _ := filepath.Abs(p)
-        if !strings.EqualFold(absP, currentExeAbs) {
-            otherK2s = append(otherK2s, absP)
-        }
-	}
-	if len(otherK2s) > 0 {
-	    fmt.Println("[Install] Found older k2s executables:")
-		for _, p := range otherK2s {
-			fmt.Fprintf(os.Stderr, "  %s\n", p)
+	currentExeAbs, _ := filepath.Abs(currentExe)
+
+	// Skip PATH validation if running as k2sx.exe (temporary upgrade executable)
+	// During upgrade, old k2s paths remain in PATH from the same session
+	if strings.HasSuffix(strings.ToLower(currentExeAbs), "k2sx.exe") {
+		fmt.Println("Running as k2sx.exe (upgrade mode), skipping PATH validation")
+	} else {
+		paths, err := findExecutablesInPath(exeName)
+		if err != nil {
+			return fmt.Errorf("[Install] Error scanning PATH for k2s.exe: %v", err)
 		}
-		return fmt.Errorf("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.")
+		var otherK2s []string
+		for _, p := range paths {
+			absP, _ := filepath.Abs(p)
+			if !strings.EqualFold(absP, currentExeAbs) {
+				otherK2s = append(otherK2s, absP)
+			}
+		}
+		if len(otherK2s) > 0 {
+			fmt.Println("[Install] Found older k2s executables:")
+			for _, p := range otherK2s {
+				fmt.Fprintf(os.Stderr, "  %s\n", p)
+			}
+			return fmt.Errorf("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.")
+		}
 	}
 
 	cmdSession := cc.StartCmdSession(cmd.CommandPath())

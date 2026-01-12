@@ -565,7 +565,9 @@ function Confirm-RestoreOperation {
         # Check if PV is in use (warn if pods are using it)
         Write-Log "[PVBackup] Checking if PV is in use..." -Console
         if ($Metadata.claimNamespace -and $Metadata.claimName) {
-            $podsJson = kubectl get pods -n $Metadata.claimNamespace -o json 2>&1
+            $kubeToolsPath = Get-KubeToolsPath
+            $kubectlExe = "$kubeToolsPath\kubectl.exe"
+            $podsJson = & $kubectlExe get pods -n $Metadata.claimNamespace -o json 2>&1
             if ($LASTEXITCODE -eq 0) {
                 $pods = $podsJson | ConvertFrom-Json
                 $usingPods = $pods.items | Where-Object {
@@ -778,9 +780,12 @@ function Restart-PodsUsingPV {
     
     try {
         if ($Metadata.claimNamespace -and $Metadata.claimName) {
+            $kubeToolsPath = Get-KubeToolsPath
+            $kubectlExe = "$kubeToolsPath\kubectl.exe"
+            
             Write-Log "[PVBackup] Restarting pod(s) using PVC '$($Metadata.claimNamespace)/$($Metadata.claimName)'..." -Console
             
-            $podsJson = kubectl get pods -n $Metadata.claimNamespace -o json 2>&1
+            $podsJson = & $kubectlExe get pods -n $Metadata.claimNamespace -o json 2>&1
             if ($LASTEXITCODE -eq 0) {
                 $pods = $podsJson | ConvertFrom-Json
                 $usingPods = $pods.items | Where-Object {
@@ -800,14 +805,14 @@ function Restart-PodsUsingPV {
                         }
                         
                         Write-Log "[PVBackup] Restarting pod: $podNamespace/$podName" -Console
-                        kubectl delete pod -n $podNamespace $podName --wait=false 2>&1 | Out-Null
+                        & $kubectlExe delete pod -n $podNamespace $podName --wait=false 2>&1 | Out-Null
                         
                         if ($LASTEXITCODE -eq 0) {
                             $podResult.Deleted = $true
                             Write-Log "[PVBackup] Pod deleted, waiting for it to restart..." -Console
                             
                             # Wait for pod to be ready (60 second timeout)
-                            $waitResult = kubectl wait --for=condition=ready pod -n $podNamespace $podName --timeout=60s 2>&1
+                            $waitResult = & $kubectlExe wait --for=condition=ready pod -n $podNamespace $podName --timeout=60s 2>&1
                             
                             if ($LASTEXITCODE -eq 0) {
                                 $podResult.Restarted = $true

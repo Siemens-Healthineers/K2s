@@ -36,7 +36,9 @@ Param(
 	[parameter(Mandatory = $false, HelpMessage = 'Directory for resource backup')]
 	[string] $BackupDir = '',
 	[parameter(Mandatory = $false, HelpMessage = 'Force upgrade even if versions are not consecutive')]
-	[switch] $Force = $false
+	[switch] $Force = $false,
+	[parameter(Mandatory = $false, HelpMessage = 'Skip backup and restore of Windows container images')]
+	[switch] $SkipImages = $false
 )
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -147,7 +149,7 @@ function Start-ClusterUpgrade {
 
 	$installedFolder = Get-ClusterInstalledFolder
 	try {
-		PerformClusterUpgrade -ExecuteHooks:$true -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value
+		PerformClusterUpgrade -ExecuteHooks:$true -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value -SkipImages:$SkipImages -skipResources:$SkipResources
 	}
 	catch {
 		Write-Log 'System upgrade failed, will rollback to previous state !'
@@ -155,8 +157,8 @@ function Start-ClusterUpgrade {
 			 # backup log file since it will be deleted during uninstall
 			$logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
 			Backup-LogFile -LogFile $logFilePathBeforeUninstall.Value
-			#Execute the upgrade without executing the upgrade hooks and from the installed folder (folder used before upgrade)
-			PerformClusterUpgrade -ExecuteHooks:$false -K2sPathToInstallFrom $installedFolder -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value
+			 #Execute the upgrade without executing the upgrade hooks and from the installed folder (folder used before upgrade)
+			 PerformClusterUpgrade -ExecuteHooks:$false -K2sPathToInstallFrom $installedFolder -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value -SkipImages:$SkipImages -skipResources:$SkipResources
 		}
 		catch {
 			Write-Log 'An ERROR occurred:' -Console
@@ -185,7 +187,7 @@ function Start-ClusterUpgrade {
 #####################################################
 
 Write-Log 'Starting upgrading cluster' -Console
-$ret = Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -Force:$Force
+$ret = Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -Force:$Force -SkipImages:$SkipImages
 if ( $ret ) {
 	Restore-MergeLogFiles
 }
