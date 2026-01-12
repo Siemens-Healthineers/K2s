@@ -67,4 +67,9 @@ Invoke-AddonsHooks -HookType 'AfterUninstall'
 
 Write-Log 'K2s uninstalled.'
 
+# Refresh PATH for current session to avoid stale k2s entries
+$env:PATH =
+[Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+        [Environment]::GetEnvironmentVariable("Path", "User")
+
 Save-k2sLogDirectory -RemoveVar
