@@ -18,13 +18,14 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework"
+	framework_os "github.com/siemens-healthineers/k2s/test/framework/os"
 )
 
 type sshExecutor struct {
 	ipAddress  string
 	remoteUser string
 	keyPath    string
-	execFunc   func(ctx context.Context, cliPath string, cliArgs ...string) string
+	executor   *framework_os.CliExecutor
 }
 
 var suite *framework.K2sTestSuite
@@ -53,7 +54,7 @@ var _ = Describe("node copy", Ordered, func() {
 	Describe("to node", func() {
 		When("source does not exist", func() {
 			DescribeTable("exits with failure", func(ctx context.Context, source string) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", "", "-s", source, "-t", "", "-u", "", "-o")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", "", "-s", source, "-t", "", "-u", "", "-o")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp("ERROR"),
@@ -90,19 +91,18 @@ var _ = Describe("node copy", Ordered, func() {
 					ipAddress:  nodeIpAddress,
 					remoteUser: "remote",
 					keyPath:    "~/.ssh\\k2s\\id_rsa",
-					execFunc:   suite.Cli().ExecOrFail,
+					executor:   suite.Cli("ssh.exe"),
 				}
 
 				GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-				sshExec.exec(ctx, "mkdir "+remoteTempDir)
+				sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
 			})
 
 			AfterEach(func(ctx context.Context) {
 				GinkgoWriter.Println("Removing remote temp dir <", remoteTempDir, ">")
 
-				// Use best effort cleanup to avoid test failures due to cleanup issues
-				sshExec.execBestEffort(ctx, "rm -rf "+remoteTempDir)
+				sshExec.exec(ctx, "rm -rf "+remoteTempDir)
 			})
 
 			When("source is a file", func() {
@@ -128,17 +128,17 @@ var _ = Describe("node copy", Ordered, func() {
 
 							GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-							sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+							sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 						})
 
 						It("overwrites the existing file", func(ctx context.Context) {
 							targetFile := existingRemoteFile
 
-							output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+							output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.exec(ctx, "cat "+targetFile)
+							content := sshExec.mustExecEventually(ctx, "cat "+targetFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -149,23 +149,23 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-								sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+								sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 							})
 
 							AfterEach(func(ctx context.Context) {
 								GinkgoWriter.Println("Removing file <", existingRemoteFile, ">")
 
-								sshExec.execBestEffort(ctx, "rm -rf "+existingRemoteFile)
+								sshExec.exec(ctx, "rm -rf "+existingRemoteFile)
 							})
 
 							It("overwrites existing file in home dir", func(ctx context.Context) {
 								targetFile := sourceFileName
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.exec(ctx, "cat "+targetFile)
+								content := sshExec.mustExecEventually(ctx, "cat "+targetFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -181,17 +181,17 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-								sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+								sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 							})
 
 							It("overwrites the existing file", func(ctx context.Context) {
 								targetFolder := remoteTempDir
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.exec(ctx, "cat "+existingRemoteFile)
+								content := sshExec.mustExecEventually(ctx, "cat "+existingRemoteFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -202,23 +202,23 @@ var _ = Describe("node copy", Ordered, func() {
 
 									GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-									sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+									sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 								})
 
 								AfterEach(func(ctx context.Context) {
 									GinkgoWriter.Println("Removing file <", existingRemoteFile, ">")
 
-									sshExec.execBestEffort(ctx, "rm -rf "+existingRemoteFile)
+									sshExec.exec(ctx, "rm -rf "+existingRemoteFile)
 								})
 
 								It("overwrites the existing file in the home dir", func(ctx context.Context) {
 									targetFolder := "~/"
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-									content := sshExec.exec(ctx, "cat "+existingRemoteFile)
+									content := sshExec.mustExecEventually(ctx, "cat "+existingRemoteFile)
 
 									Expect(content).To(Equal(sourceFileContent))
 								})
@@ -230,11 +230,11 @@ var _ = Describe("node copy", Ordered, func() {
 								targetFolder := remoteTempDir
 								expectedTargetFile := path.Join(remoteTempDir, sourceFileName)
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.exec(ctx, "cat "+expectedTargetFile)
+								content := sshExec.mustExecEventually(ctx, "cat "+expectedTargetFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -249,17 +249,17 @@ var _ = Describe("node copy", Ordered, func() {
 								AfterEach(func(ctx context.Context) {
 									GinkgoWriter.Println("Removing file <", expectedRemoteFile, ">")
 
-									sshExec.execBestEffort(ctx, "rm -rf "+expectedRemoteFile)
+									sshExec.exec(ctx, "rm -rf "+expectedRemoteFile)
 								})
 
 								It("copies the file to home dir", func(ctx context.Context) {
 									targetFolder := "~/"
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-									content := sshExec.exec(ctx, "cat "+expectedRemoteFile)
+									content := sshExec.mustExecEventually(ctx, "cat "+expectedRemoteFile)
 
 									Expect(content).To(Equal(sourceFileContent))
 								})
@@ -273,11 +273,11 @@ var _ = Describe("node copy", Ordered, func() {
 						It("creates the target file and copies the content", func(ctx context.Context) {
 							targetFile := path.Join(remoteTempDir, sourceFileName)
 
-							output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+							output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.exec(ctx, "cat "+targetFile)
+							content := sshExec.mustExecEventually(ctx, "cat "+targetFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -287,7 +287,7 @@ var _ = Describe("node copy", Ordered, func() {
 						It("exits with failure", func(ctx context.Context) {
 							targetFile := path.Join(remoteTempDir, "non-existent", sourceFileName)
 
-							output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+							output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(SatisfyAll(
 								MatchRegexp("ERROR"),
@@ -307,17 +307,17 @@ var _ = Describe("node copy", Ordered, func() {
 						AfterEach(func(ctx context.Context) {
 							GinkgoWriter.Println("Removing file <", expectedRemoteFile, ">")
 
-							sshExec.execBestEffort(ctx, "rm -rf "+expectedRemoteFile)
+							sshExec.exec(ctx, "rm -rf "+expectedRemoteFile)
 						})
 
 						It("copies the file to home dir", func(ctx context.Context) {
 							targetFile := sourceFileName
 
-							output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+							output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.exec(ctx, "cat "+expectedRemoteFile)
+							content := sshExec.mustExecEventually(ctx, "cat "+expectedRemoteFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -373,13 +373,13 @@ var _ = Describe("node copy", Ordered, func() {
 
 							GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-							sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+							sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 						})
 
 						It("exits with failure", func(ctx context.Context) {
 							targetFile := existingRemoteFile
 
-							output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFile, "-o", "-u", remoteUser)
+							output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(SatisfyAll(
 								MatchRegexp("ERROR"),
@@ -398,19 +398,19 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote folder <", existingRemoteFolder, ">")
 
-								sshExec.exec(ctx, "mkdir "+existingRemoteFolder)
+								sshExec.mustExecEventually(ctx, "mkdir "+existingRemoteFolder)
 							})
 
 							It("copies contents of source folder to existing folder in target dir", func(ctx context.Context) {
 								targetFolder := remoteTempDir
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := path.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
-									content := sshExec.exec(ctx, "cat "+remotePath)
+									content := sshExec.mustExecEventually(ctx, "cat "+remotePath)
 
 									Expect(content).To(Equal(fileInfo.content))
 								}
@@ -425,26 +425,26 @@ var _ = Describe("node copy", Ordered, func() {
 											dir = path.Join(dir, fileInfo.subFolder)
 
 											GinkgoWriter.Println("Creating remote target sub folder <", dir, ">")
-											sshExec.exec(ctx, "mkdir "+dir)
+											sshExec.mustExecEventually(ctx, "mkdir "+dir)
 										}
 
 										filePath := path.Join(dir, fileInfo.name)
 
 										GinkgoWriter.Println("Writing remote target file <", filePath, ">")
-										sshExec.exec(ctx, "echo 'existing content' > "+filePath)
+										sshExec.mustExecEventually(ctx, "echo 'existing content' > "+filePath)
 									}
 								})
 
 								It("copies contents of source folder to existing folder in target dir, overwriting existing files", func(ctx context.Context) {
 									targetFolder := remoteTempDir
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									for _, fileInfo := range sourceFileInfos {
 										remotePath := path.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
-										content := sshExec.exec(ctx, "cat "+remotePath)
+										content := sshExec.mustExecEventually(ctx, "cat "+remotePath)
 
 										Expect(content).To(Equal(fileInfo.content))
 									}
@@ -456,13 +456,13 @@ var _ = Describe("node copy", Ordered, func() {
 							It("copies the folder to target", func(ctx context.Context) {
 								targetFolder := remoteTempDir
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := path.Join(remoteTempDir, sourceFolderName, fileInfo.subFolder, fileInfo.name)
-									content := sshExec.exec(ctx, "cat "+remotePath)
+									content := sshExec.mustExecEventually(ctx, "cat "+remotePath)
 
 									Expect(content).To(Equal(fileInfo.content))
 								}
@@ -476,13 +476,13 @@ var _ = Describe("node copy", Ordered, func() {
 						It("creates target dir and copies contents of source folder", func(ctx context.Context) {
 							targetFolder := path.Join(remoteTempDir, sourceFolderName)
 
-							output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+							output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							for _, fileInfo := range sourceFileInfos {
 								remotePath := path.Join(targetFolder, fileInfo.subFolder, fileInfo.name)
-								content := sshExec.exec(ctx, "cat "+remotePath)
+								content := sshExec.mustExecEventually(ctx, "cat "+remotePath)
 
 								Expect(content).To(Equal(fileInfo.content))
 							}
@@ -493,7 +493,7 @@ var _ = Describe("node copy", Ordered, func() {
 						It("exits with failure", func(ctx context.Context) {
 							targetFolder := path.Join(remoteTempDir, "non-existent-parent", sourceFolderName)
 
-							output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+							output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 							Expect(output).To(SatisfyAll(
 								MatchRegexp("ERROR"),
@@ -535,12 +535,12 @@ var _ = Describe("node copy", Ordered, func() {
 					ipAddress:  nodeIpAddress,
 					remoteUser: remoteUser,
 					keyPath:    "~/.ssh\\k2s\\id_rsa",
-					execFunc:   suite.Cli().ExecOrFail,
+					executor:   suite.Cli("ssh.exe"),
 				}
 
 				GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-				sshExec.exec(ctx, "mkdir "+remoteTempDir)
+				sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
 			})
 
 			AfterEach(func(ctx context.Context) {
@@ -550,7 +550,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 				GinkgoWriter.Println("Removing remote temp dir <", remoteTempDir, ">")
 
-				sshExec.execBestEffort(ctx, "rd /s /q "+remoteTempDir)
+				sshExec.exec(ctx, "rd /s /q "+remoteTempDir)
 			})
 
 			When("source is a file", func() {
@@ -576,17 +576,17 @@ var _ = Describe("node copy", Ordered, func() {
 
 							GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-							sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+							sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 						})
 
 						It("overwrites the existing file", func(ctx context.Context) {
 							targetFile := existingRemoteFile
 
-							output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+							output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.exec(ctx, "more "+targetFile)
+							content := sshExec.mustExecEventually(ctx, "more "+targetFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -597,23 +597,23 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-								sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+								sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 							})
 
 							AfterEach(func(ctx context.Context) {
 								GinkgoWriter.Println("Removing file <", existingRemoteFile, ">")
 
-								sshExec.execBestEffort(ctx, "del "+existingRemoteFile)
+								sshExec.exec(ctx, "del "+existingRemoteFile)
 							})
 
 							It("overwrites existing file in home dir", func(ctx context.Context) {
 								targetFile := sourceFileName
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.exec(ctx, "more "+targetFile)
+								content := sshExec.mustExecEventually(ctx, "more "+targetFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -629,17 +629,17 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-								sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+								sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 							})
 
 							It("overwrites the existing file", func(ctx context.Context) {
 								targetFolder := remoteTempDir
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.exec(ctx, "more "+existingRemoteFile)
+								content := sshExec.mustExecEventually(ctx, "more "+existingRemoteFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -650,23 +650,23 @@ var _ = Describe("node copy", Ordered, func() {
 
 									GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-									sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+									sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 								})
 
 								AfterEach(func(ctx context.Context) {
 									GinkgoWriter.Println("Removing file <", existingRemoteFile, ">")
 
-									sshExec.execBestEffort(ctx, "del "+existingRemoteFile)
+									sshExec.exec(ctx, "del "+existingRemoteFile)
 								})
 
 								It("overwrites the existing file in the home dir", func(ctx context.Context) {
 									targetFolder := "~\\"
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-									content := sshExec.exec(ctx, "more "+existingRemoteFile)
+									content := sshExec.mustExecEventually(ctx, "more "+existingRemoteFile)
 
 									Expect(content).To(Equal(sourceFileContent))
 								})
@@ -678,11 +678,11 @@ var _ = Describe("node copy", Ordered, func() {
 								targetFolder := remoteTempDir
 								expectedTargetFile := filepath.Join(remoteTempDir, sourceFileName)
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-								content := sshExec.exec(ctx, "more "+expectedTargetFile)
+								content := sshExec.mustExecEventually(ctx, "more "+expectedTargetFile)
 
 								Expect(content).To(Equal(sourceFileContent))
 							})
@@ -697,17 +697,17 @@ var _ = Describe("node copy", Ordered, func() {
 								AfterEach(func(ctx context.Context) {
 									GinkgoWriter.Println("Removing file <", expectedRemoteFile, ">")
 
-									sshExec.execBestEffort(ctx, "del "+expectedRemoteFile)
+									sshExec.exec(ctx, "del "+expectedRemoteFile)
 								})
 
 								It("copies the file to home dir", func(ctx context.Context) {
 									targetFolder := "~\\"
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-									content := sshExec.exec(ctx, "more "+expectedRemoteFile)
+									content := sshExec.mustExecEventually(ctx, "more "+expectedRemoteFile)
 
 									Expect(content).To(Equal(sourceFileContent))
 								})
@@ -721,11 +721,11 @@ var _ = Describe("node copy", Ordered, func() {
 						It("creates the target file and copies the content", func(ctx context.Context) {
 							targetFile := filepath.Join(remoteTempDir, sourceFileName)
 
-							output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+							output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.exec(ctx, "more "+targetFile)
+							content := sshExec.mustExecEventually(ctx, "more "+targetFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -735,7 +735,7 @@ var _ = Describe("node copy", Ordered, func() {
 						It("exits with failure", func(ctx context.Context) {
 							targetFile := filepath.Join(remoteTempDir, "non-existent", sourceFileName)
 
-							output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+							output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(SatisfyAll(
 								MatchRegexp("ERROR"),
@@ -755,17 +755,17 @@ var _ = Describe("node copy", Ordered, func() {
 						AfterEach(func(ctx context.Context) {
 							GinkgoWriter.Println("Removing file <", expectedRemoteFile, ">")
 
-							sshExec.execBestEffort(ctx, "del "+expectedRemoteFile)
+							sshExec.exec(ctx, "del "+expectedRemoteFile)
 						})
 
 						It("copies the file to home dir", func(ctx context.Context) {
 							targetFile := sourceFileName
 
-							output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
+							output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
-							content := sshExec.exec(ctx, "more "+expectedRemoteFile)
+							content := sshExec.mustExecEventually(ctx, "more "+expectedRemoteFile)
 
 							Expect(content).To(Equal(sourceFileContent))
 						})
@@ -821,13 +821,13 @@ var _ = Describe("node copy", Ordered, func() {
 
 							GinkgoWriter.Println("Creating remote file <", existingRemoteFile, ">")
 
-							sshExec.exec(ctx, "echo 'existing content' > "+existingRemoteFile)
+							sshExec.mustExecEventually(ctx, "echo 'existing content' > "+existingRemoteFile)
 						})
 
 						It("exits with failure", func(ctx context.Context) {
 							targetFile := existingRemoteFile
 
-							output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFile, "-o", "-u", remoteUser)
+							output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFile, "-o", "-u", remoteUser)
 
 							Expect(output).To(SatisfyAll(
 								MatchRegexp("ERROR"),
@@ -846,19 +846,19 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote folder <", existingRemoteFolder, ">")
 
-								sshExec.exec(ctx, "mkdir "+existingRemoteFolder)
+								sshExec.mustExecEventually(ctx, "mkdir "+existingRemoteFolder)
 							})
 
 							It("copies contents of source folder to existing folder in target dir", func(ctx context.Context) {
 								targetFolder := remoteTempDir
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := filepath.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
-									content := sshExec.exec(ctx, "more "+remotePath)
+									content := sshExec.mustExecEventually(ctx, "more "+remotePath)
 
 									Expect(content).To(Equal(fileInfo.content))
 								}
@@ -873,26 +873,26 @@ var _ = Describe("node copy", Ordered, func() {
 											dir = filepath.Join(dir, fileInfo.subFolder)
 
 											GinkgoWriter.Println("Creating remote target sub folder <", dir, ">")
-											sshExec.exec(ctx, "mkdir "+dir)
+											sshExec.mustExecEventually(ctx, "mkdir "+dir)
 										}
 
 										filePath := filepath.Join(dir, fileInfo.name)
 
 										GinkgoWriter.Println("Writing remote target file <", filePath, ">")
-										sshExec.exec(ctx, "echo 'existing content' > "+filePath)
+										sshExec.mustExecEventually(ctx, "echo 'existing content' > "+filePath)
 									}
 								})
 
 								It("copies contents of source folder to existing folder in target dir, overwriting existing files", func(ctx context.Context) {
 									targetFolder := remoteTempDir
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									for _, fileInfo := range sourceFileInfos {
 										remotePath := filepath.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
-										content := sshExec.exec(ctx, "more "+remotePath)
+										content := sshExec.mustExecEventually(ctx, "more "+remotePath)
 
 										Expect(content).To(Equal(fileInfo.content))
 									}
@@ -904,13 +904,13 @@ var _ = Describe("node copy", Ordered, func() {
 							It("copies the folder to target", func(ctx context.Context) {
 								targetFolder := remoteTempDir
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := filepath.Join(remoteTempDir, sourceFolderName, fileInfo.subFolder, fileInfo.name)
-									content := sshExec.exec(ctx, "more "+remotePath)
+									content := sshExec.mustExecEventually(ctx, "more "+remotePath)
 
 									Expect(content).To(Equal(fileInfo.content))
 								}
@@ -924,13 +924,13 @@ var _ = Describe("node copy", Ordered, func() {
 						It("creates target dir and copies contents of source folder", func(ctx context.Context) {
 							targetFolder := filepath.Join(remoteTempDir, sourceFolderName)
 
-							output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+							output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							for _, fileInfo := range sourceFileInfos {
 								remotePath := filepath.Join(targetFolder, fileInfo.subFolder, fileInfo.name)
-								content := sshExec.exec(ctx, "more "+remotePath)
+								content := sshExec.mustExecEventually(ctx, "more "+remotePath)
 
 								Expect(content).To(Equal(fileInfo.content))
 							}
@@ -941,7 +941,7 @@ var _ = Describe("node copy", Ordered, func() {
 						It("exits with failure", func(ctx context.Context) {
 							targetFolder := filepath.Join(remoteTempDir, "non-existent-parent", sourceFolderName)
 
-							output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
+							output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
 							Expect(output).To(SatisfyAll(
 								MatchRegexp("ERROR"),
@@ -969,7 +969,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 			When("source does not exist", func() {
 				DescribeTable("exits with failure", func(ctx context.Context, source string) {
-					output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", source, "-t", "~\\", "-o", "-r", "-u", remoteUser)
+					output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", source, "-t", "~\\", "-o", "-r", "-u", remoteUser)
 
 					Expect(output).To(SatisfyAll(
 						MatchRegexp("ERROR"),
@@ -999,18 +999,18 @@ var _ = Describe("node copy", Ordered, func() {
 						ipAddress:  nodeIpAddress,
 						remoteUser: "remote",
 						keyPath:    "~/.ssh\\k2s\\id_rsa",
-						execFunc:   suite.Cli().ExecOrFail,
+						executor:   suite.Cli("ssh.exe"),
 					}
 
 					GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-					sshExec.exec(ctx, "mkdir "+remoteTempDir)
+					sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
 				})
 
 				AfterEach(func(ctx context.Context) {
 					GinkgoWriter.Println("Removing remote temp dir <", remoteTempDir, ">")
 
-					sshExec.execBestEffort(ctx, "rm -rf "+remoteTempDir)
+					sshExec.exec(ctx, "rm -rf "+remoteTempDir)
 				})
 
 				When("source is a file", func() {
@@ -1023,7 +1023,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFile = path.Join(remoteTempDir, sourceFileName)
 
 						GinkgoWriter.Println("Creating remote file <", sourceFile, ">")
-						sshExec.exec(ctx, "echo -n '"+sourceFileContent+"' > "+sourceFile)
+						sshExec.mustExecEventually(ctx, "echo -n '"+sourceFileContent+"' > "+sourceFile)
 						GinkgoWriter.Println("Remote file <", sourceFile, "> created")
 					})
 
@@ -1042,7 +1042,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("overwrites the existing file", func(ctx context.Context) {
 								targetFile := existingLocalFile
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-r", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-r", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1068,7 +1068,7 @@ var _ = Describe("node copy", Ordered, func() {
 								It("overwrites the existing file", func(ctx context.Context) {
 									targetFolder := localTempDir
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1099,7 +1099,7 @@ var _ = Describe("node copy", Ordered, func() {
 									It("overwrites the existing file in the home dir", func(ctx context.Context) {
 										targetFolder := "~\\"
 
-										output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
+										output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
 										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1116,7 +1116,7 @@ var _ = Describe("node copy", Ordered, func() {
 									targetFolder := localTempDir
 									expectedTargetFile := filepath.Join(localTempDir, sourceFileName)
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1145,7 +1145,7 @@ var _ = Describe("node copy", Ordered, func() {
 									It("copies the file to home dir", func(ctx context.Context) {
 										targetFolder := "~\\"
 
-										output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
+										output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
 										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1164,7 +1164,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("creates the target file and copies the content", func(ctx context.Context) {
 								targetFile := filepath.Join(localTempDir, sourceFileName)
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-r", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-r", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1179,7 +1179,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("exits with failure", func(ctx context.Context) {
 								targetFile := filepath.Join(localTempDir, "non-existent", sourceFileName)
 
-								output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-r", "-u", remoteUser)
+								output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-r", "-u", remoteUser)
 
 								Expect(output).To(SatisfyAll(
 									MatchRegexp("ERROR"),
@@ -1211,7 +1211,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFolder = path.Join(remoteTempDir, sourceFolderName)
 
 						GinkgoWriter.Println("Creating remote source folder <", sourceFolder, ">")
-						sshExec.exec(ctx, "mkdir "+sourceFolder)
+						sshExec.mustExecEventually(ctx, "mkdir "+sourceFolder)
 
 						for _, fileInfo := range sourceFileInfos {
 							dir := sourceFolder
@@ -1220,13 +1220,13 @@ var _ = Describe("node copy", Ordered, func() {
 								dir = path.Join(dir, fileInfo.subFolder)
 
 								GinkgoWriter.Println("Creating remote source sub folder <", dir, ">")
-								sshExec.exec(ctx, "mkdir "+dir)
+								sshExec.mustExecEventually(ctx, "mkdir "+dir)
 							}
 
 							filePath := path.Join(dir, fileInfo.name)
 
 							GinkgoWriter.Println("Writing remote source file <", filePath, ">")
-							sshExec.exec(ctx, "echo -n '"+fileInfo.content+"' > "+filePath)
+							sshExec.mustExecEventually(ctx, "echo -n '"+fileInfo.content+"' > "+filePath)
 						}
 					})
 
@@ -1245,7 +1245,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("exits with failure", func(ctx context.Context) {
 								targetFile := existingLocalFile
 
-								output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFile, "-o", "-r", "-u", remoteUser)
+								output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFile, "-o", "-r", "-u", remoteUser)
 
 								Expect(output).To(SatisfyAll(
 									MatchRegexp("ERROR"),
@@ -1270,7 +1270,7 @@ var _ = Describe("node copy", Ordered, func() {
 								It("copies contents of source folder to existing folder in target dir", func(ctx context.Context) {
 									targetFolder := localTempDir
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1305,7 +1305,7 @@ var _ = Describe("node copy", Ordered, func() {
 									It("copies contents of source folder to existing folder in target dir, overwriting existing files", func(ctx context.Context) {
 										targetFolder := localTempDir
 
-										output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
+										output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
 										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1324,7 +1324,7 @@ var _ = Describe("node copy", Ordered, func() {
 								It("copies the folder to target", func(ctx context.Context) {
 									targetFolder := localTempDir
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1345,7 +1345,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("creates target dir and copies contents of source folder", func(ctx context.Context) {
 								targetFolder := filepath.Join(localTempDir, sourceFolderName)
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1363,7 +1363,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("exits with failure", func(ctx context.Context) {
 								targetFolder := filepath.Join(localTempDir, "non-existent-parent", sourceFolderName)
 
-								output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
+								output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
 								Expect(output).To(SatisfyAll(
 									MatchRegexp("ERROR"),
@@ -1395,7 +1395,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 			When("source does not exist", func() {
 				DescribeTable("exits with failure", func(ctx context.Context, source string) {
-					output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", source, "-t", "~\\", "-o", "-r", "-u", remoteUser)
+					output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", source, "-t", "~\\", "-o", "-r", "-u", remoteUser)
 
 					Expect(output).To(SatisfyAll(
 						MatchRegexp("ERROR"),
@@ -1425,18 +1425,18 @@ var _ = Describe("node copy", Ordered, func() {
 						ipAddress:  nodeIpAddress,
 						remoteUser: remoteUser,
 						keyPath:    "~/.ssh\\k2s\\id_rsa",
-						execFunc:   suite.Cli().ExecOrFail,
+						executor:   suite.Cli("ssh.exe"),
 					}
 
 					GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-					sshExec.exec(ctx, "mkdir "+remoteTempDir)
+					sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
 				})
 
 				AfterEach(func(ctx context.Context) {
 					GinkgoWriter.Println("Removing remote temp dir <", remoteTempDir, ">")
 
-					sshExec.execBestEffort(ctx, "rd /s /q "+remoteTempDir)
+					sshExec.exec(ctx, "rd /s /q "+remoteTempDir)
 				})
 
 				When("source is a file", func() {
@@ -1449,7 +1449,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFile = filepath.Join(remoteTempDir, sourceFileName)
 
 						GinkgoWriter.Println("Creating remote file <", sourceFile, ">")
-						sshExec.exec(ctx, "echo | set /p tempVar=\""+sourceFileContent+"\" > "+sourceFile)
+						sshExec.mustExecEventually(ctx, "echo | set /p tempVar=\""+sourceFileContent+"\" > "+sourceFile)
 						GinkgoWriter.Println("Remote file <", sourceFile, "> created")
 					})
 
@@ -1468,7 +1468,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("overwrites the existing file", func(ctx context.Context) {
 								targetFile := existingLocalFile
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser, "-r")
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser, "-r")
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1494,7 +1494,7 @@ var _ = Describe("node copy", Ordered, func() {
 								It("overwrites the existing file", func(ctx context.Context) {
 									targetFolder := localTempDir
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1525,7 +1525,7 @@ var _ = Describe("node copy", Ordered, func() {
 									It("overwrites the existing file in the home dir", func(ctx context.Context) {
 										targetFolder := "~\\"
 
-										output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
+										output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
 										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1542,7 +1542,7 @@ var _ = Describe("node copy", Ordered, func() {
 									targetFolder := localTempDir
 									expectedTargetFile := filepath.Join(localTempDir, sourceFileName)
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1571,7 +1571,7 @@ var _ = Describe("node copy", Ordered, func() {
 									It("copies the file to home dir", func(ctx context.Context) {
 										targetFolder := "~\\"
 
-										output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
+										output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
 										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1590,7 +1590,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("creates the target file and copies the content", func(ctx context.Context) {
 								targetFile := filepath.Join(localTempDir, sourceFileName)
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser, "-r")
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser, "-r")
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1605,7 +1605,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("exits with failure", func(ctx context.Context) {
 								targetFile := filepath.Join(localTempDir, "non-existent", sourceFileName)
 
-								output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser, "-r")
+								output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser, "-r")
 
 								Expect(output).To(SatisfyAll(
 									MatchRegexp("ERROR"),
@@ -1637,7 +1637,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFolder = filepath.Join(remoteTempDir, sourceFolderName)
 
 						GinkgoWriter.Println("Creating remote source folder <", sourceFolder, ">")
-						sshExec.exec(ctx, "mkdir "+sourceFolder)
+						sshExec.mustExecEventually(ctx, "mkdir "+sourceFolder)
 
 						for _, fileInfo := range sourceFileInfos {
 							dir := sourceFolder
@@ -1646,13 +1646,13 @@ var _ = Describe("node copy", Ordered, func() {
 								dir = filepath.Join(dir, fileInfo.subFolder)
 
 								GinkgoWriter.Println("Creating remote source sub folder <", dir, ">")
-								sshExec.exec(ctx, "mkdir "+dir)
+								sshExec.mustExecEventually(ctx, "mkdir "+dir)
 							}
 
 							filePath := filepath.Join(dir, fileInfo.name)
 
 							GinkgoWriter.Println("Writing remote source file <", filePath, ">")
-							sshExec.exec(ctx, "echo | set /p tempVar=\""+fileInfo.content+"\" > "+filePath)
+							sshExec.mustExecEventually(ctx, "echo | set /p tempVar=\""+fileInfo.content+"\" > "+filePath)
 						}
 					})
 
@@ -1671,7 +1671,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("exits with failure", func(ctx context.Context) {
 								targetFile := existingLocalFile
 
-								output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFile, "-o", "-u", remoteUser, "-r")
+								output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFile, "-o", "-u", remoteUser, "-r")
 
 								Expect(output).To(SatisfyAll(
 									MatchRegexp("ERROR"),
@@ -1696,7 +1696,7 @@ var _ = Describe("node copy", Ordered, func() {
 								It("copies contents of source folder to existing folder in target dir", func(ctx context.Context) {
 									targetFolder := localTempDir
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1731,7 +1731,7 @@ var _ = Describe("node copy", Ordered, func() {
 									It("copies contents of source folder to existing folder in target dir, overwriting existing files", func(ctx context.Context) {
 										targetFolder := localTempDir
 
-										output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
+										output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
 										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1750,7 +1750,7 @@ var _ = Describe("node copy", Ordered, func() {
 								It("copies the folder to target", func(ctx context.Context) {
 									targetFolder := localTempDir
 
-									output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
+									output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
 									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1771,7 +1771,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("creates target dir and copies contents of source folder", func(ctx context.Context) {
 								targetFolder := filepath.Join(localTempDir, sourceFolderName)
 
-								output := suite.K2sCli().RunOrFail(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
+								output := suite.K2sCli().MustExec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
 								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
@@ -1789,7 +1789,7 @@ var _ = Describe("node copy", Ordered, func() {
 							It("exits with failure", func(ctx context.Context) {
 								targetFolder := filepath.Join(localTempDir, "non-existent-parent", sourceFolderName)
 
-								output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
+								output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
 								Expect(output).To(SatisfyAll(
 									MatchRegexp("ERROR"),
@@ -1805,17 +1805,44 @@ var _ = Describe("node copy", Ordered, func() {
 	})
 })
 
-func (ssh sshExecutor) exec(ctx context.Context, remoteCmd string) string {
-	return ssh.execFunc(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
+// isTransientSSHExitCode returns true for exit codes that indicate
+// transient SSH failures which should be retried.
+func isTransientSSHExitCode(exitCode int) bool {
+	switch exitCode {
+	case int(cli.ExitCodeSuccess):
+		return true // Success - let Eventually check complete
+	case -1:
+		return true // Process interrupted/not complete
+	case 255:
+		return true // SSH connection error
+	case 3221226356: // Windows STATUS_PENDING (0xC0000174)
+		return true // "close - IO is still pending on closed socket"
+	default:
+		return false
+	}
 }
 
-func (ssh sshExecutor) execBestEffort(ctx context.Context, remoteCmd string) {
-	defer func() {
-		if r := recover(); r != nil {
-			GinkgoWriter.Printf("Best effort command failed (ignored): %v\n", r)
+func (ssh sshExecutor) mustExecEventually(ctx context.Context, remoteCmd string) string {
+	var output string
+
+	Eventually(func(ctx context.Context) int {
+		var exitCode int
+		output, exitCode = ssh.executor.Exec(ctx, "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
+
+		if !isTransientSSHExitCode(exitCode) {
+			Fail(fmt.Sprintf("SSH command failed with non-transient exit code %d, output: %s", exitCode, output))
 		}
-	}()
-	
-	// Use suite.Cli().Exec instead of ExecOrFail to avoid test failure on cleanup errors
-	suite.Cli().Exec(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
+
+		if exitCode != int(cli.ExitCodeSuccess) {
+			GinkgoWriter.Printf("SSH command returned transient exit code %d, will retry...\n", exitCode)
+		}
+
+		return exitCode
+	}).WithContext(ctx).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(BeEquivalentTo(cli.ExitCodeSuccess))
+
+	return output
+}
+
+func (ssh sshExecutor) exec(ctx context.Context, remoteCmd string) {
+	ssh.executor.Exec(ctx, "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
 }

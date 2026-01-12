@@ -629,7 +629,11 @@ function Invoke-ClusterInstall {
 	)
    
 	Write-Log 'Install cluster with the new version' -Console
-   
+
+	# Refresh PATH for current session to avoid stale k2s entries
+	$env:PATH = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+			[Environment]::GetEnvironmentVariable("Path", "User")
+
 	Write-Log "Using k2sPath: $K2sPathToInstallFrom" -Console
 	if ([string]::IsNullOrEmpty($K2sPathToInstallFrom)) {
 		$K2sPathToInstallFrom =  Get-KubePath

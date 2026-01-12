@@ -1,5 +1,6 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
+
 package users
 
 import (
@@ -32,7 +33,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("system users", func() {
 	When("system stopped", func() {
 		It("prints system-stopped message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-u", "non-existent")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "users", "add", "-u", "non-existent")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("WARNING"),

@@ -126,7 +126,7 @@ var _ = Describe("status pkg", func() {
 					It("returns the error", func() {
 						expectedErr := errors.New("oops")
 						loadedStatus := &status.LoadedStatus{}
-						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("", false, "", false), nil)
+						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("", false, "", false, false), nil)
 
 						loadMock := &mockObject{}
 						loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
@@ -159,7 +159,7 @@ var _ = Describe("status pkg", func() {
 								K8sClientVersion: "321",
 							},
 						}
-						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", true, "test-version", false), nil)
+						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", true, "test-version", false, false), nil)
 						jsonStatus := "status"
 
 						loadMock := &mockObject{}
@@ -210,7 +210,7 @@ var _ = Describe("status pkg", func() {
 								K8sClientVersion: "321",
 							},
 						}
-						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", true, "test-version", false), nil)
+						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", true, "test-version", false, false), nil)
 						jsonStatus := "status"
 
 						loadMock := &mockObject{}
@@ -342,7 +342,7 @@ var _ = Describe("status pkg", func() {
 
 				When("status does not contain K8s version info", func() {
 					It("returns an error", func() {
-						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("", false, "", false), nil)
+						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("", false, "", false, false), nil)
 						loadedStatus := &status.LoadedStatus{
 							CmdResult: common.CmdResult{},
 							RunningState: &status.RunningState{
@@ -377,7 +377,7 @@ var _ = Describe("status pkg", func() {
 					var spinnerMock *mockObject
 
 					BeforeEach(func() {
-						runtimeConfig = config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", false, "test-version", false), nil)
+						runtimeConfig = config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", false, "test-version", false, false), nil)
 						loadedStatus = &status.LoadedStatus{
 							CmdResult:    common.CmdResult{},
 							RunningState: &status.RunningState{},
@@ -431,7 +431,7 @@ var _ = Describe("status pkg", func() {
 
 					When("setup is Linux-only", func() {
 						BeforeEach(func() {
-							runtimeConfig = config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", true, "test-version", false), nil)
+							runtimeConfig = config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", true, "test-version", false, false), nil)
 						})
 
 						It("prints setup name with Linux-only hint and version", func() {
@@ -541,7 +541,7 @@ var _ = Describe("status pkg", func() {
 
 						When("setup is build-only", func() {
 							BeforeEach(func() {
-								runtimeConfig = config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig(definitions.SetupNameBuildOnlyEnv, false, "test-version", false), nil)
+								runtimeConfig = config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig(definitions.SetupNameBuildOnlyEnv, false, "test-version", false, false), nil)
 								loadedStatus.K8sVersionInfo = nil
 							})
 

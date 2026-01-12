@@ -201,10 +201,27 @@ function Get-AssignedPodNetworkCIDR {
     $success = $cmdExecutionResult.Success
     $podNetworkCIDR = $cmdExecutionResult.Output
 
-    if ($success -and [string]::IsNullOrWhiteSpace($podNetworkCIDR)) {
-        throw "The retrieved pod network CIDR for the node '$NodeName' is empty, null or contain only whitespaces"
+    if ($success) {
+        # Validate the CIDR format
+        if ([string]::IsNullOrWhiteSpace($podNetworkCIDR)) {
+            throw "The retrieved pod network CIDR for the node '$NodeName' is empty, null or contain only whitespaces"
+        }
+        
+        # Clean and validate CIDR format (should be like 172.20.0.0/24)
+        $podNetworkCIDR = $podNetworkCIDR.Trim()
+        
+        # Extract only the CIDR if SSH warnings contaminated the output
+        # Pattern: 172.20.0.0/24 close - IO is still pending...
+        if ($podNetworkCIDR -match '(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2})') {
+            $podNetworkCIDR = $matches[1]
+        }
+        
+        if ($podNetworkCIDR -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$') {
+            throw "The retrieved pod network CIDR for the node '$NodeName' has invalid format: '$podNetworkCIDR'. Expected format: x.x.x.x/xx"
+        }
     }
-    return [pscustomobject]@{ Success = $cmdExecutionResult.Success; PodNetworkCIDR = $cmdExecutionResult.Output }
+    
+    return [pscustomobject]@{ Success = $cmdExecutionResult.Success; PodNetworkCIDR = $podNetworkCIDR }
 }
 
 Export-ModuleMember Invoke-TimeSync,

@@ -15,7 +15,7 @@ either be used by directly accessing the argocd cli or using the exposed web int
 
 .EXAMPLE
 Disable rollout addon in k2s
-powershell <installation folder>\addons\rollout\Disable.ps1
+powershell <installation folder>\addons\rollout\argocd\Disable.ps1
 #>
 
 Param (
@@ -26,9 +26,9 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule
@@ -48,8 +48,8 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'rollout', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout' })) -ne $true) {
-    $errMsg = "Addon 'rollout' is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'rollout', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd'})) -ne $true) {
+    $errMsg = "Addon 'rollout' with ArgoCD implementation is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -78,7 +78,7 @@ Write-Log 'Deleting rollout namespace, please wait it can take longer ...' -Cons
 # }
 (Invoke-Kubectl -Params 'delete', 'namespace', 'rollout','--timeout', '60s').Output | Write-Log
 
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout' })
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })
 Write-Log 'Uninstallation of rollout addon finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
