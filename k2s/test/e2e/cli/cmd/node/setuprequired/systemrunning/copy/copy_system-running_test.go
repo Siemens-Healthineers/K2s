@@ -1805,6 +1805,23 @@ var _ = Describe("node copy", Ordered, func() {
 	})
 })
 
+// isTransientSSHExitCode returns true for exit codes that indicate
+// transient SSH failures which should be retried.
+func isTransientSSHExitCode(exitCode int) bool {
+	switch exitCode {
+	case int(cli.ExitCodeSuccess):
+		return true // Success - let Eventually check complete
+	case -1:
+		return true // Process interrupted/not complete
+	case 255:
+		return true // SSH connection error
+	case 3221226356: // Windows STATUS_PENDING (0xC0000174)
+		return true // "close - IO is still pending on closed socket"
+	default:
+		return false
+	}
+}
+
 func (ssh sshExecutor) mustExecEventually(ctx context.Context, remoteCmd string) string {
 	var output string
 
@@ -1812,14 +1829,16 @@ func (ssh sshExecutor) mustExecEventually(ctx context.Context, remoteCmd string)
 		var exitCode int
 		output, exitCode = ssh.executor.Exec(ctx, "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
 
-		Expect(exitCode).To(SatisfyAny(
-			BeEquivalentTo(cli.ExitCodeSuccess),
-			Equal(-1),
-			Equal(255),
-		))
+		if !isTransientSSHExitCode(exitCode) {
+			Fail(fmt.Sprintf("SSH command failed with non-transient exit code %d, output: %s", exitCode, output))
+		}
+
+		if exitCode != int(cli.ExitCodeSuccess) {
+			GinkgoWriter.Printf("SSH command returned transient exit code %d, will retry...\n", exitCode)
+		}
 
 		return exitCode
-	}).WithContext(ctx).WithTimeout(time.Minute).WithPolling(time.Second).Should(BeEquivalentTo(cli.ExitCodeSuccess))
+	}).WithContext(ctx).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(BeEquivalentTo(cli.ExitCodeSuccess))
 
 	return output
 }
