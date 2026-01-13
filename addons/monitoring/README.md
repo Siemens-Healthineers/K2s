@@ -8,7 +8,15 @@ SPDX-License-Identifier: MIT
 
 ## Introduction
 
-The `monitoring` addon provides a [Grafana web-based UI](https://github.com/credativ/plutono) for Kubernetes resource monitoring. It enables users to monitor cluster resources which are collected by Prometheus e.g. node, pod and GPU resources. For this several predefined dashboards are provided.
+The `monitoring` addon provides a [Grafana web-based UI](https://github.com/grafana/grafana) for Kubernetes resource monitoring. It enables users to monitor cluster resources which are collected by Prometheus (e.g. node, pod and GPU resources). For this purpose, several predefined dashboards are provided.
+
+## Grafana License Compliance
+
+K2s is licensed under the MIT License.
+
+It interacts with Grafana (AGPLv3) solely through its standard, public APIs; no AGPL‑licensed code is incorporated or modified, and Grafana is deployed as an container. For this integration scenario, a copyleft assessment was performed with the conclusion that AGPLv3 copyleft obligations are not triggered for this specific scenario.
+
+**Important:** The AGPLv3 terms continue to apply to Grafana itself. Users must independently assess whether the AGPLv3 is appropriate for their use case.
 
 ## Getting started
 
@@ -46,7 +54,7 @@ _Note:_ If a proxy server is configured in the Windows Proxy settings, please ad
 To access monitoring dashboard via port-forwarding, the following command can be executed:
 
 ```
-kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:80
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
 ```
 
 In this case, the monitoring dashboard UI can be accessed at the following URL: <http://localhost:3000/monitoring>
@@ -75,4 +83,4 @@ _Note:_ The above command will only disable monitoring addon. If other addons we
 ## Further Reading
 
 - [Prometheus](https://prometheus.io/)
-- [Plutono](https://github.com/credativ/plutono)
+- [Grafana OSS](http://github.com/grafana/grafana)
