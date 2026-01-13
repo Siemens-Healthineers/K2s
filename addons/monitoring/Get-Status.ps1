@@ -26,15 +26,15 @@ else {
     $isPrometheusOperatorRunningProp.Message = "The Prometheus Operator is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'monitoring', 'deployment/kube-prometheus-stack-plutono').Success
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'monitoring', 'deployment/kube-prometheus-stack-grafana').Success
 
-$isPlutonoRunningProp = @{Name = 'IsPlutonoRunning'; Value = $success; Okay = $success }
-if ($isPlutonoRunningProp.Value -eq $true) {
-    $isPlutonoRunningProp.Message = 'The Plutono Dashboard is working'
+$isGrafanaRunningProp = @{Name = 'IsGrafanaRunning'; Value = $success; Okay = $success }
+if ($isGrafanaRunningProp.Value -eq $true) {
+    $isGrafanaRunningProp.Message = 'The Grafana Dashboard is working'
 }
 else {
-    $isPlutonoRunningProp.Message = "The Plutono Dashboard is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
-} 
+    $isGrafanaRunningProp.Message = "The Grafana Dashboard is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
+}
 
 $success = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=5s').Success
 
@@ -56,4 +56,4 @@ else {
     $areDaemonsetsRunningProp.Message = "Node Exporter is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
-return $isKubeStateMetricsRunningProp, $isPrometheusOperatorRunningProp, $isPlutonoRunningProp, $areStatefulsetsRunningProp, $areDaemonsetsRunningProp
+return $isKubeStateMetricsRunningProp, $isPrometheusOperatorRunningProp, $isGrafanaRunningProp, $areStatefulsetsRunningProp, $areDaemonsetsRunningProp

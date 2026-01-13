@@ -27,7 +27,7 @@ data:
             "list": [
                 {
                     "builtIn": 1,
-                    "datasource": "-- Plutono --",
+                    "datasource": "-- Grafana --",
                     "enable": true,
                     "hide": true,
                     "iconColor": "rgba(0, 211, 255, 1)",
@@ -1894,7 +1894,7 @@ data:
         "list": [
           {
             "builtIn": 1,
-            "datasource": "-- Plutono --",
+            "datasource": "-- Grafana --",
             "enable": true,
             "hide": true,
             "iconColor": "rgba(0, 211, 255, 1)",
@@ -10800,7 +10800,7 @@ data:
             "list": [
                 {
                     "builtIn": 1,
-                    "datasource": "-- Plutono --",
+                    "datasource": "-- Grafanas --",
                     "enable": true,
                     "hide": true,
                     "iconColor": "rgba(0, 211, 255, 1)",
@@ -13243,7 +13243,7 @@ data:
             "list": [
                 {
                     "builtIn": 1,
-                    "datasource": "-- Plutono --",
+                    "datasource": "-- Grafana --",
                     "enable": true,
                     "hide": true,
                     "iconColor": "rgba(0, 211, 255, 1)",
@@ -16590,7 +16590,7 @@ data:
             "list": [
             {
                 "builtIn": 1,
-                "datasource": "-- Plutono --",
+                "datasource": "-- Grafana --",
                 "enable": true,
                 "hide": true,
                 "iconColor": "rgba(0, 211, 255, 1)",
@@ -18912,7 +18912,7 @@ data:
         "list": [
         {
             "builtIn": 1,
-            "datasource": "-- Plutono --",
+            "datasource": "-- Grafana --",
             "enable": true,
             "hide": true,
             "iconColor": "rgba(0, 211, 255, 1)",
@@ -22352,7 +22352,7 @@ data:
         "list": [
         {
             "builtIn": 1,
-            "datasource": "-- Plutono --",
+            "datasource": "-- Grafana --",
             "enable": true,
             "hide": true,
             "iconColor": "rgba(0, 211, 255, 1)",
@@ -23784,7 +23784,7 @@ metadata:
     {}
   labels:
     grafana_dashboard: "1"
-    app: kube-prometheus-stack-plutono
+    app: grafana
     
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/instance: kube-prometheus-stack
@@ -23801,7 +23801,7 @@ data:
           {
             "$$hashKey": "object:192",
             "builtIn": 1,
-            "datasource": "-- Plutono --",
+            "datasource": "-- Grafana --",
             "enable": true,
             "hide": true,
             "iconColor": "rgba(0, 211, 255, 1)",
