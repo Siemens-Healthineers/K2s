@@ -8,7 +8,7 @@ namespace: monitoring
 resources:
 - .\prometheus
 - .\prometheus-operator
-- .\plutono
+- .\grafana
 - .\kube-state-metrics
 - .\prometheus-node-exporter
 - .\exporters

@@ -50,10 +50,13 @@ SPDX-License-Identifier: MIT
     key: additional-scrape-configs.yaml
 ```
 
-# Apache 2.0 License fulfilments
+# License Considerations
 
-Grafana changed their license model to AGPL-3.0 license. In order to use sources still under Apache 2.0 license the following Github forks are used:
+Grafana OSS (Open Source Software) is licensed under **AGPL-3.0**. This project uses the official Grafana OSS Docker images from the [grafana/grafana](https://github.com/grafana/grafana) repository, which are provided under the AGPL-3.0 license.
 
-- https://github.com/credativ/plutono (Plutono is a fork of Grafana 7.5.17 under the Apache 2.0 License.)
+**Important Notes:**
+- We use **Grafana OSS only** (not Grafana Enterprise).
+- Docker image: `grafana/grafana` (official OSS builds).
+- AGPL-3.0 requires that any modifications to Grafana itself be disclosed if the service is made available over a network. Since K2s deploys unmodified Grafana OSS container images, no additional AGPL compliance steps are required beyond including this notice.
 
-Follow replacement steps under 'About this fork'.
+For full license details, see: https://github.com/grafana/grafana/blob/main/LICENSE

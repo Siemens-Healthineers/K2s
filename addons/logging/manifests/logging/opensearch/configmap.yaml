@@ -24,7 +24,7 @@ data:
     # Implicitly done if ".singleNode" is set to "true".
     # discovery.type: single-node
 
-    # Plutono integration
+    # Grafana integration
     http.cors.enabled : true
     http.cors.allow-origin: "*"
     
