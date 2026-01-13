@@ -176,6 +176,27 @@ function Remove-LoopbackAdapter {
     $null = & $DevConExe @('remove', '-i', "$($Adapter.PnPDeviceID)")
 } # function Remove-LoopbackAdapter
 
+function Test-LoopbackAdapterIPAddress {
+    param (
+        [Parameter()]
+        [string] $Name,
+        [Parameter()]
+        [string] $ExpectedIPAddress
+    )
+
+    $currentAddresses = Get-NetIPAddress -InterfaceAlias "$Name" -AddressFamily IPv4 -ErrorAction SilentlyContinue
+    if ($null -eq $currentAddresses) {
+        return $false
+    }
+
+    foreach ($addr in $currentAddresses) {
+        if ($addr.IPAddress -eq $ExpectedIPAddress) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Set-LoopbackAdapterProperties {
     param (
         [Parameter()]
@@ -186,21 +207,52 @@ function Set-LoopbackAdapterProperties {
         [string] $Gateway
     )
 
+    $maxRetries = 3
+    $retryDelaySeconds = 3
+    $stabilizationDelaySeconds = 1
     $prefixLength = 24
     $mask = [IPAddress](([UInt32]::MaxValue) -shl (32 - $prefixLength) -shr (32 - $prefixLength))
 
     $if = Get-NetIPInterface -InterfaceAlias "$Name" -ErrorAction SilentlyContinue
     if( $if ) {
         Set-NetIPInterface -InterfaceAlias "$Name" -Dhcp Disabled
-        netsh interface ipv4 set address name="$Name" static $IPAddress $mask.IPAddressToString $Gateway
-        Write-Log "Loopback Adapter $Name configured with IP: $IPAddress, mask: $($mask.IPAddressToString), gateway: $Gateway"
+
+        $ipConfigured = $false
+        for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+            if ($attempt -gt 1) {
+                Write-Log "[LoopbackAdapter] Waiting $retryDelaySeconds seconds before retry..."
+                Start-Sleep -Seconds $retryDelaySeconds
+            }
+
+            Write-Log "[LoopbackAdapter] Setting IP address (attempt $attempt of $maxRetries)..."
+            netsh interface ipv4 set address name="$Name" static $IPAddress $mask.IPAddressToString $Gateway
+
+            # Wait for Windows networking stack to apply the IP
+            Start-Sleep -Seconds $stabilizationDelaySeconds
+
+            # Verify IP was applied correctly
+            if (Test-LoopbackAdapterIPAddress -Name $Name -ExpectedIPAddress $IPAddress) {
+                Write-Log "[LoopbackAdapter] Loopback Adapter $Name configured with IP: $IPAddress, mask: $($mask.IPAddressToString), gateway: $Gateway (attempt $attempt)"
+                $ipConfigured = $true
+                break
+            }
+            else {
+                Write-Log "[LoopbackAdapter] IP verification failed on attempt $attempt of $maxRetries"
+            }
+        }
+
+        if (-not $ipConfigured) {
+            Write-Log "[LoopbackAdapter] Failed to configure IP $IPAddress on adapter $Name after $maxRetries attempts" -Error
+            return
+        }
+
         # enable forwarding
         netsh int ipv4 set int "$Name" forwarding=enabled | Out-Null
         # reset DNS settings
         Set-DnsClient -InterfaceAlias "$Name" -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
     }
     else {
-        Write-Log "No loopback adapter '$Name' found to configure."
+        Write-Log "[LoopbackAdapter] No loopback adapter '$Name' found to configure."
     }
 }
 
