@@ -70,14 +70,16 @@ This addon creates a central Gateway resource that handles both HTTP and HTTPS t
 - **HTTP Listener**: Port 80 - no certificate required
 - **HTTPS Listener**: Port 443 - uses `k2s-cluster-local-tls` secret
 
-The HTTPS listener uses a **self-signed certificate** that is automatically created during
-addon installation. For development and testing, this self-signed certificate is sufficient.
-For production use with proper certificate management, the security addon (cert-manager)
-can be enabled to provision trusted certificates.
+The HTTPS listener uses a **CA-signed certificate** that is automatically created during
+addon installation via cert-manager. The certificate is signed by the `k2s-ca-issuer`
+ClusterIssuer, and the CA root certificate is imported into the Windows trusted root store,
+providing trusted HTTPS access without browser warnings.
 
 **Certificate Handling:**
-- Without security addon: Self-signed certificate is created by Enable.ps1 using cert-manager
-- With security addon: cert-manager can manage the certificate (replace self-signed cert)
+- cert-manager is automatically installed and configured by the nginx-gw addon
+- A Certificate resource is created to provision the `k2s-cluster-local-tls` secret
+- The certificate is signed by `k2s-ca-issuer` (global CA ClusterIssuer)
+- CA root certificate is trusted by Windows, eliminating browser certificate warnings
 
 For more details on Gateway API resources and routing patterns, see the
 [Gateway API documentation](https://gateway-api.sigs.k8s.io/).
@@ -105,10 +107,11 @@ _Note:_ Only one ingress or gateway controller can be enabled at a time in K2s
 The addon creates a Gateway with both HTTP and HTTPS listeners by default.
 
 **Frontend TLS (Browser → Gateway):**
-- **Self-signed certificate** is automatically created during installation
+- **CA-signed certificate** is automatically created during installation via cert-manager
 - Certificate CN: `k2s.cluster.local`
 - Secret name: `k2s-cluster-local-tls` (in `nginx-gw` namespace)
-- Browser access: `https://k2s.cluster.local` (accept browser certificate warning)
+- Signed by: `k2s-ca-issuer` ClusterIssuer
+- Browser access: `https://k2s.cluster.local` (trusted certificate, no warnings)
 
 **Backend TLS (Gateway → Services):**
 When HTTPRoutes reference HTTPS backend services, a **BackendTLSPolicy** must be configured
@@ -119,16 +122,16 @@ Example: The dashboard addon configures BackendTLSPolicy to connect to kong-prox
 - Creates `kong-ca-cert` ConfigMap with the CA certificate
 - BackendTLSPolicy references this ConfigMap for certificate validation
 
-**Certificate Management Options:**
+**Certificate Management:**
 
-1. **Self-signed (default)**: Works immediately after installation for development/testing
-   - Frontend: Self-signed cert created by Enable.ps1
-   - Backend: Service-specific certificates validated via BackendTLSPolicy
+The ingress nginx-gw addon automatically installs and configures cert-manager for TLS certificate management:
 
-2. **cert-manager (production)**: Enable the security addon for automatic certificate management
-   - Frontend: Replace k2s-cluster-local-tls with cert-manager Certificate
-   - Backend: cert-manager can provision certificates for backend services
-   - See also [Security Addon](../../security/README.md)
+- **Frontend certificates**: The Gateway uses `k2s-cluster-local-tls` secret, managed by cert-manager
+  - Certificate is signed by `k2s-ca-issuer` ClusterIssuer
+  - CA root certificate is imported into Windows trusted root store
+  - Automatic renewal handled by cert-manager (default: 30 days before expiry)
+
+- **Backend certificates**: When HTTPRoutes reference HTTPS backend services, a **BackendTLSPolicy** must be configured to enable secure backend connections. This is handled automatically by addons that require it.
 
 ### Shared Hostname Pattern
 
@@ -157,6 +160,123 @@ resource definitions are worth analyzing to understand these mechanisms:
 
 These examples show various routing patterns including path rewrites, header modifications,
 backend service configurations, and secure backend communication with BackendTLSPolicy.
+
+## Certificate Management with cert-manager
+
+The `ingress nginx-gw` addon automatically installs and configures [cert-manager](https://cert-manager.io/), a powerful add-on for Kubernetes that automates the management, issuance, and renewal of TLS certificates.
+
+### What gets installed
+
+- **cert-manager controllers**: Services for certificate provisioning and renewing
+- **k2s-ca-issuer**: A global `ClusterIssuer` of type CA (Certification Authority) used to sign certificates. See: [CA Issuer](https://cert-manager.io/docs/configuration/ca/)
+- **cmctl.exe CLI**: Command-line interface tool installed in the `bin` path of your K2s installation directory
+- **Trusted CA Certificate**: The public certificate of the CA Issuer is imported into the trusted authorities of your Windows host
+- **Gateway certificate**: A Certificate resource (`k2s-cluster-local-tls`) is automatically created for the Gateway's HTTPS listener
+
+### How it works with Gateway API
+
+Unlike traditional Ingress controllers (nginx/traefik) that support cert-manager annotations, the Gateway API follows a more explicit, declarative approach:
+
+**Traditional Ingress pattern (annotations):**
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: k2s-ca-issuer  # Auto-creates certificate
+```
+
+**Gateway API pattern (explicit references):**
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+spec:
+  listeners:
+  - name: https
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - name: k2s-cluster-local-tls  # Secret must exist
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: k2s-cluster-local-tls
+spec:
+  secretName: k2s-cluster-local-tls
+  issuerRef:
+    name: k2s-ca-issuer
+    kind: ClusterIssuer
+```
+
+The Gateway API design is **security-first and fails closed**: certificates must be explicitly created before referencing them in Gateway resources. This addon handles this automatically by creating the Certificate resource during installation.
+
+### Creating additional certificates
+
+To secure additional hostnames or services, create Certificate resources:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: my-app-tls
+  namespace: my-namespace
+spec:
+  secretName: my-app-tls-secret
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days before expiry
+  dnsNames:
+    - my-app.cluster.local
+  issuerRef:
+    name: k2s-ca-issuer
+    kind: ClusterIssuer
+```
+
+Then reference this secret in your Gateway or HTTPRoute:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+spec:
+  listeners:
+  - name: https
+    tls:
+      certificateRefs:
+      - name: my-app-tls-secret
+```
+
+### Inspecting certificates
+
+You can use the command line interface `cmctl.exe` to interact with cert-manager:
+
+```cmd
+# Check cert-manager API status
+cmctl.exe check api
+
+# View certificate details
+kubectl get certificate -n nginx-gw
+kubectl describe certificate k2s-cluster-local-tls -n nginx-gw
+
+# Renew a specific certificate
+cmctl.exe renew k2s-cluster-local-tls -n nginx-gw
+
+# Renew all certificates
+cmctl.exe renew --all --all-namespaces
+```
+
+If you enable the `dashboard` addon, you can inspect the server certificate by visiting the dashboard URL in your browser and clicking on the lock icon: <https://k2s.cluster.local>.
+
+### Browser security considerations
+
+Browsers keep track of several security-related properties of web sites. If you encounter weaker security settings than previously, the browser may assume it's an attack.
+
+You can **reset HSTS** of your site stored by your browser by navigating to:
+
+```
+chrome://net-internals/#hsts
+```
+
+and deleting the settings for `k2s.cluster.local`.
 
 ## Further Reading
 

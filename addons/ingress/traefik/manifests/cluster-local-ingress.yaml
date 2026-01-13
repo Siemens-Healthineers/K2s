@@ -28,3 +28,4 @@ spec:
   tls:
     - hosts:
         - k2s.cluster.local
+      secretName: k2s-cluster-local-tls

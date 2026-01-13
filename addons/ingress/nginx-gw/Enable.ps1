@@ -125,6 +125,8 @@ if ("$existingServices" -match '.*nginx-gw.*') {
     exit 1
 }
 
+Install-GatewayApiCrds
+
 Write-Log 'Installing ExternalDNS' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
@@ -135,6 +137,9 @@ kind: Kustomization
 resources:
 - ../manifests
 "@
+
+Write-Log 'Installing cert-manager' -Console
+Enable-CertManager -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
 
 #create a temporary directory to store the kustomization file
 $kustomizationDir = "$PSScriptRoot/kustomizationDir"
@@ -178,12 +183,7 @@ $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io
     exit 1
 }
 
-$SecurityAddonEnabled = Test-SecurityAddonAvailability
-if ($SecurityAddonEnabled) {
-    Write-Log 'Security addon is enabled - TLS certificates will be managed by security addon cert-manager' -Console
-} else {
-    Write-Log 'Security addon is not enabled - creating self-signed certificate using temporary cert-manager' -Console
-    
+    Write-Log 'creating self-signed certificate using cert-manager' -Console
     $certCreated = New-TlsCertificateWithCertManager -Namespace $ingressNginxGatewayNamespace -SecretName 'k2s-cluster-local-tls' -DnsName 'k2s.cluster.local'
     
     if (-not $certCreated) {
@@ -196,7 +196,6 @@ if ($SecurityAddonEnabled) {
         Write-Log $errMsg -Error
         exit 1
     }
-}
 
 # Now create the Gateway resource which will use the patched NginxProxy configuration
 Write-Log 'Creating Gateway resource' -Console

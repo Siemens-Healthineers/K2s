@@ -30,4 +30,6 @@ else {
     $isExternalIPSetProp.Message = "The external IP for nginx-gw service is not set properly. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress nginx-gw' and 'k2s addons enable ingress nginx-gw'"
 }
 
-return $isIngressNginxGatewayRunningProp, $isExternalIPSetProp
+$certManagerProp, $caRootCertificateProp = Get-CertManagerStatusProperties
+
+return $isIngressNginxGatewayRunningProp, $isExternalIPSetProp,$certManagerProp,$caRootCertificateProp

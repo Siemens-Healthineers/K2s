@@ -152,8 +152,6 @@ var _ = Describe("'security' addon", Ordered, func() {
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
 			MatchRegexp(`Addon .+%s.+ is .+enabled.+`, addonName),
-			MatchRegexp("The cert-manager API is ready"),
-			MatchRegexp("The CA root certificate is available"),
 		))
 	})
 
@@ -168,31 +166,6 @@ var _ = Describe("'security' addon", Ordered, func() {
 		Expect(status.Error).To(BeNil())
 		Expect(status.Enabled).NotTo(BeNil())
 		Expect(*status.Enabled).To(BeTrue())
-		Expect(status.Props).NotTo(BeNil())
-		Expect(status.Props).To(ContainElements(
-			SatisfyAll(
-				HaveField("Name", "IsCertManagerAvailable"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
-			SatisfyAll(
-				HaveField("Name", "IsCaRootCertificateAvailable"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-			)))
-	})
-
-	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(err).To(BeNil())
-	})
-
-	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
-		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
 	It("Deploy the workloads after enabling the security addon", func(ctx context.Context) {
@@ -240,17 +213,6 @@ var _ = Describe("'security' addon", Ordered, func() {
 	It("disables default ingress addon", func(ctx context.Context) {
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
-
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
-	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
-		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
-	})
 })
 
 var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
@@ -276,8 +238,6 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
 			MatchRegexp(`Addon .+%s.+ is .+enabled.+`, addonName),
-			MatchRegexp("The cert-manager API is ready"),
-			MatchRegexp("The CA root certificate is available"),
 		))
 	})
 
@@ -299,16 +259,6 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 				HaveField("Value", true),
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
 				HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
-			SatisfyAll(
-				HaveField("Name", "IsCertManagerAvailable"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
-			SatisfyAll(
-				HaveField("Name", "IsCaRootCertificateAvailable"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
 			SatisfyAll(
 				HaveField("Name", "IsTrustManagerAvailable"),
 				HaveField("Value", true),
@@ -332,21 +282,10 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 		))
 	})
 
-	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(err).To(BeNil())
-	})
-
 	It("installs linkerd", func(ctx context.Context) {
 		linkerdPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
 		_, err := os.Stat(linkerdPath)
 		Expect(err).To(BeNil())
-	})
-
-	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
-		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
 	It("Deploy the workloads after enabling the security addon", func(ctx context.Context) {
@@ -483,21 +422,10 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
 	It("uninstalls linkerd", func(ctx context.Context) {
 		linkerdPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
 		_, err := os.Stat(linkerdPath)
 		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
-	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
-		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 	})
 })
 
@@ -686,8 +614,6 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
 			MatchRegexp(`Addon .+%s.+ is .+enabled.+`, addonName),
-			MatchRegexp("The cert-manager API is ready"),
-			MatchRegexp("The CA root certificate is available"),
 		))
 	})
 	It("prints the status as JSON", func(ctx context.Context) {
@@ -708,16 +634,6 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 				HaveField("Value", true),
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
 				HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
-			SatisfyAll(
-				HaveField("Name", "IsCertManagerAvailable"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
-			SatisfyAll(
-				HaveField("Name", "IsCaRootCertificateAvailable"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
 			SatisfyAll(
 				HaveField("Name", "IsTrustManagerAvailable"),
 				HaveField("Value", true),
@@ -741,21 +657,10 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 		))
 	})
 
-	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(err).To(BeNil())
-	})
-
 	It("installs linkerd", func(ctx context.Context) {
 		linkerdPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
 		_, err := os.Stat(linkerdPath)
 		Expect(err).To(BeNil())
-	})
-
-	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
-		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
 	It("disables the addon", func(ctx context.Context) {
@@ -766,21 +671,10 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
 	It("uninstalls linkerd", func(ctx context.Context) {
 		linkerdPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
 		_, err := os.Stat(linkerdPath)
 		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
-	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
-		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 	})
 })
 

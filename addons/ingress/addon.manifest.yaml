@@ -21,7 +21,9 @@ spec:
           additionalImagesFiles:
             - ../../common/manifests/external-dns/deployment.yaml
         windows:
-          curl: []
+          curl:
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
       commands:
         enable:
           cli:
@@ -49,7 +51,9 @@ spec:
           additionalImagesFiles:
             - ../../common/manifests/external-dns/deployment.yaml
         windows:
-          curl: []
+          curl: 
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
       commands:
         enable:
           cli:
@@ -77,7 +81,9 @@ spec:
           additionalImagesFiles:
           - ../../common/manifests/external-dns/deployment.yaml
         windows:
-          curl: []
+          curl:
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
       commands:
         enable:
           cli:

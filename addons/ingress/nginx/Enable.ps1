@@ -117,6 +117,9 @@ Write-Log 'Installing ExternalDNS' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
 
+Write-Log 'Installing cert-manager' -Console
+Enable-CertManager -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
+
 Write-Log 'Installing ingress nginx' -Console
 $ingressNginxNamespace = 'ingress-nginx'
 $ingressNginxConfig = Get-IngressNginxConfig

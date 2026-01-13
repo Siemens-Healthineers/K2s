@@ -102,106 +102,15 @@ if (Confirm-EnhancedSecurityOn($Type)) {
 }
 
 try {
-	Write-Log 'Downloading cert-manager files' -Console
-	$manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
-	$k2sRoot = "$PSScriptRoot\..\.."
-	$windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
-	if ($windowsCurlPackages) {
-		foreach ($package in $windowsCurlPackages) {
-			$destination = $package.destination
-			$destination = "$k2sRoot\$destination"
-			if (!(Test-Path $destination)) {
-				$url = $package.url
-				Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
-			}
-			else {
-				Write-Log "File $destination already exists. Skipping download."
-			}
-		}
-	}
 
-	Write-Log 'Installing cert-manager' -Console
-	$certManagerConfig = Get-CertManagerConfig
-	(Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
-
-	Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
-	$certManagerStatus = Wait-ForCertManagerAvailable
-
-	if ($certManagerStatus -ne $true) {
-		$errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'security' addon failed."
-		if ($EncodeStructuredOutput -eq $true) {
-			$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-			Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-			return
-		}
-
-		Write-Log $errMsg -Error
-		throw $errMsg
-	}
-
-	Write-Log 'Configuring CA ClusterIssuer' -Console
-	$caIssuerConfig = Get-CAIssuerConfig
-	(Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
-
-	Write-Log 'Waiting for CA root certificate to be created' -Console
-	$caCreated = Wait-ForCARootCertificate
-	if ($caCreated -ne $true) {
-		$errMsg = "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'security' addon failed."
-		if ($EncodeStructuredOutput -eq $true) {
-			$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-			Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-			return
-		}
-
-		Write-Log $errMsg -Error
-		throw $errMsg
-	}
-
-	Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
-	Update-CertificateResources
-
-	Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
-	$b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
-	$tempFile = New-TemporaryFile
-	$certLocationStore = Get-TrustedRootStoreLocation
-	[Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
-	$params = @{
-		FilePath          = $tempFile.FullName
-		CertStoreLocation = $certLocationStore
-	}
-	Import-Certificate @params
-	Remove-Item -Path $tempFile.FullName -Force
-
-	Write-Log 'Checking for availability of Ingress Controller' -Console
-	$cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
 	if (Test-NginxIngressControllerAvailability) {
 		$activeIngress = 'nginx'
-		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
-		&$cmctlExe renew k2s-cluster-local-tls -n ingress-nginx
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
 		$activeIngress = 'traefik'
-		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
-		&$cmctlExe renew k2s-cluster-local-tls -n ingress-traefik
 	}
 	elseif (Test-NginxGatewayAvailability) {
 		$activeIngress = 'nginx-gw'
-		Write-Log 'Patching nginx-gw Certificate to use k2s-ca-issuer ClusterIssuer' -Console
-		
-		# Delete the old self-signed secret to force regeneration
-		(Invoke-Kubectl -Params 'delete', 'secret', 'k2s-cluster-local-tls', '-n', 'nginx-gw', '--ignore-not-found=true').Output | Write-Log
-		
-		# Patch the Certificate's issuerRef to use k2s-ca-issuer ClusterIssuer
-		$patchJson = @'
-[
-  {"op": "replace", "path": "/spec/issuerRef/name", "value": "k2s-ca-issuer"},
-  {"op": "replace", "path": "/spec/issuerRef/kind", "value": "ClusterIssuer"}
-]
-'@
-		(Invoke-Kubectl -Params 'patch', 'certificate', 'k2s-cluster-local-tls', '-n', 'nginx-gw', '--type=json', "-p=$patchJson").Output | Write-Log
-		
-		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
-		&$cmctlExe renew k2s-cluster-local-tls -n nginx-gw
 	}
 	else {
 		#Enable required ingress addon

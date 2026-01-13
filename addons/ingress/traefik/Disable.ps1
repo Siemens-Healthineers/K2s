@@ -75,6 +75,10 @@ Write-log 'Uninstalling ExternalDNS' -Console
 $externalDnsConfigDir = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'delete', '-k', $externalDnsConfigDir).Output | Write-Log
 
+Uninstall-CertManager
+
+Uninstall-GatewayApiCrds
+
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 
 # adapt other addons

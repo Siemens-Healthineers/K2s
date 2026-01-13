@@ -9,24 +9,6 @@ $securityModule = "$PSScriptRoot\security.module.psm1"
 
 Import-Module $addonsModule, $securityModule
 
-$certManagerAvailable = Wait-ForCertManagerAvailable
-$certManagerProp = @{Name = 'IsCertManagerAvailable'; Value = $certManagerAvailable; Okay = $certManagerAvailable }
-if ($certManagerProp.Value -eq $true) {
-    $certManagerProp.Message = 'The cert-manager API is ready'
-}
-else {
-    $certManagerProp.Message = 'The cert-manager API is not ready. Please use cmctl.exe for further diagnostics.'
-} 
-
-$caRootCertificateAvailable = Wait-ForCARootCertificate
-$caRootCertificateProp = @{Name = 'IsCaRootCertificateAvailable'; Value = $caRootCertificateAvailable; Okay = $caRootCertificateAvailable }
-if ($caRootCertificateProp.Value -eq $true) {
-    $caRootCertificateProp.Message = 'The CA root certificate is available'
-}
-else {
-    $caRootCertificateProp.Message = "The CA root certificate is not available ('ca-issuer-root-secret' not created)."
-} 
-
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 $securityProp = @{Name = 'Type of security'; Value = $EnancedSecurityEnabled; Okay = $certManagerAvailable }
 $linkerdProp = @{Name = 'Type of security'; Value = $EnancedSecurityEnabled; Okay = $EnancedSecurityEnabled  }
@@ -83,4 +65,4 @@ if ($oauth2ProxyProp.Value -eq $true) {
     $oauth2ProxyProp.Message = 'The OAuth2 proxy is not deployed (possibly omitted with -OmitOAuth2Proxy)'
 }
 
-return $securityProp, $certManagerProp, $caRootCertificateProp, $keycloakProp, $hydraProp, $oauth2ProxyProp, $trustManagerProp, $linkerdProp
+return $securityProp, $keycloakProp, $hydraProp, $oauth2ProxyProp, $trustManagerProp, $linkerdProp

@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path"
 	"testing"
 	"time"
 
@@ -73,6 +75,17 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "nginx-gw")
 		})
 
+		It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(err).To(BeNil())
+		})
+
+		It("creates the ca-issuer-root-secret", func(ctx context.Context) {
+			output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+			Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
+		})
+
 		It("applies sample workloads", func(ctx context.Context) {
 			suite.Kubectl().Run(ctx, "apply", "-k", "..\\ingress\\nginx-gw\\workloads")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "nginx-gw-test")
@@ -92,6 +105,17 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			suite.Kubectl().Run(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads")
 			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
 			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+		})
+
+		It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+
+		It("removed the ca-issuer-root-secret", func(ctx context.Context) {
+			output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 		})
 	})
 
@@ -125,6 +149,23 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			}
 			url := "https://k2s.cluster.local/albums-linux1"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
+		})
+
+		It("Deactivates all the addons", func(ctx context.Context) {
+			suite.Kubectl().Run(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads", "--ignore-not-found")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+		})
+
+		It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+
+		It("removed the ca-issuer-root-secret", func(ctx context.Context) {
+			output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 		})
 	})
 

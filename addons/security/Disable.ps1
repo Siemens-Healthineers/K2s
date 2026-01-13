@@ -49,8 +49,8 @@ if ($systemError) {
     Write-Log $systemError.Message -Error
     exit 1
 }
-
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
+# if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
     $errMsg = "Addon 'security' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -62,20 +62,6 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ign
     Write-Log $errMsg -Error
     exit 1
 }
-
-Write-Log 'Uninstalling security cert manager parts' -Console
-$certManagerConfig = Get-CertManagerConfig
-$caIssuerConfig = Get-CAIssuerConfig
-
-(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $caIssuerConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $certManagerConfig).Output | Write-Log
-
-Remove-Cmctl
-
-Write-Log 'Removing CA issuer certificate from trusted root' -Console
-$caIssuerName = Get-CAIssuerName
-$trustedRootStoreLocation = Get-TrustedRootStoreLocation
-Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
 
 $oauth2ProxyYaml = Get-OAuth2ProxyConfig
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $oauth2ProxyYaml).Output | Write-Log

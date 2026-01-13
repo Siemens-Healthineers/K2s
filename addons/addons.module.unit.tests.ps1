@@ -1090,3 +1090,434 @@ Describe 'Update-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
         }
     }
 }
+
+Describe 'Get-CertManagerConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns cert-manager manifest path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-CertManagerConfig
+            $result | Should -Match 'common\\manifests\\certmanager\\cert-manager\.yaml$'
+        }
+    }
+}
+
+Describe 'Get-CAIssuerConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns CA issuer manifest path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-CAIssuerConfig
+            $result | Should -Match 'common\\manifests\\certmanager\\ca-issuer\.yaml$'
+        }
+    }
+}
+
+Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
+    Context 'cmctl does not exist yet' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+
+            $script:downloadArgs = $null
+            $script:downloadProxy = $null
+
+            $manifest = [pscustomobject]@{
+                spec = [pscustomobject]@{
+                    implementations = @(
+                        [pscustomobject]@{
+                            offline_usage = [pscustomobject]@{
+                                windows = [pscustomobject]@{
+                                    curl = @(
+                                        [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
+            Mock -ModuleName $moduleName Test-Path { return $false }
+            Mock -ModuleName $moduleName Invoke-DownloadFile {
+                $script:downloadArgs = $args
+                $script:downloadProxy = $PSBoundParameters['ProxyToUse']
+            }
+        }
+
+        It 'downloads cmctl with provided proxy' {
+            InModuleScope -ModuleName $moduleName {
+                Install-CmctlCli -Proxy 'http://proxy:8080'
+            }
+
+            $script:downloadArgs | Should -Not -BeNullOrEmpty
+            ($script:downloadArgs | Where-Object { $_ -match 'cmctl\.exe$' }).Count | Should -BeGreaterThan 0
+            ($script:downloadArgs | Where-Object { $_ -eq 'http://example/cmctl.exe' }).Count | Should -BeGreaterThan 0
+            ($script:downloadArgs | Where-Object { $_ -eq 'http://proxy:8080' }).Count | Should -BeGreaterThan 0
+        }
+    }
+
+    Context 'cmctl already exists' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+
+            $manifest = [pscustomobject]@{
+                spec = [pscustomobject]@{
+                    implementations = @(
+                        [pscustomobject]@{
+                            offline_usage = [pscustomobject]@{
+                                windows = [pscustomobject]@{
+                                    curl = @(
+                                        [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName Invoke-DownloadFile { }
+        }
+
+        It 'skips download' {
+            InModuleScope -ModuleName $moduleName {
+                Install-CmctlCli
+
+                Should -Invoke Invoke-DownloadFile -Times 0 -Scope Context
+            }
+        }
+    }
+}
+
+Describe 'Wait-ForCertManagerAvailable' -Tag 'unit', 'ci', 'addon' {
+    Context 'cmctl reports API ready' {
+        It 'returns true' {
+            InModuleScope -ModuleName $moduleName {
+                $cmctlExe = { param($cmd, $subcmd, $wait) 'The cert-manager API is ready' }
+                Wait-ForCertManagerAvailable | Should -BeTrue
+            }
+        }
+    }
+
+    Context 'cmctl does not report readiness' {
+        It 'returns false' {
+            InModuleScope -ModuleName $moduleName {
+                $cmctlExe = { param($cmd, $subcmd, $wait) 'not ready' }
+                Wait-ForCertManagerAvailable | Should -BeFalse
+            }
+        }
+    }
+}
+
+Describe 'Update-CertificateResources' -Tag 'unit', 'ci', 'addon' {
+    It 'invokes cmctl renew for all namespaces' {
+        InModuleScope -ModuleName $moduleName {
+            $script:calls = @()
+            $cmctlExe = {
+                param($cmd, $p1, $p2)
+                $script:calls += , @($cmd, $p1, $p2)
+            }
+
+            Update-CertificateResources
+
+            $script:calls.Count | Should -Be 1
+            $script:calls[0][0] | Should -Be 'renew'
+            $script:calls[0][1] | Should -Be '--all'
+            $script:calls[0][2] | Should -Be '--all-namespaces'
+        }
+    }
+}
+
+Describe 'Wait-ForCARootCertificate' -Tag 'unit', 'ci', 'addon' {
+    Context 'secret appears within retries' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Start-Sleep { }
+
+            $script:callCount = 0
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:callCount++
+                if ($script:callCount -lt 3) {
+                    return [pscustomobject]@{ Output = '' }
+                }
+                return [pscustomobject]@{ Output = 'ca-issuer-root-secret' }
+            }
+        }
+
+        It 'returns true and retries until secret is found' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 3
+                $result | Should -BeTrue
+            }
+
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Invoke-Kubectl -Times 3 -Scope Context
+            }
+        }
+    }
+
+    Context 'secret never appears' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Start-Sleep { }
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = '' } }
+        }
+
+        It 'returns false after all retries' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 2
+                $result | Should -BeFalse
+
+                Should -Invoke Invoke-Kubectl -Times 2 -Scope Context
+                Should -Invoke Start-Sleep -Times 2 -Scope Context
+            }
+        }
+    }
+}
+
+Describe 'Remove-Cmctl' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Remove-Item { }
+    }
+
+    It 'removes cmctl executable path' {
+        InModuleScope -ModuleName $moduleName {
+            $cmctlExe = 'C:\\tmp\\cmctl.exe'
+            Remove-Cmctl
+        }
+
+        InModuleScope -ModuleName $moduleName {
+            Should -Invoke Remove-Item -Times 1 -Scope It -ParameterFilter { $Path -eq 'C:\\tmp\\cmctl.exe' }
+        }
+    }
+}
+
+Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = $script:b64 } }
+        Mock -ModuleName $moduleName Import-Certificate { }
+        Mock -CommandName New-TemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
+        Mock -CommandName Out-File { }
+        Mock -CommandName Import-Certificate { }
+        Mock -CommandName Remove-Item { }
+    }
+
+    It 'extracts secret and imports certificate' {
+        InModuleScope -ModuleName $moduleName {
+            $script:b64 = [Convert]::ToBase64String([Text.Encoding]::Utf8.GetBytes('CERTDATA'))
+
+            Import-CACertificateToWindowsStore
+
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains 'ca-issuer-root-secret' }
+            Should -Invoke Import-Certificate -Times 1 -Scope It
+        }
+
+    }
+}
+
+Describe 'Install-CertManagerControllers' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+        Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
+    }
+
+    It 'applies the manifest and waits for API' {
+        InModuleScope -ModuleName $moduleName {
+            Install-CertManagerControllers
+
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                $Params -contains 'apply' -and $Params -contains '-f' -and $Params -contains 'cert-manager.yaml'
+            }
+            Should -Invoke Wait-ForCertManagerAvailable -Times 1 -Scope It
+        }
+    }
+
+    Context 'cert-manager never becomes ready' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $false }
+
+            InModuleScope -ModuleName $moduleName {
+                if (-not (Get-Command -Name New-Error -ErrorAction SilentlyContinue)) {
+                    function New-Error {
+                        param(
+                            [string]$Code,
+                            [string]$Message,
+                            [string]$Severity
+                        )
+                        return [pscustomobject]@{ Code = $Code; Message = $Message; Severity = $Severity }
+                    }
+                }
+            }
+
+            Mock -ModuleName $moduleName Send-ToCli { }
+        }
+
+        It 'sends structured error and throws' {
+            InModuleScope -ModuleName $moduleName {
+                { Install-CertManagerControllers -EncodeStructuredOutput -MessageType 'test' } | Should -Throw
+            }
+
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Send-ToCli -Times 1 -Scope Context
+            }
+        }
+    }
+}
+
+Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-CAIssuerConfig { return 'ca-issuer.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+        Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $true }
+    }
+
+    It 'applies issuer manifest and waits for root cert' {
+        InModuleScope -ModuleName $moduleName {
+            Initialize-CACertificateIssuer
+
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                $Params -contains 'apply' -and $Params -contains '-f' -and $Params -contains 'ca-issuer.yaml'
+            }
+            Should -Invoke Wait-ForCARootCertificate -Times 1 -Scope It
+        }
+    }
+
+    Context 'CA root certificate is never created' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $false }
+
+            InModuleScope -ModuleName $moduleName {
+                if (-not (Get-Command -Name New-Error -ErrorAction SilentlyContinue)) {
+                    function New-Error {
+                        param(
+                            [string]$Code,
+                            [string]$Message,
+                            [string]$Severity
+                        )
+                        return [pscustomobject]@{ Code = $Code; Message = $Message; Severity = $Severity }
+                    }
+                }
+            }
+
+            Mock -ModuleName $moduleName Send-ToCli { }
+        }
+
+        It 'sends structured error and throws' {
+            InModuleScope -ModuleName $moduleName {
+                { Initialize-CACertificateIssuer -EncodeStructuredOutput -MessageType 'test' } | Should -Throw
+            }
+
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Send-ToCli -Times 1 -Scope Context
+            }
+        }
+    }
+}
+
+Describe 'Get-CertManagerStatusProperties' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
+        Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $false }
+    }
+
+    It 'returns two status properties with expected shape' {
+        InModuleScope -ModuleName $moduleName {
+            $props = Get-CertManagerStatusProperties
+
+            $props.Count | Should -Be 2
+            $props[0].Name | Should -Be 'IsCertManagerAvailable'
+            $props[0].Value | Should -BeTrue
+            $props[1].Name | Should -Be 'IsCaRootCertificateAvailable'
+            $props[1].Value | Should -BeFalse
+        }
+    }
+}
+
+Describe 'New-AddonStatusProperty' -Tag 'unit', 'ci', 'addon' {
+    It 'creates a consistent status property hashtable' {
+        InModuleScope -ModuleName $moduleName {
+            $p = New-AddonStatusProperty -Name 'X' -Value $true -SuccessMessage 'ok' -FailureMessage 'fail'
+            $p.Name | Should -Be 'X'
+            $p.Value | Should -BeTrue
+            $p.Okay | Should -BeTrue
+            $p.Message | Should -Be 'ok'
+        }
+    }
+}
+
+Describe 'Get-GatewayApiCrdsConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns gateway api CRDs manifest path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-GatewayApiCrdsConfig
+            $result | Should -Match 'common\\manifests\\crds\\gateway-crds\\gateway-api-v1\.4\.1\.yaml$'
+        }
+    }
+}
+
+Describe 'Install-GatewayApiCrds' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-GatewayApiCrdsConfig { return 'gateway-api.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+    }
+
+    It 'applies the CRDs manifest' {
+        InModuleScope -ModuleName $moduleName {
+            Install-GatewayApiCrds
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                $Params -contains 'apply' -and $Params -contains '-f' -and $Params -contains 'gateway-api.yaml'
+            }
+        }
+    }
+}
+
+Describe 'Uninstall-GatewayApiCrds' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-GatewayApiCrdsConfig { return 'gateway-api.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+    }
+
+    It 'deletes the CRDs manifest with ignore-not-found' {
+        InModuleScope -ModuleName $moduleName {
+            Uninstall-GatewayApiCrds
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                $Params -contains 'delete' -and $Params -contains '--ignore-not-found' -and $Params -contains '-f' -and $Params -contains 'gateway-api.yaml'
+            }
+        }
+    }
+}
+
+Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+        Mock -ModuleName $moduleName Get-CAIssuerConfig { return 'ca-issuer.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+        Mock -ModuleName $moduleName Remove-Cmctl { }
+        Mock -ModuleName $moduleName Get-CAIssuerName { return 'K2s Self-Signed CA' }
+        Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
+        Mock -ModuleName $moduleName Get-ChildItem {
+            return @(
+                [pscustomobject]@{ Subject = 'CN=K2s Self-Signed CA' },
+                [pscustomobject]@{ Subject = 'CN=Other' }
+            )
+        }
+        Mock -ModuleName $moduleName Remove-Item { }
+    }
+
+    It 'deletes manifests, removes cmctl, and removes CA cert from trusted root' {
+        InModuleScope -ModuleName $moduleName {
+            Uninstall-CertManager
+
+            Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' -and $Params -contains '-f' }
+            Should -Invoke Remove-Cmctl -Times 1 -Scope It
+            Should -Invoke Remove-Item -Times 1 -Scope It
+        }
+    }
+}

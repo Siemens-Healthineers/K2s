@@ -9,24 +9,6 @@ $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/
 
 Import-Module $infraModule, $k8sApiModule
 
-$cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
-
-function Get-CAIssuerName {
-    return 'K2s Self-Signed CA'
-}
-
-function Get-TrustedRootStoreLocation {
-    return 'Cert:\LocalMachine\Root'
-}
-
-function Get-CertManagerConfig {
-    return "$PSScriptRoot\manifests\certmanager\cert-manager.yaml"
-}
-
-function Get-CAIssuerConfig {
-    return "$PSScriptRoot\manifests\certmanager\ca-issuer.yaml"
-}
-
 function Get-KeyCloakConfig {
     return "$PSScriptRoot\manifests\keycloak\keycloak.yaml"
 }
@@ -219,50 +201,6 @@ here (works in Chrome and Edge):
 chrome://net-internals/#hsts
   
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
-}
-
-<#
-.DESCRIPTION
-Waits for the cert-manager API to be available.
-#>
-function Wait-ForCertManagerAvailable {
-    $out = &$cmctlExe check api --wait=3m
-    if ($out -match 'The cert-manager API is ready') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Marks all cert-manager Certificate resources for renewal.
-#>
-function Update-CertificateResources {
-    &$cmctlExe renew --all --all-namespaces
-}
-
-<#
-.DESCRIPTION
-Waits for the kubernetes secret 'ca-issuer-root-secret' in the namespace 'cert-manager' to be created.
-#>
-function Wait-ForCARootCertificate(
-    [int]$SleepDurationInSeconds = 10,
-    [int]$NumberOfRetries = 10) {
-    for (($i = 1); $i -le $NumberOfRetries; $i++) {
-        $out = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o=jsonpath="{.metadata.name}"', '--ignore-not-found').Output
-        if ($out -match 'ca-issuer-root-secret') {
-            Write-Log "'ca-issuer-root-secret' created and ready for use."
-            return $true
-        }
-        Write-Log "Retry {$i}: 'ca-issuer-root-secret' not yet created. Will retry after $SleepDurationInSeconds Seconds" -Console
-        Start-Sleep -Seconds $SleepDurationInSeconds
-    }
-    return $false
-}
-
-function Remove-Cmctl {
-    Write-Log "Removing $cmctlExe.."
-    Remove-Item -Path $cmctlExe -Force -ErrorAction SilentlyContinue
 }
 
 <#
@@ -480,48 +418,6 @@ function Remove-LinkerdManifests {
         Remove-Item -Path $fileToRemove -Force
     }
 }
-
-# function Remove-Access-ToCNIPluginFile {
-#     # Specify the path of the file
-#     $k2sConfigDir = Get-K2sConfigDir
-#     $filePath = $k2sConfigDir +"\cniconfig"  
-#     # Get the current ACL for the file
-#     $acl = Get-Acl $filePath
-#     # Define the Local System account (SYSTEM)
-#     $systemAccount = New-Object System.Security.Principal.NTAccount("SYSTEM")
-#     $currentAccount = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-
-#     # Define the access rule: Full control for SYSTEM only
-#     $accessRuleSystem = New-Object System.Security.AccessControl.FileSystemAccessRule(
-#         $systemAccount, 
-#         "FullControl", 
-#         "Allow"
-#     )
-#     # Define the access rule: Full control for current user only
-#     $accessRuleCurrent = New-Object System.Security.AccessControl.FileSystemAccessRule(
-#         $currentAccount, 
-#         "FullControl", 
-#         "Allow"
-#     )
-#     # Deny access to everyone else
-#     $everyoneAccount = New-Object System.Security.Principal.NTAccount("Everyone")
-#     $denyRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-#         $everyoneAccount, 
-#         "FullControl", 
-#         "Deny"
-#     )
-
-#     # Set access rule protection (to prevent inheritance from parent)
-#     $acl.SetAccessRuleProtection($true, $false)
-
-#     # Add the access rules to the ACL
-#     $acl.AddAccessRule($accessRuleSystem)  # Allow SYSTEM full control
-#     $acl.AddAccessRule($accessRuleCurrent)  # Allow SYSTEM full control
-#     $acl.AddAccessRule($denyRule)    # Deny Everyone access
-
-#     # Apply the updated ACL to the file
-#     Set-Acl -Path $filePath -AclObject $acl
-# } 
 
 function Initialize-ConfigFileForCNI {
     # Variables

@@ -110,9 +110,14 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq
     exit 1
 }
 
+Install-GatewayApiCrds
+
 Write-Log 'Installing external-dns' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
+
+Write-Log 'Installing cert-manager' -Console
+Enable-CertManager -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
 
 # we prepare all patches and apply them in a single kustomization,
 # instead of applying the unpatched manifests and then applying patches one by one

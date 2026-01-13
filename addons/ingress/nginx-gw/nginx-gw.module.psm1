@@ -65,58 +65,6 @@ function New-TlsCertificateWithCertManager {
     Write-Log "Creating TLS certificate '$SecretName' in namespace '$Namespace'" -Console
     
     try {
-        # Check if secret already exists
-        $secretExists = (Invoke-Kubectl -Params 'get', 'secret', $SecretName, '-n', $Namespace, '--ignore-not-found').Output
-        if (-not [string]::IsNullOrWhiteSpace($secretExists)) {
-            Write-Log "TLS certificate '$SecretName' already exists, skipping creation" -Console
-            return $true
-        }
-        
-        # Install cert-manager temporarily in unique namespace to avoid conflicts
-        Write-Log 'Installing temporary cert-manager for TLS certificate generation' -Console
-        $tempCertManagerNamespace = 'nginx-gw-cert-manager-temp'
-        $certManagerYaml = "$PSScriptRoot\manifests\cert-manager.yaml"
-        
-        if (-not (Test-Path $certManagerYaml)) {
-            Write-Log "Error: cert-manager manifest not found at $certManagerYaml" -Error
-            return $false
-        }
-        
-        (Invoke-Kubectl -Params 'apply', '-f', $certManagerYaml).Output | Write-Log
-        
-        # Wait for cert-manager pods to be ready
-        Write-Log 'Waiting for cert-manager pods to become ready...' -Console
-        $certManagerReady = Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/instance=cert-manager' -Namespace $tempCertManagerNamespace -TimeoutSeconds 120
-        
-        if (-not $certManagerReady) {
-            Write-Log 'Warning: cert-manager pods did not become ready within timeout' -Console
-            return $false
-        }
-        
-        Write-Log 'cert-manager pods are ready, waiting for webhook to initialize...' -Console
-        
-        # Wait for webhook CA secret to exist (indicates webhook is fully ready)
-        $maxWebhookRetries = 30
-        $webhookRetryCount = 0
-        $webhookReady = $false
-        
-        while ($webhookRetryCount -lt $maxWebhookRetries) {
-            $caSecret = (Invoke-Kubectl -Params 'get', 'secret', 'cert-manager-webhook-ca', '-n', $tempCertManagerNamespace, '--ignore-not-found').Output
-            if (-not [string]::IsNullOrWhiteSpace($caSecret)) {
-                $webhookReady = $true
-                Write-Log 'cert-manager webhook is ready' -Console
-                break
-            }
-            
-            Start-Sleep -Seconds 2
-            $webhookRetryCount++
-        }
-        
-        if (-not $webhookReady) {
-            Write-Log 'Warning: cert-manager webhook did not become ready within timeout' -Console
-            return $false
-        }
-        
         # Apply Certificate resource
         Write-Log 'Creating Certificate resource for self-signed certificate' -Console
         $certificateYaml = "$PSScriptRoot\manifests\k2s-cluster-local-tls-certificate.yaml"
@@ -151,38 +99,10 @@ function New-TlsCertificateWithCertManager {
             Write-Log "Check status with: kubectl describe certificate $SecretName -n $Namespace" -Console
             return $false
         }
-        
-        # Clean up temporary cert-manager to avoid conflicts with security addon
-        # Keep both Certificate and Issuer resources so:
-        # - Certificate remains valid (references selfsigned-issuer)
-        # - Security addon can patch Certificate to use k2s-ca-issuer later
-        Write-Log 'Cleaning up temporary cert-manager installation...' -Console
-        
-        # Delete only the cert-manager namespace (Certificate and Issuer stay in nginx-gw namespace)
-        (Invoke-Kubectl -Params 'delete', 'namespace', 'nginx-gw-cert-manager-temp', '--ignore-not-found', '--wait=false').Output | Write-Log
-        
-        Write-Log 'cert-manager cleanup completed (Certificate and Issuer preserved)' -Console
-        
         return $true
     }
     catch {
         Write-Log "Error creating TLS certificate: $_" -Error
-        
-        # Clean up cert-manager on failure to avoid leaving broken installation
-        Write-Log 'Cleaning up cert-manager due to failure...' -Console
-        try {
-            $certificateYaml = "$PSScriptRoot\manifests\k2s-cluster-local-tls-certificate.yaml"
-            # Delete Certificate and Issuer resources on failure since they're not functional
-            if (Test-Path $certificateYaml) {
-                (Invoke-Kubectl -Params 'delete', '-f', $certificateYaml, '--ignore-not-found').Output | Write-Log
-            }
-            (Invoke-Kubectl -Params 'delete', 'namespace', 'nginx-gw-cert-manager-temp', '--ignore-not-found', '--wait=false').Output | Write-Log
-            Write-Log 'Cleanup completed' -Console
-        }
-        catch {
-            Write-Log "Warning: Cleanup failed: $_" -Console
-        }
-        
         return $false
     }
 }

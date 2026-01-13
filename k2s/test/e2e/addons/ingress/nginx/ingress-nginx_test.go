@@ -7,6 +7,8 @@ package ingressnginx
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path"
 	"testing"
 	"time"
 
@@ -43,6 +45,13 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 		suite.Kubectl().Run(ctx, "delete", "-k", "workloads")
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(os.IsNotExist(err)).To(BeTrue())
+
+		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
+
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "ingress-nginx-test")
 
@@ -65,6 +74,17 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 		Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeTrue())
+	})
+
+	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(err).To(BeNil())
+	})
+
+	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
+		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -96,6 +116,8 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 			MatchRegexp(`Implementation .+nginx.+ of Addon .+ingress.+ is .+enabled.+`),
 			MatchRegexp("The nginx ingress controller is working"),
 			MatchRegexp("The external IP for ingress-nginx service is set to %s", regex.IpAddressRegex),
+			MatchRegexp("The cert-manager API is ready"),
+			MatchRegexp("The CA root certificate is available"),
 		))
 
 		output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "ingress", "nginx", "-o", "json")
@@ -121,6 +143,16 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 				HaveField("Value", true),
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
 				HaveField("Message", gstruct.PointTo(MatchRegexp("The external IP for ingress-nginx service is set to %s", regex.IpAddressRegex)))),
+			SatisfyAll(
+				HaveField("Name", "IsCertManagerAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
+			SatisfyAll(
+				HaveField("Name", "IsCaRootCertificateAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available")))),
 		))
 	})
 })

@@ -7,6 +7,8 @@ package nginxgw
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path"
 	"testing"
 	"time"
 
@@ -47,6 +49,13 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "delete", "-k", "workloads", "--ignore-not-found")
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", nginxGw, "-o")
+
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(os.IsNotExist(err)).To(BeTrue())
+
+		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", nginxGw)
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", ingressNginxGwTest)
@@ -103,6 +112,17 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 		Expect(addonsStatus.IsAddonEnabled("ingress", nginxGw)).To(BeTrue())
 	})
 
+	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(err).To(BeNil())
+	})
+
+	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
+		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
+	})
+
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
 		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "ingress", nginxGw)
 
@@ -147,6 +167,8 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 			MatchRegexp(`Implementation .+nginx-gw.+ of Addon .+ingress.+ is .+enabled.+`),
 			MatchRegexp("The nginx gateway fabric controller is working"),
 			MatchRegexp("The external IP for nginx-gw service is set to %s", regex.IpAddressRegex),
+			MatchRegexp("The cert-manager API is ready"),
+			MatchRegexp("The CA root certificate is available"),
 		))
 
 		output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "ingress", nginxGw, "-o", "json")
@@ -172,6 +194,16 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 				HaveField("Value", true),
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
 				HaveField("Message", gstruct.PointTo(MatchRegexp("The external IP for nginx-gw service is set to %s", regex.IpAddressRegex)))),
+			SatisfyAll(
+				HaveField("Name", "IsCertManagerAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
+			SatisfyAll(
+				HaveField("Name", "IsCaRootCertificateAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available")))),
 		))
 	})
 })

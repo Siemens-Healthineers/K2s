@@ -75,6 +75,8 @@ Write-log 'Uninstalling ExternalDNS' -Console
 $externalDnsConfigDir = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'delete', '-k', $externalDnsConfigDir).Output | Write-Log
 
+Uninstall-CertManager
+
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
 # adapt other addons
