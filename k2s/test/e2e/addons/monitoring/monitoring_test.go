@@ -55,7 +55,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
 		})
 
 		It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
@@ -71,11 +71,11 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-grafana", "monitoring")
 
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -90,7 +90,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
 			kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
-			portForwarding := exec.Command(kubectl, "-n", "monitoring", "port-forward", "svc/kube-prometheus-stack-plutono", "3000:80")
+			portForwarding := exec.Command(kubectl, "-n", "monitoring","port-forward", "svc/kube-prometheus-stack-grafana", "3000:80")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 			url := "http://localhost:3000/monitoring/login"
@@ -113,7 +113,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 		})
@@ -125,11 +125,11 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-grafana", "monitoring")
 
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -163,7 +163,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 		})
@@ -175,12 +175,12 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-grafana", "monitoring")
 
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "monitoring")
-		})
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
+	})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
 			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "monitoring")
@@ -208,7 +208,7 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp(`Addon .+monitoring.+ is .+enabled.+`),
 		MatchRegexp("The Kube State Metrics Deployment is working"),
 		MatchRegexp("The Prometheus Operator is working"),
-		MatchRegexp("The Plutono Dashboard is working"),
+		MatchRegexp("The Grafana Dashboard is working"),
 		MatchRegexp("Prometheus and Alertmanager are working"),
 		MatchRegexp("Node Exporter is working"),
 	))
@@ -236,10 +236,10 @@ func expectStatusToBePrinted(ctx context.Context) {
 			HaveField("Okay", gstruct.PointTo(BeTrue())),
 			HaveField("Message", gstruct.PointTo(MatchRegexp("The Prometheus Operator is working")))),
 		SatisfyAll(
-			HaveField("Name", "IsPlutonoRunning"),
+			HaveField("Name", "IsGrafanaRunning"),
 			HaveField("Value", true),
 			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The Plutono Dashboard is working")))),
+			HaveField("Message", gstruct.PointTo(MatchRegexp("The Grafana Dashboard is working")))),
 		SatisfyAll(
 			HaveField("Name", "AreStatefulsetsRunning"),
 			HaveField("Value", true),
