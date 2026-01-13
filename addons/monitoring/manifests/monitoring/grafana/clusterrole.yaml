@@ -9,11 +9,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   labels:
     helm.sh/chart: grafana-6.57.4
-    app.kubernetes.io/name: kube-prometheus-stack-plutono
+    app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: kube-prometheus-stack
     app.kubernetes.io/version: "9.5.5"
     app.kubernetes.io/managed-by: Helm
-  name: kube-prometheus-stack-plutono-clusterrole
+  name: kube-prometheus-stack-grafana-clusterrole
 rules:
   - apiGroups: [""] # "" indicates the core API group
     resources: ["configmaps", "secrets"]
