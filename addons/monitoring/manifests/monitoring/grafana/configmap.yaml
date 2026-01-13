@@ -7,16 +7,16 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kube-prometheus-stack-plutono
+  name: kube-prometheus-stack-grafana
   namespace: monitoring
   labels:
     helm.sh/chart: grafana-6.57.4
-    app.kubernetes.io/name: kube-prometheus-stack-plutono
+    app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: kube-prometheus-stack
     app.kubernetes.io/version: '9.5.5'
     app.kubernetes.io/managed-by: Helm
 data:
-  plutono.ini: |
+  grafana.ini: |
     [analytics]
     check_for_updates = true
     [grafana_net]
@@ -26,10 +26,10 @@ data:
     # [log.console]
     # level=debug
     [paths]
-    data = /var/lib/plutono/
-    logs = /var/log/plutono
-    plugins = /var/lib/plutono/plugins
-    provisioning = /etc/plutono/provisioning
+    data = /var/lib/grafana
+    logs = /var/log/grafana
+    plugins = /var/lib/grafana/plugins
+    provisioning = /etc/grafana/provisioning
     [server]
     # these settings needed to make it work with Ingress
     root_url = https://k2s.cluster.local/monitoring
