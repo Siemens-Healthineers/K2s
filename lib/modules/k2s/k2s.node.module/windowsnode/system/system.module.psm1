@@ -137,6 +137,7 @@ function Test-WindowsPrerequisites(
     }
     Enable-MissingWindowsFeatures $([bool]$WSL)
     Stop-InstallationIfHyperVApiAccessFailed
+    Test-DefaultSwitch
 }
 
 function Get-StorageLocalFolderName{
