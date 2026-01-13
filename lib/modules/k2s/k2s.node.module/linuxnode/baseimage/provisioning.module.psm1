@@ -200,13 +200,7 @@ function New-KubemasterBaseImage {
 
         Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-        Start-VirtualMachine -VmName $vmName
-
-        Write-Log "Waiting for VM to send heartbeat..."
-        Wait-VM -Name $vmName -For Heartbeat
-        Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-        Wait-VM -Name $vmName -For Heartbeat
-        Write-Log "  ok"
+        Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
 
 
         $remoteUser1 = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
@@ -248,12 +242,7 @@ function New-KubemasterBaseImage {
         Write-Log "Attach the VM to a network switch"
         Connect-VMNetworkAdapter -VmName $vmName -SwitchName $networkParams2.SwitchName -ErrorAction Stop
 
-        Start-VirtualMachine -VmName $vmName
-        Write-Log "Waiting for VM to send heartbeat..."
-        Wait-VM -Name $vmName -For Heartbeat
-        Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-        Wait-VM -Name $vmName -For Heartbeat
-        Write-Log "  ok"
+        Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
 
         $remoteUser2 = "$(Get-DefaultUserNameKubeNode)@$IpAddress"
 
@@ -345,12 +334,7 @@ function New-KubeworkerBaseImage {
 
     Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-    Start-VirtualMachine -VmName $vmName
-    Write-Log "Waiting for VM to send heartbeat..."
-    Wait-VM -Name $vmName -For Heartbeat
-    Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-    Wait-VM -Name $vmName -For Heartbeat
-    Write-Log "  ok"
+    Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
 
 
     $remoteUser1 = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
@@ -383,12 +367,7 @@ function New-KubeworkerBaseImage {
     $switchName = Get-ControlPlaneNodeDefaultSwitchName
     Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-    Start-VirtualMachine -VmName $vmName
-    Write-Log "Waiting for VM to send heartbeat..."
-    Wait-VM -Name $vmName -For Heartbeat
-    Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-    Wait-VM -Name $vmName -For Heartbeat
-    Write-Log "  ok"
+    Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
 
     $remoteUser2 = "$(Get-DefaultUserNameKubeNode)@$IpAddress"
 
@@ -455,12 +434,7 @@ function Start-VmBasedOnKubenodeBaseImage {
 
     Connect-VMNetworkAdapter -VmName $VmName -SwitchName $switchName -ErrorAction Stop
 
-    Start-VirtualMachine -VmName $VmName
-    Write-Log "Waiting for VM to send heartbeat..."
-    Wait-VM -Name $VmName -For Heartbeat
-    Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-    Wait-VM -Name $VmName -For Heartbeat
-    Write-Log "  ok"
+    Start-VirtualMachineAndWaitForHeartbeat -Name $VmName
 
     $remoteUser = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
     Wait-ForSshPossible -User $remoteUser -UserPwd $(Get-DefaultUserPwdKubeNode) -SshTestCommand 'which ls' -ExpectedSshTestCommandResult '/usr/bin/ls'
