@@ -114,9 +114,9 @@ function Test-DefaultSwitch {
     
     # Get K2s network configuration
     $configModule = "$PSScriptRoot\..\config\config.module.psm1"
-    Import-Module $configModule -DisableNameChecking -ErrorAction SilentlyContinue
+    Import-Module $configModule -DisableNameChecking
     
-    $configPath = Get-ConfigurationFilePath
+    $configPath = Get-k2sConfigFilePath
     $config = Get-Content $configPath -Raw | ConvertFrom-Json
     
     # List of all K2s subnets to check
