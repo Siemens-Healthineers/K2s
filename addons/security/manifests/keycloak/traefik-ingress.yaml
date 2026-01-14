@@ -9,8 +9,6 @@ metadata:
   namespace: security
   annotations:
     traefik.ingress.kubernetes.io/router.tls: 'true'
-    cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s.cluster.local
     # traefik.ingress.kubernetes.io/router.middlewares: "security-auth-headers@kubernetescrd"
 spec:
   ingressClassName: traefik
@@ -37,8 +35,6 @@ metadata:
   namespace: security
   annotations:
     traefik.ingress.kubernetes.io/router.tls: 'true'
-    cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s.cluster.local
 spec:
   ingressClassName: traefik
   tls:
