@@ -119,10 +119,8 @@ function New-VmFromImage {
     }
 
     #Start VM and wait for heartbeat
-    $virtualMachine | Start-VM
-
-    Write-Log 'Waiting for VM Heartbeat...'
-    Wait-VM -Name $VmName -For Heartbeat
+    Write-Log 'Starting VM and waiting for heartbeat...'
+    Start-VirtualMachineAndWaitForHeartbeat -Name $VmName
 }
 
 Export-ModuleMember -Function New-WindowsVmForWorkerNode
