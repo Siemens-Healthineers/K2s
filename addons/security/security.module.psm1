@@ -603,3 +603,50 @@ function Wait-ForK8sSecret {
     Write-Log "Timed out waiting for secret '$SecretName' in namespace '$Namespace'." -Console
     return $false
 }
+
+function Ensure-IngressTlsCertificate {
+    <#
+    .SYNOPSIS
+    Ensures TLS certificate exists in ingress namespace, re-applying manifest if needed.
+    
+    .DESCRIPTION
+    Checks if k2s-cluster-local-tls secret exists in the ingress namespace.
+    If not found, re-applies the cluster-local-ingress manifest to trigger cert-manager creation.
+    
+    .PARAMETER IngressType
+    Type of ingress controller (nginx or traefik)
+    
+    .PARAMETER ManifestPath
+    Optional path to cluster-local-ingress manifest. If not provided, derived from ingress type.
+    #>
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('nginx', 'traefik')]
+        [string]$IngressType,
+        
+        [Parameter(Mandatory = $false)]
+        [string]$ManifestPath
+    )
+    
+    $namespace = if ($IngressType -eq 'nginx') { 'ingress-nginx' } else { 'ingress-traefik' }
+    
+    if (-not $ManifestPath) {
+        $manifestFile = if ($IngressType -eq 'nginx') { 'cluster-local-ingress.yaml' } else { 'cluster-local-ingress-secure.yaml' }
+        $ManifestPath = "$PSScriptRoot\..\ingress\$IngressType\manifests\$manifestFile"
+    }
+    
+    Write-Log "Verifying TLS certificate exists in $namespace namespace" -Console
+    $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 30
+    
+    if (-not $certExists) {
+        Write-Log "Certificate not found, re-applying cluster-local ingress to trigger creation" -Console
+        (Invoke-Kubectl -Params 'apply', '-f', $ManifestPath).Output | Write-Log
+        $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 60
+        
+        if (-not $certExists) {
+            Write-Log "Warning: TLS certificate still not available after re-applying manifest" -Console
+        }
+    }
+    
+    return $certExists
+}
