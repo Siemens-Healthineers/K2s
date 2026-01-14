@@ -1184,10 +1184,8 @@ function New-VMFromWinImage {
     }
 
     #Start VM and wait for heartbeat
-    $virtualMachine | Start-VM
-
-    Write-Log 'Waiting for VM Heartbeat...'
-    Wait-VM -Name $Name -For Heartbeat
+    Write-Log 'Starting VM and waiting for heartbeat...'
+    Start-VirtualMachineAndWaitForHeartbeat -Name $Name
 
     Write-Log 'All done in Creation of VM from Windows Image!'
 }
