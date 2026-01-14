@@ -28,7 +28,7 @@ var (
 
 func TestIngressNginxGwSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ingress-nginx-gw Addon Acceptance Tests", Label("addon", "addon-security", "acceptance", "setup-required", "invasive", "ingress-nginx-gw", "system-running"))
+	RunSpecs(t, "ingress-nginx-gw Addon Acceptance Tests", Label("addon", "addon-security-enhanced-2", "acceptance", "setup-required", "invasive", "ingress-nginx-gw", "system-running"))
 }
 
 // func TestIngressNginxGwSecurity(t *testing.T) {
