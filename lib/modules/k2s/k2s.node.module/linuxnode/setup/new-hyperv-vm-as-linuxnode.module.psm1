@@ -218,11 +218,7 @@ function New-VmFromIso {
     }
 
     Write-Log "Starting VM $VMName"
-    Start-VirtualMachine -VMName $VMName
-
-    # Wait for VM
-    Write-Log 'Waiting for VM to send heartbeat...'
-    Wait-VM -Name $VMName -For Heartbeat
+    Start-VirtualMachineAndWaitForHeartbeat -Name $VMName
 
     Write-Log 'VM started ok'
 }
