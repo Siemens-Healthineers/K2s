@@ -7,6 +7,9 @@ kind: Ingress
 metadata:
   name: oauth2-proxy
   namespace: security
+  annotations:
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s.cluster.local
 spec:
   ingressClassName: nginx
   tls:
@@ -32,6 +35,8 @@ metadata:
   namespace: security
   annotations:
     nginx.ingress.kubernetes.io/enable-cors: 'true'
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s.cluster.local
 spec:
   ingressClassName: nginx
   tls:
