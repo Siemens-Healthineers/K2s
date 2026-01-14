@@ -85,6 +85,9 @@ Describe 'Get-BackupMetadata' -Tag 'unit', 'ci', 'backup-pv' {
     BeforeAll {
         $testDir = Join-Path $TestDrive "backup-metadata-tests"
         New-Item -Path $testDir -ItemType Directory -Force | Out-Null
+        
+        # Mock Write-Log to suppress error output during tests
+        Mock -ModuleName $moduleName Write-Log {}
     }
 
     It 'loads valid backup metadata successfully' {
