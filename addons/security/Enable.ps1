@@ -178,17 +178,27 @@ try {
 		$activeIngress = 'nginx'
 		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
 		&$cmctlExe renew k2s-cluster-local-tls -n ingress-nginx
+		
+		# Ensure certificate exists - renew only works if cert already exists
+		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
 		$activeIngress = 'traefik'
 		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
 		&$cmctlExe renew k2s-cluster-local-tls -n ingress-traefik
+		
+		# Ensure certificate exists - renew only works if cert already exists
+		Ensure-IngressTlsCertificate -IngressType 'traefik' | Out-Null
 	}
 	else {
 		#Enable required ingress addon
 		Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
 		Enable-IngressAddon -Ingress:$Ingress
 		$activeIngress = $Ingress
+		
+		# After enabling ingress, ensure the certificate gets created
+		Write-Log 'Waiting for TLS certificate to be created after ingress enablement' -Console
+		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
 	}
 
 	# Keycloak and Hydra setup (conditional)
