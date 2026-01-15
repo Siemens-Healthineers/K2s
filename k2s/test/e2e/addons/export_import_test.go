@@ -35,7 +35,7 @@ var (
 	linuxOnly       bool
 	exportPath      string
 	allAddons       addons.Addons
-	exportedZipFile string
+	exportedOciFile string
 
 	linuxTestContainers   []string
 	windowsTestContainers []string
@@ -82,7 +82,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 	Describe("export all addons", func() {
 		BeforeAll(func(ctx context.Context) {
-			extractedFolder := filepath.Join(exportPath, "addons")
+			extractedFolder := filepath.Join(exportPath, "artifacts")
 			if _, err := os.Stat(extractedFolder); !os.IsNotExist(err) {
 				os.RemoveAll(extractedFolder)
 			}
@@ -92,34 +92,34 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		})
 
 		AfterAll(func(ctx context.Context) {
-			extractedFolder := filepath.Join(exportPath, "addons")
+			extractedFolder := filepath.Join(exportPath, "artifacts")
 			if _, err := os.Stat(extractedFolder); !os.IsNotExist(err) {
 				os.RemoveAll(extractedFolder)
 			}
 		})
 
-		It("addons are exported to versioned zip file", func(ctx context.Context) {
-			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-all.zip"))
+		It("addons are exported to versioned OCI tar file", func(ctx context.Context) {
+			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-all.oci.tar"))
 			Expect(err).To(BeNil())
-			Expect(len(files)).To(Equal(1), "Should create exactly one versioned zip file")
+			Expect(len(files)).To(Equal(1), "Should create exactly one versioned OCI tar file")
 
-			exportedZipFile = files[0]
-			_, err = os.Stat(exportedZipFile)
+			exportedOciFile = files[0]
+			_, err = os.Stat(exportedOciFile)
 			Expect(os.IsNotExist(err)).To(BeFalse())
 		})
 
-		It("contains a folder for every exported addon with flattened structure and version info", func(ctx context.Context) {
-			suite.Cli("tar").MustExec(ctx, "-xf", exportedZipFile, "-C", exportPath)
+		It("contains a folder for every exported addon with OCI layered structure", func(ctx context.Context) {
+			suite.Cli("tar").MustExec(ctx, "-xf", exportedOciFile, "-C", exportPath)
 
-			_, err := os.Stat(filepath.Join(exportPath, "addons"))
+			_, err := os.Stat(filepath.Join(exportPath, "artifacts"))
 			Expect(os.IsNotExist(err)).To(BeFalse())
 
-			_, err = os.Stat(filepath.Join(exportPath, "addons", "addons.json"))
+			_, err = os.Stat(filepath.Join(exportPath, "artifacts", "addons.json"))
 			Expect(os.IsNotExist(err)).To(BeFalse(), "addons.json metadata file should exist")
 
-			_, err = os.Stat(filepath.Join(exportPath, "addons", "version.json"))
-			Expect(os.IsNotExist(err)).To(BeFalse(), "version.json metadata file should exist")
-			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "addons"))
+			_, err = os.Stat(filepath.Join(exportPath, "artifacts", "index.json"))
+			Expect(os.IsNotExist(err)).To(BeFalse(), "index.json OCI index file should exist")
+			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "artifacts"))
 			Expect(err).To(BeNil())
 
 			exportedAddonsDir = lo.Filter(exportedAddonsDir, func(x fs.DirEntry, index int) bool {
@@ -149,17 +149,28 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 
 			for _, e := range exportedAddons {
-				addonsDir := filepath.Join(exportPath, "addons", e)
+				addonsDir := filepath.Join(exportPath, "artifacts", e)
 
 				Expect(sos.IsEmptyDir(addonsDir)).To(BeFalse(), "addon directory should not be empty for addon %s", e)
 
-				versionInfoPath := filepath.Join(addonsDir, "version.info")
-				_, err = os.Stat(versionInfoPath)
-				Expect(os.IsNotExist(err)).To(BeFalse(), "version.info file should exist for addon %s", e)
+				// Check for OCI manifest
+				ociManifestPath := filepath.Join(addonsDir, "oci-manifest.json")
+				_, err = os.Stat(ociManifestPath)
+				Expect(os.IsNotExist(err)).To(BeFalse(), "oci-manifest.json should exist for addon %s", e)
+
+				// Check for addon.manifest.yaml (OCI config)
+				addonManifestPath := filepath.Join(addonsDir, "addon.manifest.yaml")
+				_, err = os.Stat(addonManifestPath)
+				Expect(os.IsNotExist(err)).To(BeFalse(), "addon.manifest.yaml should exist for addon %s", e)
+
+				// Check for scripts layer
+				scriptsLayerPath := filepath.Join(addonsDir, "scripts.tar.gz")
+				_, err = os.Stat(scriptsLayerPath)
+				Expect(os.IsNotExist(err)).To(BeFalse(), "scripts.tar.gz layer should exist for addon %s", e)
 			}
 		})
 
-		It("all resources have been exported", func(ctx context.Context) {
+		It("all resources have been exported as OCI layers", func(ctx context.Context) {
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
 					var expectedDirName string
@@ -170,55 +181,64 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 					}
 
 					GinkgoWriter.Println("-> Addon:", a.Metadata.Name, ", Implementation:", i.Name, ", Expected Directory name:", expectedDirName)
-					addonExportDir := filepath.Join(exportPath, "addons", expectedDirName)
+					addonExportDir := filepath.Join(exportPath, "artifacts", expectedDirName)
 
 					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
-
 					Expect(err).ToNot(HaveOccurred())
 
-					exportedImages, err := sos.GetFilesMatch(addonExportDir, "*.tar")
-					Expect(err).ToNot(HaveOccurred())
-					Expect(len(exportedImages)).To(Equal(len(images)),
-						"Expected %d tar files to match %d images", len(exportedImages), len(images))
-
-					_, err = os.Stat(filepath.Join(addonExportDir, "version.info"))
-					Expect(os.IsNotExist(err)).To(BeFalse(), "version.info should exist for addon %s", expectedDirName)
-					for _, lp := range i.OfflineUsage.LinuxResources.CurlPackages {
-						_, err = os.Stat(filepath.Join(addonExportDir, "linuxpackages", filepath.Base(lp.Url)))
-						Expect(os.IsNotExist(err)).To(BeFalse())
+					// Check for image layers (consolidated into single tar files per platform)
+					if len(images) > 0 {
+						linuxImagesLayer := filepath.Join(addonExportDir, "images-linux.tar")
+						windowsImagesLayer := filepath.Join(addonExportDir, "images-windows.tar")
+						// At least one of the image layers should exist if there are images
+						linuxExists := false
+						windowsExists := false
+						if _, err := os.Stat(linuxImagesLayer); err == nil {
+							linuxExists = true
+						}
+						if _, err := os.Stat(windowsImagesLayer); err == nil {
+							windowsExists = true
+						}
+						Expect(linuxExists || windowsExists).To(BeTrue(),
+							"Expected at least one image layer (images-linux.tar or images-windows.tar) for addon %s with %d images", expectedDirName, len(images))
 					}
 
-					for _, d := range i.OfflineUsage.LinuxResources.DebPackages {
-						_, err = os.Stat(filepath.Join(addonExportDir, "debianpackages", d))
-						Expect(os.IsNotExist(err)).To(BeFalse())
-					}
+					// Check OCI manifest exists
+					_, err = os.Stat(filepath.Join(addonExportDir, "oci-manifest.json"))
+					Expect(os.IsNotExist(err)).To(BeFalse(), "oci-manifest.json should exist for addon %s", expectedDirName)
 
-					for _, wp := range i.OfflineUsage.WindowsResources.CurlPackages {
-						_, err = os.Stat(filepath.Join(addonExportDir, "windowspackages", filepath.Base(wp.Url)))
-						Expect(os.IsNotExist(err)).To(BeFalse())
+					// Check for packages layer if offline_usage is defined
+					hasLinuxPackages := len(i.OfflineUsage.LinuxResources.CurlPackages) > 0 || len(i.OfflineUsage.LinuxResources.DebPackages) > 0
+					hasWindowsPackages := len(i.OfflineUsage.WindowsResources.CurlPackages) > 0
+					if hasLinuxPackages || hasWindowsPackages {
+						packagesLayer := filepath.Join(addonExportDir, "packages.tar.gz")
+						_, err = os.Stat(packagesLayer)
+						Expect(os.IsNotExist(err)).To(BeFalse(), "packages.tar.gz should exist for addon %s with offline packages", expectedDirName)
 					}
 				}
 			}
 		})
 
-		It("metadata files contain correct information", func(ctx context.Context) {
-			addonsJsonPath := filepath.Join(exportPath, "addons", "addons.json")
+		It("metadata files contain correct OCI information", func(ctx context.Context) {
+			addonsJsonPath := filepath.Join(exportPath, "artifacts", "addons.json")
 			addonsJsonBytes, err := os.ReadFile(addonsJsonPath)
 			Expect(err).To(BeNil())
 			Expect(string(addonsJsonBytes)).To(ContainSubstring("k2sVersion"))
 			Expect(string(addonsJsonBytes)).To(ContainSubstring("exportType"))
+			Expect(string(addonsJsonBytes)).To(ContainSubstring("artifactFormat"))
 			Expect(string(addonsJsonBytes)).To(ContainSubstring("addons"))
 
-			versionJsonPath := filepath.Join(exportPath, "addons", "version.json")
-			versionJsonBytes, err := os.ReadFile(versionJsonPath)
+			indexJsonPath := filepath.Join(exportPath, "artifacts", "index.json")
+			indexJsonBytes, err := os.ReadFile(indexJsonPath)
 			Expect(err).To(BeNil())
-			Expect(string(versionJsonBytes)).To(ContainSubstring("k2sVersion"))
-			Expect(string(versionJsonBytes)).To(ContainSubstring("exportType"))
-			Expect(string(versionJsonBytes)).To(ContainSubstring("addonCount"))
+			Expect(string(indexJsonBytes)).To(ContainSubstring("schemaVersion"))
+			Expect(string(indexJsonBytes)).To(ContainSubstring("mediaType"))
+			Expect(string(indexJsonBytes)).To(ContainSubstring("vnd.k2s.version"))
+			Expect(string(indexJsonBytes)).To(ContainSubstring("vnd.k2s.addon.count"))
 		})
 
-		It("version.info files contain CD-friendly information", func(ctx context.Context) {
-			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "addons"))
+		It("oci-manifest.json files contain proper OCI structure", func(ctx context.Context) {
+			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "artifacts"))
 			Expect(err).To(BeNil())
 
 			addonDirs := []string{}
@@ -229,17 +249,17 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 
 			for _, addonDir := range addonDirs {
-				versionInfoPath := filepath.Join(exportPath, "addons", addonDir, "version.info")
-				versionInfoBytes, err := os.ReadFile(versionInfoPath)
-				Expect(err).To(BeNil(), "should be able to read version.info for addon %s", addonDir)
+				ociManifestPath := filepath.Join(exportPath, "artifacts", addonDir, "oci-manifest.json")
+				ociManifestBytes, err := os.ReadFile(ociManifestPath)
+				Expect(err).To(BeNil(), "should be able to read oci-manifest.json for addon %s", addonDir)
 
-				Expect(string(versionInfoBytes)).To(ContainSubstring("addonName"))
-				Expect(string(versionInfoBytes)).To(ContainSubstring("implementationName"))
-				Expect(string(versionInfoBytes)).To(ContainSubstring("k2sVersion"))
-				Expect(string(versionInfoBytes)).To(ContainSubstring("exportDate"))
-				Expect(string(versionInfoBytes)).To(ContainSubstring("exportType"))
+				Expect(string(ociManifestBytes)).To(ContainSubstring("schemaVersion"))
+				Expect(string(ociManifestBytes)).To(ContainSubstring("mediaType"))
+				Expect(string(ociManifestBytes)).To(ContainSubstring("layers"))
+				Expect(string(ociManifestBytes)).To(ContainSubstring("vnd.k2s.addon.name"))
+				Expect(string(ociManifestBytes)).To(ContainSubstring("org.opencontainers.image.version"))
 
-				GinkgoWriter.Printf("Version info for %s: %s", addonDir, string(versionInfoBytes)[:200])
+				GinkgoWriter.Printf("OCI manifest for %s verified", addonDir)
 			}
 		})
 	})
@@ -274,7 +294,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 	Describe("import all addons", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "import", "-z", exportedZipFile)
+			suite.K2sCli().MustExec(ctx, "addons", "import", "-z", exportedOciFile)
 		}, NodeTimeout(time.Minute*30))
 
 		AfterAll(func(ctx context.Context) {
@@ -331,7 +351,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			}
 		})
 
-		It("tar files are excluded during import but other content is imported", func(ctx context.Context) {
+		It("OCI layer files are excluded during import but addon content is imported", func(ctx context.Context) {
 			addonsDirs, err := os.ReadDir(filepath.Join(suite.RootDir(), "addons"))
 			Expect(err).To(BeNil())
 
@@ -347,8 +367,17 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 						return err
 					}
 
-					if !d.IsDir() && strings.HasSuffix(d.Name(), ".tar") {
-						Fail(fmt.Sprintf("Found .tar file in addon directory: %s", path))
+					if !d.IsDir() {
+						// Check that no OCI layer artifacts remain after import
+						if strings.HasSuffix(d.Name(), ".tar") && !strings.Contains(path, "manifests") {
+							Fail(fmt.Sprintf("Found .tar file in addon directory: %s", path))
+						}
+						if strings.HasSuffix(d.Name(), ".tar.gz") {
+							Fail(fmt.Sprintf("Found .tar.gz layer file in addon directory: %s", path))
+						}
+						if d.Name() == "oci-manifest.json" {
+							Fail(fmt.Sprintf("Found oci-manifest.json in addon directory: %s", path))
+						}
 					}
 
 					return nil
@@ -362,10 +391,10 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				}
 			}
 
-			GinkgoWriter.Println("Verified: No .tar files found in addon directories after import")
+			GinkgoWriter.Println("Verified: No OCI layer files found in addon directories after import")
 		})
 
-		It("version.info files are processed and removed during import", func(ctx context.Context) {
+		It("OCI artifacts are processed and cleaned up during import", func(ctx context.Context) {
 			addonsDirs, err := os.ReadDir(filepath.Join(suite.RootDir(), "addons"))
 			Expect(err).To(BeNil())
 
@@ -381,8 +410,15 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 						return err
 					}
 
-					if !d.IsDir() && d.Name() == "version.info" {
-						Fail(fmt.Sprintf("Found version.info file in final addon directory: %s", path))
+					if !d.IsDir() {
+						// Legacy version.info should not exist
+						if d.Name() == "version.info" {
+							Fail(fmt.Sprintf("Found version.info file in final addon directory: %s", path))
+						}
+						// OCI manifest should not exist in final addon directory
+						if d.Name() == "oci-manifest.json" {
+							Fail(fmt.Sprintf("Found oci-manifest.json in final addon directory: %s", path))
+						}
 					}
 
 					return nil
@@ -391,7 +427,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				Expect(err).To(BeNil())
 			}
 
-			GinkgoWriter.Println("Verified: No version.info files found in final addon directories after import")
+			GinkgoWriter.Println("Verified: No OCI artifacts or version.info files found in final addon directories after import")
 		})
 
 		It("manifest merging preserves multiple implementations", func(ctx context.Context) {
@@ -415,10 +451,10 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 	})
 
 	Describe("export single implementation addon", func() {
-		var singleImplZipFile string
+		var singleImplOciFile string
 
 		BeforeAll(func(ctx context.Context) {
-			extractedFolder := filepath.Join(exportPath, "addons")
+			extractedFolder := filepath.Join(exportPath, "artifacts")
 			if _, err := os.Stat(extractedFolder); !os.IsNotExist(err) {
 				os.RemoveAll(extractedFolder)
 			}
@@ -428,33 +464,39 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		})
 
 		AfterAll(func(ctx context.Context) {
-			extractedFolder := filepath.Join(exportPath, "addons")
+			extractedFolder := filepath.Join(exportPath, "artifacts")
 			if _, err := os.Stat(extractedFolder); !os.IsNotExist(err) {
 				os.RemoveAll(extractedFolder)
 			}
-			if singleImplZipFile != "" && filepath.Ext(singleImplZipFile) == ".zip" {
-				os.Remove(singleImplZipFile)
+			if singleImplOciFile != "" && strings.HasSuffix(singleImplOciFile, ".oci.tar") {
+				os.Remove(singleImplOciFile)
 			}
 		})
 
-		It("single implementation addon is exported with filtered manifest", func(ctx context.Context) {
-			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-ingress-nginx.zip"))
+		It("single implementation addon is exported with filtered manifest in OCI format", func(ctx context.Context) {
+			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-ingress-nginx.oci.tar"))
 			Expect(err).To(BeNil())
-			Expect(len(files)).To(Equal(1), "Should create exactly one versioned zip file for single implementation")
+			Expect(len(files)).To(Equal(1), "Should create exactly one versioned OCI tar file for single implementation")
 
-			singleImplZipFile = files[0]
-			_, err = os.Stat(singleImplZipFile)
+			singleImplOciFile = files[0]
+			_, err = os.Stat(singleImplOciFile)
 			Expect(os.IsNotExist(err)).To(BeFalse())
 
-			suite.Cli("tar").MustExec(ctx, "-xf", singleImplZipFile, "-C", exportPath)
+			suite.Cli("tar").MustExec(ctx, "-xf", singleImplOciFile, "-C", exportPath)
 
-			ingressNginxDir := filepath.Join(exportPath, "addons", "ingress_nginx")
+			ingressNginxDir := filepath.Join(exportPath, "artifacts", "ingress_nginx")
 			_, err = os.Stat(ingressNginxDir)
 			Expect(os.IsNotExist(err)).To(BeFalse(), "ingress_nginx directory should exist")
 
-			versionInfoPath := filepath.Join(ingressNginxDir, "version.info")
-			_, err = os.Stat(versionInfoPath)
-			Expect(os.IsNotExist(err)).To(BeFalse(), "version.info should exist")
+			// Check for OCI manifest
+			ociManifestPath := filepath.Join(ingressNginxDir, "oci-manifest.json")
+			_, err = os.Stat(ociManifestPath)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "oci-manifest.json should exist")
+
+			// Check for scripts layer
+			scriptsLayerPath := filepath.Join(ingressNginxDir, "scripts.tar.gz")
+			_, err = os.Stat(scriptsLayerPath)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "scripts.tar.gz should exist")
 
 			manifestPath := filepath.Join(ingressNginxDir, "addon.manifest.yaml")
 			if _, err := os.Stat(manifestPath); err == nil {
