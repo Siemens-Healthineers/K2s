@@ -169,6 +169,7 @@ try {
                     New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
                     Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
                     Write-Log "[$logUseCase] External switch recreated successfully, restart flanneld service"
+                    Confirm-LoopbackAdapterIP
                     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
                     Write-Log "[$logUseCase] Waiting for k8s L2 bridge network to be ready"
                     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
@@ -189,6 +190,7 @@ try {
     }
 }
 catch {
+    Confirm-LoopbackAdapterIP
     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
     Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
 
