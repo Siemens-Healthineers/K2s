@@ -1814,15 +1814,23 @@ func isTransientSSHExitCode(exitCode int) bool {
 		return true // Success - let Eventually check complete
 	case -1:
 		return true // Process interrupted/not complete
-	case 1:
-		return true // General SSH error (including "IO is still pending" scenarios)
 	case 255:
 		return true // SSH connection error
 	case 3221226356: // Windows STATUS_PENDING (0xC0000174)
 		return true // "close - IO is still pending on closed socket"
+	case 3221225477: // Windows STATUS_ACCESS_VIOLATION (0xC0000005)
+		return true // Transient access violation during SSH
 	default:
 		return false
 	}
+}
+
+// isTransientSSHOutput returns true if the output contains transient SSH error messages
+// that should trigger a retry regardless of exit code.
+func isTransientSSHOutput(output string) bool {
+	return strings.Contains(output, "IO is still pending") ||
+		strings.Contains(output, "Connection reset by peer") ||
+		strings.Contains(output, "Connection closed by remote host")
 }
 
 func (ssh sshExecutor) mustExecEventually(ctx context.Context, remoteCmd string) string {
@@ -1833,9 +1841,9 @@ func (ssh sshExecutor) mustExecEventually(ctx context.Context, remoteCmd string)
 		output, exitCode = ssh.executor.Exec(ctx, "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
 
 		// Check for transient SSH errors in output (regardless of exit code)
-		if strings.Contains(output, "IO is still pending") {
-			GinkgoWriter.Printf("SSH command encountered transient IO pending error, will retry...\n")
-			return -1 // Force retry
+		if isTransientSSHOutput(output) {
+			GinkgoWriter.Printf("SSH command encountered transient error in output, will retry...\n")
+			return -1 // Force retry by returning a transient exit code
 		}
 
 		if !isTransientSSHExitCode(exitCode) {
