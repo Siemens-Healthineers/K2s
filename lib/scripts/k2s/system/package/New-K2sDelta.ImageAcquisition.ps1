@@ -184,7 +184,7 @@ function Export-ChangedImageLayers {
                     try {
                         Write-Log "[ImageAcq] Exporting Linux image: $($imgChange.FullName)" -Console
                         
-                        $exportResult = Export-LinuxImageFromBuildah -VmName $vmName `
+                        $exportResult = Export-LinuxImageFromBuildah -GuestIp $guestIp `
                                                                       -ImageChange $imgChange `
                                                                       -ImagesDir $linuxImagesDir `
                                                                       -ShowLogs:$ShowLogs
@@ -369,7 +369,7 @@ Hashtable with Success flag, ImageInfo, Size, and ErrorMessage.
 function Export-LinuxImageFromBuildah {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$VmName,
+        [string]$GuestIp,
         
         [Parameter(Mandatory = $true)]
         [PSCustomObject]$ImageChange,
@@ -389,43 +389,59 @@ function Export-LinuxImageFromBuildah {
     }
     
     try {
-        $newImageId = $ImageChange.NewImage.Id
+        # Get image ID - handle both Added (has .Image) and Changed (has .NewImage) cases
+        $imageObj = if ($ImageChange.NewImage) { $ImageChange.NewImage } elseif ($ImageChange.Image) { $ImageChange.Image } else { $null }
+        $newImageId = if ($imageObj) { 
+            if ($imageObj.ImageId) { $imageObj.ImageId } 
+            elseif ($imageObj.Id) { $imageObj.Id } 
+            else { $null }
+        } else { $null }
+        
         $imageName = $ImageChange.FullName
         
-        Write-Log "[ImageAcq] Exporting complete image as OCI archive: $imageName" -Console
+        Write-Log "[ImageAcq] Image object: $($imageObj | ConvertTo-Json -Compress -Depth 2 -ErrorAction SilentlyContinue)" -Console
+        
+        if ([string]::IsNullOrWhiteSpace($newImageId)) {
+            # If we don't have an ID, try to use the image name directly with buildah
+            Write-Log "[ImageAcq] No image ID found, using image name: $imageName" -Console
+            $newImageId = $imageName
+        }
+        
+        Write-Log "[ImageAcq] Exporting complete image as OCI archive: $imageName (ID: $newImageId)" -Console
         
         $sanitizedName = $imageName -replace '[/:]', '-'
         $remoteTarPath = "/tmp/delta-image-$sanitizedName.tar"
         $localTarPath = Join-Path $ImagesDir "$sanitizedName.tar"
         
         # Export image to tar (build command carefully to avoid PowerShell variable parsing issues)
+        # Use longer timeout (600s = 10 min) for large images
         $ociArchivePath = "oci-archive:$remoteTarPath" + ":$imageName"
         $exportCmd = "sudo buildah push '$newImageId' $ociArchivePath 2>&1"
-        $exportOutput = Invoke-K2sGuestCmd -VmName $VmName -Command $exportCmd -Timeout 120
+        $exportOutput = Invoke-K2sGuestCmd -GuestIp $GuestIp -Command $exportCmd -Timeout 600
         
         if (-not $exportOutput.Success) {
             $result.ErrorMessage = "Failed to export image: $($exportOutput.ErrorMessage)"
             
             # Cleanup remote tar
-            Invoke-K2sGuestCmd -VmName $VmName -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
+            Invoke-K2sGuestCmd -GuestIp $GuestIp -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
             return $result
         }
         
         Write-Log "[ImageAcq] Image exported, copying to host..." -Console
         
         # Copy tar from VM to host
-        $copyResult = Copy-K2sGuestFile -VmName $VmName -RemotePath $remoteTarPath -LocalPath $localTarPath
+        $copyResult = Copy-K2sGuestFile -GuestIp $GuestIp -RemotePath $remoteTarPath -LocalPath $localTarPath
         
         if (-not $copyResult.Success) {
             $result.ErrorMessage = "Failed to copy image tar: $($copyResult.ErrorMessage)"
             
             # Cleanup remote tar
-            Invoke-K2sGuestCmd -VmName $VmName -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
+            Invoke-K2sGuestCmd -GuestIp $GuestIp -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
             return $result
         }
         
         # Cleanup remote tar
-        Invoke-K2sGuestCmd -VmName $VmName -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
+        Invoke-K2sGuestCmd -GuestIp $GuestIp -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
         
         # Get file size
         if (Test-Path $localTarPath) {
