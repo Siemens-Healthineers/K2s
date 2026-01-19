@@ -10,8 +10,9 @@ $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
 $vmNodeModule = "$PSScriptRoot\..\..\k2s.node.module\vmnode\vmnode.module.psm1"
 $kubeToolsModule = "$PSScriptRoot\..\..\k2s.node.module\windowsnode\downloader\artifacts\kube-tools\kube-tools.module.psm1"
 $imageModule = "$PSScriptRoot\..\image\image.module.psm1"
+$k8sApiModule = "$PSScriptRoot\..\k8s-api\k8s-api.module.psm1"
 
-Import-Module $configModule, $logModule, $pathModule, $vmModule, $hooksModule, $kubeToolsModule, $imageModule, $vmNodeModule
+Import-Module $configModule, $logModule, $pathModule, $vmModule, $hooksModule, $kubeToolsModule, $imageModule, $vmNodeModule, $k8sApiModule
 
 $kubePath = Get-KubePath
 $kubeConfigDir = Get-ConfiguredKubeConfigDir
@@ -149,22 +150,50 @@ function Set-WindowsNodePodCIDR {
     # Patch the node PodCIDR
     Write-Log "Patching node '$NodeName' PodCIDR from '$currentPodCIDR' to '$expectedPodCIDR'"
     
-    # Build patch object and convert to JSON to ensure proper formatting
+    # Build patch JSON and write to temp file to avoid PowerShell JSON quoting issues
     $patchObject = @{
         spec = @{
             podCIDR = $expectedPodCIDR
             podCIDRs = @($expectedPodCIDR)
         }
     }
-    
     $patchJson = $patchObject | ConvertTo-Json -Compress -Depth 10
     Write-Log "Patch JSON: $patchJson"
     
-    # Use Invoke-Kubectl to avoid JSON escaping issues with direct kubectl invocation
-    $patchResult = Invoke-Kubectl -Params 'patch', 'node', $NodeName, '--type=merge', '-p', $patchJson
+    $patchFile = [System.IO.Path]::GetTempFileName()
+    try {
+        # Write JSON without BOM (Out-File -Encoding utf8 adds BOM in Windows PowerShell, corrupting JSON)
+        [System.IO.File]::WriteAllText($patchFile, $patchJson, [System.Text.UTF8Encoding]::new($false))
+        
+        # Use kubectl directly with retry logic for transient failures
+        $kubeToolsPath = Get-KubeToolsPath
+        $maxRetries = 3
+        $retryDelay = 2
+        $patchSuccess = $false
+        
+        for ($retry = 1; $retry -le $maxRetries; $retry++) {
+            $patchOutput = &"$kubeToolsPath\kubectl.exe" patch node $NodeName --type=merge --patch-file=$patchFile 2>&1
+            $patchResult = [pscustomobject]@{ Success = ($LASTEXITCODE -eq 0); Output = $patchOutput }
+            
+            if ($patchResult.Success) {
+                $patchSuccess = $true
+                break
+            }
+            
+            Write-Log "[WARN] Patch attempt $retry/$maxRetries failed: $($patchResult.Output)"
+            
+            if ($retry -lt $maxRetries) {
+                Write-Log "Retrying in $retryDelay seconds..."
+                Start-Sleep -Seconds $retryDelay
+            }
+        }
+    }
+    finally {
+        Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
+    }
     
-    if (-not $patchResult.Success) {
-        Write-Log "[ERROR] Failed to patch PodCIDR for node '$NodeName': $($patchResult.Output)" -Console
+    if (-not $patchSuccess) {
+        Write-Log "[ERROR] Failed to patch PodCIDR for node '$NodeName' after $maxRetries attempts: $($patchResult.Output)" -Console
         throw "Failed to patch Windows node PodCIDR. Flannel may not work correctly."
     }
 
