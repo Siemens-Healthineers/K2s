@@ -104,107 +104,71 @@ function Wait-ForNodesReady {
 
 <#
 .SYNOPSIS
-Patches the Windows node PodCIDR to match the expected value configured in config.json.
+Pre-creates a Windows node object with the correct PodCIDR before kubeadm join.
 
 .DESCRIPTION
-After a Windows node joins the cluster, Kubernetes controller-manager automatically allocates
-a PodCIDR from the podSubnet range. However, K2s expects a specific PodCIDR (podNetworkWorkerCIDR)
-that Flannel and other networking components are configured to use. This function patches the
-node's PodCIDR to match the expected value.
+Kubernetes controller-manager auto-allocates a PodCIDR when a node joins the cluster.
+However, K2s expects a specific PodCIDR (podNetworkWorkerCIDR) that Flannel is configured to use.
+Since Kubernetes does not allow changing podCIDR after it's set, we pre-create the node object
+with the correct podCIDR BEFORE kubeadm join runs. When kubeadm join completes, it updates
+the node's status and other fields but preserves the pre-set podCIDR.
 
 .PARAMETER NodeName
-The name of the Windows node to patch.
+The name of the Windows node to pre-create.
 
 .PARAMETER PodSubnetworkNumber
 The pod subnetwork number (e.g., '1' for 172.20.1.0/24).
 #>
-function Set-WindowsNodePodCIDR {
+function Initialize-WindowsNodePodCIDR {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-
-    Write-Log "Patching Windows node '$NodeName' PodCIDR to match expected value"
 
     # Get expected PodCIDR from config.json
     $setupConfigRoot = Get-RootConfigk2s
     $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
     $expectedPodCIDR = $clusterCIDRWorkerTemplate.Replace('X', $PodSubnetworkNumber)
 
-    # Get current PodCIDR from node
-    $currentPodCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="{.spec.podCIDR}" 2>&1
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Log "[WARN] Failed to get current PodCIDR for node '$NodeName': $currentPodCIDR" -Console
+    Write-Log "Pre-creating Windows node '$NodeName' with PodCIDR '$expectedPodCIDR'"
+
+    # Check if node already exists
+    $existingNode = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName --ignore-not-found -o name 2>&1
+    if ($LASTEXITCODE -eq 0 -and $existingNode) {
+        Write-Log "Node '$NodeName' already exists, skipping pre-creation"
         return
     }
 
-    Write-Log "Current PodCIDR: $currentPodCIDR"
-    Write-Log "Expected PodCIDR: $expectedPodCIDR"
-
-    if ($currentPodCIDR -eq $expectedPodCIDR) {
-        Write-Log "PodCIDR already matches expected value, no patching needed"
-        return
-    }
-
-    # Patch the node PodCIDR
-    Write-Log "Patching node '$NodeName' PodCIDR from '$currentPodCIDR' to '$expectedPodCIDR'"
-    
-    # Build patch JSON and write to temp file to avoid PowerShell JSON quoting issues
-    $patchObject = @{
+    # Create the node object with the correct PodCIDR
+    # When kubeadm join runs, it will update this node rather than creating a new one
+    $nodeManifest = @{
+        apiVersion = "v1"
+        kind = "Node"
+        metadata = @{
+            name = $NodeName
+        }
         spec = @{
             podCIDR = $expectedPodCIDR
             podCIDRs = @($expectedPodCIDR)
         }
     }
-    $patchJson = $patchObject | ConvertTo-Json -Compress -Depth 10
-    Write-Log "Patch JSON: $patchJson"
+    $nodeJson = $nodeManifest | ConvertTo-Json -Depth 10
     
-    $patchFile = [System.IO.Path]::GetTempFileName()
+    $nodeFile = [System.IO.Path]::GetTempFileName()
     try {
-        # Write JSON without BOM (Out-File -Encoding utf8 adds BOM in Windows PowerShell, corrupting JSON)
-        [System.IO.File]::WriteAllText($patchFile, $patchJson, [System.Text.UTF8Encoding]::new($false))
+        # Write JSON without BOM (Out-File -Encoding utf8 adds BOM in Windows PowerShell)
+        [System.IO.File]::WriteAllText($nodeFile, $nodeJson, [System.Text.UTF8Encoding]::new($false))
         
-        # Use kubectl directly with retry logic for transient failures
-        $kubeToolsPath = Get-KubeToolsPath
-        $maxRetries = 3
-        $retryDelay = 2
-        $patchSuccess = $false
-        
-        for ($retry = 1; $retry -le $maxRetries; $retry++) {
-            $patchOutput = &"$kubeToolsPath\kubectl.exe" patch node $NodeName --type=merge --patch-file=$patchFile 2>&1
-            $patchResult = [pscustomobject]@{ Success = ($LASTEXITCODE -eq 0); Output = $patchOutput }
-            
-            if ($patchResult.Success) {
-                $patchSuccess = $true
-                break
-            }
-            
-            Write-Log "[WARN] Patch attempt $retry/$maxRetries failed: $($patchResult.Output)"
-            
-            if ($retry -lt $maxRetries) {
-                Write-Log "Retrying in $retryDelay seconds..."
-                Start-Sleep -Seconds $retryDelay
-            }
+        $createOutput = &"$kubeToolsPath\kubectl.exe" create -f $nodeFile 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "[WARN] Failed to pre-create node '$NodeName': $createOutput" -Console
+            Write-Log "Continuing with join - controller-manager will allocate PodCIDR"
+            return
         }
+        Write-Log "Successfully pre-created node '$NodeName' with PodCIDR '$expectedPodCIDR'"
     }
     finally {
-        Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
-    }
-    
-    if (-not $patchSuccess) {
-        Write-Log "[ERROR] Failed to patch PodCIDR for node '$NodeName' after $maxRetries attempts: $($patchResult.Output)" -Console
-        throw "Failed to patch Windows node PodCIDR. Flannel may not work correctly."
-    }
-
-    # Verify the patch was successful
-    $verifyPodCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="{.spec.podCIDR}" 2>&1
-    
-    if ($verifyPodCIDR -eq $expectedPodCIDR) {
-        Write-Log "Successfully patched node PodCIDR to '$expectedPodCIDR'" -Console
-    }
-    else {
-        Write-Log "[WARN] PodCIDR patch may not have applied correctly. Expected: $expectedPodCIDR, Got: $verifyPodCIDR" -Console
+        Remove-Item -Path $nodeFile -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -272,6 +236,10 @@ function Join-WindowsNode {
 
         Write-Log $joinCommand
 
+        # Pre-create the node with correct PodCIDR before kubeadm join
+        # This ensures controller-manager doesn't auto-allocate a different CIDR
+        Initialize-WindowsNodePodCIDR -NodeName $env:COMPUTERNAME.ToLower() -PodSubnetworkNumber $PodSubnetworkNumber
+
         $controlPlaneHostName = Get-ConfigControlPlaneNodeHostname
         $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $controlPlaneHostName"
         Set-Location $tempKubeadmDirectory
@@ -319,8 +287,18 @@ function Join-WindowsNode {
     Write-Log 'Labeling windows node as worker node'
     &"$kubeToolsPath\kubectl.exe" label nodes $env:computername.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
 
-    # Patch node PodCIDR to match expected value for Flannel
-    Set-WindowsNodePodCIDR -NodeName $env:computername.ToLower() -PodSubnetworkNumber $PodSubnetworkNumber
+    # Verify PodCIDR is correct (should have been set by pre-creation before join)
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
+    $expectedPodCIDR = $clusterCIDRWorkerTemplate.Replace('X', $PodSubnetworkNumber)
+    $actualPodCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $env:computername.ToLower() -o jsonpath="{.spec.podCIDR}" 2>&1
+    if ($actualPodCIDR -eq $expectedPodCIDR) {
+        Write-Log "Node PodCIDR correctly set to '$expectedPodCIDR'"
+    }
+    else {
+        Write-Log "[ERROR] Node PodCIDR mismatch. Expected: $expectedPodCIDR, Got: $actualPodCIDR" -Console
+        throw "Windows node PodCIDR mismatch. Expected '$expectedPodCIDR' but got '$actualPodCIDR'. Flannel networking will not work correctly."
+    }
 }
 
 function Join-LinuxNode {
