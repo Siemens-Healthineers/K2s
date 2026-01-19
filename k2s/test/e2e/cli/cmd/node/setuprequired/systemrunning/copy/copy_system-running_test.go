@@ -97,7 +97,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 				GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-				sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
+				sshExec.mustExecEventually(ctx, "mkdir -p "+remoteTempDir)
 			})
 
 			AfterEach(func(ctx context.Context) {
@@ -399,7 +399,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote folder <", existingRemoteFolder, ">")
 
-								sshExec.mustExecEventually(ctx, "mkdir "+existingRemoteFolder)
+								sshExec.mustExecEventually(ctx, "mkdir -p "+existingRemoteFolder)
 							})
 
 							It("copies contents of source folder to existing folder in target dir", func(ctx context.Context) {
@@ -426,7 +426,7 @@ var _ = Describe("node copy", Ordered, func() {
 											dir = path.Join(dir, fileInfo.subFolder)
 
 											GinkgoWriter.Println("Creating remote target sub folder <", dir, ">")
-											sshExec.mustExecEventually(ctx, "mkdir "+dir)
+											sshExec.mustExecEventually(ctx, "mkdir -p "+dir)
 										}
 
 										filePath := path.Join(dir, fileInfo.name)
@@ -1005,7 +1005,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 					GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-					sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
+					sshExec.mustExecEventually(ctx, "mkdir -p "+remoteTempDir)
 				})
 
 				AfterEach(func(ctx context.Context) {
@@ -1212,7 +1212,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFolder = path.Join(remoteTempDir, sourceFolderName)
 
 						GinkgoWriter.Println("Creating remote source folder <", sourceFolder, ">")
-						sshExec.mustExecEventually(ctx, "mkdir "+sourceFolder)
+						sshExec.mustExecEventually(ctx, "mkdir -p "+sourceFolder)
 
 						for _, fileInfo := range sourceFileInfos {
 							dir := sourceFolder
@@ -1221,7 +1221,7 @@ var _ = Describe("node copy", Ordered, func() {
 								dir = path.Join(dir, fileInfo.subFolder)
 
 								GinkgoWriter.Println("Creating remote source sub folder <", dir, ">")
-								sshExec.mustExecEventually(ctx, "mkdir "+dir)
+								sshExec.mustExecEventually(ctx, "mkdir -p "+dir)
 							}
 
 							filePath := path.Join(dir, fileInfo.name)
