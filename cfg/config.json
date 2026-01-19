@@ -59,9 +59,7 @@
                     "priority": "203"
                 }
             ],
-            "vfpapi": [
-                "10.0.20348"
-            ],
+            "vfpapi": [],
             "hnsproxyconfig": {
                 "inboundproxyport": "4143",
                 "outboundproxyport": "4140",
