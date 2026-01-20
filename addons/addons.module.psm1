@@ -1589,10 +1589,16 @@ function Enable-CertManager {
         [Parameter(Mandatory = $false)]
         [string] $MessageType
     )
+    Install-CmctlCli -Proxy $Proxy
+    # Check if cert-manager is already installed
+    Write-Log 'Checking if cert-manager is already installed' -Console
+    if (Wait-ForCertManagerAvailable) {
+        Write-Log 'cert-manager is already installed and ready' -Console
+        return
+    }
 
     try {
-        Install-CmctlCli -Proxy $Proxy
-        
+   
         Install-CertManagerControllers -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
         
         Initialize-CACertificateIssuer -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
@@ -1755,6 +1761,12 @@ function Uninstall-CertManager {
     [CmdletBinding()]
     param()
 
+    # Check if security addon is enabled before uninstalling cert-manager
+    if (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) {
+        Write-Log 'cert-manager is required by the security addon. Skipping uninstallation.' -Console
+        return
+    }
+
     Write-Log 'Uninstalling cert-manager' -Console
     
     $certManagerConfig = Get-CertManagerConfig
@@ -1781,5 +1793,5 @@ Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik,
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
-Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties,
+Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
 Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds

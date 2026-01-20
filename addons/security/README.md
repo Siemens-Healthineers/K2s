@@ -6,11 +6,9 @@ SPDX-License-Identifier: MIT
 
 # security addon
 
-Purpose: Enables secure communication and authentication into / out of the cluster (basic) and inside the cluster (enhanced).
+Purpose: Enables secure communication into / out of the cluster (basic) and inside the cluster (enhanced).
 
-Our strategy is to achieve **security through infrastructure**, effectively offloading fundamental security concerns like mutual TLS encryption, authentication, and authorization from the application layer. Instead of requiring every development team to build and maintain these complex security features within their own code, we leverage platform-level tools like service meshes (e.g., Linkerd) and identity providers (e.g., Keycloak). This allows application developers to focus solely on core business logic, accelerates development cycles, and ensures a consistent, standardized security posture enforced by the platform, not reinvented in every application (container or non-container).
-
-**Note:** Certificate management (cert-manager) is now handled by the ingress addons. See [ingress nginx README](../ingress/nginx/README.md#certificate-management-with-cert-manager) for TLS certificate configuration.
+Our strategy is to achieve **security through infrastructure**, effectively offloading fundamental security concerns like mutual TLS encryption, authentication, and authorization from the application layer. Instead of requiring every development team to build and maintain these complex security features within their own code, we leverage platform-level tools like service meshes (e.g., Linkerd), identity providers (e.g., Keycloak), and certificate managers (e.g., cert-manager). This allows application developers to focus solely on core business logic, accelerates development cycles, and ensures a consistent, standardized security posture enforced by the platform, not reinvented in every application (container or non-container).
 
 ![Upstream - downstream](doc/downstream-upstream.drawio.png)
 
@@ -76,23 +74,56 @@ If a component is omitted, the corresponding authentication or user management f
 
 ## Components used
 
-This addon installs workloads needed to secure network communication and manage authentication. Components include (some optional via flags):
+This addon installs workloads needed to secure the network communication by configuration. This includes (all optional via flags except cert-manager, trust-manager, and linkerd):
+
+- [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
 
 - [keycloak](https://www.keycloak.org/) - services for identity and access management. `keycloak` provides user federation, strong authentication, user management, fine-grained authorization, and more. _(Can be omitted with -OmitKeycloak)_
 
-- [oauth2 proxy](https://github.com/oauth2-proxy/oauth2-proxy) - OAuth2 Proxy offloads the burden of implementing authentication logic from your applications. _(Can be omitted with -OmitOAuth2Proxy)_
-
-- [ory hydra](https://github.com/ory/hydra) - using this "headless" OAuth2 and OIDC provider for providing the local user management on the windows host as part of the identity provider. _(Can be omitted with -OmitHydra)_
-
-**Enhanced security mode only:**
+- [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) - trust-manager is a small Kubernetes operator which reduces the overhead of managing TLS trust bundles in your clusters, providing a much quicker way to update trust stores when they need to change.
 
 - [linkerd](https://linkerd.io/) - service mesh implementation. `linkerd` adds security, observability, and reliability to any Kubernetes cluster. Linkerd latest versions are adapted to work also on windows hosts for windows containers.
 
-- [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) - trust-manager is a small Kubernetes operator which reduces the overhead of managing TLS trust bundles in your clusters, used by Linkerd for distributing CA certificates for service mesh mTLS.
+- [ory hydra](https://github.com/ory/hydra) - using this "headless" OAuth2 and OIDC provider for providing the local user management on the windows host as part of the identity provider. _(Can be omitted with -OmitHydra)_
 
-**Note:** Certificate management for ingress TLS is handled by cert-manager, which is automatically installed with ingress addons. See [ingress nginx documentation](../ingress/nginx/README.md#certificate-management-with-cert-manager).
+- [oauth2 proxy](https://github.com/oauth2-proxy/oauth2-proxy) - OAuth2 Proxy offloads the burden of implementing authentication logic from your applications.
 
 ## How to use it
+
+### Certificate Management wit cert-manager
+
+Cert-manager is a powerful and widely-adopted add-on for Kubernetes that automates the management, issuance, and renewal of TLS certificates. It brings the crucial task of securing communication with Transport Layer Security (TLS) directly into the Kubernetes ecosystem, eliminating the need for manual certificate handling and reducing the risk of outages due to expired certificates.
+
+In terms of [cert-manager](https://cert-manager.io/docs/), this addon configures a global `ClusterIssuer` of type CA (Certification Authority) named: **k2s-ca-issuer**. This issuer can be used in annotations to obtain and renew certificates.  
+See: [CA Issuer](https://cert-manager.io/docs/configuration/ca/)
+
+The addon also imports the public certificate of the CA Issuer into the trusted authorities of your windows host, and installs the `cmctl.exe` CLI.
+
+In order to secure the ingress to your _Kubernetes_ application, follow [this description](https://cert-manager.io/docs/usage/ingress/#how-it-works):
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    ...
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: your-ingress-host.domain
+...
+spec:
+...
+  tls:
+  - hosts:
+    - your-ingress-host.domain
+    secretName: your-secret-name
+```
+
+cert-manager will observe annotations, create a certificate and store it in the secret named 'your-secret-name' so that the ingress class uses it.
+
+If you enable one of `ingress nginx` or `ingress traefik` addon, and also the `dashboard` addon, you can inspect the
+server certificate by visiting the dashboard URL in your browser and clicking on the lock icon: <https://k2s.cluster.local>. This is done with [this manifest file](../ingress/nginx/manifests/cluster-local-ingress.yaml).
+
+You can also use the command line interface `cmctl.exe` to interact with cert-manager, it is installed in the `bin` path of your K2s install directory.
 
 ### Identity and access management with keycloak
 
@@ -152,17 +183,18 @@ Unlike traditional identity platforms that bundle user management, Hydra is desi
 
 ## Further Reading
 
-- Keycloak Docs: <https://www.keycloak.org/documentation>
-- Keycloak Code: <https://github.com/keycloak/keycloak>
-- Linkerd Docs: <https://linkerd.io/2-edge/overview/>
-- Linkerd Code: <https://github.com/linkerd/linkerd2>
-- Trust-manager Docs: <https://cert-manager.io/docs/trust/trust-manager/>
-- Trust-manager Code: <https://github.com/cert-manager/trust-manager>
-- OAuth2 Proxy Docs: <https://oauth2-proxy.github.io/oauth2-proxy/>
-- OAuth2 Proxy Code: <https://github.com/oauth2-proxy/oauth2-proxy>
-- Ory Hydra Docs: <https://www.ory.sh/hydra>
-- Ory Hydra Code: <https://github.com/ory/hydra>
-- **For cert-manager documentation, see:** [ingress nginx README](../ingress/nginx/README.md#certificate-management-with-cert-manager)
+- Docs: <https://cert-manager.io/docs/>
+- Code: <https://github.com/cert-manager/cert-manager>
+- Docs: <https://www.keycloak.org/documentation>
+- Code: <https://github.com/keycloak/keycloak>
+- Docs: <https://linkerd.io/2-edge/overview/>
+- Code: <https://github.com/linkerd/linkerd2>
+- Docs: <https://cert-manager.io/docs/trust/trust-manager/>
+- Code: <https://github.com/cert-manager/trust-manager>
+- Docs: <https://oauth2-proxy.github.io/oauth2-proxy/>
+- Code: <https://github.com/oauth2-proxy/oauth2-proxy>
+- Docs: <https://www.ory.sh/hydra>
+- Code: <https://github.com/ory/hydra>
 
 ## Knowledge Base
 
@@ -176,6 +208,6 @@ Unlike traditional identity platforms that bundle user management, Hydra is desi
 
   and deleting the settings for your site.
 
-## Guiding principle
+## Guiding principale
 
-The guiding principle is to provide security as an inherent property of the infrastructure, rather than an optional add-on implemented per application. By deploying components that transparently handle authentication and authorization (Keycloak, OAuth2 Proxy), service mesh encryption (Linkerd for enhanced mode), and leveraging ingress-level TLS (cert-manager via ingress addons), we abstract away the underlying complexity for application developers. This allows us to move towards a 'secure by default' environment, where essential security mechanisms are automatically applied to workloads simply by deploying them onto the protected infrastructure, without requiring explicit security code within the application itself.
+The guiding principle is to provide security as an inherent property of the infrastructure, rather than an optional add-on implemented per application. By deploying components that transparently handle TLS encryption (cert-manager, service mesh), manage identities and tokens (Keycloak), and mediate access (service mesh, API gateways), we abstract away the underlying complexity for application developers. This allows us to move towards a 'secure by default' environment, where essential security mechanisms are automatically applied to workloads simply by deploying them onto the meshed or protected infrastructure, without requiring explicit security code within the application itself.

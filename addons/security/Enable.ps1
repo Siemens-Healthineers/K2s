@@ -103,20 +103,31 @@ if (Confirm-EnhancedSecurityOn($Type)) {
 
 try {
 
+	# Install cert-manager first (required for TLS certificate generation)
+	Write-Log 'Checking if cert-manager is already installed' -Console
+	if (Wait-ForCertManagerAvailable) {
+		Write-Log 'cert-manager is already installed and ready' -Console
+	} else {
+		Write-Log 'Installing cert-manager' -Console
+		Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
+	}
+
+	# Check for existing ingress controller or enable one
 	if (Test-NginxIngressControllerAvailability) {
-		$activeIngress = 'nginx'
+		# Ensure certificate exists
+		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
-		$activeIngress = 'traefik'
+		Ensure-IngressTlsCertificate -IngressType 'traefik' | Out-Null
 	}
 	elseif (Test-NginxGatewayAvailability) {
-		$activeIngress = 'nginx-gw'
+		Ensure-IngressTlsCertificate -IngressType 'nginx-gw' | Out-Null
 	}
 	else {
-		#Enable required ingress addon
+		# Enable required ingress addon
 		Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
 		Enable-IngressAddon -Ingress:$Ingress
-		$activeIngress = $Ingress
+		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
 	}
 
 	# Keycloak and Hydra setup (conditional)

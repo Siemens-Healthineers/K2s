@@ -195,4 +195,55 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available")))),
 		))
 	})
+
+	It("does not remove cert-manager when security addon is enabled", func(ctx context.Context) {
+		// Enable security addon
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "security", "-o")
+		suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager", "cert-manager")
+		suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager-webhook", "cert-manager")
+
+		// Disable ingress traefik
+		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
+
+		// Verify cert-manager is still present
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(err).To(BeNil(), "cmctl.exe should still exist when security addon is enabled")
+
+		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		Expect(output).To(ContainSubstring("ca-issuer-root-secret"), "CA root certificate should still exist when security addon is enabled")
+
+		suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager", "cert-manager")
+		suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager-webhook", "cert-manager")
+
+		// Clean up - disable security addon
+		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "cert-manager", "cert-manager")
+	})
+
+	It("removes cert-manager when security addon is not enabled", func(ctx context.Context) {
+		// Re-enable ingress traefik to have cert-manager installed
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "traefik", "-o")
+		suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager", "cert-manager")
+
+		// Verify cert-manager is present
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(err).To(BeNil(), "cmctl.exe should exist before disabling")
+
+		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		Expect(output).To(ContainSubstring("ca-issuer-root-secret"), "CA root certificate should exist before disabling")
+
+		// Disable ingress traefik (without security addon enabled)
+		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
+
+		// Verify cert-manager is removed
+		_, err = os.Stat(cmCtlPath)
+		Expect(os.IsNotExist(err)).To(BeTrue(), "cmctl.exe should be removed when security addon is not enabled")
+
+		output = suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"), "CA root certificate should be removed when security addon is not enabled")
+
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "cert-manager", "cert-manager")
+	})
 })

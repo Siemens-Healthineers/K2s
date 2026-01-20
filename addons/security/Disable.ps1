@@ -50,7 +50,6 @@ if ($systemError) {
     exit 1
 }
 if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
-# if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
     $errMsg = "Addon 'security' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -61,6 +60,14 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $t
     
     Write-Log $errMsg -Error
     exit 1
+}
+
+Write-Log 'Checking if cert-manager can be uninstalled' -Console
+if (Test-NginxIngressControllerAvailability -or Test-TraefikIngressControllerAvailability -or Test-NginxGatewayAvailability) {
+    Write-Log 'cert-manager is required by one or more enabled ingress addons. Skipping cert-manager uninstallation.' -Console
+} else {
+    Write-Log 'Uninstalling cert-manager' -Console
+    Uninstall-CertManager
 }
 
 $oauth2ProxyYaml = Get-OAuth2ProxyConfig

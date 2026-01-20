@@ -1509,15 +1509,67 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
             )
         }
         Mock -ModuleName $moduleName Remove-Item { }
+        Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
     }
 
-    It 'deletes manifests, removes cmctl, and removes CA cert from trusted root' {
+    It 'deletes manifests, removes cmctl, and removes CA cert from trusted root when security addon is disabled' {
         InModuleScope -ModuleName $moduleName {
             Uninstall-CertManager
 
+            Should -Invoke Test-IsAddonEnabled -Times 1 -Scope It -ParameterFilter { $Addon.Name -eq 'security' }
             Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' -and $Params -contains '-f' }
             Should -Invoke Remove-Cmctl -Times 1 -Scope It
             Should -Invoke Remove-Item -Times 1 -Scope It
+        }
+    }
+
+    It 'skips uninstallation when security addon is enabled' {
+        InModuleScope -ModuleName $moduleName {
+            Mock Test-IsAddonEnabled { return $true }
+
+            Uninstall-CertManager
+
+            Should -Invoke Test-IsAddonEnabled -Times 1 -Scope It -ParameterFilter { $Addon.Name -eq 'security' }
+            Should -Invoke Invoke-Kubectl -Times 0 -Scope It
+            Should -Invoke Remove-Cmctl -Times 0 -Scope It
+            Should -Invoke Remove-Item -Times 0 -Scope It
+        }
+    }
+}
+
+Describe 'Enable-CertManager' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $false }
+        Mock -ModuleName $moduleName Install-CmctlCli { }
+        Mock -ModuleName $moduleName Install-CertManagerControllers { }
+        Mock -ModuleName $moduleName Initialize-CACertificateIssuer { }
+        Mock -ModuleName $moduleName Import-CACertificateToWindowsStore { }
+    }
+
+    It 'installs cert-manager when not already installed' {
+        InModuleScope -ModuleName $moduleName {
+            Enable-CertManager
+
+            Should -Invoke Wait-ForCertManagerAvailable -Times 1 -Scope It
+            Should -Invoke Install-CmctlCli -Times 1 -Scope It
+            Should -Invoke Install-CertManagerControllers -Times 1 -Scope It
+            Should -Invoke Initialize-CACertificateIssuer -Times 1 -Scope It
+            Should -Invoke Import-CACertificateToWindowsStore -Times 1 -Scope It
+        }
+    }
+
+    It 'skips installation when cert-manager is already installed and ready' {
+        InModuleScope -ModuleName $moduleName {
+            Mock Wait-ForCertManagerAvailable { return $true }
+
+            Enable-CertManager
+
+            Should -Invoke Wait-ForCertManagerAvailable -Times 1 -Scope It
+            Should -Invoke Install-CmctlCli -Times 0 -Scope It
+            Should -Invoke Install-CertManagerControllers -Times 0 -Scope It
+            Should -Invoke Initialize-CACertificateIssuer -Times 0 -Scope It
+            Should -Invoke Import-CACertificateToWindowsStore -Times 0 -Scope It
         }
     }
 }
