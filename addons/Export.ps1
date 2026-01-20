@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -140,13 +140,11 @@ try {
                 $dirPath = Join-Path -Path $($manifest.dir.path) -ChildPath $($implementation.name)
             }
 
-            # Convert addon name like "ingress nginx" to "ingress_nginx"
              $addonFolderName = ($addonName -split '\s+') -join '_'
 
              # Destination path for OCI artifact: $tmpExportDir\artifacts\ingress_nginx
              $artifactPath = Join-Path -Path $tmpExportDir -ChildPath "artifacts\$addonFolderName"
 
-             # Ensure artifact directory exists
              if (-not (Test-Path $artifactPath)) {
                  New-Item -ItemType Directory -Path $artifactPath -Force | Out-Null
              }
@@ -162,13 +160,11 @@ try {
              New-Item -ItemType Directory -Path $packagesStaging -Force | Out-Null
              New-Item -ItemType Directory -Path $imagesStaging -Force | Out-Null
 
-             # Copy manifests directory
              $sourceManifestsDir = Join-Path $dirPath 'manifests'
              if (Test-Path $sourceManifestsDir) {
                  Copy-Item -Path (Join-Path $sourceManifestsDir '*') -Destination $manifestsStaging -Recurse -Force -ErrorAction SilentlyContinue
              }
 
-             # Copy scripts (Enable.ps1, Disable.ps1, Get-Status.ps1, Update.ps1, README.md, *.psm1)
              @('Enable.ps1', 'Disable.ps1', 'Get-Status.ps1', 'Update.ps1', 'README.md') | ForEach-Object {
                  $scriptPath = Join-Path $dirPath $_
                  if (Test-Path $scriptPath) {
@@ -177,6 +173,23 @@ try {
              }
              Get-ChildItem -Path $dirPath -Filter '*.psm1' -ErrorAction SilentlyContinue | ForEach-Object {
                  Copy-Item -Path $_.FullName -Destination $scriptsStaging -Force
+             }
+             
+             @('*.png', '*.jpg', '*.jpeg', '*.gif', '*.svg', '*.drawio', '*.drawio.png', '*.md') | ForEach-Object {
+                 Get-ChildItem -Path $dirPath -Filter $_ -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+                     if ($_.Name -ne 'README.md') {
+                         $relativePath = $_.FullName.Substring($dirPath.Length + 1)
+                         $targetPath = Join-Path $scriptsStaging $relativePath
+                         $targetDir = Split-Path $targetPath -Parent
+                         
+                         if (-not (Test-Path $targetDir)) {
+                             New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                         }
+                         
+                         Copy-Item -Path $_.FullName -Destination $targetPath -Force
+                         Write-Log "[OCI] Copying documentation asset: $relativePath"
+                     }
+                 }
              }
 
             # Handle addon.manifest.yaml
