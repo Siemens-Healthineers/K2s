@@ -159,7 +159,7 @@ function Resolve-DebMetaPackages {
     $Result.Failures = $remaining
 }
 
-# --- Helper: fallback copy from apt cache if no debs yet
+# --- Helper: fallback copy from apt cache for failed packages
 function Invoke-DebCacheFallback {
     param(
         [string] $RemoteDir,
@@ -186,13 +186,111 @@ function Invoke-DebCacheFallback {
             return ,$sshArgs
         }
     }
-    if ($Result.DebFiles.Count -gt 0) { return }
-    Write-Log '[DebPkg][DL] No deb files after per-package attempts; invoking cache fallback' -Console
-    $fallbackCmd = "bash -c 'cd $RemoteDir; cp -a /var/cache/apt/archives/*.deb . 2>/dev/null || true; ls -1 *.deb 2>/dev/null || true'"
-    $fallbackOut = & $SshClient @((_BaseArgsLocal) + $fallbackCmd) 2>&1
-    $fbDebs = $fallbackOut | Where-Object { $_ -like '*.deb' }
-    if ($fbDebs) { $Result.DebFiles = ($fbDebs | Sort-Object -Unique); $Result.UsedFallback = $true }
-    $Result.Diagnostics += ($fallbackOut | Select-Object -First 40)
+    
+    # Phase 1: Bulk fallback if no debs at all
+    if ($Result.DebFiles.Count -eq 0) {
+        Write-Log '[DebPkg][DL] No deb files after per-package attempts; invoking bulk cache fallback' -Console
+        $fallbackCmd = "bash -c 'cd $RemoteDir; cp -a /var/cache/apt/archives/*.deb . 2>/dev/null || true; ls -1 *.deb 2>/dev/null || true'"
+        $fallbackOut = & $SshClient @((_BaseArgsLocal) + $fallbackCmd) 2>&1
+        $fbDebs = @($fallbackOut | Where-Object { $_ -like '*.deb' })
+        if ($fbDebs.Count -gt 0) { $Result.DebFiles = ($fbDebs | Sort-Object -Unique); $Result.UsedFallback = $true }
+        $Result.Diagnostics += @($fallbackOut | Select-Object -First 40)
+    }
+    
+    # Phase 2: Try to find specific failed packages in apt cache
+    if ($Result.Failures.Count -gt 0) {
+        Write-Log "[DebPkg][DL] Attempting cache fallback for $($Result.Failures.Count) failed specs..." -Console
+        $resolvedFromCache = @()
+        
+        foreach ($failedSpec in $Result.Failures) {
+            # Parse package name and version from spec (format: pkgname=version)
+            if ($failedSpec -match '^(?<pkg>[^=]+)=(?<ver>.+)$') {
+                $pkgName = $matches['pkg']
+                $pkgVer = $matches['ver']
+                
+                # Escape special characters for shell glob pattern
+                $pkgVerEscaped = $pkgVer -replace '\+', '\\+' -replace ':', '%3a'
+                
+                # Try to find matching .deb in apt cache (format: pkgname_version_arch.deb)
+                $findCmd = "bash -c 'ls -1 /var/cache/apt/archives/${pkgName}_${pkgVerEscaped}_*.deb 2>/dev/null || true'"
+                $findOut = & $SshClient @((_BaseArgsLocal) + $findCmd) 2>&1
+                $foundDebs = @($findOut | Where-Object { $_ -like '*.deb' -and $_ -notmatch 'No such file' })
+                
+                if ($foundDebs.Count -gt 0) {
+                    Write-Log "[DebPkg][DL] Found cached .deb for $failedSpec" -Console
+                    
+                    # Copy to staging directory
+                    foreach ($debPath in $foundDebs) {
+                        $copyCmd = "bash -c 'cp -a `"$debPath`" $RemoteDir/ 2>&1 && basename `"$debPath`"'"
+                        $copyOut = & $SshClient @((_BaseArgsLocal) + $copyCmd) 2>&1
+                        $debName = $copyOut | Where-Object { $_ -like '*.deb' } | Select-Object -First 1
+                        
+                        if ($debName -and ($Result.DebFiles -notcontains $debName)) {
+                            $Result.DebFiles += $debName
+                            Write-Log "[DebPkg][DL] Copied from cache: $debName" -Console
+                        }
+                    }
+                    $resolvedFromCache += $failedSpec
+                    $Result.UsedFallback = $true
+                    
+                    # Add resolution record
+                    $Result.Resolutions += [PSCustomObject]@{
+                        Spec     = $failedSpec
+                        Provided = $pkgVer
+                        Files    = @($foundDebs | ForEach-Object { Split-Path -Leaf $_ })
+                        Method   = 'cache-fallback'
+                    }
+                } else {
+                    # Try broader search with just package name prefix
+                    $broadFindCmd = "bash -c 'ls -1 /var/cache/apt/archives/${pkgName}_*.deb 2>/dev/null | head -n 5 || true'"
+                    $broadOut = & $SshClient @((_BaseArgsLocal) + $broadFindCmd) 2>&1
+                    $broadDebs = @($broadOut | Where-Object { $_ -like '*.deb' })
+                    
+                    if ($broadDebs.Count -gt 0) {
+                        # Check if any of these match the version closely
+                        foreach ($debPath in $broadDebs) {
+                            $debName = Split-Path -Leaf $debPath
+                            # Extract version from deb filename: pkgname_version_arch.deb
+                            if ($debName -match "^${pkgName}_(?<debver>[^_]+)_[^_]+\.deb$") {
+                                $debVer = $matches['debver']
+                                # Decode URL-encoded chars for comparison
+                                $debVerDecoded = $debVer -replace '%3a', ':'
+                                $baseVer = ($pkgVer -split '\+')[0]
+                                
+                                # If version matches or is close (same base version), use it
+                                if ($debVerDecoded -eq $pkgVer -or $debVerDecoded.StartsWith($baseVer)) {
+                                    Write-Log "[DebPkg][DL] Using close match: $debName (wanted $pkgVer, found $debVerDecoded)" -Console
+                                    $copyCmd = "bash -c 'cp -a `"$debPath`" $RemoteDir/ 2>&1'"
+                                    $null = & $SshClient @((_BaseArgsLocal) + $copyCmd) 2>&1
+                                    
+                                    if ($Result.DebFiles -notcontains $debName) {
+                                        $Result.DebFiles += $debName
+                                    }
+                                    $resolvedFromCache += $failedSpec
+                                    $Result.UsedFallback = $true
+                                    
+                                    # Add resolution record
+                                    $Result.Resolutions += [PSCustomObject]@{
+                                        Spec     = $failedSpec
+                                        Provided = $debVerDecoded
+                                        Files    = @($debName)
+                                        Method   = 'cache-fallback-close'
+                                    }
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        # Remove resolved specs from failures
+        if ($resolvedFromCache.Count -gt 0) {
+            Write-Log "[DebPkg][DL] Resolved $($resolvedFromCache.Count) specs from apt cache" -Console
+            $Result.Failures = @($Result.Failures | Where-Object { $resolvedFromCache -notcontains $_ })
+        }
+    }
 }
 
 # --- Helper: revision substitution (probing higher ~deb12u revisions and plain fallback)
