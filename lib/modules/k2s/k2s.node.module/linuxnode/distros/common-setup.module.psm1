@@ -80,12 +80,13 @@ Function Set-UpComputerBeforeProvisioning {
 
     if ( $Proxy -ne '' ) {
         Write-Log "Setting proxy '$Proxy' for apt"
-        &$executeRemoteCommand -Command 'sudo touch /etc/apt/apt.conf.d/proxy.conf'
+        # Add retries to handle transient network errors like "Software caused connection abort"
+        &$executeRemoteCommand -Command 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -Retries 3
         if ($PSVersionTable.PSVersion.Major -gt 5) {
-            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
+            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -Retries 3
         }
         else {
-            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
+            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -Retries 3
         }
     }
 
