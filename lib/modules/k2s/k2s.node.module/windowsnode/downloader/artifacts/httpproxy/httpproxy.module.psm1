@@ -51,6 +51,7 @@ function Start-WinHttpProxy {
     )
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
     if ($OnlyProxy) { return }
+    Confirm-LoopbackAdapterIP
     Start-ServiceAndSetToAutoStart -Name 'flanneld'
 }
 
