@@ -66,6 +66,10 @@ func (k2s *K2s) VerifyImageIsNotAvailableOnAnyNode(ctx context.Context, name str
 	Fail(fmt.Sprintf("Image '%s' must not be available on any node", name))
 }
 
+func (k2s *K2s) IsImageNotAvailableOnAnyNode(ctx context.Context, name string) bool {
+	return !k2s.isImageAvailableOnLinuxNode(name) && !k2s.isImageAvailableOnWindowsNode(ctx, name)
+}
+
 func (k2s *K2s) VerifyImageIsNotAvailableInLocalRegistry(ctx context.Context, name string) {
 	if !k2s.isImageAvailableInLocalRegistry(ctx, name) {
 		return
