@@ -89,6 +89,13 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 			GinkgoWriter.Printf("Exporting all addons to %s", exportPath)
 			suite.K2sCli().MustExec(ctx, "addons", "export", "-d", exportPath, "-o")
+
+			// Find the exported OCI file
+			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-all.oci.tar"))
+			Expect(err).To(BeNil())
+			Expect(len(files)).To(Equal(1), "Should create exactly one versioned OCI tar file")
+			exportedOciFile = files[0]
+			GinkgoWriter.Printf("Exported OCI file: %s\n", exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
@@ -99,13 +106,9 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		})
 
 		It("addons are exported to versioned OCI tar file", func(ctx context.Context) {
-			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-all.oci.tar"))
-			Expect(err).To(BeNil())
-			Expect(len(files)).To(Equal(1), "Should create exactly one versioned OCI tar file")
-
-			exportedOciFile = files[0]
-			_, err = os.Stat(exportedOciFile)
-			Expect(os.IsNotExist(err)).To(BeFalse())
+			Expect(exportedOciFile).NotTo(BeEmpty(), "exportedOciFile should be set")
+			_, err := os.Stat(exportedOciFile)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "Exported OCI file should exist at %s", exportedOciFile)
 		})
 
 		It("contains a folder for every exported addon with OCI layered structure", func(ctx context.Context) {
