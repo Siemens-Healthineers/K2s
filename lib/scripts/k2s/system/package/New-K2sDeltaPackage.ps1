@@ -790,12 +790,34 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
     }
 }
 
+# Read VERSION files from packages
+$baseVersionFile = Join-Path $oldExtract 'VERSION'
+$targetVersionFile = Join-Path $newExtract 'VERSION'
+$baseVersion = $null
+$targetVersion = $null
+
+if (Test-Path -LiteralPath $baseVersionFile) {
+    $baseVersion = (Get-Content -LiteralPath $baseVersionFile -Raw -ErrorAction SilentlyContinue).Trim()
+    Write-Log "Base package version: $baseVersion" -Console
+} else {
+    Write-Log "[Warning] VERSION file not found in base package" -Console
+}
+
+if (Test-Path -LiteralPath $targetVersionFile) {
+    $targetVersion = (Get-Content -LiteralPath $targetVersionFile -Raw -ErrorAction SilentlyContinue).Trim()
+    Write-Log "Target package version: $targetVersion" -Console
+} else {
+    Write-Log "[Warning] VERSION file not found in target package" -Console
+}
+
 # Build manifest
 $manifest = [pscustomobject]@{
     ManifestVersion       = '2.0'
     GeneratedUtc          = [DateTime]::UtcNow.ToString('o')
     BasePackage           = (Split-Path -Leaf $InputPackageOne)
     TargetPackage         = (Split-Path -Leaf $InputPackageTwo)
+    BaseVersion           = $baseVersion
+    TargetVersion         = $targetVersion
     WholeDirectories      = $wholeDirsNormalized
     WholeDirectoriesCount = $wholeDirsNormalized.Count
     SpecialSkippedFiles   = $SpecialSkippedFiles
