@@ -396,24 +396,34 @@ if ($isOciArtifact) {
             # Check if we extracted individual image tars or a single image
             $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
             
+            Write-Log "[OCI] Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
+            if ($extractedTars.Count -gt 0) {
+                foreach ($tar in $extractedTars) {
+                    Write-Log "[OCI]   - $($tar.Name) ($([math]::Round($tar.Length / 1MB, 2)) MB)" -Console
+                }
+            }
+            
             $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
             if ($extractedTars.Count -gt 0) {
                 # Multiple image tars extracted - use directory import
                 Write-Log "[OCI] Found $($extractedTars.Count) image tar(s), importing from directory" -Console
                 &$importImageScript -ImageDir $tempImagesDir -ShowLogs:$ShowLogs
+                $importExitCode = $LASTEXITCODE
             } else {
                 # Single image tar - check if extraction created image files directly
                 $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
                 if ($imageFiles.Count -gt 0) {
                     Write-Log "[OCI] Importing extracted image files from directory" -Console
                     &$importImageScript -ImageDir $tempImagesDir -ShowLogs:$ShowLogs
+                    $importExitCode = $LASTEXITCODE
                 } else {
                     Write-Log "[OCI] Warning: No image files found after extraction" -Console
+                    $importExitCode = 1
                 }
             }
             
-            if (!$?) {
-                Write-Log "[OCI] Warning: Linux images import failed for $($addon.name)" -Console
+            if ($importExitCode -ne 0) {
+                Write-Log "[OCI] Warning: Linux images import failed for $($addon.name) with exit code $importExitCode" -Console
             } else {
                 Write-Log "[OCI] Linux images imported successfully for $($addon.name)" -Console
             }
@@ -455,18 +465,21 @@ if ($isOciArtifact) {
             if ($extractedTars.Count -gt 0) {
                 Write-Log "[OCI] Found $($extractedTars.Count) Windows image tar(s), importing from directory" -Console
                 &$importImageScript -ImageDir $tempImagesDir -Windows -ShowLogs:$ShowLogs
+                $importExitCode = $LASTEXITCODE
             } else {
                 $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
                 if ($imageFiles.Count -gt 0) {
                     Write-Log "[OCI] Importing extracted Windows image files from directory" -Console
                     &$importImageScript -ImageDir $tempImagesDir -Windows -ShowLogs:$ShowLogs
+                    $importExitCode = $LASTEXITCODE
                 } else {
                     Write-Log "[OCI] Warning: No Windows image files found after extraction" -Console
+                    $importExitCode = 1
                 }
             }
             
-            if (!$?) {
-                Write-Log "[OCI] Warning: Windows images import failed for $($addon.name)" -Console
+            if ($importExitCode -ne 0) {
+                Write-Log "[OCI] Warning: Windows images import failed for $($addon.name) with exit code $importExitCode" -Console
             } else {
                 Write-Log "[OCI] Windows images imported successfully for $($addon.name)" -Console
             }
