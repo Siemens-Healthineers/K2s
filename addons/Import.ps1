@@ -371,17 +371,110 @@ if ($isOciArtifact) {
         # Import Layer 4: Linux Images
         $linuxImagesLayer = Join-Path $artifactDir 'images-linux.tar'
         if (Test-Path $linuxImagesLayer) {
-            Write-Log "[OCI] Importing Linux images layer" -Console
+            Write-Log "[OCI] Importing Linux images layer from: $linuxImagesLayer" -Console
+            
+            # Check if this is a consolidated tar (tar of tars) or single image tar
+            # Extract to temp directory first to handle both cases
+            $tempImagesDir = Join-Path $artifactDir 'images-linux-extracted'
+            if (-not (Test-Path $tempImagesDir)) {
+                New-Item -ItemType Directory -Path $tempImagesDir -Force | Out-Null
+            }
+            
+            # Extract the tar file
+            $currentLocation = Get-Location
+            try {
+                Set-Location $tempImagesDir
+                $extractResult = & tar -xf $linuxImagesLayer 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Log "[OCI] Warning: Failed to extract Linux images tar: $extractResult" -Console
+                }
+            }
+            finally {
+                Set-Location $currentLocation
+            }
+            
+            # Check if we extracted individual image tars or a single image
+            $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
+            
             $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
-            &$importImageScript -ImagePath $linuxImagesLayer -ShowLogs:$ShowLogs
+            if ($extractedTars.Count -gt 0) {
+                # Multiple image tars extracted - use directory import
+                Write-Log "[OCI] Found $($extractedTars.Count) image tar(s), importing from directory" -Console
+                &$importImageScript -ImageDir $tempImagesDir -ShowLogs:$ShowLogs
+            } else {
+                # Single image tar - check if extraction created image files directly
+                $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
+                if ($imageFiles.Count -gt 0) {
+                    Write-Log "[OCI] Importing extracted image files from directory" -Console
+                    &$importImageScript -ImageDir $tempImagesDir -ShowLogs:$ShowLogs
+                } else {
+                    Write-Log "[OCI] Warning: No image files found after extraction" -Console
+                }
+            }
+            
+            if (!$?) {
+                Write-Log "[OCI] Warning: Linux images import failed for $($addon.name)" -Console
+            } else {
+                Write-Log "[OCI] Linux images imported successfully for $($addon.name)" -Console
+            }
+            
+            # Cleanup extracted images
+            Remove-Item -Path $tempImagesDir -Recurse -Force -ErrorAction SilentlyContinue
+        } else {
+            Write-Log "[OCI] No Linux images layer found for $($addon.name)"
         }
         
         # Import Layer 5: Windows Images
         $windowsImagesLayer = Join-Path $artifactDir 'images-windows.tar'
         if ((Test-Path $windowsImagesLayer) -and (-not $setupInfo.LinuxOnly)) {
-            Write-Log "[OCI] Importing Windows images layer" -Console
+            Write-Log "[OCI] Importing Windows images layer from: $windowsImagesLayer" -Console
+            
+            # Check if this is a consolidated tar (tar of tars) or single image tar
+            $tempImagesDir = Join-Path $artifactDir 'images-windows-extracted'
+            if (-not (Test-Path $tempImagesDir)) {
+                New-Item -ItemType Directory -Path $tempImagesDir -Force | Out-Null
+            }
+            
+            # Extract the tar file
+            $currentLocation = Get-Location
+            try {
+                Set-Location $tempImagesDir
+                $extractResult = & tar -xf $windowsImagesLayer 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Log "[OCI] Warning: Failed to extract Windows images tar: $extractResult" -Console
+                }
+            }
+            finally {
+                Set-Location $currentLocation
+            }
+            
+            # Check if we extracted individual image tars
+            $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
+            
             $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
-            &$importImageScript -Windows -ImagePath $windowsImagesLayer -ShowLogs:$ShowLogs
+            if ($extractedTars.Count -gt 0) {
+                Write-Log "[OCI] Found $($extractedTars.Count) Windows image tar(s), importing from directory" -Console
+                &$importImageScript -ImageDir $tempImagesDir -Windows -ShowLogs:$ShowLogs
+            } else {
+                $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
+                if ($imageFiles.Count -gt 0) {
+                    Write-Log "[OCI] Importing extracted Windows image files from directory" -Console
+                    &$importImageScript -ImageDir $tempImagesDir -Windows -ShowLogs:$ShowLogs
+                } else {
+                    Write-Log "[OCI] Warning: No Windows image files found after extraction" -Console
+                }
+            }
+            
+            if (!$?) {
+                Write-Log "[OCI] Warning: Windows images import failed for $($addon.name)" -Console
+            } else {
+                Write-Log "[OCI] Windows images imported successfully for $($addon.name)" -Console
+            }
+            
+            # Cleanup extracted images
+            Remove-Item -Path $tempImagesDir -Recurse -Force -ErrorAction SilentlyContinue
+        } else {
+            Write-Log "[OCI] No Windows images layer found for $($addon.name) or Linux-only setup"
         }
         
         # Extract Layer 6: Packages
