@@ -4,7 +4,7 @@
 
 module github.com/siemens-healthineers/k2s
 
-go 1.25.5
+go 1.25.6
 
 require (
 	github.com/Microsoft/hcsshim v0.13.0
@@ -12,7 +12,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v1.3.0
-	github.com/elazarl/goproxy v1.7.2
+	github.com/elazarl/goproxy v1.8.0
 	github.com/failsafe-go/failsafe-go v0.9.5
 	github.com/gentlemanautomaton/windevice v0.0.0-20250112023717-77498d8a77fe
 	github.com/gin-gonic/gin v1.11.0

@@ -90,12 +90,23 @@ function Export-ChangedImageLayers {
     
     $vmName = $null
     
+    # Debug: Log all incoming images
+    Write-Log "[ImageAcq] All ChangedImages received ($($ChangedImages.Count) total):" -Console
+    foreach ($img in $ChangedImages) {
+        Write-Log "[ImageAcq]   - $($img.FullName) (Platform: $($img.Platform))" -Console
+    }
+    
     try {
         # Process Windows images first (simple file copy from zip)
-        $windowsImages = $ChangedImages | Where-Object { $_.Platform -eq 'windows' }
+        # Use @() to ensure array result even with single/zero items
+        $windowsImages = @($ChangedImages | Where-Object { $_.Platform -eq 'windows' })
+        
+        Write-Log "[ImageAcq] Filtered Windows images: $($windowsImages.Count)" -Console
         
         if ($windowsImages.Count -gt 0) {
             Write-Log "[ImageAcq] Processing $($windowsImages.Count) Windows images..." -Console
+            Write-Log "[ImageAcq] NewPackageRoot: $NewPackageRoot" -Console
+            Write-Log "[ImageAcq] WindowsImagesDir: $windowsImagesDir" -Console
             
             foreach ($imgChange in $windowsImages) {
                 try {
@@ -105,6 +116,8 @@ function Export-ChangedImageLayers {
                                                                 -ImageChange $imgChange `
                                                                 -ImagesDir $windowsImagesDir `
                                                                 -ShowLogs:$ShowLogs
+                    
+                    Write-Log "[ImageAcq] Copy result: Success=$($copyResult.Success), Error=$($copyResult.ErrorMessage)" -Console
                     
                     if ($copyResult.Success) {
                         $result.ExtractedLayers += $copyResult.ImageInfo
@@ -123,7 +136,8 @@ function Export-ChangedImageLayers {
         }
         
         # Process Linux images (export from VM)
-        $linuxImages = $ChangedImages | Where-Object { $_.Platform -eq 'linux' }
+        # Use @() to ensure array result even with single/zero items
+        $linuxImages = @($ChangedImages | Where-Object { $_.Platform -eq 'linux' })
         
         if ($linuxImages.Count -gt 0) {
             # Determine if we should use an existing VM or create a new one
@@ -184,7 +198,7 @@ function Export-ChangedImageLayers {
                     try {
                         Write-Log "[ImageAcq] Exporting Linux image: $($imgChange.FullName)" -Console
                         
-                        $exportResult = Export-LinuxImageFromBuildah -VmName $vmName `
+                        $exportResult = Export-LinuxImageFromBuildah -GuestIp $guestIp `
                                                                       -ImageChange $imgChange `
                                                                       -ImagesDir $linuxImagesDir `
                                                                       -ShowLogs:$ShowLogs
@@ -286,9 +300,12 @@ function Copy-WindowsImageFromPackage {
     try {
         $imageName = $ImageChange.FullName
         
-        # Windows image tar filename format: registry.domain__repo__image_vtag.tar
-        $sanitizedName = $imageName -replace '/', '__' -replace ':', '_v'
+        # Windows image tar filename format: registry.domain__repo__image_tag.tar
+        # e.g., shsk2s.azurecr.io/pause-win:v1.5.0 -> shsk2s.azurecr.io__pause-win_v1.5.0.tar
+        $sanitizedName = $imageName -replace '/', '__' -replace ':', '_'
         $sourceTarName = "$sanitizedName.tar"
+        
+        Write-Log "[ImageAcq] Looking for Windows image tar: $sourceTarName" -Console
         
         # Path to WindowsNodeArtifacts.zip
         $winArtifactsZip = Join-Path $NewPackageRoot 'bin\WindowsNodeArtifacts.zip'
@@ -311,9 +328,14 @@ function Copy-WindowsImageFromPackage {
             } | Select-Object -First 1
             
             if (-not $imageEntry) {
+                # List available images for debugging
+                $availableImages = $zip.Entries | Where-Object { $_.FullName -like 'images/*' } | Select-Object -ExpandProperty FullName
+                Write-Log "[ImageAcq] Available images in zip: $($availableImages -join ', ')" -Console
                 $result.ErrorMessage = "Image tar '$sourceTarName' not found in WindowsNodeArtifacts.zip images folder"
                 return $result
             }
+            
+            Write-Log "[ImageAcq] Found image entry: $($imageEntry.FullName), size: $($imageEntry.Length)" -Console
             
             # Extract to destination
             $destTarPath = Join-Path $ImagesDir $sourceTarName
@@ -369,7 +391,7 @@ Hashtable with Success flag, ImageInfo, Size, and ErrorMessage.
 function Export-LinuxImageFromBuildah {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$VmName,
+        [string]$GuestIp,
         
         [Parameter(Mandatory = $true)]
         [PSCustomObject]$ImageChange,
@@ -389,43 +411,59 @@ function Export-LinuxImageFromBuildah {
     }
     
     try {
-        $newImageId = $ImageChange.NewImage.Id
+        # Get image ID - handle both Added (has .Image) and Changed (has .NewImage) cases
+        $imageObj = if ($ImageChange.NewImage) { $ImageChange.NewImage } elseif ($ImageChange.Image) { $ImageChange.Image } else { $null }
+        $newImageId = if ($imageObj) { 
+            if ($imageObj.ImageId) { $imageObj.ImageId } 
+            elseif ($imageObj.Id) { $imageObj.Id } 
+            else { $null }
+        } else { $null }
+        
         $imageName = $ImageChange.FullName
         
-        Write-Log "[ImageAcq] Exporting complete image as OCI archive: $imageName" -Console
+        Write-Log "[ImageAcq] Image object: $($imageObj | ConvertTo-Json -Compress -Depth 2 -ErrorAction SilentlyContinue)" -Console
+        
+        if ([string]::IsNullOrWhiteSpace($newImageId)) {
+            # If we don't have an ID, try to use the image name directly with buildah
+            Write-Log "[ImageAcq] No image ID found, using image name: $imageName" -Console
+            $newImageId = $imageName
+        }
+        
+        Write-Log "[ImageAcq] Exporting complete image as OCI archive: $imageName (ID: $newImageId)" -Console
         
         $sanitizedName = $imageName -replace '[/:]', '-'
         $remoteTarPath = "/tmp/delta-image-$sanitizedName.tar"
         $localTarPath = Join-Path $ImagesDir "$sanitizedName.tar"
         
         # Export image to tar (build command carefully to avoid PowerShell variable parsing issues)
+        # Use longer timeout (600s = 10 min) for large images
         $ociArchivePath = "oci-archive:$remoteTarPath" + ":$imageName"
         $exportCmd = "sudo buildah push '$newImageId' $ociArchivePath 2>&1"
-        $exportOutput = Invoke-K2sGuestCmd -VmName $VmName -Command $exportCmd -Timeout 120
+        $exportOutput = Invoke-K2sGuestCmd -GuestIp $GuestIp -Command $exportCmd -Timeout 600
         
         if (-not $exportOutput.Success) {
             $result.ErrorMessage = "Failed to export image: $($exportOutput.ErrorMessage)"
             
             # Cleanup remote tar
-            Invoke-K2sGuestCmd -VmName $VmName -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
+            Invoke-K2sGuestCmd -GuestIp $GuestIp -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
             return $result
         }
         
         Write-Log "[ImageAcq] Image exported, copying to host..." -Console
         
         # Copy tar from VM to host
-        $copyResult = Copy-K2sGuestFile -VmName $VmName -RemotePath $remoteTarPath -LocalPath $localTarPath
+        $copyResult = Copy-K2sGuestFile -GuestIp $GuestIp -RemotePath $remoteTarPath -LocalPath $localTarPath
         
         if (-not $copyResult.Success) {
             $result.ErrorMessage = "Failed to copy image tar: $($copyResult.ErrorMessage)"
             
             # Cleanup remote tar
-            Invoke-K2sGuestCmd -VmName $VmName -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
+            Invoke-K2sGuestCmd -GuestIp $GuestIp -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
             return $result
         }
         
         # Cleanup remote tar
-        Invoke-K2sGuestCmd -VmName $VmName -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
+        Invoke-K2sGuestCmd -GuestIp $GuestIp -Command "sudo rm -f $remoteTarPath" -Timeout 10 | Out-Null
         
         # Get file size
         if (Test-Path $localTarPath) {
