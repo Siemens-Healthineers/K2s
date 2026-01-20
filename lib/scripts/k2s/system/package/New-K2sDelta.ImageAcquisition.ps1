@@ -90,12 +90,23 @@ function Export-ChangedImageLayers {
     
     $vmName = $null
     
+    # Debug: Log all incoming images
+    Write-Log "[ImageAcq] All ChangedImages received ($($ChangedImages.Count) total):" -Console
+    foreach ($img in $ChangedImages) {
+        Write-Log "[ImageAcq]   - $($img.FullName) (Platform: $($img.Platform))" -Console
+    }
+    
     try {
         # Process Windows images first (simple file copy from zip)
-        $windowsImages = $ChangedImages | Where-Object { $_.Platform -eq 'windows' }
+        # Use @() to ensure array result even with single/zero items
+        $windowsImages = @($ChangedImages | Where-Object { $_.Platform -eq 'windows' })
+        
+        Write-Log "[ImageAcq] Filtered Windows images: $($windowsImages.Count)" -Console
         
         if ($windowsImages.Count -gt 0) {
             Write-Log "[ImageAcq] Processing $($windowsImages.Count) Windows images..." -Console
+            Write-Log "[ImageAcq] NewPackageRoot: $NewPackageRoot" -Console
+            Write-Log "[ImageAcq] WindowsImagesDir: $windowsImagesDir" -Console
             
             foreach ($imgChange in $windowsImages) {
                 try {
@@ -105,6 +116,8 @@ function Export-ChangedImageLayers {
                                                                 -ImageChange $imgChange `
                                                                 -ImagesDir $windowsImagesDir `
                                                                 -ShowLogs:$ShowLogs
+                    
+                    Write-Log "[ImageAcq] Copy result: Success=$($copyResult.Success), Error=$($copyResult.ErrorMessage)" -Console
                     
                     if ($copyResult.Success) {
                         $result.ExtractedLayers += $copyResult.ImageInfo
@@ -123,7 +136,8 @@ function Export-ChangedImageLayers {
         }
         
         # Process Linux images (export from VM)
-        $linuxImages = $ChangedImages | Where-Object { $_.Platform -eq 'linux' }
+        # Use @() to ensure array result even with single/zero items
+        $linuxImages = @($ChangedImages | Where-Object { $_.Platform -eq 'linux' })
         
         if ($linuxImages.Count -gt 0) {
             # Determine if we should use an existing VM or create a new one
@@ -286,9 +300,12 @@ function Copy-WindowsImageFromPackage {
     try {
         $imageName = $ImageChange.FullName
         
-        # Windows image tar filename format: registry.domain__repo__image_vtag.tar
-        $sanitizedName = $imageName -replace '/', '__' -replace ':', '_v'
+        # Windows image tar filename format: registry.domain__repo__image_tag.tar
+        # e.g., shsk2s.azurecr.io/pause-win:v1.5.0 -> shsk2s.azurecr.io__pause-win_v1.5.0.tar
+        $sanitizedName = $imageName -replace '/', '__' -replace ':', '_'
         $sourceTarName = "$sanitizedName.tar"
+        
+        Write-Log "[ImageAcq] Looking for Windows image tar: $sourceTarName" -Console
         
         # Path to WindowsNodeArtifacts.zip
         $winArtifactsZip = Join-Path $NewPackageRoot 'bin\WindowsNodeArtifacts.zip'
@@ -311,9 +328,14 @@ function Copy-WindowsImageFromPackage {
             } | Select-Object -First 1
             
             if (-not $imageEntry) {
+                # List available images for debugging
+                $availableImages = $zip.Entries | Where-Object { $_.FullName -like 'images/*' } | Select-Object -ExpandProperty FullName
+                Write-Log "[ImageAcq] Available images in zip: $($availableImages -join ', ')" -Console
                 $result.ErrorMessage = "Image tar '$sourceTarName' not found in WindowsNodeArtifacts.zip images folder"
                 return $result
             }
+            
+            Write-Log "[ImageAcq] Found image entry: $($imageEntry.FullName), size: $($imageEntry.Length)" -Console
             
             # Extract to destination
             $destTarPath = Join-Path $ImagesDir $sourceTarName

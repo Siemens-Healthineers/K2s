@@ -543,17 +543,43 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     if ($imageDiffResult.Changed) { $imagesToProcess += $imageDiffResult.Changed }
                     
                     if ($imagesToProcess.Count -gt 0) {
-                        Write-Log "[ImageAcq] Starting image export for $($imagesToProcess.Count) images using existing VM..." -Console
+                        Write-Log "[ImageAcq] Starting image export for $($imagesToProcess.Count) images..." -Console
+                        
+                        # Debug: show platforms of all images
+                        foreach ($img in $imagesToProcess) {
+                            Write-Log "[ImageAcq] DEBUG: Image '$($img.FullName)' has Platform='$($img.Platform)'" -Console
+                        }
+                        
+                        # Separate Windows and Linux images (ensure array output)
+                        $windowsImagesToProcess = @($imagesToProcess | Where-Object { $_.Platform -eq 'windows' })
+                        $linuxImagesToProcess = @($imagesToProcess | Where-Object { $_.Platform -eq 'linux' })
+                        
+                        Write-Log "[ImageAcq] Images to process: $($windowsImagesToProcess.Count) Windows, $($linuxImagesToProcess.Count) Linux" -Console
                         
                         # Get path to new VHDX
                         $newVhdxPath = Join-Path $newExtract 'bin\Kubemaster-Base.vhdx'
                         
+                        # Always process Windows images (they don't need a VM)
+                        # Process Linux images only if we have a VM context
+                        $imagesToExport = @()
+                        $imagesToExport += $windowsImagesToProcess
+                        
                         if ((Test-Path $newVhdxPath) -and $debianPackageDiff.NewVmContext) {
+                            $imagesToExport += $linuxImagesToProcess
+                            $vmContext = $debianPackageDiff.NewVmContext
+                        } else {
+                            if ($linuxImagesToProcess.Count -gt 0) {
+                                Write-Log "[ImageAcq] Warning: Cannot export Linux images - VHDX not found or VM context missing" -Console
+                            }
+                            $vmContext = $null
+                        }
+                        
+                        if ($imagesToExport.Count -gt 0) {
                             $layerExtractionResult = Export-ChangedImageLayers -NewPackageRoot $newExtract `
                                                                                 -NewVhdxPath $newVhdxPath `
-                                                                                -ChangedImages $imagesToProcess `
+                                                                                -ChangedImages $imagesToExport `
                                                                                 -StagingDir $stageDir `
-                                                                                -ExistingVmContext $debianPackageDiff.NewVmContext `
+                                                                                -ExistingVmContext $vmContext `
                                                                                 -ShowLogs:$false
                             
                             if ($layerExtractionResult.Success) {
@@ -565,18 +591,20 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                             } else {
                                 Write-Log "[ImageAcq] Warning: Image export failed: $($layerExtractionResult.ErrorMessage)" -Console
                             }
-                            
-                            # Clean up the reused VM
+                        }
+                        
+                        # Clean up the VM if we had one
+                        if ($debianPackageDiff.NewVmContext) {
                             Write-Log "[ImageAcq] Cleaning up reused VM: $($debianPackageDiff.NewVmContext.VmName)" -Console
                             Remove-K2sHvEnvironment -Context $debianPackageDiff.NewVmContext
-                        } else {
-                            Write-Log "[ImageAcq] Warning: Cannot reuse VM - VHDX not found or VM context missing" -Console
-                            if ($debianPackageDiff.NewVmContext) {
-                                Remove-K2sHvEnvironment -Context $debianPackageDiff.NewVmContext
-                            }
                         }
                     } else {
                         Write-Log "[ImageAcq] No images to process for layer extraction" -Console
+                        # Still need to clean up VM if it exists
+                        if ($debianPackageDiff.NewVmContext) {
+                            Write-Log "[ImageAcq] Cleaning up VM (no images to process): $($debianPackageDiff.NewVmContext.VmName)" -Console
+                            Remove-K2sHvEnvironment -Context $debianPackageDiff.NewVmContext
+                        }
                     }
                     
                 } catch {
