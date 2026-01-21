@@ -36,6 +36,8 @@ Param (
     [string] $ImageName = '',
     [parameter(Mandatory = $false)]
     [switch] $FromRegistry,
+    [parameter(Mandatory = $false, HelpMessage = 'Force removal by first removing any containers using the image')]
+    [switch] $Force,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -147,7 +149,7 @@ else {
     foreach ($imageToBeDeleted in $foundImages) {
         $alreadyDeleted = $deletedImages | Where-Object { $imageToBeDeleted.ImageId -eq $_ }
         if ($alreadyDeleted.Count -eq 0) {
-            $errorString = Remove-Image -ContainerImage $imageToBeDeleted
+            $errorString = Remove-Image -ContainerImage $imageToBeDeleted -Force:$Force
             if ($null -eq $errorString) {
                 $deletedImages += $imageToBeDeleted.ImageId
             }
