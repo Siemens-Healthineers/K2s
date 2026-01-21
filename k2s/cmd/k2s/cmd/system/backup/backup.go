@@ -16,7 +16,7 @@ import (
 
 const (
 	backupFileFlag = "file"
-	defaultBackupDir = "C:\\temp"
+	defaultBackupDir = "C:\\ProgramData\\k2s\\backups"
 )
 
 var SystemBackupCmd = &cobra.Command{
@@ -32,7 +32,7 @@ func init() {
 		backupFileFlag,
 		"f",
 		"",
-		"Backup file to create (zip). If omitted, a default file in C:\\temp is generated",
+		"Backup file to create (zip). If omitted, a default file in C://ProgramData/k2s/backups is generated",
 	)
 
 	SystemBackupCmd.Flags().String(

@@ -131,6 +131,13 @@ $backupManifest |
 # ------------------------------------------------------------
 Write-Log "Creating backup archive: $BackupFile"
 
+# Ensure parent directory exists
+$backupDir = Split-Path -Path $BackupFile -Parent
+if (-not (Test-Path $backupDir)) {
+    New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+    Write-Log "Created backup directory: $backupDir"
+}
+
 if (Test-Path $BackupFile) {
     Remove-Item $BackupFile -Force
 }

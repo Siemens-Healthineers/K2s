@@ -256,45 +256,138 @@ function Export-NamespacedResources {
 
 function Import-NotNamespacedResources {
 	param (
-		[parameter(Mandatory = $true, HelpMessage = 'Location where to get the not namespaced resources')]
-		[string] $FolderIn,
+		[Parameter(Mandatory = $true, HelpMessage = 'Location where to get the not namespaced resources')]
+		[string] $folderResources,
+
 		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
-		[string] $ExePath
+		[string] $ExePath,
+
+		[Parameter(Mandatory = $false)]
+		[bool] $ErrorOnFailure = $false,
+		[Parameter(Mandatory = $false)]
+		[bool] $ShowLogs = $false
+
 	)
-	# get all the resources
-	Write-Log 'Import not namespaced resources from existing cluster' -Console
-	$folderResources = Join-Path $FolderIn 'NotNamespaced'
-	Get-ChildItem -Path $folderResources | Foreach-Object {
-		$resource = $_.FullName
-		Write-Log " Import resource with call 'kubectl apply -f $resource'"
-		# don't show any output, import of resources can show some errors which have no relevance
-		&$ExePath\kubectl.exe apply -f $resource >$null 2>&1
+
+	Write-Log "Import not namespaced resources from existing cluster"
+
+	$errors   = @()
+	$warnings = @()
+
+	if (-not (Test-Path $folderResources)) {
+		Write-Log "No cluster-scoped resources to restore"
+		return @{
+			Errors   = @()
+			Warnings = @()
+		}
+	}
+
+	Get-ChildItem -Path $folderResources -Filter *.yaml | ForEach-Object {
+		$file = $_.FullName
+
+		$output = & "$ExePath\kubectl.exe" apply -f $file 2>&1
+		$exitCode = $LASTEXITCODE
+
+		if ($ShowLogs) {
+			Write-Log $output
+		}
+
+
+		$hasError =
+		($exitCode -ne 0) -or
+				($output -match "^error:") -or
+				($output -match "Error from server") -or
+				($output -match "no matches for kind") -or
+				($output -match "resource mapping not found")
+
+		if ($hasError) {
+			$msg = "Failed to apply cluster resource file $($_.Name)"
+			Write-Log $msg
+			Write-Log $output
+			$errors += $msg
+			if ($ErrorOnFailure) {
+				throw $msg
+			}
+		}
+	}
+
+	return @{
+		Errors   = $errors
+		Warnings = $warnings
 	}
 }
 
+
+
 function Import-NamespacedResources {
 	param (
-		[parameter(Mandatory = $true, HelpMessage = 'Location where to get the namespaced resources')]
-		[string] $FolderIn,
+		[Parameter(Mandatory = $true, HelpMessage = 'Location where to get the namespaced resources')]
+		[string] $folderNamespaces,
+
 		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
-		[string] $ExePath
+		[string] $ExePath,
+
+		[Parameter(Mandatory = $false)]
+		[bool] $ErrorOnFailure = $false,
+		[Parameter(Mandatory = $false)]
+		[bool] $ShowLogs = $false
 	)
-	# get all the resources
-	Write-Log 'Import namespaced resources from existing cluster' -Console
-	$folderNamespaces = Join-Path $FolderIn 'Namespaced'
-	Get-ChildItem -Path $folderNamespaces | Foreach-Object {
-		$namespace = $_.Name
-		Write-Log "Import namespace: $namespace" -Console
-		&$ExePath\kubectl.exe create namespace $namespace >$null 2>&1
-		$folderResources = Join-Path $folderNamespaces $namespace
-		Get-ChildItem -Path $folderResources | Foreach-Object {
-			$resource = $_.FullName
-			Write-Log "Import resource with call 'kubectl apply -f $resource -n $namespace'"
-			# don't show any output, import of resources can show some errors which have no relevance
-			&$ExePath\kubectl.exe apply -f $resource -n $namespace >$null 2>&1
+
+	Write-Log "Import namespaced resources from existing cluster"
+
+	$errors   = @()
+	$warnings = @()
+
+	if (-not (Test-Path $folderNamespaces)) {
+		Write-Log "No namespaced resources to restore"
+		return @{
+			Errors   = @()
+			Warnings = @()
 		}
 	}
+
+	Get-ChildItem -Path $folderNamespaces -Directory | ForEach-Object {
+		$namespace = $_.Name
+		Write-Log "Import namespace: $namespace"
+
+		Get-ChildItem -Path $_.FullName -Filter *.yaml | ForEach-Object {
+			$file = $_.FullName
+
+			$output = & "$ExePath\kubectl.exe" apply -f $file -n $namespace 2>&1
+			$exitCode = $LASTEXITCODE
+
+			if ($ShowLogs) {
+				Write-Log $output
+			}
+
+			$hasError =
+			($exitCode -ne 0) -or
+					($output -match "^error:") -or
+					($output -match "Error from server") -or
+					($output -match "no matches for kind") -or
+					($output -match "resource mapping not found")
+
+			if ($hasError) {
+				$msg = "Failed to apply $($_.Name) in namespace $namespace"
+				Write-Log $msg
+				Write-Log $output
+				$errors += $msg
+				if ($ErrorOnFailure) {
+					throw $msg
+				}
+			}
+		}
+	}
+
+	return @{
+		Errors   = $errors
+		Warnings = $warnings
+	}
 }
+
+
+
+
 
 function Assert-UpgradeVersionIsValid {
 	param (
