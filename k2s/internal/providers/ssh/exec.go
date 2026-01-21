@@ -28,7 +28,11 @@ func Exec(command string, connectionOptions contracts.ConnectionOptions) error {
 		return fmt.Errorf("failed to create SSH session: %w", err)
 	}
 
-	session.Stdout = os.Stdout
+	if connectionOptions.StdOutWriter != nil {
+		session.Stdout = connectionOptions.StdOutWriter
+	} else {
+		session.Stdout = os.Stdout
+	}
 	session.Stderr = os.Stdout
 
 	// Session.Run() implicitly closes the session afterwards

@@ -65,7 +65,7 @@ to understand the different mechanisms:
 - Logging:
   [Traefik Ingress](../../logging/manifests/opensearch-dashboards/traefik.yaml).
 - Monitoring:
-  [Traefik Ingress](../../monitoring/manifests/plutono/traefik.yaml).
+  [Traefik Ingress](../../monitoring/manifests/grafana/traefik.yaml).
 
 ## Certificate Management with cert-manager
 

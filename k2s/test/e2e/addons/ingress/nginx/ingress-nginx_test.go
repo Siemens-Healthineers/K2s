@@ -16,6 +16,7 @@ import (
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/regex"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +26,10 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
-var suite *framework.K2sTestSuite
+var (
+	suite *framework.K2sTestSuite
+	k2s   *dsl.K2s
+)
 
 func TestIngressNginx(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -34,6 +38,7 @@ func TestIngressNginx(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -42,8 +47,9 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
-		suite.Kubectl().Run(ctx, "delete", "-k", "workloads")
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.Kubectl().MustExec(ctx, "delete", "-k", "workloads")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		k2s.VerifyAddonIsDisabled("ingress", "nginx")
 
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
@@ -54,26 +60,22 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "ingress-nginx-test")
-
-		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeFalse())
 	})
 
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "ingress", "nginx")
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", "ingress", "nginx")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
+
+		k2s.VerifyAddonIsEnabled("ingress", "nginx")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
-
-		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeTrue())
 	})
 
 	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
@@ -88,19 +90,19 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "ingress", "nginx")
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "ingress", "nginx")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("makes k2s.cluster.local reachable, with http status NotFound", func(ctx context.Context) {
 		url := "https://k2s.cluster.local/"
-		httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10")
+		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10")
 		Expect(httpStatus).To(ContainSubstring("404"))
 	})
 
 	It("sample app is reachable through nginx ingress controller", func(ctx context.Context) {
-		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
+		suite.Kubectl().MustExec(ctx, "apply", "-k", "workloads")
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "ingress-nginx-test")
 
 		_, err := suite.HttpClient().GetJson(ctx, "http://albums-linux1.ingress-nginx-test.svc.cluster.local/albums-linux1")
@@ -109,7 +111,7 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 	})
 
 	It("prints the status", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "ingress", "nginx")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "ingress", "nginx")
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -120,7 +122,7 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 			MatchRegexp("The CA root certificate is available"),
 		))
 
-		output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "ingress", "nginx", "-o", "json")
+		output = suite.K2sCli().MustExec(ctx, "addons", "status", "ingress", "nginx", "-o", "json")
 
 		var status status.AddonPrintStatus
 

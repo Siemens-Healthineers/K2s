@@ -40,7 +40,7 @@ fi
 # Install helm
 if ! command -v helm &> /dev/null; then
     echo "Installing helm..."
-    HELM_VERSION="v4.0.2"
+    HELM_VERSION="v4.0.5"
     ARCH=$(uname -m)
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="amd64"

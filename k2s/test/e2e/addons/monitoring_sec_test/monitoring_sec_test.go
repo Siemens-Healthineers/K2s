@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +23,7 @@ const testClusterTimeout = time.Minute * 10
 
 var (
 	suite *framework.K2sTestSuite
+	k2s   *dsl.K2s
 )
 
 func TestMonitoringSecurity(t *testing.T) {
@@ -34,13 +36,14 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		framework.SystemMustBeRunning,
 		framework.EnsureAddonsAreDisabled,
 		framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	// Disable the monitoring, security and ingress nginx addons after all tests
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
 	suite.TearDown(ctx)
 })
 
@@ -49,27 +52,23 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 	Describe("Security addon activated first then monitoring addon", func() {
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
-			if suite.Proxy() != "" {
-				args = append(args, "-p", suite.Proxy())
-			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "monitoring", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
+
+			k2s.VerifyAddonIsEnabled("monitoring")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-grafana", "monitoring")
 
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "monitoring")
-
-			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("monitoring", "")).To(BeTrue())
 		})
 
 		It("tests connectivity to the monitoring server using bearer token", func(ctx context.Context) {
@@ -83,38 +82,34 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 		})
 	})
 
 	Describe("Monitoring addon activated first then security addon", func() {
 		It("activates the monitoring addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "monitoring", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
 		})
 
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
-			if suite.Proxy() != "" {
-				args = append(args, "-p", suite.Proxy())
-			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-grafana", "monitoring")
 
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "monitoring")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "monitoring")
 
-			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("monitoring", "")).To(BeTrue())
+			k2s.VerifyAddonIsEnabled("monitoring")
 		})
 
 		It("tests connectivity to the monitoring server using bearer token", func(ctx context.Context) {
@@ -126,7 +121,5 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 			url := "https://k2s.cluster.local/monitoring/login"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 		})
-
 	})
-
 })

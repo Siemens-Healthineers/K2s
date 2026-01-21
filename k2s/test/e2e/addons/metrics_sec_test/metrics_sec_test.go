@@ -17,9 +17,7 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
-var (
-	suite *framework.K2sTestSuite
-)
+var suite *framework.K2sTestSuite
 
 func TestMetricsSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -34,26 +32,24 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "metrics", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")	
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "metrics", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
 	suite.TearDown(ctx)
 })
 
 var _ = Describe("'metrics and security enhanced' addons", Ordered, func() {
-	
+
 	Describe("Security addon activated first then metrics addon", func() {
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
-			if suite.Proxy() != "" {
-				args = append(args, "-p", suite.Proxy())
-			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
 		It("activates the metrics addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "metrics", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "metrics", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "metrics-server", "metrics")
 		})
@@ -63,27 +59,24 @@ var _ = Describe("'metrics and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "metrics-server", "metrics")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "metrics")
 		})
-		
+
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "metrics", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
-		})		
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "metrics", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+		})
 	})
 
 	Describe("Metrics addon activated first then security addon", func() {
 		It("activates the metrics addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "metrics", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "metrics", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "metrics-server", "metrics")
 		})
 
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
-			if suite.Proxy() != "" {
-				args = append(args, "-p", suite.Proxy())
-			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
@@ -92,7 +85,5 @@ var _ = Describe("'metrics and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "metrics-server", "metrics")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "metrics")
 		})
-
 	})
-
 })

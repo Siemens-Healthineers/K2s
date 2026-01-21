@@ -69,7 +69,7 @@ to understand the different mechanisms:
 - Logging:
   [NGINX Ingress](../../logging/manifests/opensearch-dashboards/ingress.yaml).
 - Monitoring:
-  [NGINX Ingress](../../monitoring/manifests/plutono/ingress.yaml).
+  [NGINX Ingress](../../monitoring/manifests/grafana/ingress.yaml).
 
 ## Certificate Management with cert-manager
 

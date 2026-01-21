@@ -22,17 +22,20 @@ Import-Module $infraModule, $nodeModule, $clusterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
+$logUseCase = 'Stop'
+
 # make sure we are at the right place for executing this script
 $kubePath = Get-KubePath
 Set-Location $kubePath
 
 if ($SkipHeaderDisplay -eq $false) {
-    Write-Log 'Stopping K2s'
+    Write-Log "[$logUseCase] Stopping K2s"
 }
 
 $ProgressPreference = 'SilentlyContinue'
 
 
+Write-Log "[$logUseCase] Stopping worker node"
 $workerNodeParams = @{
     HideHeaders = $SkipHeaderDisplay
     ShowLogs = $ShowLogs
@@ -41,6 +44,7 @@ $workerNodeParams = @{
 }
 & "$PSScriptRoot\..\..\worker\windows\windows-host\Stop.ps1" @workerNodeParams
 
+Write-Log "[$logUseCase] Stopping control plane"
 $controlPlaneParams = @{
     ShowLogs = $ShowLogs
     AdditionalHooksDir = $AdditionalHooksDir
@@ -50,6 +54,6 @@ $controlPlaneParams = @{
 & "$PSScriptRoot\..\..\control-plane\Stop.ps1" @controlPlaneParams
 
 if ($SkipHeaderDisplay -eq $false) {
-    Write-Log '...Kubernetes system stopped.'
+    Write-Log "[$logUseCase] ...Kubernetes system stopped."
 }
 

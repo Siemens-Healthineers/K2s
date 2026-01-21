@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
-Import-Module $infraModule 
+Import-Module $infraModule
 
 # Base image
 
@@ -21,11 +21,12 @@ function Invoke-Download($destination, $source, $forceDownload,
     }
     if ( $ProxyToUse -ne '' ) {
         Write-Log "Downloading '$source' to '$destination' with proxy: $ProxyToUse"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
+        # NOTE: --ssl-no-revoke is still required for VMI proxy due to proxy/cert issues. Remove when fixed.
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke #ignore server certificate error for cloudbase.it
     }
     else {
         Write-Log "Downloading '$source' to '$destination' (no proxy)"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --ssl-no-revoke --noproxy '*'
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --noproxy '*'
     }
 
     if (!$?) {
@@ -70,10 +71,11 @@ function Invoke-DownloadDebianImage {
 
         if ( $Proxy -ne '') {
             Write-Log "Using Proxy $Proxy to download SHA sum from $urlRoot"
-            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke -k
+            # NOTE: --ssl-no-revoke is still required for VMI proxy due to proxy/cert issues. Remove when fixed.
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke
         }
         else {
-            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --ssl-no-revoke --noproxy '*'
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --noproxy '*'
         }
 
         $sha1Hash = Get-FileHash $imgFile -Algorithm SHA512
@@ -389,24 +391,90 @@ function Disconnect-VmFromSwitch {
 Starts a VM using its name.
 .DESCRIPTION
 The VM with the given name is started and awaited until it sends two heartbeats.
+If the heartbeat is not received within the timeout, the VM is restarted and the wait is retried.
 .PARAMETER Name
 The name of the VM.
+.PARAMETER HeartbeatTimeoutSeconds
+The timeout in seconds to wait for each heartbeat (default: 120).
+.PARAMETER MaxRetries
+The maximum number of restart attempts if heartbeat is not received (default: 3).
 #>
 function Start-VirtualMachineAndWaitForHeartbeat {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $Name = $(throw "Argument missing: Name")
+        [string] $Name = $(throw "Argument missing: Name"),
+        [int] $HeartbeatTimeoutSeconds = 120,
+        [int] $MaxRetries = 3
         )
 
-    Start-VirtualMachine -VmName $Name
+    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+        if ($attempt -gt 1) {
+            Write-Log "[Heartbeat] Attempt $attempt of $MaxRetries - Restarting VM '$Name'..."
+            Stop-VirtualMachine -VmName $Name -Wait
+            Start-Sleep -Seconds 3
+        }
+        
+        Start-VirtualMachine -VmName $Name
 
-    Write-Log "Waiting for VM to send heartbeat..."
-    Wait-VM -Name $Name -For Heartbeat
-    Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-    Wait-VM -Name $Name -For Heartbeat
-    Write-Log "  ok"
+        Write-Log "[Heartbeat] Waiting for VM '$Name' to send first heartbeat (timeout: ${HeartbeatTimeoutSeconds}s)..."
+        $firstHeartbeat = Wait-ForVMHeartbeatWithTimeout -VmName $Name -TimeoutSeconds $HeartbeatTimeoutSeconds
+        
+        if (-not $firstHeartbeat) {
+            Write-Log "[Heartbeat] Timeout waiting for first heartbeat from VM '$Name'" -Error
+            continue
+        }
+        
+        Write-Log "[Heartbeat] First heartbeat received. Waiting for second heartbeat..."
+        $secondHeartbeat = Wait-ForVMHeartbeatWithTimeout -VmName $Name -TimeoutSeconds $HeartbeatTimeoutSeconds
+        
+        if (-not $secondHeartbeat) {
+            Write-Log "[Heartbeat] Timeout waiting for second heartbeat from VM '$Name'" -Error
+            continue
+        }
+        
+        Write-Log "[Heartbeat] VM '$Name' started successfully (attempt $attempt)"
+        return
+    }
 
-    Write-Log "VM '$Name' started"
+    throw "Failed to receive heartbeat from VM '$Name' after $MaxRetries attempts"
+}
+
+<#
+.SYNOPSIS
+Waits for a VM heartbeat with a timeout.
+.DESCRIPTION
+Waits for the VM to send a heartbeat signal within the specified timeout.
+.PARAMETER VmName
+The name of the VM.
+.PARAMETER TimeoutSeconds
+The timeout in seconds to wait for the heartbeat.
+.RETURNS
+$true if heartbeat received, $false if timeout.
+#>
+function Wait-ForVMHeartbeatWithTimeout {
+    param (
+        [string] $VmName = $(throw "Argument missing: VmName"),
+        [int] $TimeoutSeconds = 120
+    )
+    
+    $job = Start-Job -ScriptBlock {
+        param($vmName)
+        Wait-VM -Name $vmName -For Heartbeat
+        return $true
+    } -ArgumentList $VmName
+    
+    $completed = Wait-Job -Job $job -Timeout $TimeoutSeconds
+    
+    if ($null -eq $completed) {
+        # Timeout reached
+        Stop-Job -Job $job
+        Remove-Job -Job $job -Force
+        return $false
+    }
+    
+    $result = Receive-Job -Job $job
+    Remove-Job -Job $job -Force
+    return $result
 }
 
 <#
@@ -757,6 +825,7 @@ Function Copy-VhdxFile {
 
 Export-ModuleMember -Function Remove-VirtualMachineForBaseImageProvisioning, 
 Start-VirtualMachineAndWaitForHeartbeat, 
+Wait-ForVMHeartbeatWithTimeout, 
 New-DebianCloudBasedVirtualMachine, 
 Stop-VirtualMachineForBaseImageProvisioning, 
 Remove-SshKeyFromKnownHostsFile, 

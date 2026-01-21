@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
@@ -84,7 +84,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "ls")
+			output, _ = suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "ls")
 		})
 
 		It("prints system-in-corrupted-state message", func() {
@@ -101,9 +101,9 @@ var _ = Describe("addons commands", Ordered, func() {
 
 						var output string
 						if addon.Metadata.Name == impl.Name {
-							output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addon.Metadata.Name)
+							output, _ = suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "status", addon.Metadata.Name)
 						} else {
-							output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addon.Metadata.Name, impl.Name)
+							output, _ = suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "status", addon.Metadata.Name, impl.Name)
 						}
 
 						Expect(output).To(ContainSubstring("corrupted state"))
@@ -120,9 +120,9 @@ var _ = Describe("addons commands", Ordered, func() {
 
 						var output string
 						if addon.Metadata.Name == impl.Name {
-							output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addon.Metadata.Name, "-o", "json")
+							output, _ = suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "status", addon.Metadata.Name, "-o", "json")
 						} else {
-							output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addon.Metadata.Name, impl.Name, "-o", "json")
+							output, _ = suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "status", addon.Metadata.Name, impl.Name, "-o", "json")
 						}
 
 						var status status.AddonPrintStatus
@@ -131,7 +131,7 @@ var _ = Describe("addons commands", Ordered, func() {
 
 						Expect(status.Enabled).To(BeNil())
 						Expect(status.Name).To(Equal(addon.Metadata.Name))
-						Expect(*status.Error).To(Equal(cconfig.ErrSystemInCorruptedState.Error()))
+						Expect(*status.Error).To(Equal(contracts.ErrSystemInCorruptedState.Error()))
 						Expect(status.Props).To(BeEmpty())
 					}
 				}
@@ -147,9 +147,9 @@ var _ = Describe("addons commands", Ordered, func() {
 
 					var output string
 					if addon.Metadata.Name == impl.Name {
-						output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addon.Metadata.Name)
+						output, _ = suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addon.Metadata.Name)
 					} else {
-						output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addon.Metadata.Name, impl.Name)
+						output, _ = suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addon.Metadata.Name, impl.Name)
 					}
 
 					Expect(output).To(ContainSubstring("corrupted state"))
@@ -166,9 +166,9 @@ var _ = Describe("addons commands", Ordered, func() {
 
 					var output string
 					if addon.Metadata.Name == impl.Name {
-						output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addon.Metadata.Name)
+						output, _ = suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addon.Metadata.Name)
 					} else {
-						output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addon.Metadata.Name, impl.Name)
+						output, _ = suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addon.Metadata.Name, impl.Name)
 					}
 
 					Expect(output).To(ContainSubstring("corrupted state"))
@@ -183,7 +183,7 @@ var _ = Describe("addons commands", Ordered, func() {
 				for _, impl := range addon.Spec.Implementations {
 					GinkgoWriter.Println("Calling addons export for", impl.AddonsCmdName)
 
-					output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "export", impl.AddonsCmdName, "-d", "test-dir")
+					output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "export", impl.AddonsCmdName, "-d", "test-dir")
 
 					Expect(output).To(ContainSubstring("corrupted state"))
 				}
@@ -191,7 +191,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		})
 
 		It("prints system-in-corrupted-state message for all addons and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "export", "-d", "test-dir")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "export", "-d", "test-dir")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -203,7 +203,7 @@ var _ = Describe("addons commands", Ordered, func() {
 				for _, impl := range addon.Spec.Implementations {
 					GinkgoWriter.Println("Calling addons import for", impl.AddonsCmdName)
 
-					output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "import", impl.AddonsCmdName, "-z", "test-dir")
+					output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", impl.AddonsCmdName, "-z", "test-dir")
 
 					Expect(output).To(ContainSubstring("corrupted state"))
 				}
@@ -211,7 +211,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		})
 
 		It("prints system-in-corrupted-state message for all addons and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "import", "-z", "test-dir")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", "-z", "test-dir")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})

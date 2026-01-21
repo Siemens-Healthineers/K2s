@@ -80,12 +80,13 @@ Function Set-UpComputerBeforeProvisioning {
 
     if ( $Proxy -ne '' ) {
         Write-Log "Setting proxy '$Proxy' for apt"
-        &$executeRemoteCommand -Command 'sudo touch /etc/apt/apt.conf.d/proxy.conf'
+        # Add retries to handle transient network errors like "Software caused connection abort"
+        &$executeRemoteCommand -Command 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -Retries 3
         if ($PSVersionTable.PSVersion.Major -gt 5) {
-            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
+            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -Retries 3
         }
         else {
-            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
+            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -Retries 3
         }
     }
 
@@ -953,7 +954,7 @@ function Get-FlannelImages {
     Write-Log 'Get images used by flannel'
 
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2'
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.27.4'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.28.0'
 }
 
 function AddRegistryMirrors {
@@ -1258,12 +1259,28 @@ clusterName: "$ClusterName"
 
     $getPodCidrOutput = Get-AssignedPodNetworkCIDR -NodeName $NodeName -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     if ($getPodCidrOutput.Success) {
-        $assignedPodNetworkCIDR = $($getPodCidrOutput.PodNetworkCIDR).Substring(0, $($getPodCidrOutput.PodNetworkCIDR).IndexOf('/'))
+        $fullPodCIDR = $getPodCidrOutput.PodNetworkCIDR
+        Write-Log "Retrieved pod network CIDR: '$fullPodCIDR'"
+        
+        $slashIndex = $fullPodCIDR.IndexOf('/')
+        if ($slashIndex -le 0) {
+            throw "Invalid pod network CIDR format: '$fullPodCIDR'. Expected format with slash (e.g., 172.20.0.0/24)"
+        }
+        
+        $assignedPodNetworkCIDR = $fullPodCIDR.Substring(0, $slashIndex)
+        Write-Log "Extracted pod network IP: '$assignedPodNetworkCIDR'"
+        
+        $lastDotIndex = $assignedPodNetworkCIDR.lastIndexOf('.')
+        if ($lastDotIndex -le 0) {
+            throw "Invalid pod network IP format: '$assignedPodNetworkCIDR'. Expected dotted notation (e.g., 172.20.0.0)"
+        }
+        
+        $networkInterfaceCni0IP = "$($assignedPodNetworkCIDR.Substring(0, $lastDotIndex)).1"
+        Write-Log "Calculated cni0 interface IP: '$networkInterfaceCni0IP'"
     }
     else {
         throw "Cannot obtain pod network information from node '$NodeName'"
     }
-    $networkInterfaceCni0IP = "$($assignedPodNetworkCIDR.Substring(0, $assignedPodNetworkCIDR.lastIndexOf('.'))).1"
 
     Write-Log 'Add DNS resolution rules to K8s DNS component'
     # change config map to forward all non cluster DNS request to proxy (dnsmasq) running on master
@@ -1788,7 +1805,7 @@ function AddAptRepo {
     Write-Log "adding apt-repository '$RepoDebString' with proxy '$ProxyApt' from '$RepoKeyUrl'"
     if ($RepoKeyUrl -ne '') {
         if ($ProxyApt -ne '') {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -s -k $RepoKeyUrl --proxy $ProxyApt | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -s  $RepoKeyUrl --proxy $ProxyApt | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
         }
         else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -fsSL $RepoKeyUrl | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log

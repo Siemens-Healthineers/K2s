@@ -13,6 +13,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,31 +22,32 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
-var suite *framework.K2sTestSuite
+var (
+	suite *framework.K2sTestSuite
+	k2s   *dsl.K2s
+)
 
-func TestTraefik(t *testing.T) {
+func TestAutoscaling(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "autoscaling Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "autoscaling", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
+
+	k2s.VerifyAddonIsDisabled("autoscaling")
+
 	suite.TearDown(ctx)
 })
 
 var _ = Describe("'autoscaling' addon", Ordered, func() {
-	AfterAll(func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "autoscaling", "-o")
-
-		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("autoscaling", "")).To(BeFalse())
-	})
-
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "autoscaling")
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", "autoscaling")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
@@ -53,7 +55,7 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 	Describe("status", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "autoscaling")
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", "autoscaling")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
@@ -64,7 +66,7 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "autoscaling", "-o", "json")
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", "autoscaling", "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -80,24 +82,23 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "autoscaling", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", "autoscaling", "-o")
+
+		k2s.VerifyAddonIsEnabled("autoscaling")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "autoscaling")
 
 		suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
-
-		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("autoscaling", "")).To(BeTrue())
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "autoscaling")
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "autoscaling")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status", func(ctx context.Context) {
-		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "autoscaling")
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "autoscaling")
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -105,7 +106,7 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 			MatchRegexp("KEDA is working"),
 		))
 
-		output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "autoscaling", "-o", "json")
+		output = suite.K2sCli().MustExec(ctx, "addons", "status", "autoscaling", "-o", "json")
 
 		var status status.AddonPrintStatus
 

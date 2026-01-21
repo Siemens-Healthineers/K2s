@@ -126,7 +126,22 @@ function Get-Cni0IpAddressInControlPlaneUsingSshWithRetries {
     )
     $ipAddr = ''
     for ($i = 1; $i -le $Retries; ++$i) {
-        $ipAddr = (Invoke-CmdOnControlPlaneViaSSHKey "ip addr show dev cni0 | grep 'inet ' | awk '{print `$2}' | cut -d/ -f1" -NoLog).Output
+        $rawOutput = (Invoke-CmdOnControlPlaneViaSSHKey "ip addr show dev cni0 | grep 'inet ' | awk '{print `$2}' | cut -d/ -f1" -NoLog).Output
+        
+        # Handle case where output might be an array (e.g., when SSH warnings are on separate lines)
+        if ($rawOutput -is [array]) {
+            $combinedOutput = $rawOutput -join ' '
+        } else {
+            $combinedOutput = [string]$rawOutput
+        }
+        
+        # Try to extract valid IP address from potentially contaminated output
+        if ($combinedOutput -match '(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})') {
+            $ipAddr = $matches[1]
+        } else {
+            $ipAddr = $combinedOutput.Trim()
+        }
+        
         $isIpAddress = [bool]($ipAddr -as [ipaddress])
         if ($isIpAddress) {
             return $ipAddr
@@ -199,12 +214,42 @@ function Get-AssignedPodNetworkCIDR {
     }
 
     $success = $cmdExecutionResult.Success
-    $podNetworkCIDR = $cmdExecutionResult.Output
+    $rawOutput = $cmdExecutionResult.Output
 
-    if ($success -and [string]::IsNullOrWhiteSpace($podNetworkCIDR)) {
-        throw "The retrieved pod network CIDR for the node '$NodeName' is empty, null or contain only whitespaces"
+    if ($success) {
+        # Handle case where output might be an array (e.g., when SSH warnings are on separate lines)
+        $podNetworkCIDR = ''
+        if ($rawOutput -is [array]) {
+            # Join array elements and search for CIDR pattern
+            $combinedOutput = $rawOutput -join ' '
+        } else {
+            $combinedOutput = [string]$rawOutput
+        }
+        
+        # Validate the CIDR format
+        if ([string]::IsNullOrWhiteSpace($combinedOutput)) {
+            throw "The retrieved pod network CIDR for the node '$NodeName' is empty, null or contain only whitespaces"
+        }
+        
+        # Clean and validate CIDR format (should be like 172.20.0.0/24)
+        $combinedOutput = $combinedOutput.Trim()
+        
+        # Extract only the CIDR if SSH warnings contaminated the output
+        # Pattern: 172.20.0.0/24 close - IO is still pending...
+        if ($combinedOutput -match '(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2})') {
+            $podNetworkCIDR = $matches[1]
+        } else {
+            $podNetworkCIDR = $combinedOutput
+        }
+        
+        if ($podNetworkCIDR -notmatch '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$') {
+            throw "The retrieved pod network CIDR for the node '$NodeName' has invalid format: '$podNetworkCIDR'. Expected format: x.x.x.x/xx (raw output was: '$combinedOutput')"
+        }
+    } else {
+        $podNetworkCIDR = ''
     }
-    return [pscustomobject]@{ Success = $cmdExecutionResult.Success; PodNetworkCIDR = $cmdExecutionResult.Output }
+    
+    return [pscustomobject]@{ Success = $cmdExecutionResult.Success; PodNetworkCIDR = $podNetworkCIDR }
 }
 
 Export-ModuleMember Invoke-TimeSync,
