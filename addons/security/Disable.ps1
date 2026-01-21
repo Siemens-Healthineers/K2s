@@ -63,8 +63,12 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $t
 }
 
 Write-Log 'Checking if cert-manager can be uninstalled' -Console
-if (Test-NginxIngressControllerAvailability -or Test-TraefikIngressControllerAvailability -or Test-NginxGatewayAvailability) {
-    Write-Log 'cert-manager is required by one or more enabled ingress addons. Skipping cert-manager uninstallation.' -Console
+$hasNginxIngress = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
+$hasTraefikIngress = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
+$hasNginxGwIngress = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx-gw' })
+
+if ($hasNginxIngress -or $hasTraefikIngress -or $hasNginxGwIngress) {
+    Write-Log 'cert-manager is required for enabled ingress addons. Skipping cert-manager uninstallation.' -Console
 } else {
     Write-Log 'Uninstalling cert-manager' -Console
     Uninstall-CertManager

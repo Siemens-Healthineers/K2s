@@ -105,6 +105,9 @@ try {
 
 	# Install cert-manager first (required for TLS certificate generation)
 	Write-Log 'Checking if cert-manager is already installed' -Console
+	$manifestPath = "$PSScriptRoot\addon.manifest.yaml"
+    $k2sRoot = "$PSScriptRoot\..\.."
+    Install-CmctlCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
 	if (Wait-ForCertManagerAvailable) {
 		Write-Log 'cert-manager is already installed and ready' -Console
 	} else {
@@ -115,19 +118,20 @@ try {
 	# Check for existing ingress controller or enable one
 	if (Test-NginxIngressControllerAvailability) {
 		# Ensure certificate exists
-		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
+	
+		Ensure-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
-		Ensure-IngressTlsCertificate -IngressType 'traefik' | Out-Null
+		Ensure-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
 	}
 	elseif (Test-NginxGatewayAvailability) {
-		Ensure-IngressTlsCertificate -IngressType 'nginx-gw' | Out-Null
+		Ensure-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\k2s-cluster-local-tls-certificate.yaml"
 	}
 	else {
 		# Enable required ingress addon
 		Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
 		Enable-IngressAddon -Ingress:$Ingress
-		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
+		Ensure-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
 	}
 
 	# Keycloak and Hydra setup (conditional)

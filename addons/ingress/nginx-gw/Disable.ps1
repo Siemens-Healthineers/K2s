@@ -80,7 +80,12 @@ Write-log 'Uninstalling ExternalDNS' -Console
 $externalDnsConfigDir = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'delete', '-k', $externalDnsConfigDir).Output | Write-Log
 
-Uninstall-CertManager
+# Check if security addon is NOT enabled
+if (-not (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' }))) {
+    Write-Log 'Security addon is not enabled. Proceeding with cert-manager uninstallation.' -Console
+    # proceed with uninstallation logic here
+    Uninstall-CertManager
+}
 
 Uninstall-GatewayApiCrds
 
