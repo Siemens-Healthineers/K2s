@@ -26,6 +26,7 @@ type removeOptions struct {
 	imageId      string
 	imageName    string
 	fromRegistry bool
+	force        bool
 	showOutput   bool
 }
 
@@ -33,6 +34,7 @@ var (
 	imageIdFlagName       = "id"
 	removeImgNameFlagName = "name"
 	fromRegistryFlagName  = "from-registry"
+	forceFlagName         = "force"
 
 	removeExample = `
   # Delete image by id
@@ -58,6 +60,7 @@ func addInitFlagsForRemoveCommand(cmd *cobra.Command) {
 	cmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
 	cmd.Flags().String(removeImgNameFlagName, "", "Name of the container image")
 	cmd.Flags().Bool(fromRegistryFlagName, false, "Remove image from local registry (when registry addon is enabled)")
+	cmd.Flags().Bool(forceFlagName, false, "Force removal by first removing any containers using the image")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }
@@ -124,6 +127,11 @@ func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
 		return nil, fmt.Errorf("unable to parse flag '%s': %w", fromRegistryFlagName, err)
 	}
 
+	force, err := strconv.ParseBool(cmd.Flags().Lookup(forceFlagName).Value.String())
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse flag '%s': %w", forceFlagName, err)
+	}
+
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return nil, err
@@ -133,6 +141,7 @@ func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
 		imageId:      imageId,
 		imageName:    imageName,
 		fromRegistry: fromRegistry,
+		force:        force,
 		showOutput:   showOutput,
 	}, nil
 }
@@ -148,6 +157,9 @@ func buildRemovePsCmd(removeOptions *removeOptions) (psCmd string, params []stri
 	}
 	if removeOptions.fromRegistry {
 		params = append(params, " -FromRegistry")
+	}
+	if removeOptions.force {
+		params = append(params, " -Force")
 	}
 	if removeOptions.showOutput {
 		params = append(params, " -ShowLogs")
