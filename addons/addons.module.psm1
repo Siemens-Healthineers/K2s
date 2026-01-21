@@ -348,12 +348,12 @@ function Install-DebianPackages {
 	foreach ($package in $packages) {
 		if (!(Get-DebianPackageAvailableOffline -addon $addon -implementation $implementation -package $package)) {
 			(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${dirName}/${package} && cd .${dirName}/${package} && sudo chown -R _apt:root .").Output | Write-Log
-			(Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${dirName}/${package} && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
+			(Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${dirName}/${package} && sudo apt-get download $package" -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install').Output | Write-Log
 			(Invoke-CmdOnControlPlaneViaSSHKey `
 				-Retries 2 `
 				-Timeout 2 `
 				-CmdToExecute "cd .${dirName}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
-				-RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
+				-RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install').Output | Write-Log
 		}
 
 		Write-Log "Installing $package offline."
