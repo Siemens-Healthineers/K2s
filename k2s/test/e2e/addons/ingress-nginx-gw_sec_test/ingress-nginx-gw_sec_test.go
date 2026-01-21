@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,6 +25,7 @@ const testClusterTimeout = time.Minute * 10
 
 var (
 	suite *framework.K2sTestSuite
+	k2s   *dsl.K2s
 )
 
 func TestIngressNginxGwSecurity(t *testing.T) {
@@ -31,23 +33,19 @@ func TestIngressNginxGwSecurity(t *testing.T) {
 	RunSpecs(t, "ingress-nginx-gw Addon Acceptance Tests", Label("addon", "addon-security-enhanced-2", "acceptance", "setup-required", "invasive", "ingress-nginx-gw", "system-running"))
 }
 
-// func TestIngressNginxGwSecurity(t *testing.T) {
-// 	RegisterFailHandler(Fail)
-// 	RunSpecs(t, "ingress-nginx-gw Addon Acceptance Tests", Label("addon", "addon-security-enhanced-2", "acceptance", "setup-required", "invasive", "ingress-nginx-gw", "system-running"))
-// }
-
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx,
 		framework.SystemMustBeRunning,
 		framework.EnsureAddonsAreDisabled,
 		framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
 	// Cleanup workloads and addons - ignore errors if resources don't exist
-	suite.Kubectl().Run(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads", "--ignore-not-found")
-	suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
-	suite.K2sCli().Run(ctx, "addons", "disable", "security", "-o")
+	suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads", "--ignore-not-found")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 	suite.TearDown(ctx)
 })
 
@@ -59,17 +57,17 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 		})
 
 		It("disables the nginx addon enabled by security", func(ctx context.Context) {
 			// nginx is enabled by security addon, so we need to disable it first to avoid port conflicts.
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 		})
 
 		It("activates the ingress-nginx-gw addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("ngf-nginx-gateway-fabric", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "controller", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "nginx-gw")
@@ -82,12 +80,12 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 		})
 
 		It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 			Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 		})
 
 		It("applies sample workloads", func(ctx context.Context) {
-			suite.Kubectl().Run(ctx, "apply", "-k", "..\\ingress\\nginx-gw\\workloads")
+			suite.Kubectl().MustExec(ctx, "apply", "-k", "..\\ingress\\nginx-gw\\workloads")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "nginx-gw-test")
 		})
 
@@ -102,9 +100,9 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.Kubectl().Run(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
+			suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 		})
 
 		It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
@@ -114,20 +112,20 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 		})
 
 		It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
 			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 		})
 	})
 
 	Describe("Ingress-nginx-gw addon activated first then security addon", func() {
 		It("activates the ingress-nginx-gw addon", func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("ngf-nginx-gateway-fabric", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "controller", "nginx-gw")
 		})
 
 		It("applies sample workloads", func(ctx context.Context) {
-			suite.Kubectl().Run(ctx, "apply", "-k", "..\\ingress\\nginx-gw\\workloads")
+			suite.Kubectl().MustExec(ctx, "apply", "-k", "..\\ingress\\nginx-gw\\workloads")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "nginx-gw-test")
 		})
 
@@ -136,7 +134,7 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			if suite.Proxy() != "" {
 				args = append(args, "-p", suite.Proxy())
 			}
-			suite.K2sCli().RunOrFail(ctx, args...)
+			suite.K2sCli().MustExec(ctx, args...)
 			time.Sleep(30 * time.Second)
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "nginx-gw")
 		})
@@ -152,9 +150,9 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.Kubectl().Run(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads", "--ignore-not-found")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+			suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads", "--ignore-not-found")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
 		})
 
 		It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
@@ -164,9 +162,65 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 		})
 
 		It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
 			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 		})
 	})
 
+	Describe("cert-manager lifecycle with security addon", func() {
+		It("does not remove cert-manager when security addon is enabled", func(ctx context.Context) {
+			// Enable security addon (which installs cert-manager AND automatically enables ingress-nginx-gw)
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "security", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager", "cert-manager")
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager-webhook", "cert-manager")
+
+			// Verify ingress nginx-gw was automatically enabled by security addon
+			k2s.VerifyAddonIsEnabled("ingress", "nginx-gw")
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gateway", "nginx-gateway")
+
+			// Disable ingress nginx-gw (security addon should keep cert-manager)
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+
+			// Verify cert-manager is still present
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(err).To(BeNil(), "cmctl.exe should still exist when security addon is enabled")
+
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+			Expect(output).To(ContainSubstring("ca-issuer-root-secret"), "CA root certificate should still exist when security addon is enabled")
+
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager", "cert-manager")
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager-webhook", "cert-manager")
+
+			// Clean up - disable security addon
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "cert-manager", "cert-manager")
+		})
+
+		It("removes cert-manager when security addon is not enabled", func(ctx context.Context) {
+			// Re-enable ingress nginx-gw to have cert-manager installed
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager", "cert-manager")
+
+			// Verify cert-manager is present
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(err).To(BeNil(), "cmctl.exe should exist before disabling")
+
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+			Expect(output).To(ContainSubstring("ca-issuer-root-secret"), "CA root certificate should exist before disabling")
+
+			// Disable ingress nginx-gw (without security addon enabled)
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+
+			// Verify cert-manager is removed
+			_, err = os.Stat(cmCtlPath)
+			Expect(os.IsNotExist(err)).To(BeTrue(), "cmctl.exe should be removed when security addon is not enabled")
+
+			output = suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
+			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"), "CA root certificate should be removed when security addon is not enabled")
+
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "cert-manager", "cert-manager")
+		})
+	})
 })

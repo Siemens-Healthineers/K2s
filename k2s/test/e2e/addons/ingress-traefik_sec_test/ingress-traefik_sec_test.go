@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,10 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
-var suite *framework.K2sTestSuite
+var (
+	suite *framework.K2sTestSuite
+	k2s   *dsl.K2s
+)
 
 func TestTraefikSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -34,6 +38,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		framework.SystemMustBeRunning,
 		framework.EnsureAddonsAreDisabled,
 		framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -87,9 +92,9 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.Kubectl().Run(ctx, "delete", "-k", "..\\ingress\\traefik\\workloads")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
+			suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\traefik\\workloads")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
 		})
 	})
 
@@ -122,9 +127,9 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.Kubectl().Run(ctx, "delete", "-k", "..\\ingress\\traefik\\workloads")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
+			suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\traefik\\workloads")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
 		})
 
 		It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
@@ -134,9 +139,65 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 		})
 
 		It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
 			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 		})
 	})
 
+	Describe("cert-manager lifecycle with security addon", func() {
+		It("does not remove cert-manager when security addon is enabled", func(ctx context.Context) {
+			// Enable security addon (which installs cert-manager AND automatically enables ingress-traefik)
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "security", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager", "cert-manager")
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager-webhook", "cert-manager")
+
+			// Verify ingress traefik was automatically enabled by security addon
+			k2s.VerifyAddonIsEnabled("ingress", "traefik")
+			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "traefik")
+
+			// Disable ingress traefik (security addon should keep cert-manager)
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+
+			// Verify cert-manager is still present
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(err).To(BeNil(), "cmctl.exe should still exist when security addon is enabled")
+
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+			Expect(output).To(ContainSubstring("ca-issuer-root-secret"), "CA root certificate should still exist when security addon is enabled")
+
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager", "cert-manager")
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager-webhook", "cert-manager")
+
+			// Clean up - disable security addon
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "cert-manager", "cert-manager")
+		})
+
+		It("removes cert-manager when security addon is not enabled", func(ctx context.Context) {
+			// Re-enable ingress traefik to have cert-manager installed
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "traefik", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("cert-manager", "cert-manager")
+
+			// Verify cert-manager is present
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(err).To(BeNil(), "cmctl.exe should exist before disabling")
+
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+			Expect(output).To(ContainSubstring("ca-issuer-root-secret"), "CA root certificate should exist before disabling")
+
+			// Disable ingress traefik (without security addon enabled)
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+
+			// Verify cert-manager is removed
+			_, err = os.Stat(cmCtlPath)
+			Expect(os.IsNotExist(err)).To(BeTrue(), "cmctl.exe should be removed when security addon is not enabled")
+
+			output = suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
+			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"), "CA root certificate should be removed when security addon is not enabled")
+
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "cert-manager", "cert-manager")
+		})
+	})
 })
