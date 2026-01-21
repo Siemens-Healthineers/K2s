@@ -330,9 +330,10 @@ func deleteDeployment(ctx context.Context, srcDirName, deploymentName string) {
 }
 
 func removeImageFromNode(ctx context.Context, name string) {
-	suite.K2sCli().Exec(ctx, "image", "rm", "--name", name, "-o")
-
-	k2s.VerifyImageIsNotAvailableOnAnyNode(ctx, name)
+	Eventually(func(g Gomega) {
+		suite.K2sCli().Exec(ctx, "image", "rm", "--name", name, "--force", "-o")
+		g.Expect(k2s.IsImageNotAvailableOnAnyNode(ctx, name)).To(BeTrue(), "Image '%s' should not be available on any node", name)
+	}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
 }
 
 func removeImageFromLocalRegistry(ctx context.Context, name string) {

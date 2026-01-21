@@ -825,6 +825,7 @@ Function Copy-VhdxFile {
 
 Export-ModuleMember -Function Remove-VirtualMachineForBaseImageProvisioning, 
 Start-VirtualMachineAndWaitForHeartbeat, 
+Wait-ForVMHeartbeatWithTimeout, 
 New-DebianCloudBasedVirtualMachine, 
 Stop-VirtualMachineForBaseImageProvisioning, 
 Remove-SshKeyFromKnownHostsFile, 
