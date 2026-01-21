@@ -183,13 +183,70 @@ function Get-PushedContainerImages() {
     return $pushedContainerImages
 }
 
-function Remove-Image([ContainerImage]$ContainerImage) {
+function Remove-Image([ContainerImage]$ContainerImage, [switch]$Force) {
     $output = ''
-    if ($containerImage.Node -eq $env:ComputerName.ToLower()) {
-        $output = $(&$crictlExe --config $kubeBinPath\crictl.yaml rmi $containerImage.ImageId 2>&1)
+    $imageId = $ContainerImage.ImageId
+
+    if ($ContainerImage.Node -eq $env:ComputerName.ToLower()) {
+        if ($Force) {
+            # Stop and remove any containers using this image first (including terminated ones)
+            $containersOutput = $(&$crictlExe --config $kubeBinPath\crictl.yaml ps -a -q --image $imageId 2>&1)
+            if ($containersOutput) {
+                foreach ($containerId in $containersOutput) {
+                    if (![string]::IsNullOrWhiteSpace($containerId)) {
+                        Write-Log "[ImageRm] Stopping and removing container $containerId that uses image $imageId"
+                        $(&$crictlExe --config $kubeBinPath\crictl.yaml stop $containerId 2>&1) | Out-Null
+                        $(&$crictlExe --config $kubeBinPath\crictl.yaml rm $containerId 2>&1) | Out-Null
+                    }
+                }
+            }
+            # Also remove any pod sandboxes that might be holding references
+            $podsOutput = $(&$crictlExe --config $kubeBinPath\crictl.yaml pods -q 2>&1)
+            if ($podsOutput) {
+                foreach ($podId in $podsOutput) {
+                    if (![string]::IsNullOrWhiteSpace($podId)) {
+                        # Check if this pod has containers using our image
+                        $podContainers = $(&$crictlExe --config $kubeBinPath\crictl.yaml ps -a -q -p $podId --image $imageId 2>&1)
+                        if ($podContainers) {
+                            Write-Log "[ImageRm] Stopping and removing pod $podId that has containers using image $imageId"
+                            $(&$crictlExe --config $kubeBinPath\crictl.yaml stopp $podId 2>&1) | Out-Null
+                            $(&$crictlExe --config $kubeBinPath\crictl.yaml rmp $podId 2>&1) | Out-Null
+                        }
+                    }
+                }
+            }
+        }
+        $output = $(&$crictlExe --config $kubeBinPath\crictl.yaml rmi $imageId 2>&1)
     }
     else {
-        $imageId = $containerImage.ImageId
+        if ($Force) {
+            # Stop and remove any containers using this image first (including terminated ones)
+            $containersResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl ps -a -q --image $imageId"
+            if ($containersResult.Output) {
+                foreach ($containerId in $containersResult.Output) {
+                    if (![string]::IsNullOrWhiteSpace($containerId)) {
+                        Write-Log "[ImageRm] Stopping and removing container $containerId that uses image $imageId"
+                        Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl stop $containerId" | Out-Null
+                        Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rm $containerId" | Out-Null
+                    }
+                }
+            }
+            # Also remove any pod sandboxes that might be holding references
+            $podsResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl pods -q"
+            if ($podsResult.Output) {
+                foreach ($podId in $podsResult.Output) {
+                    if (![string]::IsNullOrWhiteSpace($podId)) {
+                        # Check if this pod has containers using our image
+                        $podContainersResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl ps -a -q -p $podId --image $imageId"
+                        if ($podContainersResult.Output) {
+                            Write-Log "[ImageRm] Stopping and removing pod $podId that has containers using image $imageId"
+                            Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl stopp $podId" | Out-Null
+                            Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmp $podId" | Out-Null
+                        }
+                    }
+                }
+            }
+        }
         $output = (Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmi $imageId").Output
     }
 
