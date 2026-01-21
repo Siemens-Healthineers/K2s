@@ -127,9 +127,9 @@ function Get-K2sPlinkHostKey {
         $probeOutput = & $SshClient @probeArgs 2>&1
         $joinedProbe = ($probeOutput | Select-Object -First 8) -join ' | '
         if ($probeOutput -match 'host key is not cached' -or $probeOutput -match 'POTENTIAL SECURITY BREACH') {
-            $fingerLine = $probeOutput | Where-Object { $_ -match 'ssh-ed25519 255 SHA256:' } | Select-Object -First 1
-            if (-not $fingerLine) { $fingerLine = $probeOutput | Where-Object { $_ -match 'ssh-rsa 2048 SHA256:' } | Select-Object -First 1 }
-            if ($fingerLine -and ($fingerLine -match '(ssh-(ed25519|rsa)\s+\d+\s+SHA256:[A-Za-z0-9+/=]+)')) {
+            # Look for the SHA256 fingerprint - plink's -hostkey only accepts the hash part
+            $fingerLine = $probeOutput | Where-Object { $_ -match 'SHA256:' } | Select-Object -First 1
+            if ($fingerLine -and ($fingerLine -match '(SHA256:[A-Za-z0-9+/=]+)')) {
                 $hk = $matches[1]
                 Write-Log ("[DebPkg] Extracted host key fingerprint: {0}" -f $hk) -Console
                 return $hk
@@ -303,8 +303,8 @@ function Invoke-K2sGuestLocalDebFallback {
 .SYNOPSIS
 Executes a command in the guest VM via SSH.
 
-.PARAMETER VmName
-Name of the VM.
+.PARAMETER GuestIp
+IP address of the guest VM.
 
 .PARAMETER Command
 Command to execute.
@@ -318,7 +318,7 @@ Hashtable with Success flag, Output, ExitCode, and ErrorMessage.
 function Invoke-K2sGuestCmd {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$VmName,
+        [string]$GuestIp,
         
         [Parameter(Mandatory = $true)]
         [string]$Command,
@@ -335,24 +335,42 @@ function Invoke-K2sGuestCmd {
     }
     
     try {
-        # Get VM context
-        $vm = Get-VM -Name $VmName -ErrorAction Stop
-        if ($vm.State -ne 'Running') {
-            $result.ErrorMessage = "VM is not running (State: $($vm.State))"
+        if ([string]::IsNullOrWhiteSpace($GuestIp)) {
+            $result.ErrorMessage = "GuestIp parameter is required"
             return $result
         }
         
-        # Get IP address
-        $guestIp = Wait-K2sHvGuestIp -VmName $VmName
-        if (-not $guestIp) {
-            $result.ErrorMessage = "Failed to get VM IP address"
+        # Get SSH client from known locations
+        # Resolve script root to absolute path first
+        # Path: lib/scripts/k2s/system/package -> need 5 levels up to reach repo root
+        $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+        $binDir = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..\..\..\..\..\bin'))
+        
+        $sshCandidates = @(
+            (Join-Path $binDir 'plink.exe'),
+            (Join-Path $binDir 'ssh.exe'),
+            'C:\Windows\System32\OpenSSH\ssh.exe',
+            'ssh.exe',
+            'plink.exe'
+        )
+        
+        Write-Log "[ImageAcq] Looking for SSH client in: $($sshCandidates -join ', ')" -Console
+        
+        $sshClient = $null
+        foreach ($candidate in $sshCandidates) {
+            if (Test-Path -LiteralPath $candidate -ErrorAction SilentlyContinue) {
+                $sshClient = $candidate
+                break
+            }
+        }
+        
+        if (-not $sshClient) {
+            $result.ErrorMessage = "No SSH client found. Searched: $($sshCandidates -join ', ')"
             return $result
         }
         
-        # Get SSH client
-        $sshClientInfo = Get-K2sHvSshClient
-        $sshClient = $sshClientInfo.Path
-        $usingPlink = $sshClientInfo.IsPlink
+        Write-Log "[ImageAcq] Using SSH client: $sshClient" -Console
+        $usingPlink = $sshClient.ToLower().EndsWith('plink.exe')
         
         # SSH credentials (hardcoded for K2s VMs)
         $sshUser = 'remote'
@@ -360,37 +378,84 @@ function Invoke-K2sGuestCmd {
         
         # Build SSH args
         if ($usingPlink) {
-            $plinkHostKey = Get-K2sPlinkHostKey -GuestIp $guestIp -SshClient $sshClient -SshUser $sshUser -SshPassword $sshPwd
+            $plinkHostKey = Get-K2sPlinkHostKey -GuestIp $GuestIp -SshClient $sshClient -SshUser $sshUser -SshPassword $sshPwd
             $sshArgs = @('-batch','-noagent','-P','22')
             if ($plinkHostKey) {
                 $sshArgs += @('-hostkey', $plinkHostKey)
             }
             $sshArgs += @('-pw', $sshPwd)
-            $sshArgs += ("$sshUser@$guestIp")
+            $sshArgs += ("$sshUser@$GuestIp")
             $sshArgs += $Command
         } else {
-            $sshArgs = @('-p','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null',"$sshUser@$guestIp")
+            # For OpenSSH, use sshpass if password auth needed, or key-based
+            # Since we're using password auth, we need to handle it differently
+            $sshArgs = @('-o','BatchMode=no','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null','-o','ConnectTimeout=30')
+            $sshArgs += @('-p','22')
+            $sshArgs += ("$sshUser@$GuestIp")
             $sshArgs += $Command
         }
         
-        # Execute command with timeout
-        $job = Start-Job -ScriptBlock {
-            param($sshClient, $sshArgs)
-            & $sshClient @sshArgs 2>&1
-        } -ArgumentList $sshClient, $sshArgs
+        Write-Log "[ImageAcq] Executing SSH command (timeout=${Timeout}s): $($sshArgs[0..2] -join ' ')... $Command" -Console
         
-        $completed = Wait-Job -Job $job -Timeout $Timeout
-        if ($completed) {
-            $result.Output = Receive-Job -Job $job
-            $result.ExitCode = $job.JobStateInfo.Reason.ExitCode
-            if ($null -eq $result.ExitCode) { $result.ExitCode = 0 }
-            $result.Success = $true
-        } else {
-            Stop-Job -Job $job
-            $result.ErrorMessage = "Command timed out after $Timeout seconds"
+        # Execute command directly without job for reliability
+        # Use Start-Process for timeout control
+        $tempOutFile = [System.IO.Path]::GetTempFileName()
+        $tempErrFile = [System.IO.Path]::GetTempFileName()
+        
+        try {
+            $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $processInfo.FileName = $sshClient
+            $processInfo.Arguments = $sshArgs -join ' '
+            $processInfo.RedirectStandardOutput = $true
+            $processInfo.RedirectStandardError = $true
+            $processInfo.UseShellExecute = $false
+            $processInfo.CreateNoWindow = $true
+            
+            $process = New-Object System.Diagnostics.Process
+            $process.StartInfo = $processInfo
+            
+            # Capture output asynchronously
+            $outputBuilder = New-Object System.Text.StringBuilder
+            $errorBuilder = New-Object System.Text.StringBuilder
+            
+            $outputEvent = Register-ObjectEvent -InputObject $process -EventName OutputDataReceived -Action {
+                if ($EventArgs.Data) { $Event.MessageData.AppendLine($EventArgs.Data) }
+            } -MessageData $outputBuilder
+            
+            $errorEvent = Register-ObjectEvent -InputObject $process -EventName ErrorDataReceived -Action {
+                if ($EventArgs.Data) { $Event.MessageData.AppendLine($EventArgs.Data) }
+            } -MessageData $errorBuilder
+            
+            $null = $process.Start()
+            $process.BeginOutputReadLine()
+            $process.BeginErrorReadLine()
+            
+            $completed = $process.WaitForExit($Timeout * 1000)
+            
+            if ($completed) {
+                # Wait a bit for async events to complete
+                Start-Sleep -Milliseconds 500
+                
+                $result.Output = $outputBuilder.ToString() + $errorBuilder.ToString()
+                $result.ExitCode = $process.ExitCode
+                $result.Success = ($process.ExitCode -eq 0)
+                
+                if (-not $result.Success) {
+                    $result.ErrorMessage = "Command failed with exit code $($process.ExitCode). Output: $($result.Output)"
+                }
+            } else {
+                $process.Kill()
+                $result.ErrorMessage = "Command timed out after $Timeout seconds"
+            }
+            
+            Unregister-Event -SourceIdentifier $outputEvent.Name -ErrorAction SilentlyContinue
+            Unregister-Event -SourceIdentifier $errorEvent.Name -ErrorAction SilentlyContinue
+            $process.Dispose()
+            
+        } finally {
+            Remove-Item -Path $tempOutFile -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path $tempErrFile -Force -ErrorAction SilentlyContinue
         }
-        
-        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
         
     } catch {
         $result.ErrorMessage = "Exception: $($_.Exception.Message)"
@@ -403,8 +468,8 @@ function Invoke-K2sGuestCmd {
 .SYNOPSIS
 Copies a file from the guest VM to the host.
 
-.PARAMETER VmName
-Name of the VM.
+.PARAMETER GuestIp
+IP address of the guest VM.
 
 .PARAMETER RemotePath
 Path in the guest.
@@ -418,7 +483,7 @@ Hashtable with Success flag and ErrorMessage.
 function Copy-K2sGuestFile {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$VmName,
+        [string]$GuestIp,
         
         [Parameter(Mandatory = $true)]
         [string]$RemotePath,
@@ -433,17 +498,8 @@ function Copy-K2sGuestFile {
     }
     
     try {
-        # Get VM context
-        $vm = Get-VM -Name $VmName -ErrorAction Stop
-        if ($vm.State -ne 'Running') {
-            $result.ErrorMessage = "VM is not running (State: $($vm.State))"
-            return $result
-        }
-        
-        # Get IP address
-        $guestIp = Wait-K2sHvGuestIp -VmName $VmName
-        if (-not $guestIp) {
-            $result.ErrorMessage = "Failed to get VM IP address"
+        if ([string]::IsNullOrWhiteSpace($GuestIp)) {
+            $result.ErrorMessage = "GuestIp parameter is required"
             return $result
         }
         
@@ -451,28 +507,37 @@ function Copy-K2sGuestFile {
         $sshUser = 'remote'
         $sshPwd = 'admin'
         
+        # Resolve script root to absolute path first
+        # Path: lib/scripts/k2s/system/package -> need 5 levels up to reach repo root
+        $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+        $binDir = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..\..\..\..\..\bin'))
+        
         # Use pscp (PuTTY's scp) if available, otherwise scp
-        $pscpPath = Join-Path $PSScriptRoot '..\..\..\..\bin\pscp.exe'
-        if (Test-Path $pscpPath) {
-            $plinkPath = Join-Path $PSScriptRoot '..\..\..\..\bin\plink.exe'
-            $plinkHostKey = Get-K2sPlinkHostKey -GuestIp $guestIp -SshClient $plinkPath -SshUser $sshUser -SshPassword $sshPwd
+        $pscpPath = Join-Path $binDir 'pscp.exe'
+        if (Test-Path $pscpPath -ErrorAction SilentlyContinue) {
+            $plinkPath = Join-Path $binDir 'plink.exe'
+            $plinkHostKey = Get-K2sPlinkHostKey -GuestIp $GuestIp -SshClient $plinkPath -SshUser $sshUser -SshPassword $sshPwd
             
             $scpArgs = @('-batch','-P','22')
             if ($plinkHostKey) {
                 $scpArgs += @('-hostkey', $plinkHostKey)
             }
             $scpArgs += @('-pw', $sshPwd)
-            $scpArgs += "$sshUser@${guestIp}:$RemotePath"
+            $scpArgs += "$sshUser@${GuestIp}:$RemotePath"
             $scpArgs += $LocalPath
             
             $scpOutput = & $pscpPath @scpArgs 2>&1
         } else {
-            # Fallback to scp
+            # Fallback to scp (try OpenSSH)
+            $sshPath = 'C:\Windows\System32\OpenSSH\scp.exe'
+            if (-not (Test-Path $sshPath -ErrorAction SilentlyContinue)) {
+                $sshPath = 'scp'
+            }
             $scpArgs = @('-P','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
-            $scpArgs += "$sshUser@${guestIp}:$RemotePath"
+            $scpArgs += "$sshUser@${GuestIp}:$RemotePath"
             $scpArgs += $LocalPath
             
-            $scpOutput = & scp @scpArgs 2>&1
+            $scpOutput = & $sshPath @scpArgs 2>&1
         }
         
         if ($LASTEXITCODE -eq 0 -and (Test-Path $LocalPath)) {
@@ -643,9 +708,10 @@ function Get-DebianPackagesFromVHDX {
             Write-Log "[ImageDiff] Buildah command exit code: $LASTEXITCODE" -Console
             
             if ($buildahOut -and $buildahOut.Count -gt 0) {
-                Write-Log "[ImageDiff] Buildah returned $($buildahOut.Count) lines of output" -Console
-                $outputSample = ($buildahOut | Select-Object -First 3) -join ' | '
-                Write-Log "[ImageDiff] Output sample: $outputSample" -Console
+                Write-Log "[ImageDiff] Buildah returned $($buildahOut.Count) lines of output:" -Console
+                foreach ($line in $buildahOut) {
+                    Write-Log "[ImageDiff]   $line" -Console
+                }
             } else {
                 Write-Log "[ImageDiff] Buildah output is empty" -Console
             }
