@@ -190,7 +190,8 @@ Current directory: $deltaRoot
 	$deltaBasePackage = [string]$manifest.BasePackage
 	$deltaTargetPackage = [string]$manifest.TargetPackage
 	
-	# Extract version from package names (assumes format like k2s-v1.6.0-something.zip)
+	# Use version fields directly from manifest (populated from VERSION files during delta generation)
+	# Fall back to parsing package name for backward compatibility with older manifests
 	function _ExtractVersionFromPackage([string]$packageName) {
 		if ([string]::IsNullOrWhiteSpace($packageName)) { return $null }
 		# Match patterns like k2s-v1.6.0, k2s-1.6.0, or just 1.6.0
@@ -200,8 +201,17 @@ Current directory: $deltaRoot
 		return $null
 	}
 	
-	$deltaBaseVersion = _ExtractVersionFromPackage $deltaBasePackage
-	$deltaTargetVersion = _ExtractVersionFromPackage $deltaTargetPackage
+	# Prefer explicit version fields from manifest; fall back to filename parsing for older manifests
+	$deltaBaseVersion = if (-not [string]::IsNullOrWhiteSpace($manifest.BaseVersion)) { 
+		$manifest.BaseVersion.Trim() 
+	} else { 
+		_ExtractVersionFromPackage $deltaBasePackage 
+	}
+	$deltaTargetVersion = if (-not [string]::IsNullOrWhiteSpace($manifest.TargetVersion)) { 
+		$manifest.TargetVersion.Trim() 
+	} else { 
+		_ExtractVersionFromPackage $deltaTargetPackage 
+	}
 	
 	Write-Log ("[Update] Version Check: Current={0}, DeltaBase={1}, DeltaTarget={2}" -f $currentVersion, $deltaBaseVersion, $deltaTargetVersion) -Console:$consoleSwitch
 	
