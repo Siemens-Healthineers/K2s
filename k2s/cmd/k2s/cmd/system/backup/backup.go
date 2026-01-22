@@ -26,7 +26,7 @@ var SystemBackupCmd = &cobra.Command{
 }
 
 func init() {
-	SystemBackupCmd.Flags().SortFlags = false // keep as-is
+	SystemBackupCmd.Flags().SortFlags = false
 
 	SystemBackupCmd.Flags().StringP(
 		backupFileFlag,
