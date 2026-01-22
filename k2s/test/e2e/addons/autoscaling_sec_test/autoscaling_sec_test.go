@@ -29,7 +29,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o", "--ignore-not-found")
 	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 

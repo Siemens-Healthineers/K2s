@@ -327,7 +327,7 @@ try {
 
 		# wait for secret linkerd-trust-anchor to be available
 		Write-Log 'Waiting for secret linkerd-trust-anchor to be available' -Console
-		$secretStatus = Wait-ForK8sSecret -SecretName 'linkerd-trust-anchor' -Namespace 'cert-manager'
+		$secretStatus = Wait-ForK8sSecret -SecretName 'linkerd-trust-anchor' -Namespace 'cert-manager' -TimeoutSeconds 120
 		if ($secretStatus -ne $true) {
 			$errMsg = "Secret linkerd-trust-anchor not available. Please use kubectl describe for more details.`nInstallation of security addon failed."
 			if ($EncodeStructuredOutput -eq $true) {
@@ -349,6 +349,10 @@ try {
 		}
 		$filteredYaml = $filteredYamlLines -join "`n"
 		$filteredYaml | &"$kubeToolsPath\kubectl.exe" apply -f -
+
+		# Wait for trust-manager to propagate certificates to linkerd namespace
+		Write-Log 'Waiting for linkerd namespace secrets to be ready' -Console
+		Start-Sleep -Seconds 10
 
 		# install linkerd
 		$linkerdYamlCRDs = Get-LinkerdConfigDirectory

@@ -42,7 +42,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\traefik\\workloads")
+	suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\traefik\\workloads", "--ignore-not-found")
 	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
 	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 
@@ -73,7 +73,7 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 		})
 
 		It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 			Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 		})
 
