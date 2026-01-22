@@ -274,7 +274,7 @@ if (!$Windows) {
     }
 }
 
-$GO_VERSION = '1.25.5'
+$GO_VERSION = '1.25.6'
 if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
     Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
     # $env:GOVERSION will be go1.24.2, remove the go part.
@@ -299,9 +299,10 @@ if (!$Windows -and $PreCompile) {
     }
     else {
         Write-Log 'Pre-Compilation: Downloading needed binaries (go, gcc)...'
+        $dpkgRepairCmd = 'sudo dpkg --configure -a'
         (Invoke-CmdOnControlPlaneViaSSHKey "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections").Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;' -Retries 3 -Timeout 2).Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;' -Retries 3 -Timeout 2 -RepairCmd $dpkgRepairCmd).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2 -RepairCmd $dpkgRepairCmd).Output | Write-Log
         # (Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl").Output | Write-Log
         if ($LASTEXITCODE -ne 0) {
             throw "'apt install' returned code $LASTEXITCODE. Aborting. In case of timeouts do a retry."
