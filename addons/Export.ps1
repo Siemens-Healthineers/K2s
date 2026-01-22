@@ -438,24 +438,18 @@ try {
                 if ($linuxImageTars.Count -gt 0) {
                     Write-Log "[OCI] Consolidating $($linuxImageTars.Count) Linux images into single layer"
                     $linuxImagesLayerPath = Join-Path $artifactPath 'images-linux.tar'
-                    if ($linuxImageTars.Count -eq 1) {
-                        Copy-Item -Path $linuxImageTars[0] -Destination $linuxImagesLayerPath -Force
-                    } else {
-                        # Combine multiple tar files
-                        New-TarArchive -SourceFiles $linuxImageTars -DestinationPath $linuxImagesLayerPath -WorkingDirectory $imagesStaging
-                    }
+                    
+                    # Always create a consolidated tar (even for single image) to maintain consistent structure
+                    New-TarArchive -SourceFiles $linuxImageTars -DestinationPath $linuxImagesLayerPath -WorkingDirectory $imagesStaging
                 }
                 
                 # Consolidate Windows images into single tar layer
                 if ($windowsImageTars.Count -gt 0) {
                     Write-Log "[OCI] Consolidating $($windowsImageTars.Count) Windows images into single layer"
                     $windowsImagesLayerPath = Join-Path $artifactPath 'images-windows.tar'
-                    if ($windowsImageTars.Count -eq 1) {
-                        Copy-Item -Path $windowsImageTars[0] -Destination $windowsImagesLayerPath -Force
-                    } else {
-                        # Combine multiple tar files
-                        New-TarArchive -SourceFiles $windowsImageTars -DestinationPath $windowsImagesLayerPath -WorkingDirectory $imagesStaging
-                    }
+                    
+                    # Always create a consolidated tar (even for single image) to maintain consistent structure
+                    New-TarArchive -SourceFiles $windowsImageTars -DestinationPath $windowsImagesLayerPath -WorkingDirectory $imagesStaging
                 }
             }
             else {
