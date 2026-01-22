@@ -91,16 +91,25 @@ function Invoke-SSHWithKey {
         }
     }
     
-    # If the only "error" was a socket cleanup warning and exit code is 255,
-    # this is likely a transient SSH socket issue, not an actual command failure.
-    # SSH exit code 255 typically means connection error, but socket warnings
-    # during cleanup don't indicate command failure.
-    if ($hadSocketWarning -and $sshExitCode -eq 255 -and $outputLines.Count -eq 0) {
-        Write-Log "[SSH] Ignoring transient socket warning with exit code 255 - command likely succeeded"
-        # Reset LASTEXITCODE to 0 since the warning is benign
-        $global:LASTEXITCODE = 0
+    # If a socket cleanup warning occurred, the exit code may be misleading.
+    # Windows SSH can return various non-zero exit codes (255, 3221226356, etc.)
+    # when the socket cleanup warning happens, even if the command succeeded.
+    # If we have actual output and a socket warning, treat the command as successful.
+    if ($hadSocketWarning) {
+        if ($outputLines.Count -gt 0) {
+            # We have real output - the command likely succeeded despite the socket warning
+            Write-Log "[SSH] Socket warning detected but command produced output - treating as success"
+            $global:LASTEXITCODE = 0
+        } elseif ($sshExitCode -eq 255 -or $sshExitCode -eq -1 -or $sshExitCode -gt 255) {
+            # No output and SSH-level error code - likely a transient connection issue
+            Write-Log "[SSH] Ignoring transient socket warning with exit code $sshExitCode - command likely succeeded"
+            $global:LASTEXITCODE = 0
+        } else {
+            # Non-SSH-level error code with no output - preserve the error
+            $global:LASTEXITCODE = $sshExitCode
+        }
     } else {
-        # Preserve the actual exit code for the caller
+        # No socket warning - preserve the actual exit code for the caller
         $global:LASTEXITCODE = $sshExitCode
     }
     
