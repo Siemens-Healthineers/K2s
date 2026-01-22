@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -96,7 +97,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 				GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-				sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
+				sshExec.mustExecEventually(ctx, "mkdir -p "+remoteTempDir)
 			})
 
 			AfterEach(func(ctx context.Context) {
@@ -398,7 +399,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								GinkgoWriter.Println("Creating remote folder <", existingRemoteFolder, ">")
 
-								sshExec.mustExecEventually(ctx, "mkdir "+existingRemoteFolder)
+								sshExec.mustExecEventually(ctx, "mkdir -p "+existingRemoteFolder)
 							})
 
 							It("copies contents of source folder to existing folder in target dir", func(ctx context.Context) {
@@ -425,7 +426,7 @@ var _ = Describe("node copy", Ordered, func() {
 											dir = path.Join(dir, fileInfo.subFolder)
 
 											GinkgoWriter.Println("Creating remote target sub folder <", dir, ">")
-											sshExec.mustExecEventually(ctx, "mkdir "+dir)
+											sshExec.mustExecEventually(ctx, "mkdir -p "+dir)
 										}
 
 										filePath := path.Join(dir, fileInfo.name)
@@ -1004,7 +1005,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 					GinkgoWriter.Println("Creating remote temp dir <", remoteTempDir, ">")
 
-					sshExec.mustExecEventually(ctx, "mkdir "+remoteTempDir)
+					sshExec.mustExecEventually(ctx, "mkdir -p "+remoteTempDir)
 				})
 
 				AfterEach(func(ctx context.Context) {
@@ -1211,7 +1212,7 @@ var _ = Describe("node copy", Ordered, func() {
 						sourceFolder = path.Join(remoteTempDir, sourceFolderName)
 
 						GinkgoWriter.Println("Creating remote source folder <", sourceFolder, ">")
-						sshExec.mustExecEventually(ctx, "mkdir "+sourceFolder)
+						sshExec.mustExecEventually(ctx, "mkdir -p "+sourceFolder)
 
 						for _, fileInfo := range sourceFileInfos {
 							dir := sourceFolder
@@ -1220,7 +1221,7 @@ var _ = Describe("node copy", Ordered, func() {
 								dir = path.Join(dir, fileInfo.subFolder)
 
 								GinkgoWriter.Println("Creating remote source sub folder <", dir, ">")
-								sshExec.mustExecEventually(ctx, "mkdir "+dir)
+								sshExec.mustExecEventually(ctx, "mkdir -p "+dir)
 							}
 
 							filePath := path.Join(dir, fileInfo.name)
@@ -1817,9 +1818,19 @@ func isTransientSSHExitCode(exitCode int) bool {
 		return true // SSH connection error
 	case 3221226356: // Windows STATUS_PENDING (0xC0000174)
 		return true // "close - IO is still pending on closed socket"
+	case 3221225477: // Windows STATUS_ACCESS_VIOLATION (0xC0000005)
+		return true // Transient access violation during SSH
 	default:
 		return false
 	}
+}
+
+// isTransientSSHOutput returns true if the output contains transient SSH error messages
+// that should trigger a retry regardless of exit code.
+func isTransientSSHOutput(output string) bool {
+	return strings.Contains(output, "IO is still pending") ||
+		strings.Contains(output, "Connection reset by peer") ||
+		strings.Contains(output, "Connection closed by remote host")
 }
 
 func (ssh sshExecutor) mustExecEventually(ctx context.Context, remoteCmd string) string {
@@ -1828,6 +1839,12 @@ func (ssh sshExecutor) mustExecEventually(ctx context.Context, remoteCmd string)
 	Eventually(func(ctx context.Context) int {
 		var exitCode int
 		output, exitCode = ssh.executor.Exec(ctx, "-n", "-o", "StrictHostKeyChecking=no", "-i", ssh.keyPath, ssh.remoteUser+"@"+ssh.ipAddress, remoteCmd)
+
+		// Check for transient SSH errors in output (regardless of exit code)
+		if isTransientSSHOutput(output) {
+			GinkgoWriter.Printf("SSH command encountered transient error in output, will retry...\n")
+			return -1 // Force retry by returning a transient exit code
+		}
 
 		if !isTransientSSHExitCode(exitCode) {
 			Fail(fmt.Sprintf("SSH command failed with non-transient exit code %d, output: %s", exitCode, output))

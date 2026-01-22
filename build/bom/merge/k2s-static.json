@@ -258,9 +258,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.1.4.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.1.5.zip",
       "name": "dockerd",
-      "version": "v29.1.4",
+      "version": "v29.1.5",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -277,13 +277,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.1.4",
+      "purl": "pkg:github/moby/moby@29.1.5",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.1.4.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.1.5.zip",
       "name": "docker",
-      "version": "v29.1.4",
+      "version": "v29.1.5",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -300,13 +300,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.1.4",
+      "purl": "pkg:github/moby/moby@29.1.5",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.1.4.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.1.5.zip",
       "name": "docker-proxy",
-      "version": "v29.1.4",
+      "version": "v29.1.5",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -323,13 +323,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.1.4",
+      "purl": "pkg:github/moby/moby@29.1.5",
       "type": "application"
     },
     {
-      "group": "https://github.com/flannel-io/flannel/releases/download/0.27.4/flanneld.exe",
+      "group": "https://github.com/flannel-io/flannel/releases/download/0.28.0/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.27.4",
+      "version": "v0.28.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -346,7 +346,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.27.4",
+      "purl": "pkg:github/flannel-io/flannel@v0.28.0",
       "type": "application"
     },
     {
@@ -580,9 +580,9 @@
       "type": "application"
     },
     {
-      "group": "https://get.helm.sh/helm-v4.0.4-windows-amd64.zip",
+      "group": "https://get.helm.sh/helm-v4.0.5-windows-amd64.zip",
       "name": "helm",
-      "version": "v4.0.4",
+      "version": "v4.0.5",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -599,7 +599,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/helm/helm@v4.0.4",
+      "purl": "pkg:github/helm/helm@v4.0.5",
       "type": "application"
     }
   ],
