@@ -1560,7 +1560,7 @@ Describe 'Enable-CertManager' -Tag 'unit', 'ci', 'addon' {
     }
 }
 
-Describe 'Ensure-IngressTlsCertificate' -Tag 'unit', 'ci', 'addon' {
+Describe 'Assert-IngressTlsCertificate' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Invoke-Kubectl { return @{Output = 'applied' } }
@@ -1573,7 +1573,7 @@ Describe 'Ensure-IngressTlsCertificate' -Tag 'unit', 'ci', 'addon' {
 
         It 'returns true without re-applying manifest' {
             InModuleScope -ModuleName $moduleName {
-                $result = Ensure-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath 'test.yaml'
+                $result = Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath 'test.yaml'
 
                 $result | Should -BeTrue
                 Should -Invoke Wait-ForK8sSecret -Times 1 -Scope It -ParameterFilter { $SecretName -eq 'k2s-cluster-local-tls' -and $Namespace -eq 'ingress-nginx' }
@@ -1594,7 +1594,7 @@ Describe 'Ensure-IngressTlsCertificate' -Tag 'unit', 'ci', 'addon' {
         It 'applies manifest and waits for certificate' {
             InModuleScope -ModuleName $moduleName {
                 $script:waitCallCount = 0
-                $result = Ensure-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath 'cluster-local-ingress.yaml'
+                $result = Assert-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath 'cluster-local-ingress.yaml'
 
                 $result | Should -BeTrue
                 Should -Invoke Wait-ForK8sSecret -Times 2 -Scope It
@@ -1610,7 +1610,7 @@ Describe 'Ensure-IngressTlsCertificate' -Tag 'unit', 'ci', 'addon' {
 
         It 'applies manifest and returns false with warning' {
             InModuleScope -ModuleName $moduleName {
-                $result = Ensure-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath 'k2s-cluster-local-tls-certificate.yaml'
+                $result = Assert-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath 'k2s-cluster-local-tls-certificate.yaml'
 
                 $result | Should -BeFalse
                 Should -Invoke Wait-ForK8sSecret -Times 2 -Scope It
@@ -1627,7 +1627,7 @@ Describe 'Ensure-IngressTlsCertificate' -Tag 'unit', 'ci', 'addon' {
         It 'uses custom manifest path' {
             InModuleScope -ModuleName $moduleName {
                 $customPath = 'C:\custom\path\cert.yaml'
-                $result = Ensure-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath $customPath
+                $result = Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath $customPath
 
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains $customPath }
             }

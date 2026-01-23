@@ -168,7 +168,7 @@ Write-Log 'All ingress nginx pods are up and ready.'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
-Ensure-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath $clusterIngressConfig
+Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath $clusterIngressConfig
 
 &"$PSScriptRoot\Update.ps1"
 

@@ -119,19 +119,19 @@ try {
 	if (Test-NginxIngressControllerAvailability) {
 		# Ensure certificate exists
 	
-		Ensure-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
+		Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
-		Ensure-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
+		Assert-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
 	}
 	elseif (Test-NginxGatewayAvailability) {
-		Ensure-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\k2s-cluster-local-tls-certificate.yaml"
+		Assert-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\k2s-cluster-local-tls-certificate.yaml"
 	}
 	else {
 		# Enable required ingress addon
 		Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
 		Enable-IngressAddon -Ingress:$Ingress
-		Ensure-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
+		Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
 	}
 
 	# Keycloak and Hydra setup (conditional)

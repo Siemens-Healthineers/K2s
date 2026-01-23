@@ -1815,7 +1815,7 @@ function Wait-ForK8sSecret {
 }
 <#
 .SYNOPSIS
-Ensures TLS certificate exists in ingress namespace.
+Asserts TLS certificate exists in ingress namespace.
 .DESCRIPTION
 Checks if k2s-cluster-local-tls secret exists in the ingress namespace.
 If not found, re-applies the Certificate manifest to trigger cert-manager creation.
@@ -1824,9 +1824,9 @@ Type of ingress controller (nginx, traefik, or nginx-gw).
 .PARAMETER CertificateManifestPath
 Optional path to the Certificate manifest. If not provided, derived from ingress type.
 .EXAMPLE
-Ensure-IngressTlsCertificate -IngressType 'nginx'
+Assert-IngressTlsCertificate -IngressType 'nginx'
 #>
-function Ensure-IngressTlsCertificate {
+function Assert-IngressTlsCertificate {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -1872,4 +1872,4 @@ Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
 Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
-Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds,Ensure-IngressTlsCertificate, Wait-ForK8sSecret
+Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret

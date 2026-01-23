@@ -215,7 +215,7 @@ Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation
 
 &"$PSScriptRoot\Update.ps1"
 
-Ensure-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\manifests\k2s-cluster-local-tls-certificate.yaml"
+Assert-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\manifests\k2s-cluster-local-tls-certificate.yaml"
 
 # adapt other addons
 Update-Addons -AddonName $addonName

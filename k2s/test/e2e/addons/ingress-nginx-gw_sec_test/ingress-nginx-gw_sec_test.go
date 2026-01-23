@@ -65,7 +65,7 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 
 		It("activates the ingress-nginx-gw addon", func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
-			suite.Cluster().ExpectDeploymentToBeAvailable("ngf-nginx-gateway-fabric", "nginx-gw")
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "controller", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "nginx-gw")
 		})
@@ -117,7 +117,7 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 	Describe("Ingress-nginx-gw addon activated first then security addon", func() {
 		It("activates the ingress-nginx-gw addon", func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
-			suite.Cluster().ExpectDeploymentToBeAvailable("ngf-nginx-gateway-fabric", "nginx-gw")
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "controller", "nginx-gw")
 		})
 
@@ -173,7 +173,7 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 
 			// Verify ingress nginx-gw was automatically enabled by security addon
 			k2s.VerifyAddonIsEnabled("ingress", "nginx-gw")
-			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gateway", "nginx-gateway")
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gateway")
 
 			// Disable ingress nginx-gw (security addon should keep cert-manager)
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
