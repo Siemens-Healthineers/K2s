@@ -55,7 +55,7 @@ function Invoke-DownloadCniPlugins($downloadsBaseDirectory, $Proxy) {
 
 function Invoke-DownloadCniFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     $cniFlannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CniFlannelDirectory"
-    $cniFlannelVersion = 'v1.0.1'
+    $cniFlannelVersion = 'v1.9.0-flannel1'
     $file = "$cniFlannelDownloadsDirectory\$windowsNode_Flannel64exe"
 
     Write-Log "Create folder '$cniFlannelDownloadsDirectory'"
