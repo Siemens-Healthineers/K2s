@@ -72,7 +72,7 @@ function Enable-AddonFromConfig {
 
 	Write-Log "Re-enabling addon '$addonName'.."
 
-	& $enableCmdPath -Config $Config
+	& $enableCmdPath 
 
 	Write-Log "Addon '$addonName' re-enabled."
 }
