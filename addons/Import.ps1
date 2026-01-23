@@ -128,7 +128,6 @@ if ($isOciArtifact) {
     # OCI Artifact format processing
     Write-Log "[OCI] Processing OCI artifact structure" -Console
     
-    # Read addons.json index
     $addonsJsonPath = Join-Path $extractionFolder 'addons.json'
     if (-not (Test-Path $addonsJsonPath)) {
         $errMsg = 'Invalid OCI artifact format: addons.json not found.'
@@ -176,7 +175,6 @@ if ($isOciArtifact) {
         $addonsToImport = $exportedAddons
     }
     
-    # Process each addon from OCI artifact
     foreach ($addon in $addonsToImport) {
         Write-Log "[OCI] Importing addon: $($addon.name)" -Console
         
@@ -187,7 +185,6 @@ if ($isOciArtifact) {
             continue
         }
         
-        # Read OCI manifest
         $ociManifestPath = Join-Path $artifactDir 'oci-manifest.json'
         $ociManifest = $null
         if (Test-Path $ociManifestPath) {
@@ -197,7 +194,6 @@ if ($isOciArtifact) {
             Write-Log "[OCI] -> Export Date: $($ociManifest.annotations.'vnd.k2s.export.date')"
         }
         
-        # Determine destination path
         $folderParts = $addon.name -split '\s+'
         $destinationPath = $PSScriptRoot
         foreach ($part in $folderParts) {
@@ -334,7 +330,6 @@ if ($isOciArtifact) {
             Write-Log "[OCI] Importing Linux images layer from: $linuxImagesLayer" -Console
             
             # Check if this is a consolidated tar (tar of tars) or single image tar
-            # Extract to temp directory first to handle both cases
             $tempImagesDir = Join-Path $artifactDir 'images-linux-extracted'
             if (-not (Test-Path $tempImagesDir)) {
                 New-Item -ItemType Directory -Path $tempImagesDir -Force | Out-Null
