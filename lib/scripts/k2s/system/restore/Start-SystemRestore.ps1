@@ -22,11 +22,19 @@ if (-not (Test-Path $BackupFile)) {
 $restoreRoot = Get-TempPath
 Write-Log "Using temp restore directory" -Console
 
-Expand-Archive -Path $BackupFile -DestinationPath $restoreRoot -Force
+try
+{
+    Write-Log "Extracting backup file: $BackupFile"
+    Expand-Archive -Path $BackupFile -DestinationPath $restoreRoot -Force
+} catch {
+    Write-Log "[Restore] Failed to extract backup file: $_" -Console
+    throw "Invalid or corrupt backup file. Failed to extract: $_"
+}
+
 
 $manifestPath = Join-Path $restoreRoot "backup.json"
 if (-not (Test-Path $manifestPath)) {
-    throw "backup.json missing"
+    throw "Backup manifest (backup.json) not found in backup file. The backup may be incomplete or corrupted."
 }
 
 $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
