@@ -35,6 +35,9 @@ Import-Module $infraModule, $clusterModule, $addonsModule, $traefikModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
+
 Write-Log 'Checking cluster status' -Console
 
 # get addon name from folder path
@@ -117,7 +120,7 @@ $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
 
 Write-Log 'Installing cert-manager' -Console
-Enable-CertManager -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
+Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
 
 # we prepare all patches and apply them in a single kustomization,
 # instead of applying the unpatched manifests and then applying patches one by one

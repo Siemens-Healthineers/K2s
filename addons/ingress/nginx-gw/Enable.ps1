@@ -35,6 +35,9 @@ Import-Module $infraModule, $clusterModule, $addonsModule, $gatewayModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
+
 Write-Log 'Checking cluster status' -Console
 
 # get addon name from folder path
@@ -139,7 +142,7 @@ resources:
 "@
 
 Write-Log 'Installing cert-manager' -Console
-Enable-CertManager -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
+Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
 
 #create a temporary directory to store the kustomization file
 $kustomizationDir = "$PSScriptRoot/kustomizationDir"
