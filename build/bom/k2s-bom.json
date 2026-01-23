@@ -708,10 +708,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -2126,10 +2126,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -3010,10 +3010,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -3946,10 +3946,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -5421,10 +5421,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -6249,10 +6249,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -6727,10 +6727,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "name": "github.com/dustin/go-humanize",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -7767,10 +7767,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -8617,10 +8617,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -9536,10 +9536,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -10012,10 +10012,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -13718,10 +13718,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -14910,10 +14910,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -16065,10 +16065,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -17551,10 +17551,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -17772,10 +17772,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.9.0-flannel1",
       "name": "github.com/dnsimple/dnsimple-go",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -20621,10 +20621,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -21385,10 +21385,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/hashicorp/hcl@v1.0.1-vault-5",
+      "bom-ref": "pkg:golang/github.com/hashicorp/hcl@v1.9.0-flannel1-vault-5",
       "name": "github.com/hashicorp/hcl",
-      "version": "v1.0.1-vault-5",
-      "purl": "pkg:golang/github.com/hashicorp/hcl@v1.0.1-vault-5",
+      "version": "v1.9.0-flannel1-vault-5",
+      "purl": "pkg:golang/github.com/hashicorp/hcl@v1.9.0-flannel1-vault-5",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -22905,10 +22905,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -24207,10 +24207,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -27582,10 +27582,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -29044,10 +29044,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -29554,10 +29554,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/google/btree@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -31462,10 +31462,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -31903,10 +31903,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/kubernetes-csi/csi-proxy/client@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/kubernetes-csi/csi-proxy/client@v1.9.0-flannel1",
       "name": "github.com/kubernetes-csi/csi-proxy/client",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/kubernetes-csi/csi-proxy/client@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/kubernetes-csi/csi-proxy/client@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -100893,10 +100893,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -101913,10 +101913,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.9.0-flannel1",
       "name": "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -102898,10 +102898,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -105371,10 +105371,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -106557,10 +106557,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -113885,10 +113885,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -117636,10 +117636,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -117653,10 +117653,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/boombuler/barcode@v1.0.1-0.20190219062509-6c824513bacc",
+      "bom-ref": "pkg:golang/github.com/boombuler/barcode@v1.9.0-flannel1-0.20190219062509-6c824513bacc",
       "name": "github.com/boombuler/barcode",
-      "version": "v1.0.1-0.20190219062509-6c824513bacc",
-      "purl": "pkg:golang/github.com/boombuler/barcode@v1.0.1-0.20190219062509-6c824513bacc",
+      "version": "v1.9.0-flannel1-0.20190219062509-6c824513bacc",
+      "purl": "pkg:golang/github.com/boombuler/barcode@v1.9.0-flannel1-0.20190219062509-6c824513bacc",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -118214,10 +118214,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/go-errors/errors@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/go-errors/errors@v1.9.0-flannel1",
       "name": "github.com/go-errors/errors",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/go-errors/errors@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/go-errors/errors@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -119030,10 +119030,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/hashicorp/hcl@v1.0.1-vault-5",
+      "bom-ref": "pkg:golang/github.com/hashicorp/hcl@v1.9.0-flannel1-vault-5",
       "name": "github.com/hashicorp/hcl",
-      "version": "v1.0.1-vault-5",
-      "purl": "pkg:golang/github.com/hashicorp/hcl@v1.0.1-vault-5",
+      "version": "v1.9.0-flannel1-vault-5",
+      "purl": "pkg:golang/github.com/hashicorp/hcl@v1.9.0-flannel1-vault-5",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -119489,10 +119489,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/labbsr0x/goh@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/labbsr0x/goh@v1.9.0-flannel1",
       "name": "github.com/labbsr0x/goh",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/labbsr0x/goh@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/labbsr0x/goh@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -120373,10 +120373,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -120985,10 +120985,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1128",
+      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1128",
       "name": "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
-      "version": "v1.0.1128",
-      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1128",
+      "version": "v1.9.0-flannel1128",
+      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1128",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -121002,10 +121002,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.0.1128",
+      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.9.0-flannel1128",
       "name": "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod",
-      "version": "v1.0.1128",
-      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.0.1128",
+      "version": "v1.9.0-flannel1128",
+      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.9.0-flannel1128",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -121256,10 +121256,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.0.199",
+      "bom-ref": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.9.0-flannel199",
       "name": "github.com/volcengine/volc-sdk-golang",
-      "version": "v1.0.199",
-      "purl": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.0.199",
+      "version": "v1.9.0-flannel199",
+      "purl": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.9.0-flannel199",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -122635,10 +122635,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/dario.cat/mergo@v1.0.1",
+      "bom-ref": "pkg:golang/dario.cat/mergo@v1.9.0-flannel1",
       "name": "dario.cat/mergo",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/dario.cat/mergo@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/dario.cat/mergo@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -123849,10 +123849,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -124580,10 +124580,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
       "name": "github.com/mitchellh/go-wordwrap",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -128028,10 +128028,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -128164,10 +128164,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/ghodss/yaml@v1.0.1-0.20220118164431-d8423dcdf344",
+      "bom-ref": "pkg:golang/github.com/ghodss/yaml@v1.9.0-flannel1-0.20220118164431-d8423dcdf344",
       "name": "github.com/ghodss/yaml",
-      "version": "v1.0.1-0.20220118164431-d8423dcdf344",
-      "purl": "pkg:golang/github.com/ghodss/yaml@v1.0.1-0.20220118164431-d8423dcdf344",
+      "version": "v1.9.0-flannel1-0.20220118164431-d8423dcdf344",
+      "purl": "pkg:golang/github.com/ghodss/yaml@v1.9.0-flannel1-0.20220118164431-d8423dcdf344",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -129258,10 +129258,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -138075,10 +138075,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -151306,10 +151306,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -151577,10 +151577,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "name": "github.com/dustin/go-humanize",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -153873,8 +153873,8 @@
       "type": "library",
       "bom-ref": "60d03518-dae7-42c7-9c5f-297626269590",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -154313,8 +154313,8 @@
       "type": "library",
       "bom-ref": "83f3bcc2-9495-46e5-a965-560985b99863",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -155907,10 +155907,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -156264,10 +156264,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/google/btree@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -158008,10 +158008,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -158348,10 +158348,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/google/btree@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -160261,10 +160261,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -164301,8 +164301,8 @@
       "type": "library",
       "bom-ref": "9b1db88f-7243-4c50-a7db-ab9ef1cf723f",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -164675,8 +164675,8 @@
       "type": "library",
       "bom-ref": "afeeaecc-e50f-40c6-8db0-0425c6337855",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -186359,10 +186359,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -186733,10 +186733,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/google/btree@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -201124,10 +201124,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1139",
+      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1139",
       "name": "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
-      "version": "v1.0.1139",
-      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1139",
+      "version": "v1.9.0-flannel1139",
+      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1139",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -201141,10 +201141,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.0.1136",
+      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.9.0-flannel1136",
       "name": "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc",
-      "version": "v1.0.1136",
-      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.0.1136",
+      "version": "v1.9.0-flannel1136",
+      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.9.0-flannel1136",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -213726,8 +213726,8 @@
       "type": "library",
       "bom-ref": "26f15216-e9f1-4819-bb3a-14574d58ad45",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -214100,8 +214100,8 @@
       "type": "library",
       "bom-ref": "41b7f6ee-8981-48e5-bbc4-42b618d73177",
       "name": "github.com/mattetti/filebuffer",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mattetti/filebuffer@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mattetti/filebuffer@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -214846,8 +214846,8 @@
       "type": "library",
       "bom-ref": "8cad28d8-0b81-4311-b11f-ba45a7b74485",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -214980,8 +214980,8 @@
       "type": "library",
       "bom-ref": "9dc0dae4-2860-435d-b84d-1dbe4d17760c",
       "name": "github.com/unknwon/com",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/unknwon/com@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/unknwon/com@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -215247,8 +215247,8 @@
       "type": "library",
       "bom-ref": "b13f5376-ff36-4495-951f-bf24a0a58942",
       "name": "github.com/unknwon/com",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/unknwon/com@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/unknwon/com@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -215655,8 +215655,8 @@
       "type": "library",
       "bom-ref": "d579d98c-6f72-4fea-a8fd-5729c53ea43d",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -215791,8 +215791,8 @@
       "type": "library",
       "bom-ref": "e0ceb6c7-6ae8-4a56-9ed8-30d2fbcda16f",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -216114,8 +216114,8 @@
       "type": "library",
       "bom-ref": "ffb58eb8-18c0-4008-afd9-bb09d86d6ded",
       "name": "github.com/mattetti/filebuffer",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mattetti/filebuffer@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mattetti/filebuffer@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -217333,10 +217333,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/felixge/httpsnoop@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/felixge/httpsnoop@v1.9.0-flannel1",
       "name": "github.com/felixge/httpsnoop",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/felixge/httpsnoop@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/felixge/httpsnoop@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -220978,8 +220978,8 @@
       "type": "library",
       "bom-ref": "0bd00cf3-1a32-4657-8522-b12db974df9c",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -221590,8 +221590,8 @@
       "type": "library",
       "bom-ref": "4730bb4a-d977-49e6-af15-33ff28496669",
       "name": "github.com/mitchellh/go-wordwrap",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -221811,8 +221811,8 @@
       "type": "library",
       "bom-ref": "5893f7d0-0a00-4053-b7a8-456a53508120",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -222909,8 +222909,8 @@
       "type": "library",
       "bom-ref": "c237facf-51cb-4ed3-9790-03b147431399",
       "name": "github.com/mitchellh/go-wordwrap",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -234207,10 +234207,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "name": "github.com/dustin/go-humanize",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -234734,10 +234734,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/google/btree@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -234989,10 +234989,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/gosimple/unidecode@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/gosimple/unidecode@v1.9.0-flannel1",
       "name": "github.com/gosimple/unidecode",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/gosimple/unidecode@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/gosimple/unidecode@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -235363,10 +235363,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/jeremywohl/flatten@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/jeremywohl/flatten@v1.9.0-flannel1",
       "name": "github.com/jeremywohl/flatten",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/jeremywohl/flatten@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/jeremywohl/flatten@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -235873,10 +235873,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/moby/locker@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/moby/locker@v1.9.0-flannel1",
       "name": "github.com/moby/locker",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/moby/locker@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/moby/locker@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -238332,10 +238332,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -238500,10 +238500,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "name": "github.com/dustin/go-humanize",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -239172,10 +239172,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/gorilla/css@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/gorilla/css@v1.9.0-flannel1",
       "name": "github.com/gorilla/css",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/gorilla/css@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/gorilla/css@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -240390,10 +240390,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -240621,10 +240621,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/segmentio/backo-go@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/segmentio/backo-go@v1.9.0-flannel1",
       "name": "github.com/segmentio/backo-go",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/segmentio/backo-go@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/segmentio/backo-go@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -249025,10 +249025,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -250028,10 +250028,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.9.0-flannel1",
       "name": "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -251013,10 +251013,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "bom-ref": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -252853,8 +252853,8 @@
       "type": "library",
       "bom-ref": "15ca33c7-986a-45fc-bb30-201473615ff4",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -253157,8 +253157,8 @@
       "type": "library",
       "bom-ref": "29ce781d-950a-4cd0-b10a-f8df924f436d",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -253906,8 +253906,8 @@
       "type": "library",
       "bom-ref": "5bac0a02-e23f-404b-9878-e66c6cffc69b",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -253957,8 +253957,8 @@
       "type": "library",
       "bom-ref": "5d71a59a-a88b-4629-a998-d84868d537ed",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -254008,8 +254008,8 @@
       "type": "library",
       "bom-ref": "61177466-12a7-4585-af8e-9f18d4811152",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -254076,8 +254076,8 @@
       "type": "library",
       "bom-ref": "65b531d5-0f7f-44bd-af09-bcf2c7aad1a3",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -254195,8 +254195,8 @@
       "type": "library",
       "bom-ref": "6bb139f5-0968-49a4-978c-b0e184c8ceca",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -254719,8 +254719,8 @@
       "type": "library",
       "bom-ref": "87c6d490-7235-48df-b363-b0f7a99d3f7f",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -255318,8 +255318,8 @@
       "type": "library",
       "bom-ref": "a696abb6-aa21-44b0-9d5f-46d1f0af1cdc",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -255520,8 +255520,8 @@
       "type": "library",
       "bom-ref": "b2ee1f72-9ee1-465c-830a-752bc6dc7ef2",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -255637,8 +255637,8 @@
       "type": "library",
       "bom-ref": "bc70332e-4a91-426c-91a0-f28b01a6e86a",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -255654,8 +255654,8 @@
       "type": "library",
       "bom-ref": "bca1e69a-ca86-4b11-83f0-60867d403d8a",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -255722,8 +255722,8 @@
       "type": "library",
       "bom-ref": "c268eb7d-fb0a-4746-bc5b-3e5d60f4682e",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -255739,8 +255739,8 @@
       "type": "library",
       "bom-ref": "c274e1dd-467c-4cbc-8f86-d0aac14175ee",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -255939,8 +255939,8 @@
       "type": "library",
       "bom-ref": "d6cb982a-4e22-43f6-9670-f6a0845915b8",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -256237,8 +256237,8 @@
       "type": "library",
       "bom-ref": "e95388cf-28a9-43b3-9e04-1.3.0a0a42aa",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -258810,10 +258810,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -259490,10 +259490,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/gosimple/unidecode@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/gosimple/unidecode@v1.9.0-flannel1",
       "name": "github.com/gosimple/unidecode",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/gosimple/unidecode@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/gosimple/unidecode@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -261750,8 +261750,8 @@
       "type": "library",
       "bom-ref": "00c332ac-385b-4a70-8678-51ffeb87243c",
       "name": "github.com/mitchellh/go-wordwrap",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -262773,8 +262773,8 @@
       "type": "library",
       "bom-ref": "0346f1af-26f2-44a7-8029-9027fbf219cd",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -262786,8 +262786,8 @@
       "type": "library",
       "bom-ref": "03569b83-b2f8-4afa-a410-16759c268efa",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -262825,8 +262825,8 @@
       "type": "library",
       "bom-ref": "0369793a-38dc-48a8-bbd3-8e84859fe459",
       "name": "github.com/dustin/go-humanize",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -263327,8 +263327,8 @@
       "type": "library",
       "bom-ref": "04927217-c22a-40fa-9e47-9bf80e768d73",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -266007,8 +266007,8 @@
       "type": "library",
       "bom-ref": "0c1bf074-0f07-4269-8b3d-fddfce77ae54",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -267738,8 +267738,8 @@
       "type": "library",
       "bom-ref": "11c343ae-8a61-4375-9975-ce625356b00a",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -267777,8 +267777,8 @@
       "type": "library",
       "bom-ref": "120b096e-8493-4389-8fa8-0b9b5ef8b844",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -269070,8 +269070,8 @@
       "type": "library",
       "bom-ref": "15393209-82.2.028c-87b2-e982a5e7f352",
       "name": "github.com/dustin/go-humanize",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -269837,8 +269837,8 @@
       "type": "library",
       "bom-ref": "1777f915-8f90-4f84-87a6-c3e8538154cc",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -269876,8 +269876,8 @@
       "type": "library",
       "bom-ref": "17b64ddf-f9ad-4211-a0bb-5bbd70a819c7",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -272407,8 +272407,8 @@
       "type": "library",
       "bom-ref": "200a64dc-09c5-4c79-9d6f-67146f73d0ed",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -273379,8 +273379,8 @@
       "type": "library",
       "bom-ref": "22e235a9-463a-4b11-b6fe-9fc43260625d",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -274350,8 +274350,8 @@
       "type": "library",
       "bom-ref": "259a9d84-fd38-4b67-8091-27bd77226469",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -275171,8 +275171,8 @@
       "type": "library",
       "bom-ref": "27f705d3-291b-4e7b-ae24-2d72ea652457",
       "name": "github.com/gosimple/unidecode",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/gosimple/unidecode@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/gosimple/unidecode@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -275657,8 +275657,8 @@
       "type": "library",
       "bom-ref": "2919a2fa-ba9a-487d-84a1-3d6d8d4fac17",
       "name": "github.com/unknwon/com",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/unknwon/com@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/unknwon/com@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -276013,8 +276013,8 @@
       "type": "library",
       "bom-ref": "2a2a7aba-3e16-43ac-9e98-c99e29954df3",
       "name": "github.com/mattetti/filebuffer",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mattetti/filebuffer@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mattetti/filebuffer@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -276026,8 +276026,8 @@
       "type": "library",
       "bom-ref": "2a31975e-aa74-4044-b834-ed569d9acb89",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -277146,8 +277146,8 @@
       "type": "library",
       "bom-ref": "2d3ae373-ac90-4030-800b-1d046ba4ebc7",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -279453,8 +279453,8 @@
       "type": "library",
       "bom-ref": "343f061d-f0d3-4df3-ac36-e7e98d131bcc",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -280190,8 +280190,8 @@
       "type": "library",
       "bom-ref": "368e4241-1171-4d5c-b593-fdc5b1d09eef",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -280454,8 +280454,8 @@
       "type": "library",
       "bom-ref": "378c4a01-cad1-4ab5-9376-10ef7a71bd9e",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -280697,8 +280697,8 @@
       "type": "library",
       "bom-ref": "3845342e-9567-47e9-b45c-62884b7f9dd4",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -281496,8 +281496,8 @@
       "type": "library",
       "bom-ref": "3aaa4220-6d73-4ae2-849e-ae258a9f2e26",
       "name": "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -282491,8 +282491,8 @@
       "type": "library",
       "bom-ref": "3db2ffff-98a1-4b9a-8191-fe4330edc4e9",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -283302,8 +283302,8 @@
       "type": "library",
       "bom-ref": "3f9e636f-df87-4e60-bdca-ab4116311dfc",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -283482,8 +283482,8 @@
       "type": "library",
       "bom-ref": "3ff83eea-f9e7-450b-8100-5356356ab627",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -284233,8 +284233,8 @@
       "type": "library",
       "bom-ref": "4210b379-606b-4347-918a-d376bc10af7e",
       "name": "github.com/dustin/go-humanize",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -284699,8 +284699,8 @@
       "type": "library",
       "bom-ref": "43573e67-331e-4ff4-befb-af91d082afd0",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -285391,8 +285391,8 @@
       "type": "library",
       "bom-ref": "44c00743-d270-4379-a17f-9b7faab947f9",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -286152,8 +286152,8 @@
       "type": "library",
       "bom-ref": "475856be-14fd-4461-ab45-1f09fe2ebf07",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -286333,8 +286333,8 @@
       "type": "library",
       "bom-ref": "47bd8d93-029c-45b5-b145-48959af28fa5",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -286398,8 +286398,8 @@
       "type": "library",
       "bom-ref": "47e2895a-c838-491d-b97e-a0fa742bea99",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -287930,8 +287930,8 @@
       "type": "library",
       "bom-ref": "4cc91bc8-71ce-4338-88d0-80484f5c85a2",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -289694,8 +289694,8 @@
       "type": "library",
       "bom-ref": "52051cde-b421-4b4e-84d8-92123075018b",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -289908,8 +289908,8 @@
       "type": "library",
       "bom-ref": "529971ab-fa43-4a75-bb53-f7d5a68638b5",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -290627,8 +290627,8 @@
       "type": "library",
       "bom-ref": "541c7b35-190c-4d08-bb1b-0d8a00495917",
       "name": "github.com/mitchellh/go-wordwrap",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -291646,8 +291646,8 @@
       "type": "library",
       "bom-ref": "56cc0b27-02fc-4056-8a05-9807d49aa69f",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -292348,8 +292348,8 @@
       "type": "library",
       "bom-ref": "58d225e8-471c-4d8b-ae96-45d86d520abb",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -294988,8 +294988,8 @@
       "type": "library",
       "bom-ref": "5ff1d92c-1a3a-4308-bbc0-21f562c74968",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -297362,8 +297362,8 @@
       "type": "library",
       "bom-ref": "67cb7486-49fb-4779-bd98-42a88ecd22a7",
       "name": "github.com/dustin/go-humanize",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -298683,8 +298683,8 @@
       "type": "library",
       "bom-ref": "6b925788-73c0-43ae-bbe6-9e77a871dabf",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -299812,8 +299812,8 @@
       "type": "library",
       "bom-ref": "6eec98d9-de92-4e3f-90f4-9c73f9134c83",
       "name": "github.com/moby/locker",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/moby/locker@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/moby/locker@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -302555,8 +302555,8 @@
       "type": "library",
       "bom-ref": "7727bc39-14bf-49d0-8825-e20aa5311ca6",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -302713,8 +302713,8 @@
       "type": "library",
       "bom-ref": "776cef1a-0124-486a-88b6-18763b48f8ff",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -303835,8 +303835,8 @@
       "type": "library",
       "bom-ref": "7a7035a8-f98f-4667-a004-e8d5880973fe",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -304423,8 +304423,8 @@
       "type": "library",
       "bom-ref": "7c03cb3f-35f7-45bd-a8fe-38b6a5980e9b",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -304708,8 +304708,8 @@
       "type": "library",
       "bom-ref": "7cd1f453-312f-42b9-8703-97addd6b07cf",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -305502,8 +305502,8 @@
       "type": "library",
       "bom-ref": "7fabf80d-a89d-46b5-9ec7-4bd2071cb910",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -307897,8 +307897,8 @@
       "type": "library",
       "bom-ref": "8695e441-cbe3-4b5a-b109-cd1248b0f3cf",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -308789,8 +308789,8 @@
       "type": "library",
       "bom-ref": "8945f289-bf2b-4051-b439-e3cfa62e9016",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -310879,8 +310879,8 @@
       "type": "library",
       "bom-ref": "8f8166ef-d980-4889-9363-ad68697ba92c",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -313220,8 +313220,8 @@
       "type": "library",
       "bom-ref": "9602216c-c587-4f6b-ad0b-ff8dcad92d69",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -313876,8 +313876,8 @@
       "type": "library",
       "bom-ref": "97c611e9-164b-4c72-8ad3-df7773e77b22",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -314000,8 +314000,8 @@
       "type": "library",
       "bom-ref": "97fe13b5-9ef3-4c5b-b1ff-33682712c0bd",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -314147,8 +314147,8 @@
       "type": "library",
       "bom-ref": "986e90e5-6001-45de-b3b1-540d45a68301",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -315658,8 +315658,8 @@
       "type": "library",
       "bom-ref": "9d0bfe20-ee6b-4ae1-a2e4-674e2d961ea3",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -316208,8 +316208,8 @@
       "type": "library",
       "bom-ref": "9eac5ed4-1833-4cc0-8018-033818f35df9",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -317886,8 +317886,8 @@
       "type": "library",
       "bom-ref": "a384f7f1-eb8b-4424-97f0-8a1c7ba8e1f7",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -321464,8 +321464,8 @@
       "type": "library",
       "bom-ref": "ad959b9e-07f1-47bc-a8e6-c7c493f69168",
       "name": "github.com/gosimple/unidecode",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/gosimple/unidecode@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/gosimple/unidecode@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -322615,8 +322615,8 @@
       "type": "library",
       "bom-ref": "b092a691-d8a1-4bc6-a469-6bc4c2549101",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -325405,8 +325405,8 @@
       "type": "library",
       "bom-ref": "b8c6076d-f1f9-4f65-9995-51b4a4850789",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -325568,8 +325568,8 @@
       "type": "library",
       "bom-ref": "b943c0fa-f266-482f-9da5-89d350c14026",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -326191,8 +326191,8 @@
       "type": "library",
       "bom-ref": "bb580c64-bbad-42c7-aa1c-4089a9a02fc2",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -328531,8 +328531,8 @@
       "type": "library",
       "bom-ref": "c19fe36e-c2ca-4650-9c96-2d5b76ee5bcf",
       "name": "github.com/hashicorp/hcl",
-      "version": "v1.0.1-vault-5",
-      "purl": "pkg:golang/github.com/hashicorp/hcl@v1.0.1-vault-5",
+      "version": "v1.9.0-flannel1-vault-5",
+      "purl": "pkg:golang/github.com/hashicorp/hcl@v1.9.0-flannel1-vault-5",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -328992,8 +328992,8 @@
       "type": "library",
       "bom-ref": "c3c9503b-0ebe-4a8f-8f22-394407188e3c",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -331613,8 +331613,8 @@
       "type": "library",
       "bom-ref": "cae22587-cefa-496e-87be-13958fc17cab",
       "name": "github.com/hashicorp/hcl",
-      "version": "v1.0.1-vault-5",
-      "purl": "pkg:golang/github.com/hashicorp/hcl@v1.0.1-vault-5",
+      "version": "v1.9.0-flannel1-vault-5",
+      "purl": "pkg:golang/github.com/hashicorp/hcl@v1.9.0-flannel1-vault-5",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -333205,8 +333205,8 @@
       "type": "library",
       "bom-ref": "cfff6798-eb25-4130-a075-727446863789",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -333324,8 +333324,8 @@
       "type": "library",
       "bom-ref": "d058b406-6699-4406-989c-cdec9fa9dd3e",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -333422,8 +333422,8 @@
       "type": "library",
       "bom-ref": "d08a3015-0648-4400-96bb-358b01b6a4fe",
       "name": "github.com/matttproud/golang_protobuf_extensions",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -334399,8 +334399,8 @@
       "type": "library",
       "bom-ref": "d3c4826e-b6df-4746-88dd-2b4811e425a1",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -335194,8 +335194,8 @@
       "type": "library",
       "bom-ref": "d630c609-eda1-4fae-9701-ff0d1eccfdc8",
       "name": "github.com/pmezard/go-difflib",
-      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
-      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "version": "v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
+      "purl": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -335551,8 +335551,8 @@
       "type": "library",
       "bom-ref": "d77824c7-5d26-4a0d-9664-e18078571b5f",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -337875,8 +337875,8 @@
       "type": "library",
       "bom-ref": "dcecd4f9-314e-4775-94bd-6f6dc2a5b197",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -337981,8 +337981,8 @@
       "type": "library",
       "bom-ref": "dd439c06-5fb9-400f-9eb3-30985958d126",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -338880,8 +338880,8 @@
       "type": "library",
       "bom-ref": "df446412-67e5-41e7-bac7-7886e70f5c24",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -340448,8 +340448,8 @@
       "type": "library",
       "bom-ref": "e43d04f5-9c2c-4f31-afc9-256dd61560b6",
       "name": "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -340795,8 +340795,8 @@
       "type": "library",
       "bom-ref": "e56a22c9-ce2c-41f0-9b50-9092aec017f2",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -341255,8 +341255,8 @@
       "type": "library",
       "bom-ref": "e6cbe3ab-4c19-434c-a3c6-0c086323e356",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -341536,8 +341536,8 @@
       "type": "library",
       "bom-ref": "e78a6deb-fc3f-4ac2-a68e-b1130e107b27",
       "name": "github.com/moby/locker",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/moby/locker@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/moby/locker@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -341647,8 +341647,8 @@
       "type": "library",
       "bom-ref": "e7e13b9a-e987-4ba6-ae16-25924ecf2143",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -341982,8 +341982,8 @@
       "type": "library",
       "bom-ref": "e8f43917-a136-4d6b-8cc9-a694ed40f820",
       "name": "github.com/mitchellh/go-wordwrap",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -342794,8 +342794,8 @@
       "type": "library",
       "bom-ref": "eb681fa2-eb5e-4bb7-bfd3-fd17eb6033a3",
       "name": "github.com/mitchellh/go-wordwrap",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -343726,8 +343726,8 @@
       "type": "library",
       "bom-ref": "ee1c1403-2153-4174-b6e0-220ef8790ae6",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -344387,8 +344387,8 @@
       "type": "library",
       "bom-ref": "ef6bfe90-929b-4c44-a821-2e484a0d421a",
       "name": "github.com/unknwon/com",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/unknwon/com@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/unknwon/com@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -345477,8 +345477,8 @@
       "type": "library",
       "bom-ref": "f2e9e644-93a6-46c4-a04a-c9fa92595628",
       "name": "github.com/modern-go/reflect2",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -345635,8 +345635,8 @@
       "type": "library",
       "bom-ref": "f3541023-7587-4910-b700-077401561e8b",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -345715,8 +345715,8 @@
       "type": "library",
       "bom-ref": "f3882206-837a-4493-b918-5a7030fb2f87",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -346325,8 +346325,8 @@
       "type": "library",
       "bom-ref": "f59c7aa4-d3d2-4d10-b148-b2424962c5d4",
       "name": "github.com/mattetti/filebuffer",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/mattetti/filebuffer@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/mattetti/filebuffer@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -346998,8 +346998,8 @@
       "type": "library",
       "bom-ref": "f7fc7510-80d5-48ca-94d0-34af6601e53c",
       "name": "github.com/beorn7/perks",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -349207,8 +349207,8 @@
       "type": "library",
       "bom-ref": "feab3c8b-40b0-4d8f-92ea-6a3ae1e6e7da",
       "name": "github.com/google/btree",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/google/btree@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -375215,10 +375215,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/dario.cat/mergo@v1.0.1",
+      "bom-ref": "pkg:golang/dario.cat/mergo@v1.9.0-flannel1",
       "name": "dario.cat/mergo",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/dario.cat/mergo@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/dario.cat/mergo@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -377763,10 +377763,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/boombuler/barcode@v1.0.1-0.20190219062509-6c824513bacc",
+      "bom-ref": "pkg:golang/github.com/boombuler/barcode@v1.9.0-flannel1-0.20190219062509-6c824513bacc",
       "name": "github.com/boombuler/barcode",
-      "version": "v1.0.1-0.20190219062509-6c824513bacc",
-      "purl": "pkg:golang/github.com/boombuler/barcode@v1.0.1-0.20190219062509-6c824513bacc",
+      "version": "v1.9.0-flannel1-0.20190219062509-6c824513bacc",
+      "purl": "pkg:golang/github.com/boombuler/barcode@v1.9.0-flannel1-0.20190219062509-6c824513bacc",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -378693,10 +378693,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.9.0-flannel1",
       "name": "github.com/dnsimple/dnsimple-go",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -379096,10 +379096,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/felixge/httpsnoop@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/felixge/httpsnoop@v1.9.0-flannel1",
       "name": "github.com/felixge/httpsnoop",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/felixge/httpsnoop@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/felixge/httpsnoop@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -379200,10 +379200,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/ghodss/yaml@v1.0.1-0.20220118164431-d8423dcdf344",
+      "bom-ref": "pkg:golang/github.com/ghodss/yaml@v1.9.0-flannel1-0.20220118164431-d8423dcdf344",
       "name": "github.com/ghodss/yaml",
-      "version": "v1.0.1-0.20220118164431-d8423dcdf344",
-      "purl": "pkg:golang/github.com/ghodss/yaml@v1.0.1-0.20220118164431-d8423dcdf344",
+      "version": "v1.9.0-flannel1-0.20220118164431-d8423dcdf344",
+      "purl": "pkg:golang/github.com/ghodss/yaml@v1.9.0-flannel1-0.20220118164431-d8423dcdf344",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -379265,10 +379265,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/go-errors/errors@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/go-errors/errors@v1.9.0-flannel1",
       "name": "github.com/go-errors/errors",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/go-errors/errors@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/go-errors/errors@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -381306,10 +381306,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/jeremywohl/flatten@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/jeremywohl/flatten@v1.9.0-flannel1",
       "name": "github.com/jeremywohl/flatten",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/jeremywohl/flatten@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/jeremywohl/flatten@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -381852,10 +381852,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/labbsr0x/goh@v1.0.1",
+      "bom-ref": "pkg:golang/github.com/labbsr0x/goh@v1.9.0-flannel1",
       "name": "github.com/labbsr0x/goh",
-      "version": "v1.0.1",
-      "purl": "pkg:golang/github.com/labbsr0x/goh@v1.0.1",
+      "version": "v1.9.0-flannel1",
+      "purl": "pkg:golang/github.com/labbsr0x/goh@v1.9.0-flannel1",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -382268,10 +382268,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/mattn/go-shellwords@v1.0.12",
+      "bom-ref": "pkg:golang/github.com/mattn/go-shellwords@v1.9.0-flannel12",
       "name": "github.com/mattn/go-shellwords",
-      "version": "v1.0.12",
-      "purl": "pkg:golang/github.com/mattn/go-shellwords@v1.0.12",
+      "version": "v1.9.0-flannel12",
+      "purl": "pkg:golang/github.com/mattn/go-shellwords@v1.9.0-flannel12",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -384723,10 +384723,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1128",
+      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1128",
       "name": "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
-      "version": "v1.0.1128",
-      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1128",
+      "version": "v1.9.0-flannel1128",
+      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1128",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -384736,10 +384736,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1139",
+      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1139",
       "name": "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
-      "version": "v1.0.1139",
-      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1139",
+      "version": "v1.9.0-flannel1139",
+      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1139",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -384762,10 +384762,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.0.1128",
+      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.9.0-flannel1128",
       "name": "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod",
-      "version": "v1.0.1128",
-      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.0.1128",
+      "version": "v1.9.0-flannel1128",
+      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.9.0-flannel1128",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -384801,10 +384801,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.0.1136",
+      "bom-ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.9.0-flannel1136",
       "name": "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc",
-      "version": "v1.0.1136",
-      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.0.1136",
+      "version": "v1.9.0-flannel1136",
+      "purl": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.9.0-flannel1136",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -385346,10 +385346,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.0.199",
+      "bom-ref": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.9.0-flannel199",
       "name": "github.com/volcengine/volc-sdk-golang",
-      "version": "v1.0.199",
-      "purl": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.0.199",
+      "version": "v1.9.0-flannel199",
+      "purl": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.9.0-flannel199",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -445947,7 +445947,7 @@
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "github.com/containerd/cgroups@v1.0.1"
+          "value": "github.com/containerd/cgroups@v1.9.0-flannel1"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -447557,7 +447557,7 @@
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2"
+          "value": "github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -448974,7 +448974,7 @@
       ]
     },
     {
-      "ref": "pkg:golang/github.com/beorn7/perks@v1.0.1",
+      "ref": "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -449032,7 +449032,7 @@
     {
       "ref": "pkg:golang/github.com/kubernetes-csi/node-driver-registrar@v2.11.1",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
         "pkg:golang/github.com/container-storage-interface/spec@v1.9.0",
@@ -449284,7 +449284,7 @@
         "pkg:golang/github.com/alecthomas/units@v0.0.0-20211218093645-b94a6e3cc137",
         "pkg:golang/github.com/asaskevich/govalidator@v0.0.0-20230301143203-a9d515a09cc2",
         "pkg:golang/github.com/aws/aws-sdk-go@v1.44.245",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
         "pkg:golang/github.com/davecgh/go-spew@v1.1.1",
@@ -449336,7 +449336,7 @@
         "pkg:golang/github.com/opencontainers/go-digest@v1.0.0",
         "pkg:golang/github.com/opentracing/opentracing-go@v1.2.0",
         "pkg:golang/github.com/pkg/errors@v0.9.1",
-        "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+        "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
         "pkg:golang/github.com/prometheus-community/prom-label-proxy@v0.6.0",
         "pkg:golang/github.com/prometheus-operator/prometheus-operator",
         "pkg:golang/github.com/prometheus/alertmanager@v0.25.0",
@@ -449582,7 +449582,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "ref": "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
       "dependsOn": []
     },
     {
@@ -449913,7 +449913,7 @@
     {
       "ref": "pkg:golang/k8s.io/kube-state-metrics/v2@v2.9.2",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
         "pkg:golang/github.com/coreos/go-systemd/v22@v22.5.0",
@@ -450037,7 +450037,7 @@
     {
       "ref": "pkg:golang/github.com/kubernetes-csi/node-driver-registrar@v2.8.0",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
         "pkg:golang/github.com/container-storage-interface/spec@v1.7.0",
@@ -450134,7 +450134,7 @@
         "pkg:golang/github.com/jet/kube-webhook-certgen",
         "pkg:golang/github.com/json-iterator/go@v1.1.11",
         "pkg:golang/github.com/modern-go/concurrent@v0.0.0-20180306012644-bacd9c7ef1dd",
-        "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+        "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
         "pkg:golang/github.com/onrik/logrus@v0.9.0",
         "pkg:golang/github.com/sirupsen/logrus@v1.8.1",
         "pkg:golang/github.com/spf13/cobra@v1.1.3",
@@ -450208,7 +450208,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+      "ref": "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -450312,7 +450312,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+      "ref": "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -450424,7 +450424,7 @@
       "dependsOn": [
         "38a15f83-b626-4a85-b0c5-97cf9d3532aa",
         "pkg:golang/github.com/davecgh/go-spew@v1.1.2-0.20180830191138-d8f796af33cc",
-        "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+        "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
         "pkg:golang/github.com/emicklei/go-restful/v3@v3.12.1",
         "pkg:golang/github.com/felixge/httpsnoop@v1.0.4",
         "pkg:golang/github.com/fxamacker/cbor/v2@v2.7.0",
@@ -450545,7 +450545,7 @@
         "pkg:golang/github.com/alecthomas/units@v0.0.0-20211218093645-b94a6e3cc137",
         "pkg:golang/github.com/asaskevich/govalidator@v0.0.0-20230301143203-a9d515a09cc2",
         "pkg:golang/github.com/aws/aws-sdk-go@v1.44.245",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/brancz/kube-rbac-proxy@v0.14.2",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
@@ -450595,7 +450595,7 @@
         "pkg:golang/github.com/opencontainers/go-digest@v1.0.0",
         "pkg:golang/github.com/opentracing/opentracing-go@v1.2.0",
         "pkg:golang/github.com/pkg/errors@v0.9.1",
-        "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+        "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
         "pkg:golang/github.com/prometheus-community/prom-label-proxy@v0.6.0",
         "pkg:golang/github.com/prometheus-operator/prometheus-operator",
         "pkg:golang/github.com/prometheus/alertmanager@v0.25.0",
@@ -450917,7 +450917,7 @@
     {
       "ref": "pkg:golang/sigs.k8s.io/metrics-server",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver@v3.5.0%2Bincompatible",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.1.1",
         "pkg:golang/github.com/coreos/go-semver@v0.3.0",
@@ -450945,7 +450945,7 @@
         "pkg:golang/github.com/mailru/easyjson@v0.7.1",
         "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.2-0.20181231171920-c182affec369",
         "pkg:golang/github.com/modern-go/concurrent@v0.0.0-20180306012644-bacd9c7ef1dd",
-        "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+        "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
         "pkg:golang/github.com/munnerz/goautoneg@v0.0.0-20191010083416-a7dc8b61c822",
         "pkg:golang/github.com/nytimes/gziphandler@v0.0.0-20170623195520-56545f4a5d46",
         "pkg:golang/github.com/pkg/errors@v0.9.1",
@@ -451571,7 +451571,7 @@
     {
       "ref": "pkg:golang/github.com/kubernetes-csi/external-provisioner@v3.5.0",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
         "pkg:golang/github.com/container-storage-interface/spec@v1.8.0",
@@ -451729,7 +451729,7 @@
     {
       "ref": "pkg:golang/github.com/kubernetes-csi/livenessprobe@v2.13.1",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
         "pkg:golang/github.com/container-storage-interface/spec@v1.9.0",
@@ -451855,7 +451855,7 @@
     {
       "ref": "pkg:golang/github.com/kubernetes-csi/livenessprobe@v2.10.0",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.1.2",
         "pkg:golang/github.com/container-storage-interface/spec@v1.7.0",
@@ -452133,7 +452133,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.0.1",
+      "ref": "pkg:golang/github.com/dnsimple/dnsimple-go@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -452594,7 +452594,7 @@
         "pkg:golang/github.com/azure/go-autorest/autorest@v0.11.28",
         "pkg:golang/github.com/azure/go-autorest/logger@v0.2.1",
         "pkg:golang/github.com/azure/go-autorest/tracing@v0.6.0",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/bodgit/tsig@v1.2.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
         "pkg:golang/github.com/civo/civogo@v0.3.14",
@@ -452607,7 +452607,7 @@
         "pkg:golang/github.com/deepmap/oapi-codegen@v1.9.1",
         "pkg:golang/github.com/denverdino/aliyungo@v0.0.0-20190125010748-a747050bb1ba",
         "pkg:golang/github.com/digitalocean/godo@v1.97.0",
-        "pkg:golang/github.com/dnsimple/dnsimple-go@v1.0.1",
+        "pkg:golang/github.com/dnsimple/dnsimple-go@v1.9.0-flannel1",
         "pkg:golang/github.com/emicklei/go-restful/v3@v3.9.0",
         "pkg:golang/github.com/exoscale/egoscale@v0.97.0",
         "pkg:golang/github.com/f5networks/k8s-bigip-ctlr/v2@v2.11.1",
@@ -452788,7 +452788,7 @@
         "pkg:golang/github.com/azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns@v1.2.0",
         "pkg:golang/github.com/azure/go-ntlmssp@v0.0.0-2022112.2.0559-754e69321358",
         "pkg:golang/github.com/azuread/microsoft-authentication-library-for-go@v1.1.1",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cenkalti/backoff/v3@v3.2.2",
         "pkg:golang/github.com/cenkalti/backoff/v4@v4.2.1",
@@ -452833,7 +452833,7 @@
         "pkg:golang/github.com/hashicorp/go-secure-stdlib/parseutil@v0.1.8",
         "pkg:golang/github.com/hashicorp/go-secure-stdlib/strutil@v0.1.2",
         "pkg:golang/github.com/hashicorp/go-sockaddr@v1.0.6",
-        "pkg:golang/github.com/hashicorp/hcl@v1.0.1-vault-5",
+        "pkg:golang/github.com/hashicorp/hcl@v1.9.0-flannel1-vault-5",
         "pkg:golang/github.com/hashicorp/vault/api@v1.10.0",
         "pkg:golang/github.com/hashicorp/vault/sdk@v0.10.2",
         "pkg:golang/github.com/imdario/mergo@v0.3.16",
@@ -453066,7 +453066,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/hashicorp/hcl@v1.0.1-vault-5",
+      "ref": "pkg:golang/github.com/hashicorp/hcl@v1.9.0-flannel1-vault-5",
       "dependsOn": []
     },
     {
@@ -453324,7 +453324,7 @@
       "ref": "ca34bee1-b6fa-4e9e-885e-ea724f74f878",
       "dependsOn": [
         "1765660b-ffa4-483b-b68e-447e6cd8e89c",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cert-manager/cert-manager/cainjector-binary",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
@@ -453444,7 +453444,7 @@
     {
       "ref": "98b4351e-ce41-4d4a-bf0a-d5113aaa7d09",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
         "pkg:golang/github.com/davecgh/go-spew@v1.1.2-0.20180830191138-d8f796af33cc",
         "pkg:golang/github.com/emicklei/go-restful/v3@v3.12.0",
@@ -453764,7 +453764,7 @@
         "82a359e6-72bf-4a4a-a3ef-e32ba46d4252",
         "8d395fa1-f648-4dfd-b122-afbd187d3c23",
         "pkg:golang/github.com/armon/go-proxyproto@v0.0.0-20210323213023-7e956b284f0a",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.1.2",
         "pkg:golang/github.com/coreos/go-systemd/v22@v22.3.2",
@@ -454355,7 +454355,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/google/btree@v1.0.1",
+      "ref": "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -454649,7 +454649,7 @@
         "pkg:golang/cel.dev/expr@v0.18.0",
         "pkg:golang/github.com/antlr4-go/antlr/v4@v4.13.0",
         "pkg:golang/github.com/asaskevich/govalidator@v0.0.0-20190424111038-f61b66f89f4a",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cenkalti/backoff/v4@v4.3.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
@@ -454679,7 +454679,7 @@
         "pkg:golang/github.com/godbus/dbus/v5@v5.1.0",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
-        "pkg:golang/github.com/google/btree@v1.0.1",
+        "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
         "pkg:golang/github.com/google/cadvisor@v0.51.0",
         "pkg:golang/github.com/google/cel-go@v0.22.0",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
@@ -454837,7 +454837,7 @@
     {
       "ref": "pkg:golang/github.com/kubernetes-csi/csi-driver-smb@v1.16.0",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
         "pkg:golang/github.com/container-storage-interface/spec@v1.8.0",
@@ -454857,7 +454857,7 @@
         "pkg:golang/github.com/josharian/intern@v1.0.0",
         "pkg:golang/github.com/json-iterator/go@v1.1.12",
         "pkg:golang/github.com/kubernetes-csi/csi-lib-utils@v0.13.0",
-        "pkg:golang/github.com/kubernetes-csi/csi-proxy/client@v1.0.1",
+        "pkg:golang/github.com/kubernetes-csi/csi-proxy/client@v1.9.0-flannel1",
         "pkg:golang/github.com/mailru/easyjson@v0.7.7",
         "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.4",
         "pkg:golang/github.com/microsoft/go-winio@v0.6.0",
@@ -454899,7 +454899,7 @@
       ]
     },
     {
-      "ref": "pkg:golang/github.com/kubernetes-csi/csi-proxy/client@v1.0.1",
+      "ref": "pkg:golang/github.com/kubernetes-csi/csi-proxy/client@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -465909,7 +465909,7 @@
         "pkg:golang/github.com/azure/go-autorest/logger@v0.2.1",
         "pkg:golang/github.com/azure/go-autorest/tracing@v0.6.0",
         "pkg:golang/github.com/azuread/microsoft-authentication-library-for-go@v1.2.2",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/bradleyfalzon/ghinstallation/v2@v2.11.0",
         "pkg:golang/github.com/cenkalti/backoff/v3@v3.2.2",
@@ -465969,7 +465969,7 @@
         "pkg:golang/github.com/googleapis/enterprise-certificate-proxy@v0.3.2",
         "pkg:golang/github.com/googleapis/gax-go/v2@v2.13.0",
         "pkg:golang/github.com/gophercloud/gophercloud@v1.14.0",
-        "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.0.1",
+        "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.9.0-flannel1",
         "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/v2@v2.1.0",
         "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware@v1.4.0",
         "pkg:golang/github.com/grpc-ecosystem/go-grpc-prometheus@v1.2.0",
@@ -466027,7 +466027,7 @@
         "pkg:golang/github.com/pierrec/lz4/v4@v4.1.21",
         "pkg:golang/github.com/pkg/browser@v0.0.0-20240102092130-5ac0b6a4141c",
         "pkg:golang/github.com/pkg/errors@v0.9.1",
-        "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+        "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
         "pkg:golang/github.com/prometheus/client_golang@v1.18.0",
         "pkg:golang/github.com/prometheus/client_model@v0.5.0",
         "pkg:golang/github.com/prometheus/common@v0.45.0",
@@ -466473,7 +466473,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.0.1",
+      "ref": "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -466912,7 +466912,7 @@
     {
       "ref": "pkg:golang/github.com/nginxinc/nginx-gateway-fabric",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
         "pkg:golang/github.com/davecgh/go-spew@v1.1.1",
         "pkg:golang/github.com/emicklei/go-restful/v3@v3.11.0",
@@ -467066,7 +467066,7 @@
         "108df8f0-8dbf-4a9e-ade4-c84ccffd4268",
         "pkg:golang/github.com/antlr/antlr4/runtime/go/antlr/v4@v4.0.0-20230305170008-8188dc5388df",
         "pkg:golang/github.com/azure/go-ntlmssp@v0.0.0-2022112.2.0559-754e69321358",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cenkalti/backoff/v4@v4.2.1",
         "pkg:golang/github.com/cert-manager/cert-manager/webhook-binary",
@@ -468146,7 +468146,7 @@
     {
       "ref": "pkg:golang/github.com/kubernetes-csi/csi-driver-smb@v1.12.0",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.1.2",
         "pkg:golang/github.com/container-storage-interface/spec@v1.7.0",
@@ -468710,7 +468710,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/boombuler/barcode@v1.0.1-0.20190219062509-6c824513bacc",
+      "ref": "pkg:golang/github.com/boombuler/barcode@v1.9.0-flannel1-0.20190219062509-6c824513bacc",
       "dependsOn": []
     },
     {
@@ -468786,7 +468786,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/go-errors/errors@v1.0.1",
+      "ref": "pkg:golang/github.com/go-errors/errors@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -468978,7 +468978,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/labbsr0x/goh@v1.0.1",
+      "ref": "pkg:golang/github.com/labbsr0x/goh@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -469246,11 +469246,11 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1128",
+      "ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1128",
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.0.1128",
+      "ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.9.0-flannel1128",
       "dependsOn": []
     },
     {
@@ -469316,8 +469316,8 @@
         "pkg:golang/github.com/azuread/microsoft-authentication-library-for-go@v1.3.3",
         "pkg:golang/github.com/baidubce/bce-sdk-go@v0.9.223",
         "pkg:golang/github.com/benbjohnson/clock@v1.3.0",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
-        "pkg:golang/github.com/boombuler/barcode@v1.0.1-0.20190219062509-6c824513bacc",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
+        "pkg:golang/github.com/boombuler/barcode@v1.9.0-flannel1-0.20190219062509-6c824513bacc",
         "pkg:golang/github.com/burntsushi/toml@v1.5.0",
         "pkg:golang/github.com/cenkalti/backoff/v4@v4.3.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
@@ -469350,7 +469350,7 @@
         "pkg:golang/github.com/gabriel-vasile/mimetype@v1.4.2",
         "pkg:golang/github.com/ghodss/yaml@v1.0.0",
         "pkg:golang/github.com/go-acme/lego/v4@v4.23.1",
-        "pkg:golang/github.com/go-errors/errors@v1.0.1",
+        "pkg:golang/github.com/go-errors/errors@v1.9.0-flannel1",
         "pkg:golang/github.com/go-jose/go-jose/v4@v4.0.5",
         "pkg:golang/github.com/go-kit/kit@v0.13.0",
         "pkg:golang/github.com/go-kit/log@v0.2.1",
@@ -469398,7 +469398,7 @@
         "pkg:golang/github.com/hashicorp/go-uuid@v1.0.3",
         "pkg:golang/github.com/hashicorp/go-version@v1.7.0",
         "pkg:golang/github.com/hashicorp/golang-lru@v1.0.2",
-        "pkg:golang/github.com/hashicorp/hcl@v1.0.1-vault-5",
+        "pkg:golang/github.com/hashicorp/hcl@v1.9.0-flannel1-vault-5",
         "pkg:golang/github.com/hashicorp/nomad/api@v0.0.0-20231213195942-64e3dca9274b",
         "pkg:golang/github.com/hashicorp/serf@v0.10.1",
         "pkg:golang/github.com/hdrhistogram/hdrhistogram-go@v1.1.2",
@@ -469425,7 +469425,7 @@
         "pkg:golang/github.com/kvtools/zookeeper@v1.0.2",
         "pkg:golang/github.com/kylelemons/godebug@v1.1.0",
         "pkg:golang/github.com/labbsr0x/bindman-dns-webhook@v1.0.2",
-        "pkg:golang/github.com/labbsr0x/goh@v1.0.1",
+        "pkg:golang/github.com/labbsr0x/goh@v1.9.0-flannel1",
         "pkg:golang/github.com/leodido/go-urn@v1.2.4",
         "pkg:golang/github.com/linode/linodego@v1.48.1",
         "pkg:golang/github.com/liquidweb/liquidweb-cli@v0.6.9",
@@ -469477,7 +469477,7 @@
         "pkg:golang/github.com/pires/go-proxyproto@v0.6.1",
         "pkg:golang/github.com/pkg/browser@v0.0.0-20240102092130-5ac0b6a4141c",
         "pkg:golang/github.com/pkg/errors@v0.9.1",
-        "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+        "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
         "pkg:golang/github.com/pquerna/otp@v1.4.0",
         "pkg:golang/github.com/prometheus/client_golang@v1.19.1",
         "pkg:golang/github.com/prometheus/client_model@v0.6.1",
@@ -469513,8 +469513,8 @@
         "pkg:golang/github.com/stretchr/testify@v1.10.0",
         "pkg:golang/github.com/subosito/gotenv@v1.6.0",
         "pkg:golang/github.com/tailscale/tscert@v0.0.0-20230806124524-28a91b69a046",
-        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1128",
-        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.0.1128",
+        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1128",
+        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.9.0-flannel1128",
         "pkg:golang/github.com/tetratelabs/wazero@v1.8.0",
         "pkg:golang/github.com/tjfoc/gmsm@v1.4.1",
         "pkg:golang/github.com/traefik/grpc-web@v0.16.0",
@@ -469528,7 +469528,7 @@
         "pkg:golang/github.com/valyala/fasthttp@v1.58.0",
         "pkg:golang/github.com/vinyldns/go-vinyldns@v0.9.16",
         "pkg:golang/github.com/vividcortex/gohistogram@v1.0.0",
-        "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.0.199",
+        "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.9.0-flannel199",
         "pkg:golang/github.com/vulcand/oxy/v2@v2.0.3",
         "pkg:golang/github.com/vulcand/predicate@v1.2.0",
         "pkg:golang/github.com/vultr/govultr/v3@v3.17.0",
@@ -469637,7 +469637,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.0.199",
+      "ref": "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.9.0-flannel199",
       "dependsOn": []
     },
     {
@@ -469901,7 +469901,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/dario.cat/mergo@v1.0.1",
+      "ref": "pkg:golang/dario.cat/mergo@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -469916,7 +469916,7 @@
         "5c87abbe-bdf2-4297-a294-1f7f6c7d59b4",
         "9a12b351-f15e-4981-846e-92d93fa4ecfe",
         "d70eb4b3-10af-4fb9-96c7-e6e15363aa5c",
-        "pkg:golang/dario.cat/mergo@v1.0.1",
+        "pkg:golang/dario.cat/mergo@v1.9.0-flannel1",
         "pkg:golang/github.com/davecgh/go-spew@v1.1.2-0.20180830191138-d8f796af33cc",
         "pkg:golang/github.com/emicklei/go-restful/v3@v3.12.1",
         "pkg:golang/github.com/evanphx/json-patch/v5@v5.9.0",
@@ -470057,7 +470057,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+      "ref": "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -470113,7 +470113,7 @@
         "901cbe7a-6390-451f-aa6e-0eaed1b70f9e",
         "abbfc70f-7a63-489f-a4b1-9aecbb4e1dfe",
         "f5521913-3132-4406-81a5-b26cad3c1eff",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
         "pkg:golang/github.com/chai2010/gettext-go@v1.0.3",
@@ -470156,7 +470156,7 @@
         "pkg:golang/github.com/mailru/easyjson@v0.9.0",
         "pkg:golang/github.com/makenowjust/heredoc@v1.0.0",
         "pkg:golang/github.com/mattn/go-isatty@v0.0.20",
-        "pkg:golang/github.com/mitchellh/go-wordwrap@v1.0.1",
+        "pkg:golang/github.com/mitchellh/go-wordwrap@v1.9.0-flannel1",
         "pkg:golang/github.com/moby/spdystream@v0.5.0",
         "pkg:golang/github.com/moby/term@v0.5.2",
         "pkg:golang/github.com/modern-go/concurrent@v0.0.0-20180306012644-bacd9c7ef1dd",
@@ -470609,7 +470609,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/ghodss/yaml@v1.0.1-0.20220118164431-d8423dcdf344",
+      "ref": "pkg:golang/github.com/ghodss/yaml@v1.9.0-flannel1-0.20220118164431-d8423dcdf344",
       "dependsOn": []
     },
     {
@@ -470626,7 +470626,7 @@
         "pkg:golang/cloud.google.com/go/compute/metadata@v0.2.3",
         "pkg:golang/github.com/a8m/envsubst@v1.4.2",
         "pkg:golang/github.com/benbjohnson/clock@v1.3.5",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/bitly/go-simplejson@v0.5.1",
         "pkg:golang/github.com/bsm/redislock@v0.9.4",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
@@ -470634,7 +470634,7 @@
         "pkg:golang/github.com/dgryski/go-rendezvous@v0.0.0-20200823014737-9f7001d12a5f",
         "pkg:golang/github.com/felixge/httpsnoop@v1.0.4",
         "pkg:golang/github.com/fsnotify/fsnotify@v1.7.0",
-        "pkg:golang/github.com/ghodss/yaml@v1.0.1-0.20220118164431-d8423dcdf344",
+        "pkg:golang/github.com/ghodss/yaml@v1.9.0-flannel1-0.20220118164431-d8423dcdf344",
         "pkg:golang/github.com/go-jose/go-jose/v3@v3.0.1",
         "pkg:golang/github.com/go-logr/logr@v1.4.1",
         "pkg:golang/github.com/go-logr/stdr@v1.2.2",
@@ -470858,7 +470858,7 @@
         "pkg:golang/github.com/alecthomas/kingpin/v2@v2.3.2",
         "pkg:golang/github.com/alecthomas/units@v0.0.0-20211218093645-b94a6e3cc137",
         "pkg:golang/github.com/beevik/ntp@v0.3.0",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
         "pkg:golang/github.com/coreos/go-systemd/v22@v22.5.0",
         "pkg:golang/github.com/dennwc/btrfs@v0.0.0-202303122.2.01-a1f570bd01a1",
@@ -472085,7 +472085,7 @@
         "pkg:golang/github.com/json-iterator/go@v1.1.10",
         "pkg:golang/github.com/masterminds/semver@v1.5.0",
         "pkg:golang/github.com/modern-go/concurrent@v0.0.0-20180306012644-bacd9c7ef1dd",
-        "pkg:golang/github.com/modern-go/reflect2@v1.0.1",
+        "pkg:golang/github.com/modern-go/reflect2@v1.9.0-flannel1",
         "pkg:golang/github.com/nvidia/go-dcgm@v0.0.0-20221107203308-b6ed78cdc8d3",
         "pkg:golang/github.com/nvidia/gpu-monitoring-tools@v0.0.0-20211102125545-5a2c58442e48",
         "pkg:golang/github.com/russross/blackfriday/v2@v2.0.1",
@@ -475077,7 +475077,7 @@
         "pkg:golang/github.com/azure/go-autorest/autorest@v0.11.29",
         "pkg:golang/github.com/azure/go-autorest/logger@v0.2.1",
         "pkg:golang/github.com/azure/go-autorest/tracing@v0.6.0",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
         "pkg:golang/github.com/coredns/caddy@v1.1.1",
         "pkg:golang/github.com/coreos/go-semver@v0.3.0",
@@ -475092,7 +475092,7 @@
         "pkg:golang/github.com/davecgh/go-spew@v1.1.2-0.20180830191138-d8f796af33cc",
         "pkg:golang/github.com/dimchansky/utfbom@v1.1.1",
         "pkg:golang/github.com/dnstap/golang-dnstap@v0.4.0",
-        "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+        "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
         "pkg:golang/github.com/emicklei/go-restful/v3@v3.11.0",
         "pkg:golang/github.com/farsightsec/golang-framestream@v0.3.0",
         "pkg:golang/github.com/felixge/httpsnoop@v1.0.4",
@@ -476147,7 +476147,7 @@
         "pkg:golang/cel.dev/expr@v0.18.0",
         "pkg:golang/github.com/antlr4-go/antlr/v4@v4.13.0",
         "pkg:golang/github.com/asaskevich/govalidator@v0.0.0-20190424111038-f61b66f89f4a",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cenkalti/backoff/v4@v4.3.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
@@ -476168,7 +476168,7 @@
         "pkg:golang/github.com/go-openapi/swag@v0.23.0",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
-        "pkg:golang/github.com/google/btree@v1.0.1",
+        "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
         "pkg:golang/github.com/google/cel-go@v0.22.0",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
         "pkg:golang/github.com/google/go-cmp@v0.6.0",
@@ -476310,7 +476310,7 @@
         "pkg:golang/cel.dev/expr@v0.18.0",
         "pkg:golang/github.com/antlr4-go/antlr/v4@v4.13.0",
         "pkg:golang/github.com/asaskevich/govalidator@v0.0.0-20190424111038-f61b66f89f4a",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cenkalti/backoff/v4@v4.3.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
@@ -476330,7 +476330,7 @@
         "pkg:golang/github.com/go-openapi/swag@v0.23.0",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
-        "pkg:golang/github.com/google/btree@v1.0.1",
+        "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
         "pkg:golang/github.com/google/cel-go@v0.22.0",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
         "pkg:golang/github.com/google/go-cmp@v0.6.0",
@@ -476547,7 +476547,7 @@
     {
       "ref": "pkg:golang/github.com/cert-manager/trust-manager",
       "dependsOn": [
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
         "pkg:golang/github.com/davecgh/go-spew@v1.1.2-0.20180830191138-d8f796af33cc",
@@ -482410,7 +482410,7 @@
         "pkg:golang/cel.dev/expr@v0.18.0",
         "pkg:golang/github.com/antlr4-go/antlr/v4@v4.13.0",
         "pkg:golang/github.com/asaskevich/govalidator@v0.0.0-20190424111038-f61b66f89f4a",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/blang/semver/v4@v4.0.0",
         "pkg:golang/github.com/cenkalti/backoff/v4@v4.3.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
@@ -482432,7 +482432,7 @@
         "pkg:golang/github.com/godbus/dbus/v5@v5.1.0",
         "pkg:golang/github.com/gogo/protobuf@v1.3.2",
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
-        "pkg:golang/github.com/google/btree@v1.0.1",
+        "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
         "pkg:golang/github.com/google/cadvisor@v0.51.0",
         "pkg:golang/github.com/google/cel-go@v0.22.0",
         "pkg:golang/github.com/google/gnostic-models@v0.6.8",
@@ -484300,8 +484300,8 @@
         "pkg:golang/github.com/modern-go/reflect2@v1.0.2",
         "pkg:golang/github.com/munnerz/goautoneg@v0.0.0-20191010083416-a7dc8b61c822",
         "pkg:golang/github.com/spf13/pflag@v1.0.5",
-        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1139",
-        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.0.1136",
+        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1139",
+        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.9.0-flannel1136",
         "pkg:golang/github.com/vishvananda/netlink@v1.3.0",
         "pkg:golang/github.com/vishvananda/netns@v0.0.5",
         "pkg:golang/go.etcd.io/etcd/api/v3@v3.5.21",
@@ -484361,11 +484361,11 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1139",
+      "ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1139",
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.0.1136",
+      "ref": "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.9.0-flannel1136",
       "dependsOn": []
     },
     {
@@ -487731,7 +487731,7 @@
         "pkg:golang/github.com/deepmap/oapi-codegen@v1.3.13",
         "pkg:golang/github.com/dustin/go-humanize@v1.0.0",
         "pkg:golang/github.com/edsrzf/mmap-go@v1.0.0",
-        "pkg:golang/github.com/felixge/httpsnoop@v1.0.1",
+        "pkg:golang/github.com/felixge/httpsnoop@v1.9.0-flannel1",
         "pkg:golang/github.com/getsentry/sentry-go@v0.10.0",
         "pkg:golang/github.com/go-kit/kit@v0.10.0",
         "pkg:golang/github.com/go-logfmt/logfmt@v0.5.0",
@@ -488035,7 +488035,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/felixge/httpsnoop@v1.0.1",
+      "ref": "pkg:golang/github.com/felixge/httpsnoop@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -490654,7 +490654,7 @@
         "pkg:golang/github.com/coreos/go-oidc/v3@v3.6.0",
         "pkg:golang/github.com/desertbit/timer@v0.0.0-20180107155436-c41aec40b27f",
         "pkg:golang/github.com/dgryski/go-rendezvous@v0.0.0-20200823014737-9f7001d12a5f",
-        "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+        "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
         "pkg:golang/github.com/emirpasic/gods@v1.18.1",
         "pkg:golang/github.com/evanphx/json-patch/v5@v5.8.0",
         "pkg:golang/github.com/evanphx/json-patch@v5.9.0%2Bincompatible",
@@ -490691,7 +490691,7 @@
         "pkg:golang/github.com/googleapis/gax-go/v2@v2.12.0",
         "pkg:golang/github.com/gorilla/handlers@v1.5.1",
         "pkg:golang/github.com/gosimple/slug@v1.13.1",
-        "pkg:golang/github.com/gosimple/unidecode@v1.0.1",
+        "pkg:golang/github.com/gosimple/unidecode@v1.9.0-flannel1",
         "pkg:golang/github.com/gregdel/pushover@v1.2.1",
         "pkg:golang/github.com/gregjones/httpcache@v0.0.0-20190611155906-901d90724c79",
         "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware@v1.4.0",
@@ -490707,7 +490707,7 @@
         "pkg:golang/github.com/itchyny/gojq@v0.12.13",
         "pkg:golang/github.com/itchyny/timefmt-go@v0.1.5",
         "pkg:golang/github.com/jbenet/go-context@v0.0.0-20150711004518-d14ea06fba99",
-        "pkg:golang/github.com/jeremywohl/flatten@v1.0.1",
+        "pkg:golang/github.com/jeremywohl/flatten@v1.9.0-flannel1",
         "pkg:golang/github.com/jmespath/go-jmespath@v0.4.0",
         "pkg:golang/github.com/jonboulle/clockwork@v0.2.2",
         "pkg:golang/github.com/kballard/go-shellquote@v0.0.0-20180428030007-95032a82bc51",
@@ -491072,7 +491072,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/gosimple/unidecode@v1.0.1",
+      "ref": "pkg:golang/github.com/gosimple/unidecode@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -491120,7 +491120,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/jeremywohl/flatten@v1.0.1",
+      "ref": "pkg:golang/github.com/jeremywohl/flatten@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -491200,7 +491200,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/moby/locker@v1.0.1",
+      "ref": "pkg:golang/github.com/moby/locker@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -491494,7 +491494,7 @@
         "pkg:golang/github.com/fatih/color@v1.13.0",
         "pkg:golang/github.com/go-gorp/gorp/v3@v3.1.0",
         "pkg:golang/github.com/gofrs/flock@v0.8.1",
-        "pkg:golang/github.com/google/btree@v1.0.1",
+        "pkg:golang/github.com/google/btree@v1.9.0-flannel1",
         "pkg:golang/github.com/google/uuid@v1.3.0",
         "pkg:golang/github.com/gorilla/mux@v1.8.0",
         "pkg:golang/github.com/gosuri/uitable@v0.0.4",
@@ -491516,7 +491516,7 @@
         "pkg:golang/github.com/matttproud/golang_protobuf_extensions@v1.0.4",
         "pkg:golang/github.com/mitchellh/copystructure@v1.2.0",
         "pkg:golang/github.com/mitchellh/reflectwalk@v1.0.2",
-        "pkg:golang/github.com/moby/locker@v1.0.1",
+        "pkg:golang/github.com/moby/locker@v1.9.0-flannel1",
         "pkg:golang/github.com/moby/term@v0.5.0",
         "pkg:golang/github.com/opencontainers/image-spec@v1.1.0-rc6",
         "pkg:golang/github.com/prometheus/client_golang@v1.16.0",
@@ -491774,7 +491774,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/gorilla/css@v1.0.1",
+      "ref": "pkg:golang/github.com/gorilla/css@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -491891,7 +491891,7 @@
         "pkg:golang/github.com/asaskevich/govalidator@v0.0.0-20230301143203-a9d515a09cc2",
         "pkg:golang/github.com/avast/retry-go/v4@v4.5.0",
         "pkg:golang/github.com/aymerick/douceur@v0.2.0",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/cenkalti/backoff/v4@v4.3.0",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.3.0",
         "pkg:golang/github.com/cloudflare/circl@v1.3.7",
@@ -491899,7 +491899,7 @@
         "pkg:golang/github.com/cristalhq/jwt/v4@v4.0.2",
         "pkg:golang/github.com/davecgh/go-spew@v1.1.2-0.20180830191138-d8f796af33cc",
         "pkg:golang/github.com/dgraph-io/ristretto@v1.0.0",
-        "pkg:golang/github.com/dustin/go-humanize@v1.0.1",
+        "pkg:golang/github.com/dustin/go-humanize@v1.9.0-flannel1",
         "pkg:golang/github.com/evanphx/json-patch/v5@v5.6.0",
         "pkg:golang/github.com/fatih/color@v1.17.0",
         "pkg:golang/github.com/fatih/structs@v1.1.0",
@@ -491931,7 +491931,7 @@
         "pkg:golang/github.com/golang/protobuf@v1.5.4",
         "pkg:golang/github.com/google/pprof@v0.0.0-20230808223545-4887780b67fb",
         "pkg:golang/github.com/google/uuid@v1.6.0",
-        "pkg:golang/github.com/gorilla/css@v1.0.1",
+        "pkg:golang/github.com/gorilla/css@v1.9.0-flannel1",
         "pkg:golang/github.com/gorilla/securecookie@v1.1.2",
         "pkg:golang/github.com/gorilla/sessions@v1.3.0",
         "pkg:golang/github.com/gorilla/websocket@v1.5.0",
@@ -491987,7 +491987,7 @@
         "pkg:golang/github.com/pborman/uuid@v1.2.1",
         "pkg:golang/github.com/pelletier/go-toml@v1.9.5",
         "pkg:golang/github.com/pkg/profile@v1.7.0",
-        "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+        "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
         "pkg:golang/github.com/prometheus/client_golang@v1.19.1",
         "pkg:golang/github.com/prometheus/client_model@v0.5.0",
         "pkg:golang/github.com/prometheus/common@v0.48.0",
@@ -491998,7 +491998,7 @@
         "pkg:golang/github.com/rs/cors@v1.11.0",
         "pkg:golang/github.com/sawadashota/encrypta@v0.0.5",
         "pkg:golang/github.com/seatgeek/logrus-gelf-formatter@v0.0.0-20210414080842-5b05eb8ff761",
-        "pkg:golang/github.com/segmentio/backo-go@v1.0.1",
+        "pkg:golang/github.com/segmentio/backo-go@v1.9.0-flannel1",
         "pkg:golang/github.com/sergi/go-diff@v1.3.1",
         "pkg:golang/github.com/sirupsen/logrus@v1.9.3",
         "pkg:golang/github.com/sourcegraph/annotate@v0.0.0-20160123013949-f4cad6c6324d",
@@ -492112,7 +492112,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/segmentio/backo-go@v1.0.1",
+      "ref": "pkg:golang/github.com/segmentio/backo-go@v1.9.0-flannel1",
       "dependsOn": []
     },
     {
@@ -492446,7 +492446,7 @@
         "pkg:golang/github.com/azure/go-autorest/logger@v0.2.1",
         "pkg:golang/github.com/azure/go-autorest/tracing@v0.6.0",
         "pkg:golang/github.com/azuread/microsoft-authentication-library-for-go@v1.2.2",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/bradleyfalzon/ghinstallation/v2@v2.11.0",
         "pkg:golang/github.com/cenkalti/backoff/v3@v3.2.2",
         "pkg:golang/github.com/cenkalti/backoff/v4@v4.3.0",
@@ -492505,7 +492505,7 @@
         "pkg:golang/github.com/googleapis/enterprise-certificate-proxy@v0.3.2",
         "pkg:golang/github.com/googleapis/gax-go/v2@v2.13.0",
         "pkg:golang/github.com/gophercloud/gophercloud@v1.14.0",
-        "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.0.1",
+        "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus@v1.9.0-flannel1",
         "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware/v2@v2.1.0",
         "pkg:golang/github.com/grpc-ecosystem/go-grpc-middleware@v1.4.0",
         "pkg:golang/github.com/grpc-ecosystem/go-grpc-prometheus@v1.2.0",
@@ -492563,7 +492563,7 @@
         "pkg:golang/github.com/pierrec/lz4/v4@v4.1.21",
         "pkg:golang/github.com/pkg/browser@v0.0.0-20240102092130-5ac0b6a4141c",
         "pkg:golang/github.com/pkg/errors@v0.9.1",
-        "pkg:golang/github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+        "pkg:golang/github.com/pmezard/go-difflib@v1.9.0-flannel1-0.20181226105442-5d4384ee4fb2",
         "pkg:golang/github.com/prometheus/client_golang@v1.18.0",
         "pkg:golang/github.com/prometheus/client_model@v0.5.0",
         "pkg:golang/github.com/prometheus/common@v0.45.0",
@@ -494102,7 +494102,7 @@
         "pkg:golang/github.com/appsflyer/go-sundheit@v0.5.0",
         "pkg:golang/github.com/azure/go-ntlmssp@v0.0.0-2022112.2.0559-754e69321358",
         "pkg:golang/github.com/beevik/etree@v1.3.0",
-        "pkg:golang/github.com/beorn7/perks@v1.0.1",
+        "pkg:golang/github.com/beorn7/perks@v1.9.0-flannel1",
         "pkg:golang/github.com/cespare/xxhash/v2@v2.2.0",
         "pkg:golang/github.com/coreos/go-oidc/v3@v3.9.0",
         "pkg:golang/github.com/coreos/go-semver@v0.3.0",
@@ -494557,7 +494557,7 @@
         "pkg:golang/github.com/googleapis/enterprise-certificate-proxy@v0.2.3",
         "pkg:golang/github.com/googleapis/gax-go/v2@v2.11.0",
         "pkg:golang/github.com/gosimple/slug@v1.12.0",
-        "pkg:golang/github.com/gosimple/unidecode@v1.0.1",
+        "pkg:golang/github.com/gosimple/unidecode@v1.9.0-flannel1",
         "pkg:golang/github.com/hairyhenderson/go-fsimpl@v0.0.0-2022052.2.0339-9deae3e35047",
         "pkg:golang/github.com/hairyhenderson/toml@v0.4.2-0.202109232.2.00-40456b8e66cf",
         "pkg:golang/github.com/hairyhenderson/yaml@v0.0.0-20220618171115-2d35fca545ce",
@@ -512873,7 +512873,7 @@
         "pkg:golang/github.com/crewjam/saml@v0.4.6-0.20201227203850-bca570abb2ce",
         "pkg:golang/github.com/deepmap/oapi-codegen@v1.3.13",
         "pkg:golang/github.com/edsrzf/mmap-go@v1.0.0",
-        "pkg:golang/github.com/felixge/httpsnoop@v1.0.1",
+        "pkg:golang/github.com/felixge/httpsnoop@v1.9.0-flannel1",
         "pkg:golang/github.com/getsentry/sentry-go@v0.10.0",
         "pkg:golang/github.com/go-kit/kit@v0.10.0",
         "pkg:golang/github.com/go-logfmt/logfmt@v0.5.0",
@@ -529413,7 +529413,7 @@
         "pkg:golang/github.com/masahiro331/go-mvn-version@v0.0.0-20210429150710-d3157d602a08",
         "pkg:golang/github.com/masahiro331/go-vmdk-parser@v0.0.0-20221225061455-612096e4bbbd",
         "pkg:golang/github.com/masahiro331/go-xfs-filesystem@v0.0.0-20230608043311-a335f4599b70",
-        "pkg:golang/github.com/mattn/go-shellwords@v1.0.12",
+        "pkg:golang/github.com/mattn/go-shellwords@v1.9.0-flannel12",
         "pkg:golang/github.com/microsoft/go-rustaudit@v0.0.0-20220808201409-204dfee52032",
         "pkg:golang/github.com/mitchellh/hashstructure/v2@v2.0.2",
         "pkg:golang/github.com/moby/buildkit@v0.13.2",
@@ -529685,7 +529685,7 @@
         "pkg:golang/github.com/improbable-eng/grpc-web@v0.15.0",
         "pkg:golang/github.com/itchyny/gojq@v0.12.13",
         "pkg:golang/github.com/itchyny/timefmt-go@v0.1.5",
-        "pkg:golang/github.com/jeremywohl/flatten@v1.0.1",
+        "pkg:golang/github.com/jeremywohl/flatten@v1.9.0-flannel1",
         "pkg:golang/github.com/kballard/go-shellquote@v0.0.0-20180428030007-95032a82bc51",
         "pkg:golang/github.com/klauspost/compress@v1.16.5",
         "pkg:golang/github.com/knetic/govaluate@v3.0.1-0.20171022003610-9aa49832a739%2Bincompatible",
@@ -530300,8 +530300,8 @@
         "pkg:golang/github.com/jonboulle/clockwork@v0.5.0",
         "pkg:golang/github.com/mdlayher/genetlink@v1.3.2",
         "pkg:golang/github.com/mdlayher/socket@v0.5.1",
-        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1139",
-        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.0.1136",
+        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1139",
+        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.9.0-flannel1136",
         "pkg:golang/github.com/vishvananda/netlink@v1.3.0",
         "pkg:golang/github.com/vishvananda/netns@v0.0.5",
         "pkg:golang/go.etcd.io/etcd/api/v3@v3.5.21",
@@ -530796,7 +530796,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/mattn/go-shellwords@v1.0.12",
+      "ref": "pkg:golang/github.com/mattn/go-shellwords@v1.9.0-flannel12",
       "dependsOn": []
     },
     {
@@ -530986,7 +530986,7 @@
         "pkg:golang/github.com/benbjohnson/clock@v1.3.5",
         "pkg:golang/github.com/bitly/go-simplejson@v0.5.1",
         "pkg:golang/github.com/bsm/redislock@v0.9.4",
-        "pkg:golang/github.com/ghodss/yaml@v1.0.1-0.20220118164431-d8423dcdf344",
+        "pkg:golang/github.com/ghodss/yaml@v1.9.0-flannel1-0.20220118164431-d8423dcdf344",
         "pkg:golang/github.com/justinas/alice@v1.2.0",
         "pkg:golang/github.com/mbland/hmacauth@v0.0.0-2017091.3.0209-44256dfd4bfa",
         "pkg:golang/github.com/ohler55/ojg@v1.21.0",
@@ -531287,7 +531287,7 @@
         "pkg:golang/github.com/azure/go-autorest/autorest@v0.11.30",
         "pkg:golang/github.com/azuread/microsoft-authentication-library-for-go@v1.3.3",
         "pkg:golang/github.com/baidubce/bce-sdk-go@v0.9.223",
-        "pkg:golang/github.com/boombuler/barcode@v1.0.1-0.20190219062509-6c824513bacc",
+        "pkg:golang/github.com/boombuler/barcode@v1.9.0-flannel1-0.20190219062509-6c824513bacc",
         "pkg:golang/github.com/burntsushi/toml@v1.5.0",
         "pkg:golang/github.com/civo/civogo@v0.3.11",
         "pkg:golang/github.com/cloudflare/cloudflare-go@v0.115.0",
@@ -531302,7 +531302,7 @@
         "pkg:golang/github.com/fsnotify/fsnotify@v1.8.0",
         "pkg:golang/github.com/gabriel-vasile/mimetype@v1.4.2",
         "pkg:golang/github.com/go-acme/lego/v4@v4.23.1",
-        "pkg:golang/github.com/go-errors/errors@v1.0.1",
+        "pkg:golang/github.com/go-errors/errors@v1.9.0-flannel1",
         "pkg:golang/github.com/go-jose/go-jose/v4@v4.0.5",
         "pkg:golang/github.com/go-kit/kit@v0.13.0",
         "pkg:golang/github.com/go-resty/resty/v2@v2.16.5",
@@ -531341,7 +531341,7 @@
         "pkg:golang/github.com/kvtools/valkeyrie@v1.0.0",
         "pkg:golang/github.com/kvtools/zookeeper@v1.0.2",
         "pkg:golang/github.com/labbsr0x/bindman-dns-webhook@v1.0.2",
-        "pkg:golang/github.com/labbsr0x/goh@v1.0.1",
+        "pkg:golang/github.com/labbsr0x/goh@v1.9.0-flannel1",
         "pkg:golang/github.com/linode/linodego@v1.48.1",
         "pkg:golang/github.com/liquidweb/liquidweb-cli@v0.6.9",
         "pkg:golang/github.com/liquidweb/liquidweb-go@v1.6.4",
@@ -531393,8 +531393,8 @@
         "pkg:golang/github.com/stealthrocket/wazergo@v0.19.1",
         "pkg:golang/github.com/stretchr/testify@v1.10.0",
         "pkg:golang/github.com/tailscale/tscert@v0.0.0-20230806124524-28a91b69a046",
-        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1128",
-        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.0.1128",
+        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.9.0-flannel1128",
+        "pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod@v1.9.0-flannel1128",
         "pkg:golang/github.com/tetratelabs/wazero@v1.8.0",
         "pkg:golang/github.com/tjfoc/gmsm@v1.4.1",
         "pkg:golang/github.com/traefik/grpc-web@v0.16.0",
@@ -531407,7 +531407,7 @@
         "pkg:golang/github.com/valyala/fasthttp@v1.58.0",
         "pkg:golang/github.com/vinyldns/go-vinyldns@v0.9.16",
         "pkg:golang/github.com/vividcortex/gohistogram@v1.0.0",
-        "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.0.199",
+        "pkg:golang/github.com/volcengine/volc-sdk-golang@v1.9.0-flannel199",
         "pkg:golang/github.com/vulcand/oxy/v2@v2.0.3",
         "pkg:golang/github.com/vulcand/predicate@v1.2.0",
         "pkg:golang/github.com/vultr/govultr/v3@v3.17.0",
@@ -532024,7 +532024,7 @@
         "e2d1d276-d600-4906-9b53-cd0d6f375b4c",
         "ea85d872-ddd8-4b44-9720-f316518e77a2",
         "ee62ff25-37b3-4dc5-a04f-0b36e5705a4d",
-        "pkg:golang/dario.cat/mergo@v1.0.1",
+        "pkg:golang/dario.cat/mergo@v1.9.0-flannel1",
         "pkg:golang/github.com/gin-gonic/contrib@v0.0.0-20241229022435-d12709533de6"
       ]
     },
@@ -532230,7 +532230,7 @@
         "pkg:golang/github.com/datawire/ambassador@v1.6.0",
         "pkg:golang/github.com/denverdino/aliyungo@v0.0.0-20190125010748-a747050bb1ba",
         "pkg:golang/github.com/digitalocean/godo@v1.97.0",
-        "pkg:golang/github.com/dnsimple/dnsimple-go@v1.0.1",
+        "pkg:golang/github.com/dnsimple/dnsimple-go@v1.9.0-flannel1",
         "pkg:golang/github.com/exoscale/egoscale@v0.97.0",
         "pkg:golang/github.com/f5networks/k8s-bigip-ctlr/v2@v2.11.1",
         "pkg:golang/github.com/ffledgling/pdns-go@v0.0.0-20180219074714-524e7daccd99",
