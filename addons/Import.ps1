@@ -11,18 +11,8 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Path to OCI artifact tar file or legacy ZIP file')]
     [Alias('ZipFile')]
     [string] $ArtifactFile,
-    [parameter(Mandatory = $false, HelpMessage = 'OCI registry URL to pull artifact from')]
-    [string] $Registry,
-    [parameter(Mandatory = $false, HelpMessage = 'Repository name in the registry')]
-    [string] $Repository,
-    [parameter(Mandatory = $false, HelpMessage = 'Artifact tag/version to pull')]
-    [string] $Tag,
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to import')]
     [string[]] $Names,
-    [parameter(Mandatory = $false, HelpMessage = 'Use plain HTTP for registry')]
-    [switch] $PlainHttp,
-    [parameter(Mandatory = $false, HelpMessage = 'Allow insecure registry connections')]
-    [switch] $Insecure,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -55,37 +45,7 @@ $extractionFolder = "$tmpDir\artifacts"
 $isOciArtifact = $false
 $isLegacyZip = $false
 
-if ($Registry -and $Repository -and $Tag) {
-    # Pull from OCI registry
-    Write-Log "[OCI] Pulling artifact from registry: $Registry/$Repository`:$Tag" -Console
-    Write-Log '---' -Console
-    
-    Remove-Item -Force $extractionFolder -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Path $extractionFolder -Force | Out-Null
-    
-    try {
-        Pull-OciArtifact `
-            -Registry $Registry `
-            -Repository $Repository `
-            -Tag $Tag `
-            -DestinationPath $extractionFolder `
-            -Insecure:$Insecure `
-            -PlainHttp:$PlainHttp
-        
-        $isOciArtifact = $true
-    }
-    catch {
-        $errMsg = "Failed to pull OCI artifact from registry: $_"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'oci-pull-failed' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-        Write-Log $errMsg -Error
-        exit 1
-    }
-}
-elseif ($ArtifactFile) {
+if ($ArtifactFile) {
     Write-Log "[OCI] Extracting artifact from $ArtifactFile" -Console
     Write-Log '---' -Console
     
@@ -151,7 +111,7 @@ elseif ($ArtifactFile) {
     }
 }
 else {
-    $errMsg = "No artifact source specified. Provide either -ArtifactFile or -Registry/-Repository/-Tag parameters."
+    $errMsg = "No artifact source specified. Provide -ArtifactFile parameter."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code 'image-source-missing' -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }

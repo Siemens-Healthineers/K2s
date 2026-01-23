@@ -13,12 +13,6 @@ Param(
     [switch] $All,
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to export')]
     [string[]] $Names,
-    [parameter(Mandatory = $false, HelpMessage = 'OCI registry URL to push artifact (e.g., k2s-registry.local:30500)')]
-    [string] $Registry,
-    [parameter(Mandatory = $false, HelpMessage = 'Use plain HTTP for registry (no TLS)')]
-    [switch] $PlainHttp,
-    [parameter(Mandatory = $false, HelpMessage = 'Allow insecure registry connections')]
-    [switch] $Insecure,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
