@@ -463,9 +463,9 @@ function Invoke-CommandInMasterVM {
 		try { $wslEnabled = (Get-ConfigWslFlag) } catch { $wslEnabled = $false }
 	}
 	if (-not $wslEnabled) {
-		# Import vmnode module for Start-VirtualMachine / Wait helpers if available
-		$vmNodeModule = "$PSScriptRoot/../../k2s.node.module/vmnode/vmnode.module.psm1"
-		if (Test-Path -LiteralPath $vmNodeModule) { Import-Module $vmNodeModule -ErrorAction SilentlyContinue }
+		# Import vm module for Get-IsControlPlaneRunning / Wait-ForSSHConnectionToLinuxVMViaSshKey
+		$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+		if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
 		$cpRunning = $false
 		if (Get-Command -Name Get-IsControlPlaneRunning -ErrorAction SilentlyContinue) {
 			try { $cpRunning = Get-IsControlPlaneRunning } catch { $cpRunning = $false }
