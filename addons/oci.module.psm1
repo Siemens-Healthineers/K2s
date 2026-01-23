@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -47,18 +47,6 @@ function New-TarGzArchive {
     <#
     .SYNOPSIS
     Creates a tar.gz archive from a directory or files
-    
-    .PARAMETER SourcePath
-    Source directory or file path
-    
-    .PARAMETER DestinationPath
-    Destination tar.gz file path
-    
-    .PARAMETER BasePath
-    Base path for relative paths in archive (optional)
-    
-    .PARAMETER ArchiveContents
-    If true, archive the contents of the directory, not the directory itself
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -121,15 +109,6 @@ function New-TarArchive {
     <#
     .SYNOPSIS
     Creates a tar archive from files
-    
-    .PARAMETER SourceFiles
-    Array of source file paths
-    
-    .PARAMETER DestinationPath
-    Destination tar file path
-    
-    .PARAMETER WorkingDirectory
-    Working directory for tar command
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -181,12 +160,6 @@ function Expand-TarGzArchive {
     <#
     .SYNOPSIS
     Extracts a tar.gz archive to a destination directory
-    
-    .PARAMETER ArchivePath
-    Path to the tar.gz archive
-    
-    .PARAMETER DestinationPath
-    Destination directory for extraction
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -219,12 +192,6 @@ function Expand-TarArchive {
     <#
     .SYNOPSIS
     Extracts a tar archive to a destination directory
-    
-    .PARAMETER ArchivePath
-    Path to the tar archive
-    
-    .PARAMETER DestinationPath
-    Destination directory for extraction
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -253,115 +220,10 @@ function Expand-TarArchive {
     return $true
 }
 
-function Get-OciArtifactManifest {
-    <#
-    .SYNOPSIS
-    Pulls an OCI artifact from a registry using ORAS
-    
-    .PARAMETER Registry
-    OCI registry URL
-    
-    .PARAMETER Repository
-    Repository name
-    
-    .PARAMETER Tag
-    Artifact tag/version
-    
-    .PARAMETER DestinationPath
-    Destination directory for pulled artifact
-    
-    .PARAMETER MediaType
-    Optional media type filter for specific layer
-    
-    .PARAMETER Insecure
-    Allow insecure (HTTP) registry connections
-    
-    .PARAMETER PlainHttp
-    Use plain HTTP instead of HTTPS
-    #>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Registry,
-        [Parameter(Mandatory = $true)]
-        [string]$Repository,
-        [Parameter(Mandatory = $true)]
-        [string]$Tag,
-        [Parameter(Mandatory = $true)]
-        [string]$DestinationPath,
-        [Parameter(Mandatory = $false)]
-        [string]$MediaType,
-        [Parameter(Mandatory = $false)]
-        [switch]$Insecure,
-        [Parameter(Mandatory = $false)]
-        [switch]$PlainHttp
-    )
-    
-    $orasExe = Get-OrasExePath
-    $artifactRef = "$Registry/$Repository`:$Tag"
-    
-    if (-not (Test-Path $DestinationPath)) {
-        New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
-    }
-    
-    # Build ORAS pull command arguments
-    $orasArgs = @('pull')
-    
-    if ($Insecure) {
-        $orasArgs += '--insecure'
-    }
-    
-    if ($PlainHttp) {
-        $orasArgs += '--plain-http'
-    }
-    
-    $orasArgs += '-o'
-    $orasArgs += $DestinationPath
-    
-    if ($MediaType) {
-        $orasArgs += '--include-subject'
-        $orasArgs += '--media-type'
-        $orasArgs += $MediaType
-    }
-    
-    $orasArgs += $artifactRef
-    
-    Write-Log "[OCI] Pulling artifact from $artifactRef to $DestinationPath"
-    
-    $result = & $orasExe $orasArgs 2>&1
-    
-    if ($LASTEXITCODE -ne 0) {
-        throw "ORAS pull failed: $result"
-    }
-    
-    Write-Log "[OCI] Successfully pulled artifact from $artifactRef"
-    return $true
-}
-
 function New-AddonOciArtifact {
     <#
     .SYNOPSIS
     Creates OCI artifact layers for an addon
-    
-    .PARAMETER AddonPath
-    Path to the addon directory
-    
-    .PARAMETER StagingPath
-    Path for staging artifact layers
-    
-    .PARAMETER AddonName
-    Name of the addon
-    
-    .PARAMETER ImplementationName
-    Name of the implementation (for multi-implementation addons)
-    
-    .PARAMETER LinuxImagesTar
-    Path to Linux container images tar file
-    
-    .PARAMETER WindowsImagesTar
-    Path to Windows container images tar file
-    
-    .PARAMETER PackagesPath
-    Path to offline packages directory
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -465,33 +327,6 @@ function Export-AddonAsOciArtifact {
     <#
     .SYNOPSIS
     Exports an addon as a local OCI artifact (directory structure)
-    
-    .PARAMETER AddonPath
-    Path to the addon directory
-    
-    .PARAMETER ExportPath
-    Path where the OCI artifact structure will be created
-    
-    .PARAMETER AddonName
-    Name of the addon
-    
-    .PARAMETER ImplementationName
-    Name of the implementation
-    
-    .PARAMETER Version
-    Addon version
-    
-    .PARAMETER LinuxImagesTar
-    Path to exported Linux images tar
-    
-    .PARAMETER WindowsImagesTar
-    Path to exported Windows images tar
-    
-    .PARAMETER PackagesPath
-    Path to offline packages
-    
-    .PARAMETER K2sVersion
-    K2s version for metadata
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -600,15 +435,6 @@ function Import-OciArtifactToAddon {
     <#
     .SYNOPSIS
     Imports an OCI artifact to the addons directory
-    
-    .PARAMETER ArtifactPath
-    Path to the OCI artifact directory
-    
-    .PARAMETER AddonsRoot
-    Root path of addons directory
-    
-    .PARAMETER ShowLogs
-    Show verbose logs
     #>
     param(
         [Parameter(Mandatory = $true)]
