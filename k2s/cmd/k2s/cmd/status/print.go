@@ -190,13 +190,9 @@ func (p *UserFriendlyPrinter) Print() error {
 	p.printK8sVersion(status.K8sVersionInfo.K8sServerVersion, "server")
 	p.printK8sVersion(status.K8sVersionInfo.K8sClientVersion, "client")
 
-	proceed, err := p.printNodesStatus(status.Nodes, p.showAdditionalInfo)
+	_, err = p.printNodesStatus(status.Nodes, p.showAdditionalInfo)
 	if err != nil {
 		return fmt.Errorf("could not print node status: %w", err)
-	}
-
-	if !proceed {
-		return nil
 	}
 
 	p.printPodsStatus(status.Pods, p.showAdditionalInfo)
