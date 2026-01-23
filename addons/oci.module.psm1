@@ -35,21 +35,6 @@ $script:MediaTypes = @{
     Packages   = 'application/vnd.k2s.addon.packages.v1.tar+gzip'
 }
 
-function Get-OrasExePath {
-    <#
-    .SYNOPSIS
-    Gets the path to the ORAS executable
-    #>
-    $kubeBinPath = Get-KubeBinPath
-    $orasExe = Join-Path $kubeBinPath 'oras.exe'
-    
-    if (-not (Test-Path $orasExe)) {
-        throw "ORAS executable not found at '$orasExe'. Please ensure ORAS is installed."
-    }
-    
-    return $orasExe
-}
-
 function Get-OciMediaTypes {
     <#
     .SYNOPSIS
@@ -268,114 +253,7 @@ function Expand-TarArchive {
     return $true
 }
 
-function Push-OciArtifact {
-    <#
-    .SYNOPSIS
-    Pushes an OCI artifact to a registry using ORAS
-    
-    .PARAMETER Registry
-    OCI registry URL (e.g., k2s-registry.local:30500)
-    
-    .PARAMETER Repository
-    Repository name (e.g., k2s-addons/ingress-nginx)
-    
-    .PARAMETER Tag
-    Artifact tag/version
-    
-    .PARAMETER ConfigFile
-    Path to config file (addon.manifest.yaml)
-    
-    .PARAMETER Layers
-    Hashtable of layer files with their media types
-    Example: @{ 'manifests.tar.gz' = 'application/vnd.k2s.addon.manifests.v1.tar+gzip' }
-    
-    .PARAMETER WorkingDirectory
-    Working directory for ORAS push
-    
-    .PARAMETER Insecure
-    Allow insecure (HTTP) registry connections
-    
-    .PARAMETER PlainHttp
-    Use plain HTTP instead of HTTPS
-    #>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Registry,
-        [Parameter(Mandatory = $true)]
-        [string]$Repository,
-        [Parameter(Mandatory = $true)]
-        [string]$Tag,
-        [Parameter(Mandatory = $false)]
-        [string]$ConfigFile,
-        [Parameter(Mandatory = $true)]
-        [hashtable]$Layers,
-        [Parameter(Mandatory = $false)]
-        [string]$WorkingDirectory,
-        [Parameter(Mandatory = $false)]
-        [switch]$Insecure,
-        [Parameter(Mandatory = $false)]
-        [switch]$PlainHttp
-    )
-    
-    $orasExe = Get-OrasExePath
-    $artifactRef = "$Registry/$Repository`:$Tag"
-    
-    $currentLocation = Get-Location
-    try {
-        if ($WorkingDirectory) {
-            Set-Location $WorkingDirectory
-        }
-        
-        # Build ORAS push command arguments
-        $orasArgs = @('push')
-        
-        if ($Insecure) {
-            $orasArgs += '--insecure'
-        }
-        
-        if ($PlainHttp) {
-            $orasArgs += '--plain-http'
-        }
-        
-        # Add config if provided
-        if ($ConfigFile -and (Test-Path $ConfigFile)) {
-            $configMediaType = $script:MediaTypes.Config
-            $orasArgs += '--config'
-            $orasArgs += "${ConfigFile}:${configMediaType}"
-        }
-        
-        $orasArgs += $artifactRef
-        
-        # Add layers with media types
-        foreach ($layer in $Layers.GetEnumerator()) {
-            $layerFile = $layer.Key
-            $mediaType = $layer.Value
-            
-            if (Test-Path $layerFile) {
-                $orasArgs += "${layerFile}:${mediaType}"
-            } else {
-                Write-Log "[OCI] Warning: Layer file not found: $layerFile"
-            }
-        }
-        
-        Write-Log "[OCI] Pushing artifact to $artifactRef"
-        Write-Log "[OCI] ORAS args: $($orasArgs -join ' ')"
-        
-        $result = & $orasExe $orasArgs 2>&1
-        
-        if ($LASTEXITCODE -ne 0) {
-            throw "ORAS push failed: $result"
-        }
-        
-        Write-Log "[OCI] Successfully pushed artifact to $artifactRef"
-        return $true
-    }
-    finally {
-        Set-Location $currentLocation
-    }
-}
-
-function Pull-OciArtifact {
+function Get-OciArtifactManifest {
     <#
     .SYNOPSIS
     Pulls an OCI artifact from a registry using ORAS
@@ -457,63 +335,6 @@ function Pull-OciArtifact {
     
     Write-Log "[OCI] Successfully pulled artifact from $artifactRef"
     return $true
-}
-
-function Get-OciArtifactManifest {
-    <#
-    .SYNOPSIS
-    Fetches the manifest of an OCI artifact
-    
-    .PARAMETER Registry
-    OCI registry URL
-    
-    .PARAMETER Repository
-    Repository name
-    
-    .PARAMETER Tag
-    Artifact tag/version
-    
-    .PARAMETER Insecure
-    Allow insecure (HTTP) registry connections
-    
-    .PARAMETER PlainHttp
-    Use plain HTTP instead of HTTPS
-    #>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Registry,
-        [Parameter(Mandatory = $true)]
-        [string]$Repository,
-        [Parameter(Mandatory = $true)]
-        [string]$Tag,
-        [Parameter(Mandatory = $false)]
-        [switch]$Insecure,
-        [Parameter(Mandatory = $false)]
-        [switch]$PlainHttp
-    )
-    
-    $orasExe = Get-OrasExePath
-    $artifactRef = "$Registry/$Repository`:$Tag"
-    
-    $orasArgs = @('manifest', 'fetch')
-    
-    if ($Insecure) {
-        $orasArgs += '--insecure'
-    }
-    
-    if ($PlainHttp) {
-        $orasArgs += '--plain-http'
-    }
-    
-    $orasArgs += $artifactRef
-    
-    $result = & $orasExe $orasArgs 2>&1
-    
-    if ($LASTEXITCODE -ne 0) {
-        throw "ORAS manifest fetch failed: $result"
-    }
-    
-    return $result | ConvertFrom-Json
 }
 
 function New-AddonOciArtifact {
@@ -895,7 +716,6 @@ function Import-OciArtifactToAddon {
     return $result
 }
 
-Export-ModuleMember -Function Get-OrasExePath, Get-OciMediaTypes,
+Export-ModuleMember -Function Get-OciMediaTypes,
     New-TarGzArchive, New-TarArchive, Expand-TarGzArchive, Expand-TarArchive,
-    Push-OciArtifact, Pull-OciArtifact, Get-OciArtifactManifest,
     New-AddonOciArtifact, Export-AddonAsOciArtifact, Import-OciArtifactToAddon
