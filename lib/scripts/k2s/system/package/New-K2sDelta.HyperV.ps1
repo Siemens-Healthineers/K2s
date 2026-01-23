@@ -31,10 +31,26 @@ function New-K2sHvNetwork {
         [int]    $PrefixLen
     )
     Write-Log ("[DebPkg] Creating internal switch '{0}' with host IP {1}/{2}" -f $SwitchName, $HostSwitchIp, $PrefixLen) -Console
+    
+    # Pre-cleanup: remove any existing resources with matching names to ensure clean state
     $existingSwitch = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
     if ($existingSwitch) {
-        try { Remove-VMSwitch -Name $SwitchName -Force -ErrorAction Stop } catch { throw "Failed to remove existing switch: $($_.Exception.Message)" }
+        Write-Log "[DebPkg] Removing pre-existing switch '$SwitchName'" -Console
+        try { 
+            Remove-VMSwitch -Name $SwitchName -Force -ErrorAction Stop 
+            Start-Sleep -Milliseconds 500  # Brief pause for system to release resources
+        } catch { 
+            Write-Log "[DebPkg][Warning] Failed to remove existing switch: $($_.Exception.Message)" -Console
+        }
     }
+    
+    # Also clean up any existing IP binding on the target address
+    $existingIp = Get-NetIPAddress -IPAddress $HostSwitchIp -ErrorAction SilentlyContinue
+    if ($existingIp) {
+        Write-Log "[DebPkg] Removing pre-existing IP binding on $HostSwitchIp" -Console
+        try { $existingIp | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue } catch { }
+    }
+    
     $created = $false; $attempt = 0; $baseName = $SwitchName
     while (-not $created -and $attempt -lt 3) {
         try {
@@ -74,6 +90,19 @@ function New-K2sHvTempVm {
         [string] $SwitchName
     )
     Write-Log ("[DebPkg] Creating temporary VM '{0}' attached to '{1}' from path '{2}'" -f $VmName, $SwitchName, $VhdxPath) -Console
+    
+    # Pre-cleanup: remove any existing VM with this name
+    $existingVm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
+    if ($existingVm) {
+        Write-Log "[DebPkg] Removing pre-existing VM '$VmName'" -Console
+        if ($existingVm.State -ne 'Off') {
+            Stop-VM -Name $VmName -Force -TurnOff -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2  # Wait for VM to fully stop
+        }
+        Remove-VM -Name $VmName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 500
+    }
+    
     New-VM -Name $VmName -MemoryStartupBytes (2GB) -VHDPath $VhdxPath -SwitchName $SwitchName -ErrorAction Stop | Out-Null
     Start-VM -Name $VmName -ErrorAction Stop | Out-Null
     Write-Log ("[DebPkg] VM '{0}' started" -f $VmName) -Console
@@ -560,20 +589,65 @@ function Remove-K2sHvEnvironment {
     Write-Log '[DebPkg] Beginning cleanup (VM, switch, IP, NAT)' -Console
     $cleanupErrors = @()
     $vmName = $Context.VmName
-    try { if ($Context.CreatedVm) { Stop-VM -Name $vmName -Force -TurnOff -ErrorAction SilentlyContinue | Out-Null } } catch { $cleanupErrors += "Stop-VM: $($_.Exception.Message)" }
-    try { if ($Context.CreatedVm) { Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null } } catch { $cleanupErrors += "Remove-VM: $($_.Exception.Message)" }
-    try { Remove-VMSwitch -Name $Context.SwitchName -Force -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Remove-VMSwitch: $($_.Exception.Message)" }
-    try { $natObj = Get-NetNat -Name $Context.NatName -ErrorAction SilentlyContinue; if ($natObj) { Remove-NetNat -Name $Context.NatName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null } } catch { $cleanupErrors += "Remove-NetNat: $($_.Exception.Message)" }
-    try { $existing = Get-NetIPAddress -IPAddress $Context.HostSwitchIp -ErrorAction SilentlyContinue; if ($existing) { $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue } } catch { $cleanupErrors += "Remove-NetIPAddress: $($_.Exception.Message)" }
+    
+    # Stop and remove VM with proper wait
+    if ($Context.CreatedVm) {
+        try { 
+            $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+            if ($vm -and $vm.State -ne 'Off') {
+                Stop-VM -Name $vmName -Force -TurnOff -ErrorAction SilentlyContinue | Out-Null
+                Start-Sleep -Seconds 2  # Wait for VM to fully stop
+            }
+        } catch { $cleanupErrors += "Stop-VM: $($_.Exception.Message)" }
+        try { 
+            Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null 
+            Start-Sleep -Milliseconds 500  # Brief pause after VM removal
+        } catch { $cleanupErrors += "Remove-VM: $($_.Exception.Message)" }
+    }
+    
+    # Remove switch
+    try { 
+        Remove-VMSwitch -Name $Context.SwitchName -Force -ErrorAction SilentlyContinue | Out-Null 
+        Start-Sleep -Milliseconds 500  # Brief pause for system to release resources
+    } catch { $cleanupErrors += "Remove-VMSwitch: $($_.Exception.Message)" }
+    
+    # Remove NAT
+    try { 
+        $natObj = Get-NetNat -Name $Context.NatName -ErrorAction SilentlyContinue
+        if ($natObj) { Remove-NetNat -Name $Context.NatName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null } 
+    } catch { $cleanupErrors += "Remove-NetNat: $($_.Exception.Message)" }
+    
+    # Remove IP binding
+    try { 
+        $existing = Get-NetIPAddress -IPAddress $Context.HostSwitchIp -ErrorAction SilentlyContinue
+        if ($existing) { $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue } 
+    } catch { $cleanupErrors += "Remove-NetIPAddress: $($_.Exception.Message)" }
+    
+    # Verify cleanup with retries
     $leftVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
-    if ($leftVm) { try { Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Retry Remove-VM: $($_.Exception.Message)" }; $leftVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue; if ($leftVm) { $cleanupErrors += 'VM remains after retry.' } }
+    if ($leftVm) { 
+        Start-Sleep -Seconds 1
+        try { 
+            if ($leftVm.State -ne 'Off') { Stop-VM -Name $vmName -Force -TurnOff -ErrorAction SilentlyContinue | Out-Null; Start-Sleep -Seconds 2 }
+            Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null 
+        } catch { $cleanupErrors += "Retry Remove-VM: $($_.Exception.Message)" }
+        $leftVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        if ($leftVm) { $cleanupErrors += 'VM remains after retry.' } 
+    }
+    
     $leftSwitch = Get-VMSwitch -Name $Context.SwitchName -ErrorAction SilentlyContinue
-    if ($leftSwitch) { try { Remove-VMSwitch -Name $Context.SwitchName -Force -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Retry Remove-VMSwitch: $($_.Exception.Message)" }; $leftSwitch = Get-VMSwitch -Name $Context.SwitchName -ErrorAction SilentlyContinue; if ($leftSwitch) { $cleanupErrors += 'Switch remains after retry.' } }
-    $leftNat = Get-NetNat -Name $Context.NatName -ErrorAction SilentlyContinue
-    if ($leftNat) { try { Remove-NetNat -Name $Context.NatName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Retry Remove-NetNat: $($_.Exception.Message)" }; $leftNat = Get-NetNat -Name $Context.NatName -ErrorAction SilentlyContinue; if ($leftNat) { $cleanupErrors += 'NAT remains after retry.' } }
-    $leftIp = Get-NetIPAddress -IPAddress $Context.HostSwitchIp -ErrorAction SilentlyContinue
-    if ($leftIp) { try { $leftIp | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue } catch { $cleanupErrors += "Retry Remove-NetIPAddress: $($_.Exception.Message)" }; $leftIp = Get-NetIPAddress -IPAddress $Context.HostSwitchIp -ErrorAction SilentlyContinue; if ($leftIp) { $cleanupErrors += 'Host switch IP remains after retry.' } }
-    if ($cleanupErrors.Count -gt 0) { Write-Log ("[DebPkg] Cleanup completed with warnings: {0}" -f ($cleanupErrors -join '; ')) -Console } else { Write-Log '[DebPkg] Cleanup complete' -Console }
+    if ($leftSwitch) { 
+        Start-Sleep -Seconds 1
+        try { Remove-VMSwitch -Name $Context.SwitchName -Force -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Retry Remove-VMSwitch: $($_.Exception.Message)" }
+        $leftSwitch = Get-VMSwitch -Name $Context.SwitchName -ErrorAction SilentlyContinue
+        if ($leftSwitch) { $cleanupErrors += 'Switch remains after retry.' } 
+    }
+    
+    if ($cleanupErrors.Count -gt 0) { 
+        Write-Log ("[DebPkg] Cleanup completed with warnings: {0}" -f ($cleanupErrors -join '; ')) -Console 
+    } else { 
+        Write-Log '[DebPkg] Cleanup complete' -Console 
+    }
 }
 
 function Get-DebianPackagesFromVHDX {
@@ -587,9 +661,10 @@ function Get-DebianPackagesFromVHDX {
         [switch] $DownloadDebs,
         [switch] $AllowPartialAcquisition,
         [switch] $QueryBuildahImages,
+        [switch] $QueryConfigHashes,
         [switch] $KeepVmAlive
     )
-    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); Resolutions=@(); BuildahImages=@(); VmContext=$null }
+    $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); Resolutions=@(); BuildahImages=@(); ConfigHashes=@{}; VmContext=$null }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
     if (-not (Get-Module -ListAvailable -Name Hyper-V)) { $result.Error = 'Hyper-V module unavailable'; return $result }
     $sshUser = 'remote'; $sshPwd = 'admin'; $sshKey = ''  # TODO: parameterize via caller / env if needed
@@ -597,7 +672,8 @@ function Get-DebianPackagesFromVHDX {
     if (-not $sshPwd -and -not $sshKey) { $result.Error = 'Set K2S_DEBIAN_SSH_PASSWORD or K2S_DEBIAN_SSH_KEY'; return $result }
     Write-Log ("[DebPkg] Starting extraction from VHDX '{0}' with new extract '{1}' and old extract '{2}'" -f $VhdxPath, $NewExtract, $OldExtract) -Console
 
-    # Static network (could be made configurable later)
+    # Static network config - VMs must run sequentially as guest OS has hardcoded IP 172.19.1.100
+    # Each VM uses the same network but runs one at a time (old shuts down before new starts)
     $hostSwitchIp = '172.19.1.1'
     $networkPrefix = '172.19.1.0'
     $guestIp = '172.19.1.100'
@@ -762,6 +838,50 @@ function Get-DebianPackagesFromVHDX {
                 }
                 $result.BuildahImages = @()
             }
+        }
+
+        # Query config file hashes (optional) - collects SHA256 hashes of config files
+        if ($QueryConfigHashes) {
+            Write-Log '[GuestConfig] Querying config file hashes from VM...' -Console
+            
+            $configPaths = @(
+                '/etc/kubernetes',
+                '/etc/cni',
+                '/etc/containerd',
+                '/etc/sysctl.d',
+                '/etc/netplan',
+                '/lib/systemd/system',
+                '/usr/local/bin'
+            )
+            $pathList = $configPaths -join ' '
+            # Build find+sha256sum command with placeholder replacement to avoid escaping issues
+            $findScript = 'for p in __PATHS__; do if [ -d "$p" ]; then find "$p" -type f -exec sha256sum {} \; 2>/dev/null; fi; done'
+            $findScript = $findScript -replace '__PATHS__', $pathList
+            $configCmd = "sudo sh -c '$findScript'"
+            
+            if ($usingPlink) {
+                $configHashOut = & $sshClient @($plinkArgs + $configCmd) 2>&1
+            } else {
+                $sshArgsConfig = @('-p', '22', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null')
+                if ($sshKey) { $sshArgsConfig += @('-i', $sshKey) }
+                $sshArgsConfig += ("$sshUser@$guestIp")
+                $configHashOut = & $sshClient @($sshArgsConfig + $configCmd) 2>&1
+            }
+            
+            # Parse sha256sum output: "hash  /path/to/file"
+            $configHashes = @{}
+            foreach ($line in $configHashOut) {
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                # sha256sum format: "64-char-hash  /path/to/file" (two spaces between hash and path)
+                if ($line -match '^([a-f0-9]{64})\s+(.+)$') {
+                    $hash = $matches[1]
+                    $filePath = $matches[2].Trim()
+                    $configHashes[$filePath] = $hash
+                }
+            }
+            
+            $result.ConfigHashes = $configHashes
+            Write-Log "[GuestConfig] Collected $($configHashes.Count) config file hashes from VM" -Console
         }
 
         # Offline acquisition (optional)
