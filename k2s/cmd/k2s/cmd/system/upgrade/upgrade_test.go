@@ -30,7 +30,7 @@ func resetAllFlags() {
 	flags.Set(deleteFiles, "false")
 	flags.Set(configFileFlagName, "")
 	flags.Set(proxy, "")
-	flags.Set(skipImages, "false")
+	flags.Set(skipImagesFlag, "false")
 	flags.Set(common.AdditionalHooksDirFlagName, "")
 	flags.Set(backupDir, "")
 	flags.Set(force, "false")
@@ -61,7 +61,7 @@ var _ = Describe("upgrade", func() {
 				flags.Set(deleteFiles, "true")
 				flags.Set(configFileFlagName, "config.yaml")
 				flags.Set(proxy, "http://myproxy:81")
-				flags.Set(skipImages, "true")
+				flags.Set(skipImagesFlag, "true")
 				flags.Set(common.AdditionalHooksDirFlagName, "hookDir")
 				flags.Set(backupDir, "backupDir")
 
@@ -69,8 +69,8 @@ var _ = Describe("upgrade", func() {
 
 				Expect(actual).To(Equal(expected))
 			})
-			})
-		
+		})
+
 		When("force flag is set", func() {
 			It("creates the command with force flag", func() {
 				const staticPartOfExpectedCmd = `\lib\scripts\k2s\system\upgrade\Start-ClusterUpgrade.ps1`
