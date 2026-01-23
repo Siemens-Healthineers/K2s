@@ -180,21 +180,21 @@ func checkForOldK2sExecutables(currentExe string, exeName string) ([]string, err
 
 func install(cmd *cobra.Command, args []string) error {
 	exeName := "k2s.exe"
-    currentExe, err := os.Executable()
-    if err != nil {
-    	return fmt.Errorf("[Install] Error: unable to determine current executable path: %v", err)
-    }
-    otherK2s, err := checkForOldK2sExecutables(currentExe, exeName)
-    if err != nil {
-    	return err
-    }
-    if len(otherK2s) > 0 {
-    	fmt.Println("[Install] Found older k2s executables:")
-    	for _, p := range otherK2s {
-    		fmt.Fprintf(os.Stderr, "  %s\n", p)
-    	}
-    	return fmt.Errorf("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.")
-    }
+	currentExe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("[Install] Error: unable to determine current executable path: %v", err)
+	}
+	otherK2s, err := checkForOldK2sExecutables(currentExe, exeName)
+	if err != nil {
+		return err
+	}
+	if len(otherK2s) > 0 {
+		fmt.Println("[Install] Found older k2s executables:")
+		for _, p := range otherK2s {
+			fmt.Fprintf(os.Stderr, "  %s\n", p)
+		}
+		return fmt.Errorf("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.")
+	}
 
 	cmdSession := cc.StartCmdSession(cmd.CommandPath())
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)

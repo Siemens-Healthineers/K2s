@@ -4,8 +4,9 @@
 
 $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 $imageBackupModule = "$PSScriptRoot/../image/ImageBackup.module.psm1"
+$pvBackupModule = "$PSScriptRoot/BackupPersistentVolumes.psm1"
 
-Import-Module $infraModule, $imageBackupModule
+Import-Module $infraModule, $imageBackupModule, $pvBackupModule
 
 $processTools = @'
 
@@ -841,7 +842,8 @@ function PrepareClusterUpgrade {
 		[ref] $addonsBackupPath,
 		[ref] $hooksBackupPath,
 		[ref] $logFilePathBeforeUninstall,
-		[ref] $imagesBackupPath
+		[ref] $imagesBackupPath,
+		[ref] $pvBackupPath
 	)
 	try {
 		# start progress
@@ -911,8 +913,34 @@ function PrepareClusterUpgrade {
 		$addonsBackupPath.Value = Join-Path $BackupDir 'addons'
 		Backup-Addons -BackupDir $addonsBackupPath.Value
 
+		# backup persistent volumes
+		if ($ShowProgress -eq $true) {
+			Write-Progress -Activity 'Backing up persistent volumes..' -Id 1 -Status '4.3/10' -PercentComplete 43 -CurrentOperation 'Backing up PVs, please wait..'
+		}
+
+		try {
+			Write-Log "Starting PV backup process..." -Console
+			$pvBackupPath.Value = Join-Path $BackupDir 'pv'
+			$pvBackupResult = Backup-AllPersistentVolumes -ExportPath $pvBackupPath.Value
+			
+			if ($pvBackupResult) {
+				$successCount = ($pvBackupResult.GetEnumerator() | Where-Object { $_.Value -eq $true }).Count
+				Write-Log "PV backup completed: $successCount PV(s) backed up successfully" -Console
+			} else {
+				Write-Log "No persistent volumes found to backup" -Console
+				$pvBackupPath.Value = ""  # No PVs to backup
+			}
+		}
+		catch {
+			Write-Log "Warning: PV backup failed - $_. Continuing with upgrade..." -Console
+			$pvBackupPath.Value = ""  # Mark as failed
+		}
+
 		# backup user application images
-		if (-not $SkipImages) {
+		if ($SkipImages) {
+			Write-Log "Skipping image backup as requested" -Console
+			$imagesBackupPath.Value = ""  # Explicitly skipped
+		} else {
 			if ($ShowProgress -eq $true) {
 				Write-Progress -Activity 'Backing up user application images..' -Id 1 -Status '4.5/10' -PercentComplete 45 -CurrentOperation 'Backing up images, please wait..'
 			}
@@ -948,9 +976,6 @@ function PrepareClusterUpgrade {
 				Write-Log "Warning: Image backup failed - $_. Continuing with upgrade..." -Console
 				$imagesBackupPath.Value = ""  # Mark as failed
 			}
-		} else {
-			Write-Log "Skipping image backup as requested" -Console
-			$imagesBackupPath.Value = ""  # Explicitly skipped
 		}
 
 		# backup log file
@@ -983,7 +1008,10 @@ function PerformClusterUpgrade {
 		[string] $addonsBackupPath,
 		[string] $hooksBackupPath,
 		[string] $logFilePathBeforeUninstall,
-		[string] $imagesBackupPath
+		[string] $imagesBackupPath,
+		[string] $pvBackupPath,
+		[switch] $skipImages,
+		[switch] $skipResources
 	)
 	try {
 		# uninstall of old cluster
@@ -1060,18 +1088,46 @@ function PerformClusterUpgrade {
 			Restore-Addons -BackupDir $addonsBackupPath -AvoidRestore -Root $addonsPath
 		}
 
+		# restore persistent volumes AFTER addons to replace addon content with backed up data
+		if (-not [string]::IsNullOrEmpty($pvBackupPath) -and (Test-Path $pvBackupPath)) {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Restoring persistent volumes..' -Id 1 -Status '7.5/10' -PercentComplete 75 -CurrentOperation 'Restoring PVs, please wait..'
+			}
+			
+			try {
+				Write-Log "Starting PV restore process (after addons to overwrite with backed up data)..." -Console
+				$pvRestoreResult = Restore-AllPersistentVolumes -BackupPath $pvBackupPath -Force
+				
+				if ($pvRestoreResult) {
+					$successCount = ($pvRestoreResult.GetEnumerator() | Where-Object { $_.Value -eq $true }).Count
+					Write-Log "Successfully restored $successCount persistent volume(s)" -Console
+				} else {
+					Write-Log "No persistent volumes were restored" -Console
+				}
+			}
+			catch {
+				Write-Log "Warning: PV restore failed - $_. Continuing with upgrade..." -Console
+			}
+		} else {
+			Write-Log "No PV backup found or PVs were skipped during backup" -Console
+		}
+
 		$kubeExeFolder = Get-KubeBinPathGivenKubePath -KubePathLocal $K2sPathToInstallFrom
 		
 		# import of resources - images are already restored, so no pulls needed
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
+		if ($skipResources) {
+			Write-Log 'Skipping resource import as requested' -Console
+		} else {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
+			}
+			Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+			
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Apply namespaced resources, please wait..'
+			}
+			Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
 		}
-		Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
-		
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Apply namespaced resources, please wait..'
-		}
-		Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
 		
 		# show completion
 		if ($ShowProgress -eq $true) {
