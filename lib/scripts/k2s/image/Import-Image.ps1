@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -95,28 +95,21 @@ if ($Windows) {
 }
 else {
     foreach ($image in $images) {
-        Write-Log "Importing image: $image"
         Copy-ToControlPlaneViaSSHKey $image '/tmp/import.tar'
 
         if (!$?) {
-            Write-Log "Image $image could not be copied to KubeMaster" -Error
-            continue
+            Write-Error "Image $image could not be copied to KubeMaster"
         }
 
-        $buildahResult = $null
         if (!$DockerArchive) {
-            $buildahResult = Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' -NoLog
+            (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' -NoLog).Output | Write-Log
         }
         else {
-            $buildahResult = Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' -NoLog
+            (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' -NoLog).Output | Write-Log
         }
 
-        $buildahResult.Output | Write-Log
-        
-        if ($buildahResult.Success) {
+        if ($?) {
             Write-Log "Image archive $image imported successfully."
-        } else {
-            Write-Log "Failed to import image $image. Buildah output: $($buildahResult.Output)" -Error
         }
 
         (Invoke-CmdOnControlPlaneViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -NoLog).Output | Write-Log
