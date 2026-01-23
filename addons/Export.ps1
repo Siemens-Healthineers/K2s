@@ -256,7 +256,7 @@ try {
                         # from kubernetes-dashboard-x.x.x.tgz -> kubernetes-dashboard
                         $chartNameParts = [System.IO.Path]::GetFileNameWithoutExtension($chart).Split('-')
                         $release = $chartNameParts[0..($chartNameParts.Length - 2)] -join '-'
-                        # check if value file exists
+
                         if ((Test-Path -Path $valuesFile)) {
                             (Invoke-Helm -Params 'template', $release, $chart, '-f', $valuesFile, '--output-dir', $chartFolder).Output | Write-Log 
                         } else {
@@ -274,7 +274,6 @@ try {
 
                 $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
                 foreach ($imageLine in $imageLines) {
-                    # Skip commented lines
                     if ($imageLine.TrimStart() -match '^#') {
                         continue
                     }
@@ -433,7 +432,7 @@ try {
                     Write-Log "[OCI] Consolidating $($linuxImageTars.Count) Linux images into single layer"
                     $linuxImagesLayerPath = Join-Path $artifactPath 'images-linux.tar'
                     
-                    # Always create a consolidated tar (even for single image) to maintain consistent structure
+                    # creating a consolidated tar (even for single image) to maintain consistent structure
                     New-TarArchive -SourceFiles $linuxImageTars -DestinationPath $linuxImagesLayerPath -WorkingDirectory $imagesStaging
                 }
                 
@@ -442,7 +441,7 @@ try {
                     Write-Log "[OCI] Consolidating $($windowsImageTars.Count) Windows images into single layer"
                     $windowsImagesLayerPath = Join-Path $artifactPath 'images-windows.tar'
                     
-                    # Always create a consolidated tar (even for single image) to maintain consistent structure
+                    # creating a consolidated tar (even for single image) to maintain consistent structure
                     New-TarArchive -SourceFiles $windowsImageTars -DestinationPath $windowsImagesLayerPath -WorkingDirectory $imagesStaging
                 }
             }
