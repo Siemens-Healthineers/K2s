@@ -81,27 +81,33 @@ function New-WslLinuxVmAsControlPlaneNode {
     wsl -s $VmName
 
     Write-Log 'Waiting for WSL distro to initialize...'
-    $maxRetries = 10
-    $retryDelaySeconds = 3
+    $maxRetries = 15
+    $retryDelaySeconds = 2
     $systemdReady = $false
     for ($i = 1; $i -le $maxRetries; $i++) {
         Start-Sleep -Seconds $retryDelaySeconds
-        # Use -u root to avoid user session initialization issues
-        $result = wsl -u root -e /bin/bash -c 'systemctl is-system-running 2>/dev/null || echo "not-ready"'
-        if ($result -match 'running|degraded') {
-            Write-Log "WSL systemd is ready (status: $result)"
-            $systemdReady = $true
-            break
+        # Use --exec to bypass shell and session setup, redirect all output
+        try {
+            $result = wsl --exec /bin/bash -c 'systemctl is-system-running 2>/dev/null; exit 0' 2>&1
+            $resultStr = ($result | Out-String).Trim()
+            if ($resultStr -match 'running|degraded') {
+                Write-Log "WSL systemd is ready (status: $resultStr)"
+                $systemdReady = $true
+                break
+            }
+            Write-Log "Waiting for WSL systemd to be ready (attempt $i/$maxRetries, status: $resultStr)..."
         }
-        Write-Log "Waiting for WSL systemd to be ready (attempt $i/$maxRetries, status: $result)..."
+        catch {
+            Write-Log "Waiting for WSL systemd to be ready (attempt $i/$maxRetries, exception: $($_.Exception.Message))..."
+        }
     }
     if (-not $systemdReady) {
         Write-Log 'Warning: WSL systemd may not be fully ready, proceeding anyway...'
     }
 
     Write-Log 'Update fstab'
-    wsl -u root -e /bin/bash -c 'rm -f /etc/fstab'
-    wsl -u root -e /bin/bash -c "echo '/dev/sdb / ext4 rw,discard,errors=remount-ro,x-systemd.growfs 0 1' | tee /etc/fstab"
+    $null = wsl --exec /bin/bash -c 'rm -f /etc/fstab' 2>&1
+    $null = wsl --exec /bin/bash -c "echo '/dev/sdb / ext4 rw,discard,errors=remount-ro,x-systemd.growfs 0 1' > /etc/fstab" 2>&1
     wsl --shutdown
 
 }
