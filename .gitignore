@@ -175,3 +175,6 @@ addons/security/manifests/linkerd/linkerd-crds.yaml
 addons/storage/smb/build/smbplugin.exe
 addons/storage/smb/build/csi-node-driver-registrar.exe
 bin/debian-12-genericcloud-amd64.qcow2
+**/debianpackages/**/*.deb
+**/linuxpackages/**
+**/windowspackages/**
