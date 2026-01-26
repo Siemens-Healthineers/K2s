@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-apiVersion: kubeadm.k8s.io/v1beta3
+apiVersion: kubeadm.k8s.io/v1beta4
 kind: JoinConfiguration
 caCertPath: __CA_CERT__
 nodeRegistration:
@@ -15,3 +15,7 @@ discovery:
         token: __TOKEN__
         caCertHashes: 
         - __SHA__
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+failCgroupV1: false
