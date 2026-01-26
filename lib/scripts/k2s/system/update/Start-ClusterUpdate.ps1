@@ -52,8 +52,9 @@ if ($runningFromDelta) {
 	$clusterModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1'
 	$addonsModule = Join-Path $targetInstallPath 'addons\addons.module.psm1'
 	
-	# Also need to import update module from the delta package (contains PerformClusterUpdate)
-	$updateModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/update/update.module.psm1"
+	# Load update module from target installation as well (not from delta package)
+	# This ensures vm.module.psm1 and other dependencies resolve paths correctly via Get-KubePath
+	$updateModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.cluster.module\update\update.module.psm1'
 } else {
 	# Running from installed k2s - use relative paths
 	$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
