@@ -73,11 +73,11 @@ func ExportAddon(ctx context.Context, suite *framework.K2sTestSuite, addonName s
 		GinkgoWriter.Printf("[Export] WARNING: Failed to create output directory: %v\n", err)
 	}
 
-	GinkgoWriter.Println("[Export] Executing k2s addons export command...")
+	GinkgoWriter.Println("[Export] Executing k2s addons export command with verbose output (-o)...")
 	if implName != "" && implName != addonName {
-		suite.K2sCli().MustExec(ctx, "addons", "export", addonName+" "+implName, "-d", outputDir)
+		suite.K2sCli().MustExec(ctx, "addons", "export", addonName+" "+implName, "-d", outputDir, "-o")
 	} else {
-		suite.K2sCli().MustExec(ctx, "addons", "export", addonName, "-d", outputDir)
+		suite.K2sCli().MustExec(ctx, "addons", "export", addonName, "-d", outputDir, "-o")
 	}
 	GinkgoWriter.Println("[Export] Export command completed")
 
