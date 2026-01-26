@@ -80,6 +80,24 @@ function New-WslLinuxVmAsControlPlaneNode {
     Write-Log 'Set KubeMaster as default distro'
     wsl -s $VmName
 
+    Write-Log 'Waiting for WSL distro systemd to initialize...'
+    $maxRetries = 10
+    $retryDelaySeconds = 3
+    $systemdReady = $false
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        Start-Sleep -Seconds $retryDelaySeconds
+        $result = wsl /bin/bash -c 'systemctl is-system-running 2>/dev/null || echo "not-ready"'
+        if ($result -match 'running|degraded') {
+            Write-Log "WSL systemd is ready (status: $result)"
+            $systemdReady = $true
+            break
+        }
+        Write-Log "Waiting for WSL systemd to be ready (attempt $i/$maxRetries, status: $result)..."
+    }
+    if (-not $systemdReady) {
+        Write-Log 'Warning: WSL systemd may not be fully ready, proceeding anyway...'
+    }
+
     Write-Log 'Update fstab'
     wsl /bin/bash -c 'sudo rm /etc/fstab'
     wsl /bin/bash -c "echo '/dev/sdb / ext4 rw,discard,errors=remount-ro,x-systemd.growfs 0 1' | sudo tee /etc/fstab"
