@@ -6,6 +6,7 @@ package addons
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -299,6 +300,73 @@ var _ = Describe("export and import all addons integration test", Ordered, func(
 		})
 	})
 
+	Describe("clean up downloaded resources for all addons", func() {
+		BeforeAll(func(ctx context.Context) {
+			GinkgoWriter.Println("=== CLEAN UP ALL ADDONS RESOURCES - BeforeAll START ===")
+
+			GinkgoWriter.Println("[BeforeAll] Cleaning images with 'k2s image clean -o'...")
+			suite.K2sCli().Exec(ctx, "image", "clean", "-o")
+			GinkgoWriter.Println("[BeforeAll] Image cleanup completed")
+
+			GinkgoWriter.Printf("[BeforeAll] Removing downloaded debian packages for %d addons...\n", len(allAddons))
+			for _, a := range allAddons {
+				for _, i := range a.Spec.Implementations {
+					GinkgoWriter.Printf("[BeforeAll]   Removing debian packages for %s/%s (dir: %s)\n", a.Metadata.Name, i.Name, i.ExportDirectoryName)
+					suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("sudo rm -rf .%s", i.ExportDirectoryName))
+				}
+			}
+			GinkgoWriter.Println("[BeforeAll] Debian packages cleanup completed")
+			GinkgoWriter.Println("=== CLEAN UP ALL ADDONS RESOURCES - BeforeAll END ===")
+		})
+
+		It("no debian packages available before import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: no debian packages available before import")
+			GinkgoWriter.Printf("[Test] Checking %d addons for debian package directories...\n", len(allAddons))
+
+			for _, a := range allAddons {
+				for _, i := range a.Spec.Implementations {
+					GinkgoWriter.Printf("[Test]   Checking %s/%s (dir: .%s) does not exist...\n", a.Metadata.Name, i.Name, i.ExportDirectoryName)
+					suite.K2sCli().ExpectedExitCode(1).Exec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s ]", i.ExportDirectoryName))
+					GinkgoWriter.Printf("[Test]   OK: .%s does not exist\n", i.ExportDirectoryName)
+				}
+			}
+			GinkgoWriter.Println("[Test] Verified: No debian package directories exist")
+		})
+
+		It("no addon images available before import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: no addon images available before import")
+
+			currentImages := k2s.GetNonK8sImagesFromNodes(ctx)
+			GinkgoWriter.Printf("[Test] Found %d images on nodes\n", len(currentImages))
+			for idx, img := range currentImages {
+				GinkgoWriter.Printf("[Test]   [%d] %s\n", idx, img)
+			}
+
+			// Verify that no addon-specific images are present
+			GinkgoWriter.Printf("[Test] Checking that no addon images from %d addons are present...\n", len(allAddons))
+			addonImagesFound := []string{}
+
+			for _, a := range allAddons {
+				for _, i := range a.Spec.Implementations {
+					expectedImages, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
+					Expect(err).To(BeNil())
+
+					for _, expectedImg := range expectedImages {
+						for _, currentImg := range currentImages {
+							if strings.Contains(currentImg, expectedImg) {
+								addonImagesFound = append(addonImagesFound, expectedImg)
+								GinkgoWriter.Printf("[Test]   FOUND addon image: %s (from %s/%s)\n", expectedImg, a.Metadata.Name, i.Name)
+							}
+						}
+					}
+				}
+			}
+
+			Expect(addonImagesFound).To(BeEmpty(), "No addon images should be present before import, but found: %v", addonImagesFound)
+			GinkgoWriter.Println("[Test] Verified: No addon images present before import")
+		})
+	})
+
 	Describe("import all addons and verify manifest merging", func() {
 		BeforeAll(func(ctx context.Context) {
 			GinkgoWriter.Println("=== IMPORT ALL ADDONS - BeforeAll START ===")
@@ -315,6 +383,94 @@ var _ = Describe("export and import all addons integration test", Ordered, func(
 				os.RemoveAll(exportPath)
 			}
 			GinkgoWriter.Println("=== IMPORT ALL ADDONS - AfterAll END ===")
+		})
+
+		It("debian packages available after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: debian packages available after import")
+			GinkgoWriter.Printf("[Test] Checking debian packages for %d addons...\n", len(allAddons))
+
+			for _, a := range allAddons {
+				for _, i := range a.Spec.Implementations {
+					GinkgoWriter.Printf("[Test]   Checking %s/%s - %d debian packages\n", a.Metadata.Name, i.Name, len(i.OfflineUsage.LinuxResources.DebPackages))
+					for pkgIdx, pkg := range i.OfflineUsage.LinuxResources.DebPackages {
+						checkCmd := fmt.Sprintf("[ -d .%s/%s ]", i.ExportDirectoryName, pkg)
+						suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", checkCmd)
+						GinkgoWriter.Printf("[Test]     [%d] OK: %s\n", pkgIdx, pkg)
+					}
+				}
+			}
+			GinkgoWriter.Println("[Test] All debian packages verified")
+		})
+
+		It("images available after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: images available after import")
+
+			importedImages := k2s.GetNonK8sImagesFromNodes(ctx)
+			GinkgoWriter.Printf("[Test] Found %d non-K8s images on nodes\n", len(importedImages))
+			for idx, img := range importedImages {
+				GinkgoWriter.Printf("[Test]   [%d] %s\n", idx, img)
+			}
+
+			GinkgoWriter.Printf("[Test] Verifying images for %d addons...\n", len(allAddons))
+			for _, a := range allAddons {
+				for _, i := range a.Spec.Implementations {
+					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
+					Expect(err).To(BeNil())
+					GinkgoWriter.Printf("[Test]   Checking %s/%s - %d expected images\n", a.Metadata.Name, i.Name, len(images))
+
+					for imgIdx, img := range images {
+						contains := slices.ContainsFunc(importedImages, func(imported string) bool {
+							return strings.Contains(imported, img)
+						})
+						if contains {
+							GinkgoWriter.Printf("[Test]     [%d] OK: %s\n", imgIdx, img)
+						} else {
+							GinkgoWriter.Printf("[Test]     [%d] MISSING: %s\n", imgIdx, img)
+						}
+						Expect(contains).To(BeTrue(), "Image %s should be available after import", img)
+					}
+				}
+			}
+			GinkgoWriter.Println("[Test] All images verified")
+		})
+
+		It("linux curl packages available after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: linux curl packages available after import")
+			GinkgoWriter.Printf("[Test] Checking linux curl packages for %d addons...\n", len(allAddons))
+
+			for _, a := range allAddons {
+				for _, i := range a.Spec.Implementations {
+					GinkgoWriter.Printf("[Test]   Checking %s/%s - %d linux curl packages\n", a.Metadata.Name, i.Name, len(i.OfflineUsage.LinuxResources.CurlPackages))
+					for pkgIdx, pkg := range i.OfflineUsage.LinuxResources.CurlPackages {
+						checkCmd := fmt.Sprintf("[ -f %s ]", pkg.Destination)
+						suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", checkCmd)
+						GinkgoWriter.Printf("[Test]     [%d] OK: %s\n", pkgIdx, pkg.Destination)
+					}
+				}
+			}
+			GinkgoWriter.Println("[Test] All linux curl packages verified")
+		})
+
+		It("windows curl packages available after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
+			GinkgoWriter.Printf("[Test] Checking windows curl packages for %d addons...\n", len(allAddons))
+
+			for _, a := range allAddons {
+				for _, i := range a.Spec.Implementations {
+					GinkgoWriter.Printf("[Test]   Checking %s/%s - %d windows curl packages\n", a.Metadata.Name, i.Name, len(i.OfflineUsage.WindowsResources.CurlPackages))
+					for pkgIdx, p := range i.OfflineUsage.WindowsResources.CurlPackages {
+						pkgPath := filepath.Join(suite.RootDir(), p.Destination)
+						info, err := os.Stat(pkgPath)
+						if os.IsNotExist(err) {
+							GinkgoWriter.Printf("[Test]     [%d] MISSING: %s\n", pkgIdx, pkgPath)
+						} else {
+							GinkgoWriter.Printf("[Test]     [%d] OK: %s (%d bytes)\n", pkgIdx, pkgPath, info.Size())
+						}
+						Expect(os.IsNotExist(err)).To(BeFalse(), "Windows curl package %s should exist at %s", p.Destination, pkgPath)
+					}
+				}
+			}
+			GinkgoWriter.Println("[Test] All windows curl packages verified")
 		})
 
 		It("tar files are excluded during import but other content is imported", func(ctx context.Context) {
