@@ -14,7 +14,7 @@ Write-Log "Updating addon with name: $addonName"
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
 	Write-Log "Updating nginx gateway fabric addon to be part of service mesh"
-	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":\"443,8443,9113\",\"config.linkerd.io/skip-outbound-ports\":\"443\",\"linkerd.io/inject\":\"enabled\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'nginx-gw-controller', '-n', 'nginx-gw', '-p', $annotations).Output | Write-Log
 	
 	$maxAttempts = 30
@@ -34,7 +34,7 @@ if ($EnancedSecurityEnabled) {
 	}
 } else {
 	Write-Log "Updating nginx gateway fabric addon to not be part of service mesh"
-	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":null}}}}}'
+	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"config.linkerd.io/skip-outbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'nginx-gw-controller', '-n', 'nginx-gw', '-p', $annotations).Output | Write-Log
 
 	$maxAttempts = 30
