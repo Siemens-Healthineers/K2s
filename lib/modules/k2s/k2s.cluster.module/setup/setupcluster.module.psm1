@@ -232,7 +232,7 @@ function Join-WindowsNode {
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
         $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'npipe:////./pipe/containerd-containerd').Replace('__NODE_IP__', $windowsNodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
 
-        $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$joinConfigurationFilePath`""
+        $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser,SystemVerification' + " --config `"$joinConfigurationFilePath`""
 
         Write-Log $joinCommand
 
@@ -243,7 +243,8 @@ function Join-WindowsNode {
         $controlPlaneHostName = Get-ConfigControlPlaneNodeHostname
         $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $controlPlaneHostName"
         Set-Location $tempKubeadmDirectory
-        Invoke-Expression $joinCommand 2>&1 | Write-Log
+        $joinOutput = Invoke-Expression $joinCommand 2>&1
+        $joinOutput | Write-Log
         Set-Location ..\..
 
         # print the output of the WaitForJoin.ps1
@@ -343,7 +344,7 @@ function Join-LinuxNode {
         $caCertFilePath = '/etc/kubernetes/pki/ca.crt'
 
         Write-Log 'Create config file for join command'
-        $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinnode.template.yaml"
+        $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinnode-linux.template.yaml"
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
         $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'unix:///run/crio/crio.sock').Replace('__NODE_IP__', $NodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
 
@@ -352,7 +353,7 @@ function Join-LinuxNode {
         $target = '/tmp/joinnode.yaml'
         Copy-ToRemoteComputerViaSshKey -Source $source -Target $target -UserName $NodeUserName -IpAddress $NodeIpAddress
    
-        $joinCommand = "sudo kubeadm join $apiServerEndpoint" + ' --node-name ' + $NodeName + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$target`""
+        $joinCommand = "sudo kubeadm join $apiServerEndpoint" + ' --node-name ' + $NodeName + ' --ignore-preflight-errors IsPrivilegedUser,SystemVerification' + " --config `"$target`""
         Write-Log "Created join command: $joinCommand"
 
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl start crio' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
