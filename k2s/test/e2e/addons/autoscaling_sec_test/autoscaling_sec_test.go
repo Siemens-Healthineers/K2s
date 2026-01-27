@@ -89,5 +89,11 @@ var _ = Describe("'autoscaling and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "autoscaling")
 		})
+
+		It("Deactivates all the addons", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+		})
 	})
 })
