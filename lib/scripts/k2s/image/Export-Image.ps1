@@ -70,10 +70,27 @@ if ($systemError) {
     exit 1
 }
 
+Write-Log "[ImageExport] Looking for image with Id='$Id' Name='$Name'"
 $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
+Write-Log "[ImageExport] Found $($linuxContainerImages.Count) linux container images"
 $foundLinuxImages = @()
 if ($Id -ne '') {
+    Write-Log "[ImageExport] Searching by ImageId='$Id'"
     $foundLinuxImages = @($linuxContainerImages | Where-Object { $_.ImageId -eq $Id })
+    Write-Log "[ImageExport] Found $($foundLinuxImages.Count) matching images by Id"
+    # If multiple images match the same ID (e.g., one with tag and one with <none>),
+    # prefer the one with an actual tag
+    if ($foundLinuxImages.Count -gt 1) {
+        $taggedImages = @($foundLinuxImages | Where-Object { $_.Tag -ne '<none>' })
+        if ($taggedImages.Count -ge 1) {
+            Write-Log "[ImageExport] Filtering to $($taggedImages.Count) tagged image(s) (excluding <none>)"
+            $foundLinuxImages = @($taggedImages[0])
+        } else {
+            # All have <none> tag, just take the first one
+            Write-Log "[ImageExport] All images have <none> tag, using first one"
+            $foundLinuxImages = @($foundLinuxImages[0])
+        }
+    }
 }
 else {
     if ($Name -eq '') {
@@ -91,6 +108,18 @@ $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $tr
 $foundWindowsImages = @()
 if ($Id -ne '') {
     $foundWindowsImages = @($windowsContainerImages | Where-Object { $_.ImageId -eq $Id })
+    # If multiple images match the same ID (e.g., one with tag and one with <none>),
+    # prefer the one with an actual tag
+    if ($foundWindowsImages.Count -gt 1) {
+        $taggedImages = @($foundWindowsImages | Where-Object { $_.Tag -ne '<none>' })
+        if ($taggedImages.Count -ge 1) {
+            Write-Log "[ImageExport] Filtering Windows to $($taggedImages.Count) tagged image(s) (excluding <none>)"
+            $foundWindowsImages = @($taggedImages[0])
+        } else {
+            Write-Log "[ImageExport] All Windows images have <none> tag, using first one"
+            $foundWindowsImages = @($foundWindowsImages[0])
+        }
+    }
 }
 else {
     if ($Name -eq '') {
