@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +23,7 @@ const testClusterTimeout = time.Minute * 20
 
 var (
 	suite *framework.K2sTestSuite
+	k2s   *dsl.K2s
 )
 
 func TestLoggingSecurity(t *testing.T) {
@@ -31,12 +33,19 @@ func TestLoggingSecurity(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
 	suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
+	if k2s.IsAddonEnabled("ingress", "nginx") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	}
+
+	if k2s.IsAddonEnabled("security") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	}
 
 	suite.TearDown(ctx)
 })
