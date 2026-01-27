@@ -80,6 +80,14 @@ function New-WslLinuxVmAsControlPlaneNode {
     Write-Log 'Set KubeMaster as default distro'
     wsl -s $VmName
 
+    # Configure systemd to work with cgroups v1 before starting user sessions (required for newer systemd on WSL2)
+    Write-Log 'Configuring systemd for cgroups v1 compatibility...'
+    $null = wsl --exec /bin/bash -c 'mkdir -p /etc/systemd/system/user@.service.d && echo -e "[Service]\nDelegate=yes" > /etc/systemd/system/user@.service.d/delegate.conf' 2>&1
+    $null = wsl --exec /bin/bash -c 'mkdir -p /etc/systemd/logind.conf.d && echo -e "[Login]\nKillUserProcesses=no" > /etc/systemd/logind.conf.d/nokill.conf' 2>&1
+    # Shutdown WSL to apply the systemd configuration
+    wsl --shutdown
+    Start-Sleep -Seconds 2
+
     Write-Log 'Waiting for WSL distro to initialize...'
     $maxRetries = 15
     $retryDelaySeconds = 2
