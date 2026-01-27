@@ -47,19 +47,18 @@ var _ = Describe("'system restore' command", Ordered, func() {
 		})
 	})
 
-	Describe("when backup file does not exist", func() {
-		It("returns an error message about missing backup file", func(ctx context.Context) {
-			tempDir := GinkgoT().TempDir()
-			nonExistentFile := filepath.Join(tempDir, "non-existent-backup.zip")
+    Describe("when backup file does not exist", func() {
+      It("returns an error message indicating no setup is available", func(ctx context.Context) {
+       tempDir := GinkgoT().TempDir()
+       nonExistentFile := filepath.Join(tempDir, "test-backup.zip")
 
-			output, exitCode := suite.K2sCli().Exec(ctx, "system", "restore", "-f", nonExistentFile)
+       output, exitCode := suite.K2sCli().Exec(ctx, "system", "restore", "-f", nonExistentFile)
 
-			Expect(exitCode).NotTo(Equal(0))
-			Expect(output).To(Or(
-				ContainSubstring("not found"),
-				ContainSubstring("does not exist"),
-				ContainSubstring("file"),
-			))
-		})
-	})
+       Expect(exitCode).NotTo(Equal(0))
+       Expect(output).To(Or(
+        ContainSubstring("not found"),
+        ContainSubstring("not installed"),
+       ))
+      })
+    })
 })

@@ -12,11 +12,16 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\upgrade\upgrade.module.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1") -Force
+
 # ------------------------------------------------------------
-# Import upgrade module (reuse export + hooks functionality)
+# Verify K2s is installed
 # ------------------------------------------------------------
-$upgradeModule = Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\upgrade\upgrade.module.psm1"
-Import-Module $upgradeModule -Force
+$setupInfo = Get-SetupInfo
+if ($null -eq $setupInfo -or -not $setupInfo.Name) {
+    throw "K2s is not installed. Please run 'k2s install' first."
+}
 
 Write-Log "Starting K2s system backup..." -Console
 

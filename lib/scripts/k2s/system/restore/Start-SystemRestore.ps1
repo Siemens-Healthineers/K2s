@@ -13,6 +13,15 @@ Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.modu
 Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\runningstate\runningstate.module.psm1") -Force
 
+
+# ------------------------------------------------------------
+# Verify K2s is installed
+# ------------------------------------------------------------
+$setupInfo = Get-SetupInfo
+if ($null -eq $setupInfo -or -not $setupInfo.Name) {
+    throw "K2s is not installed. Please run 'k2s install' first."
+}
+
 Write-Log "Starting system restore" -Console
 
 if (-not (Test-Path $BackupFile)) {
