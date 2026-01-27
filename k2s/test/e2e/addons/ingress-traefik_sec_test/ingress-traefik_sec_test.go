@@ -43,8 +43,14 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\traefik\\workloads", "--ignore-not-found")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
+	if k2s.IsAddonEnabled("ingress", "traefik") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+	}
+
+	if k2s.IsAddonEnabled("security") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	}
 
 	suite.TearDown(ctx)
 })

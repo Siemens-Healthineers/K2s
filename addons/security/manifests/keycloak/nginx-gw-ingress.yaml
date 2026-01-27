@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
-
+ 
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -19,6 +19,14 @@ spec:
         - path:
             type: PathPrefix
             value: /oauth2
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              - name: X-Forwarded-Proto
+                value: https
+              - name: X-Forwarded-Host
+                value: k2s.cluster.local
       backendRefs:
         - name: oauth2-proxy
           port: 4180
@@ -40,6 +48,14 @@ spec:
         - path:
             type: PathPrefix
             value: /keycloak
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              - name: X-Forwarded-Proto
+                value: https
+              - name: X-Forwarded-Host
+                value: k2s.cluster.local
       backendRefs:
         - name: keycloak
           port: 8080

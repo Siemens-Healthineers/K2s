@@ -26,7 +26,7 @@ For enabling basic or enhanced security please use the parameter:
  -t, --type string (basic or enhanced)
 ```
 
-K2s also has many addons like **dashboard**, **logging**, **monitoring**... which are bringing in also web apps.
+K2s also has many addons like **dashboard**, **logging**, **monitoring**, and ingress options (**nginx**, **traefik**, **nginx-gw**) which are bringing in web apps and external access capabilities.
 By enabling the security addon they will be automatically also secured.
 
 ## Disable security
@@ -76,7 +76,7 @@ If a component is omitted, the corresponding authentication or user management f
 
 This addon installs workloads needed to secure the network communication by configuration. This includes (all optional via flags except cert-manager, trust-manager, and linkerd):
 
-- [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
+- [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates. Note: cert-manager is typically created when enabling ingress addons (nginx, traefik, or nginx-gw). The security addon verifies its existence and creates it if not already available.
 
 - [keycloak](https://www.keycloak.org/) - services for identity and access management. `keycloak` provides user federation, strong authentication, user management, fine-grained authorization, and more. _(Can be omitted with -OmitKeycloak)_
 
@@ -120,8 +120,10 @@ spec:
 
 cert-manager will observe annotations, create a certificate and store it in the secret named 'your-secret-name' so that the ingress class uses it.
 
-If you enable one of `ingress nginx` or `ingress traefik` addon, and also the `dashboard` addon, you can inspect the
+If you enable one of `ingress nginx`, `ingress traefik`, or `ingress nginx-gw` addon, and also the `dashboard` addon, you can inspect the
 server certificate by visiting the dashboard URL in your browser and clicking on the lock icon: <https://k2s.cluster.local>. This is done with [this manifest file](../ingress/nginx/manifests/cluster-local-ingress.yaml).
+
+Note: cert-manager is automatically installed when you enable any ingress addon (nginx, traefik, or nginx-gw). The security addon checks if cert-manager already exists before attempting to create it, ensuring no conflicts or duplications occur.
 
 You can also use the command line interface `cmctl.exe` to interact with cert-manager, it is installed in the `bin` path of your K2s install directory.
 

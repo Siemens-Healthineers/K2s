@@ -44,8 +44,15 @@ var _ = BeforeSuite(func(ctx context.Context) {
 var _ = AfterSuite(func(ctx context.Context) {
 	// Cleanup workloads and addons - ignore errors if resources don't exist
 	suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads", "--ignore-not-found")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
+	if k2s.IsAddonEnabled("ingress", "nginx-gw") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+	}
+
+	if k2s.IsAddonEnabled("security") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	}
+
 	suite.TearDown(ctx)
 })
 
@@ -68,6 +75,8 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "controller", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "nginx-gw")
+			// Wait for Keycloak HTTPRoute to exist
+			Expect(addons.WaitForHTTPRouteReady("keycloak-nginx-gw-cluster-local", "security")).To(Succeed())
 		})
 
 		It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
