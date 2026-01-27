@@ -476,7 +476,11 @@ function Invoke-CommandInMasterVM {
 		}
 		if ($cpRunning -and (Get-Command -Name Wait-ForSSHConnectionToLinuxVMViaSshKey -ErrorAction SilentlyContinue)) {
 			Write-Log '[DebPkg][VM] Waiting for SSH availability' -Console:$consoleSwitch
-			try { Wait-ForSSHConnectionToLinuxVMViaSshKey } catch { Write-Log "[DebPkg][VM][Warn] SSH wait failed: $($_.Exception.Message)" -Console:$consoleSwitch }
+			# Skip SSH wait during delta update - the control plane is already verified running
+			# and calling Wait-ForSSHConnectionToLinuxVMViaSshKey can hang in CI environments
+			# where the outer SSH session uses -n (stdin from /dev/null), causing nested ssh.exe
+			# calls to behave unexpectedly on Windows
+			Write-Log '[DebPkg][VM] Skipping SSH wait (control plane already verified running)' -Console:$consoleSwitch
 		}
 	}
 
