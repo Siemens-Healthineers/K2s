@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +18,10 @@ import (
 
 const autoscalingSecTimeout = time.Minute * 10
 
-var suite *framework.K2sTestSuite
+var (
+	suite *framework.K2sTestSuite
+	k2s   *dsl.K2s
+)
 
 func TestAutoscalingSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -26,13 +30,17 @@ func TestAutoscalingSecurity(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(autoscalingSecTimeout))
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
 	suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
-
+	if k2s.IsAddonEnabled("security") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	}
+	if k2s.IsAddonEnabled("ingress", "nginx") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	}
 	suite.TearDown(ctx)
 })
 

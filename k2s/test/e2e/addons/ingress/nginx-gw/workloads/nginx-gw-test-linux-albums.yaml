@@ -128,3 +128,32 @@ spec:
     backendRefs:
     - name: albums-linux1
       port: 80
+
+---
+# Linkerd Server resource for albums-linux1
+# Required for ServerAuthorization when security addon is enabled
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: albums-linux1
+  namespace: ingress-nginx-gw-test
+spec:
+  podSelector:
+    matchLabels:
+      app: albums-linux1
+  port: 80
+
+---
+# Linkerd ServerAuthorization for albums-linux1
+# Allows any mesh member (including nginx-gw-controller) to access this service
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: albums-linux1-allow-mesh
+  namespace: ingress-nginx-gw-test
+spec:
+  server:
+    name: albums-linux1
+  # Allow any mesh member with valid Linkerd mTLS certificate
+  client:
+    meshTLS: {}

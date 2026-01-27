@@ -74,3 +74,43 @@ spec:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: nginx-cluster-local
+---
+#
+# NGINX Gateway API Ingress with Linkerd Authorization
+# =====================================================
+# Gateway API (nginx-gw) requires explicit Linkerd ServerAuthorization because
+# Linkerd doesn't automatically trust Gateway API traffic routing, unlike traditional Ingress.
+#
+# Traffic Flow:
+#   External Client → nginx-gw-controller (port 443) → keycloak (port 8080)
+#
+# Security Model:
+# - Layer 1: skip-inbound-ports allows external clients → nginx-gw (unauthenticated)
+# - Layer 2: ServerAuthorization allows nginx-gw → keycloak (authenticated via mTLS)
+#
+# Result: Any mesh member (pod with valid Linkerd mTLS cert) can access keycloak.
+# Traditional nginx/traefik Ingress gets this implicitly; Gateway API needs explicit policy.
+ 
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: keycloak
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  port: 8080
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: keycloak-allow-mesh
+  namespace: security
+spec:
+  server:
+    name: keycloak
+  # Allow any mesh member with valid Linkerd mTLS certificate.
+  # External clients are blocked (no mTLS cert).
+  client:
+    meshTLS: {}

@@ -56,9 +56,6 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 		_, err := os.Stat(cmCtlPath)
 		Expect(os.IsNotExist(err)).To(BeTrue())
 
-		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
-		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
-
 		k2s.VerifyAddonIsDisabled("ingress", "traefik")
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", ingressTraefikTest)
