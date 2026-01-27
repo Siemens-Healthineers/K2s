@@ -2,13 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
-apiVersion: kubeadm.k8s.io/v1beta3
+# Template for Windows node join - KubeletConfiguration omitted as cgroups 
+# settings (like failCgroupV1) are not applicable on Windows.
+# For Linux nodes, use joinnode-linux.template.yaml.
+
+apiVersion: kubeadm.k8s.io/v1beta4
 kind: JoinConfiguration
 caCertPath: __CA_CERT__
 nodeRegistration:
     criSocket: __CRI_SOCKET__
     kubeletExtraArgs:
-        node-ip: "__NODE_IP__"
+      - name: "node-ip"
+        value: "__NODE_IP__"
 discovery:
     bootstrapToken:
         apiServerEndpoint: __API__
