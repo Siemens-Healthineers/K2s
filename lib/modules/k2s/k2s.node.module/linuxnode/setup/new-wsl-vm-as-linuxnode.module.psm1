@@ -80,36 +80,12 @@ function New-WslLinuxVmAsControlPlaneNode {
     Write-Log 'Set KubeMaster as default distro'
     wsl -s $VmName
 
-    # CRITICAL: Fix fstab IMMEDIATELY after import, before systemd starts
-    # The rootfs was built from Hyper-V and has PARTUUID entries that don't exist in WSL
-    # This causes systemd to hang waiting for non-existent devices
-    Write-Log 'Fixing fstab for WSL compatibility (removing PARTUUID entries)...'
-    $wslRootPath = "$env:SystemDrive\wsl"
-    $wslFstabPath = Join-Path $wslRootPath 'etc\fstab'
-    if (Test-Path $wslFstabPath) {
-        # Replace fstab with WSL-compatible version
-        Set-Content -Path $wslFstabPath -Value '/dev/sdb / ext4 rw,discard,errors=remount-ro 0 1' -Force
-        Write-Log 'Updated fstab to use /dev/sdb instead of PARTUUID'
-    }
-
-    # Configure systemd to work with cgroups v1 (required for newer systemd on WSL2)
-    Write-Log 'Configuring systemd for cgroups v1 compatibility...'
-    # Enable cgroup delegation for user sessions
-    $userServiceDir = Join-Path $wslRootPath 'etc\systemd\system\user@.service.d'
-    if (-not (Test-Path $userServiceDir)) { New-Item -ItemType Directory -Path $userServiceDir -Force | Out-Null }
-    Set-Content -Path (Join-Path $userServiceDir 'delegate.conf') -Value "[Service]`nDelegate=yes" -Force
-
-    # Prevent killing user processes
-    $logindConfDir = Join-Path $wslRootPath 'etc\systemd\logind.conf.d'
-    if (-not (Test-Path $logindConfDir)) { New-Item -ItemType Directory -Path $logindConfDir -Force | Out-Null }
-    Set-Content -Path (Join-Path $logindConfDir 'wsl.conf') -Value "[Login]`nKillUserProcesses=no" -Force
-
-    # Mask the boot-efi.mount that doesn't exist in WSL
-    $systemdSystemDir = Join-Path $wslRootPath 'etc\systemd\system'
-    $null = New-Item -ItemType SymbolicLink -Path (Join-Path $systemdSystemDir 'boot-efi.mount') -Target '/dev/null' -Force -ErrorAction SilentlyContinue
+    # The rootfs has been pre-configured during creation with:
+    # - Fixed fstab (no PARTUUID entries)
+    # - Masked boot-efi.mount
+    # - Systemd cgroups v1 compatibility settings
 
     Write-Log 'Starting WSL distro...'
-    # Start WSL - now systemd should boot properly
     $null = wsl --exec /bin/true 2>&1
 
     Write-Log 'Waiting for WSL distro to initialize...'
