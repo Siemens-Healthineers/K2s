@@ -70,24 +70,24 @@ if ($systemError) {
     exit 1
 }
 
-Write-Log "[DEBUG] Export-Image.ps1: Looking for image with Id='$Id' Name='$Name'"
+Write-Log "[ImageExport] Looking for image with Id='$Id' Name='$Name'"
 $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
-Write-Log "[DEBUG] Export-Image.ps1: Found $($linuxContainerImages.Count) linux container images"
+Write-Log "[ImageExport] Found $($linuxContainerImages.Count) linux container images"
 $foundLinuxImages = @()
 if ($Id -ne '') {
-    Write-Log "[DEBUG] Export-Image.ps1: Searching by ImageId='$Id'"
+    Write-Log "[ImageExport] Searching by ImageId='$Id'"
     $foundLinuxImages = @($linuxContainerImages | Where-Object { $_.ImageId -eq $Id })
-    Write-Log "[DEBUG] Export-Image.ps1: Found $($foundLinuxImages.Count) matching images by Id"
+    Write-Log "[ImageExport] Found $($foundLinuxImages.Count) matching images by Id"
     # If multiple images match the same ID (e.g., one with tag and one with <none>),
     # prefer the one with an actual tag
     if ($foundLinuxImages.Count -gt 1) {
         $taggedImages = @($foundLinuxImages | Where-Object { $_.Tag -ne '<none>' })
         if ($taggedImages.Count -ge 1) {
-            Write-Log "[DEBUG] Export-Image.ps1: Filtering to $($taggedImages.Count) tagged image(s) (excluding <none>)"
+            Write-Log "[ImageExport] Filtering to $($taggedImages.Count) tagged image(s) (excluding <none>)"
             $foundLinuxImages = @($taggedImages[0])
         } else {
             # All have <none> tag, just take the first one
-            Write-Log "[DEBUG] Export-Image.ps1: All images have <none> tag, using first one"
+            Write-Log "[ImageExport] All images have <none> tag, using first one"
             $foundLinuxImages = @($foundLinuxImages[0])
         }
     }
@@ -113,10 +113,10 @@ if ($Id -ne '') {
     if ($foundWindowsImages.Count -gt 1) {
         $taggedImages = @($foundWindowsImages | Where-Object { $_.Tag -ne '<none>' })
         if ($taggedImages.Count -ge 1) {
-            Write-Log "[DEBUG] Export-Image.ps1: Filtering Windows to $($taggedImages.Count) tagged image(s) (excluding <none>)"
+            Write-Log "[ImageExport] Filtering Windows to $($taggedImages.Count) tagged image(s) (excluding <none>)"
             $foundWindowsImages = @($taggedImages[0])
         } else {
-            Write-Log "[DEBUG] Export-Image.ps1: All Windows images have <none> tag, using first one"
+            Write-Log "[ImageExport] All Windows images have <none> tag, using first one"
             $foundWindowsImages = @($foundWindowsImages[0])
         }
     }

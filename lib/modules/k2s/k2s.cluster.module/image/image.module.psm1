@@ -92,22 +92,22 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
     $linuxContainerImages = @()
     $output = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images').Output
     
-    Write-Log "[DEBUG] Get-ContainerImagesOnLinuxNode: Raw output type = $($output.GetType().Name)"
-    Write-Log "[DEBUG] Get-ContainerImagesOnLinuxNode: Raw output count = $($output.Count)"
+    Write-Log "[ImageList] Raw output type = $($output.GetType().Name)"
+    Write-Log "[ImageList] Raw output count = $($output.Count)"
     if ($output -is [array]) {
-        Write-Log "[DEBUG] Get-ContainerImagesOnLinuxNode: Output is array with $($output.Length) elements"
+        Write-Log "[ImageList] Output is array with $($output.Length) elements"
         for ($i = 0; $i -lt [Math]::Min($output.Length, 10); $i++) {
-            Write-Log "[DEBUG]   Line[$i]: '$($output[$i])'"
+            Write-Log "[ImageList]   Line[$i]: '$($output[$i])'"
         }
     } else {
-        Write-Log "[DEBUG] Get-ContainerImagesOnLinuxNode: Output is single value: '$output'"
+        Write-Log "[ImageList] Output is single value: '$output'"
     }
     
     foreach ($line in $output[1..($output.Count - 1)]) {
         $words = $($line -replace '\s+', ' ').split()
-        Write-Log "[DEBUG] Parsing line: '$line' -> words count=$($words.Count)"
+        Write-Log "[ImageList] Parsing line: '$line' -> words count=$($words.Count)"
         if ($words.Count -lt 3) {
-            Write-Log "[DEBUG] Skipping line with insufficient words"
+            Write-Log "[ImageList] Skipping line with insufficient words"
             continue
         }
         $containerImage = [ContainerImage]@{
@@ -117,14 +117,14 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
             Node       = "$hostname"
             Size       = $words[$words.Count - 2] + $words[$words.Count - 1]
         }
-        Write-Log "[DEBUG] Parsed image: Repository='$($words[0])' Tag='$($words[1])' ImageId='$($words[2])'"
+        Write-Log "[ImageList] Parsed image: Repository='$($words[0])' Tag='$($words[1])' ImageId='$($words[2])'"
         $linuxContainerImages += $containerImage
     }
-    Write-Log "[DEBUG] Get-ContainerImagesOnLinuxNode: Total parsed images before K8s filter = $($linuxContainerImages.Count)"
+    Write-Log "[ImageList] Total parsed images before K8s filter = $($linuxContainerImages.Count)"
     if ($IncludeK8sImages -eq $false) {
         $linuxContainerImages =
         Get-FilteredImages -ContainerImages $linuxContainerImages -ContainerImagesToBeCleaned $KubernetesImages
-        Write-Log "[DEBUG] Get-ContainerImagesOnLinuxNode: Total images after K8s filter = $($linuxContainerImages.Count)"
+        Write-Log "[ImageList] Total images after K8s filter = $($linuxContainerImages.Count)"
     }
     return $linuxContainerImages
 }
