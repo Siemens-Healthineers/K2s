@@ -509,7 +509,8 @@ function New-WindowsImage {
     if ($LASTEXITCODE -ne 0) { throw "error while creating image with 'docker build' on Windows. Error code returned was $LastExitCode" }
 
     Write-Log "Output of checking if the image $imageFullName is now available in docker:"
-    &$dockerExe image ls $ImageName -a
+    $dockerListOutput = &$dockerExe image ls $ImageName -a --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}" 2>&1
+    $dockerListOutput | ForEach-Object { Write-Log $_ }
 
     $exportedImageFullFileName = $env:TEMP + '\BuiltImage.tar'
     if (Test-Path($exportedImageFullFileName)) {
