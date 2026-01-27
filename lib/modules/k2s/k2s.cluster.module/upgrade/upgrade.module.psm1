@@ -256,134 +256,223 @@ function Export-NamespacedResources {
 }
 
 function Import-NotNamespacedResources {
-	param (
-		[Parameter(Mandatory = $true, HelpMessage = 'Location where to get the not namespaced resources')]
-		[string] $folderResources,
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $folderResources,
+        [Parameter(Mandatory = $true)]
+        [string] $ExePath,
+        [Parameter(Mandatory = $false)]
+        [bool] $ErrorOnFailure = $false,
+        [Parameter(Mandatory = $false)]
+        [bool] $ShowLogs = $false
+    )
 
-		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
-		[string] $ExePath,
+    Write-Log "Import not namespaced resources from existing cluster"
 
-		[Parameter(Mandatory = $false)]
-		[bool] $ErrorOnFailure = $false,
-		[Parameter(Mandatory = $false)]
-		[bool] $ShowLogs = $false
+    $errors = @()
+    $warnings = @()
 
-	)
+    if (-not (Test-Path $folderResources)) {
+        Write-Log "No cluster-scoped resources to restore"
+        return @{ Errors = @(); Warnings = @() }
+    }
 
-	Write-Log "Import not namespaced resources from existing cluster"
+    # Define restoration order for cluster-scoped resources
+    $orderedResourceTypes = @(
+        'customresourcedefinitions',
+        'clusterroles',
+        'clusterrolebindings',
+        'priorityclasses',
+        'storageclasses',
+        'ingressclasses',
+        'volumesnapshotclasses',
+        'mutatingwebhookconfigurations',
+        'validatingwebhookconfigurations',
+        'clusterissuers'  # cert-manager CRD-based resources
+    )
 
-	$errors   = @()
-	$warnings = @()
+    # Apply resources in order
+    foreach ($resourceType in $orderedResourceTypes) {
+        $file = Join-Path $folderResources "$resourceType.yaml"
+        if (Test-Path $file) {
+            Write-Log "[Restore] Applying cluster resource: $resourceType"
+            $output = & "$ExePath\kubectl.exe" apply -f $file 2>&1
+            $exitCode = $LASTEXITCODE
 
-	if (-not (Test-Path $folderResources)) {
-		Write-Log "No cluster-scoped resources to restore"
-		return @{
-			Errors   = @()
-			Warnings = @()
-		}
-	}
+            if ($ShowLogs) { Write-Log $output }
 
-	Get-ChildItem -Path $folderResources -Filter *.yaml | ForEach-Object {
-		$file = $_.FullName
+            $hasError = ($exitCode -ne 0) -or
+                        ($output -match "^error:") -or
+                        ($output -match "Error from server")
 
-		$output = & "$ExePath\kubectl.exe" apply -f $file 2>&1
-		$exitCode = $LASTEXITCODE
+            if ($hasError) {
+                $msg = "Failed to apply cluster resource file $resourceType.yaml"
+                Write-Log $msg
+                Write-Log $output
+                $errors += $msg
+                if ($ErrorOnFailure) { throw $msg }
+            }
+        }
+    }
 
-		if ($ShowLogs) {
-			Write-Log $output
-		}
+    # Apply remaining unordered resources
+    Get-ChildItem -Path $folderResources -Filter *.yaml | ForEach-Object {
+        if ($orderedResourceTypes -notcontains $_.BaseName) {
+            $file = $_.FullName
+            Write-Log "[Restore] Applying cluster resource: $($_.BaseName)"
+            $output = & "$ExePath\kubectl.exe" apply -f $file 2>&1
+            $exitCode = $LASTEXITCODE
 
+            if ($ShowLogs) { Write-Log $output }
 
-		$hasError =
-		($exitCode -ne 0) -or
-				($output -match "^error:") -or
-				($output -match "Error from server") -or
-				($output -match "no matches for kind") -or
-				($output -match "resource mapping not found")
+            $hasError = ($exitCode -ne 0) -or
+                        ($output -match "^error:") -or
+                        ($output -match "Error from server") -or
+                        ($output -match "no matches for kind") -or
+                        ($output -match "resource mapping not found")
 
-		if ($hasError) {
-			$msg = "Failed to apply cluster resource file $($_.Name)"
-			Write-Log $msg
-			Write-Log $output
-			$errors += $msg
-			if ($ErrorOnFailure) {
-				throw $msg
-			}
-		}
-	}
+            if ($hasError) {
+                $msg = "Failed to apply cluster resource file $($_.Name)"
+                Write-Log $msg
+                Write-Log $output
+                $errors += $msg
+                if ($ErrorOnFailure) { throw $msg }
+            }
+        }
+    }
 
-	return @{
-		Errors   = $errors
-		Warnings = $warnings
-	}
+    return @{ Errors = $errors; Warnings = $warnings }
 }
 
-
-
 function Import-NamespacedResources {
-	param (
-		[Parameter(Mandatory = $true, HelpMessage = 'Location where to get the namespaced resources')]
-		[string] $folderNamespaces,
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $folderNamespaces,
+        [Parameter(Mandatory = $true)]
+        [string] $ExePath,
+        [Parameter(Mandatory = $false)]
+        [bool] $ErrorOnFailure = $false,
+        [Parameter(Mandatory = $false)]
+        [bool] $ShowLogs = $false
+    )
 
-		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
-		[string] $ExePath,
+    Write-Log "Import namespaced resources from existing cluster"
 
-		[Parameter(Mandatory = $false)]
-		[bool] $ErrorOnFailure = $false,
-		[Parameter(Mandatory = $false)]
-		[bool] $ShowLogs = $false
-	)
+    $errors = @()
+    $warnings = @()
+    $webhookFailures = @()  # Track resources that failed due to missing webhooks
 
-	Write-Log "Import namespaced resources from existing cluster"
+    if (-not (Test-Path $folderNamespaces)) {
+        Write-Log "No namespaced resources to restore"
+        return @{ Errors = @(); Warnings = @(); WebhookFailures = @() }
+    }
 
-	$errors   = @()
-	$warnings = @()
+    # Define restoration order within each namespace
+    $orderedResourceTypes = @(
+        'serviceaccounts',
+        'secrets',
+        'configmaps',
+        'persistentvolumeclaims',
+        'roles',
+        'rolebindings',
+        'services',
+        'deployments',
+        'statefulsets',
+        'daemonsets',
+        'jobs',
+        'cronjobs',
+        'pods',
+        'ingresses',
+        'certificates',
+        'certificaterequests',
+        'issuers'
+    )
 
-	if (-not (Test-Path $folderNamespaces)) {
-		Write-Log "No namespaced resources to restore"
-		return @{
-			Errors   = @()
-			Warnings = @()
-		}
-	}
+    Get-ChildItem -Path $folderNamespaces -Directory | ForEach-Object {
+        $namespace = $_.Name
+        Write-Log "Import namespace: $namespace"
 
-	Get-ChildItem -Path $folderNamespaces -Directory | ForEach-Object {
-		$namespace = $_.Name
-		Write-Log "Import namespace: $namespace"
+        # Ensure namespace exists
+        $nsCheck = & "$ExePath\kubectl.exe" get namespace $namespace 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "  Namespace '$namespace' does not exist, creating it..."
+            $nsCreate = & "$ExePath\kubectl.exe" create namespace $namespace 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                $msg = "Failed to create namespace '$namespace': $nsCreate"
+                Write-Log $msg
+                $errors += $msg
+                if ($ErrorOnFailure) { throw $msg }
+                return
+            }
+            Write-Log "  Namespace '$namespace' created successfully"
+        }
 
-		Get-ChildItem -Path $_.FullName -Filter *.yaml | ForEach-Object {
-			$file = $_.FullName
+        # Apply resources in order
+        foreach ($resourceType in $orderedResourceTypes) {
+            $file = Join-Path $_.FullName "$resourceType.yaml"
+            if (Test-Path $file) {
+                Write-Log "[Restore] Applying $resourceType in namespace $namespace"
+                $output = & "$ExePath\kubectl.exe" apply -f $file -n $namespace 2>&1
+                $exitCode = $LASTEXITCODE
 
-			$output = & "$ExePath\kubectl.exe" apply -f $file -n $namespace 2>&1
-			$exitCode = $LASTEXITCODE
+                if ($ShowLogs) { Write-Log $output }
 
-			if ($ShowLogs) {
-				Write-Log $output
-			}
+                $isWebhookError = $output -match "failed calling webhook" -or
+                                  $output -match "webhook.*not found"
 
-			$hasError =
-			($exitCode -ne 0) -or
-					($output -match "^error:") -or
-					($output -match "Error from server") -or
-					($output -match "no matches for kind") -or
-					($output -match "resource mapping not found")
+                $hasError = ($exitCode -ne 0) -or
+                            ($output -match "^error:") -or
+                            ($output -match "Error from server")
 
-			if ($hasError) {
-				$msg = "Failed to apply $($_.Name) in namespace $namespace"
-				Write-Log $msg
-				Write-Log $output
-				$errors += $msg
-				if ($ErrorOnFailure) {
-					throw $msg
-				}
-			}
-		}
-	}
+                if ($hasError) {
+                    if ($isWebhookError) {
+                        $msg = "⚠️  Webhook validation failed for $resourceType in namespace $namespace (addon may need to be re-enabled)"
+                        Write-Log $msg
+                        Write-Log $output
+                        $webhookFailures += @{
+                            Namespace = $namespace
+                            ResourceType = $resourceType
+                            File = $file
+                        }
+                        $warnings += $msg
+                    }
+                    else {
+                        $msg = "Failed to apply $resourceType.yaml in namespace $namespace"
+                        Write-Log $msg
+                        Write-Log $output
+                        $errors += $msg
+                        if ($ErrorOnFailure) { throw $msg }
+                    }
+                }
+            }
+        }
 
-	return @{
-		Errors   = $errors
-		Warnings = $warnings
-	}
+        # Apply remaining unordered resources
+        Get-ChildItem -Path $_.FullName -Filter *.yaml | ForEach-Object {
+            if ($orderedResourceTypes -notcontains $_.BaseName) {
+                $file = $_.FullName
+                Write-Log "[Restore] Applying $($_.BaseName) in namespace $namespace"
+                $output = & "$ExePath\kubectl.exe" apply -f $file -n $namespace 2>&1
+                $exitCode = $LASTEXITCODE
+
+                if ($ShowLogs) { Write-Log $output }
+
+                $hasError = ($exitCode -ne 0) -or
+                            ($output -match "^error:") -or
+                            ($output -match "Error from server")
+
+                if ($hasError) {
+                    $msg = "Failed to apply $($_.Name) in namespace $namespace"
+                    Write-Log $msg
+                    Write-Log $output
+                    $errors += $msg
+                    if ($ErrorOnFailure) { throw $msg }
+                }
+            }
+        }
+    }
+
+    return @{ Errors = $errors; Warnings = $warnings; WebhookFailures = $webhookFailures }
 }
 
 

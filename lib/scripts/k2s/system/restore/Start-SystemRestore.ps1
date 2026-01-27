@@ -104,6 +104,14 @@ $namespacedResult = Import-NamespacedResources `
     -ShowLogs:$ShowLogs `
     -ErrorOnFailure:$ErrorOnFailure
 
+# Report webhook-dependent failures that need addon re-enablement
+if ($namespacedResult.WebhookFailures.Count -gt 0) {
+    Write-Log "⚠️  Some resources require addons to be re-enabled:" -Console
+    Write-Log "   - Ingresses require 'ingress-nginx' addon" -Console
+    Write-Log "   - Certificates require 'cert-manager' addon" -Console
+    Write-Log "   Run 'k2s addons enable <addon-name>' to complete restoration" -Console
+}
+
 if ($ErrorOnFailure -and $namespacedResult.Errors.Count -gt 0) {
     throw "Namespaced resource restore failed"
 }
