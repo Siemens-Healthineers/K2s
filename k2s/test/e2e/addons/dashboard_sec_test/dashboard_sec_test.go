@@ -34,12 +34,15 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "dashboard", "-o")
-	if k2s.IsAddonEnabled("security") {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	suite.SetupInfo().ReloadRuntimeConfig()
+	if k2s.IsAddonEnabled("dashboard") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "dashboard", "-o")
 	}
 	if k2s.IsAddonEnabled("ingress", "nginx") {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	}
+	if k2s.IsAddonEnabled("security") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 	}
 	suite.TearDown(ctx)
 })

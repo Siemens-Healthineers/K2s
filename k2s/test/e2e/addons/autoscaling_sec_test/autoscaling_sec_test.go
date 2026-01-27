@@ -34,6 +34,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+
+	suite.SetupInfo().ReloadRuntimeConfig()
+	if k2s.IsAddonEnabled("autoscaling") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
+	}
+	if k2s.IsAddonEnabled("ingress", "nginx") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	}
+	if k2s.IsAddonEnabled("security") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	}
 	suite.TearDown(ctx)
 })
 
@@ -81,12 +92,6 @@ var _ = Describe("'autoscaling and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "autoscaling")
 			suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "autoscaling")
-		})
-
-		It("Deactivates all the addons", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 		})
 	})
 })

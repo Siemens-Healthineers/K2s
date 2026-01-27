@@ -37,6 +37,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	suite.SetupInfo().ReloadRuntimeConfig()
 	suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
 	if k2s.IsAddonEnabled("security") {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
