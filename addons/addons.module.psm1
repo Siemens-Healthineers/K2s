@@ -1515,7 +1515,7 @@ Waits for the kubernetes secret 'ca-issuer-root-secret' in the namespace 'cert-m
 #>
 function Wait-ForCARootCertificate(
     [int]$SleepDurationInSeconds = 10,
-    [int]$NumberOfRetries = 10) {
+    [int]$NumberOfRetries = 30) {
     for (($i = 1); $i -le $NumberOfRetries; $i++) {
         $out = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o=jsonpath="{.metadata.name}"', '--ignore-not-found').Output
         if ($out -match 'ca-issuer-root-secret') {
