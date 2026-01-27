@@ -329,9 +329,21 @@ try {
             $images += $windowsImages
             $images = $images | Select-Object -Unique
 
+            Write-Log "[AddonExport] === IMAGE LISTS AFTER PROCESSING ==="
+            Write-Log "[AddonExport] Linux images to pull ($($linuxImages.Count)):"
+            foreach ($img in $linuxImages) { Write-Log "[AddonExport]   - $img" }
+            Write-Log "[AddonExport] Windows images to pull ($($windowsImages.Count)):"
+            foreach ($img in $windowsImages) { Write-Log "[AddonExport]   - $img" }
+            Write-Log "[AddonExport] Total unique images ($($images.Count)):"
+            foreach ($img in $images) { Write-Log "[AddonExport]   - $img" }
+
+            mkdir -Force "${tmpExportDir}\addons\$dirName" | Out-Null
+
+            Write-Log "[AddonExport] === PULLING LINUX IMAGES ==="
             foreach ($image in $linuxImages) {
                 Write-Log "Pulling linux image $image"
                 $pull = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -Retries 5 -CmdToExecute "sudo buildah pull $image 2>&1"
+                Write-Log "[AddonExport] Pull result for $image : Success=$($pull.Success) Output='$($pull.Output)'"
                 Write-Log $pull.Output
                 if (!$pull.Success) {
                     $errMsg = "Pulling linux image $image failed"
@@ -372,7 +384,11 @@ try {
                 $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $false
                 $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $false
 
-                Write-Log "[OCI] Exporting images for addon $addonName to OCI layers" -Console
+                Write-Log "Exporting images for addon $addonName" -Console
+                Write-Log "[AddonExport] Found $($linuxContainerImages.Count) linux container images, $($windowsContainerImages.Count) windows container images"
+                foreach ($img in $linuxContainerImages) {
+                    Write-Log "[AddonExport] Linux image: Repository='$($img.Repository)' Tag='$($img.Tag)' ImageId='$($img.ImageId)'"
+                }
 
                 $linuxImageTars = @()
                 $windowsImageTars = @()
@@ -382,8 +398,25 @@ try {
                     Write-Log $image
                     $imageNameWithoutTag = ($image -split ':')[0]
                     $imageTag = ($image -split ':')[1]
+                    Write-Log "[AddonExport] Looking for: imageNameWithoutTag='$imageNameWithoutTag' imageTag='$imageTag'"
+                    Write-Log "[AddonExport] Regex pattern: '.*${imageNameWithoutTag}$'"
+                    
+                    # Test regex matching manually for debugging
+                    foreach ($testImg in $linuxContainerImages) {
+                        $repoMatch = $testImg.Repository -match ".*${imageNameWithoutTag}$"
+                        $tagMatch = $testImg.Tag -eq $imageTag
+                        if ($repoMatch -or $tagMatch) {
+                            Write-Log "[AddonExport] Testing against: Repository='$($testImg.Repository)' Tag='$($testImg.Tag)' -> RepoMatch=$repoMatch TagMatch=$tagMatch"
+                        }
+                    }
+                    
                     $linuxImageToExportArray = @($linuxContainerImages | Where-Object { $_.Repository -match ".*${imageNameWithoutTag}$" -and $_.Tag -eq $imageTag })
                     $windowsImageToExportArray = @($windowsContainerImages | Where-Object { $_.Repository -match ".*${imageNameWithoutTag}$" -and $_.Tag -eq $imageTag })
+                    Write-Log "[AddonExport] Matched linux images: $($linuxImageToExportArray.Count), windows images: $($windowsImageToExportArray.Count)"
+                    
+                    if ($linuxImageToExportArray.Count -eq 0 -and $windowsImageToExportArray.Count -eq 0) {
+                        Write-Log "[AddonExport] WARNING: No matching images found for '$image' - image will NOT be exported!"
+                    }
                     $exportImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Export-Image.ps1"
                     
                     if ($linuxImageToExportArray -and $linuxImageToExportArray.Count -gt 0) {
