@@ -343,7 +343,7 @@ function Join-LinuxNode {
         $caCertFilePath = '/etc/kubernetes/pki/ca.crt'
 
         Write-Log 'Create config file for join command'
-        $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinnode.template.yaml"
+        $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinnode-linux.template.yaml"
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
         $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'unix:///run/crio/crio.sock').Replace('__NODE_IP__', $NodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
 

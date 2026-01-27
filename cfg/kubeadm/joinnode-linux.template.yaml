@@ -2,10 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Template for Windows node join - KubeletConfiguration omitted as cgroups 
-# settings (like failCgroupV1) are not applicable on Windows.
-# For Linux nodes, use joinnode-linux.template.yaml.
-
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: JoinConfiguration
 caCertPath: __CA_CERT__
@@ -19,3 +15,7 @@ discovery:
         token: __TOKEN__
         caCertHashes: 
         - __SHA__
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+failCgroupV1: false
