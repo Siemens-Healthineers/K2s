@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+#
+# Linkerd Authorization Policy for Dashboard with nginx-gw (Secure Mode)
+# =======================================================================
+# Gateway API (nginx-gw) requires explicit Linkerd ServerAuthorization.
+#
+# Traffic Flow:
+#   External Client → nginx-gw-controller (port 443) → kong-proxy (port 443)
+#
+# Security Model:
+# - Layer 1: skip-inbound-ports allows external clients → nginx-gw (unauthenticated)
+# - Layer 2: ServerAuthorization allows unauthenticated clients → kong-proxy
+#
+# Kong proxy has skip-inbound-ports annotation, but we still need to allow
+# traffic to reach it through the mesh. This matches nginx/traefik behavior.
+
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: dashboard-kong-proxy
+  namespace: dashboard
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: kong
+  port: 443
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: dashboard-allow-all
+  namespace: dashboard
+spec:
+  server:
+    name: dashboard-kong-proxy
+  # Allow unauthenticated access to match nginx/traefik behavior.
+  # Dashboard authentication is handled by OAuth2 proxy in security addon.
+  client:
+    unauthenticated: true

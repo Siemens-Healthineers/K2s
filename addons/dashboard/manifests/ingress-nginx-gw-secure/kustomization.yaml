@@ -8,3 +8,4 @@ kind: Kustomization
 resources:
 - dashboard-nginx-gw.yaml
 - dashboard-backend-tls.yaml
+- dashboard-linkerd-policy.yaml

@@ -82,15 +82,39 @@ spec:
 # Linkerd doesn't automatically trust Gateway API traffic routing, unlike traditional Ingress.
 #
 # Traffic Flow:
-#   External Client → nginx-gw-controller (port 443) → keycloak (port 8080)
+#   External Client → nginx-gw-controller (port 443) → oauth2-proxy/keycloak
 #
 # Security Model:
 # - Layer 1: skip-inbound-ports allows external clients → nginx-gw (unauthenticated)
-# - Layer 2: ServerAuthorization allows both mesh members AND unauthenticated clients → keycloak
+# - Layer 2: ServerAuthorization allows both mesh members AND unauthenticated clients
 #
-# Result: Keycloak is accessible from outside the mesh (browsers, token requests) as well as
-# from within the mesh. This matches the behavior of traditional nginx/traefik Ingress.
+# Result: OAuth2-proxy and Keycloak are accessible from outside the mesh (browsers, token requests)
+# as well as from within the mesh. This matches the behavior of traditional nginx/traefik Ingress.
  
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: oauth2-proxy
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: oauth2-proxy
+  port: 4180
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: oauth2-proxy-allow-all
+  namespace: security
+spec:
+  server:
+    name: oauth2-proxy
+  # Allow unauthenticated access to match nginx/traefik behavior.
+  # OAuth2-proxy handles authentication and redirects.
+  client:
+    unauthenticated: true
+---
 apiVersion: policy.linkerd.io/v1beta3
 kind: Server
 metadata:
