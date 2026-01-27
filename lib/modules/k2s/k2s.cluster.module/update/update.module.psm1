@@ -495,7 +495,8 @@ function Invoke-CommandInMasterVM {
 	Write-Log "[DebPkg][VM] Staging Debian delta script '$remoteScriptName'" -Console:$consoleSwitch
 	try {
 		# Ensure remote directory and make it writable by the user
-		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Retries $RetryCount -Timeout 2).Output | Out-Null
+		# Use -Nested:$true for CI environments where we're already in an outer SSH session
+		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Retries $RetryCount -Timeout 2 -Nested:$true).Output | Out-Null
 
 		# Copy only the script (avoid large recursive transfers unless needed)
 		Copy-ToControlPlaneViaSSHKey -Source $ScriptPath -Target $remoteBase -IgnoreErrors:$false
@@ -506,7 +507,7 @@ function Invoke-CommandInMasterVM {
 			Copy-ToControlPlaneViaSSHKey -Source $packagesDir -Target $remoteBase -IgnoreErrors:$false
 		}
 		# Make executable
-		(Invoke-CmdOnControlPlaneViaSSHKey "sudo chmod +x $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$false).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey "sudo chmod +x $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$false -Nested:$true).Output | Out-Null
 	} catch {
 		throw "Failed to stage script in master VM: $($_.Exception.Message)"
 	}
@@ -522,7 +523,8 @@ function Invoke-CommandInMasterVM {
 		$attempts = 0
 		$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 		while ($true) {
-			$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $execCmd -Retries $RetryCount -Timeout 3 -IgnoreErrors:$true
+			# Use -Nested:$true for CI environments where we're already in an outer SSH session
+			$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $execCmd -Retries $RetryCount -Timeout 3 -IgnoreErrors:$true -Nested:$true
 			$exitCode = $LASTEXITCODE
 			$success = ($exitCode -eq 0)
 			$outputAggregate += $result.Output
