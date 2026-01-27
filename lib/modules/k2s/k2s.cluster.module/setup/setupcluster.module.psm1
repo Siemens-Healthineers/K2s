@@ -232,7 +232,7 @@ function Join-WindowsNode {
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
         $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'npipe:////./pipe/containerd-containerd').Replace('__NODE_IP__', $windowsNodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
 
-        $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser,SystemVerification' + " --config `"$joinConfigurationFilePath`" -v=5"
+        $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser,SystemVerification' + " --config `"$joinConfigurationFilePath`""
 
         Write-Log $joinCommand
 
@@ -244,18 +244,12 @@ function Join-WindowsNode {
         $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $controlPlaneHostName"
         Set-Location $tempKubeadmDirectory
         $joinOutput = Invoke-Expression $joinCommand 2>&1
-        $joinExitCode = $LASTEXITCODE
         $joinOutput | Write-Log
-        Write-Log "kubeadm join exit code: $joinExitCode"
         Set-Location ..\..
 
         # print the output of the WaitForJoin.ps1
         Receive-Job $job
         $job | Stop-Job
-        
-        if ($joinExitCode -ne 0) {
-            throw "kubeadm join failed with exit code $joinExitCode"
-        }
 
         # delete path if was created
         Remove-Item -Path $tempKubeadmDirectory\kubeadm.exe
