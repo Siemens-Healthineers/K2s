@@ -80,9 +80,39 @@ function New-WslLinuxVmAsControlPlaneNode {
     Write-Log 'Set KubeMaster as default distro'
     wsl -s $VmName
 
-    Write-Log 'Update fstab'
-    wsl /bin/bash -c 'sudo rm /etc/fstab'
-    wsl /bin/bash -c "echo '/dev/sdb / ext4 rw,discard,errors=remount-ro,x-systemd.growfs 0 1' | sudo tee /etc/fstab"
+    # The rootfs has been pre-configured during creation with:
+    # - Fixed fstab (no PARTUUID entries)
+    # - Masked boot-efi.mount
+    # - Systemd cgroups v1 compatibility settings
+
+    Write-Log 'Starting WSL distro...'
+    $null = wsl --exec /bin/true 2>&1
+
+    Write-Log 'Waiting for WSL distro to initialize...'
+    $maxRetries = 20
+    $retryDelaySeconds = 3
+    $systemdReady = $false
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        Start-Sleep -Seconds $retryDelaySeconds
+        try {
+            $result = wsl --exec /bin/bash -c 'systemctl is-system-running 2>/dev/null || echo "unknown"; exit 0' 2>&1
+            $resultStr = ($result | Out-String).Trim()
+            if ($resultStr -match 'running|degraded') {
+                Write-Log "WSL systemd is ready (status: $resultStr)"
+                $systemdReady = $true
+                break
+            }
+            Write-Log "Waiting for WSL systemd to be ready (attempt $i/$maxRetries, status: $resultStr)..."
+        }
+        catch {
+            Write-Log "Waiting for WSL systemd to be ready (attempt $i/$maxRetries, exception: $($_.Exception.Message))..."
+        }
+    }
+    if (-not $systemdReady) {
+        Write-Log 'Warning: WSL systemd may not be fully ready, attempting to start sshd directly...'
+        $null = wsl --exec /bin/bash -c 'systemctl start ssh 2>/dev/null || /usr/sbin/sshd 2>/dev/null; exit 0' 2>&1
+    }
+
     wsl --shutdown
 
 }
