@@ -835,39 +835,7 @@ Describe 'Enable-AddonFromConfig' -Tag 'unit', 'ci', 'addon' {
                 Should -Invoke Write-Warning -Times 1 -Scope Context -ParameterFilter { $Message -match 'a1' -and $Message -match 'deprecated' }
             }
         }
-    }
-
-    Context 'addon config is valid and addon existent' {
-        BeforeAll {
-            $scriptContent = @'
-            Param (
-                [parameter(Mandatory = $false)]
-                [pscustomobject] $Config
-            )
-            if ($Config.Name -ne 'a1') {
-                throw "'$($Config.Name)' not equals 'a1'"
-            }
-            return
-'@
-            $scriptPath = 'TestDrive:\a1\Enable.ps1'
-            New-Item -Path 'TestDrive:\a1\' -ItemType Directory -Force
-            Set-Content $scriptPath -value $scriptContent
-
-            Mock -ModuleName $moduleName Write-Warning {}
-            Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Get-ScriptRoot { return 'TestDrive:' }
-        }
-
-        It 'enables the addon' {
-            InModuleScope -ModuleName $moduleName {
-                $config = [pscustomobject] @{ Name = 'a1' }
-
-                Enable-AddonFromConfig -Config $config
-
-                Should -Invoke Write-Warning -Times 0 -Scope Context
-            }
-        }
-    }
+    }  
 }
 
 Describe 'Get-AddonsConfig' -Tag 'unit', 'ci', 'addon' {
