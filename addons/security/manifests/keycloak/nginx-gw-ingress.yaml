@@ -86,10 +86,10 @@ spec:
 #
 # Security Model:
 # - Layer 1: skip-inbound-ports allows external clients → nginx-gw (unauthenticated)
-# - Layer 2: ServerAuthorization allows nginx-gw → keycloak (authenticated via mTLS)
+# - Layer 2: ServerAuthorization allows both mesh members AND unauthenticated clients → keycloak
 #
-# Result: Any mesh member (pod with valid Linkerd mTLS cert) can access keycloak.
-# Traditional nginx/traefik Ingress gets this implicitly; Gateway API needs explicit policy.
+# Result: Keycloak is accessible from outside the mesh (browsers, token requests) as well as
+# from within the mesh. This matches the behavior of traditional nginx/traefik Ingress.
  
 apiVersion: policy.linkerd.io/v1beta3
 kind: Server
@@ -105,12 +105,12 @@ spec:
 apiVersion: policy.linkerd.io/v1beta1
 kind: ServerAuthorization
 metadata:
-  name: keycloak-allow-mesh
+  name: keycloak-allow-all
   namespace: security
 spec:
   server:
     name: keycloak
-  # Allow any mesh member with valid Linkerd mTLS certificate.
-  # External clients are blocked (no mTLS cert).
+  # Allow unauthenticated access to match nginx/traefik behavior.
+  # Keycloak handles its own authentication via OAuth2/OIDC.
   client:
-    meshTLS: {}
+    unauthenticated: true
