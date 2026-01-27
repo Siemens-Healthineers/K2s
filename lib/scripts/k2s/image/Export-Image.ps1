@@ -70,10 +70,14 @@ if ($systemError) {
     exit 1
 }
 
+Write-Log "[DEBUG] Export-Image.ps1: Looking for image with Id='$Id' Name='$Name'"
 $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
+Write-Log "[DEBUG] Export-Image.ps1: Found $($linuxContainerImages.Count) linux container images"
 $foundLinuxImages = @()
 if ($Id -ne '') {
+    Write-Log "[DEBUG] Export-Image.ps1: Searching by ImageId='$Id'"
     $foundLinuxImages = @($linuxContainerImages | Where-Object { $_.ImageId -eq $Id })
+    Write-Log "[DEBUG] Export-Image.ps1: Found $($foundLinuxImages.Count) matching images by Id"
 }
 else {
     if ($Name -eq '') {
