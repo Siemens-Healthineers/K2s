@@ -23,9 +23,9 @@ import (
 	"github.com/samber/lo"
 )
 
-// ExportedZipInfo contains information about an exported addon ZIP file.
-type ExportedZipInfo struct {
-	ZipPath       string
+// ExportedOciInfo contains information about an exported addon OCI tar file.
+type ExportedOciInfo struct {
+	OciTarPath    string
 	ExtractedPath string
 	AddonDir      string
 }
@@ -58,8 +58,8 @@ func GetExpectedDirName(addonName, implName string) string {
 	return strings.ReplaceAll(addonName, " ", "_")
 }
 
-// ExportAddon exports a single addon (or implementation) to a ZIP file.
-// Returns the path to the exported ZIP file.
+// ExportAddon exports a single addon (or implementation) to an OCI tar file.
+// Returns the path to the exported OCI tar file.
 func ExportAddon(ctx context.Context, suite *framework.K2sTestSuite, addonName string, implName string, outputDir string) string {
 	GinkgoWriter.Println("=== EXPORT ADDON START ===")
 	GinkgoWriter.Printf("[Export] Addon: %s\n", addonName)
@@ -81,79 +81,79 @@ func ExportAddon(ctx context.Context, suite *framework.K2sTestSuite, addonName s
 	}
 	GinkgoWriter.Println("[Export] Export command completed")
 
-	// Find the exported ZIP file
+	// Find the exported OCI tar file
 	var pattern string
 	if implName != "" && implName != addonName {
-		pattern = filepath.Join(outputDir, fmt.Sprintf("K2s-*-addons-%s-%s.zip", addonName, implName))
+		pattern = filepath.Join(outputDir, fmt.Sprintf("K2s-*-addons-%s-%s.oci.tar", addonName, implName))
 	} else {
-		pattern = filepath.Join(outputDir, fmt.Sprintf("K2s-*-addons-%s.zip", addonName))
+		pattern = filepath.Join(outputDir, fmt.Sprintf("K2s-*-addons-%s.oci.tar", addonName))
 	}
-	GinkgoWriter.Printf("[Export] Looking for ZIP file matching pattern: %s\n", pattern)
+	GinkgoWriter.Printf("[Export] Looking for OCI tar file matching pattern: %s\n", pattern)
 
 	files, err := filepath.Glob(pattern)
-	Expect(err).ToNot(HaveOccurred(), "[Export] Failed to glob for ZIP files")
+	Expect(err).ToNot(HaveOccurred(), "[Export] Failed to glob for OCI tar files")
 
-	GinkgoWriter.Printf("[Export] Found %d matching ZIP file(s)\n", len(files))
+	GinkgoWriter.Printf("[Export] Found %d matching OCI tar file(s)\n", len(files))
 	for i, f := range files {
 		GinkgoWriter.Printf("[Export]   [%d] %s\n", i, f)
 	}
-	Expect(len(files)).To(Equal(1), "Should create exactly one versioned zip file for %s, found %d", addonName, len(files))
+	Expect(len(files)).To(Equal(1), "Should create exactly one versioned OCI tar file for %s, found %d", addonName, len(files))
 
-	zipPath := files[0]
-	if info, err := os.Stat(zipPath); err == nil {
-		GinkgoWriter.Printf("[Export] ZIP file size: %d bytes\n", info.Size())
+	ociTarPath := files[0]
+	if info, err := os.Stat(ociTarPath); err == nil {
+		GinkgoWriter.Printf("[Export] OCI tar file size: %d bytes\n", info.Size())
 	}
 	GinkgoWriter.Println("=== EXPORT ADDON END ===")
 
-	return zipPath
+	return ociTarPath
 }
 
-// ExtractZip extracts the ZIP file to the given output directory.
-// Returns the path to the extracted addons directory.
-func ExtractZip(ctx context.Context, suite *framework.K2sTestSuite, zipPath string, outputDir string) string {
-	GinkgoWriter.Println("=== EXTRACT ZIP START ===")
-	GinkgoWriter.Printf("[Extract] ZIP file: %s\n", zipPath)
+// ExtractOciTar extracts the OCI tar file to the given output directory.
+// Returns the path to the extracted artifacts directory.
+func ExtractOciTar(ctx context.Context, suite *framework.K2sTestSuite, ociTarPath string, outputDir string) string {
+	GinkgoWriter.Println("=== EXTRACT OCI TAR START ===")
+	GinkgoWriter.Printf("[Extract] OCI tar file: %s\n", ociTarPath)
 	GinkgoWriter.Printf("[Extract] Output directory: %s\n", outputDir)
 
-	if info, err := os.Stat(zipPath); err == nil {
-		GinkgoWriter.Printf("[Extract] ZIP file size: %d bytes\n", info.Size())
+	if info, err := os.Stat(ociTarPath); err == nil {
+		GinkgoWriter.Printf("[Extract] OCI tar file size: %d bytes\n", info.Size())
 	} else {
-		GinkgoWriter.Printf("[Extract] WARNING: Cannot stat ZIP file: %v\n", err)
+		GinkgoWriter.Printf("[Extract] WARNING: Cannot stat OCI tar file: %v\n", err)
 	}
 
 	GinkgoWriter.Println("[Extract] Executing tar extraction...")
-	suite.Cli("tar").MustExec(ctx, "-xf", zipPath, "-C", outputDir)
+	suite.Cli("tar").MustExec(ctx, "-xf", ociTarPath, "-C", outputDir)
 	GinkgoWriter.Println("[Extract] Extraction completed")
 
-	extractedAddonsDir := filepath.Join(outputDir, "addons")
-	_, err := os.Stat(extractedAddonsDir)
-	Expect(os.IsNotExist(err)).To(BeFalse(), "addons directory should exist after extraction at %s", extractedAddonsDir)
+	extractedArtifactsDir := filepath.Join(outputDir, "artifacts")
+	_, err := os.Stat(extractedArtifactsDir)
+	Expect(os.IsNotExist(err)).To(BeFalse(), "artifacts directory should exist after extraction at %s", extractedArtifactsDir)
 
 	// List contents of extracted directory
-	entries, _ := os.ReadDir(extractedAddonsDir)
-	GinkgoWriter.Printf("[Extract] Extracted addons directory contains %d entries:\n", len(entries))
+	entries, _ := os.ReadDir(extractedArtifactsDir)
+	GinkgoWriter.Printf("[Extract] Extracted artifacts directory contains %d entries:\n", len(entries))
 	for _, entry := range entries {
 		GinkgoWriter.Printf("[Extract]   - %s (dir=%v)\n", entry.Name(), entry.IsDir())
 	}
 
-	GinkgoWriter.Println("=== EXTRACT ZIP END ===")
-	return extractedAddonsDir
+	GinkgoWriter.Println("=== EXTRACT OCI TAR END ===")
+	return extractedArtifactsDir
 }
 
-// VerifyExportedZipStructure verifies the structure of an exported addon ZIP.
-func VerifyExportedZipStructure(extractedAddonsDir string, expectedDirName string) {
-	GinkgoWriter.Println("=== VERIFY ZIP STRUCTURE START ===")
+// VerifyExportedOciStructure verifies the structure of an exported addon OCI tar.
+func VerifyExportedOciStructure(extractedArtifactsDir string, expectedDirName string) {
+	GinkgoWriter.Println("=== VERIFY OCI STRUCTURE START ===")
 	GinkgoWriter.Printf("[Structure] Checking for addon directory: %s\n", expectedDirName)
-	GinkgoWriter.Printf("[Structure] Extracted addons dir: %s\n", extractedAddonsDir)
+	GinkgoWriter.Printf("[Structure] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
 	// Check addon directory exists
-	addonDir := filepath.Join(extractedAddonsDir, expectedDirName)
+	addonDir := filepath.Join(extractedArtifactsDir, expectedDirName)
 	info, err := os.Stat(addonDir)
 	if os.IsNotExist(err) {
 		// List what's actually in the directory to help debug
-		entries, _ := os.ReadDir(extractedAddonsDir)
+		entries, _ := os.ReadDir(extractedArtifactsDir)
 		GinkgoWriter.Printf("[Structure] ERROR: Expected directory %s not found!\n", expectedDirName)
-		GinkgoWriter.Printf("[Structure] Available directories in %s:\n", extractedAddonsDir)
+		GinkgoWriter.Printf("[Structure] Available directories in %s:\n", extractedArtifactsDir)
 		for _, entry := range entries {
 			GinkgoWriter.Printf("[Structure]   - %s\n", entry.Name())
 		}
@@ -177,15 +177,28 @@ func VerifyExportedZipStructure(extractedAddonsDir string, expectedDirName strin
 		}
 	}
 
-	// Check version.info exists
-	versionInfoPath := filepath.Join(addonDir, "version.info")
-	_, err = os.Stat(versionInfoPath)
-	Expect(os.IsNotExist(err)).To(BeFalse(), "version.info should exist for addon %s at %s", expectedDirName, versionInfoPath)
-	GinkgoWriter.Println("[Structure] version.info file exists")
-	GinkgoWriter.Println("=== VERIFY ZIP STRUCTURE END ===")
+	// Check for OCI manifest
+	ociManifestPath := filepath.Join(addonDir, "oci-manifest.json")
+	_, err = os.Stat(ociManifestPath)
+	Expect(os.IsNotExist(err)).To(BeFalse(), "oci-manifest.json should exist for addon %s at %s", expectedDirName, ociManifestPath)
+	GinkgoWriter.Println("[Structure] oci-manifest.json file exists")
+
+	// Check for addon.manifest.yaml (OCI config)
+	addonManifestPath := filepath.Join(addonDir, "addon.manifest.yaml")
+	_, err = os.Stat(addonManifestPath)
+	Expect(os.IsNotExist(err)).To(BeFalse(), "addon.manifest.yaml should exist for addon %s at %s", expectedDirName, addonManifestPath)
+	GinkgoWriter.Println("[Structure] addon.manifest.yaml file exists")
+
+	// Check for scripts layer
+	scriptsLayerPath := filepath.Join(addonDir, "scripts.tar.gz")
+	_, err = os.Stat(scriptsLayerPath)
+	Expect(os.IsNotExist(err)).To(BeFalse(), "scripts.tar.gz layer should exist for addon %s at %s", expectedDirName, scriptsLayerPath)
+	GinkgoWriter.Println("[Structure] scripts.tar.gz file exists")
+
+	GinkgoWriter.Println("=== VERIFY OCI STRUCTURE END ===")
 }
 
-// VerifyExportedImages verifies that the expected images are exported as .tar files.
+// VerifyExportedImages verifies that the expected images are exported as consolidated OCI layers.
 func VerifyExportedImages(suite *framework.K2sTestSuite, addonDir string, impl *addons.Implementation) {
 	GinkgoWriter.Println("=== VERIFY EXPORTED IMAGES START ===")
 	GinkgoWriter.Printf("[Images] Addon dir: %s\n", addonDir)
@@ -198,119 +211,114 @@ func VerifyExportedImages(suite *framework.K2sTestSuite, addonDir string, impl *
 		GinkgoWriter.Printf("[Images]   [%d] %s\n", i, img)
 	}
 
-	exportedImages, err := GetFilesMatch(addonDir, "*.tar")
-	Expect(err).ToNot(HaveOccurred(), "[Images] Failed to find tar files in addon dir")
-	GinkgoWriter.Printf("[Images] Found tar files: %d\n", len(exportedImages))
-	for i, tar := range exportedImages {
-		if info, err := os.Stat(tar); err == nil {
-			GinkgoWriter.Printf("[Images]   [%d] %s (%d bytes)\n", i, filepath.Base(tar), info.Size())
-		} else {
-			GinkgoWriter.Printf("[Images]   [%d] %s\n", i, filepath.Base(tar))
+	// In OCI format, images are consolidated into images-linux.tar and images-windows.tar
+	if len(images) > 0 {
+		linuxImagesLayer := filepath.Join(addonDir, "images-linux.tar")
+		windowsImagesLayer := filepath.Join(addonDir, "images-windows.tar")
+
+		linuxExists := false
+		windowsExists := false
+
+		if info, err := os.Stat(linuxImagesLayer); err == nil {
+			linuxExists = true
+			GinkgoWriter.Printf("[Images] Found images-linux.tar (%d bytes)\n", info.Size())
 		}
+
+		if info, err := os.Stat(windowsImagesLayer); err == nil {
+			windowsExists = true
+			GinkgoWriter.Printf("[Images] Found images-windows.tar (%d bytes)\n", info.Size())
+		}
+
+		Expect(linuxExists || windowsExists).To(BeTrue(),
+			"Expected at least one consolidated image layer (images-linux.tar or images-windows.tar) for %d images", len(images))
+		GinkgoWriter.Printf("[Images] Consolidated image layers verified (linux: %v, windows: %v)\n", linuxExists, windowsExists)
+	} else {
+		GinkgoWriter.Println("[Images] No images expected, skipping layer check")
 	}
 
-	Expect(len(exportedImages)).To(Equal(len(images)),
-		"Expected %d tar files to match %d images, found %d tar files", len(images), len(images), len(exportedImages))
 	GinkgoWriter.Println("=== VERIFY EXPORTED IMAGES END ===")
 }
 
-// VerifyExportedPackages verifies that all expected packages are exported.
+// VerifyExportedPackages verifies that packages are exported in OCI consolidated layer format.
 func VerifyExportedPackages(addonDir string, impl *addons.Implementation) {
 	GinkgoWriter.Println("=== VERIFY EXPORTED PACKAGES START ===")
 	GinkgoWriter.Printf("[Packages] Addon dir: %s\n", addonDir)
 	GinkgoWriter.Printf("[Packages] Implementation: %s\n", impl.Name)
 
-	// Check Linux curl packages
+	// Count expected packages
 	linuxCurlCount := len(impl.OfflineUsage.LinuxResources.CurlPackages)
+	debCount := len(impl.OfflineUsage.LinuxResources.DebPackages)
+	winCurlCount := len(impl.OfflineUsage.WindowsResources.CurlPackages)
+	totalPackages := linuxCurlCount + debCount + winCurlCount
+
 	GinkgoWriter.Printf("[Packages] Expected Linux curl packages: %d\n", linuxCurlCount)
 	for i, lp := range impl.OfflineUsage.LinuxResources.CurlPackages {
-		pkgName := filepath.Base(lp.Url)
-		pkgPath := filepath.Join(addonDir, "linuxpackages", pkgName)
-		info, err := os.Stat(pkgPath)
-		if os.IsNotExist(err) {
-			GinkgoWriter.Printf("[Packages]   [%d] MISSING: %s (expected at %s)\n", i, pkgName, pkgPath)
-			// List linuxpackages dir contents
-			if entries, err := os.ReadDir(filepath.Join(addonDir, "linuxpackages")); err == nil {
-				GinkgoWriter.Printf("[Packages]   Available in linuxpackages/:\n")
-				for _, e := range entries {
-					GinkgoWriter.Printf("[Packages]     - %s\n", e.Name())
-				}
-			}
-		} else if err == nil {
-			GinkgoWriter.Printf("[Packages]   [%d] OK: %s (%d bytes)\n", i, pkgName, info.Size())
-		}
-		Expect(os.IsNotExist(err)).To(BeFalse(), "Linux curl package %s should exist at %s", lp.Url, pkgPath)
+		GinkgoWriter.Printf("[Packages]   [%d] %s\n", i, lp.Url)
 	}
 
-	// Check Debian packages
-	debCount := len(impl.OfflineUsage.LinuxResources.DebPackages)
 	GinkgoWriter.Printf("[Packages] Expected Debian packages: %d\n", debCount)
 	for i, d := range impl.OfflineUsage.LinuxResources.DebPackages {
-		pkgPath := filepath.Join(addonDir, "debianpackages", d)
-		info, err := os.Stat(pkgPath)
-		if os.IsNotExist(err) {
-			GinkgoWriter.Printf("[Packages]   [%d] MISSING: %s (expected at %s)\n", i, d, pkgPath)
-			// List debianpackages dir contents
-			if entries, err := os.ReadDir(filepath.Join(addonDir, "debianpackages")); err == nil {
-				GinkgoWriter.Printf("[Packages]   Available in debianpackages/:\n")
-				for _, e := range entries {
-					GinkgoWriter.Printf("[Packages]     - %s\n", e.Name())
-				}
-			}
-		} else if err == nil {
-			GinkgoWriter.Printf("[Packages]   [%d] OK: %s (%d bytes)\n", i, d, info.Size())
-		}
-		Expect(os.IsNotExist(err)).To(BeFalse(), "Debian package %s should exist at %s", d, pkgPath)
+		GinkgoWriter.Printf("[Packages]   [%d] %s\n", i, d)
 	}
 
-	// Check Windows curl packages
-	winCurlCount := len(impl.OfflineUsage.WindowsResources.CurlPackages)
 	GinkgoWriter.Printf("[Packages] Expected Windows curl packages: %d\n", winCurlCount)
 	for i, wp := range impl.OfflineUsage.WindowsResources.CurlPackages {
-		pkgName := filepath.Base(wp.Url)
-		pkgPath := filepath.Join(addonDir, "windowspackages", pkgName)
-		info, err := os.Stat(pkgPath)
-		if os.IsNotExist(err) {
-			GinkgoWriter.Printf("[Packages]   [%d] MISSING: %s (expected at %s)\n", i, pkgName, pkgPath)
-			// List windowspackages dir contents
-			if entries, err := os.ReadDir(filepath.Join(addonDir, "windowspackages")); err == nil {
-				GinkgoWriter.Printf("[Packages]   Available in windowspackages/:\n")
-				for _, e := range entries {
-					GinkgoWriter.Printf("[Packages]     - %s\n", e.Name())
-				}
-			}
-		} else if err == nil {
-			GinkgoWriter.Printf("[Packages]   [%d] OK: %s (%d bytes)\n", i, pkgName, info.Size())
-		}
-		Expect(os.IsNotExist(err)).To(BeFalse(), "Windows curl package %s should exist at %s", wp.Url, pkgPath)
+		GinkgoWriter.Printf("[Packages]   [%d] %s\n", i, wp.Url)
 	}
 
-	GinkgoWriter.Printf("[Packages] Total packages verified: %d\n", linuxCurlCount+debCount+winCurlCount)
+	GinkgoWriter.Printf("[Packages] Total expected packages: %d\n", totalPackages)
+
+	// In OCI format, packages are consolidated into packages.tar.gz layer
+	packagesLayerPath := filepath.Join(addonDir, "packages.tar.gz")
+	if totalPackages > 0 {
+		info, err := os.Stat(packagesLayerPath)
+		if os.IsNotExist(err) {
+			GinkgoWriter.Printf("[Packages] ERROR: packages.tar.gz layer not found at %s\n", packagesLayerPath)
+			if entries, err := os.ReadDir(addonDir); err == nil {
+				GinkgoWriter.Printf("[Packages] Contents of addon directory:\n")
+				for _, e := range entries {
+					GinkgoWriter.Printf("[Packages]   - %s (dir=%v)\n", e.Name(), e.IsDir())
+				}
+			}
+		} else {
+			GinkgoWriter.Printf("[Packages] Found packages.tar.gz layer (%d bytes)\n", info.Size())
+		}
+		Expect(os.IsNotExist(err)).To(BeFalse(),
+			"packages.tar.gz layer should exist for addon with %d packages at %s", totalPackages, packagesLayerPath)
+	} else {
+		GinkgoWriter.Println("[Packages] No packages expected, skipping layer check")
+		_, err := os.Stat(packagesLayerPath)
+		if err == nil {
+			GinkgoWriter.Printf("[Packages] WARNING: packages.tar.gz exists but no packages were expected\n")
+		}
+	}
+
+	GinkgoWriter.Printf("[Packages] OCI packages layer verified\n")
 	GinkgoWriter.Println("=== VERIFY EXPORTED PACKAGES END ===")
 }
 
-// VerifyVersionInfo verifies that version.info contains CD-friendly information.
-func VerifyVersionInfo(addonDir string, expectedDirName string) {
-	GinkgoWriter.Println("=== VERIFY VERSION INFO START ===")
-	versionInfoPath := filepath.Join(addonDir, "version.info")
-	GinkgoWriter.Printf("[VersionInfo] File path: %s\n", versionInfoPath)
+// VerifyOciManifest verifies that oci-manifest.json contains proper OCI structure and metadata.
+func VerifyOciManifest(addonDir string, expectedDirName string) {
+	GinkgoWriter.Println("=== VERIFY OCI MANIFEST START ===")
+	ociManifestPath := filepath.Join(addonDir, "oci-manifest.json")
+	GinkgoWriter.Printf("[OciManifest] File path: %s\n", ociManifestPath)
 
-	versionInfoBytes, err := os.ReadFile(versionInfoPath)
-	Expect(err).To(BeNil(), "should be able to read version.info for addon %s at %s", expectedDirName, versionInfoPath)
+	ociManifestBytes, err := os.ReadFile(ociManifestPath)
+	Expect(err).To(BeNil(), "should be able to read oci-manifest.json for addon %s at %s", expectedDirName, ociManifestPath)
 
-	versionInfo := string(versionInfoBytes)
-	GinkgoWriter.Printf("[VersionInfo] Full content (%d bytes):\n%s\n", len(versionInfoBytes), versionInfo)
+	ociManifest := string(ociManifestBytes)
+	GinkgoWriter.Printf("[OciManifest] Full content (%d bytes):\n%s\n", len(ociManifestBytes), ociManifest)
 
-	requiredFields := []string{"addonName", "implementationName", "k2sVersion", "exportDate", "exportType"}
+	requiredFields := []string{"schemaVersion", "mediaType", "layers", "vnd.k2s.addon.name", "org.opencontainers.image.version"}
 	for _, field := range requiredFields {
-		if strings.Contains(versionInfo, field) {
-			GinkgoWriter.Printf("[VersionInfo] Field '%s': FOUND\n", field)
+		if strings.Contains(ociManifest, field) {
+			GinkgoWriter.Printf("[OciManifest] Field '%s': FOUND\n", field)
 		} else {
-			GinkgoWriter.Printf("[VersionInfo] Field '%s': MISSING\n", field)
+			GinkgoWriter.Printf("[OciManifest] Field '%s': MISSING\n", field)
 		}
-		Expect(versionInfo).To(ContainSubstring(field), "version.info should contain '%s'", field)
+		Expect(ociManifest).To(ContainSubstring(field), "oci-manifest.json should contain '%s'", field)
 	}
-	GinkgoWriter.Println("=== VERIFY VERSION INFO END ===")
+	GinkgoWriter.Println("=== VERIFY OCI MANIFEST END ===")
 }
 
 // CleanAddonResources cleans up resources for a specific addon implementation.
@@ -347,19 +355,19 @@ func VerifyResourcesCleanedUp(ctx context.Context, suite *framework.K2sTestSuite
 	GinkgoWriter.Println("=== VERIFY RESOURCES CLEANED UP END ===")
 }
 
-// ImportAddon imports an addon from a ZIP file.
-func ImportAddon(ctx context.Context, suite *framework.K2sTestSuite, zipPath string) {
+// ImportAddon imports an addon from an OCI tar file.
+func ImportAddon(ctx context.Context, suite *framework.K2sTestSuite, ociTarPath string) {
 	GinkgoWriter.Println("=== IMPORT ADDON START ===")
-	GinkgoWriter.Printf("[Import] ZIP file: %s\n", zipPath)
+	GinkgoWriter.Printf("[Import] OCI tar file: %s\n", ociTarPath)
 
-	if info, err := os.Stat(zipPath); err == nil {
-		GinkgoWriter.Printf("[Import] ZIP file size: %d bytes\n", info.Size())
+	if info, err := os.Stat(ociTarPath); err == nil {
+		GinkgoWriter.Printf("[Import] OCI tar file size: %d bytes\n", info.Size())
 	} else {
-		GinkgoWriter.Printf("[Import] WARNING: Cannot stat ZIP file: %v\n", err)
+		GinkgoWriter.Printf("[Import] WARNING: Cannot stat OCI tar file: %s - %v\n", ociTarPath, err)
 	}
 
-	GinkgoWriter.Println("[Import] Executing 'k2s addons import' command...")
-	suite.K2sCli().MustExec(ctx, "addons", "import", "-z", zipPath)
+	GinkgoWriter.Println("[Import] Executing 'k2s addons import -z' command...")
+	suite.K2sCli().MustExec(ctx, "addons", "import", "-z", ociTarPath)
 	GinkgoWriter.Println("[Import] Import command completed successfully")
 	GinkgoWriter.Println("=== IMPORT ADDON END ===")
 }
