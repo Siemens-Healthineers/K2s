@@ -58,7 +58,7 @@ if ($manifest.kind -ne "SystemBackup") {
 
 Enable-ClusterIsRunning -ShowLogs:$ShowLogs
 
-# Restore config.json if present
+<## Restore config.json if present
 if ($manifest.PSObject.Properties.Name -contains "configSnapshot") {
     $snap = $manifest.configSnapshot
     if ($snap -and ($snap.PSObject.Properties.Name -contains "content")) {
@@ -79,7 +79,7 @@ if ($manifest.PSObject.Properties.Name -contains "configSnapshot") {
 
         $snap.content | ConvertTo-Json -Depth 20 | Out-File $cfgFile -Encoding utf8
     }
-}
+}#>
 
 $kubePath    = Get-KubePath
 $kubectlPath = Get-KubeBinPathGivenKubePath -KubePathLocal $kubePath
@@ -114,7 +114,7 @@ $namespacedResult = Import-NamespacedResources `
     -ErrorOnFailure:$ErrorOnFailure
 
 # Report webhook-dependent failures that need addon re-enablement
-if ($namespacedResult.WebhookFailures.Count -gt 0) {
+<#if ($namespacedResult.WebhookFailures.Count -gt 0) {
     Write-Log "⚠️  Some resources require addons to be re-enabled:" -Console
     Write-Log "   - For example - Ingresses require 'ingress-nginx' addon" -Console
     Write-Log "   - For example - Certificates require 'cert-manager' addon" -Console
@@ -128,8 +128,19 @@ if ($ErrorOnFailure -and $namespacedResult.Errors.Count -gt 0) {
 
 if (($clusterResult.Errors.Count -gt 0 -or $namespacedResult.Errors.Count -gt 0) -and $ErrorOnFailure) {
     throw "System restore finished with errors"
-}
+}#>
+$allErrors = @()
+$allErrors += $clusterResult.Errors
+$allErrors += $namespacedResult.Errors
 
+if ($allErrors.Count -gt 0) {
+    Write-Log "⚠️  Restore completed with $($allErrors.Count) error(s)" -Console
+    Write-Log "Review errors above and consider re-running restore after fixing issues" -Console
+
+    if ($ErrorOnFailure) {
+        throw "System restore finished with errors"
+    }
+}
 
 Write-Log "Running restore hooks" -Console
 Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir (Join-Path $restoreRoot "hooks") -AdditionalHooksDir $AdditionalHooksDir
