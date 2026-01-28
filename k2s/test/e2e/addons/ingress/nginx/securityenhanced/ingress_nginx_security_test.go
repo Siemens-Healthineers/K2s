@@ -45,6 +45,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up ingress-nginx security test")
+	suite.SetupInfo().ReloadRuntimeConfig()
 	suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\..\\nginx\\workloads", "--ignore-not-found")
 
 	if k2s.IsAddonEnabled("ingress", "nginx") {

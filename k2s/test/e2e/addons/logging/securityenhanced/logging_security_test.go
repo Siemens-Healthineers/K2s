@@ -40,6 +40,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up logging security test")
+	suite.SetupInfo().ReloadRuntimeConfig()
 	suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
 
 	if k2s.IsAddonEnabled("ingress", "nginx") {
