@@ -198,7 +198,7 @@ func VerifyExportedOciStructure(extractedArtifactsDir string, expectedDirName st
 	GinkgoWriter.Println("=== VERIFY OCI STRUCTURE END ===")
 }
 
-// VerifyExportedImages verifies that the expected images are exported as .tar files.
+// VerifyExportedImages verifies that the expected images are exported as consolidated OCI layers.
 func VerifyExportedImages(suite *framework.K2sTestSuite, addonDir string, impl *addons.Implementation) {
 	GinkgoWriter.Println("=== VERIFY EXPORTED IMAGES START ===")
 	GinkgoWriter.Printf("[Images] Addon dir: %s\n", addonDir)
@@ -211,19 +211,31 @@ func VerifyExportedImages(suite *framework.K2sTestSuite, addonDir string, impl *
 		GinkgoWriter.Printf("[Images]   [%d] %s\n", i, img)
 	}
 
-	exportedImages, err := GetFilesMatch(addonDir, "*.tar")
-	Expect(err).ToNot(HaveOccurred(), "[Images] Failed to find tar files in addon dir")
-	GinkgoWriter.Printf("[Images] Found tar files: %d\n", len(exportedImages))
-	for i, tar := range exportedImages {
-		if info, err := os.Stat(tar); err == nil {
-			GinkgoWriter.Printf("[Images]   [%d] %s (%d bytes)\n", i, filepath.Base(tar), info.Size())
-		} else {
-			GinkgoWriter.Printf("[Images]   [%d] %s\n", i, filepath.Base(tar))
+	// In OCI format, images are consolidated into images-linux.tar and images-windows.tar
+	if len(images) > 0 {
+		linuxImagesLayer := filepath.Join(addonDir, "images-linux.tar")
+		windowsImagesLayer := filepath.Join(addonDir, "images-windows.tar")
+
+		linuxExists := false
+		windowsExists := false
+
+		if info, err := os.Stat(linuxImagesLayer); err == nil {
+			linuxExists = true
+			GinkgoWriter.Printf("[Images] Found images-linux.tar (%d bytes)\n", info.Size())
 		}
+
+		if info, err := os.Stat(windowsImagesLayer); err == nil {
+			windowsExists = true
+			GinkgoWriter.Printf("[Images] Found images-windows.tar (%d bytes)\n", info.Size())
+		}
+
+		Expect(linuxExists || windowsExists).To(BeTrue(),
+			"Expected at least one consolidated image layer (images-linux.tar or images-windows.tar) for %d images", len(images))
+		GinkgoWriter.Printf("[Images] Consolidated image layers verified (linux: %v, windows: %v)\n", linuxExists, windowsExists)
+	} else {
+		GinkgoWriter.Println("[Images] No images expected, skipping layer check")
 	}
 
-	Expect(len(exportedImages)).To(Equal(len(images)),
-		"Expected %d tar files to match %d images, found %d tar files", len(images), len(images), len(exportedImages))
 	GinkgoWriter.Println("=== VERIFY EXPORTED IMAGES END ===")
 }
 
@@ -368,11 +380,11 @@ func ImportAddon(ctx context.Context, suite *framework.K2sTestSuite, ociTarPath 
 	if info, err := os.Stat(ociTarPath); err == nil {
 		GinkgoWriter.Printf("[Import] OCI tar file size: %d bytes\n", info.Size())
 	} else {
-		GinkgoWriter.Printf("[Import] WARNING: Cannot stat OCI tar file: %v\n", err)
+		GinkgoWriter.Printf("[Import] WARNING: Cannot stat OCI tar file: %s - %v\n", ociTarPath, err)
 	}
 
-	GinkgoWriter.Println("[Import] Executing 'k2s addons import' command with -ArtifactFile...")
-	suite.K2sCli().MustExec(ctx, "addons", "import", "-ArtifactFile", ociTarPath)
+	GinkgoWriter.Println("[Import] Executing 'k2s addons import -z' command...")
+	suite.K2sCli().MustExec(ctx, "addons", "import", "-z", ociTarPath)
 	GinkgoWriter.Println("[Import] Import command completed successfully")
 	GinkgoWriter.Println("=== IMPORT ADDON END ===")
 }
