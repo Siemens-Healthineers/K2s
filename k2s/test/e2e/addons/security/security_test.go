@@ -95,6 +95,12 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
+})
+
 func DeployWorkloads(ctx context.Context) {
 	GinkgoWriter.Println("Deploying workloads to cluster..")
 

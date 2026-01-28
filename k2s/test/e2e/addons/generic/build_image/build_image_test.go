@@ -39,6 +39,7 @@ var (
 	randomImageTag string
 	suite          *framework.K2sTestSuite
 	k2s            *dsl.K2s
+	testFailed     = false
 )
 
 func TestBuildImage(t *testing.T) {
@@ -63,10 +64,22 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
 
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o", "-d")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	if !testFailed {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o", "-d")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	}
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("build container image", Ordered, func() {
