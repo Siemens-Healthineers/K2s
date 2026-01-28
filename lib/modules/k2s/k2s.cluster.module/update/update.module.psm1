@@ -495,8 +495,9 @@ function Invoke-CommandInMasterVM {
 	Write-Log "[DebPkg][VM] Staging Debian delta script '$remoteScriptName'" -Console:$consoleSwitch
 	try {
 		# Ensure remote directory and make it writable by the user
-		# Use -Nested:$true for CI environments where we're already in an outer SSH session
-		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Retries $RetryCount -Timeout 2 -Nested:$true).Output | Out-Null
+		# Note: Do NOT use -Nested:$true as it removes -n flag from SSH which causes hangs
+		# in CI environments where outer SSH uses stdin from /dev/null
+		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Retries $RetryCount -Timeout 2).Output | Out-Null
 
 		# Copy only the script (avoid large recursive transfers unless needed)
 		Copy-ToControlPlaneViaSSHKey -Source $ScriptPath -Target $remoteBase -IgnoreErrors:$false
@@ -507,7 +508,7 @@ function Invoke-CommandInMasterVM {
 			Copy-ToControlPlaneViaSSHKey -Source $packagesDir -Target $remoteBase -IgnoreErrors:$false
 		}
 		# Make executable
-		(Invoke-CmdOnControlPlaneViaSSHKey "sudo chmod +x $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$false -Nested:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey "sudo chmod +x $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$false).Output | Out-Null
 	} catch {
 		throw "Failed to stage script in master VM: $($_.Exception.Message)"
 	}
@@ -522,7 +523,7 @@ function Invoke-CommandInMasterVM {
 	
 	# Cleanup any previous run artifacts
 	$cleanupCmd = "sudo rm -f $remoteLogFile $remoteExitFile </dev/null 2>&1"
-	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -Nested:$true -NoLog:$true).Output | Out-Null
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -NoLog:$true).Output | Out-Null
 	
 	# Launch script in background with nohup, redirect all I/O, capture exit code to file
 	$bgCmd = "nohup sudo $remoteScriptPath >$remoteLogFile 2>&1 </dev/null; echo `$? >$remoteExitFile &"
@@ -530,7 +531,7 @@ function Invoke-CommandInMasterVM {
 	$launchCmd = "sh -c '$bgCmd' </dev/null >/dev/null 2>&1"
 	
 	Write-Log '[DebPkg][VM] Launching script in background...' -Console:$consoleSwitch
-	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $launchCmd -IgnoreErrors:$true -Nested:$true).Output | Out-Null
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $launchCmd -IgnoreErrors:$true).Output | Out-Null
 	
 	# Brief wait to let the script start
 	Start-Sleep -Seconds 2
@@ -549,7 +550,7 @@ function Invoke-CommandInMasterVM {
 		
 		# Check if exit file exists (indicates script finished)
 		$checkCmd = "test -f $remoteExitFile && cat $remoteExitFile || echo 'RUNNING'"
-		$checkResult = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $checkCmd -IgnoreErrors:$true -Nested:$true -NoLog:$true).Output
+		$checkResult = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $checkCmd -IgnoreErrors:$true -NoLog:$true).Output
 		
 		if ($null -ne $checkResult -and $checkResult -ne 'RUNNING' -and $checkResult -match '^\d+$') {
 			$exitCode = [int]$checkResult
@@ -564,7 +565,7 @@ function Invoke-CommandInMasterVM {
 	
 	# Retrieve log output
 	$logCmd = "cat $remoteLogFile 2>/dev/null || echo '(no output)'"
-	$logOutput = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $logCmd -IgnoreErrors:$true -Nested:$true -NoLog:$true).Output
+	$logOutput = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $logCmd -IgnoreErrors:$true -NoLog:$true).Output
 	if ($logOutput) {
 		$outputAggregate += $logOutput
 		Write-Log "[DebPkg][VM] Script output: $logOutput" -Console:$consoleSwitch
@@ -572,7 +573,7 @@ function Invoke-CommandInMasterVM {
 	
 	# Cleanup remote artifacts
 	$cleanupCmd = "sudo rm -f $remoteLogFile $remoteExitFile </dev/null 2>&1"
-	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -Nested:$true -NoLog:$true).Output | Out-Null
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -NoLog:$true).Output | Out-Null
 	
 	if ($exitCode -eq -1) {
 		# Script didn't finish within timeout
