@@ -136,9 +136,12 @@ $backupManifest |
 # ------------------------------------------------------------
 Write-Log "Creating backup archive: $BackupFile"
 
-# Ensure parent directory exists
 $backupDir = Split-Path -Path $BackupFile -Parent
-if (-not (Test-Path $backupDir)) {
+if ([string]::IsNullOrWhiteSpace($backupDir)) {
+    # Relative path with no directory component, use current directory
+    $backupDir = Get-Location | Select-Object -ExpandProperty Path
+    Write-Log "Using current directory for backup: $backupDir"
+} elseif (-not (Test-Path $backupDir)) {
     New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
     Write-Log "Created backup directory: $backupDir"
 }
