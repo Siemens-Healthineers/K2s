@@ -61,6 +61,7 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dashboard', '--ignore
 Write-Log 'Uninstalling Kubernetes dashboard' -Console
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'dashboard' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dashboard' })
+Remove-IngressForNginxGateway -Addon ([pscustomobject] @{Name = 'dashboard' })
 
 Write-Log 'Uninstalling Kubernetes dashboard workloads, please wait ...' -Console
 (Invoke-Helm -Params 'uninstall', 'kubernetes-dashboard', '-n', 'dashboard').Output | Write-Log

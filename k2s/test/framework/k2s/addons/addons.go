@@ -653,3 +653,30 @@ func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expect
 	// Fail the test if all retries are exhausted
 	Fail(fmt.Sprintf("Failed to receive expected status code %d after %d attempts", expectedStatusCode, maxRetries))
 }
+
+// WaitForHTTPRouteReady waits for an HTTPRoute to exist and be available for routing
+func WaitForHTTPRouteReady(routeName, namespace string) error {
+	maxRetries := 12 // Wait up to 2 minutes (12 * 10s) - route should exist quickly
+
+	GinkgoWriter.Printf("Waiting for HTTPRoute %s/%s to exist\n", namespace, routeName)
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Simply check if the HTTPRoute exists with kubectl get
+		cmd := exec.Command("kubectl", "get", "httproute", routeName, "-n", namespace, "-o", "name")
+		err := cmd.Run()
+
+		if err == nil {
+			GinkgoWriter.Printf("HTTPRoute %s/%s found, waiting for propagation\n", namespace, routeName)
+			// Give it a moment for the gateway to start using this route
+			time.Sleep(5 * time.Second)
+			return nil
+		}
+
+		if attempt < maxRetries {
+			GinkgoWriter.Printf("HTTPRoute %s/%s not found yet (attempt %d/%d), retrying...\n", namespace, routeName, attempt, maxRetries)
+			time.Sleep(10 * time.Second)
+		}
+	}
+
+	return fmt.Errorf("HTTPRoute %s/%s not found after %d attempts", namespace, routeName, maxRetries)
+}

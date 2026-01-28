@@ -728,7 +728,7 @@ function Wait-ForPodCondition {
         $Condition = 'Ready',
         [Parameter(Mandatory = $false)]
         [int]
-        $TimeoutSeconds = 30
+        $TimeoutSeconds = 60
     )
 
     if ($Condition -eq 'Ready') {

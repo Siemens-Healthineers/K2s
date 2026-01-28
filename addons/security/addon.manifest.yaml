@@ -47,6 +47,7 @@ spec:
                   validationSet:
                     - nginx
                     - traefik
+                    - nginx-gw
               - name: type
                 shorthand: t
                 default: basic

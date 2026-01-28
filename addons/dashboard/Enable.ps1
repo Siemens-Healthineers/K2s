@@ -29,7 +29,7 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
-    [ValidateSet('nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'Enable metrics addon')]
     [switch] $EnableMetricsServer = $false,
@@ -117,6 +117,12 @@ if ($dashboardStatus -ne $true) {
 # create the service account
 $dashboardServiceAccount = "$dashboardChartDirectory/dashboard-service-account.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $dashboardServiceAccount).Output | Write-Log
+
+# If nginx-gw ingress is being used, create the kong CA certificate ConfigMap for BackendTLSPolicy
+if ($Ingress -eq 'nginx-gw') {
+    Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw' -Console
+    New-KongCACertConfigMap
+}
 
 &"$PSScriptRoot\Update.ps1"
 
