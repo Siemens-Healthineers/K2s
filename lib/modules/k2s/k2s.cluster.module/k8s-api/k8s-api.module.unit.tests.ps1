@@ -1701,7 +1701,7 @@ Describe 'Wait-ForPodCondition' -Tag 'unit', 'ci' {
 
     Context 'Waits with default values' {
         BeforeAll {
-            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true; Output = '' } }
         }
 
         It 'succeeds using default values' {
@@ -1711,14 +1711,14 @@ Describe 'Wait-ForPodCondition' -Tag 'unit', 'ci' {
                 $result | Should -BeTrue
 
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
-                    $Params -contains 'wait' -and $Params -contains 'pod' -and $Params -contains 'test-label' -and $Params -contains 'default' -and $Params -contains '--for=condition=ready' -and $Params -contains '--timeout=30s' }
+                    $Params -contains 'wait' -and $Params -contains 'pod' -and $Params -contains '-l' -and $Params -contains 'test-label' -and $Params -contains '-n' -and $Params -contains 'default' -and $Params -contains '--for=condition=ready' -and $Params -contains '--timeout=60s' }
             }
         }
     }
 
     Context 'Waits with custom values' {
         BeforeAll {
-            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true; Output = '' } }
         }
 
         It 'succeeds using default values' {
@@ -1728,7 +1728,7 @@ Describe 'Wait-ForPodCondition' -Tag 'unit', 'ci' {
                 $result | Should -BeTrue
 
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
-                    $Params -contains 'wait' -and $Params -contains 'pod' -and $Params -contains 'test-label' -and $Params -contains 'test-ns' -and $Params -contains '--for=delete' -and $Params -contains '--timeout=123s' }
+                    $Params -contains 'wait' -and $Params -contains 'pod' -and $Params -contains '-l' -and $Params -contains 'test-label' -and $Params -contains '-n' -and $Params -contains 'test-ns' -and $Params -contains '--for=delete' -and $Params -contains '--timeout=123s' }
             }
         }
     }
