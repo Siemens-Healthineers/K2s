@@ -707,57 +707,7 @@ $exportedAddonNames = if ($All) {
     }) -join '-'
 }
 
-# Option 1: Push to OCI registry if specified
-if ($Registry) {
-    Write-Log "[OCI] Pushing artifacts to registry: $Registry" -Console
-    
-    foreach ($addon in $addonExportInfo.addons) {
-        $repoName = "k2s-addons/$($addon.dirName)"
-        $tag = $addon.version
-        
-        try {
-            $configFile = Join-Path $addon.artifactPath 'addon.manifest.yaml'
-            $layers = @{}
-            
-            # Add all layer files with their media types
-            foreach ($layerName in $addon.ociLayers) {
-                $layerPath = Join-Path $addon.artifactPath $layerName
-                if (Test-Path $layerPath) {
-                    $mediaType = $ociMediaTypes[$layerName -replace '\.tar.*$', '' -replace '-', '' -replace 'images', 'Images']
-                    if (-not $mediaType) {
-                        # Fallback media type lookup
-                        switch -Wildcard ($layerName) {
-                            'manifests*' { $mediaType = $ociMediaTypes.Manifests }
-                            'charts*' { $mediaType = $ociMediaTypes.Charts }
-                            'scripts*' { $mediaType = $ociMediaTypes.Scripts }
-                            'images-linux*' { $mediaType = $ociMediaTypes.ImagesLinux }
-                            'images-windows*' { $mediaType = $ociMediaTypes.ImagesWindows }
-                            'packages*' { $mediaType = $ociMediaTypes.Packages }
-                        }
-                    }
-                    $layers[$layerPath] = $mediaType
-                }
-            }
-            
-            Push-OciArtifact `
-                -Registry $Registry `
-                -Repository $repoName `
-                -Tag $tag `
-                -ConfigFile $configFile `
-                -Layers $layers `
-                -WorkingDirectory $addon.artifactPath `
-                -Insecure:$Insecure `
-                -PlainHttp:$PlainHttp
-            
-            Write-Log "[OCI] Pushed $($addon.name) to $Registry/$repoName`:$tag" -Console
-        }
-        catch {
-            Write-Log "[OCI] Failed to push $($addon.name) to registry: $_" -Error
-        }
-    }
-}
-
-# Option 2: Create local tar archive (OCI layout)
+# Create local tar archive (OCI layout)
 $versionedFileName = "K2s-${k2sVersion}-addons-${exportedAddonNames}.oci.tar"
 $finalExportPath = Join-Path $ExportDir $versionedFileName
 
