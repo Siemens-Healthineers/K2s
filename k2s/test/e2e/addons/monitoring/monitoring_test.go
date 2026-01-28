@@ -29,6 +29,7 @@ var (
 	suite                 *framework.K2sTestSuite
 	portForwardingSession *gexec.Session
 	k2s                   *dsl.K2s
+	testFailed            = false
 )
 
 func TestMonitoring(t *testing.T) {
@@ -42,7 +43,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'monitoring' addon", Ordered, func() {
@@ -90,7 +101,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
 			kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
-			portForwarding := exec.Command(kubectl, "-n", "monitoring","port-forward", "svc/kube-prometheus-stack-grafana", "3000:80")
+			portForwarding := exec.Command(kubectl, "-n", "monitoring", "port-forward", "svc/kube-prometheus-stack-grafana", "3000:80")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 			url := "http://localhost:3000/monitoring/login"
@@ -180,7 +191,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
-	})
+		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
 			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "monitoring")
