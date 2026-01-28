@@ -8,8 +8,7 @@
 Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Path to OCI artifact tar file or legacy ZIP file')]
-    [Alias('ZipFile')]
+    [parameter(Mandatory = $false, HelpMessage = 'Path to OCI artifact tar file')]
     [string] $ArtifactFile,
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to import')]
     [string[]] $Names,
