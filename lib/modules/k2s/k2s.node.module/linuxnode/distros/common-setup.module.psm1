@@ -1202,11 +1202,15 @@ networking:
   podSubnet: "$ClusterCIDR"
 kubernetesVersion: "$K8sVersion"
 clusterName: "$ClusterName"
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+failCgroupV1: false
 "@
 
     &$executeRemoteCommand 'mkdir -p ~/tmp/kubeadm-init'
     &$executeRemoteCommand "echo '$initConfig' | sudo tee ~/tmp/kubeadm-init/kubeadm-init.yaml"    
-    &$executeRemoteCommand 'sudo kubeadm init --config ~/tmp/kubeadm-init/kubeadm-init.yaml'
+    &$executeRemoteCommand 'sudo kubeadm init --config ~/tmp/kubeadm-init/kubeadm-init.yaml --ignore-preflight-errors=SystemVerification'
     &$executeRemoteCommand 'rm -rf ~/tmp/kubeadm-init'
 
     Write-Log 'Copy K8s config file to user profile'
