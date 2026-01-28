@@ -42,9 +42,6 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	// Cleanup workloads and addons - ignore errors if resources don't exist
-	suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\ingress\\nginx-gw\\workloads", "--ignore-not-found")
-
 	if k2s.IsAddonEnabled("ingress", "nginx-gw") {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
 	}
