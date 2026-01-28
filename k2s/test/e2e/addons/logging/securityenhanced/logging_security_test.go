@@ -21,7 +21,8 @@ import (
 const testClusterTimeout = time.Minute * 20
 
 var (
-	suite *framework.K2sTestSuite
+	suite      *framework.K2sTestSuite
+	testFailed = false
 )
 
 func TestLoggingSecurity(t *testing.T) {
@@ -37,12 +38,25 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up logging security test")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
+	if !testFailed {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	}
 
 	suite.TearDown(ctx)
 	GinkgoWriter.Println(">>> TEST: AfterSuite complete")
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
