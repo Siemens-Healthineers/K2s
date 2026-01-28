@@ -239,78 +239,61 @@ func VerifyExportedImages(suite *framework.K2sTestSuite, addonDir string, impl *
 	GinkgoWriter.Println("=== VERIFY EXPORTED IMAGES END ===")
 }
 
-// VerifyExportedPackages verifies that all expected packages are exported.
+// VerifyExportedPackages verifies that packages are exported in OCI consolidated layer format.
 func VerifyExportedPackages(addonDir string, impl *addons.Implementation) {
 	GinkgoWriter.Println("=== VERIFY EXPORTED PACKAGES START ===")
 	GinkgoWriter.Printf("[Packages] Addon dir: %s\n", addonDir)
 	GinkgoWriter.Printf("[Packages] Implementation: %s\n", impl.Name)
 
-	// Check Linux curl packages
+	// Count expected packages
 	linuxCurlCount := len(impl.OfflineUsage.LinuxResources.CurlPackages)
+	debCount := len(impl.OfflineUsage.LinuxResources.DebPackages)
+	winCurlCount := len(impl.OfflineUsage.WindowsResources.CurlPackages)
+	totalPackages := linuxCurlCount + debCount + winCurlCount
+
 	GinkgoWriter.Printf("[Packages] Expected Linux curl packages: %d\n", linuxCurlCount)
 	for i, lp := range impl.OfflineUsage.LinuxResources.CurlPackages {
-		pkgName := filepath.Base(lp.Url)
-		pkgPath := filepath.Join(addonDir, "linuxpackages", pkgName)
-		info, err := os.Stat(pkgPath)
-		if os.IsNotExist(err) {
-			GinkgoWriter.Printf("[Packages]   [%d] MISSING: %s (expected at %s)\n", i, pkgName, pkgPath)
-			// List linuxpackages dir contents
-			if entries, err := os.ReadDir(filepath.Join(addonDir, "linuxpackages")); err == nil {
-				GinkgoWriter.Printf("[Packages]   Available in linuxpackages/:\n")
-				for _, e := range entries {
-					GinkgoWriter.Printf("[Packages]     - %s\n", e.Name())
-				}
-			}
-		} else if err == nil {
-			GinkgoWriter.Printf("[Packages]   [%d] OK: %s (%d bytes)\n", i, pkgName, info.Size())
-		}
-		Expect(os.IsNotExist(err)).To(BeFalse(), "Linux curl package %s should exist at %s", lp.Url, pkgPath)
+		GinkgoWriter.Printf("[Packages]   [%d] %s\n", i, lp.Url)
 	}
 
-	// Check Debian packages
-	debCount := len(impl.OfflineUsage.LinuxResources.DebPackages)
 	GinkgoWriter.Printf("[Packages] Expected Debian packages: %d\n", debCount)
 	for i, d := range impl.OfflineUsage.LinuxResources.DebPackages {
-		pkgPath := filepath.Join(addonDir, "debianpackages", d)
-		info, err := os.Stat(pkgPath)
-		if os.IsNotExist(err) {
-			GinkgoWriter.Printf("[Packages]   [%d] MISSING: %s (expected at %s)\n", i, d, pkgPath)
-			// List debianpackages dir contents
-			if entries, err := os.ReadDir(filepath.Join(addonDir, "debianpackages")); err == nil {
-				GinkgoWriter.Printf("[Packages]   Available in debianpackages/:\n")
-				for _, e := range entries {
-					GinkgoWriter.Printf("[Packages]     - %s\n", e.Name())
-				}
-			}
-		} else if err == nil {
-			GinkgoWriter.Printf("[Packages]   [%d] OK: %s (%d bytes)\n", i, d, info.Size())
-		}
-		Expect(os.IsNotExist(err)).To(BeFalse(), "Debian package %s should exist at %s", d, pkgPath)
+		GinkgoWriter.Printf("[Packages]   [%d] %s\n", i, d)
 	}
 
-	// Check Windows curl packages
-	winCurlCount := len(impl.OfflineUsage.WindowsResources.CurlPackages)
 	GinkgoWriter.Printf("[Packages] Expected Windows curl packages: %d\n", winCurlCount)
 	for i, wp := range impl.OfflineUsage.WindowsResources.CurlPackages {
-		pkgName := filepath.Base(wp.Url)
-		pkgPath := filepath.Join(addonDir, "windowspackages", pkgName)
-		info, err := os.Stat(pkgPath)
-		if os.IsNotExist(err) {
-			GinkgoWriter.Printf("[Packages]   [%d] MISSING: %s (expected at %s)\n", i, pkgName, pkgPath)
-			// List windowspackages dir contents
-			if entries, err := os.ReadDir(filepath.Join(addonDir, "windowspackages")); err == nil {
-				GinkgoWriter.Printf("[Packages]   Available in windowspackages/:\n")
-				for _, e := range entries {
-					GinkgoWriter.Printf("[Packages]     - %s\n", e.Name())
-				}
-			}
-		} else if err == nil {
-			GinkgoWriter.Printf("[Packages]   [%d] OK: %s (%d bytes)\n", i, pkgName, info.Size())
-		}
-		Expect(os.IsNotExist(err)).To(BeFalse(), "Windows curl package %s should exist at %s", wp.Url, pkgPath)
+		GinkgoWriter.Printf("[Packages]   [%d] %s\n", i, wp.Url)
 	}
 
-	GinkgoWriter.Printf("[Packages] Total packages verified: %d\n", linuxCurlCount+debCount+winCurlCount)
+	GinkgoWriter.Printf("[Packages] Total expected packages: %d\n", totalPackages)
+
+	// In OCI format, packages are consolidated into packages.tar.gz layer
+	packagesLayerPath := filepath.Join(addonDir, "packages.tar.gz")
+	if totalPackages > 0 {
+		info, err := os.Stat(packagesLayerPath)
+		if os.IsNotExist(err) {
+			GinkgoWriter.Printf("[Packages] ERROR: packages.tar.gz layer not found at %s\n", packagesLayerPath)
+			if entries, err := os.ReadDir(addonDir); err == nil {
+				GinkgoWriter.Printf("[Packages] Contents of addon directory:\n")
+				for _, e := range entries {
+					GinkgoWriter.Printf("[Packages]   - %s (dir=%v)\n", e.Name(), e.IsDir())
+				}
+			}
+		} else {
+			GinkgoWriter.Printf("[Packages] Found packages.tar.gz layer (%d bytes)\n", info.Size())
+		}
+		Expect(os.IsNotExist(err)).To(BeFalse(),
+			"packages.tar.gz layer should exist for addon with %d packages at %s", totalPackages, packagesLayerPath)
+	} else {
+		GinkgoWriter.Println("[Packages] No packages expected, skipping layer check")
+		_, err := os.Stat(packagesLayerPath)
+		if err == nil {
+			GinkgoWriter.Printf("[Packages] WARNING: packages.tar.gz exists but no packages were expected\n")
+		}
+	}
+
+	GinkgoWriter.Printf("[Packages] OCI packages layer verified\n")
 	GinkgoWriter.Println("=== VERIFY EXPORTED PACKAGES END ===")
 }
 
