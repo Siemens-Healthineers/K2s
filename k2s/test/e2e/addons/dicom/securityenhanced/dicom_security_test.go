@@ -34,6 +34,7 @@ func TestDicomSecurity(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: BeforeSuite - Setting up DICOM security test")
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 	GinkgoWriter.Println(">>> TEST: BeforeSuite complete")
 })
 
