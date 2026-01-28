@@ -698,6 +698,19 @@ $@ \n
 
     &$executeRemoteCommand "cd /tmp/rootfs && sudo cp -a mntfs rootfs"
 
+    # WSL-specific fixes: The rootfs is from Hyper-V and has PARTUUID entries in fstab
+    # that don't exist in WSL, causing systemd to hang waiting for non-existent devices
+    Write-Log "Applying WSL-specific fixes to rootfs (fstab, boot-efi.mount)..."
+    # Fix fstab - replace PARTUUID entries with /dev/sdb (WSL standard)
+    &$executeRemoteCommand 'cd /tmp/rootfs && echo "/dev/sdb / ext4 rw,discard,errors=remount-ro 0 1" | sudo tee rootfs/etc/fstab'
+    # Mask boot-efi.mount - prevents waiting for non-existent EFI partition
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo ln -sf /dev/null rootfs/etc/systemd/system/boot-efi.mount"
+    # Configure systemd for cgroups v1 compatibility (WSL2 kernel uses cgroups v1)
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir -p rootfs/etc/systemd/system/user@.service.d"
+    &$executeRemoteCommand 'cd /tmp/rootfs && echo -e "[Service]\nDelegate=yes" | sudo tee rootfs/etc/systemd/system/user@.service.d/delegate.conf'
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir -p rootfs/etc/systemd/logind.conf.d"
+    &$executeRemoteCommand 'cd /tmp/rootfs && echo -e "[Login]\nKillUserProcesses=no" | sudo tee rootfs/etc/systemd/logind.conf.d/wsl.conf'
+
     &$executeRemoteCommand "cd /tmp/rootfs && sudo umount mntfs"
     &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -d /dev/nbd0"
     &$executeRemoteCommand "cd /tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'd' 30"
