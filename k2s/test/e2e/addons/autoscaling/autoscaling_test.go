@@ -23,8 +23,9 @@ import (
 const testClusterTimeout = time.Minute * 10
 
 var (
-	suite *framework.K2sTestSuite
-	k2s   *dsl.K2s
+	suite      *framework.K2sTestSuite
+	k2s        *dsl.K2s
+	testFailed = false
 )
 
 func TestAutoscaling(t *testing.T) {
@@ -38,11 +39,23 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
 
-	k2s.VerifyAddonIsDisabled("autoscaling")
+	if !testFailed {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
+
+		k2s.VerifyAddonIsDisabled("autoscaling")
+	}
 
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'autoscaling' addon", Ordered, func() {

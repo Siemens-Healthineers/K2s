@@ -26,10 +26,11 @@ var (
 	suite                 *framework.K2sTestSuite
 	k2s                   *dsl.K2s
 	exportPath            string
-	exportedZipFile       string
+	exportedOciFile       string
 	controlPlaneIpAddress string
 	addon                 *addons.Addon
 	impl                  *addons.Implementation
+	testFailed            = false
 )
 
 func TestIngressTraefikExportImport(t *testing.T) {
@@ -69,8 +70,19 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	exportimport.CleanupExportedFiles(exportPath, exportedZipFile)
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+	if !testFailed {
+		exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
+	}
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("ingress traefik addon export and import", Ordered, func() {
@@ -79,42 +91,42 @@ var _ = Describe("ingress traefik addon export and import", Ordered, func() {
 			exportimport.CleanupExportedFiles(exportPath, "")
 		})
 
-		It("exports ingress traefik addon to versioned zip file", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: exports ingress traefik addon to versioned zip file")
-			exportedZipFile = exportimport.ExportAddon(ctx, suite, "ingress", "traefik", exportPath)
+		It("exports ingress traefik addon to versioned OCI tar file", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: exports ingress traefik addon to versioned OCI tar file")
+			exportedOciFile = exportimport.ExportAddon(ctx, suite, "ingress", "traefik", exportPath)
 
-			GinkgoWriter.Printf("[Test] Verifying exported ZIP file exists: %s\n", exportedZipFile)
-			info, err := os.Stat(exportedZipFile)
-			Expect(os.IsNotExist(err)).To(BeFalse(), "exported zip file should exist at %s", exportedZipFile)
-			GinkgoWriter.Printf("[Test] ZIP file verified: %d bytes\n", info.Size())
+			GinkgoWriter.Printf("[Test] Verifying exported OCI tar file exists: %s\n", exportedOciFile)
+			info, err := os.Stat(exportedOciFile)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "exported OCI tar file should exist at %s", exportedOciFile)
+			GinkgoWriter.Printf("[Test] OCI tar file verified: %d bytes\n", info.Size())
 		})
 
-		It("contains ingress traefik addon folder with correct structure", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: contains ingress traefik addon folder with correct structure")
-			extractedAddonsDir := exportimport.ExtractZip(ctx, suite, exportedZipFile, exportPath)
+		It("contains ingress addon folder with correct OCI structure", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: contains ingress addon folder with correct OCI structure")
+			extractedArtifactsDir := exportimport.ExtractOciTar(ctx, suite, exportedOciFile, exportPath)
 
 			expectedDirName := exportimport.GetExpectedDirName("ingress", "traefik")
 			GinkgoWriter.Printf("[Test] Expected directory name: %s\n", expectedDirName)
-			exportimport.VerifyExportedZipStructure(extractedAddonsDir, expectedDirName)
+			exportimport.VerifyExportedOciStructure(extractedArtifactsDir, expectedDirName)
 		})
 
 		It("all resources have been exported", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all resources have been exported")
 			expectedDirName := exportimport.GetExpectedDirName("ingress", "traefik")
-			addonDir := filepath.Join(exportPath, "addons", expectedDirName)
+			addonDir := filepath.Join(exportPath, "artifacts", expectedDirName)
 			GinkgoWriter.Printf("[Test] Addon dir: %s\n", addonDir)
 
 			exportimport.VerifyExportedImages(suite, addonDir, impl)
 			exportimport.VerifyExportedPackages(addonDir, impl)
 		})
 
-		It("version.info contains CD-friendly information", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: version.info contains CD-friendly information")
+		It("oci-manifest.json contains proper OCI structure", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: oci-manifest.json contains proper OCI structure")
 			expectedDirName := exportimport.GetExpectedDirName("ingress", "traefik")
-			addonDir := filepath.Join(exportPath, "addons", expectedDirName)
+			addonDir := filepath.Join(exportPath, "artifacts", expectedDirName)
 			GinkgoWriter.Printf("[Test] Addon dir: %s\n", addonDir)
 
-			exportimport.VerifyVersionInfo(addonDir, expectedDirName)
+			exportimport.VerifyOciManifest(addonDir, expectedDirName)
 		})
 	})
 
@@ -131,11 +143,11 @@ var _ = Describe("ingress traefik addon export and import", Ordered, func() {
 
 	Describe("import ingress traefik addon", func() {
 		BeforeAll(func(ctx context.Context) {
-			exportimport.ImportAddon(ctx, suite, exportedZipFile)
+			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
-			exportimport.CleanupExportedFiles(exportPath, exportedZipFile)
+			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 
 		It("debian packages available after import", func(ctx context.Context) {

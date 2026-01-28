@@ -22,8 +22,9 @@ import (
 const testClusterTimeout = time.Minute * 20
 
 var (
-	suite *framework.K2sTestSuite
-	k2s   *dsl.K2s
+	suite      *framework.K2sTestSuite
+	k2s        *dsl.K2s
+	testFailed = false
 )
 
 func TestLoggingSecurity(t *testing.T) {
@@ -40,19 +41,31 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up logging security test")
-	suite.SetupInfo().ReloadRuntimeConfig()
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
-
-	if k2s.IsAddonEnabled("ingress", "nginx") {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	if k2s.IsAddonEnabled("security") {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	if !testFailed {
+		suite.SetupInfo().ReloadRuntimeConfig()
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
+
+		if k2s.IsAddonEnabled("ingress", "nginx") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		}
+
+		if k2s.IsAddonEnabled("security") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+		}
 	}
 
 	suite.TearDown(ctx)
 	GinkgoWriter.Println(">>> TEST: AfterSuite complete")
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'logging and security enhanced' addons", Ordered, func() {

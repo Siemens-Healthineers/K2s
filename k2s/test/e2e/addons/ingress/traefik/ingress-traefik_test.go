@@ -30,8 +30,9 @@ const (
 )
 
 var (
-	suite *framework.K2sTestSuite
-	k2s   *dsl.K2s
+	suite      *framework.K2sTestSuite
+	k2s        *dsl.K2s
+	testFailed = false
 )
 
 func TestIngressTraefik(t *testing.T) {
@@ -45,7 +46,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'ingress traefik' addon", Ordered, func() {

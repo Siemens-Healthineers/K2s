@@ -25,6 +25,7 @@ const (
 )
 
 var suite *framework.K2sTestSuite
+var testFailed = false
 
 func TestAddon(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -39,15 +40,27 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	GinkgoWriter.Println("Deleting workloads..")
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
 
-	suite.Kubectl().MustExec(ctx, "delete", "-k", workloadsPath, "--ignore-not-found")
+	if !testFailed {
+		GinkgoWriter.Println("Deleting workloads..")
 
-	_, exitCode := suite.K2sCli().Exec(ctx, "addons", "disable", "gpu-node", "-o")
+		suite.Kubectl().MustExec(ctx, "delete", "-k", workloadsPath, "--ignore-not-found")
 
-	GinkgoWriter.Println("Disable addon result:", exitCode)
+		_, exitCode := suite.K2sCli().Exec(ctx, "addons", "disable", "gpu-node", "-o")
+
+		GinkgoWriter.Println("Disable addon result:", exitCode)
+	}
 
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'gpu-node' addon", Ordered, func() {
