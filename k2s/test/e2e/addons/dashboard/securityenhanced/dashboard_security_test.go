@@ -18,6 +18,7 @@ import (
 const testClusterTimeout = time.Minute * 10
 
 var suite *framework.K2sTestSuite
+var testFailed = false
 
 func TestDashboardSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -32,11 +33,25 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up dashboard security test")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "dashboard", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
+	if !testFailed {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "dashboard", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	}
+
 	suite.TearDown(ctx)
 	GinkgoWriter.Println(">>> TEST: AfterSuite complete")
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'dashboard and security enhanced' addons", Ordered, func() {
