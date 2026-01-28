@@ -73,6 +73,7 @@ var (
 	skipWindowsWorkloads  = false
 	originalConfigPath    string
 	storageConfig         config
+	testFailed            = false
 )
 
 func TestSmbshare(t *testing.T) {
@@ -107,21 +108,33 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	GinkgoWriter.Println("Deleting namespace <", namespace, "> on cluster..")
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
 
-	suite.Kubectl().MustExec(ctx, "delete", "-f", namespaceManifestPath)
+	if !testFailed {
+		GinkgoWriter.Println("Deleting namespace <", namespace, "> on cluster..")
 
-	GinkgoWriter.Println("Namespace <", namespace, "> deleted on cluster")
-	GinkgoWriter.Println("Disabling addon..")
+		suite.Kubectl().MustExec(ctx, "delete", "-f", namespaceManifestPath)
 
-	output := suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+		GinkgoWriter.Println("Namespace <", namespace, "> deleted on cluster")
+		GinkgoWriter.Println("Disabling addon..")
 
-	GinkgoWriter.Println(output)
+		output := suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+
+		GinkgoWriter.Println(output)
+	}
 
 	Expect(bos.Remove(originalConfigPath)).To(Succeed())
 	Expect(bos.Rename(originalConfigPath+"_", originalConfigPath)).To(Succeed())
 
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implementationName), Ordered, func() {
