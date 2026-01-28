@@ -514,29 +514,72 @@ function Invoke-CommandInMasterVM {
 
 	Write-Log '[DebPkg][VM] Executing Debian delta script inside control plane VM' -Console:$consoleSwitch
 	$start = Get-Date
-	$execCmd = "sudo $remoteScriptPath"
+	
+	# Use background execution with polling to avoid stdin/stdout blocking in nested SSH environments
+	# The script runs with nohup and writes output to a log file; we poll for completion via exit code file
+	$remoteLogFile = "$remoteBase/deb-delta.log"
+	$remoteExitFile = "$remoteBase/deb-delta.exit"
+	
+	# Cleanup any previous run artifacts
+	$cleanupCmd = "sudo rm -f $remoteLogFile $remoteExitFile </dev/null 2>&1"
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -Nested:$true -NoLog:$true).Output | Out-Null
+	
+	# Launch script in background with nohup, redirect all I/O, capture exit code to file
+	$bgCmd = "nohup sudo $remoteScriptPath >$remoteLogFile 2>&1 </dev/null; echo `$? >$remoteExitFile &"
+	# Use sh -c to ensure proper background handling
+	$launchCmd = "sh -c '$bgCmd' </dev/null >/dev/null 2>&1"
+	
+	Write-Log '[DebPkg][VM] Launching script in background...' -Console:$consoleSwitch
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $launchCmd -IgnoreErrors:$true -Nested:$true).Output | Out-Null
+	
+	# Brief wait to let the script start
+	Start-Sleep -Seconds 2
+	
+	# Poll for exit code file with timeout
 	$elapsed = $null
 	$exitCode = -1
 	$success = $false
 	$outputAggregate = @()
-	try {
-		$attempts = 0
-		$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-		while ($true) {
-			# Use -Nested:$true for CI environments where we're already in an outer SSH session
-			$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $execCmd -Retries $RetryCount -Timeout 3 -IgnoreErrors:$true -Nested:$true
-			$exitCode = $LASTEXITCODE
+	$pollInterval = 5
+	$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+	
+	Write-Log "[DebPkg][VM] Polling for completion (timeout=${TimeoutSeconds}s)..." -Console:$consoleSwitch
+	while ((Get-Date) -lt $deadline) {
+		Start-Sleep -Seconds $pollInterval
+		
+		# Check if exit file exists (indicates script finished)
+		$checkCmd = "test -f $remoteExitFile && cat $remoteExitFile || echo 'RUNNING'"
+		$checkResult = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $checkCmd -IgnoreErrors:$true -Nested:$true -NoLog:$true).Output
+		
+		if ($null -ne $checkResult -and $checkResult -ne 'RUNNING' -and $checkResult -match '^\d+$') {
+			$exitCode = [int]$checkResult
 			$success = ($exitCode -eq 0)
-			$outputAggregate += $result.Output
-			if ($success -or (Get-Date) -ge $deadline) { break }
-			Start-Sleep -Seconds 2
-			$attempts++
+			break
 		}
-		$elapsed = (Get-Date) - $start
-	} catch {
-		$elapsed = (Get-Date) - $start
-		if (-not $NoThrow) { throw "Debian delta script execution failed: $($_.Exception.Message)" }
+		
+		Write-Log '[DebPkg][VM] Script still running...' -Console:$consoleSwitch
 	}
+	
+	$elapsed = (Get-Date) - $start
+	
+	# Retrieve log output
+	$logCmd = "cat $remoteLogFile 2>/dev/null || echo '(no output)'"
+	$logOutput = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $logCmd -IgnoreErrors:$true -Nested:$true -NoLog:$true).Output
+	if ($logOutput) {
+		$outputAggregate += $logOutput
+		Write-Log "[DebPkg][VM] Script output: $logOutput" -Console:$consoleSwitch
+	}
+	
+	# Cleanup remote artifacts
+	$cleanupCmd = "sudo rm -f $remoteLogFile $remoteExitFile </dev/null 2>&1"
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -Nested:$true -NoLog:$true).Output | Out-Null
+	
+	if ($exitCode -eq -1) {
+		# Script didn't finish within timeout
+		Write-Log "[DebPkg][VM] Script execution timed out after $TimeoutSeconds seconds" -Console
+		if (-not $NoThrow) { throw "Debian delta script timed out after $TimeoutSeconds seconds" }
+	}
+	
 	$durationSec = [Math]::Round($elapsed.TotalSeconds,2)
 	Write-Log ("[DebPkg][VM] Script completed exit={0} duration={1}s" -f $exitCode, $durationSec) -Console:$consoleSwitch
 	if (-not $success -and -not $NoThrow) { throw "Debian delta script returned non-zero exit code: $exitCode" }
