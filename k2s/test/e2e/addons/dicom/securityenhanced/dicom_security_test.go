@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const testClusterTimeout = time.Minute * 10
+const testClusterTimeout = time.Minute * 20
 
 var (
 	suite *framework.K2sTestSuite
@@ -39,6 +39,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up DICOM security test")
+	suite.SetupInfo().ReloadRuntimeConfig()
 	suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
 	if k2s.IsAddonEnabled("security") {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")

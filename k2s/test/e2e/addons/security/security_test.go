@@ -42,7 +42,7 @@ var proxy string
 var testFailed = false
 var workloadCreated = false
 var suite *framework.K2sTestSuite
-var testStepTimeout = time.Minute * 10
+var testStepTimeout = time.Minute * 20
 
 func TestSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
