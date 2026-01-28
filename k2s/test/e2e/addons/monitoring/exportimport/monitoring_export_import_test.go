@@ -30,6 +30,7 @@ var (
 	controlPlaneIpAddress string
 	addon                 *addons.Addon
 	impl                  *addons.Implementation
+	testFailed            = false
 )
 
 func TestMonitoringExportImport(t *testing.T) {
@@ -69,8 +70,21 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
+	if !testFailed {
+		exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
+	}
+
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("monitoring addon export and import", Ordered, func() {

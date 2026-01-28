@@ -30,6 +30,7 @@ var (
 	portForwardingSession *gexec.Session
 	linuxOnly             = false
 	k2s                   *dsl.K2s
+	testFailed            = false
 )
 
 func TestLogging(t *testing.T) {
@@ -44,7 +45,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'logging' addon", Ordered, func() {
