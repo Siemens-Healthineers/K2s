@@ -106,6 +106,9 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	if err := validateManifestTargets(manifest, addon.Metadata.Name, impl.Name); err != nil {
 		return err
 	}
+	if len(manifest.Files) == 0 {
+		slog.Info("Backup contains no files; restore will only (re)enable the addon", "addon", addon.Metadata.Name, "implementation", impl.Name)
+	}
 
 	runtimeConfig, err := ensureK8sContext(cmd)
 	if err != nil {
@@ -120,7 +123,10 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	enableScriptPath := filepath.Join(impl.Directory, "Enable.ps1")
+	enableScriptPath := filepath.Join(impl.Directory, "EnableForRestore.ps1")
+	if !k2sos.PathExists(enableScriptPath) {
+		enableScriptPath = filepath.Join(impl.Directory, "Enable.ps1")
+	}
 	if !k2sos.PathExists(enableScriptPath) {
 		return fmt.Errorf("Enable.ps1 not found for addon '%s'", impl.AddonsCmdName)
 	}
@@ -300,11 +306,15 @@ func readAndValidateManifest(manifestPath string) (backupManifest, error) {
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return backupManifest{}, fmt.Errorf("invalid backup.json: %w", err)
 	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return backupManifest{}, fmt.Errorf("invalid backup.json: %w", err)
+	}
 	if strings.TrimSpace(manifest.K2sVersion) == "" {
 		return backupManifest{}, errors.New("invalid backup.json: missing 'k2sVersion'")
 	}
-	if len(manifest.Files) == 0 {
-		return backupManifest{}, errors.New("invalid backup.json: missing/empty 'files'")
+	if _, ok := raw["files"]; !ok {
+		return backupManifest{}, errors.New("invalid backup.json: missing 'files'")
 	}
 	if strings.TrimSpace(manifest.Addon) == "" {
 		return backupManifest{}, errors.New("invalid backup.json: missing 'addon'")

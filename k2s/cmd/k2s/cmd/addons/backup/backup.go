@@ -105,8 +105,12 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if _, err := readAndValidateManifest(filepath.Join(stagingDir, "backup.json")); err != nil {
+	manifest, err := readAndValidateManifest(filepath.Join(stagingDir, "backup.json"))
+	if err != nil {
 		return err
+	}
+	if len(manifest.Files) == 0 {
+		slog.Info("Addon backup contains no files; creating metadata-only backup zip", "addon", addon.Metadata.Name, "implementation", impl.Name)
 	}
 
 	zipPath, err := cmd.Flags().GetString(fileFlagName)
@@ -197,11 +201,15 @@ func readAndValidateManifest(manifestPath string) (backupManifest, error) {
 	if err := json.Unmarshal(manifestData, &manifest); err != nil {
 		return backupManifest{}, fmt.Errorf("invalid backup.json: %w", err)
 	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(manifestData, &raw); err != nil {
+		return backupManifest{}, fmt.Errorf("invalid backup.json: %w", err)
+	}
 	if strings.TrimSpace(manifest.K2sVersion) == "" {
 		return backupManifest{}, errors.New("invalid backup.json: missing 'k2sVersion'")
 	}
-	if len(manifest.Files) == 0 {
-		return backupManifest{}, errors.New("invalid backup.json: missing/empty 'files'")
+	if _, ok := raw["files"]; !ok {
+		return backupManifest{}, errors.New("invalid backup.json: missing 'files'")
 	}
 	return manifest, nil
 }

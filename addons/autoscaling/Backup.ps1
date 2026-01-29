@@ -86,16 +86,9 @@ New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
 $files = @()
 
 try {
-    # Always back up the namespace object (guarantees a non-empty file list)
-    $nsPath = Join-Path $BackupDir 'autoscaling-namespace.yaml'
-    $nsResult = Invoke-Kubectl -Params 'get', 'ns', $namespace, '-o', 'yaml'
-    if (-not $nsResult.Success) {
-        throw "Failed to export Namespace '$namespace': $($nsResult.Output)"
-    }
-    $nsResult.Output | Set-Content -Path $nsPath -Encoding UTF8 -Force
-    $files += (Split-Path -Leaf $nsPath)
-
-    # Back up ConfigMaps in the autoscaling namespace, excluding auto-generated kube-root-ca.crt
+    # Back up addon-owned ConfigMaps in the autoscaling namespace, excluding auto-generated kube-root-ca.crt.
+    # Note: KEDA installation itself is reproducible by re-enabling the addon; if no addon-owned config exists,
+    # the backup will be metadata-only (backup.json with files: []).
     $cmList = Invoke-Kubectl -Params 'get', 'configmap', '-n', $namespace, '-o', 'name'
     if (-not $cmList.Success) {
         throw "Failed to list ConfigMaps in namespace '$namespace': $($cmList.Output)"
@@ -150,7 +143,12 @@ $manifest = [pscustomobject]@{
 $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
-Write-Log "[AddonBackup] Wrote $($files.Count) files to '$BackupDir'" -Console
+if ($files.Count -eq 0) {
+    Write-Log "[AddonBackup] No addon-owned files detected; created metadata-only backup in '$BackupDir' (restore will reinstall/repair only)" -Console
+}
+else {
+    Write-Log "[AddonBackup] Wrote $($files.Count) files to '$BackupDir'" -Console
+}
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ Error = $null }

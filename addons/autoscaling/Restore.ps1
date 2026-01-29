@@ -69,7 +69,55 @@ $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
 Write-Log "[AddonRestore] Restoring addon 'autoscaling' from '$BackupDir'" -Console
 
+if (-not $manifest.files -or $manifest.files.Count -eq 0) {
+    Write-Log "[AddonRestore] backup.json contains no files; nothing to apply. Autoscaling restore is reinstall/repair-only (handled by the CLI enable step)." -Console
+
+    Write-Log "[AddonRestore] Restore completed" -Console
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{ Error = $null }
+    }
+    return
+}
+
 $namespace = 'autoscaling'
+
+function Get-NamespaceInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Name
+    )
+
+    $nsResult = Invoke-Kubectl -Params 'get', 'namespace', $Name, '-o', 'json'
+    if (-not $nsResult.Success) {
+        return [pscustomobject]@{ Exists = $false; Terminating = $false; DeletionTimestamp = $null }
+    }
+
+    try {
+        $ns = $nsResult.Output | ConvertFrom-Json
+        $deletionTimestamp = $ns.metadata.deletionTimestamp
+        return [pscustomobject]@{
+            Exists            = $true
+            Terminating       = -not [string]::IsNullOrWhiteSpace("$deletionTimestamp")
+            DeletionTimestamp = $deletionTimestamp
+        }
+    }
+    catch {
+        return [pscustomobject]@{ Exists = $true; Terminating = $false; DeletionTimestamp = $null }
+    }
+}
+
+$nsInfo = Get-NamespaceInfo -Name $namespace
+if ($nsInfo.Exists -and $nsInfo.Terminating) {
+    $errMsg = "Namespace '$namespace' is terminating (deletionTimestamp=$($nsInfo.DeletionTimestamp)). Wait for it to be deleted (or remove finalizers) and re-run restore."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'addon-restore-failed' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 # Best-effort readiness wait (do not hard-fail if KEDA operator is unhealthy)
 try {
@@ -100,7 +148,26 @@ function Invoke-ApplyWithConflictFallback {
         [string] $FilePath
     )
 
-    $applyResult = Invoke-Kubectl -Params 'apply', '-f', $FilePath
+    function Test-IsNamespaceManifest {
+        param([Parameter(Mandatory = $true)][string] $Path)
+
+        try {
+            $content = Get-Content -Raw -Path $Path -ErrorAction Stop
+            return ($content -match "(?mi)^\\s*kind:\\s*Namespace\\s*$")
+        }
+        catch {
+            return $false
+        }
+    }
+
+    if (Test-IsNamespaceManifest -Path $FilePath) {
+        # The autoscaling namespace is managed by the addon manifests; restoring a captured Namespace object is not required
+        # and can cause conflicts/termination issues.
+        Write-Log "[AddonRestore] Skipping Namespace manifest '$FilePath' (managed by addon)" -Console
+        return
+    }
+
+    $applyResult = Invoke-Kubectl -Params 'apply', '--request-timeout=60s', '-f', $FilePath
     if ($applyResult.Success) {
         if (-not [string]::IsNullOrWhiteSpace($applyResult.Output)) {
             $applyResult.Output | Write-Log
@@ -110,15 +177,15 @@ function Invoke-ApplyWithConflictFallback {
 
     $outputText = "$($applyResult.Output)"
     if ($outputText -match '(the object has been modified|Error from server \(Conflict\)|conflict)') {
-        Write-Log "[AddonRestore] Detected conflict during apply; retrying with 'kubectl replace --force' for '$FilePath'" -Console
+        Write-Log "[AddonRestore] Detected conflict during apply; retrying with server-side apply --force-conflicts for '$FilePath'" -Console
 
-        $replaceResult = Invoke-Kubectl -Params 'replace', '--force', '-f', $FilePath
-        if (-not $replaceResult.Success) {
-            throw "Failed to apply '$FilePath' (conflict) and replace also failed: $($replaceResult.Output)"
+        $ssaResult = Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '--field-manager=k2s-addon-restore', '--request-timeout=60s', '-f', $FilePath
+        if (-not $ssaResult.Success) {
+            throw "Failed to apply '$FilePath' (conflict) and server-side apply also failed: $($ssaResult.Output)"
         }
 
-        if (-not [string]::IsNullOrWhiteSpace($replaceResult.Output)) {
-            $replaceResult.Output | Write-Log
+        if (-not [string]::IsNullOrWhiteSpace($ssaResult.Output)) {
+            $ssaResult.Output | Write-Log
         }
         return
     }
@@ -131,6 +198,11 @@ try {
         $filePath = Join-Path $BackupDir $file
         if (-not (Test-Path -LiteralPath $filePath)) {
             throw "Backup file not found: $file"
+        }
+
+        if ((Split-Path -Leaf $filePath) -like '*namespace*.y*ml') {
+            Write-Log "[AddonRestore] Skipping Namespace backup file '$file'" -Console
+            continue
         }
 
         Invoke-ApplyWithConflictFallback -FilePath $filePath
