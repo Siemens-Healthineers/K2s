@@ -43,13 +43,13 @@ type backupManifest struct {
 
 var restoreExample = `
   # Restore addon "registry" from a backup zip
-  k2s addons restore registry -f registry-backup.zip
+    k2s addons restore registry -f registry-backup.zip
 
   # Restore addon "ingress nginx" from a backup zip
-  k2s addons restore "ingress nginx" -f ingress-nginx-backup.zip
+    k2s addons restore "ingress nginx" -f ingress-nginx-backup.zip
 
-	# Restore newest backup for "ingress traefik" from default backup folder
-	k2s addons restore "ingress traefik"
+  # Restore newest backup for "ingress traefik" from default backup folder
+    k2s addons restore "ingress traefik"
 `
 
 func NewCommand() *cobra.Command {

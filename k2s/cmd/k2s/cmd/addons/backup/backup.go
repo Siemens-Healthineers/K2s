@@ -45,10 +45,13 @@ type backupManifest struct {
 
 var backupExample = `
   # Backup addon "registry"
-  k2s addons backup registry -f registry-backup.zip
+    k2s addons backup registry -f registry-backup.zip
 
   # Backup addon "ingress nginx"
-  k2s addons backup "ingress nginx" -f ingress-nginx-backup.zip
+    k2s addons backup "ingress nginx" -f ingress-nginx-backup.zip
+
+  # Backup addon "ingress nginx" to default backup folder
+    k2s addons backup "ingress nginx"
 `
 
 func NewCommand() *cobra.Command {
