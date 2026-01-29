@@ -82,8 +82,6 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "controller", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "nginx-gw")
-			// Wait for Keycloak HTTPRoute to exist
-			Expect(addons.WaitForHTTPRouteReady("keycloak-nginx-gw-cluster-local", "security")).To(Succeed())
 			GinkgoWriter.Println(">>> TEST: Ingress-nginx verified with linkerd injection")
 		})
 

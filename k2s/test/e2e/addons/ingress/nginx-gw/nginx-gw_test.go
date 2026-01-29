@@ -55,7 +55,7 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", nginxGw, "-o")
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(os.ErrNotExist))
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", nginxGw)
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", ingressNginxGwTest)

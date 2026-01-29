@@ -92,7 +92,6 @@ if ($EnableMetricsServer) {
 
 Write-Log 'Installing dashboard from helm chart' -Console
 $dashboardChartDirectory = Get-DashboardChartDirectory
-# create the namespace dashboard
 (Invoke-Kubectl -Params 'create', 'namespace', 'dashboard').Output | Write-Log
 
 # apply the chart
@@ -114,11 +113,9 @@ if ($dashboardStatus -ne $true) {
     exit 1
 }
 
-# create the service account
 $dashboardServiceAccount = "$dashboardChartDirectory/dashboard-service-account.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $dashboardServiceAccount).Output | Write-Log
 
-# If nginx-gw ingress is being used, create the kong CA certificate ConfigMap for BackendTLSPolicy
 if ($Ingress -eq 'nginx-gw') {
     Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw' -Console
     New-KongCACertConfigMap

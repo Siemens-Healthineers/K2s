@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,7 +19,6 @@ const autoscalingSecTimeout = time.Minute * 10
 
 var (
 	suite      *framework.K2sTestSuite
-	k2s        *dsl.K2s
 	testFailed = false
 )
 

@@ -64,7 +64,7 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(MatchError(os.ErrNotExist))
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "ingress-nginx-test")

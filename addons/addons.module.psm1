@@ -1394,21 +1394,21 @@ function Install-CmctlCli {
     # Get the first implementation (nginx) which contains the cmctl download specification
     $windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
     
-    if ($windowsCurlPackages) {
-        foreach ($package in $windowsCurlPackages) {
-            $destination = $package.destination
-            $destination = "$K2sRoot\$destination"
-            # Normalize path to ensure Test-Path works correctly
-            $destination = [System.IO.Path]::GetFullPath($destination)
-            
-            if (!(Test-Path $destination)) {
-                $url = $package.url
-                Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
-            }
-            else {
-                Write-Log "File $destination already exists. Skipping download." -Console
-            }
+    if (!$windowsCurlPackages) {
+        return
+    }
+    foreach ($package in $windowsCurlPackages) {
+        $destination = $package.destination
+        $destination = "$K2sRoot\$destination"
+        # Normalize path to ensure Test-Path works correctly
+        $destination = [System.IO.Path]::GetFullPath($destination)
+        
+        if (Test-Path $destination) {
+            Write-Log "File $destination already exists. Skipping download." -Console
+            continue
         }
+        $url = $package.url
+        Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
     }
 }
 
@@ -1439,14 +1439,16 @@ function Install-CertManagerControllers {
     Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
     $certManagerStatus = Wait-ForCertManagerAvailable
     
-    if ($certManagerStatus -ne $true) {
-        $errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'cert-manager' failed."
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        }
-        throw $errMsg
+    if ($certManagerStatus -eq $true) {
+        return
     }
+    
+    $errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'cert-manager' failed."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    }
+    throw $errMsg
 }
 
 <#
@@ -1648,25 +1650,19 @@ function New-AddonStatusProperty {
     param(
         [Parameter(Mandatory = $true)]
         [string] $Name,
-        
         [Parameter(Mandatory = $true)]
         [bool] $Value,
-        
         [Parameter(Mandatory = $true)]
         [string] $SuccessMessage,
-        
         [Parameter(Mandatory = $true)]
         [string] $FailureMessage
     )
-    
-    $property = @{
+    return @{
         Name = $Name
         Value = $Value
         Okay = $Value
         Message = if ($Value) { $SuccessMessage } else { $FailureMessage }
     }
-    
-    return $property
 }
 
 <#
