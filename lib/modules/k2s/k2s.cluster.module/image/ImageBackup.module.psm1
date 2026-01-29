@@ -462,7 +462,7 @@ function Backup-K2sImages {
         
         $imagesDir = Join-Path $BackupDirectory "images"
         
-        $k2sExe = Get-K2sExePath
+        $k2sExe = "$(Get-ClusterInstalledFolder)\k2s.exe"
         $backupManifest = @{
             BackupTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             BackupDirectory = $BackupDirectory
@@ -484,8 +484,8 @@ function Backup-K2sImages {
                 $safeFileName = "$($image.repository -replace '[/\\:*?"<>|]', '_')-$($image.tag -replace '[/\\:*?"<>|]', '_')"
                 $tarPath = Join-Path $imagesDir "$safeFileName.tar"
                 
-                # Export image using k2s image export
-                $exportArgs = @("image", "export", "--id", $image.imageid, "-t", $tarPath)
+                # Export image using k2s image export by name:tag (not by ID to handle multiple tags for same image)
+                $exportArgs = @("image", "export", "-n", "$($image.repository):$($image.tag)", "-t", $tarPath)
                 
                 Invoke-K2sImageCommand -K2sExecutable $k2sExe -Arguments $exportArgs -ImageName "$($image.repository):$($image.tag)" -ExpectedFile $tarPath
                 

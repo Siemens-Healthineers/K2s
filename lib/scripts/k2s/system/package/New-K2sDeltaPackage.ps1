@@ -154,7 +154,8 @@ $script:DeltaHelperParts = @(
     'New-K2sDelta.HyperV.ps1',
     'New-K2sDelta.Diff.ps1',
     'New-K2sDelta.ImageDiff.ps1',
-    'New-K2sDelta.ImageAcquisition.ps1'
+    'New-K2sDelta.ImageAcquisition.ps1',
+    'New-K2sDelta.GuestConfig.ps1'
 )
 
 foreach ($part in $script:DeltaHelperParts) {
@@ -512,9 +513,10 @@ Write-Log "Staging summary: total staged files=$stagedFileCount (wholesale dirs=
 $debianPackageDiff = $null
 $offlineDebInfo = $null
 $imageDiffResult = $null
+$guestConfigDiff = $null
 if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
         Write-Log 'Analyzing Debian packages in Kubemaster-Base.vhdx ...' -Console
-                $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx' -QueryImages:(-not $SkipImageDelta) -KeepNewVmAlive:(-not $SkipImageDelta)
+                $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx' -QueryImages:(-not $SkipImageDelta) -QueryConfigHashes -KeepNewVmAlive:$true
         if ($debianPackageDiff.Processed) {
             Write-Log ("Debian package diff: Added={0} Changed={1} Removed={2}" -f $debianPackageDiff.AddedCount, $debianPackageDiff.ChangedCount, $debianPackageDiff.RemovedCount) -Console
             
@@ -543,17 +545,43 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     if ($imageDiffResult.Changed) { $imagesToProcess += $imageDiffResult.Changed }
                     
                     if ($imagesToProcess.Count -gt 0) {
-                        Write-Log "[ImageAcq] Starting image export for $($imagesToProcess.Count) images using existing VM..." -Console
+                        Write-Log "[ImageAcq] Starting image export for $($imagesToProcess.Count) images..." -Console
+                        
+                        # Debug: show platforms of all images
+                        foreach ($img in $imagesToProcess) {
+                            Write-Log "[ImageAcq] DEBUG: Image '$($img.FullName)' has Platform='$($img.Platform)'" -Console
+                        }
+                        
+                        # Separate Windows and Linux images (ensure array output)
+                        $windowsImagesToProcess = @($imagesToProcess | Where-Object { $_.Platform -eq 'windows' })
+                        $linuxImagesToProcess = @($imagesToProcess | Where-Object { $_.Platform -eq 'linux' })
+                        
+                        Write-Log "[ImageAcq] Images to process: $($windowsImagesToProcess.Count) Windows, $($linuxImagesToProcess.Count) Linux" -Console
                         
                         # Get path to new VHDX
                         $newVhdxPath = Join-Path $newExtract 'bin\Kubemaster-Base.vhdx'
                         
+                        # Always process Windows images (they don't need a VM)
+                        # Process Linux images only if we have a VM context
+                        $imagesToExport = @()
+                        $imagesToExport += $windowsImagesToProcess
+                        
                         if ((Test-Path $newVhdxPath) -and $debianPackageDiff.NewVmContext) {
+                            $imagesToExport += $linuxImagesToProcess
+                            $vmContext = $debianPackageDiff.NewVmContext
+                        } else {
+                            if ($linuxImagesToProcess.Count -gt 0) {
+                                Write-Log "[ImageAcq] Warning: Cannot export Linux images - VHDX not found or VM context missing" -Console
+                            }
+                            $vmContext = $null
+                        }
+                        
+                        if ($imagesToExport.Count -gt 0) {
                             $layerExtractionResult = Export-ChangedImageLayers -NewPackageRoot $newExtract `
                                                                                 -NewVhdxPath $newVhdxPath `
-                                                                                -ChangedImages $imagesToProcess `
+                                                                                -ChangedImages $imagesToExport `
                                                                                 -StagingDir $stageDir `
-                                                                                -ExistingVmContext $debianPackageDiff.NewVmContext `
+                                                                                -ExistingVmContext $vmContext `
                                                                                 -ShowLogs:$false
                             
                             if ($layerExtractionResult.Success) {
@@ -565,24 +593,102 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                             } else {
                                 Write-Log "[ImageAcq] Warning: Image export failed: $($layerExtractionResult.ErrorMessage)" -Console
                             }
-                            
-                            # Clean up the reused VM
-                            Write-Log "[ImageAcq] Cleaning up reused VM: $($debianPackageDiff.NewVmContext.VmName)" -Console
-                            Remove-K2sHvEnvironment -Context $debianPackageDiff.NewVmContext
-                        } else {
-                            Write-Log "[ImageAcq] Warning: Cannot reuse VM - VHDX not found or VM context missing" -Console
-                            if ($debianPackageDiff.NewVmContext) {
-                                Remove-K2sHvEnvironment -Context $debianPackageDiff.NewVmContext
-                            }
                         }
+                        
+                        # VM cleanup moved to after guest config diff phase
                     } else {
                         Write-Log "[ImageAcq] No images to process for layer extraction" -Console
+                        # VM cleanup moved to after guest config diff phase
                     }
                     
                 } catch {
                     Write-Log "[ImageDiff] Warning: Image delta processing failed: $($_.Exception.Message)" -Console
                 } finally {
                     Stop-Phase 'Image Delta' $imagePhase
+                }
+            }
+            
+            # --- Guest configuration file diff (use hashes collected during deb diff phase) ---
+            $configPhase = Start-Phase 'GuestConfigDiff'
+            try {
+                Write-Log '[GuestConfig] Processing guest configuration file diff from collected hashes...' -Console
+                
+                $oldHashes = $debianPackageDiff.OldConfigHashes
+                $newHashes = $debianPackageDiff.NewConfigHashes
+                
+                if ($oldHashes.Count -gt 0 -or $newHashes.Count -gt 0) {
+                    # Compute diff from collected hashes
+                    $configAdded = @()
+                    $configRemoved = @()
+                    $configChanged = @()
+                    
+                    foreach ($path in $newHashes.Keys) {
+                        if (-not $oldHashes.ContainsKey($path)) {
+                            $configAdded += $path
+                        } elseif ($oldHashes[$path] -ne $newHashes[$path]) {
+                            $configChanged += $path
+                        }
+                    }
+                    foreach ($path in $oldHashes.Keys) {
+                        if (-not $newHashes.ContainsKey($path)) {
+                            $configRemoved += $path
+                        }
+                    }
+                    
+                    Write-Log "[GuestConfig] Guest config diff: Added=$($configAdded.Count), Changed=$($configChanged.Count), Removed=$($configRemoved.Count)" -Console
+                    
+                    # Copy added/changed files from new VM if it's still alive
+                    $filesToCopy = @($configAdded) + @($configChanged)
+                    $copiedFiles = @()
+                    
+                    if ($filesToCopy.Count -gt 0 -and $debianPackageDiff.NewVmContext) {
+                        $guestConfigDir = Join-Path $stageDir 'guest-config'
+                        if (-not (Test-Path -LiteralPath $guestConfigDir)) {
+                            New-Item -ItemType Directory -Path $guestConfigDir | Out-Null
+                        }
+                        
+                        Write-Log "[GuestConfig] Copying $($filesToCopy.Count) config files from new VM..." -Console
+                        $copyResult = Copy-GuestConfigFiles -VmContext $debianPackageDiff.NewVmContext `
+                                                            -NewExtract $newExtract `
+                                                            -OldExtract $oldExtract `
+                                                            -FilePaths $filesToCopy `
+                                                            -OutputDir $guestConfigDir
+                        
+                        if ($copyResult.Error) {
+                            Write-Log "[GuestConfig] Warning: File copy had errors: $($copyResult.Error)" -Console
+                        }
+                        $copiedFiles = $copyResult.CopiedFiles
+                        Write-Log "[GuestConfig] Copied $($copiedFiles.Count) config files to delta package" -Console
+                    } elseif ($filesToCopy.Count -gt 0) {
+                        Write-Log "[GuestConfig] Warning: Cannot copy config files - new VM context not available" -Console
+                    }
+                    
+                    # Build result object for manifest
+                    $guestConfigDiff = [pscustomobject]@{
+                        Processed     = $true
+                        Added         = $configAdded
+                        Changed       = $configChanged
+                        Removed       = $configRemoved
+                        AddedCount    = $configAdded.Count
+                        ChangedCount  = $configChanged.Count
+                        RemovedCount  = $configRemoved.Count
+                        CopiedFiles   = $copiedFiles
+                        Error         = $null
+                    }
+                } else {
+                    Write-Log '[GuestConfig] Warning: No config hashes collected, skipping config diff' -Console
+                    $guestConfigDiff = [pscustomobject]@{ Processed = $false; Error = 'No config hashes collected' }
+                }
+            } catch {
+                Write-Log "[GuestConfig] Warning: Guest config diff failed: $($_.Exception.Message)" -Console
+                $guestConfigDiff = [pscustomobject]@{ Processed = $false; Error = $_.Exception.Message }
+            } finally {
+                Stop-Phase 'GuestConfigDiff' $configPhase
+                
+                # Clean up new VM now that all VM-based processing is done (old VM already shut down)
+                if ($debianPackageDiff.NewVmContext) {
+                    Write-Log "[GuestConfig] Cleaning up new VM after config diff: $($debianPackageDiff.NewVmContext.VmName)" -Console
+                    Remove-K2sHvEnvironment -Context $debianPackageDiff.NewVmContext
                 }
             }
             
@@ -762,12 +868,34 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
     }
 }
 
+# Read VERSION files from packages
+$baseVersionFile = Join-Path $oldExtract 'VERSION'
+$targetVersionFile = Join-Path $newExtract 'VERSION'
+$baseVersion = $null
+$targetVersion = $null
+
+if (Test-Path -LiteralPath $baseVersionFile) {
+    $baseVersion = (Get-Content -LiteralPath $baseVersionFile -Raw -ErrorAction SilentlyContinue).Trim()
+    Write-Log "Base package version: $baseVersion" -Console
+} else {
+    Write-Log "[Warning] VERSION file not found in base package" -Console
+}
+
+if (Test-Path -LiteralPath $targetVersionFile) {
+    $targetVersion = (Get-Content -LiteralPath $targetVersionFile -Raw -ErrorAction SilentlyContinue).Trim()
+    Write-Log "Target package version: $targetVersion" -Console
+} else {
+    Write-Log "[Warning] VERSION file not found in target package" -Console
+}
+
 # Build manifest
 $manifest = [pscustomobject]@{
     ManifestVersion       = '2.0'
     GeneratedUtc          = [DateTime]::UtcNow.ToString('o')
     BasePackage           = (Split-Path -Leaf $InputPackageOne)
     TargetPackage         = (Split-Path -Leaf $InputPackageTwo)
+    BaseVersion           = $baseVersion
+    TargetVersion         = $targetVersion
     WholeDirectories      = $wholeDirsNormalized
     WholeDirectoriesCount = $wholeDirsNormalized.Count
     SpecialSkippedFiles   = $SpecialSkippedFiles
@@ -810,6 +938,22 @@ $manifest = [pscustomobject]@{
             ChangedCount = $imageDiffResult.Changed.Count
         }
     } else { $null })
+    GuestConfigDiff       = $(if ($guestConfigDiff -and $guestConfigDiff.Processed) {
+        [pscustomobject]@{
+            Added             = $guestConfigDiff.Added
+            Changed           = $guestConfigDiff.Changed
+            Removed           = $guestConfigDiff.Removed
+            AddedCount        = $guestConfigDiff.AddedCount
+            ChangedCount      = $guestConfigDiff.ChangedCount
+            RemovedCount      = $guestConfigDiff.RemovedCount
+            CopiedFiles       = $guestConfigDiff.CopiedFiles
+            CopiedFilesCount  = $guestConfigDiff.CopiedFiles.Count
+            FailedFiles       = $guestConfigDiff.FailedFiles
+            FailedFilesCount  = $guestConfigDiff.FailedFiles.Count
+            ScannedPaths      = $guestConfigDiff.ScannedPaths
+        }
+    } else { $null })
+    GuestConfigRelativePath = $(if ($guestConfigDiff -and $guestConfigDiff.Processed -and (Test-Path -LiteralPath (Join-Path $stageDir 'guest-config'))) { 'guest-config' } else { $null })
 }
 $manifestPath = Join-Path $stageDir 'delta-manifest.json'
 $manifest | ConvertTo-Json -Depth 6 | Out-File -FilePath $manifestPath -Encoding UTF8 -Force

@@ -39,6 +39,7 @@ var (
 	randomImageTag string
 	suite          *framework.K2sTestSuite
 	k2s            *dsl.K2s
+	testFailed     = false
 )
 
 func TestBuildImage(t *testing.T) {
@@ -63,10 +64,22 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
 
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o", "-d")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	if !testFailed {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o", "-d")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	}
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("build container image", Ordered, func() {
@@ -330,9 +343,10 @@ func deleteDeployment(ctx context.Context, srcDirName, deploymentName string) {
 }
 
 func removeImageFromNode(ctx context.Context, name string) {
-	suite.K2sCli().Exec(ctx, "image", "rm", "--name", name, "-o")
-
-	k2s.VerifyImageIsNotAvailableOnAnyNode(ctx, name)
+	Eventually(func(g Gomega) {
+		suite.K2sCli().Exec(ctx, "image", "rm", "--name", name, "--force", "-o")
+		g.Expect(k2s.IsImageNotAvailableOnAnyNode(ctx, name)).To(BeTrue(), "Image '%s' should not be available on any node", name)
+	}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
 }
 
 func removeImageFromLocalRegistry(ctx context.Context, name string) {

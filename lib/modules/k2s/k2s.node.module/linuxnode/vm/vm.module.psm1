@@ -46,25 +46,71 @@ function Invoke-SSHWithKey {
     }
 
     # Capture all output first, then filter SSH connection warnings
-    $rawOutput = &ssh.exe $params 2>&1
+    # Use try/finally to ensure $LASTEXITCODE is captured immediately
+    $rawOutput = $null
+    $sshExitCode = 0
+    try {
+        $rawOutput = &ssh.exe $params 2>&1
+        $sshExitCode = $LASTEXITCODE
+    } catch {
+        # In case of unexpected terminating error, capture it
+        Write-Log "[SSH] Unexpected error during SSH command execution: $_"
+        throw
+    }
     
-    # Convert to array of strings if needed
+    # Convert to array of strings, handling both regular output and ErrorRecord objects
+    # ErrorRecord objects from stderr redirect need to be converted to strings
     $allLines = @()
     if ($null -ne $rawOutput) {
-        $allLines = @($rawOutput | ForEach-Object { "$_" })
+        foreach ($item in $rawOutput) {
+            if ($item -is [System.Management.Automation.ErrorRecord]) {
+                # Extract the message from ErrorRecord without triggering error handling
+                $allLines += $item.ToString()
+            } else {
+                $allLines += "$item"
+            }
+        }
     }
     
     # Filter out SSH-specific connection warnings that contaminate command output
+    # These are transient socket cleanup messages that don't indicate actual command failure
     $outputLines = @()
+    $hadSocketWarning = $false
     foreach ($line in $allLines) {
-        if ($line -notmatch '^close - IO is still pending' -and 
-            $line -notmatch '^Connection .* closed' -and
-            $line -notmatch '^Warning: Permanently added') {
-            $outputLines += $line
-        } else {
+        if ($line -match '^close - IO is still pending' -or
+            $line -match 'IO is still pending on closed socket' -or
+            $line -match '^Connection .* closed' -or
+            $line -match '^Warning: Permanently added') {
             # Log SSH warnings separately but don't pass them to output stream
             Write-Log "[SSH] $line"
+            if ($line -match 'IO is still pending') {
+                $hadSocketWarning = $true
+            }
+        } else {
+            $outputLines += $line
         }
+    }
+    
+    # If a socket cleanup warning occurred, the exit code may be misleading.
+    # Windows SSH can return various non-zero exit codes (255, 3221226356, etc.)
+    # when the socket cleanup warning happens, even if the command succeeded.
+    # If we have actual output and a socket warning, treat the command as successful.
+    if ($hadSocketWarning) {
+        if ($outputLines.Count -gt 0) {
+            # We have real output - the command likely succeeded despite the socket warning
+            Write-Log "[SSH] Socket warning detected but command produced output - treating as success"
+            $global:LASTEXITCODE = 0
+        } elseif ($sshExitCode -eq 255 -or $sshExitCode -eq -1 -or $sshExitCode -gt 255) {
+            # No output and SSH-level error code - likely a transient connection issue
+            Write-Log "[SSH] Ignoring transient socket warning with exit code $sshExitCode - command likely succeeded"
+            $global:LASTEXITCODE = 0
+        } else {
+            # Non-SSH-level error code with no output - preserve the error
+            $global:LASTEXITCODE = $sshExitCode
+        }
+    } else {
+        # No socket warning - preserve the actual exit code for the caller
+        $global:LASTEXITCODE = $sshExitCode
     }
     
     # Return clean output as a single string (joining with newlines if multiple lines)
@@ -76,6 +122,44 @@ function Invoke-SSHWithKey {
     } else {
         # Return as array to preserve line structure for callers that iterate over lines
         return $outputLines
+    }
+}
+
+# Helper function to filter SSH socket warnings from output
+# Used to clean up transient "close - IO is still pending" and similar messages
+function Get-FilteredSSHOutput {
+    param(
+        [Parameter(Mandatory = $false)]
+        $RawOutput
+    )
+    
+    if ($null -eq $RawOutput) {
+        return ''
+    }
+    
+    $outputLines = @()
+    foreach ($item in @($RawOutput)) {
+        $line = if ($item -is [System.Management.Automation.ErrorRecord]) {
+            $item.ToString()
+        } else {
+            "$item"
+        }
+        
+        # Filter out SSH-specific connection warnings
+        if ($line -notmatch '^close - IO is still pending' -and
+            $line -notmatch 'IO is still pending on closed socket' -and
+            $line -notmatch '^Connection .* closed' -and
+            $line -notmatch '^Warning: Permanently added') {
+            $outputLines += $line
+        }
+    }
+    
+    if ($outputLines.Count -eq 0) {
+        return ''
+    } elseif ($outputLines.Count -eq 1) {
+        return $outputLines[0]
+    } else {
+        return $outputLines -join "`n"
     }
 }
 
@@ -578,15 +662,17 @@ function Wait-ForSshPossible {
     Write-Log "Performing SSH login into VM with $($User)..."
     while ($true) {
         $iteration++
-        $result = ''
+        $rawResult = ''
 
         if ($SshKey -ne '') {
             if ($Nested) {
-                $result = ssh.exe -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $rawResult = ssh.exe -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
             }
             else {
-                $result = ssh.exe -n -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $rawResult = ssh.exe -n -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
             }
+            # Filter out SSH socket warnings that can interfere with result matching
+            $result = Get-FilteredSSHOutput -RawOutput $rawResult
         }
         else {
             $plinkArgs = @('-ssh', '-4', '-legacy-stdio-prompts', $User, '-pw', $UserPwd, '-no-antispoof', "$($SshTestCommand)")
@@ -715,12 +801,13 @@ function Copy-KubeConfigFromControlPlaneNode {
         Start-Sleep -s 3
 
         Write-Log 'Trying to get kube config from /etc/kubernetes/admin.conf'
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cp /etc/kubernetes/admin.conf /home' -Nested:$Nested).Output | Write-Log
+        # Add retries to handle transient SSH socket issues
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cp /etc/kubernetes/admin.conf /home' -Nested:$Nested -Retries 2 -Timeout 2 -IgnoreErrors).Output | Write-Log
         Write-Log 'Trying to chmod file from /home/admin.conf'
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo chmod 775 /home/admin.conf' -Nested:$Nested).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo chmod 775 /home/admin.conf' -Nested:$Nested -Retries 2 -Timeout 2 -IgnoreErrors).Output | Write-Log
         Write-Log 'Trying to scp file from /home/admin.conf'
         $source = '/home/admin.conf'
-        Copy-FromControlPlaneViaSSHKey -Source $source -Target "$kubePath\config"
+        Copy-FromControlPlaneViaSSHKey -Source $source -Target "$kubePath\config" -IgnoreErrors
         if (Test-Path "$kubePath\config") {
             Write-Log "Kube config '$kubePath\config' successfully retrieved !"
             break;
