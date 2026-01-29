@@ -120,7 +120,7 @@ function Install-WinFlannel {
     &$kubeBinPath\nssm set flanneld AppRotateSeconds 0 | Out-Null
     &$kubeBinPath\nssm set flanneld AppRotateBytes 500000 | Out-Null
     &$kubeBinPath\nssm set flanneld Start SERVICE_AUTO_START | Out-Null
-    &$kubeBinPath\nssm set flanneld DependOnService httpproxy | Out-Null
+    #&$kubeBinPath\nssm set flanneld DependOnService httpproxy | Out-Null
 }
 
 

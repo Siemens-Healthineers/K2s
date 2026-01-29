@@ -80,10 +80,10 @@ function Wait-ForNodesReady {
     # force import path module since this is executed in a script block
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep 2
-        #Write-Output "Checking for node $env:COMPUTERNAME..."
+        Write-Output "Checking for node $env:COMPUTERNAME..."
         # using is used because this function is executed in script block in Join-WindowsNode.
         $nodes = $(&"$using:kubeToolsPath\kubectl.exe" get nodes)
-        #Write-Output "$i WaitForJoin: $nodes"
+        Write-Output "$i WaitForJoin: $nodes"
 
         $nodefound = $nodes | Select-String -Pattern "$env:COMPUTERNAME\s*Ready"
         if ( $nodefound ) {
@@ -166,7 +166,7 @@ function Join-WindowsNode {
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
         $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'npipe:////./pipe/containerd-containerd').Replace('__NODE_IP__', $windowsNodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
 
-        $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$joinConfigurationFilePath`""
+        $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$joinConfigurationFilePath`"" 
 
         Write-Log $joinCommand
 
@@ -177,7 +177,7 @@ function Join-WindowsNode {
         Set-Location ..\..
 
         # print the output of the WaitForJoin.ps1
-        Receive-Job $job
+        Receive-Job $job 
         $job | Stop-Job
 
         # delete path if was created
@@ -358,7 +358,7 @@ function Initialize-KubernetesCluster {
     &"$kubeToolsPath\kubectl.exe" get nodes -o wide
 
     Write-Log "Collecting kubernetes images and storing them to $kubernetesImagesJson."
-    Write-KubernetesImagesIntoJson
+    #Write-KubernetesImagesIntoJson
 }
 
 function Uninstall-Cluster {

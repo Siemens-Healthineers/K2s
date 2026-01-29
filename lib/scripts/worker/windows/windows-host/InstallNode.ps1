@@ -64,7 +64,7 @@ $workerNodeParams = @{
     AdditionalHooksDir                = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation           = $ForceOnlineInstallation
-    PodSubnetworkNumber               = '3'
+    PodSubnetworkNumber               = '2'
     JoinCommand                       = $JoinCommand
     K8sBinsPath                       = $K8sBinsPath
     IpAddress                         = $IpAddress
@@ -115,7 +115,7 @@ if (-not $adapterConfigured) {
 Write-Log "Starting Windows worker node on Windows host"
 $dnsServers = '8.8.8.8,8.8.4.4'  # Use default DNS servers
 $startWorkerParams = @{
-    PodSubnetworkNumber = '3'
+    PodSubnetworkNumber = '2'
     DnsServers = $dnsServers
     AdditionalHooksDir = $AdditionalHooksDir
     SkipHeaderDisplay = $true

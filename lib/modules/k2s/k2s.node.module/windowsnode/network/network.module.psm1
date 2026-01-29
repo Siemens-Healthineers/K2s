@@ -15,6 +15,7 @@ $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
 $clusterCIDRGateway = $setupConfigRoot.psobject.properties['cbr0Gateway'].value
 $clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
 $clusterCIDRHost_2 = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
+$clusterCIDRForFlannel = $setupConfigRoot.psobject.properties['podNetworkCIDR'].value
 $clusterCIDRNatExceptions = $setupConfigRoot.psobject.properties['clusterCIDRNatExceptions'].value
 
 $global:HNSRestarted = $false
@@ -48,6 +49,11 @@ function Get-ConfiguredClusterCIDRHost_2 {
     $podNetworkCIDR = $clusterCIDRHost_2.Replace('X', $PodSubnetworkNumber)
     return $podNetworkCIDR
     
+}
+
+function Get-ConfiguredClusterCIDRForFlannel{
+
+    return $clusterCIDRForFlannel
 }
 
 function Get-ConfiguredClusterCIDRNextHop {
@@ -399,29 +405,7 @@ function Add-VfpRulesToWindowsNode {
     Write-Log "Added file '$file' with vfp rules"
 }
 
-function Add-VfpRulesToWindowsNodeRemote {
-    param (
-        [string]$VfpRulesInJsonFormat = $(throw 'Argument missing: VfpRulesInJsonFormat'),
-        [string]$KubeBinPath = $(throw 'Argument missing: KubeBinPath'),
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string]$UserName = $(throw 'Argument missing: UserName')
-    )
 
-    # Define the remote file path for the VFP rules JSON
-    $remoteFilePath = "$KubeBinPath\cni\vfprules.json"
-
-    # Remove the existing file on the remote machine
-    $removeFileCmd = "Remove-Item -Path '$remoteFilePath' -Force -ErrorAction SilentlyContinue"
-    Invoke-CmdOnVmViaSSHKey -CmdToExecute $removeFileCmd -IpAddress $IpAddress -UserName $UserName
-    Write-Log "Removed file '$remoteFilePath' on remote machine at $IpAddress"
-
-    # Write the VFP rules JSON to the remote file
-    $writeFileCmd = @"
-\$VfpRulesInJsonFormat | Out-File -FilePath '$remoteFilePath' -Encoding ascii
-"@
-    Invoke-CmdOnVmViaSSHKey -CmdToExecute $writeFileCmd -IpAddress $IpAddress -UserName $UserName
-    Write-Log "Added file '$remoteFilePath' with VFP rules on remote machine at $IpAddress"
-}
 
 # TODO: Move to infra module
 function Add-VfpRoute {
@@ -607,7 +591,7 @@ function Set-KubeSwitchToPrivate {
 }
 
 Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
-Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,Get-ConfiguredClusterCIDRHost_2,
+Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,Get-ConfiguredClusterCIDRHost_2,Get-ConfiguredClusterCIDRForFlannel,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Set-InterfacePrivate,
 Get-L2BridgeSwitchName,

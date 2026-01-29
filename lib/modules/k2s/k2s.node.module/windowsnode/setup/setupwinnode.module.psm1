@@ -61,7 +61,7 @@ function Initialize-Networking {
     $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
     Write-Log "Using local IP $ipaddress for setup of CNI"
 
-    $clusterCIDRHost = Get-ConfiguredClusterCIDRHost_2 -PodSubnetworkNumber $PodSubnetworkNumber
+    $clusterCIDRHost = Get-ConfiguredClusterCIDRForFlannel
     Write-Log "Using IP $clusterCIDRHost for setup of flannel net-conf.json"
     $NetworkAddress = "  ""Network"": ""$clusterCIDRHost"","
 
@@ -96,66 +96,8 @@ function Initialize-Networking {
     Copy-Item -Path "$kubeBinPath\cni\*" -Destination "$(Get-SystemDriveLetter):\opt\cni\bin" -Recurse
 }
 
-function Initialize-NetworkingRemote {
-    Param(
-        [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
-        [bool] $HostVM,
-        [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
-        [bool] $HostGW,
-        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
-        [parameter(Mandatory = $true, HelpMessage = 'IP address of the remote machine')]
-        [string] $IpAddress,
-        [parameter(Mandatory = $true, HelpMessage = 'Username for the remote machine')]
-        [string] $UserName
-    )
-
-    # Create directories on the remote machine
-    $createDirsCmd = @'
-mkdir -force C:\etc\cni
-mkdir -force C:\etc\cni\net.d
-mkdir -force C:\etc\kube-flannel
-mkdir -force C:\opt
-mkdir -force C:\opt\cni
-mkdir -force C:\opt\cni\bin
-mkdir -force C:\run
-mkdir -force C:\run\flannel
-mkdir -force C:\var\log\flanneld
-mkdir -force C:\var\lib
-'@
-    Invoke-CmdOnVmViaSSHKey -CmdToExecute $createDirsCmd -IpAddress $IpAddress -UserName $UserName
-    Write-Log "Created necessary directories on remote machine at $IpAddress"
-
-    # Remove existing firewall rules and add new ones
-    $removeFirewallCmd = "Get-NetFirewallRule -DisplayName 'kubelet' | Remove-NetFirewallRule"
-    Invoke-CmdOnVmViaSSHKey -CmdToExecute $removeFirewallCmd -IpAddress $IpAddress -UserName $UserName
-    Write-Log "Removed existing firewall rules on remote machine at $IpAddress"
-
-    if (!($HostVM)) {
-        $ipControlPlane = Get-ConfiguredIPControlPlane
-        $addFirewallCmd = @"
-New-NetFirewallRule -DisplayName 'KubeMaster VM' -Group 'k2s' -Description 'Allow inbound traffic from the Linux VM on ports above 8000' -RemoteAddress $ipControlPlane -RemotePort '8000-32000' -Enabled True -Direction Inbound -Protocol TCP -Action Allow
-"@
-        Invoke-CmdOnVmViaSSHKey -CmdToExecute $addFirewallCmd -IpAddress $IpAddress -UserName $UserName
-        Write-Log "Added firewall rules for KubeMaster VM on remote machine at $IpAddress"
-    }
-    else {
-        $writeConfigCmd = @"
-Copy-Item -force C:\kube\cfg\cni\net-conf-vxlan.json.template C:\etc\kube-flannel\net-conf.json
-(Get-Content C:\etc\kube-flannel\net-conf.json) -replace 'NETWORK.ADDRESS', '$networkAddress' | Set-Content C:\etc\kube-flannel\net-conf.json
-"@
-        Invoke-CmdOnVmViaSSHKey -CmdToExecute $writeConfigCmd -IpAddress $IpAddress -UserName $UserName
-        Write-Log "Generated Flannel configuration for VXLAN mode on remote machine at $IpAddress"
-    }
-
-    # Copy CNI binaries to the remote machine using the reusable function
-    $sourcePath = 'C:\kube\bin\cni\*'
-    $targetPath = 'C:\opt\cni\bin'
-    Copy-ToRemoteComputerViaSshKeyWindows -Source $sourcePath -Target $targetPath -UserName $UserName -IpAddress $IpAddress
-    Write-Log "Copied CNI binaries to remote machine at $IpAddress"
-}
-    
-
 function Reset-WinServices {
+    Write-Log "Reset-WinServices: Setting kubeproxy, kubelet, httpproxy, flanneld services to manual start"
     &"$kubeBinPath\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
     &"$kubeBinPath\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
     &"$kubeBinPath\nssm" set httpproxy Start SERVICE_DEMAND_START | Out-Null
@@ -212,76 +154,6 @@ function Initialize-WinNode {
 
     if (! $SkipClusterSetup) {
         Reset-WinServices
-    }
-}
-
-function Initialize-WinNodeRemote {
-    Param(
-        [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
-        [string] $KubernetesVersion,
-        [parameter(Mandatory = $false, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
-        [bool] $HostVM = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = '',
-        [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
-        [bool] $HostGW,
-        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
-        [boolean] $DeleteFilesForOfflineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
-        [boolean] $ForceOnlineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
-        [boolean] $SkipClusterSetup = $false,
-        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
-        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-        [string] $K8sBinsPath = '',
-        [parameter(Mandatory = $true, HelpMessage = 'IP address of the remote machine')]
-        [string] $IpAddress,
-        [parameter(Mandatory = $true, HelpMessage = 'Username for the remote machine')]
-        [string] $UserName
-    )
-
-    # Ensure Kubernetes version starts with 'v'
-    if (!$KubernetesVersion.StartsWith('v')) {
-        $KubernetesVersion = 'v' + $KubernetesVersion
-    }
-    Write-Log "Using Kubernetes version: $KubernetesVersion"
-
-    # Create tools directory on the remote machine
-    $createToolsDirCmd = "if (!(Test-Path 'C:\kube-tools')) { New-Item -ItemType 'directory' -Path 'C:\kube-tools' | Out-Null }"
-    Invoke-CmdOnVmViaSSHKey -CmdToExecute $createToolsDirCmd -IpAddress $IpAddress -UserName $UserName
-
-    # Set environment variable for VM (on remote machine)
-    if ($HostVM) {
-        $setEnvCmd = "[Environment]::SetEnvironmentVariable('KUBECONFIG', 'C:\kube\config', [System.EnvironmentVariableTarget]::Machine)"
-        Invoke-CmdOnVmViaSSHKey -CmdToExecute $setEnvCmd -IpAddress $IpAddress -UserName $UserName
-    }
-
-    #Ronak: need to see why it is required? Log and update installed Kubernetes version
-        # $previousKubernetesVersion = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'Get-ConfigInstalledKubernetesVersion' -IpAddress $IpAddress -UserName $UserName
-        # Write-Log("Previous K8s version: $previousKubernetesVersion, current K8s version to install: $KubernetesVersion")
-
-        # $setVersionCmd = "Set-ConfigInstalledKubernetesVersion -Value $KubernetesVersion"
-        # Invoke-CmdOnVmViaSSHKey -CmdToExecute $setVersionCmd -IpAddress $IpAddress -UserName $UserName
-
-    # Initialize networking on the remote machine
-    if (! $SkipClusterSetup) {
-        $initNetworkingCmd = "Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW -PodSubnetworkNumber $PodSubnetworkNumber"
-        Invoke-CmdOnVmViaSSHKey -CmdToExecute $initNetworkingCmd -IpAddress $IpAddress -UserName $UserName
-    }
-    else {
-        Write-Log 'Skipping networking setup on remote Windows node'
-    }
-
-    # Install node artifacts on the remote machine
-    $installArtifactsCmd = @"
-Install-WinNodeArtifacts -Proxy '$Proxy' -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -PodSubnetworkNumber $PodSubnetworkNumber -K8sBinsPath '$K8sBinsPath'
-"@
-    Invoke-CmdOnVmViaSSHKey -CmdToExecute $installArtifactsCmd -IpAddress $IpAddress -UserName $UserName
-
-    # Reset Windows services on the remote machine
-    if (! $SkipClusterSetup) {
-        $resetServicesCmd = 'Reset-WinServices'
-        Invoke-CmdOnVmViaSSHKey -CmdToExecute $resetServicesCmd -IpAddress $IpAddress -UserName $UserName
     }
 }
 
