@@ -360,7 +360,7 @@ function Remove-SharedFolderMountOnLinuxClient {
     $tempUnmountScript = "$(Get-KubePath)\$tempUnmountOnLinuxClientScript"
     Remove-Item $tempUnmountScript -ErrorAction Ignore
     $unmountOnLinuxClientCmd | Out-File -Encoding ascii $tempUnmountScript
-    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/'
+    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/' -Retries 3 -RetryDelay 2
     Remove-Item $tempUnmountScript -ErrorAction Ignore
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxClientScript" -IgnoreErrors).Output | Write-Log
@@ -559,7 +559,7 @@ function Remove-SharedFolderMountOnLinuxHost {
     $tempUnmountScript = "$(Get-KubePath)\$tempUnmountOnLinuxHostScript"
     Remove-Item $tempUnmountScript -ErrorAction Ignore
     $unmountOnLinuxHostCmd | Out-File -Encoding ascii $tempUnmountScript
-    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/'
+    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/' -Retries 3 -RetryDelay 2
     Remove-Item $tempUnmountScript -ErrorAction Ignore
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxHostScript" -IgnoreErrors).Output | Write-Log
