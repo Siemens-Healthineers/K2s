@@ -50,6 +50,7 @@ var _ = Describe("addons", Ordered, func() {
 				Expect(output).To(Or(
 					ContainSubstring("Invalid format for addon"),
 					ContainSubstring("is not available in Linux-only"),
+					ContainSubstring("Unknown artifact format. Supported formats: .oci.tar, .zip"),
 				))
 			})
 		})
