@@ -95,6 +95,12 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
+})
+
 func DeployWorkloads(ctx context.Context) {
 	GinkgoWriter.Println("Deploying workloads to cluster..")
 
@@ -503,593 +509,208 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	})
 })
 
-var _ = Describe("'security' addon with optional components", Ordered, func() {
-	It("enables the addon with --omitHydra", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitHydra", "-o")
-	})
+// omitFlagTestCase defines a test case for basic mode omit flag variations
+type omitFlagTestCase struct {
+	description     string
+	flags           []string
+	expectedOmitted map[string]string // component name -> expected message substring
+}
 
-	It("prints the status and shows hydra as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-		var status status.AddonPrintStatus
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-		// Hydra should be reported as omitted
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsHydraAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
-			),
-		))
-	})
+var _ = Describe("'security' addon with omit flags (basic mode)", Ordered, func() {
+	testCases := []omitFlagTestCase{
+		{
+			description: "omitHydra",
+			flags:       []string{"--omitHydra"},
+			expectedOmitted: map[string]string{
+				"IsHydraAvailable": "not deployed",
+			},
+		},
+		{
+			description: "omitKeycloak",
+			flags:       []string{"--omitKeycloak"},
+			expectedOmitted: map[string]string{
+				"IsKeycloakAvailable": "not ready or was omitted",
+			},
+		},
+		{
+			description: "omitHydra and omitKeycloak",
+			flags:       []string{"--omitHydra", "--omitKeycloak"},
+			expectedOmitted: map[string]string{
+				"IsHydraAvailable":    "not deployed",
+				"IsKeycloakAvailable": "not ready or was omitted",
+			},
+		},
+		{
+			description: "omitOAuth2Proxy",
+			flags:       []string{"--omitOAuth2Proxy"},
+			expectedOmitted: map[string]string{
+				"IsOAuth2ProxyAvailable": "not deployed",
+			},
+		},
+		{
+			description: "all omit flags",
+			flags:       []string{"--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy"},
+			expectedOmitted: map[string]string{
+				"IsHydraAvailable":       "not deployed",
+				"IsKeycloakAvailable":    "not ready or was omitted",
+				"IsOAuth2ProxyAvailable": "not deployed",
+			},
+		},
+	}
 
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
+	for _, tc := range testCases {
+		tc := tc // capture range variable
+		Describe(fmt.Sprintf("with %s", tc.description), Ordered, func() {
+			It("enables the addon", func(ctx context.Context) {
+				args := append([]string{"addons", "enable", addonName}, tc.flags...)
+				args = append(args, "-o")
+				suite.K2sCli().MustExec(ctx, args...)
+			})
 
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
+			It("prints the status showing omitted components", func(ctx context.Context) {
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
+				var addonStatus status.AddonPrintStatus
+				Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
 
-	It("enables the addon with --omitKeycloak", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitKeycloak", "-o")
-	})
+				for component, expectedMsg := range tc.expectedOmitted {
+					Expect(addonStatus.Props).To(ContainElement(
+						SatisfyAll(
+							HaveField("Name", component),
+							HaveField("Value", false),
+							HaveField("Message", gstruct.PointTo(ContainSubstring(expectedMsg))),
+						),
+					))
+				}
+			})
 
-	It("prints the status and shows keycloak as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-		var status status.AddonPrintStatus
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-		// Keycloak should be reported as omitted
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsKeycloakAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not ready or was omitted"))),
-			),
-		))
-	})
-
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
-
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
-
-	It("enables the addon with both --omitHydra and --omitKeycloak", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "-o")
-	})
-
-	It("prints the status and shows both hydra and keycloak as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-		var status status.AddonPrintStatus
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsHydraAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
-			),
-		))
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsKeycloakAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not ready or was omitted"))),
-			),
-		))
-	})
-
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
-
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
+			AfterAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			})
+		})
+	}
 })
 
-var _ = Describe("'security' addon with --omitOAuth2Proxy", Ordered, func() {
-	It("enables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
-	})
-
-	It("enables the addon with --omitOAuth2Proxy", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitOAuth2Proxy", "-o")
-	})
-
-	It("prints the status and shows OAuth2 proxy as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-		var status status.AddonPrintStatus
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsOAuth2ProxyAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
-			),
-		))
-	})
-
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
-
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
-})
-
-var _ = Describe("'security' addon with all omit flags", Ordered, func() {
-	It("enables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
-	})
-
-	It("enables the addon with --omitHydra --omitKeycloak --omitOAuth2Proxy", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
-	})
-
-	It("prints the status and shows all components as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-		var status status.AddonPrintStatus
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsHydraAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
-			),
-		))
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsKeycloakAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not ready or was omitted"))),
-			),
-		))
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsOAuth2ProxyAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
-			),
-		))
-	})
-
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
-
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
-})
-
-var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered, func() {
-	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
-
-		Expect(output).To(ContainSubstring("already disabled"))
-	})
-
-	It("enables the addon with enhanced mode and omitKeycloak", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitKeycloak", "-o")
-	})
-
-	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName)
-
-		Expect(output).To(ContainSubstring("already enabled"))
-	})
-
-	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName)
-
-		Expect(output).To(SatisfyAll(
-			MatchRegexp("ADDON STATUS"),
-			MatchRegexp(`Addon .+%s.+ is .+enabled.+`, addonName),
-			MatchRegexp("The cert-manager API is ready"),
-			MatchRegexp("The CA root certificate is available"),
-		))
-	})
-	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-
-		var status status.AddonPrintStatus
-
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-
-		Expect(status.Name).To(Equal(addonName))
-		Expect(status.Error).To(BeNil())
-		Expect(status.Enabled).NotTo(BeNil())
-		Expect(*status.Enabled).To(BeTrue())
-		Expect(status.Props).NotTo(BeNil())
-		Expect(status.Props).To(ContainElements(
-			SatisfyAll(
-				HaveField("Name", "Type of security"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
-			SatisfyAll(
-				HaveField("Name", "IsCertManagerAvailable"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
-			SatisfyAll(
-				HaveField("Name", "IsCaRootCertificateAvailable"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
-			SatisfyAll(
-				HaveField("Name", "IsTrustManagerAvailable"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The trust-manager API is ready"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
-			SatisfyAll(
-				HaveField("Name", "Type of security"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The linkerd API is ready"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
-			SatisfyAll(
-				HaveField("Name", "IsKeycloakAvailable"),
-				HaveField("Value", false),
-				HaveField("Okay", gstruct.PointTo(BeFalse())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not ready or was omitted")))),
-			SatisfyAll(
-				HaveField("Name", "IsHydraAvailable"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The hydra API is ready")))),
-		))
-	})
-
-	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(err).To(BeNil())
-	})
-
-	It("installs linkerd", func(ctx context.Context) {
-		linkerdPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
-		_, err := os.Stat(linkerdPath)
-		Expect(err).To(BeNil())
-	})
-
-	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
-		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
-	})
-
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
-
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
-
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
-	It("uninstalls linkerd", func(ctx context.Context) {
-		linkerdPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
-		_, err := os.Stat(linkerdPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
-	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
-		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
-	})
-})
-
-var _ = Describe("'security' addon with enhanced mode and omitHydra", Ordered, func() {
-	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
-
-		Expect(output).To(ContainSubstring("already disabled"))
-	})
-
-	It("enables the addon with enhanced mode and omitHydra", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "-o")
-	})
-
-	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName)
-
-		Expect(output).To(ContainSubstring("already enabled"))
-	})
-
-	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName)
-
-		Expect(output).To(SatisfyAll(
-			MatchRegexp("ADDON STATUS"),
-			MatchRegexp(`Addon .+%s.+ is .+enabled.+`, addonName),
-			MatchRegexp("The cert-manager API is ready"),
-			MatchRegexp("The CA root certificate is available"),
-		))
-	})
-
-	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-
-		var status status.AddonPrintStatus
-
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-
-		Expect(status.Name).To(Equal(addonName))
-		Expect(status.Error).To(BeNil())
-		Expect(status.Enabled).NotTo(BeNil())
-		Expect(*status.Enabled).To(BeTrue())
-		Expect(status.Props).NotTo(BeNil())
-		Expect(status.Props).To(ContainElements(
-			SatisfyAll(
-				HaveField("Name", "Type of security"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
-			SatisfyAll(
-				HaveField("Name", "IsCertManagerAvailable"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
-			SatisfyAll(
-				HaveField("Name", "IsCaRootCertificateAvailable"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
-			SatisfyAll(
-				HaveField("Name", "IsTrustManagerAvailable"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The trust-manager API is ready"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
-			SatisfyAll(
-				HaveField("Name", "Type of security"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The linkerd API is ready"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
-			SatisfyAll(
-				HaveField("Name", "IsKeycloakAvailable"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The keycloak API is ready")))),
-			SatisfyAll(
-				HaveField("Name", "IsHydraAvailable"),
-				HaveField("Value", false),
-				HaveField("Okay", gstruct.PointTo(BeFalse())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed")))),
-		))
-	})
-
-	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(err).To(BeNil())
-	})
-
-	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
-		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
-	})
-
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
-
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
-
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
-	It("uninstalls linkerd", func(ctx context.Context) {
-		linkerdPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
-		_, err := os.Stat(linkerdPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
-	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
-		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
-	})
-})
-
-var _ = Describe("'security' addon with enhanced mode and omitHydra and omitKeycloak", Ordered, func() {
-	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
-
-		Expect(output).To(ContainSubstring("already disabled"))
-	})
-
-	It("enables the addon with enhanced mode, omitHydra and omitKeycloak", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "-o")
-	})
-
-	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName)
-
-		Expect(output).To(ContainSubstring("already enabled"))
-	})
-
-	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName)
-
-		Expect(output).To(SatisfyAll(
-			MatchRegexp("ADDON STATUS"),
-			MatchRegexp(`Addon .+%s.+ is .+enabled.+`, addonName),
-			MatchRegexp("The cert-manager API is ready"),
-			MatchRegexp("The CA root certificate is available"),
-		))
-	})
-
-	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-
-		var status status.AddonPrintStatus
-
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-
-		Expect(status.Name).To(Equal(addonName))
-		Expect(status.Error).To(BeNil())
-		Expect(status.Enabled).NotTo(BeNil())
-		Expect(*status.Enabled).To(BeTrue())
-		Expect(status.Props).NotTo(BeNil())
-		Expect(status.Props).To(ContainElements(
-			SatisfyAll(
-				HaveField("Name", "Type of security"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
-			SatisfyAll(
-				HaveField("Name", "IsCertManagerAvailable"),
-				HaveField("Value", true),
-				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
-			SatisfyAll(
-				HaveField("Name", "IsCaRootCertificateAvailable"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
-			SatisfyAll(
-				HaveField("Name", "IsTrustManagerAvailable"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The trust-manager API is ready"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
-			SatisfyAll(
-				HaveField("Name", "Type of security"),
-				HaveField("Value", true),
-				HaveField("Message", gstruct.PointTo(MatchRegexp("The linkerd API is ready"))),
-				HaveField("Okay", gstruct.PointTo(BeTrue()))),
-			SatisfyAll(
-				HaveField("Name", "IsKeycloakAvailable"),
-				HaveField("Value", false),
-				HaveField("Okay", gstruct.PointTo(BeFalse())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not ready or was omitted")))),
-			SatisfyAll(
-				HaveField("Name", "IsHydraAvailable"),
-				HaveField("Value", false),
-				HaveField("Okay", gstruct.PointTo(BeFalse())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed")))),
-		))
-	})
-
-	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(err).To(BeNil())
-	})
-
-	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
-		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
-	})
-
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
-
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
-
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
-	It("uninstalls linkerd", func(ctx context.Context) {
-		linkerdPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
-		_, err := os.Stat(linkerdPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
-
-	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
-		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
-	})
-})
-
-var _ = Describe("'security' addon with enhanced mode and omitOAuth2Proxy", Ordered, func() {
-	It("enables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
-	})
-
-	It("enables the addon with enhanced mode and omitOAuth2Proxy", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitOAuth2Proxy", "-o")
-	})
-
-	It("prints the status and shows OAuth2 proxy as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-		var status status.AddonPrintStatus
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsOAuth2ProxyAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
-			),
-		))
-	})
-
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
-
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
-})
-
-var _ = Describe("'security' addon with enhanced mode and all omit flags", Ordered, func() {
-	It("enables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
-	})
-
-	It("enables the addon with enhanced mode, omitHydra, omitKeycloak and omitOAuth2Proxy", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
-	})
-
-	It("prints the status and shows all components as omitted", func(ctx context.Context) {
-		output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
-		var status status.AddonPrintStatus
-		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsHydraAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
-			),
-		))
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsKeycloakAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not ready or was omitted"))),
-			),
-		))
-		Expect(status.Props).To(ContainElement(
-			SatisfyAll(
-				HaveField("Name", "IsOAuth2ProxyAvailable"),
-				HaveField("Value", false),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
-			),
-		))
-	})
-
-	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-	})
-
-	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	})
+var _ = Describe("'security' addon with omit flags (enhanced mode)", Ordered, func() {
+	// enhancedOmitTestCase extends the basic test case with expected available components
+	type enhancedOmitTestCase struct {
+		description       string
+		flags             []string
+		expectedOmitted   map[string]string // component name -> expected message substring
+		expectedAvailable map[string]string // component name -> expected message substring (must be available)
+	}
+
+	enhancedTestCases := []enhancedOmitTestCase{
+		{
+			description: "omitKeycloak",
+			flags:       []string{"-t", "enhanced", "--omitKeycloak"},
+			expectedOmitted: map[string]string{
+				"IsKeycloakAvailable": "not ready or was omitted",
+			},
+			expectedAvailable: map[string]string{
+				"IsHydraAvailable": "The hydra API is ready",
+			},
+		},
+		{
+			description: "omitHydra",
+			flags:       []string{"-t", "enhanced", "--omitHydra"},
+			expectedOmitted: map[string]string{
+				"IsHydraAvailable": "not deployed",
+			},
+			expectedAvailable: map[string]string{
+				"IsKeycloakAvailable": "The keycloak API is ready",
+			},
+		},
+		{
+			description: "omitHydra and omitKeycloak",
+			flags:       []string{"-t", "enhanced", "--omitHydra", "--omitKeycloak"},
+			expectedOmitted: map[string]string{
+				"IsHydraAvailable":    "not deployed",
+				"IsKeycloakAvailable": "not ready or was omitted",
+			},
+			expectedAvailable: map[string]string{
+				"IsCertManagerAvailable":  "The cert-manager API is ready",
+				"IsTrustManagerAvailable": "The trust-manager API is ready",
+			},
+		},
+		{
+			description: "omitOAuth2Proxy",
+			flags:       []string{"-t", "enhanced", "--omitOAuth2Proxy"},
+			expectedOmitted: map[string]string{
+				"IsOAuth2ProxyAvailable": "not deployed",
+			},
+			expectedAvailable: map[string]string{
+				"IsHydraAvailable":    "The hydra API is ready",
+				"IsKeycloakAvailable": "The keycloak API is ready",
+			},
+		},
+		{
+			description: "all omit flags",
+			flags:       []string{"-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy"},
+			expectedOmitted: map[string]string{
+				"IsHydraAvailable":       "not deployed",
+				"IsKeycloakAvailable":    "not ready or was omitted",
+				"IsOAuth2ProxyAvailable": "not deployed",
+			},
+			expectedAvailable: map[string]string{
+				"IsCertManagerAvailable":       "The cert-manager API is ready",
+				"IsCaRootCertificateAvailable": "The CA root certificate is available",
+				"IsTrustManagerAvailable":      "The trust-manager API is ready",
+			},
+		},
+	}
+
+	for _, tc := range enhancedTestCases {
+		tc := tc // capture range variable
+		Describe(fmt.Sprintf("with %s", tc.description), Ordered, func() {
+			It("enables the addon", func(ctx context.Context) {
+				args := append([]string{"addons", "enable", addonName}, tc.flags...)
+				args = append(args, "-o")
+				suite.K2sCli().MustExec(ctx, args...)
+			})
+
+			It("prints the status showing correct component states", func(ctx context.Context) {
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, "-o", "json")
+				var addonStatus status.AddonPrintStatus
+				Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
+
+				// Verify enhanced mode is active
+				Expect(addonStatus.Props).To(ContainElement(
+					SatisfyAll(
+						HaveField("Name", "Type of security"),
+						HaveField("Value", true),
+						HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced"))),
+					),
+				))
+
+				// Verify omitted components are NOT available
+				for component, expectedMsg := range tc.expectedOmitted {
+					Expect(addonStatus.Props).To(ContainElement(
+						SatisfyAll(
+							HaveField("Name", component),
+							HaveField("Value", false),
+							HaveField("Message", gstruct.PointTo(ContainSubstring(expectedMsg))),
+						),
+					), fmt.Sprintf("Component %s should be omitted", component))
+				}
+
+				// Verify non-omitted components ARE still available
+				for component, expectedMsg := range tc.expectedAvailable {
+					Expect(addonStatus.Props).To(ContainElement(
+						SatisfyAll(
+							HaveField("Name", component),
+							HaveField("Value", true),
+							HaveField("Okay", gstruct.PointTo(BeTrue())),
+							HaveField("Message", gstruct.PointTo(ContainSubstring(expectedMsg))),
+						),
+					), fmt.Sprintf("Component %s should still be available", component))
+				}
+			})
+
+			AfterAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			})
+		})
+	}
 })
