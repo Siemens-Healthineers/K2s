@@ -17,6 +17,35 @@ function Get-KubeToolsPath {
     return "$kubeBinPath\kube"
 }
 
+function Get-CrictlExePath {
+    $kubeBinPath = Get-KubeBinPath
+    $crictlExe = "$kubeBinPath\crictl.exe"
+    if (-Not (Test-Path -Path $crictlExe)) {
+        $crictlExeCmd = cmd /c "where crictl.exe" 2>$null
+        if ($LASTEXITCODE -eq 0 -and $crictlExeCmd) {
+            # Ensure we get a string and handle multiple results
+            $crictlPath = $crictlExeCmd | Select-Object -First 1
+            if ($crictlPath -is [string]) {
+                $crictlExe = $crictlPath.Trim()
+            } else {
+                $crictlExe = $crictlPath.ToString().Trim()
+            }
+        }
+        else {
+            # Return default path instead of throwing error during installation
+            # Write-Log "crictl.exe not found yet in k2s bin location '$crictlExe' or in PATH, returning default path for installation"
+            return $crictlExe
+        }       
+    }
+    return $crictlExe
+}
+
+function Get-K2sExePath {
+    $kubePath = Get-KubePath
+    $k2sExe = "$kubePath\k2s.exe"    
+    return $k2sExe
+}
+
 function Get-InstallationDriveLetter {
     $kubePath = Get-KubePath
     $installationDriveLetter = ($kubePath).Split(':')[0]
@@ -95,7 +124,7 @@ function Write-RefreshEnvVariables {
     Write-Log ' ' -Console
 }
 
-Export-ModuleMember -Function Get-KubePath, Get-KubeBinPath, Get-KubeToolsPath,
+Export-ModuleMember -Function Get-KubePath, Get-KubeBinPath, Get-KubeToolsPath, Get-CrictlExePath, Get-K2sExePath,
 Get-InstallationDriveLetter,
 Get-SystemDriveLetter,
 Test-PathPrerequisites,

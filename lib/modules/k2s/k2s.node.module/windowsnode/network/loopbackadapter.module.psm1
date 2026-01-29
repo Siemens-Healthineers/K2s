@@ -206,6 +206,103 @@ function Remove-LoopbackAdapter {
     $null = & $DevConExe @('remove', '-i', "$($Adapter.PnPDeviceID)")
 } # function Remove-LoopbackAdapter
 
+function Test-LoopbackAdapterIPAddress {
+    param (
+        [Parameter()]
+        [string] $Name,
+        [Parameter()]
+        [string] $ExpectedIPAddress
+    )
+
+    $currentAddresses = Get-NetIPAddress -InterfaceAlias "$Name" -AddressFamily IPv4 -ErrorAction SilentlyContinue
+    if ($null -eq $currentAddresses) {
+        return $false
+    }
+
+    foreach ($addr in $currentAddresses) {
+        if ($addr.IPAddress -eq $ExpectedIPAddress) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Confirm-LoopbackAdapterIP {
+    <#
+    .SYNOPSIS
+    Verifies loopback adapter has the correct IP address and corrects it if needed.
+    .DESCRIPTION
+    Checks if the loopback adapter has the expected static IP address. If the IP is wrong
+    (e.g., APIPA 169.254.x.x address), it removes existing IPs and re-applies the static IP.
+    This should be called right before starting flanneld service.
+    .NOTES
+    After an external switch is created, the IP is on vEthernet (AdapterName) not the base adapter.
+    This function checks both adapters and operates on the correct one.
+    Throws an exception if the IP cannot be corrected after retries.
+    #>
+    $baseAdapterName = Get-L2BridgeName
+    $vEthernetAdapterName = "vEthernet ($baseAdapterName)"
+    $expectedIP = $loopbackAdapterIp
+    $gateway = $loopbackAdapterGateway
+    $prefixLength = 24
+    $mask = [IPAddress](([UInt32]::MaxValue) -shl (32 - $prefixLength) -shr (32 - $prefixLength))
+
+    # Determine which adapter to check - vEthernet adapter if external switch exists, otherwise base adapter
+    $vEthernetAdapter = Get-NetAdapter -Name $vEthernetAdapterName -ErrorAction SilentlyContinue
+    if ($null -ne $vEthernetAdapter) {
+        $adapterName = $vEthernetAdapterName
+        Write-Log "[LoopbackAdapter] External switch detected, checking vEthernet adapter '$adapterName'"
+    } else {
+        $adapterName = $baseAdapterName
+        Write-Log "[LoopbackAdapter] No external switch, checking base adapter '$adapterName'"
+    }
+
+    Write-Log "[LoopbackAdapter] Verifying IP address on adapter '$adapterName' before flanneld start..."
+
+    # Check if IP is already correct
+    if (Test-LoopbackAdapterIPAddress -Name $adapterName -ExpectedIPAddress $expectedIP) {
+        Write-Log "[LoopbackAdapter] IP address $expectedIP verified successfully on adapter '$adapterName'"
+        return
+    }
+
+    # Log current addresses for diagnostics
+    $currentAddresses = Get-NetIPAddress -InterfaceAlias "$adapterName" -AddressFamily IPv4 -ErrorAction SilentlyContinue
+    if ($null -ne $currentAddresses) {
+        foreach ($addr in $currentAddresses) {
+            if ($addr.IPAddress -like "169.254.*") {
+                Write-Log "[LoopbackAdapter] WARNING: APIPA address detected: $($addr.IPAddress)" -Warning
+            } else {
+                Write-Log "[LoopbackAdapter] Current IP address: $($addr.IPAddress)"
+            }
+        }
+    } else {
+        Write-Log "[LoopbackAdapter] No IPv4 addresses currently assigned"
+    }
+
+    Write-Log "[LoopbackAdapter] IP address mismatch detected, correcting..."
+
+    # Remove existing IPv4 addresses (including APIPA) before setting static IP
+    $currentAddresses | ForEach-Object {
+        Write-Log "[LoopbackAdapter] Removing existing IP address: $($_.IPAddress)"
+        Remove-NetIPAddress -InterfaceAlias $adapterName -IPAddress $_.IPAddress -Confirm:$false -ErrorAction SilentlyContinue
+    }
+
+    # Apply static IP using netsh
+    Write-Log "[LoopbackAdapter] Setting static IP address $expectedIP..."
+    netsh interface ipv4 set address name="$adapterName" static $expectedIP $($mask.IPAddressToString) $gateway
+
+    # Brief wait for networking stack
+    Start-Sleep -Seconds 1
+
+    # Verify the IP was applied
+    if (Test-LoopbackAdapterIPAddress -Name $adapterName -ExpectedIPAddress $expectedIP) {
+        Write-Log "[LoopbackAdapter] IP address $expectedIP successfully corrected on adapter '$adapterName'"
+        return
+    }
+
+    # If still not correct, throw exception
+    throw "[LoopbackAdapter] Failed to configure IP $expectedIP on adapter '$adapterName'. Flanneld cannot start with incorrect IP."
+}
 
 function Set-LoopbackAdapterProperties {
     param (
@@ -217,21 +314,52 @@ function Set-LoopbackAdapterProperties {
         [string] $Gateway
     )
 
+    $maxRetries = 3
+    $retryDelaySeconds = 3
+    $stabilizationDelaySeconds = 1
     $prefixLength = 24
     $mask = [IPAddress](([UInt32]::MaxValue) -shl (32 - $prefixLength) -shr (32 - $prefixLength))
 
     $if = Get-NetIPInterface -InterfaceAlias "$Name" -ErrorAction SilentlyContinue
     if( $if ) {
         Set-NetIPInterface -InterfaceAlias "$Name" -Dhcp Disabled
-        netsh interface ipv4 set address name="$Name" static $IPAddress $mask.IPAddressToString $Gateway
-        Write-Log "Loopback Adapter $Name configured with IP: $IPAddress, mask: $($mask.IPAddressToString), gateway: $Gateway"
+
+        $ipConfigured = $false
+        for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+            if ($attempt -gt 1) {
+                Write-Log "[LoopbackAdapter] Waiting $retryDelaySeconds seconds before retry..."
+                Start-Sleep -Seconds $retryDelaySeconds
+            }
+
+            Write-Log "[LoopbackAdapter] Setting IP address (attempt $attempt of $maxRetries)..."
+            netsh interface ipv4 set address name="$Name" static $IPAddress $mask.IPAddressToString $Gateway
+
+            # Wait for Windows networking stack to apply the IP
+            Start-Sleep -Seconds $stabilizationDelaySeconds
+
+            # Verify IP was applied correctly
+            if (Test-LoopbackAdapterIPAddress -Name $Name -ExpectedIPAddress $IPAddress) {
+                Write-Log "[LoopbackAdapter] Loopback Adapter $Name configured with IP: $IPAddress, mask: $($mask.IPAddressToString), gateway: $Gateway (attempt $attempt)"
+                $ipConfigured = $true
+                break
+            }
+            else {
+                Write-Log "[LoopbackAdapter] IP verification failed on attempt $attempt of $maxRetries"
+            }
+        }
+
+        if (-not $ipConfigured) {
+            Write-Log "[LoopbackAdapter] Failed to configure IP $IPAddress on adapter $Name after $maxRetries attempts" -Error
+            return
+        }
+
         # enable forwarding
         netsh int ipv4 set int "$Name" forwarding=enabled | Out-Null
         # reset DNS settings
         Set-DnsClient -InterfaceAlias "$Name" -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
     }
     else {
-        Write-Log "No loopback adapter '$Name' found to configure."
+        Write-Log "[LoopbackAdapter] No loopback adapter '$Name' found to configure."
     }
 }
 
@@ -264,7 +392,8 @@ function Set-LoopbackAdapterExtendedProperties {
     Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -Dhcp Disabled  | Out-Null
     $dnsServersAsArray = $DnsServers -split ','
     Set-IPAddressAndDnsClientServerAddress -IPAddress $ipAddressForLoopbackAdapter -DefaultGateway $gw -Index $loopbackAdapterIfIndex -DnsAddresses $dnsServersAsArray
-    Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
+    # Removed, not at the end of start cmd
+    # Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
     Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
     netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
     Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102  | Out-Null
@@ -305,10 +434,16 @@ function Set-NewNameForLoopbackAdapter {
     }
 }
 
+function Set-PrivateNetworkProfileForLoopbackAdapter {
+    $adapterName = Get-L2BridgeName
+    $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
+    Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
+}
+
 Export-ModuleMember New-LoopbackAdapter
 Export-ModuleMember Remove-LoopbackAdapter
 Export-ModuleMember New-DefaultLoopbackAdaterRemote
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
 Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdapter, Get-L2BridgeName,
 Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath, Set-LoopbackAdapterExtendedProperties,
-Set-NewNameForLoopbackAdapter
+Set-NewNameForLoopbackAdapter, Set-PrivateNetworkProfileForLoopbackAdapter, Confirm-LoopbackAdapterIP

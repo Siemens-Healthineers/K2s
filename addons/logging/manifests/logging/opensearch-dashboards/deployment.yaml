@@ -27,64 +27,63 @@ spec:
         release: "opensearch-dashboards"
       annotations:
     spec:
-      securityContext:
-        {}
+      securityContext: {}
       serviceAccountName: opensearch-dashboards-dashboards
       volumes:
       containers:
-      - name: dashboards
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-          runAsNonRoot: true
-          runAsUser: 1000
-        image: "opensearchproject/opensearch-dashboards:2.17.1"
-        imagePullPolicy: "IfNotPresent"
-        readinessProbe:
-          failureThreshold: 10
-          initialDelaySeconds: 10
-          periodSeconds: 20
-          successThreshold: 1
-          tcpSocket:
-            port: 5601
-          timeoutSeconds: 5
-        livenessProbe:
-          failureThreshold: 10
-          initialDelaySeconds: 10
-          periodSeconds: 20
-          successThreshold: 1
-          tcpSocket:
-            port: 5601
-          timeoutSeconds: 5
-        startupProbe:
-          failureThreshold: 20
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          successThreshold: 1
-          tcpSocket:
-            port: 5601
-          timeoutSeconds: 5
-        env:
-        - name: OPENSEARCH_HOSTS
-          value: "http://opensearch-cluster-master:9200"
-        - name: SERVER_HOST
-          value: "0.0.0.0"
-        - name: SERVER_BASEPATH
-          value: "/logging"
-        - name: SERVER_REWRITEBASEPATH
-          value: "true"
-        - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
-          value: "true"
-        ports:
-        - containerPort: 5601
-          name: http
-          protocol: TCP
-        resources:
-          limits:
-            cpu: 100m
-            memory: 512M
-          requests:
-            cpu: 100m
-            memory: 512M
-        volumeMounts:
+        - name: dashboards
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: "docker.io/opensearchproject/opensearch-dashboards:2.17.1"
+          imagePullPolicy: "IfNotPresent"
+          readinessProbe:
+            failureThreshold: 10
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            successThreshold: 1
+            tcpSocket:
+              port: 5601
+            timeoutSeconds: 5
+          livenessProbe:
+            failureThreshold: 10
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            successThreshold: 1
+            tcpSocket:
+              port: 5601
+            timeoutSeconds: 5
+          startupProbe:
+            failureThreshold: 20
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 5601
+            timeoutSeconds: 5
+          env:
+            - name: OPENSEARCH_HOSTS
+              value: "http://opensearch-cluster-master:9200"
+            - name: SERVER_HOST
+              value: "0.0.0.0"
+            - name: SERVER_BASEPATH
+              value: "/logging"
+            - name: SERVER_REWRITEBASEPATH
+              value: "true"
+            - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
+              value: "true"
+          ports:
+            - containerPort: 5601
+              name: http
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 512M
+            requests:
+              cpu: 100m
+              memory: 512M
+          volumeMounts:

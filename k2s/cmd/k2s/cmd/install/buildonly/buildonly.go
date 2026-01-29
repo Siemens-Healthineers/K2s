@@ -5,6 +5,7 @@ package buildonly
 
 import (
 	"fmt"
+	"strings"
 
 	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -50,6 +51,7 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
+	cmd.Flags().StringSlice(ic.NoProxyFlagName, []string{}, ic.NoProxyFlagUsage)
 	cmd.Flags().StringP(ic.ConfigFileFlagName, ic.ConfigFileFlagShorthand, "", ic.ConfigFileFlagUsage)
 	cmd.Flags().Bool(ic.WslFlagName, false, ic.WslFlagUsage)
 	cmd.Flags().Bool(ic.AppendLogFlagName, false, ic.AppendLogFlagUsage)
@@ -80,6 +82,9 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 
 	if c.Env.Proxy != "" {
 		cmd += fmt.Sprintf(" -Proxy %s", c.Env.Proxy)
+	}
+	if len(c.Env.NoProxy) > 0 {
+		cmd += fmt.Sprintf(" -NoProxy '%s'", strings.Join(c.Env.NoProxy, "','"))
 	}
 	if c.Behavior.ShowOutput {
 		cmd += " -ShowLogs"

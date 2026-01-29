@@ -59,9 +59,7 @@
                     "priority": "203"
                 }
             ],
-            "vfpapi": [
-                "10.0.20348"
-            ],
+            "vfpapi": [],
             "hnsproxyconfig": {
                 "inboundproxyport": "4143",
                 "outboundproxyport": "4140",
@@ -73,8 +71,8 @@
         },
         "upgrade": {
             "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gateway,gpu-node,ingress-nginx,kubevirt,monitoring,registry",
-            "excludednamespacedresources": "",
-            "excludedclusterresources": "componentstatuses,nodes,csinodes"
+            "excludednamespacedresources": "endpoints,endpointslices",
+            "excludedclusterresources": "componentstatuses,nodes,csinodes,ipaddresses,certificatesigningrequests,storageclasses,servicecidrs,apiservices,flowschemas,prioritylevelconfigurations,ingressclasses,runtimeclasses,storageclasses"
         }
     },
     "configDir": {

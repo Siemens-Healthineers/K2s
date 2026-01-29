@@ -35,8 +35,12 @@ SPDX-License-Identifier: MIT
     ``` 
 - *Hyper-V configuration*: after the enabling of Hyper-V on your host using [Set-VMHost](https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost) different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !
 
-!!! tip
-    For installing in *WSL* mode, add the `Microsoft-Windows-Subsystem-Linux` feature to the prior command.
+
+- *Installing in WSL mode*: Enable the WSL 2 feature on Windows. For detailed instructions, see [Configure WSL](https://learn.microsoft.com/windows/wsl/install) or [Manual install (older WSL versions)](https://learn.microsoft.com/windows/wsl/install-manual)
+   ```powershell
+   Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Windows-Subsystem-Linux', 'VirtualMachinePlatform') -All
+   ``` 
+  
 - *VC Runtime 140*: please install the VC runtime dlls, either with choco
 
    ```choco install vcredist140 -y```
@@ -58,6 +62,9 @@ To inspect the different install options, run:
 ```console
 <repo>\k2s.exe install -h
 ```
+!!! warning
+    If the installer detects more than one `k2s.exe` in your system `PATH`, installation will fail.
+    Please review the error message for all detected `k2s.exe` locations and remove any outdated or duplicate directories from your `PATH` environment variable before retrying installation.
 
 !!! info
     By default, the installation assumes 6 CPU cores to be available on the host system. If less cores are available, reduce the number of virtual cores used by *K2s* according to the actual amount, e.g. when 4 cores are available, assign max. 4 virtual cores to *K2s*:

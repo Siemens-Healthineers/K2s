@@ -13,7 +13,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
 )
@@ -125,7 +126,7 @@ var _ = Describe("status pkg", func() {
 					It("returns the error", func() {
 						expectedErr := errors.New("oops")
 						loadedStatus := &status.LoadedStatus{}
-						config := &setupinfo.Config{}
+						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("", false, "", false, false), nil)
 
 						loadMock := &mockObject{}
 						loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
@@ -133,7 +134,7 @@ var _ = Describe("status pkg", func() {
 						marshalMock := &mockObject{}
 						marshalMock.On(reflection.GetFunctionName(marshalMock.marshalIndent), mock.AnythingOfType("PrintStatus")).Return([]byte{}, expectedErr)
 
-						sut := status.NewJsonPrinter(config, nil, marshalMock.marshalIndent, loadMock.load)
+						sut := status.NewJsonPrinter(runtimeConfig, nil, marshalMock.marshalIndent, loadMock.load)
 
 						err := sut.Print()
 
@@ -158,11 +159,7 @@ var _ = Describe("status pkg", func() {
 								K8sClientVersion: "321",
 							},
 						}
-						config := &setupinfo.Config{
-							SetupName: "test-name",
-							Version:   "test-version",
-							LinuxOnly: true,
-						}
+						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", true, "test-version", false, false), nil)
 						jsonStatus := "status"
 
 						loadMock := &mockObject{}
@@ -175,9 +172,9 @@ var _ = Describe("status pkg", func() {
 								return false
 							}
 							return *status.Error == failureCode &&
-								status.SetupInfo.Name == string(config.SetupName) &&
-								status.SetupInfo.Version == config.Version &&
-								status.SetupInfo.LinuxOnly == config.LinuxOnly &&
+								status.SetupInfo.Name == string(runtimeConfig.InstallConfig().SetupName()) &&
+								status.SetupInfo.Version == runtimeConfig.InstallConfig().Version() &&
+								status.SetupInfo.LinuxOnly == runtimeConfig.InstallConfig().LinuxOnly() &&
 								status.RunningState.IsRunning &&
 								status.Nodes[0].Name == "n1" &&
 								status.Pods[0].Name == "p1" &&
@@ -188,7 +185,7 @@ var _ = Describe("status pkg", func() {
 						printerMock := &mockObject{}
 						printerMock.On(reflection.GetFunctionName(printerMock.Println), jsonStatus).Once()
 
-						sut := status.NewJsonPrinter(config, printerMock.Println, marshalMock.marshalIndent, loadMock.load)
+						sut := status.NewJsonPrinter(runtimeConfig, printerMock.Println, marshalMock.marshalIndent, loadMock.load)
 
 						err := sut.Print()
 
@@ -213,11 +210,7 @@ var _ = Describe("status pkg", func() {
 								K8sClientVersion: "321",
 							},
 						}
-						config := &setupinfo.Config{
-							SetupName: "test-name",
-							Version:   "test-version",
-							LinuxOnly: true,
-						}
+						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", true, "test-version", false, false), nil)
 						jsonStatus := "status"
 
 						loadMock := &mockObject{}
@@ -230,9 +223,9 @@ var _ = Describe("status pkg", func() {
 								return false
 							}
 							return status.Error == nil &&
-								status.SetupInfo.Name == string(config.SetupName) &&
-								status.SetupInfo.Version == config.Version &&
-								status.SetupInfo.LinuxOnly == config.LinuxOnly &&
+								status.SetupInfo.Name == string(runtimeConfig.InstallConfig().SetupName()) &&
+								status.SetupInfo.Version == runtimeConfig.InstallConfig().Version() &&
+								status.SetupInfo.LinuxOnly == runtimeConfig.InstallConfig().LinuxOnly() &&
 								status.RunningState.IsRunning &&
 								status.Nodes[0].Name == "n1" &&
 								status.Pods[0].Name == "p1" &&
@@ -243,7 +236,7 @@ var _ = Describe("status pkg", func() {
 						printerMock := &mockObject{}
 						printerMock.On(reflection.GetFunctionName(printerMock.Println), jsonStatus).Once()
 
-						sut := status.NewJsonPrinter(config, printerMock.Println, marshalMock.marshalIndent, loadMock.load)
+						sut := status.NewJsonPrinter(runtimeConfig, printerMock.Println, marshalMock.marshalIndent, loadMock.load)
 
 						err := sut.Print()
 
@@ -349,7 +342,7 @@ var _ = Describe("status pkg", func() {
 
 				When("status does not contain K8s version info", func() {
 					It("returns an error", func() {
-						config := &setupinfo.Config{}
+						runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("", false, "", false, false), nil)
 						loadedStatus := &status.LoadedStatus{
 							CmdResult: common.CmdResult{},
 							RunningState: &status.RunningState{
@@ -370,7 +363,7 @@ var _ = Describe("status pkg", func() {
 						loadMock := &mockObject{}
 						loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-						sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+						sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 						err := sut.Print()
 
@@ -379,15 +372,12 @@ var _ = Describe("status pkg", func() {
 				})
 
 				When("successful", func() {
-					var config *setupinfo.Config
+					var runtimeConfig *config.K2sRuntimeConfig
 					var loadedStatus *status.LoadedStatus
 					var spinnerMock *mockObject
 
 					BeforeEach(func() {
-						config = &setupinfo.Config{
-							SetupName: "test-name",
-							Version:   "test-version",
-						}
+						runtimeConfig = config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", false, "test-version", false, false), nil)
 						loadedStatus = &status.LoadedStatus{
 							CmdResult:    common.CmdResult{},
 							RunningState: &status.RunningState{},
@@ -408,7 +398,7 @@ var _ = Describe("status pkg", func() {
 						loadMock := &mockObject{}
 						loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-						sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+						sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 						err := sut.Print()
 
@@ -430,7 +420,7 @@ var _ = Describe("status pkg", func() {
 						loadMock := &mockObject{}
 						loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-						sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+						sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 						err := sut.Print()
 
@@ -441,7 +431,7 @@ var _ = Describe("status pkg", func() {
 
 					When("setup is Linux-only", func() {
 						BeforeEach(func() {
-							config.LinuxOnly = true
+							runtimeConfig = config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("test-name", true, "test-version", false, false), nil)
 						})
 
 						It("prints setup name with Linux-only hint and version", func() {
@@ -457,7 +447,7 @@ var _ = Describe("status pkg", func() {
 							loadMock := &mockObject{}
 							loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-							sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+							sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 							err := sut.Print()
 
@@ -487,7 +477,7 @@ var _ = Describe("status pkg", func() {
 							loadMock := &mockObject{}
 							loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-							sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+							sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 							err := sut.Print()
 
@@ -510,7 +500,7 @@ var _ = Describe("status pkg", func() {
 							loadMock := &mockObject{}
 							loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-							sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+							sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 							err := sut.Print()
 
@@ -540,7 +530,7 @@ var _ = Describe("status pkg", func() {
 							loadMock := &mockObject{}
 							loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-							sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+							sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 							err := sut.Print()
 
@@ -551,7 +541,7 @@ var _ = Describe("status pkg", func() {
 
 						When("setup is build-only", func() {
 							BeforeEach(func() {
-								config.SetupName = setupinfo.SetupNameBuildOnlyEnv
+								runtimeConfig = config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig(definitions.SetupNameBuildOnlyEnv, false, "test-version", false, false), nil)
 								loadedStatus.K8sVersionInfo = nil
 							})
 
@@ -566,7 +556,7 @@ var _ = Describe("status pkg", func() {
 								loadMock := &mockObject{}
 								loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-								sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+								sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 								err := sut.Print()
 
@@ -592,7 +582,7 @@ var _ = Describe("status pkg", func() {
 							loadMock := &mockObject{}
 							loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-							sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+							sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 							err := sut.Print()
 
@@ -662,7 +652,7 @@ var _ = Describe("status pkg", func() {
 								loadMock := &mockObject{}
 								loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-								sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+								sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 								err := sut.Print()
 
@@ -686,7 +676,7 @@ var _ = Describe("status pkg", func() {
 								loadMock := &mockObject{}
 								loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-								sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+								sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 								err := sut.Print()
 
@@ -717,7 +707,7 @@ var _ = Describe("status pkg", func() {
 									loadMock := &mockObject{}
 									loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-									sut := status.NewUserFriendlyPrinter(config, true, printerMock, loadMock.load)
+									sut := status.NewUserFriendlyPrinter(runtimeConfig, true, printerMock, loadMock.load)
 
 									err := sut.Print()
 
@@ -756,7 +746,7 @@ var _ = Describe("status pkg", func() {
 									loadMock := &mockObject{}
 									loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-									sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+									sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 									err := sut.Print()
 
@@ -816,7 +806,7 @@ var _ = Describe("status pkg", func() {
 										loadMock := &mockObject{}
 										loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-										sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+										sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 										err := sut.Print()
 
@@ -840,7 +830,7 @@ var _ = Describe("status pkg", func() {
 										loadMock := &mockObject{}
 										loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-										sut := status.NewUserFriendlyPrinter(config, false, printerMock, loadMock.load)
+										sut := status.NewUserFriendlyPrinter(runtimeConfig, false, printerMock, loadMock.load)
 
 										err := sut.Print()
 
@@ -873,7 +863,7 @@ var _ = Describe("status pkg", func() {
 											loadMock := &mockObject{}
 											loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-											sut := status.NewUserFriendlyPrinter(config, true, printerMock, loadMock.load)
+											sut := status.NewUserFriendlyPrinter(runtimeConfig, true, printerMock, loadMock.load)
 
 											err := sut.Print()
 
@@ -915,7 +905,7 @@ var _ = Describe("status pkg", func() {
 										loadMock := &mockObject{}
 										loadMock.On(reflection.GetFunctionName(loadMock.load)).Return(loadedStatus, nil)
 
-										sut := status.NewUserFriendlyPrinter(config, true, printerMock, loadMock.load)
+										sut := status.NewUserFriendlyPrinter(runtimeConfig, true, printerMock, loadMock.load)
 
 										err := sut.Print()
 

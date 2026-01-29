@@ -13,7 +13,9 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -57,18 +59,18 @@ func NewCmd() *cobra.Command {
 func addNode(ccmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
 	}
 
-	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
+	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
 		return err
 	}
 
@@ -81,7 +83,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	addNodeCmd, err := buildAddNodeCmd(ccmd.Flags(), config.SetupName)
+	addNodeCmd, err := buildAddNodeCmd(ccmd.Flags(), runtimeConfig.InstallConfig().SetupName())
 	if err != nil {
 		return err
 	}
@@ -99,13 +101,13 @@ func addNode(ccmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildAddNodeCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {
+func buildAddNodeCmd(flags *pflag.FlagSet, setupName string) (string, error) {
 	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}
 
-	if setupName != setupinfo.SetupNamek2s {
+	if setupName != definitions.SetupNameK2s {
 		return "", errors.New("adding node is not supported for this setup type. Aborting")
 	}
 	isWindows := flags.Lookup(MachineWindows).Value.String() == "true"

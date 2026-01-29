@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
 package node
@@ -122,7 +122,7 @@ var _ = Describe("Node Communication Core", func() {
 		})
 
 		DescribeTable("System Pods", func(podName string) {
-			suite.Cluster().ExpectPodToBeReady(podName, systemNamespace, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname)
+			suite.Cluster().ExpectPodToBeReady(podName, systemNamespace, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname())
 		},
 			Entry("etcd-HOSTNAME_PLACEHOLDER is available", "etcd-HOSTNAME_PLACEHOLDER"),
 			Entry("kube-scheduler-HOSTNAME_PLACEHOLDER is available", "kube-scheduler-HOSTNAME_PLACEHOLDER"),
@@ -196,7 +196,7 @@ var _ = Describe("Node Communication Core", func() {
 
 func applyDeployments(ctx context.Context) {
 	command := fmt.Sprintf("%s create ns %s --dry-run=client -o yaml | kubectl apply -f -", suite.Kubectl().Path(), namespace)
-	suite.Cli().ExecOrFail(ctx, "cmd.exe", "/c", command)
+	suite.Cli("cmd.exe").MustExec(ctx, "/c", command)
 
 	overlayLinuxDir, overlayWinDir, linuxDirs, winDirs := getDeploymentDirs()
 
@@ -205,7 +205,7 @@ func applyDeployments(ctx context.Context) {
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
-	suite.Kubectl().Run(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
 
 	for _, data := range deployments {
 		suite.Cluster().ExpectDeploymentToBeAvailable(data.DeploymentName, namespace)
@@ -219,11 +219,11 @@ func deleteDeployments(ctx context.Context) {
 	executeDeployment(ctx, linuxDirs, overlayLinuxDir, "delete")
 	executeDeployment(ctx, winDirs, overlayWinDir, "delete")
 
-	suite.Kubectl().Run(ctx, "delete", "ns", namespace)
+	suite.Kubectl().MustExec(ctx, "delete", "ns", namespace)
 }
 
 func getNodes(ctx context.Context, osType string) []string {
-	output := suite.Kubectl().Run(ctx, "get", "nodes", "-l", fmt.Sprintf("kubernetes.io/os=%s", osType), "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\n'}{end}")
+	output := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", fmt.Sprintf("kubernetes.io/os=%s", osType), "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\n'}{end}")
 	output = strings.TrimSpace(output)
 
 	if output == "" {
@@ -266,7 +266,7 @@ spec:
               value: "{{ .AppName }}"
         {{ if eq .OS "linux" -}}
         - name: curl-sidecar
-          image: curlimages/curl:8.5.0
+          image: docker.io/curlimages/curl:8.5.0
           command: ["sleep", "infinity"]
         {{- end }}
       nodeSelector:
@@ -379,7 +379,7 @@ func executeDeployment(ctx context.Context, dirs []fs.DirEntry, overlayDir strin
 	GinkgoWriter.Println("Directories", dirs)
 	for _, dir := range dirs {
 		if dir.IsDir() {
-			suite.Kubectl().Run(ctx, operation, "-k", fmt.Sprintf("%s/%s", overlayDir, dir.Name()))
+			suite.Kubectl().MustExec(ctx, operation, "-k", fmt.Sprintf("%s/%s", overlayDir, dir.Name()))
 			GinkgoWriter.Println("Performed operation", operation, "in ", dir.Name())
 		}
 	}
@@ -463,7 +463,7 @@ func checkCommunication(ctx context.Context, sourcePod, targetPod v1.Pod, sideca
 		command = fmt.Sprintf("%s exec %s -n %s -- curl -si http://%s.%s.svc.cluster.local/%s", cliPath, sourcePod.Name, namespace, targetAppLabel, namespace, targetAppLabel)
 	}
 
-	output := suite.Cli().ExecOrFail(ctx, "cmd.exe", "/c", command)
+	output := suite.Cli("cmd.exe").MustExec(ctx, "/c", command)
 	Expect(strings.TrimSpace(output)).To(ContainSubstring("200"), "Unexpected response")
 }
 
@@ -481,7 +481,7 @@ func checkInternetCommunication(ctx context.Context, pod v1.Pod, sidecarName str
 		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, proxy)
 	}
 
-	output := suite.Cli().ExecOrFail(ctx, "cmd.exe", "/c", command)
+	output := suite.Cli("cmd.exe").MustExec(ctx, "/c", command)
 	Expect(strings.TrimSpace(output)).To(ContainSubstring("200"), "Unexpected response")
 }
 

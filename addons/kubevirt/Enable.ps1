@@ -30,8 +30,6 @@ powershell <installation folder>\addons\Kubevirt\Enable.ps1 -K8sSetup  OnPremise
 #>
 
 Param(
-    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Use software virtualization')]
@@ -55,7 +53,8 @@ Import-Module $infraModule, $clusterModule, $addonsModule, $nodeModule, $kubevir
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
 
 Write-Log 'Checking cluster status' -Console
 

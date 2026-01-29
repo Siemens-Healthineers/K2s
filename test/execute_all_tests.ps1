@@ -82,20 +82,23 @@ if ($ExcludePowershellTests -and $ExcludeGoTests) {
 
 Import-Module "$PSScriptRoot\test.module.psm1" -Force
 
-$pesterVersion = '5.6.1'
-$ginkgoVersion = '2.23.3'
-$rootDir = "$PSScriptRoot\..\"
+$pesterVersion = '5.7.1'
+$ginkgoVersion = '2.27.3'
 
-# switch to drive
-$drive = Split-Path -Path $rootDir -Qualifier
-&$drive
+# Normalize and resolve repository root directory robustly (handles .. and spaces)
+$rootDir = Join-Path -Path $PSScriptRoot -ChildPath '..'
+$rootDir = (Resolve-Path -LiteralPath $rootDir).Path
+
+# Preserve original location and move to root (replaces manual drive switch logic)
+$originalLocation = Get-Location
+Set-Location -LiteralPath $rootDir
+
+Write-Output "Resolved repository root: '$rootDir'"
 
 Write-Output 'All tests execution started.'
 
 $stopWatch = New-Object -TypeName 'System.Diagnostics.Stopwatch'
 $stopWatch.Start()
-
-$currentLocation = Get-Location
 
 $results = @{PowerShell = -1; Go = -1 }
 
@@ -117,6 +120,7 @@ try {
     if (!$ExcludePowershellTests) {
         Install-PesterIfNecessary -Proxy $Proxy -PesterVersion $pesterVersion
 
+        # Ensure working directory is an absolute, normalized path
         Start-PesterTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -V:$V
         $results.PowerShell = $LASTEXITCODE
     }
@@ -127,7 +131,8 @@ try {
     if (!$ExcludeGoTests) {
         Install-GinkgoIfNecessary -Proxy $Proxy -GinkgoVersion $ginkgoVersion
 
-        $goSrcDir = [System.IO.Path]::Combine($rootDir, 'k2s')
+        # Build an absolute path to Go module directory under root
+        $goSrcDir = Join-Path -Path $rootDir -ChildPath 'k2s'
 
         Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $goSrcDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV
         $results.Go = $LASTEXITCODE
@@ -137,7 +142,6 @@ try {
     }
 }
 catch {
-    # re-throw to stop execution also in case of dynamic exceptions, e.g. ParameterBindingValidationException
     throw $_
 }
 
@@ -147,7 +151,8 @@ Write-Output "All tests execution finished after $($stopWatch.ElapsedMillisecond
 Write-Output ''
 Write-Output '------------------------------------------------'
 
-Set-Location $currentLocation
+# Restore original location reliably
+Set-Location -LiteralPath $originalLocation.Path
 Write-Output "Test Results are available under '$TestResultPath'`n"
 
 if ($results.Go -eq 197) {

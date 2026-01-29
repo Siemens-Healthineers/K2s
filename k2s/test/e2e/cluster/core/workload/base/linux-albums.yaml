@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: albums-linux1
-          image: shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0
+          image: shsk2s.azurecr.io/example.albums-golang-linux:v1.5.0
           ports:
             - containerPort: 80
           env:
@@ -59,7 +59,7 @@ spec:
     spec:
       containers:
         - name: albums-linux2
-          image: shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0
+          image: shsk2s.azurecr.io/example.albums-golang-linux:v1.5.0
           ports:
             - containerPort: 80
           env:

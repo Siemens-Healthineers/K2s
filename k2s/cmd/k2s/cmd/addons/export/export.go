@@ -10,14 +10,13 @@ import (
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-
 	ac "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -35,8 +34,6 @@ var exportCommandExample = `
 const (
 	directoryLabel   = "directory"
 	defaultDirectory = ""
-	proxyLabel       = "proxy"
-	defaultproxy     = ""
 	errLinuxOnlyMsg  = "linux-only"
 )
 
@@ -49,7 +46,6 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringP(directoryLabel, "d", defaultDirectory, "Directory for addon export")
-	cmd.Flags().StringP(proxyLabel, "p", defaultproxy, "HTTP Proxy")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -58,17 +54,12 @@ func NewCommand() *cobra.Command {
 
 func runExport(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
-	terminalPrinter := terminal.NewTerminalPrinter()
 	allAddons, err := addons.LoadAddons(utils.InstallDir())
 	if err != nil {
 		return err
 	}
 
 	ac.LogAddons(allAddons)
-
-	if err := ac.ValidateAddonNames(allAddons, "export", terminalPrinter, args...); err != nil {
-		return err
-	}
 
 	psCmd, params, err := buildPsCmd(cmd, args...)
 	if err != nil {
@@ -78,18 +69,18 @@ func runExport(cmd *cobra.Command, args []string) error {
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
 	}
 
-	if config.LinuxOnly {
+	if runtimeConfig.InstallConfig().LinuxOnly() {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
@@ -138,15 +129,6 @@ func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, par
 
 	if outputFlag {
 		params = append(params, " -ShowLogs")
-	}
-
-	httpProxy, err := cmd.Flags().GetString(proxyLabel)
-	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag: %s", proxyLabel)
-	}
-
-	if httpProxy != "" {
-		params = append(params, " -Proxy "+httpProxy)
 	}
 
 	return

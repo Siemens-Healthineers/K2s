@@ -33,6 +33,9 @@ Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
+Write-Log "K2s interacts with Grafana (AGPLv3) solely through its standard, public APIs; no AGPL-licensed code is incorporated or modified, and Grafana is deployed as a container. For this integration scenario, a copyleft assessment was performed with the conclusion that AGPLv3 copyleft obligations are not triggered for this specific scenario." -Console
+Write-Log "[Important] The AGPLv3 terms continue to apply to Grafana itself. Users must independently assess whether the AGPLv3 is appropriate for their use case." -Console
+
 Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured
@@ -76,6 +79,10 @@ Write-Log 'Installing Kube Prometheus Stack' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
 (Invoke-Kubectl -Params 'create', '-f', "$manifestsPath\crds").Output | Write-Log
 (Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
+
+Write-Log 'Deploying Windows Exporter for Windows node metrics' -Console
+$windowsExporterPath = "$PSScriptRoot\..\common\manifests\windows-exporter"
+(Invoke-Kubectl -Params 'apply', '-k', $windowsExporterPath).Output | Write-Log
 
 Write-Log 'Waiting for Pods..'
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=180s')

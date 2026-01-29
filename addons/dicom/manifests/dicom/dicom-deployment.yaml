@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: orthanc
-          image: jodogne/orthanc-plugins:1.12.6
+          image: docker.io/jodogne/orthanc-plugins:1.12.9
           ports:
             - containerPort: 8042
             - containerPort: 4242
@@ -32,7 +32,7 @@ spec:
             - mountPath: /etc/orthanc
               name: json-configmap-volume
         - name: health-checker
-          image: curlimages/curl:8.5.0
+          image: docker.io/curlimages/curl:8.5.0
           command:
             - sh
             - -c

@@ -16,8 +16,18 @@ spec:
           repos: []
           deb: []
           curl: []
-          additionalImages: []
+          additionalImages:
+            - registry.k8s.io/external-dns/external-dns
+            - cr.l5d.io/linkerd/policy-controller:edge-25.4.4
+            - cr.l5d.io/linkerd/controller:edge-25.4.4
+            - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4
+            - shsk2s.azurecr.io/linkerd/proxy-init:v2.4.2
+          additionalImagesFiles:
+            - ../common/manifests/external-dns/deployment.yaml  
         windows:
+          additionalImages:
+            - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4
+            - shsk2s.azurecr.io/linkerd/proxy-init:v2.4.2
           curl:
             - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
@@ -37,10 +47,6 @@ spec:
                   validationSet:
                     - nginx
                     - traefik
-              - name: proxy
-                shorthand: p
-                default: ''
-                description: HTTP Proxy
               - name: type
                 shorthand: t
                 default: basic
@@ -58,11 +64,13 @@ spec:
                 description: Omit keycloak and use external oauth2 provider
                 type: boolean
                 default: false
+              - name: omitOAuth2Proxy
+                description: Omit OAuth2 proxy deployment
+                type: boolean
+                default: false
             examples:
               - cmd: k2s addons enable security
                 comment: Enable security addon with CA issuer configured
-              - cmd: k2s addons enable security --proxy http://10.11.12.13:5000
-                comment: Enable security addon with CA issuer configured using an HTTP proxy
               - cmd: k2s addons enable security --type enhanced
                 comment: Enable security addon with zero trust settings
               - cmd: k2s addons enable security --omitHydra
@@ -71,11 +79,13 @@ spec:
                 comment: Enable security addon and omit keycloak setup
               - cmd: k2s addons enable security --omitHydra --omitKeycloak
                 comment: Enable security addon and omit both hydra/login and keycloak setup
+              - cmd: k2s addons enable security --omitOAuth2Proxy
+                comment: Enable security addon and omit OAuth2 proxy setup
+              - cmd: k2s addons enable security --omitHydra --omitKeycloak --omitOAuth2Proxy
+                comment: Enable security addon and omit hydra/login, keycloak, and OAuth2 proxy setup
           script:
             subPath: Enable.ps1
             parameterMappings:
-              - cliFlagName: proxy
-                scriptParameterName: Proxy
               - cliFlagName: ingress
                 scriptParameterName: Ingress
               - cliFlagName: type
@@ -84,6 +94,8 @@ spec:
                 scriptParameterName: OmitHydra
               - cliFlagName: omitKeycloak
                 scriptParameterName: OmitKeycloak
+              - cliFlagName: omitOAuth2Proxy
+                scriptParameterName: OmitOAuth2Proxy
         disable:
           cli:
             examples:

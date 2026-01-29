@@ -4,6 +4,7 @@ package os
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -49,15 +50,27 @@ func IsFileYoungerThan(duration time.Duration, rootDir string, name string) bool
 
 	GinkgoWriter.Println("Checking if file <", name, "> in dir <", rootDir, "> is younger than <", duration, ">")
 
-	err := filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
-		if isSymLink(info.Mode()) {
-			GinkgoWriter.Println("Path <", path, "> is sym link")
+	err := filepath.WalkDir(rootDir, func(path string, info fs.DirEntry, _ error) error {
+		GinkgoWriter.Println("Currently walking", "path", path)
+
+		if info == nil {
+			GinkgoWriter.Println("Dir/file info not yet available")
+			return nil
+		}
+
+		fileInfo, err := info.Info()
+		if err != nil {
+			return fmt.Errorf("failed to get file info for %s: %w", path, err)
+		}
+
+		if isSymLink(fileInfo.Mode()) {
+			GinkgoWriter.Println("Path <", path, "> is symbolic link")
 
 			dir := symLinkToDir(path)
 
 			fileIsYounger = IsFileYoungerThan(duration, dir, name)
-		} else if isDesiredFile(name, info) {
-			fileIsYounger = isFileYoungerThan(duration, info)
+		} else if isDesiredFile(name, fileInfo) {
+			fileIsYounger = isFileYoungerThan(duration, fileInfo)
 		}
 
 		return nil
@@ -66,6 +79,43 @@ func IsFileYoungerThan(duration time.Duration, rootDir string, name string) bool
 	Expect(err).ToNot(HaveOccurred())
 
 	return fileIsYounger
+}
+
+func IsFileExists(rootDir string, name string) bool {
+	fileExists := false
+
+	GinkgoWriter.Println("Checking if file <", name, "> exists in dir <", rootDir, ">")
+
+	err := filepath.WalkDir(rootDir, func(path string, info fs.DirEntry, _ error) error {
+		GinkgoWriter.Println("Currently walking", "path", path)
+
+		if info == nil {
+			GinkgoWriter.Println("Dir/file info not yet available")
+			return nil
+		}
+
+		fileInfo, err := info.Info()
+		if err != nil {
+			return fmt.Errorf("failed to get file info for %s: %w", path, err)
+		}
+
+		if isSymLink(fileInfo.Mode()) {
+			GinkgoWriter.Println("Path <", path, "> is symbolic link")
+
+			dir := symLinkToDir(path)
+
+			fileExists = IsFileExists(dir, name)
+		} else if isDesiredFile(name, fileInfo) {
+			fileExists = true
+			return filepath.SkipAll
+		}
+
+		return nil
+	})
+
+	Expect(err).ToNot(HaveOccurred())
+
+	return fileExists
 }
 
 func isSymLink(mode fs.FileMode) bool {

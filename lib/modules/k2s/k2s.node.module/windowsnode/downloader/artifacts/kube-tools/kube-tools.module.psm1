@@ -128,6 +128,19 @@ function Install-WinKubelet {
     &$kubeBinPath\nssm install kubelet $powershell
     &$kubeBinPath\nssm set kubelet AppParameters "$powershellArgs `"Invoke-Command {&'$startKubeletScriptPath'}`"" | Out-Null
     &$kubeBinPath\nssm set kubelet DependOnService containerd | Out-Null
+    
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
+    
+    
+    $k2sHosts = Get-K2sHosts
+    $noProxyValue = $k2sHosts -join ','
+    
+    # Build environment variables as separate lines for NSSM
+    $envVars = "HTTP_PROXY=$httpProxyUrl`r`nHTTPS_PROXY=$httpProxyUrl`r`nNO_PROXY=$noProxyValue"
+    &$kubeBinPath\nssm set kubelet AppEnvironmentExtra $envVars | Out-Null
+    Write-Log "Kubelet service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
+    
     &$kubeBinPath\nssm set kubelet AppStdout "$($systemDefaultDriveLetter):\var\log\kubelet\kubelet_stdout.log" | Out-Null
     &$kubeBinPath\nssm set kubelet AppStderr "$($systemDefaultDriveLetter):\var\log\kubelet\kubelet_stderr.log" | Out-Null
     &$kubeBinPath\nssm set kubelet AppStdoutCreationDisposition 4 | Out-Null
@@ -147,7 +160,21 @@ function Install-WinKubeProxy {
     &$kubeBinPath\nssm set kubeproxy AppDirectory "$kubeToolsPath" | Out-Null
     $hn = ($(hostname)).ToLower()
     &$kubeBinPath\nssm set kubeproxy AppParameters "--proxy-mode=kernelspace --hostname-override=$hn --kubeconfig=\`"$kubePath\config\`" --enable-dsr=false " | Out-Null
-    &$kubeBinPath\nssm set kubeproxy AppEnvironmentExtra KUBE_NETWORK=cbr0 | Out-Null
+    
+    # Configure kube-proxy to use HTTP proxy service for external requests
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
+    
+    # Get K2s hosts for no-proxy configuration
+    $k2sHosts = Get-K2sHosts
+    $noProxyValue = $k2sHosts -join ','
+    
+    # Set proxy environment variables for kube-proxy service
+    # Build environment variables as separate lines for NSSM
+    $envVars = "KUBE_NETWORK=cbr0`r`nHTTP_PROXY=$httpProxyUrl`r`nHTTPS_PROXY=$httpProxyUrl`r`nNO_PROXY=$noProxyValue"
+    &$kubeBinPath\nssm set kubeproxy AppEnvironmentExtra $envVars | Out-Null
+    Write-Log "Kube-proxy service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
+    
     &$kubeBinPath\nssm set kubeproxy DependOnService kubelet | Out-Null
     &$kubeBinPath\nssm set kubeproxy AppStdout "$($systemDefaultDriveLetter):\var\log\kubeproxy\kubeproxy_stdout.log" | Out-Null
     &$kubeBinPath\nssm set kubeproxy AppStderr "$($systemDefaultDriveLetter):\var\log\kubeproxy\kubeproxy_stderr.log" | Out-Null

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,11 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: rollout
-  description: Automating the deployment/updating of applications
+  description: Automating the deployment/updating of applications using GitOps
 spec:
   implementations:
-    - name: rollout
-      description: Automating the deployment/updating of applications
+    - name: argocd
+      description: Automating the deployment/updating of applications using ArgoCD
       commands:
         enable:
           cli:
@@ -18,35 +18,60 @@ spec:
               - name: ingress
                 shorthand: i
                 default: none
-                description: Ingress controller to use for exposing the rollout dashboard
+                description: Ingress controller to use for exposing the ArgoCD dashboard
                 constraints:
                   kind: validation-set
                   validationSet:
                     - none
                     - nginx
                     - traefik
-              - name: proxy
-                shorthand: p
-                default: ""
-                description: HTTP Proxy
             examples:
-              - cmd: k2s addons enable rollout
-                comment: Enable rollout in k2s
-              - cmd: k2s addons enable rollout --ingress traefik
-                comment: Enable rollout in k2s with traefik ingress
-              - cmd: k2s addons enable rollout --proxy http://10.11.12.13:5000
-                comment: Enable rollout in k2s with proxy
+              - cmd: k2s addons enable rollout argocd
+                comment: Enable rollout with ArgoCD in k2s
+              - cmd: k2s addons enable rollout argocd --ingress traefik
+                comment: Enable rollout with ArgoCD in k2s with traefik ingress
           script:
-            subPath: Enable.ps1
+            subPath: argocd/Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
-              - cliFlagName: proxy
-                scriptParameterName: Proxy
         disable:
           cli:
             examples:
-              - cmd: k2s addons disable rollout
-                comment: Disable addon rollout in k2s
+              - cmd: k2s addons disable rollout argocd
+                comment: Disable rollout ArgoCD addon in k2s
           script:
-            subPath: Disable.ps1
+            subPath: argocd/Disable.ps1
+    - name: fluxcd
+      description: Automating the deployment/updating of applications using Flux CD
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: ingress
+                shorthand: i
+                default: none
+                description: Ingress controller for webhook receiver (Git push notifications)
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - none
+                    - nginx
+                    - traefik
+            examples:
+              - cmd: k2s addons enable rollout fluxcd
+                comment: Enable rollout with Flux CD in k2s
+              - cmd: k2s addons enable rollout fluxcd --ingress nginx
+                comment: Enable rollout with Flux CD and webhook ingress in k2s
+          script:
+            subPath: fluxcd/Enable.ps1
+            parameterMappings:
+              - cliFlagName: ingress
+                scriptParameterName: Ingress
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable rollout fluxcd
+                comment: Disable rollout Flux CD addon in k2s
+          script:
+            subPath: fluxcd/Disable.ps1

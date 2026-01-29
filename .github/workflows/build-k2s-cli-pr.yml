@@ -1,0 +1,106 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Build k2s Pipeline
+# Responsible for trigerring build for k2s executable when the source is changed.
+
+name: "Build - k2s CLI with PR"
+
+on:
+  workflow_dispatch:
+#  push:
+#    branches:
+#      - "main"
+#    paths:
+#      - 'k2s/**'
+#      - '!k2s/test/**'
+
+env:
+  GOVERSION: "1.25.6"
+
+jobs:
+  build-k2s-cli:
+    name: Build k2s CLI PR
+    timeout-minutes: 30
+    continue-on-error: false
+    runs-on: windows-latest
+    env:
+      CI_COMMIT_MESSAGE: "ci: auto-commit k2s cli"
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4      
+      
+    - name: Set up Golang
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{env.GOVERSION}}
+        cache-dependency-path: "**/*.sum"
+
+    - name: Configure repo
+      run: |
+        git config --local user.email github-actions@github.com
+        git config --local user.name github-actions
+        git remote set-url origin https://x-access-token:${{ secrets.AUTOCOMMIT_TOKEN }}@github.com/${{ github.repository }}
+        git remote -v
+
+    - name: Show all diff
+      run: |
+        git diff --exit-code -- .
+
+    - name: Current working directory
+      run: |
+        ls
+
+    - name: Build k2s executable
+      run: |
+        .\smallsetup\common\BuildGoExe.ps1
+        ls
+
+    - name: Create temporary branch for commit
+      id: create_branch
+      shell: powershell
+      run: |
+         $branchName = "ci-auto-commit-binary-" + (Get-Date -Format "yyyyMMddHHmmss")
+         Write-Host "Created branch $branchName"
+         git checkout -b $branchName
+         Add-Content -Path $env:GITHUB_OUTPUT -Value "branch=$branchName"
+         
+    - name: Configure git to auto set upstream on push
+      run: git config --global push.autoSetupRemote true
+      
+    - name: Debug branch output
+      run: echo "Branch:${{ steps.create_branch.outputs.branch }}" 
+      
+    - name: Commit changes
+      shell: powershell
+      run: |
+        git add k2s.exe
+        git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
+        git push --set-upstream origin ${{ steps.create_branch.outputs.branch }}
+
+    - name: Ensure automerge label exists
+      run: |
+        gh label create automerge --color FF0000 --description "Automatically merge PRs" || echo "Label exists"
+      env:
+        GITHUB_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
+    
+    - name: Create PR
+      shell: pwsh
+      run: |
+        gh pr create `
+          --base main `
+          --head ${{ steps.create_branch.outputs.branch }} `
+          --title "ci: auto-commit k2s cli" `
+          --body "Automatic PR created for CI build" `
+          --label automerge
+      env:
+        GITHUB_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
+
+
+
+
+
+
+
+

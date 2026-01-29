@@ -18,7 +18,7 @@ $windowsNode_DockerDirectory = 'docker'
 
 function Invoke-DownloadDockerArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $dockerDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_DockerDirectory"
-    $DockerVersion = '27.3.1'
+    $DockerVersion = '29.2.0'
     $compressedDockerFile = 'docker-' + $DockerVersion + '.zip'
     $compressedFile = "$dockerDownloadsDirectory\$compressedDockerFile"
 
@@ -110,13 +110,27 @@ function Install-WinDocker {
 
         if ( $Proxy -ne '' ) {
             Write-Log("Setting proxy for docker: $Proxy")
+            
+            $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+            $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
+            
+            $k2sHosts = Get-K2sHosts
+            $allNoProxyHosts = @()
+            $allNoProxyHosts += $k2sHosts
+            
             $ipControlPlane = Get-ConfiguredIPControlPlane
             $clusterCIDR = Get-ConfiguredClusterCIDR
             $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
             $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-
-            $NoProxy = "localhost,$ipControlPlane,10.81.0.0/16,$clusterCIDR,$clusterCIDRServices,$ipControlPlaneCIDR,.local"
-            &$kubeBinPath\nssm set docker AppEnvironmentExtra HTTP_PROXY=$Proxy HTTPS_PROXY=$Proxy NO_PROXY=$NoProxy | Out-Null
+            
+            $allNoProxyHosts += @("localhost", $ipControlPlane, "10.81.0.0/16", $clusterCIDR, $clusterCIDRServices, $ipControlPlaneCIDR, ".local")
+            $uniqueNoProxyHosts = $allNoProxyHosts | Sort-Object -Unique
+            $NoProxy = $uniqueNoProxyHosts -join ','
+            
+            # Build environment variables as separate lines for NSSM
+            $envVars = "HTTP_PROXY=$httpProxyUrl`r`nHTTPS_PROXY=$httpProxyUrl`r`nNO_PROXY=$NoProxy"
+            &$kubeBinPath\nssm set docker AppEnvironmentExtra $envVars | Out-Null
+            Write-Log "Docker service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $NoProxy"
             &$kubeBinPath\nssm get docker AppEnvironmentExtra
         }
     }

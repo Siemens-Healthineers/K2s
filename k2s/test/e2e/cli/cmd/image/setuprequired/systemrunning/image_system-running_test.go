@@ -32,21 +32,21 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("image reset-win-storage", func() {
 	It("prints system-running message and exits with non-zero", func(ctx context.Context) {
-		if suite.SetupInfo().SetupConfig.LinuxOnly {
+		if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 			Skip("Linux-only")
 		}
 
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "reset-win-storage")
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("still running"))
 	})
 
 	It("prints not supported for linux-only", func(ctx context.Context) {
-		if !suite.SetupInfo().SetupConfig.LinuxOnly {
+		if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 			Skip("not Linux-only")
 		}
 
-		output := suite.K2sCli().RunWithExitCode(ctx, -1, "image", "reset-win-storage")
+		output, _ := suite.K2sCli().ExpectedExitCode(-1).Exec(ctx, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("Resetting WinContainerStorage for Linux-only setup is not supported."))
 	})

@@ -12,8 +12,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	cfg "github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
 
@@ -21,13 +20,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type mockSetupConfigProvider struct {
+type mockRuntimeConfigProvider struct {
 	mock.Mock
 }
 
-func (m *mockSetupConfigProvider) ReadConfig(configDir string) (*setupinfo.Config, error) {
+func (m *mockRuntimeConfigProvider) ReadConfig(configDir string) (*config.K2sRuntimeConfig, error) {
 	args := m.Called(configDir)
-	return args.Get(0).(*setupinfo.Config), args.Error(1)
+	return args.Get(0).(*config.K2sRuntimeConfig), args.Error(1)
 }
 
 type mockPowershellExecutor struct {
@@ -114,10 +113,10 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 	Describe("resetWinStorage", func() {
 		Context("when k2s is not installed", func() {
 			It("command is executed", func() {
-				mockSetupConfigProvider := &mockSetupConfigProvider{}
+				mockSetupConfigProvider := &mockRuntimeConfigProvider{}
 				mockPowershellExecutor := &mockPowershellExecutor{}
-				var nilConfig *setupinfo.Config
-				mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.ReadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
+				var nilConfig *config.K2sRuntimeConfig
+				mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.ReadConfig), mock.AnythingOfType("string")).Return(nilConfig, config.ErrSystemNotInstalled)
 				mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
 				getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
 				getPowershellExecutor = func() powershellExecutor { return mockPowershellExecutor }
@@ -132,12 +131,10 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 		Context("when k2s installation is corrupted", func() {
 			Context("when default k2s variant", func() {
 				It("command is executed", func() {
-					mockSetupConfigProvider := &mockSetupConfigProvider{}
+					mockSetupConfigProvider := &mockRuntimeConfigProvider{}
 					mockPowershellExecutor := &mockPowershellExecutor{}
-					config := &setupinfo.Config{
-						Corrupted: true,
-					}
-					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.ReadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
+					k2sConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("", false, "", true, false), nil)
+					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.ReadConfig), mock.AnythingOfType("string")).Return(k2sConfig, config.ErrSystemInCorruptedState)
 					mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
 					getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
 					getPowershellExecutor = func() powershellExecutor { return mockPowershellExecutor }
@@ -150,13 +147,10 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 			})
 			Context("when Linux-only variant", func() {
 				It("command is executed", func() {
-					mockSetupConfigProvider := &mockSetupConfigProvider{}
+					mockSetupConfigProvider := &mockRuntimeConfigProvider{}
 					mockPowershellExecutor := &mockPowershellExecutor{}
-					config := &setupinfo.Config{
-						Corrupted: true,
-						LinuxOnly: true,
-					}
-					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.ReadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
+					k2sConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("", true, "", true, false), nil)
+					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.ReadConfig), mock.AnythingOfType("string")).Return(k2sConfig, config.ErrSystemInCorruptedState)
 					mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
 					getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
 					getPowershellExecutor = func() powershellExecutor { return mockPowershellExecutor }
@@ -172,10 +166,10 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 		Context("when k2s is installed", func() {
 			Context("error encountered while reading setup details", func() {
 				It("returns error", func() {
-					mockSetupConfigProvider := &mockSetupConfigProvider{}
+					mockSetupConfigProvider := &mockRuntimeConfigProvider{}
 					mockPowershellExecutor := &mockPowershellExecutor{}
 					err := errors.New("error")
-					var nilConfig *setupinfo.Config
+					var nilConfig *config.K2sRuntimeConfig
 					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.ReadConfig), mock.AnythingOfType("string")).Return(nilConfig, err)
 					mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
 					getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
@@ -196,6 +190,8 @@ func resetFlags() {
 	resetWinStorageCmd.Flags().Set(dockerDirFlag, "")
 	resetWinStorageCmd.Flags().Set(maxRetryFlag, "1")
 	resetWinStorageCmd.Flags().Set(forceZapFlag, "false")
-	cmdContext := common.NewCmdContext(&cfg.Config{HostConfig: cfg.HostConfig{K2sConfigDirectory: "some-dir"}}, nil)
+
+	k2sConfig := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
+	cmdContext := common.NewCmdContext(k2sConfig, nil)
 	resetWinStorageCmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 }

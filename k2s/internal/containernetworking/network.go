@@ -124,8 +124,13 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	}
 	slog.Error("ADD", "k8s-namespace", k8sNamespace)
 
+	// Normalize CNI config: replace "type": "bridge" with "type": "sdnbridge" for Windows compatibility
+	// The Linux bridge plugin uses "bridge" but Windows expects "sdnbridge" for L2Bridge networks
+	normalizedStdinData := strings.Replace(string(args.StdinData), `"type": "bridge"`, `"type": "sdnbridge"`, 1)
+	normalizedStdinData = strings.Replace(normalizedStdinData, `"type":"bridge"`, `"type":"sdnbridge"`, 1)
+
 	// Parse network configuration from stdin.
-	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
+	cniConfig, err := cni.ParseNetworkConfig([]byte(normalizedStdinData))
 	if err != nil {
 		slog.Error("failed to parse network configuration", "error", err)
 		return err
@@ -167,7 +172,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		// The network must be created beforehand
 		nwConfig, err = plugin.nm.GetNetworkByName(cniConfig.Name)
 
-		if nwConfig.Type != network.L2Bridge {
+		if nwConfig.Type != hcn.L2Bridge {
 			slog.Error("dual stack specified with non l2bridge network", "network-type", nwConfig.Type)
 			return errors.New("dual stack specified with non l2bridge network")
 		}
@@ -372,8 +377,14 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	if err == nil {
 		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
 	}
+
+	// Normalize CNI config: replace "type": "bridge" with "type": "sdnbridge" for Windows compatibility
+	// The Linux bridge plugin uses "bridge" but Windows expects "sdnbridge" for L2Bridge networks
+	normalizedStdinData := strings.Replace(string(args.StdinData), `"type": "bridge"`, `"type": "sdnbridge"`, 1)
+	normalizedStdinData = strings.Replace(normalizedStdinData, `"type":"bridge"`, `"type":"sdnbridge"`, 1)
+
 	// Parse network configuration from stdin.
-	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
+	cniConfig, err := cni.ParseNetworkConfig([]byte(normalizedStdinData))
 	if err != nil {
 		slog.Error("failed to parse network configuration", "error", err)
 		return err
@@ -627,4 +638,14 @@ func isEnhancedSecurityEnabled() bool {
 	slog.Debug("Enhanced security off, marker file is not set under programdata folder")
 
 	return false
+}
+
+// Check handles CNI CHECK commands.
+// args.ContainerID - ID of the container for which network endpoint is to be checked.
+// args.Netns - Network Namespace Id (required).
+// args.IfName - Interface Name specifies the interface the network should bind to (ex: Ethernet).
+// args.Path - Location of the config file.
+func (plugin *netPlugin) Check(args *cniSkel.CmdArgs) error {
+	slog.Debug("[cni-net] CHECK is currently NOT implemented! Called with args: %v", args)
+	return nil
 }

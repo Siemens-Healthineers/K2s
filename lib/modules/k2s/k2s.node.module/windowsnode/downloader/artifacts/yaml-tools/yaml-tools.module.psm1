@@ -20,13 +20,13 @@ function Invoke-DownloadYamlArtifacts($downloadsBaseDirectory, $Proxy, $windowsN
     Write-Log "Download jq executable"
 
     $downloadedFile1 = "$yamlDownloadsDirectory\jq.exe"
-    Invoke-DownloadFile "$downloadedFile1" https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe $true $Proxy
+    Invoke-DownloadFile "$downloadedFile1" https://github.com/stedolan/jq/releases/download/jq-1.8.1/jq-win64.exe $true $Proxy
     Move-Item -Path "$downloadedFile1" -Destination $yamlDownloadsDirectory
     Write-Log "Move $downloadedFile1 to $yamlDownloadsDirectory done"
 
     $downloadedFile2 = "$yamlDownloadsDirectory\yq.exe"
     Write-Log "Download yq executable"
-    Invoke-DownloadFile "$downloadedFile2" https://github.com/mikefarah/yq/releases/download/v4.33.3/yq_windows_amd64.exe $true $Proxy
+    Invoke-DownloadFile "$downloadedFile2" https://github.com/mikefarah/yq/releases/download/v4.50.1/yq_windows_amd64.exe $true $Proxy
     Move-Item -Path "$downloadedFile2" -Destination $yamlDownloadsDirectory
     Write-Log "Move $downloadedFile2 to $yamlDownloadsDirectory done"
 
@@ -44,6 +44,6 @@ function Invoke-DeployYamlArtifacts($windowsNodeArtifactsDirectory) {
     if (!(Test-Path "$yamlDirectory")) {
         throw "Directory '$yamlDirectory' does not exist"
     }
-    Write-Log "Publish yaml artifacts"
-    Copy-Item -Path "$yamlDirectory\*" -Destination "$kubeBinPath" -Recurse -Force
+    Write-Log "Deploy yaml artifacts from '$yamlDirectory' to '$kubeBinPath'"
+    Copy-Item -Path "$yamlDirectory\*" -Destination "$kubeBinPath" -Force
 }

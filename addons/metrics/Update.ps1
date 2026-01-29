@@ -8,11 +8,21 @@ $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $metricsModule = "$PSScriptRoot\metrics.module.psm1"
 Import-Module $addonsModule, $metricsModule
 
+# Deploy Windows Exporter as HostProcess container (shared resource, idempotent)
+Write-Log 'Deploying Windows Exporter (shared resource for metrics collection)' -Console
+$windowsExporterManifest = Get-WindowsExporterManifestDir
+(Invoke-Kubectl -Params 'apply', '-k', $windowsExporterManifest).Output | Write-Log
+
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
 	Write-Log "Updating metrics addon to be part of service mesh"  
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"4443\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'metrics-server', '-n', 'metrics', '-p', $annotations).Output | Write-Log
+
+	# Patch Windows Exporter DaemonSet for service mesh
+	Write-Log "Updating Windows Exporter to be part of service mesh"
+	$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations2, '--ignore-not-found').Output | Write-Log
 
 	$maxAttempts = 30
 	$attempt = 0
@@ -33,6 +43,11 @@ if ($EnancedSecurityEnabled) {
 	Write-Log "Updating metrics addon to not be part of service mesh"
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'metrics-server', '-n', 'metrics', '-p', $annotations).Output | Write-Log
+
+	# Remove Linkerd injection from Windows Exporter
+	Write-Log "Updating Windows Exporter to not be part of service mesh"
+	$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":null}}}}}'
+	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations2, '--ignore-not-found').Output | Write-Log
 
 	$maxAttempts = 30
 	$attempt = 0

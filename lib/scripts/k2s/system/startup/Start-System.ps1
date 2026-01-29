@@ -147,18 +147,35 @@ try {
                 Write-Log "[$logUseCase] Loopback Adapter is not disabled, must be a start of windows after no stop was done"
                 $adapterName = Get-L2BridgeName
                 $PodSubnetworkNumber = '1'
-                Stop-Service -Name 'flanneld' -ErrorAction SilentlyContinue
+                
+                # Stop flanneld and wait for it to fully stop to prevent race condition with L2 bridge
+                Write-Log "[$logUseCase] Stopping flanneld service..."
+                Stop-Service -Name 'flanneld' -Force -ErrorAction SilentlyContinue
+                $stopped = Wait-ForServiceStopped -ServiceName 'flanneld' -MaxRetries 10 -SleepSeconds 1
+                if (-not $stopped) {
+                    Write-Log "[$logUseCase] WARNING: flanneld service did not stop cleanly, continuing anyway"
+                }
+                
+                # Additional delay to ensure flanneld releases all L2 bridge resources
+                Start-Sleep -Seconds 2
+                
                 Enable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
                 $return = Wait-NetInterfaceAdapterUp -AdapterName $adapterName
                 if ($return -eq $true) {
                     $DnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $adapterName
                     Enable-LoopbackAdapter
+                    Write-Log "[$logUseCase] Remove and recreate external switch"
                     Remove-ExternalSwitch
                     New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
                     Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
+                    Write-Log "[$logUseCase] External switch recreated successfully, restart flanneld service"
+                    Confirm-LoopbackAdapterIP
                     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
+                    Write-Log "[$logUseCase] Waiting for k8s L2 bridge network to be ready"
                     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
+                    Write-Log "[$logUseCase] L2 bridge network is ready, attempt to repair kubeswitch"
                     Repair-KubeSwitch
+                    # Set-PrivateNetworkProfileForLoopbackAdapter
                 }
                 else {
                     Write-Log "[$logUseCase] ERROR: Could not repair k8s network !"
@@ -173,6 +190,7 @@ try {
     }
 }
 catch {
+    Confirm-LoopbackAdapterIP
     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
     Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
 

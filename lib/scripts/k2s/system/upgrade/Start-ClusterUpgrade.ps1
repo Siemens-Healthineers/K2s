@@ -27,6 +27,8 @@ Param(
 	[switch] $DeleteFiles = $false,
 	[parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
 	[switch] $ShowLogs = $false,
+	[Parameter(Mandatory = $false, HelpMessage = 'Skip takeover of container images')]
+	[switch] $SkipImages = $false,
 	[parameter(Mandatory = $false, HelpMessage = 'Config file for setting up new cluster')]
 	[string] $Config,
 	[parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
@@ -42,10 +44,35 @@ $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot/../../../../../addons\addons.module.psm1"
 
+Initialize-Logging -ShowLogs:$ShowLogs
+
+# Check if we're running from a delta package directory
+$deltaManifestPath = Join-Path $PSScriptRoot '..\..\..\..\..\delta-manifest.json'
+if (Test-Path $deltaManifestPath) {
+	Write-Log "Delta package detected at '$deltaManifestPath' - performing in-place update instead of full upgrade" -Console
+	
+	# Call the delta update script instead
+	$updateScriptPath = Join-Path $PSScriptRoot '..\..\..\..\..\lib\scripts\k2s\system\update\Start-ClusterUpdate.ps1'
+	
+	if (-not (Test-Path $updateScriptPath)) {
+		Write-Log "ERROR: Delta update script not found at '$updateScriptPath'" -Console
+		throw "Delta update script not found"
+	}
+	
+	# Pass through all parameters to the update script
+	$updateParams = @{}
+	if ($ShowLogs) { $updateParams['ShowLogs'] = $true }
+	
+	Write-Log "Executing delta update: $updateScriptPath" -Console
+	& $updateScriptPath @updateParams
+	
+	# Exit after delta update completes
+	exit $LASTEXITCODE
+}
 
 Import-Module $infraModule, $clusterModule, $addonsModule
-
-Initialize-Logging -ShowLogs:$ShowLogs
+# If we reach here, we're doing a normal full upgrade
+Write-Log "Performing full cluster upgrade from installation package" -Console
 
 <#
  .Synopsis
@@ -96,6 +123,8 @@ function Start-ClusterUpgrade {
 	$addonsBackupPath = [ref]''
 	$hooksBackupPath = [ref]''
 	$logFilePathBeforeUninstall = [ref]''
+	$imagesBackupPath = [ref]''
+	$pvBackupPath = [ref]''
 
 	if ($BackupDir -eq '') {
 		$BackupDir = Get-TempPath
@@ -104,7 +133,7 @@ function Start-ClusterUpgrade {
 	Write-Log "The backup directory is '$BackupDir'"
 
 	try {
-		$prepareSuccess = PrepareClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -Force:$Force -AdditionalHooksDir $AdditionalHooksDir -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+		$prepareSuccess = PrepareClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -SkipImages:$SkipImages -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -Force:$Force -AdditionalHooksDir $AdditionalHooksDir -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall -imagesBackupPath $imagesBackupPath -pvBackupPath $pvBackupPath
 		if (-not $prepareSuccess) {
 			return $false
 		}
@@ -120,7 +149,7 @@ function Start-ClusterUpgrade {
 
 	$installedFolder = Get-ClusterInstalledFolder
 	try {
-		PerformClusterUpgrade -ExecuteHooks:$true -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value
+		PerformClusterUpgrade -ExecuteHooks:$true -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value -SkipImages:$SkipImages -skipResources:$SkipResources
 	}
 	catch {
 		Write-Log 'System upgrade failed, will rollback to previous state !'
@@ -128,8 +157,8 @@ function Start-ClusterUpgrade {
 			 # backup log file since it will be deleted during uninstall
 			$logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
 			Backup-LogFile -LogFile $logFilePathBeforeUninstall.Value
-			#Execute the upgrade without executing the upgrade hooks and from the installed folder (folder used before upgrade)
-			PerformClusterUpgrade -ExecuteHooks:$false -K2sPathToInstallFrom $installedFolder -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value
+			 #Execute the upgrade without executing the upgrade hooks and from the installed folder (folder used before upgrade)
+			 PerformClusterUpgrade -ExecuteHooks:$false -K2sPathToInstallFrom $installedFolder -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value -SkipImages:$SkipImages -skipResources:$SkipResources
 		}
 		catch {
 			Write-Log 'An ERROR occurred:' -Console
@@ -158,7 +187,7 @@ function Start-ClusterUpgrade {
 #####################################################
 
 Write-Log 'Starting upgrading cluster' -Console
-$ret = Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -Force:$Force
+$ret = Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy -SkipImages:$SkipImages -BackupDir $BackupDir -Force:$Force
 if ( $ret ) {
 	Restore-MergeLogFiles
 }

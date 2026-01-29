@@ -23,7 +23,7 @@ function Invoke-DownloadDnsProxyArtifacts($downloadsBaseDirectory, $Proxy) {
     Write-Log "Create folder '$dnsproxyDownloadsDirectory'"
     mkdir $dnsproxyDownloadsDirectory | Out-Null
     Write-Log 'Download dnsproxy'
-    Invoke-DownloadFile "$compressedFile" https://github.com/AdguardTeam/dnsproxy/releases/download/v0.75.0/dnsproxy-windows-amd64-v0.75.0.zip $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/AdguardTeam/dnsproxy/releases/download/v0.78.2/dnsproxy-windows-amd64-v0.78.2.zip $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     $ErrorActionPreference = 'SilentlyContinue'
@@ -53,6 +53,17 @@ function Install-WinDnsProxy {
     mkdir -Force "$(Get-SystemDriveLetter):\var\log\dnsproxy" | Out-Null
     &$kubeBinPath\nssm install dnsproxy $kubeBinPath\dnsproxy.exe
     &$kubeBinPath\nssm set dnsproxy AppDirectory $kubeBinPath | Out-Null
+
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
+    
+    $k2sHosts = Get-K2sHosts
+    $noProxyValue = $k2sHosts -join ','
+    
+    # Build environment variables as separate lines for NSSM
+    $envVars = "HTTP_PROXY=$httpProxyUrl`r`nHTTPS_PROXY=$httpProxyUrl`r`nNO_PROXY=$noProxyValue"
+    &$kubeBinPath\nssm set dnsproxy AppEnvironmentExtra $envVars | Out-Null
+    Write-Log "DNS Proxy service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
 
     Write-Log 'Creating dnsproxy.yaml (config for dnsproxy.exe)'
     

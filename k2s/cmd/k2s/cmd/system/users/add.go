@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package users
@@ -9,11 +9,10 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	config_contract "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	users_contract "github.com/siemens-healthineers/k2s/internal/contracts/users"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-	"github.com/siemens-healthineers/k2s/internal/core/users"
-	"github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/siemens-healthineers/k2s/internal/users"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +35,10 @@ func newAddCommand() *cobra.Command {
 
 	cmd.Flags().StringP(userNameFlag, "u", "", "Windows user name, e.g. 'johndoe' or 'johnsdomain\\johndoe'")
 	cmd.Flags().StringP(userIdFlag, "i", "", "Windows user id, e.g. 'S-1-2-34-567898765-4321234567-8987654321-234567'")
+
+	cmd.MarkFlagsMutuallyExclusive(userNameFlag, userIdFlag)
+	cmd.MarkFlagsOneRequired(userNameFlag, userIdFlag)
+
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -55,17 +58,9 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if (userName == "" && userId == "") || (userName != "" && userId != "") {
-		return &common.CmdFailure{
-			Severity: common.SeverityWarning,
-			Code:     "users-add-parameter-validation-failed",
-			Message:  "either user name (-u) or user id (-i) must be specified",
-		}
-	}
+	k2sConfig := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
 
-	cfg := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
-
-	config, err := loadSetupConfig(cfg.Host().K2sConfigDir())
+	runtimeConfig, err := loadSetupConfig(k2sConfig.Host().K2sSetupConfigDir())
 	if err != nil {
 		return err
 	}
@@ -79,13 +74,19 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	err = addUser(userName, userId, cfg, config.ClusterName)
+	addUserIntegration := users.NewAddUserIntegration(k2sConfig, runtimeConfig, users.WinUsersProvider())
+
+	if userName != "" {
+		err = addUserIntegration.AddByName(userName)
+	} else {
+		err = addUserIntegration.AddById(userId)
+	}
 	if err != nil {
-		var userNotFoundErr users.UserNotFoundErr
+		var userNotFoundErr users_contract.ErrUserNotFound
 		if errors.As(err, &userNotFoundErr) {
 			return newUserNotFoundFailure(userNotFoundErr)
 		}
-		return err
+		return fmt.Errorf("failed to add user: %w", err)
 	}
 
 	cmdSession.Finish()
@@ -93,34 +94,19 @@ func run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func loadSetupConfig(configDir string) (*setupinfo.Config, error) {
-	setupConfig, err := setupinfo.ReadConfig(configDir)
+func loadSetupConfig(configDir string) (*config_contract.K2sRuntimeConfig, error) {
+	setupConfig, err := config.ReadRuntimeConfig(configDir)
 	if err == nil {
 		return setupConfig, nil
 	}
 
-	if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+	if errors.Is(err, config_contract.ErrSystemNotInstalled) {
 		return nil, common.CreateSystemNotInstalledCmdFailure()
 	}
-	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+	if errors.Is(err, config_contract.ErrSystemInCorruptedState) {
 		return nil, common.CreateSystemInCorruptedStateCmdFailure()
 	}
 	return nil, fmt.Errorf("could not load setup info to add the Windows user: %w", err)
-}
-
-func addUser(userName, userId string, cfg config.ConfigReader, clusterName string) error {
-	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
-	userProvider := users.DefaultUserProvider()
-	usersManagement, err := users.NewUsersManagement(cfg, cmdExecutor, userProvider, utils.InstallDir(), clusterName)
-	if err != nil {
-		return err
-	}
-
-	if userName != "" {
-		return usersManagement.AddUserByName(userName)
-
-	}
-	return usersManagement.AddUserById(userId)
 }
 
 func newUserNotFoundFailure(err error) *common.CmdFailure {

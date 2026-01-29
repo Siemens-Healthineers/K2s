@@ -27,13 +27,14 @@ function Get-CtrExePath {
 
 function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $containerdDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_ContainerdDirectory"
-    $compressedContainerdFile = 'containerd-1.7.27-windows-amd64.tar.gz'
+    $versionContainerd = '2.2.1'
+    $compressedContainerdFile = "containerd-$versionContainerd-windows-amd64.tar.gz"
     $compressedFile = "$containerdDownloadsDirectory\$compressedContainerdFile"
 
     Write-Log "Create folder '$containerdDownloadsDirectory'"
     mkdir $containerdDownloadsDirectory | Out-Null
     Write-Log 'Download containerd'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v1.7.27/$compressedContainerdFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v$versionContainerd/$compressedContainerdFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$containerdDownloadsDirectory`"
@@ -71,13 +72,13 @@ function Invoke-DeployContainerdArtifacts($windowsNodeArtifactsDirectory) {
 function Invoke-DownloadCrictlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $crictlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CrictlDirectory"
 
-    $compressedCrictlFile = 'crictl-v1.28.0-windows-amd64.tar.gz'
+    $compressedCrictlFile = 'crictl-v1.35.0-windows-amd64.tar.gz'
     $compressedFile = "$crictlDownloadsDirectory\$compressedCrictlFile"
 
     Write-Log "Create folder '$crictlDownloadsDirectory'"
     mkdir $crictlDownloadsDirectory | Out-Null
     Write-Log 'Download crictl'
-    Invoke-DownloadFile "$compressedFile" https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.28.0/$compressedCrictlFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.35.0/$compressedCrictlFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$crictlDownloadsDirectory`"
@@ -104,13 +105,13 @@ function Invoke-DeployCrictlArtifacts($windowsNodeArtifactsDirectory) {
 
 function Invoke-DownloadNerdctlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $nerdctlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_NerdctlDirectory"
-    $compressedNerdFile = 'nerdctl-1.7.2-windows-amd64.tar.gz'
+    $compressedNerdFile = 'nerdctl-2.2.1-windows-amd64.tar.gz'
     $compressedFile = "$nerdctlDownloadsDirectory\$compressedNerdFile"
 
     Write-Log "Create folder '$nerdctlDownloadsDirectory'"
     mkdir $nerdctlDownloadsDirectory | Out-Null
     Write-Log 'Download nerdctl'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v1.7.2/$compressedNerdFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v2.2.1/$compressedNerdFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$nerdctlDownloadsDirectory`"
@@ -321,8 +322,24 @@ timeout: 30
     &$kubeBinPath\nssm set containerd Start SERVICE_AUTO_START | Out-Null
 
     Write-Log "Proxy to use with containerd: '$Proxy'"
+    
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
+    
+    $k2sHosts = Get-K2sHosts
+    $allNoProxyHosts = @()
+    
     if ( $Proxy -ne '' ) {
-        &$kubeBinPath\nssm set containerd AppEnvironmentExtra HTTP_PROXY=$Proxy HTTPS_PROXY=$Proxy NO_PROXY=.local | Out-Null
+        $allNoProxyHosts += $k2sHosts
+        $noProxyValue = $allNoProxyHosts -join ','
+        # Build environment variables as separate lines for NSSM
+        $envVars = "HTTP_PROXY=$httpProxyUrl`r`nHTTPS_PROXY=$httpProxyUrl`r`nNO_PROXY=$noProxyValue"
+        &$kubeBinPath\nssm set containerd AppEnvironmentExtra $envVars | Out-Null
+        Write-Log "Containerd service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
+    } else {
+        $noProxyValue = $k2sHosts -join ','
+        &$kubeBinPath\nssm set containerd AppEnvironmentExtra "NO_PROXY=$noProxyValue" | Out-Null
+        Write-Log "Containerd service configured with NO_PROXY: $noProxyValue"
     }
 
     # add firewall entries (else firewall will keep your CPU busy)
@@ -355,4 +372,30 @@ timeout: 30
         throw "Service 'containerd' is not running."
     }
     Write-Log "Service 'containerd' has status '$expectedServiceStatus'"
+    
+    # Wait for containerd named pipe to be ready
+    Write-Log 'Waiting for containerd pipe to be ready...'
+    $pipeReadyRetries = 0
+    $maxPipeRetries = 10
+    $pipeWaitSeconds = 1
+    $pipeReady = $false
+    
+    while ($pipeReadyRetries -lt $maxPipeRetries) {
+        # Test pipe accessibility using nerdctl version command (lightweight check)
+        $testResult = & $kubeBinPath\nerdctl.exe version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $pipeReady = $true
+            Write-Log 'Containerd pipe is ready'
+            break
+        }
+        
+        $pipeReadyRetries++
+        $totalPipeWaitTime = $pipeWaitSeconds * $pipeReadyRetries
+        Write-Log "Waiting for containerd pipe to be accessible ($totalPipeWaitTime seconds elapsed, attempt $pipeReadyRetries/$maxPipeRetries)"
+        Start-Sleep -Seconds $pipeWaitSeconds
+    }
+    
+    if (!$pipeReady) {
+        Write-Log 'WARNING: Containerd pipe not ready after maximum retries, proceeding anyway' -Console
+    }
 }

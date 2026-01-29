@@ -1,8 +1,0 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-#
-# SPDX-License-Identifier: MIT
-
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: gateway-api-test

@@ -17,8 +17,7 @@ $kubeBinPath = Get-KubeBinPath
 $dockerExe = "$kubeBinPath\docker\docker.exe"
 $nerdctlExe = "$kubeBinPath\nerdctl.exe"
 $ctrExe = "$kubeBinPath\containerd\ctr.exe"
-$crictlExe = "$kubeBinPath\crictl.exe"
-
+$crictlExe = Get-CrictlExePath
 class ContainerImage {
     [string]$ImageId
     [string]$Repository
@@ -92,8 +91,25 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
     $KubernetesImages = Get-KubernetesImagesFromJson
     $linuxContainerImages = @()
     $output = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images').Output
+    
+    Write-Log "[ImageList] Raw output type = $($output.GetType().Name)"
+    Write-Log "[ImageList] Raw output count = $($output.Count)"
+    if ($output -is [array]) {
+        Write-Log "[ImageList] Output is array with $($output.Length) elements"
+        for ($i = 0; $i -lt [Math]::Min($output.Length, 10); $i++) {
+            Write-Log "[ImageList]   Line[$i]: '$($output[$i])'"
+        }
+    } else {
+        Write-Log "[ImageList] Output is single value: '$output'"
+    }
+    
     foreach ($line in $output[1..($output.Count - 1)]) {
         $words = $($line -replace '\s+', ' ').split()
+        Write-Log "[ImageList] Parsing line: '$line' -> words count=$($words.Count)"
+        if ($words.Count -lt 3) {
+            Write-Log "[ImageList] Skipping line with insufficient words"
+            continue
+        }
         $containerImage = [ContainerImage]@{
             ImageId    = $words[2]
             Repository = $words[0]
@@ -101,17 +117,20 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
             Node       = "$hostname"
             Size       = $words[$words.Count - 2] + $words[$words.Count - 1]
         }
+        Write-Log "[ImageList] Parsed image: Repository='$($words[0])' Tag='$($words[1])' ImageId='$($words[2])'"
         $linuxContainerImages += $containerImage
     }
+    Write-Log "[ImageList] Total parsed images before K8s filter = $($linuxContainerImages.Count)"
     if ($IncludeK8sImages -eq $false) {
         $linuxContainerImages =
         Get-FilteredImages -ContainerImages $linuxContainerImages -ContainerImagesToBeCleaned $KubernetesImages
+        Write-Log "[ImageList] Total images after K8s filter = $($linuxContainerImages.Count)"
     }
     return $linuxContainerImages
 }
 
 function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
-    $output = &$crictlExe images 2> $null
+    $output = &$crictlExe --config $kubeBinPath\crictl.yaml images 2> $null
     $node = $env:ComputerName.ToLower()
 
     $KubernetesImages = Get-KubernetesImagesFromJson
@@ -184,13 +203,70 @@ function Get-PushedContainerImages() {
     return $pushedContainerImages
 }
 
-function Remove-Image([ContainerImage]$ContainerImage) {
+function Remove-Image([ContainerImage]$ContainerImage, [switch]$Force) {
     $output = ''
-    if ($containerImage.Node -eq $env:ComputerName.ToLower()) {
-        $output = $(&$crictlExe rmi $containerImage.ImageId 2>&1)
+    $imageId = $ContainerImage.ImageId
+
+    if ($ContainerImage.Node -eq $env:ComputerName.ToLower()) {
+        if ($Force) {
+            # Stop and remove any containers using this image first (including terminated ones)
+            $containersOutput = $(&$crictlExe --config $kubeBinPath\crictl.yaml ps -a -q --image $imageId 2>&1)
+            if ($containersOutput) {
+                foreach ($containerId in $containersOutput) {
+                    if (![string]::IsNullOrWhiteSpace($containerId)) {
+                        Write-Log "[ImageRm] Stopping and removing container $containerId that uses image $imageId"
+                        $(&$crictlExe --config $kubeBinPath\crictl.yaml stop $containerId 2>&1) | Out-Null
+                        $(&$crictlExe --config $kubeBinPath\crictl.yaml rm $containerId 2>&1) | Out-Null
+                    }
+                }
+            }
+            # Also remove any pod sandboxes that might be holding references
+            $podsOutput = $(&$crictlExe --config $kubeBinPath\crictl.yaml pods -q 2>&1)
+            if ($podsOutput) {
+                foreach ($podId in $podsOutput) {
+                    if (![string]::IsNullOrWhiteSpace($podId)) {
+                        # Check if this pod has containers using our image
+                        $podContainers = $(&$crictlExe --config $kubeBinPath\crictl.yaml ps -a -q -p $podId --image $imageId 2>&1)
+                        if ($podContainers) {
+                            Write-Log "[ImageRm] Stopping and removing pod $podId that has containers using image $imageId"
+                            $(&$crictlExe --config $kubeBinPath\crictl.yaml stopp $podId 2>&1) | Out-Null
+                            $(&$crictlExe --config $kubeBinPath\crictl.yaml rmp $podId 2>&1) | Out-Null
+                        }
+                    }
+                }
+            }
+        }
+        $output = $(&$crictlExe --config $kubeBinPath\crictl.yaml rmi $imageId 2>&1)
     }
     else {
-        $imageId = $containerImage.ImageId
+        if ($Force) {
+            # Stop and remove any containers using this image first (including terminated ones)
+            $containersResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl ps -a -q --image $imageId"
+            if ($containersResult.Output) {
+                foreach ($containerId in $containersResult.Output) {
+                    if (![string]::IsNullOrWhiteSpace($containerId)) {
+                        Write-Log "[ImageRm] Stopping and removing container $containerId that uses image $imageId"
+                        Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl stop $containerId" | Out-Null
+                        Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rm $containerId" | Out-Null
+                    }
+                }
+            }
+            # Also remove any pod sandboxes that might be holding references
+            $podsResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl pods -q"
+            if ($podsResult.Output) {
+                foreach ($podId in $podsResult.Output) {
+                    if (![string]::IsNullOrWhiteSpace($podId)) {
+                        # Check if this pod has containers using our image
+                        $podContainersResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl ps -a -q -p $podId --image $imageId"
+                        if ($podContainersResult.Output) {
+                            Write-Log "[ImageRm] Stopping and removing pod $podId that has containers using image $imageId"
+                            Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl stopp $podId" | Out-Null
+                            Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmp $podId" | Out-Null
+                        }
+                    }
+                }
+            }
+        }
         $output = (Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmi $imageId").Output
     }
 
@@ -453,7 +529,8 @@ function New-WindowsImage {
     if ($LASTEXITCODE -ne 0) { throw "error while creating image with 'docker build' on Windows. Error code returned was $LastExitCode" }
 
     Write-Log "Output of checking if the image $imageFullName is now available in docker:"
-    &$dockerExe image ls $ImageName -a
+    $dockerListOutput = &$dockerExe image ls $ImageName -a --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}" 2>&1
+    $dockerListOutput | ForEach-Object { Write-Log $_ }
 
     $exportedImageFullFileName = $env:TEMP + '\BuiltImage.tar'
     if (Test-Path($exportedImageFullFileName)) {

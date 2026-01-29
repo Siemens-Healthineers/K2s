@@ -289,6 +289,15 @@ function Wait-ForOauth2ProxyAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=oauth2-proxy' -Namespace 'security' -TimeoutSeconds 120)
 }
 
+<#
+.DESCRIPTION
+Tests if the OAuth2 proxy service is available.
+#>
+function Test-OAuth2ProxyServiceAvailability {
+    $deployment = (Invoke-Kubectl -Params '-n', 'security', 'get', 'deployment', 'oauth2-proxy', '--ignore-not-found').Output
+    return $deployment -and $deployment -notmatch 'NotFound'
+}
+
 function Enable-IngressForSecurity([string]$Ingress) {
     switch ($Ingress) {
         'nginx' {
@@ -357,6 +366,82 @@ function Wait-ForLinkerdVizAvailable {
 
 function Wait-ForTrustManagerAvailable($waiTime = 120) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=trust-manager' -Namespace 'cert-manager' -TimeoutSeconds $waiTime)
+}
+
+function Wait-ForTrustManagerWebhookReady {
+    <#
+    .SYNOPSIS
+    Waits for trust-manager webhook to be ready to accept requests.
+    .DESCRIPTION
+    After trust-manager pods are ready, the webhook endpoint may still need additional time
+    to become available. This function retries creating a test Bundle resource to verify
+    webhook readiness before proceeding with actual cert-manager resource creation.
+    .PARAMETER MaxRetries
+    Maximum number of retry attempts (default: 10)
+    .PARAMETER RetryDelaySeconds
+    Delay between retries in seconds (default: 3)
+    #>
+    param(
+        [int]$MaxRetries = 10,
+        [int]$RetryDelaySeconds = 3
+    )
+
+    Write-Log "Waiting for trust-manager webhook to be ready (max retries: $MaxRetries)" -Console
+
+    $testBundleYaml = @"
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: trust-manager-webhook-test
+spec:
+  sources:
+  - useDefaultCAs: true
+  target:
+    configMap:
+      key: trust-bundle.pem
+"@
+
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $testBundleYaml | Out-File -FilePath $tempFile -Encoding UTF8 -Force
+
+        for ($i = 1; $i -le $MaxRetries; $i++) {
+            Write-Log "Webhook readiness check attempt $i of $MaxRetries"
+            
+            # Try to create the test bundle
+            $result = Invoke-Kubectl -Params 'apply', '-f', $tempFile
+            
+            if ($result.Success) {
+                Write-Log "Trust-manager webhook is ready" -Console
+                # Clean up test bundle
+                $null = Invoke-Kubectl -Params 'delete', '-f', $tempFile, '--ignore-not-found=true'
+                return $true
+            }
+            
+            # Check if error is webhook-related
+            if ($result.Output -match 'failed calling webhook.*trust\.cert-manager\.io|connection refused|timeout') {
+                Write-Log "Webhook not ready yet (attempt $i): connection issue detected. Waiting ${RetryDelaySeconds}s..."
+                if ($i -lt $MaxRetries) {
+                    Start-Sleep -Seconds $RetryDelaySeconds
+                    continue
+                }
+            } else {
+                # Different error - may be a real problem
+                Write-Log "Unexpected error during webhook check: $($result.Output)" -Console
+                return $false
+            }
+        }
+
+        Write-Log "Trust-manager webhook did not become ready after $MaxRetries attempts" -Console
+        return $false
+    }
+    finally {
+        # Clean up temp file and test bundle
+        if (Test-Path $tempFile) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        }
+        $null = Invoke-Kubectl -Params 'delete', 'bundle', 'trust-manager-webhook-test', '--ignore-not-found=true'
+    }
 }
 
 function Save-LinkerdMarkerConfig {
@@ -517,4 +602,51 @@ function Wait-ForK8sSecret {
 
     Write-Log "Timed out waiting for secret '$SecretName' in namespace '$Namespace'." -Console
     return $false
+}
+
+function Ensure-IngressTlsCertificate {
+    <#
+    .SYNOPSIS
+    Ensures TLS certificate exists in ingress namespace, re-applying manifest if needed.
+    
+    .DESCRIPTION
+    Checks if k2s-cluster-local-tls secret exists in the ingress namespace.
+    If not found, re-applies the cluster-local-ingress manifest to trigger cert-manager creation.
+    
+    .PARAMETER IngressType
+    Type of ingress controller (nginx or traefik)
+    
+    .PARAMETER ManifestPath
+    Optional path to cluster-local-ingress manifest. If not provided, derived from ingress type.
+    #>
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('nginx', 'traefik')]
+        [string]$IngressType,
+        
+        [Parameter(Mandatory = $false)]
+        [string]$ManifestPath
+    )
+    
+    $namespace = if ($IngressType -eq 'nginx') { 'ingress-nginx' } else { 'ingress-traefik' }
+    
+    if (-not $ManifestPath) {
+        $manifestFile = if ($IngressType -eq 'nginx') { 'cluster-local-ingress.yaml' } else { 'cluster-local-ingress-secure.yaml' }
+        $ManifestPath = "$PSScriptRoot\..\ingress\$IngressType\manifests\$manifestFile"
+    }
+    
+    Write-Log "Verifying TLS certificate exists in $namespace namespace" -Console
+    $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 30
+    
+    if (-not $certExists) {
+        Write-Log "Certificate not found, re-applying cluster-local ingress to trigger creation" -Console
+        (Invoke-Kubectl -Params 'apply', '-f', $ManifestPath).Output | Write-Log
+        $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 60
+        
+        if (-not $certExists) {
+            Write-Log "Warning: TLS certificate still not available after re-applying manifest" -Console
+        }
+    }
+    
+    return $certExists
 }

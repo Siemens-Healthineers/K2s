@@ -27,12 +27,8 @@ Param(
     # These are specific developer options
     [parameter(Mandatory = $false, HelpMessage = 'Exit after initial checks')]
     [switch] $CheckOnly = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Do not call the StartK8s at end')]
-    [switch] $SkipStart = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Restart N number of times after Install')]
-    [long] $RestartAfterInstallCount = 0,
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting KubeMaster VM')]
     [switch] $WSL = $false
 )
@@ -78,7 +74,10 @@ $controlPlaneNodeParams = @{
 New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
 
 # add transparent proxy to Windows host
-Install-WinHttpProxy -Proxy $Proxy
+$proxyConfig = Get-ProxyConfig
+$proxyOverrides = if ($proxyConfig.NoProxy.Count -gt 0) { $proxyConfig.NoProxy } else { @() }
+
+Install-WinHttpProxy -Proxy $Proxy -ProxyOverrides $proxyOverrides
 $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
 $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 $transparentProxy = "http://$($windowsHostIpAddress):8181"
@@ -89,30 +88,6 @@ $windowsArtifactsDirectory = Get-WindowsArtifactsDirectory
 Invoke-DeployDnsProxyArtifacts $windowsArtifactsDirectory
 Install-WinDnsProxy -ListenIpAddresses @($windowsHostIpAddress) -UpstreamIpAddressForCluster $controlPlaneIpAddress -UpstreamIpAddressesForNonCluster $($DnsAddresses -split ',')
 
-if (! $SkipStart) {
-    Write-Log 'Starting control plane'
-    & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -DnsAddresses $DnsAddresses
-
-    if ($RestartAfterInstallCount -gt 0) {
-        $restartCount = 0;
-    
-        while ($true) {
-            $restartCount++
-            Write-Log "Restarting control plane (iteration #$restartCount):"
-    
-            & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-            Start-Sleep 10
-    
-            & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -DnsAddresses $DnsAddresses
-            Start-Sleep -s 5
-    
-            if ($restartCount -eq $RestartAfterInstallCount) {
-                Write-Log 'Restarting control plane Completed'
-                break;
-            }
-        }
-    }
-} 
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s control plane node setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"

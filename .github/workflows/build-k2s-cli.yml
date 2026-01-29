@@ -9,15 +9,15 @@ name: "Build - k2s CLI"
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "main"
-    paths:
-      - 'k2s/**'
-      - '!k2s/test/**'
+  # push:
+  #   branches:
+  #     - "main"
+  #   paths:
+  #     - 'k2s/**'
+  #     - '!k2s/test/**'
 
 env:
-  GOVERSION: "1.24.2"
+  GOVERSION: "1.25.6"
 
 jobs:
   build-k2s-cli:

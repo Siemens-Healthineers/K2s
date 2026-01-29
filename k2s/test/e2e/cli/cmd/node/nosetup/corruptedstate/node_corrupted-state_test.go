@@ -15,7 +15,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/test/framework"
 )
@@ -40,12 +39,12 @@ var _ = Describe("node", Ordered, func() {
 
 	// TODO: extract 'system-in-corrupted-state' to DSL for re-use
 	BeforeEach(func() {
-		inputConfig := &setupinfo.Config{
-			SetupName:  "k2s",
-			Registries: []string{"r1", "r2"},
-			LinuxOnly:  true,
-			Version:    "test-version",
-			Corrupted:  true,
+		inputConfig := map[string]any{
+			"SetupName":  "k2s",
+			"Registries": []string{"r1", "r2"},
+			"LinuxOnly":  true,
+			"Version":    "test-version",
+			"Corrupted":  true,
 		}
 		inputData, err := json.Marshal(inputConfig)
 		Expect(err).ToNot(HaveOccurred())
@@ -56,29 +55,29 @@ var _ = Describe("node", Ordered, func() {
 
 		GinkgoWriter.Println("Current test dir: <", currentDir, ">, install dir: <", installDir, ">")
 
-		config, err := config.LoadConfig(installDir)
+		config, err := config.ReadK2sConfig(installDir)
 		Expect(err).ToNot(HaveOccurred())
 
-		GinkgoWriter.Println("Creating <", config.Host().K2sConfigDir(), ">..")
+		GinkgoWriter.Println("Creating <", config.Host().K2sSetupConfigDir(), ">..")
 
-		Expect(os.MkdirAll(config.Host().K2sConfigDir(), os.ModePerm)).To(Succeed())
+		Expect(os.MkdirAll(config.Host().K2sSetupConfigDir(), os.ModePerm)).To(Succeed())
 
-		configPath = filepath.Join(config.Host().K2sConfigDir(), "setup.json")
+		configPath = filepath.Join(config.Host().K2sSetupConfigDir(), "setup.json")
 
 		GinkgoWriter.Println("Writing test data to <", configPath, ">..")
 
 		Expect(os.WriteFile(configPath, inputData, os.ModePerm)).To(Succeed())
 
 		DeferCleanup(func() {
-			GinkgoWriter.Println("Deleting <", config.Host().K2sConfigDir(), ">..")
+			GinkgoWriter.Println("Deleting <", config.Host().K2sSetupConfigDir(), ">..")
 
-			Expect(os.RemoveAll(config.Host().K2sConfigDir())).To(Succeed())
+			Expect(os.RemoveAll(config.Host().K2sSetupConfigDir())).To(Succeed())
 		})
 	})
 
 	Describe("copy", Label("copy"), func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", "", "-s", "", "-t", "", "-u", "")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "copy", "--ip-addr", "", "-s", "", "-t", "", "-u", "")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -86,7 +85,7 @@ var _ = Describe("node", Ordered, func() {
 
 	Describe("exec", Label("exec"), func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "exec", "-i", "", "-u", "", "-c", "")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "exec", "-i", "", "-u", "", "-c", "")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -94,7 +93,7 @@ var _ = Describe("node", Ordered, func() {
 
 	Describe("connect", Label("connect"), func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "connect", "-i", "", "-u", "")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "connect", "-i", "", "-u", "")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})

@@ -452,7 +452,7 @@ function Get-MinimalProvisioningBaseImageDiskSize {
     return 10GB
 }
 function Get-DefaultK8sVersion {
-    return 'v1.32.5'
+    return 'v1.35.0'
 }
 
 <#

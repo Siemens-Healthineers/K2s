@@ -8,8 +8,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,7 +37,7 @@ var _ = Describe("status", Ordered, func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().RunOrFail(ctx, "status")
+			output = suite.K2sCli().MustExec(ctx, "status")
 		})
 
 		It("prints a header", func(ctx context.Context) {
@@ -47,7 +45,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints setup", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupConfig.SetupName))
+			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().RuntimeConfig.InstallConfig().SetupName()))
 		})
 
 		It("prints version", func(ctx context.Context) {
@@ -68,7 +66,7 @@ var _ = Describe("status", Ordered, func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().RunOrFail(ctx, "status", "-o", "wide")
+			output = suite.K2sCli().MustExec(ctx, "status", "-o", "wide")
 		})
 
 		It("prints a header", func(ctx context.Context) {
@@ -76,7 +74,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints setup", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupConfig.SetupName))
+			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().RuntimeConfig.InstallConfig().SetupName()))
 		})
 
 		It("prints version", func(ctx context.Context) {
@@ -97,15 +95,15 @@ var _ = Describe("status", Ordered, func() {
 		var status status.PrintStatus
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().RunOrFail(ctx, "status", "-o", "json")
+			output := suite.K2sCli().MustExec(ctx, "status", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})
 
 		It("contains setup info", func() {
-			Expect(setupinfo.SetupName(status.SetupInfo.Name)).To(Equal(suite.SetupInfo().SetupConfig.SetupName))
+			Expect(status.SetupInfo.Name).To(Equal(suite.SetupInfo().RuntimeConfig.InstallConfig().SetupName()))
 			Expect(status.SetupInfo.Version).To(MatchRegexp(regex.VersionRegex))
-			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().SetupConfig.LinuxOnly))
+			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()))
 		})
 
 		It("contains running state", func() {

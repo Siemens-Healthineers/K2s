@@ -49,6 +49,7 @@ By default, the security addon installs all components listed below. You can now
 
 - `-OmitHydra`: Omits the setup of hydra and the local login implementation (useful if no local user management is needed).
 - `-OmitKeycloak`: Omits the setup of keycloak and its database (useful if you want oauth2-proxy to reference an external OAuth2 provider).
+- `-OmitOAuth2Proxy`: Omits the OAuth2 proxy deployment (useful if you want to use an external authentication proxy or no authentication at all).
 
 Example usage:
 
@@ -58,6 +59,12 @@ k2s addons enable security -OmitHydra
 
 # Omit keycloak
 k2s addons enable security -OmitKeycloak
+
+# Omit OAuth2 proxy
+k2s addons enable security -OmitOAuth2Proxy
+
+# Omit all authentication components (cert-manager and linkerd only)
+k2s addons enable security -OmitHydra -OmitKeycloak -OmitOAuth2Proxy
 
 # Omit both
 k2s addons enable security -OmitHydra -OmitKeycloak

@@ -1,19 +1,20 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package tz
 
 import (
 	"embed"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 )
 
 var (
 	//go:embed embed/*.xml
 	embeddedTimezoneConfig embed.FS
-
-	kubedir = filepath.Join(os.Getenv("USERPROFILE"), ".kube")
 )
 
 const (
@@ -45,21 +46,6 @@ type TimezoneConfigWorkspace struct {
 	fileHandler fileHandler
 }
 
-func (tzch *timezoneConfigHandler) createDirectoryIfNotExist(directory string) error {
-	_, err := os.Stat(directory)
-	if err != nil {
-		if os.IsNotExist(err) {
-			err := os.MkdirAll(directory, 0777)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-	return nil
-}
-
 func (tzch *timezoneConfigHandler) CopyTo(newFile, orginalFile string) error {
 	embeddedFileContent, err := embeddedTimezoneConfig.ReadFile(orginalFile)
 	if err != nil {
@@ -67,7 +53,7 @@ func (tzch *timezoneConfigHandler) CopyTo(newFile, orginalFile string) error {
 	}
 
 	pathWithDirectoryOnly := filepath.Dir(newFile)
-	err = tzch.createDirectoryIfNotExist(pathWithDirectoryOnly)
+	err = os.MkdirAll(pathWithDirectoryOnly, fs.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -89,11 +75,11 @@ func (tzch *timezoneConfigHandler) Remove(file string) error {
 	return nil
 }
 
-func NewTimezoneConfigWorkspace() (ConfigWorkspace, error) {
+func NewTimezoneConfigWorkspace(config *config.KubeConfig) (ConfigWorkspace, error) {
 	fileHandler := &timezoneConfigHandler{}
 
 	return &TimezoneConfigWorkspace{
-		kubeDir:     kubedir,
+		kubeDir:     config.CurrentDir(),
 		fileHandler: fileHandler,
 	}, nil
 }

@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/failsafe-go/failsafe-go"
 	"github.com/failsafe-go/failsafe-go/failsafehttp"
+	"github.com/failsafe-go/failsafe-go/retrypolicy"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
@@ -21,10 +23,92 @@ import (
 
 type ResilientHttpClient struct {
 	executor failsafe.Executor[*http.Response]
+	client   *http.Client
 }
 
-func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
-	retryPolicy := failsafehttp.RetryPolicyBuilder().
+func NewResilientHttpClient(requestTimeout time.Duration, tlsConfig ...*tls.Config) *ResilientHttpClient {
+	retryPolicy := buildRetryPolicy(requestTimeout)
+
+	client := http.DefaultClient
+
+	if len(tlsConfig) > 0 {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = tlsConfig[0]
+		client.Transport = transport
+	}
+
+	return &ResilientHttpClient{
+		executor: failsafe.With(retryPolicy),
+		client:   client,
+	}
+}
+
+// GetJson performs a GET request to the given URL, checks the payload for valid JSON and returns the payload as a byte array.
+// It retries failed requests according to the retry policy.
+func (c *ResilientHttpClient) GetJson(ctx context.Context, url string) ([]byte, error) {
+	GinkgoWriter.Println("Calling http GET on <", url, ">")
+
+	executor := c.executor.WithContext(ctx)
+
+	request, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	failsafeRequest := failsafehttp.NewRequestWithExecutor(request, c.client, executor)
+
+	response, err := failsafeRequest.Do()
+	if err != nil {
+		return nil, err
+	}
+	if !strings.Contains(response.Header.Get("Content-Type"), "application/json") {
+		return nil, fmt.Errorf("unexpected content type <%s>", response.Header.Get("Content-Type"))
+	}
+
+	defer response.Body.Close()
+
+	payload, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	if !json.Valid(payload) {
+		return nil, fmt.Errorf("invalid JSON payload")
+	}
+	return payload, nil
+}
+
+// Get performs a GET request to the given URL and returns the payload as a byte array.
+// It retries failed requests according to the retry policy.
+func (c *ResilientHttpClient) Get(ctx context.Context, url string, headers ...map[string]string) ([]byte, error) {
+	GinkgoWriter.Println("Calling http GET on <", url, ">")
+
+	executor := c.executor.WithContext(ctx)
+
+	request, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(headers) > 0 {
+		for key, value := range headers[0] {
+			request.Header.Add(key, value)
+		}
+	}
+
+	failsafeRequest := failsafehttp.NewRequestWithExecutor(request, c.client, executor)
+
+	response, err := failsafeRequest.Do()
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	return io.ReadAll(response.Body)
+}
+
+func buildRetryPolicy(requestTimeout time.Duration) retrypolicy.RetryPolicy[*http.Response] {
+	return retrypolicy.NewBuilder[*http.Response]().
 		WithBackoff(time.Second, time.Minute).
 		WithJitterFactor(.25).
 		WithMaxRetries(5).
@@ -44,81 +128,4 @@ func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
 			return false
 		}).
 		Build()
-
-	return &ResilientHttpClient{
-		executor: failsafe.NewExecutor(retryPolicy),
-	}
-}
-
-// GetJson performs a GET request to the given URL, checks the payload for valid JSON and returns the payload as a byte array.
-// It retries failed requests according to the retry policy.
-func (c *ResilientHttpClient) GetJson(ctx context.Context, url string) ([]byte, error) {
-	GinkgoWriter.Println("Calling http GET on <", url, ">")
-
-	executor := c.executor.WithContext(ctx)
-
-	request, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	failsafeRequest := failsafehttp.NewRequestWithExecutor(request, http.DefaultClient, executor)
-
-	response, err := failsafeRequest.Do()
-	if err != nil {
-		return nil, err
-	}
-	if response.Header.Get("Content-Type") != "application/json; charset=utf-8" {
-		return nil, fmt.Errorf("unexpected content type <%s>", response.Header.Get("Content-Type"))
-	}
-
-	defer response.Body.Close()
-
-	payload, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-	if !json.Valid(payload) {
-		return nil, fmt.Errorf("invalid JSON payload")
-	}
-	return payload, nil
-}
-
-// Get performs a GET request to the given URL and returns the payload as a byte array.
-// It retries failed requests according to the retry policy.
-func (c *ResilientHttpClient) Get(ctx context.Context, url string, tlsConfig *tls.Config, headers ...map[string]string) ([]byte, error) {
-	GinkgoWriter.Println("Calling http GET on <", url, ">")
-
-	executor := c.executor.WithContext(ctx)
-
-	request, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add headers if provided
-	if len(headers) > 0 {
-		for key, value := range headers[0] {
-			request.Header.Add(key, value)
-		}
-	}
-
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if tlsConfig != nil {
-		GinkgoWriter.Println("Using custom TLS config")
-		transport.TLSClientConfig = tlsConfig
-	}
-
-	httpClient := &http.Client{Transport: transport}
-
-	failsafeRequest := failsafehttp.NewRequestWithExecutor(request, httpClient, executor)
-
-	response, err := failsafeRequest.Do()
-	if err != nil {
-		return nil, err
-	}
-
-	defer response.Body.Close()
-
-	return io.ReadAll(response.Body)
 }

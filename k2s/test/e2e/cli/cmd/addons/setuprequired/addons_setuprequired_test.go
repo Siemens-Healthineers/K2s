@@ -12,16 +12,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
 	ka "github.com/siemens-healthineers/k2s/internal/core/addons"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 )
 
-var suite *framework.K2sTestSuite
-var allAddons ka.Addons
-var k2s *dsl.K2s
+var (
+	suite     *framework.K2sTestSuite
+	allAddons ka.Addons
+	k2s       *dsl.K2s
+)
 
 func TestAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -41,7 +42,7 @@ var _ = Describe("addons", Ordered, func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().RunOrFail(ctx, "addons", "ls")
+			output = suite.K2sCli().MustExec(ctx, "addons", "ls")
 		})
 
 		It("prints the header", func() {
@@ -63,26 +64,6 @@ var _ = Describe("addons", Ordered, func() {
 					ContainSubstring(addon.Metadata.Description),
 				)))
 			}
-		})
-	})
-
-	Describe("export", Label("export"), func() {
-		When("addon name is invalid", func() {
-			It("prints addon-invalid message and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "export", "invalid-addon-name", "-d", "test-dir")
-
-				Expect(output).To(ContainSubstring("'invalid-addon-name' not supported for export"))
-			})
-		})
-	})
-
-	Describe("import", Label("import"), func() {
-		When("addon name is invalid", func() {
-			It("prints addon-invalid message and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "import", "invalid-addon-name", "-z", "test-dir")
-
-				Expect(output).To(ContainSubstring("'invalid-addon-name' not supported for import"))
-			})
 		})
 	})
 

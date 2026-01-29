@@ -39,8 +39,8 @@ function New-ControlPlaneNodeOnNewVM {
     Write-Log 'Prerequisites checks before installation' -Console
 
     Test-PathPrerequisites
-    Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
     Test-WindowsPrerequisites -WSL:$WSL
+    Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
     Stop-InstallationIfRequiredCurlVersionNotInstalled
     Write-WarningIfRequiredSshVersionNotInstalled
 
@@ -135,6 +135,70 @@ function New-ControlPlaneNodeOnNewVM {
     Update-CoreDNSConfigurationviaSSH 
 }
 
+function Initialize-Cni0Interface {
+    param (
+        [string] $VmName = $(throw 'Argument missing: VmName'),
+        [bool] $WSL = $(throw 'Argument missing: WSL')
+    )
+    Write-Log "cni0 interface in $VmName is created ?"
+    $startTime = Get-Date
+    $i = 0
+    while ($true) {
+        $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
+        $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
+
+        if ($controlPlaneCni0IpAddr -ne $expectedControlPlaneCni0IpAddr) {
+            Write-Log "cni0 interface in $controlPlaneVMHostName is not correctly initialized."
+            Write-Log "           Expected:$expectedControlPlaneCni0IpAddr"
+            Write-Log "           Actual:$controlPlaneCni0IpAddr"
+
+            if ($i -eq 3) {
+                throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
+            }
+        }
+        else {
+            Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
+            break
+        }
+        if (!$WSL) {
+            Stop-VirtualMachine -VmName $VmName -Wait
+            Start-VirtualMachine -VmName $VmName -Wait
+        }
+        else {
+            wsl --shutdown
+            Start-WSL
+        }
+        Wait-ForSSHConnectionToLinuxVMViaSshKey
+        $i++
+    }
+    $endTime = Get-Date
+    $durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
+    Write-Log "cni0 interface in $VmName is created, total duration: $durationSeconds seconds"
+}
+
+function CheckKubeSwitchInExpectedState() {
+    $controlPlaneNodeDefaultSwitchName = Get-ControlPlaneNodeDefaultSwitchName
+    $if = Get-NetConnectionProfile -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -ErrorAction SilentlyContinue
+    if (!$if) {
+        Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not found."
+        return $false
+    }
+    if ($if.NetworkCategory -ne 'Private') {
+        Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not set to private."
+        return $false
+    }
+    $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -AddressFamily IPv4 -ErrorAction SilentlyContinue
+    if (!$if) {
+        Write-Log "Unable get IP Address for host on vEthernet ($controlPlaneNodeDefaultSwitchName) interface..."
+        return $false
+    }
+    if ($if.IPAddress -ne $windowsHostIpAddress) {
+        Write-Log "IP Address of Host on vEthernet ($controlPlaneNodeDefaultSwitchName) is not $windowsHostIpAddress ..."
+        return $false
+    }
+    return $true
+}
+
 function Start-ControlPlaneNodeOnNewVM {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Number of processors for VM')]
@@ -149,65 +213,6 @@ function Start-ControlPlaneNodeOnNewVM {
     )
 
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-
-    function CheckKubeSwitchInExpectedState() {
-        $controlPlaneNodeDefaultSwitchName = Get-ControlPlaneNodeDefaultSwitchName
-        $if = Get-NetConnectionProfile -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -ErrorAction SilentlyContinue
-        if (!$if) {
-            Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not found."
-            return $false
-        }
-        if ($if.NetworkCategory -ne 'Private') {
-            Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not set to private."
-            return $false
-        }
-        $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -AddressFamily IPv4 -ErrorAction SilentlyContinue
-        if (!$if) {
-            Write-Log "Unable get IP Address for host on vEthernet ($controlPlaneNodeDefaultSwitchName) interface..."
-            return $false
-        }
-        if ($if.IPAddress -ne $windowsHostIpAddress) {
-            Write-Log "IP Address of Host on vEthernet ($controlPlaneNodeDefaultSwitchName) is not $windowsHostIpAddress ..."
-            return $false
-        }
-        return $true
-    }
-
-    function EnsureCni0InterfaceIsCreated {
-        param (
-            [string] $VmName = $(throw 'Argument missing: VmName'),
-            [bool] $WSL = $(throw 'Argument missing: WSL')
-        )
-        $i = 0
-        while ($true) {
-            $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
-            $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
-
-            if ($controlPlaneCni0IpAddr -ne $expectedControlPlaneCni0IpAddr) {
-                Write-Log "cni0 interface in $controlPlaneVMHostName is not correctly initialized."
-                Write-Log "           Expected:$expectedControlPlaneCni0IpAddr"
-                Write-Log "           Actual:$controlPlaneCni0IpAddr"
-
-                if ($i -eq 3) {
-                    throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
-                }
-            }
-            else {
-                Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
-                break
-            }
-            if (!$WSL) {
-                Stop-VirtualMachine -VmName $VmName -Wait
-                Start-VirtualMachine -VmName $VmName -Wait
-            }
-            else {
-                wsl --shutdown
-                Start-WSL
-            }
-            Wait-ForSSHConnectionToLinuxVMViaSshKey
-            $i++
-        }
-    }
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'Starting K2s control plane'
@@ -247,9 +252,6 @@ function Start-ControlPlaneNodeOnNewVM {
     Set-IndexForDefaultSwitch
 
     $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
-    $ipControlPlane = Get-ConfiguredIPControlPlane
-
-    $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
 
     if (!$WSL) {
         # Because of stability issues network settings are recreated every time we start the machine
@@ -294,9 +296,11 @@ function Start-ControlPlaneNodeOnNewVM {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 
+    Set-RoutesToKubemaster
+
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
-    EnsureCni0InterfaceIsCreated -VmName $controlPlaneVMHostName -WSL:$WSL
+    # Initialize-Cni0Interface -VmName $controlPlaneVMHostName -WSL:$WSL
 
     $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$switchname*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
     Write-Log "Index for interface $switchname : ($ipindex) -> metric 100"
@@ -451,6 +455,11 @@ function Remove-ControlPlaneNodeOnNewVM {
         if (Test-Path $kubenodeBaseFilePath) {
             Remove-Item $kubenodeBaseFilePath -Force
         }
+        $debianImageFilePath = Get-DebianImageFilePath
+        Write-Log "Delete file '$debianImageFilePath' if existing"
+        if (Test-Path $debianImageFilePath) {
+            Remove-Item $debianImageFilePath -Force
+        }
     }
 
     Write-Log 'Remove previous VM key from known_hosts file'
@@ -471,4 +480,5 @@ function Remove-ControlPlaneNodeOnNewVM {
 Export-ModuleMember -Function New-ControlPlaneNodeOnNewVM,
 Start-ControlPlaneNodeOnNewVM,
 Stop-ControlPlaneNodeOnNewVM,
-Remove-ControlPlaneNodeOnNewVM
+Remove-ControlPlaneNodeOnNewVM,
+Initialize-Cni0Interface

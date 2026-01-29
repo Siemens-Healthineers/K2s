@@ -28,7 +28,7 @@ try {
     Remove-NoProxyEntry -Entries $Overrides
     Stop-WinHttpProxy
     $updatedProxyConfig = Get-ProxyConfig
-    Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverride $updatedProxyConfig.NoProxy
+    Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverrides $updatedProxyConfig.NoProxy
     Start-WinHttpProxy
     if ($EncodeStructuredOutput) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null}

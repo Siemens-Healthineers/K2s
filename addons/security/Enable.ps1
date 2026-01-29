@@ -22,8 +22,6 @@ Param (
 	[parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
 	[ValidateSet('nginx', 'traefik')]
 	[string] $Ingress = 'nginx',
-	[parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-	[string] $Proxy,
 	[parameter(Mandatory = $false, HelpMessage = 'Security type setting')]
 	[ValidateSet('basic', 'enhanced')]
 	[string] $Type = 'basic',
@@ -38,7 +36,9 @@ Param (
 	[parameter(Mandatory = $false, HelpMessage = 'Omit hydra and login implementation')]
 	[switch] $OmitHydra,
 	[parameter(Mandatory = $false, HelpMessage = 'Omit keycloak and use external oauth2 provider')]
-	[switch] $OmitKeycloak
+	[switch] $OmitKeycloak,
+	[parameter(Mandatory = $false, HelpMessage = 'Omit OAuth2 proxy deployment')]
+	[switch] $OmitOAuth2Proxy
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -54,7 +54,8 @@ Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
 
 Write-Log 'Checking cluster status' -Console
 
@@ -177,17 +178,27 @@ try {
 		$activeIngress = 'nginx'
 		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
 		&$cmctlExe renew k2s-cluster-local-tls -n ingress-nginx
+		
+		# Ensure certificate exists - renew only works if cert already exists
+		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
 		$activeIngress = 'traefik'
 		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
 		&$cmctlExe renew k2s-cluster-local-tls -n ingress-traefik
+		
+		# Ensure certificate exists - renew only works if cert already exists
+		Ensure-IngressTlsCertificate -IngressType 'traefik' | Out-Null
 	}
 	else {
 		#Enable required ingress addon
 		Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
 		Enable-IngressAddon -Ingress:$Ingress
 		$activeIngress = $Ingress
+		
+		# After enabling ingress, ensure the certificate gets created
+		Write-Log 'Waiting for TLS certificate to be created after ingress enablement' -Console
+		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
 	}
 
 	# Keycloak and Hydra setup (conditional)
@@ -203,12 +214,17 @@ try {
 		$keycloakPodStatus = Wait-ForKeyCloakAvailable
 		Write-Log 'Waiting after keycloak pod is available' -Console
 
-		$oauth2ProxyYaml = Get-OAuth2ProxyConfig
-		# Update must be invoked to enable ingress for security before applying the oauth2-proxy
-		&"$PSScriptRoot\Update.ps1"
-		(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
-		Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
-		$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+		if (-not $OmitOAuth2Proxy) {
+			$oauth2ProxyYaml = Get-OAuth2ProxyConfig
+			# Update must be invoked to enable ingress for security before applying the oauth2-proxy
+			&"$PSScriptRoot\Update.ps1"
+			(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
+			Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
+			$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+		} else {
+			Write-Log 'Omitting OAuth2 proxy setup as per flag.' -Console
+			$oauth2ProxyPodStatus = $true
+		}
 		if (-not $OmitHydra) {
 			Write-Log 'Hydra and login implementation is set up (not omitted).' -Console
 			# Enable Windows Users for Keycloak
@@ -229,14 +245,30 @@ try {
 				if ($keycloakPodStatus -eq $true) {
 					if ($setupInfo.LinuxOnly -eq $false) {
 						$winSecurityStatus = Enable-WindowsSecurityDeployments	
+						if (-not $OmitOAuth2Proxy) {
+							$oauth2ProxyYaml = Get-OAuth2ProxyHydraConfig
+							# Update must be invoked to enable ingress for security before applying the oauth2-proxy
+							&"$PSScriptRoot\Update.ps1"
+							(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
+							Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
+							$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+						} else {
+							Write-Log 'Omitting OAuth2 proxy setup as per flag.' -Console
+							$oauth2ProxyPodStatus = $true
+						}
+				} else {
+					Write-Log 'Skipping Windows security deployment because of Linux only setup'
+					if (-not $OmitOAuth2Proxy) {
 						$oauth2ProxyYaml = Get-OAuth2ProxyHydraConfig
 						# Update must be invoked to enable ingress for security before applying the oauth2-proxy
 						&"$PSScriptRoot\Update.ps1"
 						(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
 						Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
 						$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
-				} else {
-					Write-Log 'Skipping Windows security deployment because of Linux only setup'
+					} else {
+						Write-Log 'Omitting OAuth2 proxy setup as per flag.' -Console
+						$oauth2ProxyPodStatus = $true
+					}
 				}
 			}
 		} else {
@@ -340,6 +372,21 @@ try {
 			throw $errMsg
 		}
 
+		# Wait for trust manager webhook to be ready before creating resources that require validation
+		Write-Log 'Waiting for trust manager webhook to be ready' -Console
+		$webhookStatus = Wait-ForTrustManagerWebhookReady
+		if ($webhookStatus -ne $true) {
+			$errMsg = "Trust manager webhook did not become ready. The webhook endpoint may not be accepting connections.`nInstallation of security addon failed."
+			if ($EncodeStructuredOutput -eq $true) {
+				$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+				Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+				return
+			}
+
+			Write-Log $errMsg -Error
+			throw $errMsg
+		}
+
 		# install cert-manager addons
 		Write-Log 'Install trust manager and cert-manager resources, creating bundle' -Console
 		$linkerdYamlCertManager = Get-LinkerdConfigCertManager
@@ -392,8 +439,10 @@ try {
 			Write-Log "Updating redis to be part of service mesh" -Console
 			$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'redis', '-n', 'security', '-p', $annotations1).Output | Write-Log
-			$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
-			(Invoke-Kubectl -Params 'patch', 'deployment', 'oauth2-proxy', '-n', 'security', '-p', $annotations2).Output | Write-Log
+			if (-not $OmitOAuth2Proxy) {
+				$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
+				(Invoke-Kubectl -Params 'patch', 'deployment', 'oauth2-proxy', '-n', 'security', '-p', $annotations2).Output | Write-Log
+			}
 			$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-outbound-ports\":\"4444\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'keycloak', '-n', 'security', '-p', $annotations3).Output | Write-Log
 			$annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
@@ -402,7 +451,7 @@ try {
 			Write-Log 'Waiting for security pods to be ready' -Console
 			(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'security', '--timeout', '120s').Output | Write-Log
 		} else {
-			if (-not $OmitHydra) {
+			if (-not $OmitHydra -and -not $OmitOAuth2Proxy) {
 				$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
 				(Invoke-Kubectl -Params 'patch', 'deployment', 'oauth2-proxy', '-n', 'security', '-p', $annotations2).Output | Write-Log
 			}

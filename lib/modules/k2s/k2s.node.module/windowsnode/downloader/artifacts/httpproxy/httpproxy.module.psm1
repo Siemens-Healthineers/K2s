@@ -51,6 +51,7 @@ function Start-WinHttpProxy {
     )
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
     if ($OnlyProxy) { return }
+    Confirm-LoopbackAdapterIP
     Start-ServiceAndSetToAutoStart -Name 'flanneld'
 }
 
@@ -84,12 +85,28 @@ function Set-ProxyConfigInHttpProxy {
         $appParameters = $appParameters + " --forwardproxy $Proxy"
     }
     
+    $k2sHosts = Get-K2sHosts
+    
+    $allNoProxyHosts = @()
     if ($ProxyOverrides.Count -gt 0) {
-        $noProxyValue = $ProxyOverrides -join ','
+        $allNoProxyHosts += $ProxyOverrides
+    }
+    $allNoProxyHosts += $k2sHosts
+    
+    $uniqueNoProxyHosts = $allNoProxyHosts | Sort-Object -Unique
+    
+    if ($uniqueNoProxyHosts.Count -gt 0) {
+        $noProxyValue = $uniqueNoProxyHosts -join ','
         &$kubeBinPath\nssm set httpproxy AppEnvironmentExtra "NO_PROXY=$noProxyValue" | Out-Null
+        Write-Log "HTTP Proxy service configured with NO_PROXY: $noProxyValue"
     } else {
         &$kubeBinPath\nssm set httpproxy AppEnvironmentExtra "NO_PROXY=.local" | Out-Null
+        Write-Log "HTTP Proxy service configured with default NO_PROXY: .local"
     }
         
     &$kubeBinPath\nssm set httpproxy AppParameters $appParameters | Out-Null
+    
+    if ( $Proxy -ne '' ) {
+        Write-Log "HTTP Proxy service configured with forward proxy: $Proxy"
+    }
 }

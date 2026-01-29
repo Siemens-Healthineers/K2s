@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -13,6 +13,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,8 +23,9 @@ import (
 const testClusterTimeout = time.Minute * 10
 
 var (
-	suite *framework.K2sTestSuite
-	//portForwardingSession *gexec.Session
+	suite      *framework.K2sTestSuite
+	k2s        *dsl.K2s
+	testFailed = false
 )
 
 func TestDicom(t *testing.T) {
@@ -33,17 +35,28 @@ func TestDicom(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'dicom' addon", Ordered, func() {
 	Describe("status command", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "dicom")
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", "dicom")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
@@ -54,7 +67,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "dicom", "-o", "json")
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", "dicom", "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -72,7 +85,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 	Describe("disable command", func() {
 		When("addon is already disabled", func() {
 			It("prints already-disabled message and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "dicom", "-f")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", "dicom", "-f")
 
 				Expect(output).To(ContainSubstring("already disabled"))
 			})
@@ -82,39 +95,23 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 	Describe("enable command", func() {
 		When("no ingress controller is configured", func() {
 			AfterAll(func(ctx context.Context) {
-				// portForwardingSession.Kill()
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+				k2s.VerifyAddonIsDisabled("dicom")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
-
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
+				k2s.VerifyAddonIsEnabled("dicom")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
-
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
 			})
-
-			// TODO: This
-			// It("is reachable through port forwarding", func(ctx context.Context) {
-			// 	kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
-			// 	portForwarding := exec.Command(kubectl, "-n", "dicom", "port-forward", "svc/dicom", "8042:8042")
-			// 	portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
-
-			// 	url := "http://localhost:8042"
-			// 	httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "-sS", "-k", "-m", "2", "--retry", "10", "--fail")
-			// 	Expect(httpStatus).To(ContainSubstring("200"))
-			// })
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
 				expectAddonToBeAlreadyEnabled(ctx)
@@ -127,45 +124,41 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 		When("traefik as ingress controller", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "traefik", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "traefik", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+				k2s.VerifyAddonIsDisabled("dicom")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
-
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
+				k2s.VerifyAddonIsEnabled("dicom")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
-
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
 			})
 
 			It("is reachable through k2s.cluster.local for the ui app", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/ui/app"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
 			It("is reachable through k2s.cluster.local for DICOM Web", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/studies"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
@@ -180,45 +173,41 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 		When("nginx as ingress controller", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+				k2s.VerifyAddonIsDisabled("dicom")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
-
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
+				k2s.VerifyAddonIsEnabled("dicom")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
-
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
 			})
 
 			It("is reachable through k2s.cluster.local for the ui app", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/ui/app"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
 			It("is reachable through k2s.cluster.local for DICOM Web", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/studies"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
@@ -234,13 +223,13 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 })
 
 func expectAddonToBeAlreadyEnabled(ctx context.Context) {
-	output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "dicom")
+	output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "dicom")
 
 	Expect(output).To(ContainSubstring("already enabled"))
 }
 
 func expectStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "dicom")
+	output := suite.K2sCli().MustExec(ctx, "addons", "status", "dicom")
 
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
@@ -249,7 +238,7 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("The postgres Deployment is working"),
 	))
 
-	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "dicom", "-o", "json")
+	output = suite.K2sCli().MustExec(ctx, "addons", "status", "dicom", "-o", "json")
 
 	var status status.AddonPrintStatus
 

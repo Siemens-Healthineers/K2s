@@ -22,8 +22,9 @@ Param(
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $monitoringModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -64,7 +65,18 @@ Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'monitoring' })
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds").Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
 
+# Check if Windows Exporter is still needed by other addons
+$metricsEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'metrics' })
+
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
+
+if (-not $metricsEnabled) {
+    Write-Log 'Removing Windows Exporter (no longer needed by any addon)' -Console
+    $windowsExporterManifest = Get-WindowsExporterManifestDir
+    (Invoke-Kubectl -Params 'delete', '-k', $windowsExporterManifest, '--ignore-not-found').Output | Write-Log
+} else {
+    Write-Log 'Windows Exporter kept (still needed by metrics addon)' -Console
+}
 
 Write-Log 'Kube Prometheus Stack uninstalled successfully' -Console
 

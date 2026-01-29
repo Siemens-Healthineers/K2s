@@ -10,8 +10,9 @@ $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
 $vmNodeModule = "$PSScriptRoot\..\..\k2s.node.module\vmnode\vmnode.module.psm1"
 $kubeToolsModule = "$PSScriptRoot\..\..\k2s.node.module\windowsnode\downloader\artifacts\kube-tools\kube-tools.module.psm1"
 $imageModule = "$PSScriptRoot\..\image\image.module.psm1"
+$k8sApiModule = "$PSScriptRoot\..\k8s-api\k8s-api.module.psm1"
 
-Import-Module $configModule, $logModule, $pathModule, $vmModule, $hooksModule, $kubeToolsModule, $imageModule, $vmNodeModule
+Import-Module $configModule, $logModule, $pathModule, $vmModule, $hooksModule, $kubeToolsModule, $imageModule, $vmNodeModule, $k8sApiModule
 
 $kubePath = Get-KubePath
 $kubeConfigDir = Get-ConfiguredKubeConfigDir
@@ -102,6 +103,76 @@ function Wait-ForNodesReady {
 }
 
 <#
+.SYNOPSIS
+Pre-creates a Windows node object with the correct PodCIDR before kubeadm join.
+
+.DESCRIPTION
+Kubernetes controller-manager auto-allocates a PodCIDR when a node joins the cluster.
+However, K2s expects a specific PodCIDR (podNetworkWorkerCIDR) that Flannel is configured to use.
+Since Kubernetes does not allow changing podCIDR after it's set, we pre-create the node object
+with the correct podCIDR BEFORE kubeadm join runs. When kubeadm join completes, it updates
+the node's status and other fields but preserves the pre-set podCIDR.
+
+.PARAMETER NodeName
+The name of the Windows node to pre-create.
+
+.PARAMETER PodSubnetworkNumber
+The pod subnetwork number (e.g., '1' for 172.20.1.0/24).
+#>
+function Initialize-WindowsNodePodCIDR {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+
+    # Get expected PodCIDR from config.json
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
+    $expectedPodCIDR = $clusterCIDRWorkerTemplate.Replace('X', $PodSubnetworkNumber)
+
+    Write-Log "Pre-creating Windows node '$NodeName' with PodCIDR '$expectedPodCIDR'"
+
+    # Check if node already exists
+    $existingNode = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName --ignore-not-found -o name 2>&1
+    if ($LASTEXITCODE -eq 0 -and $existingNode) {
+        Write-Log "Node '$NodeName' already exists, skipping pre-creation"
+        return
+    }
+
+    # Create the node object with the correct PodCIDR
+    # When kubeadm join runs, it will update this node rather than creating a new one
+    $nodeManifest = @{
+        apiVersion = "v1"
+        kind = "Node"
+        metadata = @{
+            name = $NodeName
+        }
+        spec = @{
+            podCIDR = $expectedPodCIDR
+            podCIDRs = @($expectedPodCIDR)
+        }
+    }
+    $nodeJson = $nodeManifest | ConvertTo-Json -Depth 10
+    
+    $nodeFile = [System.IO.Path]::GetTempFileName()
+    try {
+        # Write JSON without BOM (Out-File -Encoding utf8 adds BOM in Windows PowerShell)
+        [System.IO.File]::WriteAllText($nodeFile, $nodeJson, [System.Text.UTF8Encoding]::new($false))
+        
+        $createOutput = &"$kubeToolsPath\kubectl.exe" create -f $nodeFile 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "[WARN] Failed to pre-create node '$NodeName': $createOutput" -Console
+            Write-Log "Continuing with join - controller-manager will allocate PodCIDR"
+            return
+        }
+        Write-Log "Successfully pre-created node '$NodeName' with PodCIDR '$expectedPodCIDR'"
+    }
+    finally {
+        Remove-Item -Path $nodeFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+<#
 Join the windows node with linux control plane node
 #>
 function Join-WindowsNode {
@@ -122,7 +193,8 @@ function Join-WindowsNode {
         Copy-Item -Path "$kubeToolsPath\kubeadm.exe" -Destination $tempKubeadmDirectory -Force
 
         Write-Log 'Add kubeadm to firewall rules'
-        New-NetFirewallRule -DisplayName 'Allow temp Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
+        $tempRuleName = 'Allow temp Kubeadm'
+        New-NetFirewallRule -DisplayName $tempRuleName -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
         #Below rule is not necessary but adding in case we perform subsequent operations.
         New-NetFirewallRule -DisplayName 'Allow Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$kubeToolsPath\kubeadm.exe" -Enabled True | Out-Null
 
@@ -166,14 +238,19 @@ function Join-WindowsNode {
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
         $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'npipe:////./pipe/containerd-containerd').Replace('__NODE_IP__', $windowsNodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
 
-        $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$joinConfigurationFilePath`"" 
+        $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser,SystemVerification' + " --config `"$joinConfigurationFilePath`""
 
         Write-Log $joinCommand
+
+        # Pre-create the node with correct PodCIDR before kubeadm join
+        # This ensures controller-manager doesn't auto-allocate a different CIDR
+        Initialize-WindowsNodePodCIDR -NodeName $env:COMPUTERNAME.ToLower() -PodSubnetworkNumber $PodSubnetworkNumber
 
         $controlPlaneHostName = Get-ConfigControlPlaneNodeHostname
         $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $controlPlaneHostName"
         Set-Location $tempKubeadmDirectory
-        Invoke-Expression $joinCommand 2>&1 | Write-Log
+        $joinOutput = Invoke-Expression $joinCommand 2>&1
+        $joinOutput | Write-Log
         Set-Location ..\..
 
         # print the output of the WaitForJoin.ps1
@@ -183,6 +260,8 @@ function Join-WindowsNode {
         # delete path if was created
         Remove-Item -Path $tempKubeadmDirectory\kubeadm.exe
         if ( !$bPathAvailable ) { Remove-Item -Path $tempKubeadmDirectory }
+        $rule = Get-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue
+        if ($rule) { Remove-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue }
 
         # check success in joining
         $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
@@ -214,6 +293,19 @@ function Join-WindowsNode {
     # mark nodes as worker
     Write-Log 'Labeling windows node as worker node'
     &"$kubeToolsPath\kubectl.exe" label nodes $env:computername.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
+
+    # Verify PodCIDR is correct (should have been set by pre-creation before join)
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
+    $expectedPodCIDR = $clusterCIDRWorkerTemplate.Replace('X', $PodSubnetworkNumber)
+    $actualPodCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $env:computername.ToLower() -o jsonpath="{.spec.podCIDR}" 2>&1
+    if ($actualPodCIDR -eq $expectedPodCIDR) {
+        Write-Log "Node PodCIDR correctly set to '$expectedPodCIDR'"
+    }
+    else {
+        Write-Log "[ERROR] Node PodCIDR mismatch. Expected: $expectedPodCIDR, Got: $actualPodCIDR" -Console
+        throw "Windows node PodCIDR mismatch. Expected '$expectedPodCIDR' but got '$actualPodCIDR'. Flannel networking will not work correctly."
+    }
 }
 
 function Join-LinuxNode {
@@ -258,7 +350,7 @@ function Join-LinuxNode {
         $caCertFilePath = '/etc/kubernetes/pki/ca.crt'
 
         Write-Log 'Create config file for join command'
-        $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinnode.template.yaml"
+        $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinnode-linux.template.yaml"
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
         $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'unix:///run/crio/crio.sock').Replace('__NODE_IP__', $NodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
 
@@ -267,7 +359,7 @@ function Join-LinuxNode {
         $target = '/tmp/joinnode.yaml'
         Copy-ToRemoteComputerViaSshKey -Source $source -Target $target -UserName $NodeUserName -IpAddress $NodeIpAddress
    
-        $joinCommand = "sudo kubeadm join $apiServerEndpoint" + ' --node-name ' + $NodeName + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$target`""
+        $joinCommand = "sudo kubeadm join $apiServerEndpoint" + ' --node-name ' + $NodeName + ' --ignore-preflight-errors IsPrivilegedUser,SystemVerification' + " --config `"$target`""
         Write-Log "Created join command: $joinCommand"
 
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl start crio' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
@@ -368,7 +460,7 @@ function Uninstall-Cluster {
 
 function New-JoinCommand {
     $tokenCreationCommand = 'sudo kubeadm token create --print-join-command'
-    $joinCommand = (Invoke-CmdOnControlPlaneViaSSHKey "$tokenCreationCommand").Output 2>&1
+    $joinCommand = (Invoke-CmdOnControlPlaneViaSSHKey -Retries 3 -CmdToExecute "$tokenCreationCommand").Output 2>&1
     return $joinCommand
 }
 

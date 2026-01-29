@@ -4,7 +4,7 @@ SPDX-License-Identifier: MIT
 -->
 
 # Secure Host Access
-*K2s* provides three addons which can be used to expose the functionality implemented inside the *Kubernetes* cluster outside of it: `ingress nginx`, `ingress traefik` and `gateway-api`.
+*K2s* provides three addons which can be used to expose the functionality implemented inside the *Kubernetes* cluster outside of it: `ingress nginx`, `ingress traefik`.
 
 However, because the whole *K2s* solution relies on a private network, the exposed endpoints are only available inside this private network, running behind the *Windows* host - regardless which [Hosting Variant](../user-guide/hosting-variants.md) is used.
 
@@ -14,59 +14,28 @@ If we want to expose the *ingress* / *gateway* endpoints outside of the *Windows
 
 ![reverse-proxy](assets/reverse-proxy.drawio.png)
 
-We describe here two ways to do that: using the addon `exthttpaccess` and using *IIS*.
+We describe here two ways to do that: using the windows firewall and using *IIS*.
 
-## \[Option 1\] Using the Addon `exthttpaccess`
-This *K2s* addon installs *NGINX* as a *Windows* service on the host, and configures it as a reverse proxy to the installed *ingress* addon. Products shall adjust the configuration.
+## \[Option 1\] Using the Windows firewall
+ 
+One way to expose the functionality outside of the *Windows* host is to use the *Windows* firewall.
+Use the Windows *netsh* command to create a port proxy that forwards external traffic to your ingress controller:
 
-See [NGINX Reverse Proxy](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/){target="_blank"}.
+`netsh interface portproxy add v4tov4 listenport=8443 listenaddress=YOUR-HOST-IP connectport=443 connectaddress=172.19.1.100`
 
-The example shows how to make the two web applications *K2s* dashboard available outside your host, under an  `https` endpoint:
+This command creates a tunnel that:
 
-* `https://my-host.my-domain.com/dashboard` -> `http://k2s.cluster.local/dashboard/`
-* `https://my-host.my-domain.com/my-product` -> `http://my-product.local`
+Listens on port 8443 (or choose another free port on your host) at address YOUR-HOST-IP (your host interface IP, in most cases your Ethernet adapter) and 
+forwards traffic to port 443 at 172.19.1.100 (likely your ingress controller's service), by this the traffic will flow to the K8s cluster. 
 
-For this you need a server certificate issued by a trusted authority for the FQDN of your host, in this example `my-host.my-domain.com`:
+Result: External clients can now access your Kubernetes services by connecting to YOUR-HOST-IP:8443. The traffic flows through the Windows port proxy to your ingress controller, which then routes it to the appropriate service based on your ingress rules (hostname, path, etc.).
+This setup is commonly used in local development environments where the Kubernetes cluster runs on the host.
 
-1. Enable the *K2s* addon `exthttpaccess`
+Please check out other helpfull commands regarding portproxy:
 
-2. Update the configuration file `<k2s-install-dir>\bin\nginx\nginx.conf`
+`netsh interface portproxy show all` - shows all port forwardings settings
 
-    ```title=""
-    ...
-    http {
-      server {
-        listen 443          ssl;
-        server_name         my-host.my-domain.com;
-        ssl_certificate     my-host.my-domain.com.crt;
-        ssl_certificate_key my-host.my-domain.com.key;
-
-        location /dashboard/ {
-          proxy_pass http://k2s.cluster.local/dashboard/;
-          proxy_set_header Accept-Encoding "";
-        }
-
-        location /my-product/ {
-          proxy_pass http://my-product.local/;
-          sub_filter 'base href="' 'base href="/my-product';
-          proxy_buffering off;
-        }
-      }
-    }
-    ```
-
-    * The `sub_filter` will replace e.g. `<base href="/app/"/>` with `<base href="/my-product/app/"/>`, and is needed for apps with static base `href`. The dashboard has dynamic base `href` and need no path re-write.
-    * The `proxy_buffering` needs to be turned off if the application uses [Server-Send-Events](https://javascript.info/server-sent-events){target="_blank"}.
-
-3. Restart `nginx-ext` using `nssm`, to use the updated configuration file:
-
-   ```console
-   nssm restart nginx-ext
-   ```
-
-!!! question "Open Points"
-    * How can *NGINX* authenticate users against NTLM? This feature seems to be available, but only for *NGINX Plus*.
-    * Can *NGINX* use server certificates private key from the *Windows Certificate Store*? Companies might have an established process to manage and distribute their server certificates, which on *Windows* means they are created in the computer certificate store and their private key cannot be exported to be used by *NGINX*. *IIS* can use it from there.
+`netsh interface portproxy reset`    - cleans them all, for testing very usefull 
 
 ## \[Option 2\] Using *IIS*
 Another way to expose the functionality outside of the *Windows* host is to use the [Application Request Routing module for IIS](https://learn.microsoft.com/en-us/iis/extensions/planning-for-arr/using-the-application-request-routing-module){target="_blank"} and the [URL Rewrite IIS Module](https://www.iis.net/downloads/microsoft/url-rewrite){target="_blank"} to configure a reverse proxy to the services exposed by the *K2s* *ingress* or *gateway* addon.

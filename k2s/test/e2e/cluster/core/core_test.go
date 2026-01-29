@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package core
@@ -10,6 +10,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/siemens-healthineers/k2s/test/framework/watcher"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,6 +30,7 @@ var manifestDir string
 var proxy string
 
 var testFailed = false
+var podWatcher *watcher.PodWatcher
 
 func TestClusterCore(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -39,10 +41,12 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = "workload/windows"
 	proxy = "http://172.19.1.1:8181"
 
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.ClusterTestStepPollInterval(time.Millisecond*200))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning,
+		framework.ClusterTestStepPollInterval(time.Millisecond*200),
+		framework.ClusterTestStepTimeout(8*time.Minute))
 	k2s = dsl.NewK2s(suite)
 
-	if suite.SetupInfo().SetupConfig.LinuxOnly {
+	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
 
 		manifestDir = "workload/base"
@@ -51,18 +55,24 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Using proxy <", proxy, "> for internet access")
 	GinkgoWriter.Println("Deploying workloads to cluster..")
 
-	suite.Kubectl().Run(ctx, "apply", "-k", manifestDir)
+	// Start pod watcher in background
+	podWatcher = watcher.NewPodWatcher(GinkgoWriter, namespace)
+	if err := podWatcher.Start(ctx, suite.Kubectl().Path()); err != nil {
+		GinkgoWriter.Printf("Warning: failed to start pod watcher: %v\n", err)
+	}
+
+	suite.Kubectl().MustExec(ctx, "apply", "-k", manifestDir)
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
-	suite.Kubectl().Run(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
 
 	for _, deploymentName := range linuxDeploymentNames {
 		suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, namespace)
 	}
 
-	if !suite.SetupInfo().SetupConfig.LinuxOnly {
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		for _, deploymentName := range winDeploymentNames {
 			suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, namespace)
@@ -73,21 +83,21 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if podWatcher != nil {
+		podWatcher.Stop()
+	}
 
-	GinkgoWriter.Println("Status of cluster after test runs...")
-	status := suite.K2sCli().GetStatus(ctx)
-	isRunning := status.IsClusterRunning()
-	GinkgoWriter.Println("Cluster is running:", isRunning)
+	suite.StatusChecker().IsK2sRunning(ctx)
 
 	GinkgoWriter.Println("Deleting workloads..")
 
 	if testFailed {
-		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
 	// for finding out the sporadically failed test runs
 	if !testFailed {
-		suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)
+		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
 
 		GinkgoWriter.Println("Workloads deleted")
 
@@ -95,23 +105,23 @@ var _ = AfterSuite(func(ctx context.Context) {
 	}
 })
 
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
+})
+
 var _ = Describe("Cluster Core", func() {
 	systemNamespace := "kube-system"
-
-	var _ = AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			testFailed = true
-		}
-	})
 
 	Describe("Basic Components", func() {
 		Describe("System Nodes", func() {
 			It("control-plane is ready", func(ctx SpecContext) {
-				suite.Cluster().ExpectNodeToBeReady(suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ctx)
+				suite.Cluster().ExpectNodeToBeReady(suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ctx)
 			})
 
 			It("Windows worker is ready", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -126,7 +136,7 @@ var _ = Describe("Cluster Core", func() {
 		})
 
 		DescribeTable("System Pods", func(podName string) {
-			suite.Cluster().ExpectPodToBeReady(podName, systemNamespace, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname)
+			suite.Cluster().ExpectPodToBeReady(podName, systemNamespace, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname())
 		},
 			Entry("etcd-HOSTNAME_PLACEHOLDER is available", "etcd-HOSTNAME_PLACEHOLDER"),
 			Entry("kube-scheduler-HOSTNAME_PLACEHOLDER is available", "kube-scheduler-HOSTNAME_PLACEHOLDER"),
@@ -136,7 +146,7 @@ var _ = Describe("Cluster Core", func() {
 
 	Describe("Communication", func() {
 		DescribeTable("Deployments Availability", func(name string, skipOnLinuxOnly bool) {
-			if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
+			if skipOnLinuxOnly && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 				Skip("Linux-only")
 			}
 
@@ -149,7 +159,7 @@ var _ = Describe("Cluster Core", func() {
 			Entry("curl is available", "curl", false))
 
 		DescribeTable("Deployment Reachable from Host", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
-			if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
+			if skipOnLinuxOnly && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 				Skip("Linux-only")
 			}
 
@@ -166,7 +176,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Deployment albums-win1 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -178,7 +188,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Deployment albums-win2 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -188,7 +198,7 @@ var _ = Describe("Cluster Core", func() {
 
 		Describe("Linux Deployments Are Reachable from Windows Pods", func() {
 			It("Deployment albums-linux1 is reachable from Pod of Deployment albums-win1", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -196,7 +206,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Deployment albums-linux1 is reachable from Pod of Deployment albums-win2", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -204,7 +214,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Deployment albums-linux2 is reachable from Pod of Deployment albums-win1", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -212,7 +222,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Deployment albums-linux2 is reachable from Pod of Deployment albums-win2", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -222,7 +232,7 @@ var _ = Describe("Cluster Core", func() {
 
 		Describe("Windows Deployments Are Reachable from Windows Pods", func() {
 			It("Deployment albums-win2 is reachable from Pod of Deployment albums-win1", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -230,7 +240,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Deployment albums-win1 is reachable from Pod of Deployment albums-win2", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -244,7 +254,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Pod of Deployment albums-win1 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -256,7 +266,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Pod of Deployment albums-win2 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -266,7 +276,7 @@ var _ = Describe("Cluster Core", func() {
 
 		Describe("Linux Pods Are Reachable from Windows Pods", func() {
 			It("Pod of Deployment albums-linux1 is reachable from Pod of Deployment albums-win1", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -274,7 +284,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Pod of Deployment albums-linux1 is reachable from Pod of Deployment albums-win2", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -282,7 +292,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Pod of Deployment albums-linux2 is reachable from Pod of Deployment albums-win1", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -290,7 +300,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Pod of Deployment albums-linux2 is reachable from Pod of Deployment albums-win2", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -300,7 +310,7 @@ var _ = Describe("Cluster Core", func() {
 
 		Describe("Windows Pods Are Reachable from Windows Pods", func() {
 			It("Pod of Deployment albums-win2 is reachable from Pod of Deployment albums-win1", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -308,7 +318,7 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Pod of Deployment albums-win1 is reachable from Pod of Deployment albums-win2", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -330,7 +340,7 @@ var _ = Describe("Cluster Core", func() {
 					Skip("Offline-Mode")
 				}
 
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -342,7 +352,7 @@ var _ = Describe("Cluster Core", func() {
 					Skip("Offline-Mode")
 				}
 
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 

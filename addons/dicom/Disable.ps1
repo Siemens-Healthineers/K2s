@@ -63,7 +63,7 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', $addonName, '--ignore-
 }
 
 if ($Force -ne $true) {
-    $answer = Read-Host 'WARNING: This DELETES ALL DATA of the stored DICOM data. Continue? (y/N)'
+    $answer = Read-Host 'WARNING: This DELETES ALL DATA of the stored DICOM data(unless stored in SMB storage). Continue? (y/N)'
     if ($answer -ne 'y') {
         $errMsg = 'Disable storage smb cancelled.'
         if ($EncodeStructuredOutput -eq $true) {

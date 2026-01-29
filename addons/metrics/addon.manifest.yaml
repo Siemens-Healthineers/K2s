@@ -11,6 +11,19 @@ spec:
   implementations:
     - name: metrics
       description: Kubernetes metrics server for API Access to service metrics
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages: []
+          additionalImagesFiles: []
+        windows:
+          curl: []
+          additionalImages:
+            - ghcr.io/prometheus-community/windows-exporter
+          additionalImagesFiles:
+            - ../common/manifests/windows-exporter/daemonset.yaml
       commands:
         enable:
           cli:

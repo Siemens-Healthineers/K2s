@@ -75,10 +75,11 @@ type ResourceConfig struct {
 }
 
 type EnvConfig struct {
-	Proxy              string `mapstructure:"httpProxy"`
-	AdditionalHooksDir string `mapstructure:"additionalHooksDir"`
-	RestartPostInstall string `mapstructure:"restartPostInstallCount"`
-	K8sBins            string `mapstructure:"k8sBins"`
+	Proxy              string   `mapstructure:"httpProxy"`
+	NoProxy            []string `mapstructure:"noProxy"`
+	AdditionalHooksDir string   `mapstructure:"additionalHooksDir"`
+	RestartPostInstall string   `mapstructure:"restartPostInstallCount"`
+	K8sBins            string   `mapstructure:"k8sBins"`
 }
 
 type BehaviorConfig struct {
@@ -110,6 +111,9 @@ const (
 	ProxyFlagShorthand = "p"
 	ProxyFlagUsage     = "HTTP Proxy"
 
+	NoProxyFlagName  = "no-proxy"
+	NoProxyFlagUsage = "No proxy hosts/domains (comma-separated list)"
+
 	ConfigFileFlagName      = "config"
 	ConfigFileFlagShorthand = "c"
 	ConfigFileFlagUsage     = "Path to config file to load. This configuration overwrites other CLI parameters"
@@ -129,7 +133,6 @@ const (
 	SkipStartFlagName  = "skip-start"
 	SkipStartFlagUsage = "Do not start the K8s cluster automatically after installation"
 
-	RestartFlagName  = "restart-post-install-count"
 	RestartFlagUsage = "Number of times to restart cluster post installation."
 )
 
@@ -310,8 +313,8 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.Memory = vConfig.GetString(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
-	case RestartFlagName:
-		iConfig.Env.RestartPostInstall = vConfig.GetString(flagName)
+	case NoProxyFlagName:
+		iConfig.Env.NoProxy = vConfig.GetStringSlice(flagName)
 	case SkipStartFlagName:
 		iConfig.Behavior.SkipStart = vConfig.GetBool(flagName)
 	case WslFlagName:

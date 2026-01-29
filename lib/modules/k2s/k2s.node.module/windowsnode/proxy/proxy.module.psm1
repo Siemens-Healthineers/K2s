@@ -5,6 +5,9 @@
 $logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
 Import-Module $logModule
 
+$configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
+Import-Module $configModule
+
 $proxyConfigFp = "C:\ProgramData\k2s\proxy.conf"
 
 class ProxyConfig {
@@ -13,12 +16,46 @@ class ProxyConfig {
     [string[]] $NoProxy
 }
 
-function Get-K2sHosts() {
-    $clusterServicesCidr = Get-ConfiguredClusterCIDRServices
-    $clusterCidr = Get-ConfiguredClusterCIDR
-    $ipControlPlaneCidr = Get-ConfiguredControlPlaneCIDR
+<#
+.SYNOPSIS
+Gets K2s specific hosts and subnets that should be included in NO_PROXY configuration.
 
-    return @($clusterServicesCidr, $clusterCidr, $ipControlPlaneCidr, "local", "svc.cluster.local")
+.DESCRIPTION
+Returns an array of K2s specific hosts, IP addresses, and subnets that should be excluded from proxy usage.
+This includes cluster IPs, control plane IPs, and other K2s infrastructure endpoints.
+
+.NOTES
+This function is used by various Windows services to ensure they can communicate directly with K2s components
+without going through the proxy.
+#>
+function Get-K2sHosts {
+    $k2sHosts = @()
+    
+    $k2sHosts += @('localhost', '127.0.0.1', '::1')
+    
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+    if ([string]::IsNullOrWhiteSpace($ipControlPlane)) {
+        throw "Control Plane IP is not configured. Unable to determine K2s hosts for proxy configuration."
+    }
+    $k2sHosts += $ipControlPlane
+    
+    $clusterCIDR = Get-ConfiguredClusterCIDR
+    if ([string]::IsNullOrWhiteSpace($clusterCIDR)) {
+        throw "Cluster CIDR is not configured. Unable to determine K2s hosts for proxy configuration."
+    }
+    $k2sHosts += $clusterCIDR
+    
+    $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
+    if ([string]::IsNullOrWhiteSpace($clusterCIDRServices)) {
+        throw "Cluster Service CIDR is not configured. Unable to determine K2s hosts for proxy configuration."
+    }
+    $k2sHosts += $clusterCIDRServices
+       
+    $k2sHosts += @('.local', '.cluster.local')
+    
+    $k2sHosts = $k2sHosts | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+    
+    return $k2sHosts
 }
 
 <#
@@ -119,8 +156,13 @@ function New-ProxyConfig {
         $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
         if ($proxyEnabledStatus) {
             $Proxy = Get-ProxyServerFromWindowsSettings
-            $NoProxy = Get-ProxyOverrideFromWindowsSettings
-            Write-Log "Configured proxy server in Windows Proxy settings: Proxy: $Proxy, ProxyOverrides: $NoProxy" -Console
+            if ($null -eq $NoProxy -or $NoProxy.Count -eq 0) {
+                $windowsProxyOverrides = Get-ProxyOverrideFromWindowsSettings
+                if (![string]::IsNullOrWhiteSpace($windowsProxyOverrides)) {
+                    $NoProxy = $windowsProxyOverrides -split ','
+                }
+            }
+            Write-Log "Configured proxy server in Windows Proxy settings: Proxy: $Proxy, ProxyOverrides: $($NoProxy -join ',')" -Console
         }
         else {
             Write-Log 'No proxy configured in Windows Proxy Settings.' -Console
@@ -137,7 +179,7 @@ function New-ProxyConfig {
     New-Item -ItemType File -Path $proxyConfigFp -Force | Out-Null
 
     # Write the proxy settings to the config file
-    $NoProxyString = $NoProxy -join ','
+    $NoProxyString = if ($null -ne $NoProxy -and $NoProxy.Count -gt 0) { $NoProxy -join ',' } else { '' }
     Add-Content -Path $proxyConfigFp -Value "http_proxy=$Proxy"
     Add-Content -Path $proxyConfigFp -Value "https_proxy=$Proxy"
     Add-Content -Path $proxyConfigFp -Value "no_proxy=$NoProxyString"
@@ -176,7 +218,7 @@ function Get-ProxyConfig {
 
     return [ProxyConfig]@{
         HttpProxy = $httpProxy; 
-        Httpsproxy = $httpsProxy; 
+        HttpsProxy = $httpsProxy; 
         NoProxy = [string[]]$noProxyList
     }
 }
@@ -187,14 +229,16 @@ Sets the proxy server configuration.
 
 .DESCRIPTION
 This function allows you to set the proxy server configuration by providing the HTTP and HTTPS proxy server addresses.
+When a proxy is set, K2s specific hosts (localhost, cluster IPs, CIDRs, .local, .cluster.local) are automatically
+added to the no_proxy configuration to ensure K2s components can communicate directly without going through the proxy.
 If the configuration file does not exist at the specified path, an error will be thrown.
 
-.PARAMETER roxy
-The HTTP proxy server address to be set.
+.PARAMETER Proxy
+The HTTP/HTTPS proxy server address to be set.
 
 .EXAMPLE
 Set-ProxyServer -Proxy "http://proxy.example.com:8080"
-Sets the HTTP and HTTPS proxy server addresses to "http://proxy.example.com:8080".
+Sets the HTTP and HTTPS proxy server addresses to "http://proxy.example.com:8080" and automatically adds K2s hosts to no_proxy.
 #>
 function Set-ProxyServer {
     param (
@@ -212,13 +256,23 @@ function Set-ProxyServer {
     # Update the proxy settings
     if ($Proxy) {
         $proxyConfig.HttpProxy = $Proxy
+        $proxyConfig.HttpsProxy = $Proxy
+        
+        # Add K2s hosts to NoProxy to ensure K2s components can communicate directly
+        $k2sHosts = Get-K2sHosts
+        $allNoProxyHosts = @()
+        if ($proxyConfig.NoProxy.Count -gt 0) {
+            $allNoProxyHosts += $proxyConfig.NoProxy
+        }
+        $allNoProxyHosts += $k2sHosts
+        $proxyConfig.NoProxy = $allNoProxyHosts | Sort-Object -Unique
     }
 
     # Prepare the new content for the config file
     $newContent = @(
         "http_proxy='$($proxyConfig.HttpProxy)'"
         "https_proxy='$($proxyConfig.HttpsProxy)'"
-        "no_proxy='$($proxyConfig.NoProxy)'"
+        "no_proxy='$($proxyConfig.NoProxy -join ",")'"
     )
 
     # Write the updated configuration back to the file
@@ -405,4 +459,5 @@ Export-ModuleMember -Function Get-OrUpdateProxyServer,
                               Remove-NoProxyEntry, 
                               Reset-ProxyConfig,
                               Add-K2sHostsToNoProxyEnvVar,
-                              Remove-K2sHostsFromNoProxyEnvVar
+                              Remove-K2sHostsFromNoProxyEnvVar,
+                              Get-K2sHosts

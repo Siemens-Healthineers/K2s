@@ -1342,49 +1342,13 @@ Describe 'Remove-Secret' -Tag 'unit', 'ci' {
         }
     }
 
-    Context 'Invoke-Kubectl fails retrieving the secret' {
-        BeforeAll {
-            $invokeResult = [pscustomobject]@{Output = 'oops'; Success = $false }
-
-            Mock -ModuleName $moduleName Write-Output
-            Mock -ModuleName $moduleName Write-Warning
-            Mock -ModuleName $moduleName Invoke-Kubectl { return $invokeResult } -ParameterFilter { $Params -contains 'get' -and $Params -contains 'secret' -and $Params -contains 'test-name' -and $Params -contains 'test-ns' }
-        }
-
-        It 'logs a warning' {
-            InModuleScope -ModuleName $moduleName {
-                Remove-Secret -Name 'test-name' -Namespace 'test-ns'
-
-                Should -Invoke Write-Warning -Times 1 -Scope Context -ParameterFilter { $Message -match 'oops' }
-            }
-        }
-    }
-
-    Context 'Secret non-existent' {
-        BeforeAll {
-            $invokeResult = [pscustomobject]@{Success = $true }
     
-            Mock -ModuleName $moduleName Write-Output
-            Mock -ModuleName $moduleName Invoke-Kubectl { return $invokeResult } -ParameterFilter { $Params -contains 'get' -and $Params -contains 'secret' -and $Params -contains 'test-name' -and $Params -contains 'test-ns' }
-        }
-    
-        It 'skips deletion' {
-            InModuleScope -ModuleName $moduleName {
-                Remove-Secret -Name 'test-name' -Namespace 'test-ns'
-    
-                Should -Invoke Write-Output -Times 1 -Scope Context -ParameterFilter { $InputObject -match 'skipping' }
-            }
-        }
-    }
-    
-    Context 'Secret existing' {
+    Context 'Parameters valid' {
         BeforeAll {
             $secretName = 'test-secret'
             $secretNamespace = 'test-ns'
-            $getResult = [pscustomobject]@{Output = 'secret'; Success = $true }
     
             Mock -ModuleName $moduleName Write-Output
-            Mock -ModuleName $moduleName Invoke-Kubectl { return $getResult } -ParameterFilter { $Params -contains 'get' -and $Params -contains 'secret' -and $Params -contains $secretName -and $Params -contains $secretNamespace }
         }
     
         Context 'Invoke-Kubectl fails deleting the secret' {

@@ -26,7 +26,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Folder path where executable shall be dumped')]
     [string] $ExeOutDir,
     [parameter(Mandatory = $false, HelpMessage = 'Build all K2s executables with assumption all are under single git repository')]
-    [switch] $BuildAll
+    [switch] $BuildAll,
+    [parameter(Mandatory = $false, HelpMessage = 'Proxy URL for Go operations (e.g., http://proxy.example.com:8080)')]
+    [string] $Proxy
 )
 
 # load global settings
@@ -56,6 +58,7 @@ $appsOutputMapping = @{
     'vfprules'            = $cniBinDir
     'yaml2json'           = $binDir
     'zap'                 = $binDir
+    'cplauncher'          = $cniBinDir
 }
 
 if ($ProjectDir -eq '') {
@@ -71,6 +74,13 @@ Set-Location $ProjectDir
 
 #boringcrypto for FIPS compliance, needs GO 1.19.4 or higher
 $Env:GOEXPERIMENT = 'boringcrypto';
+
+# Set proxy environment variables if Proxy parameter is provided
+if ($Proxy) {
+    Write-Output "Using proxy: $Proxy"
+    $Env:HTTP_PROXY = $Proxy
+    $Env:HTTPS_PROXY = $Proxy
+}
 
 #VERSION
 $Version = Get-Content -Path $global:KubernetesPath\VERSION

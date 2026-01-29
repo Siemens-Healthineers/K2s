@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: smb-static-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Delete
+  hostPath:
+    path: /mnt/k8s-smb-retain
+  storageClassName: smb-retain
+---
+apiVersion: v1 
+kind: PersistentVolumeClaim
+metadata:
+  name: smb-static-pvc
+  namespace: smb-share-test 
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: smb-static-pv
+  storageClassName: smb-retain

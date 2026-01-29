@@ -6,6 +6,7 @@ package linuxonly
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -33,6 +34,9 @@ func BuildCmd(config *ic.InstallConfig) (cmd string, err error) {
 
 	if config.Env.Proxy != "" {
 		cmd += fmt.Sprintf(" -Proxy %s", config.Env.Proxy)
+	}
+	if len(config.Env.NoProxy) > 0 {
+		cmd += fmt.Sprintf(" -NoProxy '%s'", strings.Join(config.Env.NoProxy, "','"))
 	}
 	if config.Env.AdditionalHooksDir != "" {
 		cmd += fmt.Sprintf(" -AdditionalHooksDir '%s'", config.Env.AdditionalHooksDir)

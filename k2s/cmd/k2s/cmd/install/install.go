@@ -5,11 +5,15 @@ package install
 
 import (
 	"fmt"
+	"strings"
+
 	"log/slog"
 	"os"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	config_contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
@@ -49,6 +53,9 @@ var (
 	# install K2s setup setting a proxy
 	k2s install --proxy http://10.11.12.13:5000
 
+	# install K2s setup setting a proxy with no-proxy hosts
+	k2s install --proxy http://10.11.12.13:5000 --no-proxy localhost,127.0.0.1,.local
+
 	# install K2s setup using a user-defined config file
 	k2s install -c 'c:\temp\my-config.yaml'
 
@@ -69,7 +76,7 @@ var (
 		Example: example,
 	}
 	installer             common.Installer
-	createTzHandleFunc    func() (tz.ConfigWorkspaceHandle, error)
+	createTzHandleFunc    func(config *config_contracts.KubeConfig) (tz.ConfigWorkspaceHandle, error)
 	buildLinuxOnlyCmdFunc func(config *ic.InstallConfig) (cmd string, err error)
 )
 
@@ -83,9 +90,11 @@ func init() {
 		GetVersionFunc:           version.GetVersion,
 		GetPlatformFunc:          utils.Platform,
 		GetInstallDirFunc:        utils.InstallDir,
-		LoadConfigFunc:           setupinfo.ReadConfig,
-		MarkSetupAsCorruptedFunc: setupinfo.MarkSetupAsCorrupted,
-		DeleteConfigFunc:         func(configDir string) error { return os.Remove(filepath.Join(configDir, setupinfo.ConfigFileName)) },
+		LoadConfigFunc:           config.ReadRuntimeConfig,
+		MarkSetupAsCorruptedFunc: config.MarkSetupAsCorrupted,
+		DeleteConfigFunc: func(configDir string) error {
+			return os.Remove(filepath.Join(configDir, definitions.K2sRuntimeConfigFileName))
+		},
 	}
 
 	buildonly.Installer = installer
@@ -104,6 +113,7 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
+	cmd.Flags().StringSlice(ic.NoProxyFlagName, []string{}, ic.NoProxyFlagUsage)
 	cmd.Flags().StringP(ic.ConfigFileFlagName, ic.ConfigFileFlagShorthand, "", ic.ConfigFileFlagUsage)
 	cmd.Flags().Bool(ic.WslFlagName, false, ic.WslFlagUsage)
 	cmd.Flags().String(ic.K8sBinFlagName, "", ic.K8sBinFlagUsage)
@@ -113,14 +123,13 @@ func bindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().Bool(ic.AppendLogFlagName, false, ic.AppendLogFlagUsage)
 	cmd.Flags().Bool(ic.SkipStartFlagName, false, ic.SkipStartFlagUsage)
-	cmd.Flags().String(ic.RestartFlagName, "", ic.RestartFlagUsage)
 
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }
 
-func createTimezoneConfigHandle() (tz.ConfigWorkspaceHandle, error) {
-	tzConfigWorkspace, err := tz.NewTimezoneConfigWorkspace()
+func createTimezoneConfigHandle(config *config_contracts.KubeConfig) (tz.ConfigWorkspaceHandle, error) {
+	tzConfigWorkspace, err := tz.NewTimezoneConfigWorkspace(config)
 	if err != nil {
 		return nil, err
 	}
@@ -131,14 +140,71 @@ func createTimezoneConfigHandle() (tz.ConfigWorkspaceHandle, error) {
 	return tzConfigHandle, nil
 }
 
+func findExecutablesInPath(exeName string) ([]string, error) {
+	pathEnv := os.Getenv("PATH")
+	if pathEnv == "" {
+		return nil, nil
+	}
+	var found []string
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" || dir == "." {
+			continue
+		}
+		exePath := filepath.Join(dir, exeName)
+		absExePath, err := filepath.Abs(exePath)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(absExePath); err == nil && !info.IsDir() {
+			found = append(found, absExePath)
+		}
+	}
+	return found, nil
+}
+
+func checkForOldK2sExecutables(currentExe string, exeName string) ([]string, error) {
+	currentExeAbs, _ := filepath.Abs(currentExe)
+	paths, err := findExecutablesInPath(exeName)
+	if err != nil {
+		return nil, fmt.Errorf("[Install] Error scanning PATH for %s: %v", exeName, err)
+	}
+	var otherK2s []string
+	for _, p := range paths {
+		absP, _ := filepath.Abs(p)
+		if !strings.EqualFold(absP, currentExeAbs) {
+			otherK2s = append(otherK2s, absP)
+		}
+	}
+	return otherK2s, nil
+}
+
 func install(cmd *cobra.Command, args []string) error {
+	exeName := "k2s.exe"
+	currentExe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("[Install] Error: unable to determine current executable path: %v", err)
+	}
+	otherK2s, err := checkForOldK2sExecutables(currentExe, exeName)
+	if err != nil {
+		return err
+	}
+	if len(otherK2s) > 0 {
+		fmt.Println("[Install] Found older k2s executables:")
+		for _, p := range otherK2s {
+			fmt.Fprintf(os.Stderr, "  %s\n", p)
+		}
+		return fmt.Errorf("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.")
+	}
+
 	cmdSession := cc.StartCmdSession(cmd.CommandPath())
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
 	if err != nil {
 		return err
 	}
 
-	tzConfigHandle, err := createTzHandleFunc()
+	context := cmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
+
+	tzConfigHandle, err := createTzHandleFunc(context.Config().Host().KubeConfig())
 	if err != nil {
 		return err
 	}
@@ -171,6 +237,9 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 
 	if c.Env.Proxy != "" {
 		cmd += " -Proxy " + c.Env.Proxy
+	}
+	if len(c.Env.NoProxy) > 0 {
+		cmd += fmt.Sprintf(" -NoProxy '%s'", strings.Join(c.Env.NoProxy, "','"))
 	}
 	if c.Env.AdditionalHooksDir != "" {
 		cmd += fmt.Sprintf(" -AdditionalHooksDir '%s'", c.Env.AdditionalHooksDir)

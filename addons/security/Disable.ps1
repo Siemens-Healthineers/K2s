@@ -80,6 +80,9 @@ Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match
 $oauth2ProxyYaml = Get-OAuth2ProxyConfig
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $oauth2ProxyYaml).Output | Write-Log
 
+$oauth2ProxyHydraYaml = Get-OAuth2ProxyHydraConfig  
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $oauth2ProxyHydraYaml).Output | Write-Log
+
 $keyCloakYaml = Get-KeyCloakConfig
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f',$keyCloakYaml).Output | Write-Log
 

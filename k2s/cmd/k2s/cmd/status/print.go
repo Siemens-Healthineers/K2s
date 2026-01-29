@@ -9,8 +9,9 @@ import (
 	"log/slog"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/primitives/arrays"
 	"github.com/siemens-healthineers/k2s/internal/primitives/units"
 )
@@ -61,12 +62,12 @@ type PrintSetupInfo struct {
 }
 
 type basePrinter struct {
-	config   *setupinfo.Config
+	config   *config.K2sRuntimeConfig
 	loadFunc func() (*LoadedStatus, error)
 }
 
 func NewJsonPrinter(
-	config *setupinfo.Config,
+	config *config.K2sRuntimeConfig,
 	printlnFunc func(m ...any),
 	marshalIndentFunc func(data any) ([]byte, error),
 	loadFunc func() (*LoadedStatus, error)) *JsonPrinter {
@@ -80,7 +81,7 @@ func NewJsonPrinter(
 }
 
 func NewUserFriendlyPrinter(
-	config *setupinfo.Config,
+	config *config.K2sRuntimeConfig,
 	showAdditionalInfo bool,
 	terminalPrinter TerminalPrinter,
 	loadFunc func() (*LoadedStatus, error)) *UserFriendlyPrinter {
@@ -101,9 +102,9 @@ func (p *JsonPrinter) Print() error {
 
 	printStatus := PrintStatus{
 		SetupInfo: &PrintSetupInfo{
-			Version:   p.config.Version,
-			Name:      string(p.config.SetupName),
-			LinuxOnly: p.config.LinuxOnly,
+			Version:   p.config.InstallConfig().Version(),
+			Name:      string(p.config.InstallConfig().SetupName()),
+			LinuxOnly: p.config.InstallConfig().LinuxOnly(),
 		},
 		RunningState:   loadedStatus.RunningState,
 		Nodes:          loadedStatus.Nodes,
@@ -158,12 +159,12 @@ func (p *UserFriendlyPrinter) Print() error {
 
 	p.terminalPrinter.PrintHeader("K2s SYSTEM STATUS")
 
-	typeText := string(p.config.SetupName)
-	if p.config.LinuxOnly {
+	typeText := p.config.InstallConfig().SetupName()
+	if p.config.InstallConfig().LinuxOnly() {
 		typeText += " (Linux-only)"
 	}
 
-	printText := fmt.Sprintf("Setup: '%s', Version: '%s'", p.terminalPrinter.PrintCyanFg(typeText), p.terminalPrinter.PrintCyanFg(p.config.Version))
+	printText := fmt.Sprintf("Setup: '%s', Version: '%s'", p.terminalPrinter.PrintCyanFg(typeText), p.terminalPrinter.PrintCyanFg(p.config.InstallConfig().Version()))
 
 	p.terminalPrinter.Println(printText)
 
@@ -175,8 +176,8 @@ func (p *UserFriendlyPrinter) Print() error {
 
 	p.terminalPrinter.PrintSuccess("The system is running")
 
-	if p.config.SetupName == setupinfo.SetupNameBuildOnlyEnv {
-		slog.Debug("Setup type has no K8s components, skipping", "type", setupinfo.SetupNameBuildOnlyEnv)
+	if p.config.InstallConfig().SetupName() == definitions.SetupNameBuildOnlyEnv {
+		slog.Debug("Setup type has no K8s components, skipping", "type", definitions.SetupNameBuildOnlyEnv)
 		return nil
 	}
 
@@ -189,13 +190,9 @@ func (p *UserFriendlyPrinter) Print() error {
 	p.printK8sVersion(status.K8sVersionInfo.K8sServerVersion, "server")
 	p.printK8sVersion(status.K8sVersionInfo.K8sClientVersion, "client")
 
-	proceed, err := p.printNodesStatus(status.Nodes, p.showAdditionalInfo)
+	_, err = p.printNodesStatus(status.Nodes, p.showAdditionalInfo)
 	if err != nil {
 		return fmt.Errorf("could not print node status: %w", err)
-	}
-
-	if !proceed {
-		return nil
 	}
 
 	p.printPodsStatus(status.Pods, p.showAdditionalInfo)

@@ -5,7 +5,9 @@ package upgrade
 
 import (
 	"errors"
+	"io/fs"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -16,43 +18,68 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
-	"github.com/siemens-healthineers/k2s/internal/os"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
-var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version"
+var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade or in-place delta update)"
 
 var upgradeCommandLongDescription = `
 Upgrades the installed K2s cluster to this version.
 
-⚠  This command must be called within the folder containing the new K2s version, e.g. '<new-version-dir>\k2s.exe system upgrade'
+⚠  This command automatically detects whether to perform:
+   - FULL UPGRADE: if executed from a full K2s package directory (no delta-manifest.json)
+   - DELTA UPDATE: if executed from an extracted delta package directory (delta-manifest.json present)
 
-The following tasks will be executed:
-1. Export of current workloads (global resources and all namespaced resources)
-2. Keeping addons and their persistency to be re-enabled after cluster upgrade
-3. Uninstall existing cluster
-4. Install a new cluster based on this version
-5. Import previously exported workloads
-6. Enable addons and restore persistency
-7. Check if all workloads are running
-8. Finally check K2s cluster availability
+FULL UPGRADE:
+  ⚠  Call this command within the folder containing the new K2s version, e.g. '<new-version-dir>\k2s.exe system upgrade'
+  
+  The following tasks will be executed:
+  1. Export of current workloads (global resources and all namespaced resources)
+  2. Keeping addons and their persistency to be re-enabled after cluster upgrade
+  3. Uninstall existing cluster
+  4. Install a new cluster based on this version
+  5. Import previously exported workloads
+  6. Enable addons and restore persistency
+  7. Check if all workloads are running
+  8. Finally check K2s cluster availability
+
+DELTA UPDATE (EXPERIMENTAL):
+  ⚠  Extract the delta package and call this command from within the extracted directory:
+     1. Extract: Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
+     2. Navigate: cd .\delta
+     3. Update: .\k2s.exe system upgrade
+  
+  The following tasks will be executed:
+  1. Detect delta package root (current directory with delta-manifest.json)
+  2. Detect target installation folder (from setup.json)
+  3. Update all Windows executables and scripts from delta to target installation
+  4. Update all Debian packages from delta (if cluster is running)
+  5. Update all container images from delta
+  6. Automatically stop and restart the cluster if it was running
 `
 
 var upgradeCommandExample = `
-  # Upgrades the cluster to this version
+  # Full upgrade: Upgrades the cluster to this version
   k2s system upgrade
 
-  # Upgrades the cluster to this version, skips takeover of existing cluster resources
+  # Full upgrade: Skips takeover of existing cluster resources
   k2s system upgrade -s
 
-  # Upgrades the cluster to this version, deleting downloaded files after upgrade
+  # Full upgrade: Deleting downloaded files after upgrade
   k2s system upgrade -d
+  
+  # Delta update: From extracted delta package
+  Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
+  cd .\delta
+  .\k2s.exe system upgrade
 `
 
 const (
@@ -61,7 +88,7 @@ const (
 	deleteFiles        = "delete-files"
 	proxy              = "proxy"
 	defaultProxy       = ""
-	skipImages         = "skip-images"
+	skipImagesFlag     = "skip-images"
 	backupDir          = "backup-dir"
 	force              = "force"
 	defaultBackupDir   = ""
@@ -85,7 +112,7 @@ func AddInitFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(configFileFlagName, "c", "", "Path to config file to load. This configuration overwrites other CLI parameters")
 	cmd.Flags().StringP(proxy, "p", defaultProxy, "HTTP Proxy")
 	cmd.Flags().StringP(backupDir, "b", defaultBackupDir, "Backup directory")
-	cmd.Flags().BoolP(skipImages, "i", false, "Skip takeover of container images from old cluster to new cluster")
+	cmd.Flags().BoolP(skipImagesFlag, "i", false, "Skip takeover of container images from old cluster to new cluster")
 	cmd.Flags().BoolP(force, "f", false, "Forces the upgrade, even if the previous and current versions are not consecutive")
 	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
 	cmd.Flags().SortFlags = false
@@ -103,22 +130,22 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 
-	config, err := readConfigLegacyAware(context.Config())
+	runtimeConfig, err := readConfigLegacyAware(context.Config())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
 	}
 
-	if config.LinuxOnly {
+	if runtimeConfig.InstallConfig().LinuxOnly() {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
+	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
 		return err
 	}
 
@@ -147,43 +174,43 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func readConfigLegacyAware(cfg config.ConfigReader) (*setupinfo.Config, error) {
-	slog.Info("Trying to read the config file", "config-dir", cfg.Host().K2sConfigDir())
+func readConfigLegacyAware(k2sConfig *cconfig.K2sConfig) (*cconfig.K2sRuntimeConfig, error) {
+	slog.Info("Trying to read the config file", "config-dir", k2sConfig.Host().K2sSetupConfigDir())
 
-	config, err := setupinfo.ReadConfig(cfg.Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(k2sConfig.Host().K2sSetupConfigDir())
 	if err != nil {
-		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if !errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return nil, err
 		}
 
-		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", cfg.Host().KubeConfigDir())
+		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", k2sConfig.Host().KubeConfig().CurrentDir())
 
-		config, err = setupinfo.ReadConfig(cfg.Host().KubeConfigDir())
+		runtimeConfig, err = config.ReadRuntimeConfig(k2sConfig.Host().KubeConfig().CurrentDir())
 		if err != nil {
 			return nil, err
 		}
 
-		if err := copyLegacyConfigFile(cfg.Host().KubeConfigDir(), cfg.Host().K2sConfigDir()); err != nil {
+		if err := copyLegacyConfigFile(k2sConfig.Host().KubeConfig().CurrentDir(), k2sConfig.Host().K2sSetupConfigDir()); err != nil {
 			return nil, err
 		}
 	}
 
 	slog.Info("Config file read")
 
-	return config, nil
+	return runtimeConfig, nil
 }
 
 func copyLegacyConfigFile(legacyDir string, targetDir string) error {
 	slog.Info("Copying config file from legacy dir to target dir", "legacy-dir", legacyDir, "target-dir", targetDir)
 
-	if err := os.CreateDirIfNotExisting(targetDir); err != nil {
+	if err := os.MkdirAll(targetDir, fs.ModePerm); err != nil {
 		return err
 	}
 
-	source := filepath.Join(legacyDir, setupinfo.ConfigFileName)
-	target := filepath.Join(targetDir, setupinfo.ConfigFileName)
+	source := filepath.Join(legacyDir, definitions.K2sRuntimeConfigFileName)
+	target := filepath.Join(targetDir, definitions.K2sRuntimeConfigFileName)
 
-	return os.CopyFile(source, target)
+	return kos.CopyFile(source, target)
 }
 
 func createUpgradeCommand(cmd *cobra.Command) string {
@@ -211,7 +238,7 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	if len(proxy) > 0 {
 		psCmd += " -Proxy " + proxy
 	}
-	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImages).Value.String())
+	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImagesFlag).Value.String())
 	if skipImages {
 		psCmd += " -SkipImages"
 	}
@@ -233,7 +260,7 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 func switchToUpgradeLogFile(showLog bool, logger *logging.Slogger) {
 	upgradeLogFilePath := bl.GlobalLogFilePath() + "_cli_upgrade_" + time.Now().Format("2006-01-02_15-04-05")
 
-	slog.Debug("Switching temporary to CLI upgrade log file", "path", upgradeLogFilePath)
+	slog.Debug("Switching temporary to CLI log file", "path", upgradeLogFilePath)
 
 	setLogger(showLog, logger, upgradeLogFilePath)
 }

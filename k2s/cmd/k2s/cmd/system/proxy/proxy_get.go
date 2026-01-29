@@ -8,7 +8,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 	"github.com/spf13/cobra"
@@ -28,7 +28,7 @@ var proxyGetCmd = &cobra.Command{
 
 func getProxyServer(cmd *cobra.Command, args []string) error {
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	_, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	_, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		return err
 	}

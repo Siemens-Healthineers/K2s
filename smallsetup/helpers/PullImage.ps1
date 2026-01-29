@@ -52,9 +52,10 @@ if (!$Windows) {
 $retries = 5
 $success = $false
 
+$kubeBinPath = Get-KubeBinPath
 while ($retries -gt 0) {
     $retries--
-    &$global:BinPath\crictl pull $ImageName
+    &$global:BinPath\crictl --config $kubeBinPath\crictl.yaml pull $ImageName
 
     if ($?) {
         $success = $true

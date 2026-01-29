@@ -25,9 +25,6 @@ PS> .\build\bom\GenerateBom.ps1
 
 Generate SBOM with annotations for clearance purpose
 PS> .\build\bom\GenerateBom.ps1 -Annotate
-
-Generate SBOM with annotations for clearance for specific addons
-PS> .\build\bom\GenerateBom.ps1 -Annotate -Addons registry,traefik
 #>
 
 Param(
@@ -36,9 +33,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If true, final SBOM file will have component annotations, this is required only for component clearance')]
-    [switch] $Annotate = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to include for SBOM generation')]
-    [string[]] $Addons
+    [switch] $Annotate = $false
 )
 
 function EnsureTrivy() {
@@ -52,7 +47,7 @@ function EnsureTrivy() {
     }
 
     $compressedFile = "$global:BinPath\trivy.zip"
-    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.52.1/trivy_0.52.1_windows-64bit.zip' $true -ProxyToUse $Proxy
+    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.65.0/trivy_0.65.0_windows-64bit.zip' $true -ProxyToUse $Proxy
 
     # Extract the archive.
     Write-Output "Extract archive to '$global:BinPath"
@@ -69,7 +64,7 @@ function EnsureCdxCli() {
     # download cli if not there
     $cli = "$global:BinPath\cyclonedx-win-x64.exe"
     if (!(Test-Path $cli)) {
-        DownloadFile $cli https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.25.0/cyclonedx-win-x64.exe $true -ProxyToUse $Proxy
+        DownloadFile $cli https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.29.1/cyclonedx-win-x64.exe $true -ProxyToUse $Proxy
     }
 }
 
@@ -98,6 +93,31 @@ function GenerateBomGolang($dirname) {
     Write-Output "bom now available: $bomfile"
 }
 
+function Update-K2sStaticVersion() {
+    Write-Output 'Update k2s-static.json with current version from VERSION file'
+
+    # Read version from VERSION file
+    $versionFile = "$global:KubernetesPath\VERSION"
+    if (!(Test-Path $versionFile)) {
+        throw "VERSION file not found at: $versionFile"
+    }
+    
+    $version = (Get-Content -Path $versionFile -Raw).Trim()
+    Write-Output "  -> K2s version from VERSION file: $version"
+    
+    # Update k2s-static.json with the version
+    $staticJsonPath = "$bomRootDir\merge\k2s-static.json"
+    if (!(Test-Path $staticJsonPath)) {
+        throw "k2s-static.json not found at: $staticJsonPath"
+    }
+    
+    $jsonContent = Get-Content -Path $staticJsonPath -Raw
+    $jsonContent = $jsonContent -replace '"version":\s*"VERSION_PLACEHOLDER"', "`"version`": `"v$version`""
+    Set-Content -Path $staticJsonPath -Value $jsonContent -NoNewline
+    
+    Write-Output "  -> Updated k2s-static.json with version: v$version"
+}
+
 function MergeBomFilesFromDirectory() {
     Write-Output "Merge bom files from '$bomRootDir\merge'"
 
@@ -124,6 +144,13 @@ function MergeBomFilesFromDirectory() {
     $COMPOSE += '--output-file'
     $COMPOSE += "`"$bomRootDir\k2s-bom.xml`""
     & $CMD $COMPOSE
+    
+    # Restore placeholder in k2s-static.json to keep file clean in git
+    Write-Output "Restore VERSION_PLACEHOLDER in k2s-static.json"
+    $staticJsonPath = "$bomRootDir\merge\k2s-static.json"
+    $jsonContent = Get-Content -Path $staticJsonPath -Raw
+    $jsonContent = $jsonContent -replace '"version":\s*"v[\d\.]+(-[\w\.]+)?"', "`"version`": `"VERSION_PLACEHOLDER`""
+    Set-Content -Path $staticJsonPath -Value $jsonContent -NoNewline
 }
 
 function ValidateResultBom() {
@@ -155,15 +182,20 @@ function GenerateBomDebian() {
     }
     else {
         Write-Output "Install trivy into $hostname"
-        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.52.1/trivy_0.52.1_Linux-64bit.tar.gz 2>&1'
-        ExecCmdMaster 'sudo tar -xzf ./trivy_0.52.1_Linux-64bit.tar.gz trivy'
-        ExecCmdMaster 'sudo rm ./trivy_0.52.1_Linux-64bit.tar.gz'
+        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.65.0/trivy_0.65.0_Linux-64bit.tar.gz 2>&1'
+        ExecCmdMaster 'sudo tar -xzf ./trivy_0.65.0_Linux-64bit.tar.gz trivy'
+        ExecCmdMaster 'sudo rm ./trivy_0.65.0_Linux-64bit.tar.gz'
         ExecCmdMaster 'sudo mv ./trivy /usr/local/bin/'
         ExecCmdMaster 'sudo chmod +x /usr/local/bin/trivy'
     }
 
-    Write-Output 'Generate bom for debian'
-    ExecCmdMaster -CmdToExecute 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1' -Retries 6 -Timeout 10
+    Write-Output 'Generate bom for debian (this may take 5-15 minutes, please wait...)'
+    Write-Output 'Running: trivy rootfs / --scanners license --license-full --format cyclonedx'
+    Write-Output 'Note: Progress output from trivy may not be visible. The process is running in the background.'
+    $startTime = Get-Date
+    ExecCmdMaster -CmdToExecute 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1' -Retries 6 -Timeout 30
+    $elapsed = (Get-Date) - $startTime
+    Write-Output "Debian BOM generation completed in $($elapsed.TotalMinutes.ToString('F2')) minutes"
 
     Write-Output 'Copy bom file to local folder'
     $source = "$global:Remote_Master" + ':/home/remote/kubemaster.json'
@@ -181,19 +213,18 @@ function LoadK2sImages() {
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
 
+    # reset proxy
+    $env:GLOBAL_AGENT_HTTP_PROXY = ''
+    $env:https_proxy = ''
+
     # dump all images
-    &$bomRootDir\DumpK2sImages.ps1 -Addons $Addons
+    &$bomRootDir\DumpK2sImages.ps1
 
     # export all addons to have all images pull
     Write-Output "Exporting addons to trigger pulling of containers under $tempDir"
 
-    # check if addons are specified
-    if ($null -eq $Addons -or $Addons.Length -eq 0) {
-        &"$global:KubernetesPath\k2s.exe" addons export -d $tempDir -o
-    }
-    else {
-        &"$global:KubernetesPath\k2s.exe" addons export $Addons -d $tempDir -o
-    }
+    # export all available addons
+    &"$global:KubernetesPath\k2s.exe" addons export -d $tempDir -o
 
     # cleanup temp directory
     if ( Test-Path -Path $tempDir\addons.zip) {
@@ -243,15 +274,54 @@ function GenerateBomContainers() {
             # create bom file entry for linux image
             # TODO: with license it does not work yet from cdxgen point of view
             #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageId.tar -o $imageName.json"
-            k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
+            
+            # Run trivy with error handling to continue on failure
+            try {
+                Write-Output "  -> Running trivy scan for image $imageName"
+                $trivyOutput = k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1" 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Output "  -> WARNING: Trivy scan failed for image ${fullname} with exit code $LASTEXITCODE"
+                    Write-Output "  -> Trivy output: $trivyOutput"
+                    Write-Output "  -> Skipping this image and continuing with next..."
+                    # Skip to cleanup and continue with next image
+                    ExecCmdMaster "sudo rm -f $imageName.tar" -IgnoreErrors
+                    ExecCmdMaster "sudo rm -f $imageName.json" -IgnoreErrors
+                    continue
+                }
+                Write-Output "  -> Trivy scan completed successfully"
+            }
+            catch {
+                Write-Output "  -> ERROR: Exception during trivy scan for image ${fullname}: $($_.Exception.Message)"
+                Write-Output "  -> Skipping this image and continuing with next..."
+                # Cleanup and continue
+                ExecCmdMaster "sudo rm -f $imageName.tar" -IgnoreErrors
+                ExecCmdMaster "sudo rm -f $imageName.json" -IgnoreErrors
+                continue
+            }
+            
             # copy bom file to local folder
             $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
-            Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+            try {
+                Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+            }
+            catch {
+                Write-Output "  -> ERROR: Failed to copy BOM file for image ${fullname}: $($_.Exception.Message)"
+                Write-Output "  -> Skipping this image and continuing with next..."
+                ExecCmdMaster "sudo rm -f $imageName.tar" -IgnoreErrors
+                ExecCmdMaster "sudo rm -f $imageName.json" -IgnoreErrors
+                continue
+            }
 
             if ($Annotate) {
                 $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
                 Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" "
-                &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+                try {
+                    &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+                }
+                catch {
+                    Write-Output "  -> WARNING: SBOM enrichment failed for image ${fullname}: $($_.Exception.Message)"
+                    Write-Output "  -> Continuing with unenriched SBOM..."
+                }
             }
 
             # delete tar file
@@ -303,16 +373,54 @@ function GenerateBomContainers() {
         Write-Output "  -> Creating bom for windows image: $imageName"
         # TODO: with license it does not work yet from cdxgen point of view
         #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
-        k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
+        
+        # Run trivy with error handling to continue on failure
+        try {
+            Write-Output "  -> Running trivy scan for windows image $imageName"
+            $trivyOutput = k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1" 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Output "  -> WARNING: Trivy scan failed for windows image ${imagefullname} with exit code $LASTEXITCODE"
+                Write-Output "  -> Trivy output: $trivyOutput"
+                Write-Output "  -> Skipping this image and continuing with next..."
+                # Cleanup and continue
+                ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar" -IgnoreErrors
+                Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
+                continue
+            }
+            Write-Output "  -> Trivy scan completed successfully"
+        }
+        catch {
+            Write-Output "  -> ERROR: Exception during trivy scan for windows image ${imagefullname}: $($_.Exception.Message)"
+            Write-Output "  -> Skipping this image and continuing with next..."
+            # Cleanup and continue
+            ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar" -IgnoreErrors
+            Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
+            continue
+        }
 
         # copy bom file to local folder
         $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
-        Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+        try {
+            Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+        }
+        catch {
+            Write-Output "  -> ERROR: Failed to copy BOM file for windows image ${imagefullname}: $($_.Exception.Message)"
+            Write-Output "  -> Skipping this image and continuing with next..."
+            ExecCmdMaster "sudo rm /home/remote/$imageName.tar" -IgnoreErrors
+            Remove-Item -Path "$tempDir\\$imageName.tar" -Force -ErrorAction SilentlyContinue
+            continue
+        }
 
         if ($Annotate) {
             $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
             Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
-            &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+            try {
+                &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+            }
+            catch {
+                Write-Output "  -> WARNING: SBOM enrichment failed for windows image ${imagefullname}: $($_.Exception.Message)"
+                Write-Output "  -> Continuing with unenriched SBOM..."
+            }
         }
 
         # remove tar file
@@ -360,23 +468,29 @@ if ($Annotate) {
     }
 }
 
-if ($Addons) {
-    Write-Output "Generating SBOM for addons '$Addons'"
-}
-else {
-    Write-Output 'Generating SBOM for all the available addons'
-}
+Write-Output 'Generating SBOM for all available addons'
 
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
+Write-Output '1 -> Check system state'
 CheckVMState
+Write-Output '2 -> Install tool trivy'
 EnsureTrivy
+Write-Output '3 -> Install tool cdxgen'
 EnsureCdxCli
+Write-Output '4 -> Remove old container files'
 RemoveOldContainerFiles
+Write-Output '5 -> Generate bom for directory: k2s'
 GenerateBomGolang('k2s')
+Write-Output '6 -> Generate bom for debian VM'
 GenerateBomDebian
+Write-Output '7 -> Load k2s images'
 LoadK2sImages
+Write-Output '8 -> Generate bom for containers'
 GenerateBomContainers
+Write-Output '9 -> Update k2s version in static BOM'
+Update-K2sStaticVersion
+Write-Output '10 -> Merge bom files'
 MergeBomFilesFromDirectory
 
 Write-Output '---------------------------------------------------------------'

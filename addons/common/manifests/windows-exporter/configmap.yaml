@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: windows-exporter-config
+  namespace: kube-system
+data:
+  windows_exporter.yaml: |
+    web:
+      listen-address: :9100
+    collectors:
+      enabled: cpu,memory,logical_disk,net,os,service,system,cpu_info,thermalzone,container
+    collector:
+      service:
+        include: ^(kubelet|kubeproxy|flanneld|windows_exporter|.*docker.*)$
+      logical_disk:
+        volume-exclude: "HarddiskVolume.*"

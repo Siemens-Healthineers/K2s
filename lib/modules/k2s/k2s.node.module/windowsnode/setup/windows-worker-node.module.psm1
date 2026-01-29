@@ -175,6 +175,8 @@ function Start-WindowsWorkerNode {
         return $false
     }
 
+    $startTime = Get-Date
+
     Write-Log 'Ensuring service log directories exists'
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
@@ -182,7 +184,6 @@ function Start-WindowsWorkerNode {
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\flanneld"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\httpproxy"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\kubelet"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\windows_exporter"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containers"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\pods"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\bridge"
@@ -221,14 +222,18 @@ function Start-WindowsWorkerNode {
     Write-Log 'Starting Kubernetes services on the Windows node' -Console
     Start-ServiceAndSetToAutoStart -Name 'containerd'
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
+    Confirm-LoopbackAdapterIP
     Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
     Start-ServiceAndSetToAutoStart -Name 'kubelet'
     Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
-    Start-ServiceAndSetToAutoStart -Name 'windows_exporter'
 
     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
 
     CheckFlannelConfig
+
+    $endTime = Get-Date
+    $durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
+    Write-Log "K8s services started on the Windows node after $iteration attempts, total duration: ${durationSeconds} seconds"
 
     Invoke-Hook -HookName 'AfterStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 }
@@ -319,7 +324,6 @@ function Stop-WindowsWorkerNode {
     Stop-ServiceAndSetToManualStart 'kubelet'
     Stop-ServiceAndSetToManualStart 'flanneld'
     Stop-ServiceAndSetToManualStart 'httpproxy'
-    Stop-ServiceAndSetToManualStart 'windows_exporter'
     Stop-ServiceAndSetToManualStart 'containerd'
 
     $shallRestartDocker = $false
@@ -465,6 +469,7 @@ function Set-RoutesToWindowsWorkloads {
 }
 
 function Repair-K2sRoutes {
+    Set-RoutesToKubemaster
     Set-RoutesToLinuxWorkloads
     Set-RoutesToWindowsWorkloads
     # TODO: add routes for additional nodes

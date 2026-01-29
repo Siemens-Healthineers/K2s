@@ -272,7 +272,7 @@ var _ = Describe("config", func() {
 		When("validation error occurred", func() {
 			It("returns an error", func() {
 				kind := Kind("test-kind")
-				expectedError := errors.New("oops")
+				expectedError := errors.New("cannot decode configuration: unable to determine config type")
 				configFilePath := "path-to-user-test-config"
 				config := viper.New()
 				config.Set(ConfigFileFlagName, configFilePath)
@@ -297,12 +297,16 @@ var _ = Describe("config", func() {
 		When("successful", func() {
 			It("returns nil", func() {
 				kind := Kind("test-kind")
-				configFilePath := "path-to-user-test-config"
+				configFilePath := "path-to-user-test-config" 
 				config := viper.New()
 				config.Set(ConfigFileFlagName, configFilePath)
+				
+				config.SetConfigType("yaml") 
 
 				osReaderMock := &mockObject{}
-				osReaderMock.On(r.GetFunctionName(osReaderMock.readFile), configFilePath).Return([]byte("some data"), nil)
+				// --- CHANGE THIS LINE ---
+				// Provide valid YAML data for the mock to return
+				osReaderMock.On(r.GetFunctionName(osReaderMock.readFile), configFilePath).Return([]byte("some: data"), nil)
 
 				validatorMock := &mockObject{}
 				validatorMock.On(r.GetFunctionName(validatorMock.validate), kind, config).Return(nil)
@@ -315,6 +319,7 @@ var _ = Describe("config", func() {
 				Expect(sut.loadUserConfig(kind)).To(Succeed())
 			})
 		})
+
 	})
 
 	Describe("findNodeByRole", func() {
@@ -547,7 +552,6 @@ var _ = Describe("config", func() {
 			Entry(ControlPlaneMemoryFlagName, ControlPlaneMemoryFlagName, "test-cp-memory", func() any { return iConfig.Nodes[0].Resources.Memory }),
 			Entry(ControlPlaneDiskSizeFlagName, ControlPlaneDiskSizeFlagName, "test-cp-disk", func() any { return iConfig.Nodes[0].Resources.Disk }),
 			Entry(ProxyFlagName, ProxyFlagName, "test-proxy", func() any { return iConfig.Env.Proxy }),
-			Entry(RestartFlagName, RestartFlagName, "test-restart", func() any { return iConfig.Env.RestartPostInstall }),
 			Entry(SkipStartFlagName, SkipStartFlagName, false, func() any { return iConfig.Behavior.SkipStart }),
 			Entry(WslFlagName, WslFlagName, false, func() any { return iConfig.Behavior.Wsl }),
 		)

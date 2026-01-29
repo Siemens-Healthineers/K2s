@@ -20,6 +20,11 @@ function Get-KubeworkerBaseFilePath {
     return "$kubebinPath\Kubeworker-Base.vhdx"
 }
 
+function Get-DebianImageFilePath {
+    $kubebinPath = Get-KubeBinPath
+    return "$kubebinPath\debian-12-genericcloud-amd64.qcow2"
+}
+
 function New-LinuxVmAsControlPlaneNode {
     param (
         [string]$Hostname,
@@ -213,11 +218,7 @@ function New-VmFromIso {
     }
 
     Write-Log "Starting VM $VMName"
-    Start-VirtualMachine -VMName $VMName
-
-    # Wait for VM
-    Write-Log 'Waiting for VM to send heartbeat...'
-    Wait-VM -Name $VMName -For Heartbeat
+    Start-VirtualMachineAndWaitForHeartbeat -Name $VMName
 
     Write-Log 'VM started ok'
 }
