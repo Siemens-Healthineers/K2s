@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -205,9 +206,12 @@ func readAndValidateManifest(manifestPath string) (backupManifest, error) {
 func defaultZipPathIfEmpty(zipPath string, addonsCmdName string) (string, error) {
 	zipPath = strings.TrimSpace(zipPath)
 	if zipPath == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return "", err
+		wd := filepath.Join(os.TempDir(), "Addons")
+		if runtime.GOOS == "windows" {
+			wd = `C:\Temp\Addons`
+		}
+		if err := os.MkdirAll(wd, 0o755); err != nil {
+			return "", fmt.Errorf("failed to create default addons backup directory: %w", err)
 		}
 		safe := strings.NewReplacer(" ", "_", "\\", "_", "/", "_").Replace(addonsCmdName)
 		zipPath = filepath.Join(wd, fmt.Sprintf("%s_backup_%s.zip", safe, time.Now().Format("20060102_150405")))

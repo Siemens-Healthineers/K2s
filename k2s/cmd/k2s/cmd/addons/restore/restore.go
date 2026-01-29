@@ -13,8 +13,10 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	ac "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -45,6 +47,9 @@ var restoreExample = `
 
   # Restore addon "ingress nginx" from a backup zip
   k2s addons restore "ingress nginx" -f ingress-nginx-backup.zip
+
+	# Restore newest backup for "ingress traefik" from default backup folder
+	k2s addons restore "ingress traefik"
 `
 
 func NewCommand() *cobra.Command {
@@ -56,8 +61,7 @@ func NewCommand() *cobra.Command {
 		RunE:    runRestore,
 	}
 
-	cmd.Flags().StringP(fileFlagName, fileFlagShorthand, "", "Input zip file path")
-	_ = cmd.MarkFlagRequired(fileFlagName)
+	cmd.Flags().StringP(fileFlagName, fileFlagShorthand, "", "Input zip file path (default: newest matching zip in C:\\Temp\\Addons)")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -67,16 +71,16 @@ func NewCommand() *cobra.Command {
 func runRestore(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 
-	zipPath, err := getAndValidateZipPath(cmd)
-	if err != nil {
-		return err
-	}
-
 	allAddons, addon, impl, err := loadAddonAndImpl(args)
 	if err != nil {
 		return err
 	}
 	ac.LogAddons(allAddons)
+
+	zipPath, err := getAndValidateZipPath(cmd, impl.AddonsCmdName)
+	if err != nil {
+		return err
+	}
 
 	restoreScriptPath := filepath.Join(impl.Directory, "Restore.ps1")
 	if !k2sos.PathExists(restoreScriptPath) {
@@ -134,19 +138,65 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getAndValidateZipPath(cmd *cobra.Command) (string, error) {
+func getAndValidateZipPath(cmd *cobra.Command, addonsCmdName string) (string, error) {
 	zipPath, err := cmd.Flags().GetString(fileFlagName)
 	if err != nil {
 		return "", err
 	}
 	zipPath = strings.TrimSpace(zipPath)
 	if zipPath == "" {
-		return "", errors.New("no backup file provided")
+		latest, err := findLatestBackupZip(addonsCmdName)
+		if err != nil {
+			return "", err
+		}
+		zipPath = latest
 	}
 	if !k2sos.PathExists(zipPath) {
 		return "", fmt.Errorf("backup file not found: %s", zipPath)
 	}
 	return zipPath, nil
+}
+
+func findLatestBackupZip(addonsCmdName string) (string, error) {
+	backupDir := defaultAddonsBackupDir()
+	safe := strings.NewReplacer(" ", "_", "\\\\", "_", "/", "_").Replace(addonsCmdName)
+	pattern := filepath.Join(backupDir, fmt.Sprintf("%s_backup_*.zip", safe))
+
+	candidates, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", err
+	}
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("no backup zip found for '%s' in %s; provide -f/--file", addonsCmdName, backupDir)
+	}
+
+	latestPath := ""
+	var latestTime time.Time
+	for _, p := range candidates {
+		info, err := os.Stat(p)
+		if err != nil {
+			continue
+		}
+		if info.IsDir() {
+			continue
+		}
+		if latestPath == "" || info.ModTime().After(latestTime) {
+			latestPath = p
+			latestTime = info.ModTime()
+		}
+	}
+	if latestPath == "" {
+		return "", fmt.Errorf("no usable backup zip found for '%s' in %s; provide -f/--file", addonsCmdName, backupDir)
+	}
+
+	return latestPath, nil
+}
+
+func defaultAddonsBackupDir() string {
+	if runtime.GOOS == "windows" {
+		return `C:\\Temp\\Addons`
+	}
+	return filepath.Join(os.TempDir(), "Addons")
 }
 
 func loadAddonAndImpl(args []string) (allAddons addons.Addons, addon addons.Addon, impl addons.Implementation, err error) {
