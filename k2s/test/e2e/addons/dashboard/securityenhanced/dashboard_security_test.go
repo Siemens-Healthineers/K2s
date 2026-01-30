@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,8 +18,11 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
-var suite *framework.K2sTestSuite
-var testFailed = false
+var (
+	suite      *framework.K2sTestSuite
+	k2s        *dsl.K2s
+	testFailed = false
+)
 
 func TestDashboardSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -28,22 +32,30 @@ func TestDashboardSecurity(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: BeforeSuite - Setting up dashboard security test")
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 	GinkgoWriter.Println(">>> TEST: BeforeSuite complete")
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up dashboard security test")
+	suite.SetupInfo().ReloadRuntimeConfig()
 
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
 	if !testFailed {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "dashboard", "-o")
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	}
+		if k2s.IsAddonEnabled("dashboard") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "dashboard", "-o")
+		}
 
+		if k2s.IsAddonEnabled("ingress", "nginx") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		}
+		if k2s.IsAddonEnabled("security") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+		}
+	}
 	suite.TearDown(ctx)
 	GinkgoWriter.Println(">>> TEST: AfterSuite complete")
 })

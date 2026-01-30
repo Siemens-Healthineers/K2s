@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# The kubernetes-dashboard service exposes an angular application on port 443
+# The angular application is designed in such a way that it constructs the
+# relative paths based on the value stored in the X-Forwarded-Prefix header
+# of the request. So if the application is exposed on another path than root,
+# this header must have as value that path.
+
+# This HTTPRoute attaches to the nginx-cluster-local Gateway provided in:
+# addons/ingress/nginx/manifests/cluster-local-ingress.yaml
+# and exposes the kubernetes-dashboard angular application on:
+# https://k2s.cluster.local/dashboard/
+# The certificate is taken from k8s secret 'k2s.cluster.local-tls'
+# (see addons/ingress/nginx/manifests/cluster-local-ingress.yaml)
+# The URLRewrite filter strips the /dashboard prefix and replaces it with /
+# while the RequestHeaderModifier adds X-Forwarded-Prefix: /dashboard/
+# This secure version does NOT inject bearer token 
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: dashboard-to-nginx-gw
+  namespace: nginx-gw
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: dashboard
+  to:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: nginx-cluster-local
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: dashboard-nginx-gw-cluster-local
+  namespace: dashboard
+spec:
+  hostnames:
+  - k2s.cluster.local
+  parentRefs:
+  - name: nginx-cluster-local
+    namespace: nginx-gw
+    sectionName: https
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /dashboard/
+    filters:
+    # URLRewrite filter strips /dashboard prefix and replaces it with /
+    # This is equivalent to Traefik's stripPrefix middleware
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    # RequestHeaderModifier adds the X-Forwarded-Prefix header
+    # so the Angular app knows it's being served under /dashboard/
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-Forwarded-Prefix
+          value: /dashboard/
+    backendRefs:
+    - name: kubernetes-dashboard-kong-proxy
+      port: 443
+status:
+  parents: []

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -23,6 +23,7 @@ spec:
                   validationSet:
                     - none
                     - nginx
+                    - nginx-gw
                     - traefik
               - name: enable-metrics
                 default: false
@@ -32,6 +33,8 @@ spec:
                 comment: Enable dashboard in k2s
               - cmd: k2s addons enable dashboard --ingress traefik
                 comment: Enable dashboard in k2s with ingress traefik
+              - cmd: k2s addons enable dashboard --ingress nginx-gateway-fabric
+                comment: Enable dashboard in k2s with ingress nginx gateway fabric
               - cmd: k2s addons enable dashboard --ingress traefik --enable-metrics
                 comment: Enable dashboard in k2s with ingress traefik and metrics server
           script:
