@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,6 +11,7 @@ Import-Module $infraModule, $clusterModule, $nodeModule
 $ConfigKey_EnabledAddons = 'EnabledAddons'
 $hooksDir = "$PSScriptRoot\hooks"
 $backupFileName = 'backup_addons.json'
+$cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
 
 function Get-FileName {
 	param (
@@ -822,15 +823,23 @@ function Update-IngressForAddon {
 
 	if (Test-NginxIngressControllerAvailability) {
 		Remove-IngressForTraefik -Addon $Addon
+		Remove-IngressForNginxGateway -Addon $Addon
 		Update-IngressForNginx -Addon $Addon
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
 		Remove-IngressForNginx -Addon $Addon
+		Remove-IngressForNginxGateway -Addon $Addon
 		Update-IngressForTraefik -Addon $Addon
+	}
+	elseif( Test-NginxGatewayAvailability) {
+		Remove-IngressForTraefik -Addon $Addon
+		Remove-IngressForNginx -Addon $Addon
+		Update-IngressForNginxGateway -Addon $Addon
 	}
 	else {
 		Remove-IngressForNginx -Addon $Addon
 		Remove-IngressForTraefik -Addon $Addon
+		Remove-IngressForNginxGateway -Addon $Addon
 	}
 }
 
@@ -853,6 +862,18 @@ Determines if Traefik ingress controller is deployed in the cluster
 function Test-TraefikIngressControllerAvailability {
 	$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
 	if ("$existingServices" -match '.*traefik.*') {
+		return $true
+	}
+	return $false
+}
+
+<#
+.DESCRIPTION
+Determines if Nginx gateway controller is deployed in the cluster
+#>
+function Test-NginxGatewayAvailability {
+	$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'nginx-gw', '-o', 'yaml').Output
+	if ("$existingServices" -match '.*nginx.*') {
 		return $true
 	}
 	return $false
@@ -916,6 +937,10 @@ function Enable-IngressAddon([string]$Ingress) {
 			&"$PSScriptRoot\ingress\nginx\Enable.ps1"
 			break
 		}
+		'nginx-gw' {
+			&"$PSScriptRoot\ingress\nginx-gw\Enable.ps1"
+			break
+		}
 		'traefik' {
 			&"$PSScriptRoot\ingress\traefik\Enable.ps1"
 			break
@@ -945,6 +970,23 @@ function Get-IngressNginxConfigDirectory {
 		[string]$Directory = $(throw 'Directory of the ingress nginx config')
 	)
 	return "$PSScriptRoot\$Directory\manifests\ingress-nginx"
+}
+
+<#
+.DESCRIPTION
+Gets the location of nginx ingress gateway yaml
+#>
+function Get-IngressNginxGatewayConfig {
+	return 'ingress-nginx-gw'
+}
+
+
+<#
+.DESCRIPTION
+Gets the location of nginx secure ingress yaml
+#>
+function Get-IngressNginxGatewaySecureConfig {
+	return 'ingress-nginx-gw-secure'
 }
 
 <#
@@ -1082,6 +1124,73 @@ function Remove-IngressForTraefik {
 	if (!(Test-Path -Path $kustomizationDir)) {
 		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
 		$kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
+	}
+	Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
+}
+
+<#
+.DESCRIPTION
+Deploys the addon's ingress manifest for ingress nginx gateway controller
+#>
+function Update-IngressForNginxGateway {
+	param (
+		[Parameter(Mandatory = $false)]
+		[pscustomobject]$Addon = $(throw 'Please specify the addon.')
+	)
+
+	$props = Get-AddonProperties -Addon $Addon
+	$kustomizationDir = ''
+
+	#Store each result separately for debugging
+	$keycloakAvailable = Test-KeyCloakServiceAvailability
+	Write-Log "KeyCloak available: $keycloakAvailable" -Console
+	
+	# Always evaluate Hydra availability
+	$hydraAvailable = Test-HydraAvailability
+	Write-Log "Hydra available: $hydraAvailable" -Console
+
+	if ($keycloakAvailable -or $hydraAvailable) {
+		Write-Log "  Applying secure nginx ingress gateway manifest for $($props.Name)..." -Console
+		$ingressDir = Get-IngressNginxGatewaySecureConfig
+		$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
+		# check if $kustomizationDir does not exist
+		if (!(Test-Path -Path $kustomizationDir)) {
+			Write-Log "  Applying nginx ingress gateway manifest for $($props.Name) $($props.Directory)..." -Console
+			$ingressDir = Get-IngressNginxGatewayConfig
+			$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
+		}
+	}
+	else {
+		Write-Log "  Applying nginx ingress gateway manifest for $($props.Name) $($props.Directory)..." -Console
+		$ingressDir = Get-IngressNginxGatewayConfig
+		$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
+	}
+
+	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
+	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
+}
+
+<#
+.DESCRIPTION
+Delete the addon's ingress manifest for Gateway fabric controller
+#>
+function Remove-IngressForNginxGateway {
+	param (
+		[Parameter(Mandatory = $false)]
+		[pscustomobject]$Addon = $(throw 'Please specify the addon.')
+	)
+
+	$props = Get-AddonProperties -Addon $Addon
+
+	Write-Log "  Deleting gateway manifest for $($props.Name)..." -Console
+	$nginxGatewayConfig = Get-IngressNginxGatewayConfig -Directory $props.Directory
+	
+	Invoke-Kubectl -Params 'delete', '-k', $nginxGatewayConfig | Out-Null
+
+	$kustomizationDir = Get-IngressNginxGatewaySecureConfig -Directory $props.Directory
+	if (!(Test-Path -Path $kustomizationDir)) {
+		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+		$kustomizationDir = Get-IngressNginxGatewaySecureConfig -Directory $props.Directory
 	}
 	Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
 }
@@ -1233,6 +1342,522 @@ function Remove-VersionlessImages {
     return $result
 }
 
+<#
+.SYNOPSIS
+Gets the path to cert-manager manifest file.
+.DESCRIPTION
+Returns the absolute path to the cert-manager YAML manifest in the common addon folder.
+#>
+function Get-CertManagerConfig {
+    return "$PSScriptRoot\common\manifests\certmanager\cert-manager.yaml"
+}
+
+<#
+.SYNOPSIS
+Gets the path to CA ClusterIssuer manifest file.
+.DESCRIPTION
+Returns the absolute path to the CA ClusterIssuer YAML manifest in the common addon folder.
+#>
+function Get-CAIssuerConfig {
+    return "$PSScriptRoot\common\manifests\certmanager\ca-issuer.yaml"
+}
+
+<#
+.SYNOPSIS
+Downloads cmctl.exe CLI tool for cert-manager.
+.DESCRIPTION
+Downloads the cmctl.exe binary from the URL specified in addon.manifest.yaml.
+Skips download if file already exists.
+.PARAMETER ManifestPath
+Path to the addon manifest YAML file containing download specifications.
+.PARAMETER K2sRoot
+Root directory of the K2s installation.
+.PARAMETER Proxy
+Optional proxy server to use for download.
+#>
+function Install-CmctlCli {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ManifestPath,
+        
+        [Parameter(Mandatory = $true)]
+        [string] $K2sRoot,
+        
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy
+    )
+    Write-Log 'Downloading cert-manager CLI tools' -Console
+    
+    $manifest = Get-FromYamlFile -Path $ManifestPath
+    
+    # Get the first implementation (nginx) which contains the cmctl download specification
+    $windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
+    
+    if (!$windowsCurlPackages) {
+        return
+    }
+    foreach ($package in $windowsCurlPackages) {
+        $destination = $package.destination
+        $destination = "$K2sRoot\$destination"
+        # Normalize path to ensure Test-Path works correctly
+        $destination = [System.IO.Path]::GetFullPath($destination)
+        
+        if (Test-Path $destination) {
+            Write-Log "File $destination already exists. Skipping download." -Console
+            continue
+        }
+        $url = $package.url
+        Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
+    }
+}
+
+<#
+.SYNOPSIS
+Installs cert-manager controllers in the cluster.
+.DESCRIPTION
+Applies cert-manager YAML manifest and waits for API readiness.
+Throws error if cert-manager fails to become ready.
+.PARAMETER EncodeStructuredOutput
+Whether to encode error output for CLI consumption.
+.PARAMETER MessageType
+Message type for structured CLI output.
+#>
+function Install-CertManagerControllers {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [switch] $EncodeStructuredOutput,
+        [Parameter(Mandatory = $false)]
+        [string] $MessageType
+    )
+
+    Write-Log 'Installing cert-manager' -Console
+    $certManagerConfig = Get-CertManagerConfig
+    (Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
+
+    Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
+    $certManagerStatus = Wait-ForCertManagerAvailable
+    
+    if ($certManagerStatus -eq $true) {
+        return
+    }
+    
+    $errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'cert-manager' failed."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    }
+    throw $errMsg
+}
+
+<#
+.SYNOPSIS
+Initializes CA ClusterIssuer for cert-manager.
+.DESCRIPTION
+Applies CA ClusterIssuer manifest, waits for root certificate creation,
+and renews all existing certificates using the new CA.
+.PARAMETER EncodeStructuredOutput
+Whether to encode error output for CLI consumption.
+.PARAMETER MessageType
+Message type for structured CLI output.
+#>
+function Initialize-CACertificateIssuer {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [switch] $EncodeStructuredOutput,
+        [Parameter(Mandatory = $false)]
+        [string] $MessageType
+    )
+
+    Write-Log 'Configuring CA ClusterIssuer' -Console
+    $caIssuerConfig = Get-CAIssuerConfig
+    (Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
+
+    Write-Log 'Waiting for CA root certificate to be created' -Console
+    $caCreated = Wait-ForCARootCertificate
+    
+    if ($caCreated -ne $true) {
+        $errMsg = "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'cert-manager' failed."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        }
+        throw $errMsg
+    }
+
+    # Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
+    Update-CertificateResources
+}
+
+<#
+.DESCRIPTION
+Waits for the cert-manager API to be available.
+#>
+function Wait-ForCertManagerAvailable {
+    $out = &$cmctlExe check api --wait=3m
+    if ($out -match 'The cert-manager API is ready') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
+Marks all cert-manager Certificate resources for renewal.
+#>
+function Update-CertificateResources {
+    &$cmctlExe renew --all --all-namespaces
+}
+
+<#
+.DESCRIPTION
+Waits for the kubernetes secret 'ca-issuer-root-secret' in the namespace 'cert-manager' to be created.
+#>
+function Wait-ForCARootCertificate(
+    [int]$SleepDurationInSeconds = 10,
+    [int]$NumberOfRetries = 30) {
+    for (($i = 1); $i -le $NumberOfRetries; $i++) {
+        $out = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o=jsonpath="{.metadata.name}"', '--ignore-not-found').Output
+        if ($out -match 'ca-issuer-root-secret') {
+            Write-Log "'ca-issuer-root-secret' created and ready for use."
+            return $true
+        }
+        Write-Log "Retry {$i}: 'ca-issuer-root-secret' not yet created. Will retry after $SleepDurationInSeconds Seconds" -Console
+        Start-Sleep -Seconds $SleepDurationInSeconds
+    }
+    return $false
+}
+
+function Remove-Cmctl {
+    Write-Log "Removing $cmctlExe.."
+    Remove-Item -Path $cmctlExe -Force -ErrorAction SilentlyContinue
+}
+
+function Get-TrustedRootStoreLocation {
+    return 'Cert:\LocalMachine\Root'
+}
+
+function Get-CAIssuerName {
+    return 'K2s Self-Signed CA'
+}
+
+
+<#
+.SYNOPSIS
+Imports CA certificate to Windows trusted root store.
+.DESCRIPTION
+Extracts CA certificate from Kubernetes secret and imports it to
+Windows trusted certificate authorities.
+#>
+function Import-CACertificateToWindowsStore {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
+    
+    $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
+    $tempFile = New-TemporaryFile
+    $certLocationStore = Get-TrustedRootStoreLocation
+    
+    [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
+    
+    $params = @{
+        FilePath          = $tempFile.FullName
+        CertStoreLocation = $certLocationStore
+    }
+    Import-Certificate @params
+    Remove-Item -Path $tempFile.FullName -Force
+}
+
+<#
+.DESCRIPTION
+Orchestrates complete cert-manager installation:
+- Downloads cmctl.exe CLI tool
+- Installs cert-manager controllers
+- Configures CA ClusterIssuer
+- Imports CA certificate to Windows trust store
+
+Handles all errors internally and exits on failure.
+.PARAMETER Proxy
+Optional proxy server to use for downloads.
+.PARAMETER EncodeStructuredOutput
+Whether to encode error output for CLI consumption.
+.PARAMETER MessageType
+Message type for structured CLI output.
+.EXAMPLE
+Enable-CertManager -Proxy 'http://proxy.example.com:8080'
+#>
+function Enable-CertManager {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy,
+        [Parameter(Mandatory = $false)]
+        [switch] $EncodeStructuredOutput,
+        [Parameter(Mandatory = $false)]
+        [string] $MessageType
+    )
+    try {
+   
+		$manifestPath = "$PSScriptRoot\ingress\addon.manifest.yaml"
+        $k2sRoot = "$PSScriptRoot\.."
+        
+        Install-CmctlCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
+        Install-CertManagerControllers -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
+        
+        Initialize-CACertificateIssuer -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
+        
+        Import-CACertificateToWindowsStore
+
+        Write-Log 'cert-manager installation completed successfully' -Console
+    }
+    catch {
+        $errMsg = "cert-manager installation failed: $($_.Exception.Message)"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            exit 1
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+}
+
+<#
+.SYNOPSIS
+Creates a standardized status property object for addon status reporting.
+.DESCRIPTION
+Provides consistent status property format across all addons with Name, Value, Okay, and Message fields.
+.PARAMETER Name
+The name of the status property (e.g., 'IsCertManagerAvailable').
+.PARAMETER Value
+The boolean value indicating the status (typically result from a test function).
+.PARAMETER SuccessMessage
+The message to display when Value is $true.
+.PARAMETER FailureMessage
+The message to display when Value is $false.
+.EXAMPLE
+$certManagerProp = New-AddonStatusProperty `
+    -Name 'IsCertManagerAvailable' `
+    -Value (Wait-ForCertManagerAvailable) `
+    -SuccessMessage 'The cert-manager API is ready' `
+    -FailureMessage 'The cert-manager API is not ready. Please use cmctl.exe for diagnostics.'
+#>
+function New-AddonStatusProperty {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Name,
+        [Parameter(Mandatory = $true)]
+        [bool] $Value,
+        [Parameter(Mandatory = $true)]
+        [string] $SuccessMessage,
+        [Parameter(Mandatory = $true)]
+        [string] $FailureMessage
+    )
+    return @{
+        Name = $Name
+        Value = $Value
+        Okay = $Value
+        Message = if ($Value) { $SuccessMessage } else { $FailureMessage }
+    }
+}
+
+<#
+.SYNOPSIS
+Gets the path to Gateway API CRDs manifest file.
+.DESCRIPTION
+Returns the absolute path to the Gateway API v1.4.1 CRDs YAML manifest in the common addon folder.
+#>
+function Get-GatewayApiCrdsConfig {
+    return "$PSScriptRoot\common\manifests\crds\gateway-crds\gateway-api-v1.4.1.yaml"
+}
+
+<#
+.SYNOPSIS
+Installs Gateway API CRDs in the cluster.
+.DESCRIPTION
+Applies Gateway API v1.4.1 Custom Resource Definitions (GatewayClass, Gateway, HTTPRoute, etc.)
+used by ingress controllers like nginx-gw and traefik.
+.EXAMPLE
+Install-GatewayApiCrds
+#>
+function Install-GatewayApiCrds {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Installing Gateway API CRDs' -Console
+    $gatewayApiCrds = Get-GatewayApiCrdsConfig
+    (Invoke-Kubectl -Params 'apply', '-f', $gatewayApiCrds).Output | Write-Log
+}
+
+<#
+.SYNOPSIS
+Uninstalls Gateway API CRDs from the cluster.
+.DESCRIPTION
+Removes Gateway API v1.4.1 Custom Resource Definitions from the cluster.
+Warning: This will fail if any Gateway, HTTPRoute, or other Gateway API resources still exist.
+.EXAMPLE
+Uninstall-GatewayApiCrds
+#>
+function Uninstall-GatewayApiCrds {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Uninstalling Gateway API CRDs' -Console
+    $gatewayApiCrds = Get-GatewayApiCrdsConfig
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $gatewayApiCrds).Output | Write-Log
+}
+
+<#
+.SYNOPSIS
+Gets cert-manager status properties for addon status reporting.
+.DESCRIPTION
+Returns two status properties:
+1. IsCertManagerAvailable - checks if cert-manager API is ready
+2. IsCaRootCertificateAvailable - checks if CA root certificate secret exists
+.EXAMPLE
+$certManagerProps = Get-CertManagerStatusProperties
+return $isIngressRunningProp, $certManagerProps
+#>
+function Get-CertManagerStatusProperties {
+    [CmdletBinding()]
+    param()
+    
+    $certManagerAvailable = Wait-ForCertManagerAvailable
+    $certManagerProp = @{
+        Name = 'IsCertManagerAvailable'
+        Value = $certManagerAvailable
+        Okay = $certManagerAvailable
+        Message = if ($certManagerAvailable) { 'The cert-manager API is ready' } else { 'The cert-manager API is not ready. Please use cmctl.exe for further diagnostics.' }
+    }
+    
+    $caRootCertificateAvailable = Wait-ForCARootCertificate
+    $caRootCertificateProp = @{
+        Name = 'IsCaRootCertificateAvailable'
+        Value = $caRootCertificateAvailable
+        Okay = $caRootCertificateAvailable
+        Message = if ($caRootCertificateAvailable) { 'The CA root certificate is available' } else { "The CA root certificate is not available ('ca-issuer-root-secret' not created)." }
+    }
+    
+    return $certManagerProp, $caRootCertificateProp
+}
+
+<#
+.SYNOPSIS
+Disables and uninstalls cert-manager from the cluster.
+.DESCRIPTION
+Removes cert-manager components:
+- Deletes CA ClusterIssuer
+- Uninstalls cert-manager controllers
+- Removes cmctl.exe CLI tool
+- Removes CA certificate from Windows trusted root store
+.EXAMPLE
+Uninstall-CertManager
+#>
+function Uninstall-CertManager {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Uninstalling cert-manager' -Console
+    
+    $certManagerConfig = Get-CertManagerConfig
+    $caIssuerConfig = Get-CAIssuerConfig
+
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $caIssuerConfig).Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $certManagerConfig).Output | Write-Log
+
+    Remove-Cmctl
+
+    Write-Log 'Removing CA issuer certificate from trusted root' -Console
+    $caIssuerName = Get-CAIssuerName
+    $trustedRootStoreLocation = Get-TrustedRootStoreLocation
+    Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
+}
+
+function Wait-ForK8sSecret {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$SecretName,
+        [Parameter(Mandatory = $true)]
+        [string]$Namespace,
+        [int]$TimeoutSeconds = 60,
+        [int]$CheckIntervalSeconds = 4
+    )
+
+    $startTime = Get-Date
+    $endTime = $startTime.AddSeconds($TimeoutSeconds)
+
+    $kubeToolsPath = Get-KubeToolsPath
+    while ((Get-Date) -lt $endTime) {
+        try {
+            $secret = &"$kubeToolsPath\kubectl.exe" get secret $SecretName -n $Namespace --ignore-not-found
+            if ($secret) {
+                Write-Log "Secret '$SecretName' is available." -Console
+                return $true
+            }
+        }
+        catch {
+            Write-Log "Error checking for secret: $_" -Console
+        }
+
+        Start-Sleep -Seconds $CheckIntervalSeconds
+    }
+
+    Write-Log "Timed out waiting for secret '$SecretName' in namespace '$Namespace'." -Console
+    return $false
+}
+<#
+.SYNOPSIS
+Asserts TLS certificate exists in ingress namespace.
+.DESCRIPTION
+Checks if k2s-cluster-local-tls secret exists in the ingress namespace.
+If not found, re-applies the Certificate manifest to trigger cert-manager creation.
+.PARAMETER IngressType
+Type of ingress controller (nginx, traefik, or nginx-gw).
+.PARAMETER CertificateManifestPath
+Optional path to the Certificate manifest. If not provided, derived from ingress type.
+.EXAMPLE
+Assert-IngressTlsCertificate -IngressType 'nginx'
+#>
+function Assert-IngressTlsCertificate {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('nginx', 'traefik', 'nginx-gw')]
+        [string] $IngressType,
+
+        [Parameter(Mandatory = $false)]
+        [string] $CertificateManifestPath
+    )
+
+    $namespace = switch ($IngressType) {
+        'nginx' { 'ingress-nginx' }
+        'traefik' { 'ingress-traefik' }
+        'nginx-gw' { 'nginx-gw' }
+    }
+
+    Write-Log "Verifying TLS certificate exists in $namespace namespace" -Console
+    $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 30
+
+    if (-not $certExists) {
+        Write-Log "Certificate not found, applying Certificate manifest to trigger creation" -Console
+        (Invoke-Kubectl -Params 'apply', '-f', $CertificateManifestPath).Output | Write-Log
+        $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 60
+
+        if (-not $certExists) {
+            Write-Log "Warning: TLS certificate still not available after applying manifest" -Console
+        }
+    }
+    else {
+        Write-Log "TLS certificate already exists in $namespace namespace" -Console
+    }
+
+    return $certExists
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
@@ -1241,4 +1866,6 @@ Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-N
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
-Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages
+Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
+Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
+Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret
