@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: nginx-gw
+    app.kubernetes.io/name: nginx-gw
+    app.kubernetes.io/version: "2.3.0"
+  name: nginx-gw-controller
+  namespace: nginx-gw
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: nginx-gw
+    app.kubernetes.io/name: nginx-gw
+  ports:
+  - name: agent-grpc
+    port: 443
+    protocol: TCP
+    targetPort: 8443
