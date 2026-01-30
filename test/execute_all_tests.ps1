@@ -71,7 +71,10 @@ param (
     $ExcludeGoTests,
     [Parameter(Mandatory = $false, HelpMessage = 'Indicates system test running in offline mode and all internet based tests can be skipped with this')]
     [switch]
-    $OfflineMode
+    $OfflineMode,
+    [Parameter(Mandatory = $false, HelpMessage = 'Ginkgo test timeout duration (e.g., 90m, 2h)')]
+    [string]
+    $GinkgoTimeout = '90m'
 
 )
 
@@ -134,7 +137,7 @@ try {
         # Build an absolute path to Go module directory under root
         $goSrcDir = Join-Path -Path $rootDir -ChildPath 'k2s'
 
-        Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $goSrcDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV
+        Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $goSrcDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV -Timeout $GinkgoTimeout
         $results.Go = $LASTEXITCODE
     }
     else {
