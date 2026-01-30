@@ -119,6 +119,35 @@ if ($isOciArtifact) {
     # OCI Artifact format processing
     Write-Log "[OCI] Processing OCI artifact structure" -Console
     
+    # Verify OCI Image Layout compliance
+    $ociLayoutPath = Join-Path $extractionFolder 'oci-layout'
+    if (-not (Test-Path $ociLayoutPath)) {
+        $errMsg = 'Invalid OCI artifact format: oci-layout file not found.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'image-format-invalid' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+    
+    $ociLayout = Get-Content $ociLayoutPath | ConvertFrom-Json
+    Write-Log "[OCI] OCI Layout version: $($ociLayout.imageLayoutVersion)" -Console
+    
+    # Verify blobs directory exists
+    $blobsDir = Join-Path $extractionFolder 'blobs\sha256'
+    if (-not (Test-Path $blobsDir)) {
+        $errMsg = 'Invalid OCI artifact format: blobs/sha256 directory not found.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'image-format-invalid' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+    
     $addonsJsonPath = Join-Path $extractionFolder 'addons.json'
     if (-not (Test-Path $addonsJsonPath)) {
         $errMsg = 'Invalid OCI artifact format: addons.json not found.'
@@ -169,20 +198,17 @@ if ($isOciArtifact) {
     foreach ($addon in $addonsToImport) {
         Write-Log "[OCI] Importing addon: $($addon.name)" -Console
         
-        $artifactDir = Join-Path $extractionFolder $addon.dirName
-        
-        if (-not (Test-Path $artifactDir)) {
-            Write-Log "[OCI] Warning: Artifact directory not found: $artifactDir" -Console
-            continue
-        }
-        
-        $ociManifestPath = Join-Path $artifactDir 'oci-manifest.json'
+        # Read manifest from blobs using digest
         $ociManifest = $null
-        if (Test-Path $ociManifestPath) {
-            $ociManifest = Get-Content $ociManifestPath | ConvertFrom-Json
+        if ($addon.manifestDigest) {
+            $ociManifest = Get-JsonBlobByDigest -BlobsDir $blobsDir -Digest $addon.manifestDigest
+            Write-Log "[OCI] -> Manifest digest: $($addon.manifestDigest)"
             Write-Log "[OCI] -> Version: $($ociManifest.annotations.'org.opencontainers.image.version')"
             Write-Log "[OCI] -> K2s Version: $($ociManifest.annotations.'vnd.k2s.version')"
             Write-Log "[OCI] -> Export Date: $($ociManifest.annotations.'vnd.k2s.export.date')"
+        } else {
+            Write-Log "[OCI] Warning: No manifest digest for addon $($addon.name)" -Console
+            continue
         }
         
         $folderParts = $addon.name -split '\s+'
@@ -197,35 +223,126 @@ if ($isOciArtifact) {
             New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
         }
         
-        # Extract Layer 1: Manifests
-        $manifestsLayer = Join-Path $artifactDir 'manifests.tar.gz'
-        if (Test-Path $manifestsLayer) {
-            Write-Log "[OCI] Extracting manifests layer"
-            $manifestsDestDir = Join-Path $destinationPath 'manifests'
-            New-Item -ItemType Directory -Path $manifestsDestDir -Force | Out-Null
-            Expand-TarGzArchive -ArchivePath $manifestsLayer -DestinationPath $manifestsDestDir
+        # Create temp directory for extracting layers from blobs
+        $tempLayerDir = Join-Path $tmpDir "layer-temp-$($addon.dirName)"
+        New-Item -ItemType Directory -Path $tempLayerDir -Force | Out-Null
+        
+        # Process each layer from manifest by resolving from blobs
+        foreach ($layer in $ociManifest.layers) {
+            $layerTitle = $layer.annotations.'org.opencontainers.image.title'
+            $layerDigest = $layer.digest
+            $layerMediaType = $layer.mediaType
+            
+            Write-Log "[OCI] Processing layer: $layerTitle ($layerDigest)"
+            
+            # Get the blob path for this layer
+            $blobPath = Get-BlobByDigest -BlobsDir $blobsDir -Digest $layerDigest
+            
+            switch -Wildcard ($layerMediaType) {
+                '*configfiles*' {
+                    # Layer 0: Configuration files (addon.manifest.yaml, values.yaml, settings.json, etc.)
+                    Write-Log "[OCI] Extracting config files layer from blob"
+                    $tempConfigDir = Join-Path $tempLayerDir 'config'
+                    New-Item -ItemType Directory -Path $tempConfigDir -Force | Out-Null
+                    Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $tempConfigDir
+                    Write-Log "[OCI] Staged config files layer for processing"
+                    break
+                }
+                '*manifests*' {
+                    # Layer 1: Manifests
+                    Write-Log "[OCI] Extracting manifests layer from blob"
+                    $manifestsDestDir = Join-Path $destinationPath 'manifests'
+                    New-Item -ItemType Directory -Path $manifestsDestDir -Force | Out-Null
+                    Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $manifestsDestDir
+                    break
+                }
+                '*helm.chart*' {
+                    # Layer 2: Charts
+                    Write-Log "[OCI] Extracting charts layer from blob"
+                    $chartsDestDir = Join-Path $destinationPath 'manifests\chart'
+                    New-Item -ItemType Directory -Path $chartsDestDir -Force | Out-Null
+                    Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $chartsDestDir
+                    break
+                }
+                '*scripts*' {
+                    # Layer 3: Scripts
+                    Write-Log "[OCI] Extracting scripts layer from blob"
+                    Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $destinationPath
+                    break
+                }
+                '*image.layer*windows*' {
+                    # Layer 5: Windows Images - copy to temp for later processing
+                    $tempWindowsImages = Join-Path $tempLayerDir 'images-windows.tar'
+                    Copy-Item -Path $blobPath -Destination $tempWindowsImages -Force
+                    Write-Log "[OCI] Staged Windows images layer for import"
+                    break
+                }
+                '*image.layer*' {
+                    # Layer 4: Linux Images - copy to temp for later processing
+                    $tempLinuxImages = Join-Path $tempLayerDir 'images-linux.tar'
+                    Copy-Item -Path $blobPath -Destination $tempLinuxImages -Force
+                    Write-Log "[OCI] Staged Linux images layer for import"
+                    break
+                }
+                '*packages*' {
+                    # Layer 6: Packages - extract to temp for processing
+                    $tempPackagesDir = Join-Path $tempLayerDir 'packages'
+                    New-Item -ItemType Directory -Path $tempPackagesDir -Force | Out-Null
+                    Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $tempPackagesDir
+                    Write-Log "[OCI] Staged packages layer for import"
+                    break
+                }
+            }
         }
         
-        # Extract Layer 2: Charts (if present)
-        $chartsLayer = Join-Path $artifactDir 'charts.tar.gz'
-        if (Test-Path $chartsLayer) {
-            Write-Log "[OCI] Extracting charts layer"
-            $chartsDestDir = Join-Path $destinationPath 'manifests\chart'
-            New-Item -ItemType Directory -Path $chartsDestDir -Force | Out-Null
-            Expand-TarGzArchive -ArchivePath $chartsLayer -DestinationPath $chartsDestDir
+        # Handle config files from the config layer (Layer 0)
+        $tempConfigDir = Join-Path $tempLayerDir 'config'
+        $configManifestPath = $null
+        if (Test-Path $tempConfigDir) {
+            # Look for addon.manifest.yaml in the config layer
+            $configManifestPath = Join-Path $tempConfigDir 'addon.manifest.yaml'
+            if (-not (Test-Path $configManifestPath)) {
+                $configManifestPath = $null
+            }
+            
+            # Copy any additional config files to the destination (values.yaml, settings.json, etc.)
+            Get-ChildItem -Path $tempConfigDir -File -ErrorAction SilentlyContinue | 
+                Where-Object { $_.Name -ne 'addon.manifest.yaml' } | ForEach-Object {
+                    Copy-Item -Path $_.FullName -Destination $destinationPath -Force
+                    Write-Log "[OCI] Copied config file: $($_.Name)"
+                }
+            
+            # Copy config subdirectory if present
+            $configSubDir = Join-Path $tempConfigDir 'config'
+            if (Test-Path $configSubDir) {
+                $destConfigSubDir = Join-Path $destinationPath 'config'
+                New-Item -ItemType Directory -Path $destConfigSubDir -Force | Out-Null
+                Copy-Item -Path (Join-Path $configSubDir '*') -Destination $destConfigSubDir -Recurse -Force
+                Write-Log "[OCI] Copied config subdirectory"
+            }
         }
         
-        # Extract Layer 3: Scripts
-        $scriptsLayer = Join-Path $artifactDir 'scripts.tar.gz'
-        if (Test-Path $scriptsLayer) {
-            Write-Log "[OCI] Extracting scripts layer"
-            Expand-TarGzArchive -ArchivePath $scriptsLayer -DestinationPath $destinationPath
+        # Fallback: If no config layer, try to get addon.manifest.yaml from the old config blob format
+        if (-not $configManifestPath -and $ociManifest.config.digest) {
+            try {
+                $configBlobPath = Get-BlobByDigest -BlobsDir $blobsDir -Digest $ociManifest.config.digest
+                # Check if this is a JSON metadata file or the old YAML format
+                $configContent = Get-Content -Path $configBlobPath -Raw -ErrorAction SilentlyContinue
+                if ($configContent -match '^{') {
+                    # This is the new metadata.json format - log it
+                    Write-Log "[OCI] Config blob is metadata.json (new format)"
+                } else {
+                    # This might be the old addon.manifest.yaml format
+                    $configManifestPath = Join-Path $tempLayerDir 'addon.manifest.yaml'
+                    Copy-Item -Path $configBlobPath -Destination $configManifestPath -Force
+                }
+            } catch {
+                Write-Log "[OCI] Warning: Could not read config blob: $_"
+            }
         }
         
-        # Handle addon.manifest.yaml (Config)
-        $configManifestPath = Join-Path $artifactDir 'addon.manifest.yaml'
         Write-Log "[OCI] Looking for manifest at: $configManifestPath"
-        if (Test-Path $configManifestPath) {
+        if ($configManifestPath -and (Test-Path $configManifestPath)) {
             $importedManifest = Get-FromYamlFile -Path $configManifestPath
             
             if ($folderParts.Count -gt 1) {
@@ -315,13 +432,13 @@ if ($isOciArtifact) {
             Write-Log "[OCI] Warning: addon.manifest.yaml not found for $($addon.name)" -Console
         }
         
-        # Import Layer 4: Linux Images
-        $linuxImagesLayer = Join-Path $artifactDir 'images-linux.tar'
+        # Import Layer 4: Linux Images (from staged temp location)
+        $linuxImagesLayer = Join-Path $tempLayerDir 'images-linux.tar'
         if (Test-Path $linuxImagesLayer) {
-            Write-Log "[OCI] Importing Linux images layer from: $linuxImagesLayer" -Console
+            Write-Log "[OCI] Importing Linux images layer from blob" -Console
             
             # Check if this is a consolidated tar (tar of tars) or single image tar
-            $tempImagesDir = Join-Path $artifactDir 'images-linux-extracted'
+            $tempImagesDir = Join-Path $tempLayerDir 'images-linux-extracted'
             if (-not (Test-Path $tempImagesDir)) {
                 New-Item -ItemType Directory -Path $tempImagesDir -Force | Out-Null
             }
@@ -380,13 +497,13 @@ if ($isOciArtifact) {
             Write-Log "[OCI] No Linux images layer found for $($addon.name)"
         }
         
-        # Import Layer 5: Windows Images
-        $windowsImagesLayer = Join-Path $artifactDir 'images-windows.tar'
+        # Import Layer 5: Windows Images (from staged temp location)
+        $windowsImagesLayer = Join-Path $tempLayerDir 'images-windows.tar'
         if ((Test-Path $windowsImagesLayer) -and (-not $setupInfo.LinuxOnly)) {
-            Write-Log "[OCI] Importing Windows images layer from: $windowsImagesLayer" -Console
+            Write-Log "[OCI] Importing Windows images layer from blob" -Console
             
             # Check if this is a consolidated tar (tar of tars) or single image tar
-            $tempImagesDir = Join-Path $artifactDir 'images-windows-extracted'
+            $tempImagesDir = Join-Path $tempLayerDir 'images-windows-extracted'
             if (-not (Test-Path $tempImagesDir)) {
                 New-Item -ItemType Directory -Path $tempImagesDir -Force | Out-Null
             }
@@ -406,6 +523,13 @@ if ($isOciArtifact) {
             
             # Check if we extracted individual image tars
             $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
+            
+            Write-Log "[OCI] Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
+            if ($extractedTars.Count -gt 0) {
+                foreach ($tar in $extractedTars) {
+                    Write-Log "[OCI]   - $($tar.Name) ($([math]::Round($tar.Length / 1MB, 2)) MB)" -Console
+                }
+            }
             
             $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
             if ($extractedTars.Count -gt 0) {
@@ -436,13 +560,9 @@ if ($isOciArtifact) {
             Write-Log "[OCI] No Windows images layer found for $($addon.name) or Linux-only setup"
         }
         
-        # Extract Layer 6: Packages
-        $packagesLayer = Join-Path $artifactDir 'packages.tar.gz'
-        if (Test-Path $packagesLayer) {
-            Write-Log "[OCI] Extracting packages layer" -Console
-            $packagesExtractDir = Join-Path $artifactDir 'packages-extracted'
-            Expand-TarGzArchive -ArchivePath $packagesLayer -DestinationPath $packagesExtractDir
-            
+        # Process Layer 6: Packages (already extracted to temp location)
+        $packagesExtractDir = Join-Path $tempLayerDir 'packages'
+        if (Test-Path $packagesExtractDir) {
             if ($null -ne $addon.offline_usage) {
                 Write-Log "[OCI] Installing packages for addon $($addon.name)" -Console
                 $linuxPackages = $addon.offline_usage.linux
@@ -490,6 +610,9 @@ if ($isOciArtifact) {
             }
         }
         
+        # Cleanup temp layer directory
+        Remove-Item -Path $tempLayerDir -Recurse -Force -ErrorAction SilentlyContinue
+        
         Write-Log '---' -Console
     }
 }
@@ -501,7 +624,8 @@ $importedNames = ($addonsToImport | ForEach-Object { $_.name }) -join ', '
 if ($isOciArtifact) {
     Write-Log "[OCI] Addons '$importedNames' imported successfully from OCI artifact!" -Console
     Write-Log "[OCI] Artifact layers processed:" -Console
-    Write-Log "  Config:  addon.manifest.yaml" -Console
+    Write-Log "  Config:  metadata.json       (addon metadata)" -Console
+    Write-Log "  Layer 0: config.tar.gz       (addon.manifest.yaml, values.yaml, settings.json, etc.)" -Console
     Write-Log "  Layer 1: manifests.tar.gz    (Kubernetes manifests)" -Console
     Write-Log "  Layer 2: charts.tar.gz       (Helm charts)" -Console
     Write-Log "  Layer 3: scripts.tar.gz      (Enable/Disable scripts)" -Console
