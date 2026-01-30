@@ -139,7 +139,10 @@ function New-GinkgoTestCmd {
         $OutDir = $(throw 'OutDir not specified'),
         [Parameter(Mandatory = $false)]
         [switch]
-        $V = $false
+        $V = $false,
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Timeout = '90m'
     )
     $ginkgoCmd = 'ginkgo'
     if ($V -eq $true) {
@@ -157,6 +160,7 @@ function New-GinkgoTestCmd {
     }
 
     $ginkgoCmd += ' --require-suite' # complains about specs without test suite
+    $ginkgoCmd += " --timeout=$Timeout"
     $ginkgoCmd += " --junit-report=GoTest-$((Get-Date -Format 'yyyy-MM-dd-HH-mm-ss').ToString()).xml"
     $ginkgoCmd += " --output-dir=$OutDir"
 
@@ -306,7 +310,10 @@ function Start-GinkgoTests {
         $V = $false,
         [Parameter(Mandatory = $false)]
         [switch]
-        $VV = $false
+        $VV = $false,
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Timeout = '90m'
     )
     Write-Output "  Executing Go-based tests in '$WorkingDir' with verbose='$V' and super-verbose='$VV' for tags '$Tags' and excluding tags '$ExcludeTags'.."
 
@@ -318,7 +325,7 @@ function Start-GinkgoTests {
         Invoke-GoModDownloadInDir -WorkingDir $WorkingDir
     }
 
-    $ginkgoCmd = $(New-GinkgoTestCmd -Tags $Tags -ExcludeTags $ExcludeTags -OutDir $OutDir -V:$V)
+    $ginkgoCmd = $(New-GinkgoTestCmd -Tags $Tags -ExcludeTags $ExcludeTags -OutDir $OutDir -V:$V -Timeout $Timeout)
     $testFolders = (Get-ChildItem -Path $WorkingDir -File -Recurse -Filter '*_test.go').DirectoryName | Get-Unique
 
     if ($VV -eq $true) {
