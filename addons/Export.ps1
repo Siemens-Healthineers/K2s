@@ -781,7 +781,7 @@ try {
             digest = $addon.manifestDigest
             artifactType = 'application/vnd.k2s.addon.v1'
             annotations = @{
-                'vnd.k2s.addon.name' = $addon.name
+                'vnd.k2s.addon.name' = $addon.dirName
                 'vnd.k2s.addon.implementation' = $addon.implementation
                 'vnd.k2s.addon.version' = $addon.version
             }
