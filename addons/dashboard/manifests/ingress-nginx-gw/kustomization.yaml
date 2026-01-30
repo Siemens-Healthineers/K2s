@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- dashboard-backend-tls.yaml
+- dashboard-nginx-gw.yaml

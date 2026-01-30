@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -28,3 +28,4 @@ spec:
   tls:
     - hosts:
         - k2s.cluster.local
+      secretName: k2s-cluster-local-tls

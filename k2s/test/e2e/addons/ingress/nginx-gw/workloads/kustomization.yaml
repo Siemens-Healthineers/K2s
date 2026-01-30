@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+resources:
+  - nginx-gw-test-namespace.yaml
+  - nginx-gw-test-linux-albums.yaml
