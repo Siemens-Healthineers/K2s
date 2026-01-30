@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -36,7 +36,7 @@ function Write-DashboardUsageForUser {
  To open dashboard, please use one of the options:
 
  Option 1: Access via ingress
- Please install either ingress nginx or ingress traefik addon from k2s.
+ Please install either ingress nginx or ingress traefik or ingress nginx gateway addon from k2s.
  or you can install them on your own. 
  Enable ingress controller via k2s cli
  eg. k2s addons enable ingress nginx
@@ -45,11 +45,11 @@ function Write-DashboardUsageForUser {
  the Kubernetes Dashboard will be accessible on the following URL: https://k2s.cluster.local/dashboard/
 
  Option 2: Port-forwarding
- Use port-forwarding to the kubernetes-dashboard using the command below:
- kubectl port-forward svc/kubernetes-dashboard-web -n dashboard 8000:8000
+ Use port-forwarding to the kubernetes-dashboard Kong proxy using the command below:
+ kubectl port-forward svc/kubernetes-dashboard-kong-proxy -n dashboard 8443:443
 
- In this case, the Kubernetes Dashboard will be accessible on the following URL: https://localhost:8000
- It is not necessary to use port 8000. Please feel free to use a port number of your choice.
+ In this case, the Kubernetes Dashboard will be accessible on the following URL: https://localhost:8443
+ It is not necessary to use port 8443. Please feel free to use a port number of your choice.
 
  The dashboard is opened in the browser.
 
@@ -67,7 +67,7 @@ function Write-DashboardUsageForUser {
 Waits for the dashboard pods to be available.
 #>
 function Wait-ForDashboardAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/instance=kubernetes-dashboard' -Namespace 'dashboard' -TimeoutSeconds 120)
+    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/instance=kubernetes-dashboard' -Namespace 'dashboard' -TimeoutSeconds 200)
 }
 
 <#
@@ -98,4 +98,42 @@ function Get-BearerToken {
     # create Bearer token for next 24h
     $token = (Invoke-Kubectl -Params '-n', 'dashboard', 'create', 'token', 'admin-user', '--duration', '24h').Output 
     return $token
+}
+
+<#
+.DESCRIPTION
+Creates kong CA certificate ConfigMap for nginx-gw BackendTLSPolicy validation
+#>
+function New-KongCACertConfigMap {
+    Write-Log 'Extracting kong-proxy CA certificate for BackendTLSPolicy' -Console
+    
+    # Wait for kong pod to be ready
+    $waitResult = Wait-ForPodCondition -Label 'app.kubernetes.io/name=kong' -Namespace 'dashboard' -Condition 'Ready' -TimeoutSeconds 60
+    if (-not $waitResult) {
+        throw 'Kong pod in dashboard namespace did not become ready within 60 seconds. Please use kubectl describe for more details.'
+    }
+        
+    # Get kong pod name
+    $kongPod = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'dashboard', '-l', 'app.kubernetes.io/name=kong', '-o', 'jsonpath={.items[0].metadata.name}').Output
+    
+    if ($kongPod) {
+        try {
+            # Extract certificate from kong pod
+            $certPath = [System.IO.Path]::GetTempPath() + 'kong-ca.crt'
+            $extractCmd = "echo | openssl s_client -connect localhost:8443 2>&1 | openssl x509 -outform PEM"
+            $cert = (Invoke-Kubectl -Params 'exec', '-n', 'dashboard', $kongPod, '--', 'sh', '-c', $extractCmd).Output
+            $cert | Out-File -FilePath $certPath -Encoding ascii
+            
+            # Create ConfigMap with the certificate
+            (Invoke-Kubectl -Params 'create', 'configmap', 'kong-ca-cert', '-n', 'dashboard', "--from-file=ca.crt=$certPath", '--dry-run=client', '-o', 'yaml').Output | & kubectl apply -f -
+            
+            # Clean up temp file
+            Remove-Item -Path $certPath -ErrorAction SilentlyContinue
+            
+            Write-Log 'Kong CA certificate ConfigMap created successfully' -Console
+        }
+        catch {
+            Write-Log "Warning: Could not extract kong certificate: $_" -Console
+        }
+    }
 }

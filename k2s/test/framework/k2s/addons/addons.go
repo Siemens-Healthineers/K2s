@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package addons
@@ -53,24 +53,6 @@ type AddonsAdditionalInfo struct {
 }
 
 const manifestFileName = "addon.manifest.yaml"
-
-func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string, implementationName string) bool {
-	isAddonEnabled := lo.SomeBy(addonsStatus.EnabledAddons, func(addon Addon) bool {
-		return addon.Name == addonName
-	})
-
-	if isAddonEnabled && implementationName != "" {
-		addon := lo.Filter(addonsStatus.EnabledAddons, func(enabledAddon Addon, index int) bool {
-			return enabledAddon.Name == addonName
-		})[0]
-
-		return lo.SomeBy(addon.Implementations, func(implementation Implementation) bool {
-			return implementation.Name == implementationName
-		})
-	}
-
-	return isAddonEnabled
-}
 
 func (addonsStatus *AddonsStatus) GetEnabledAddons() []string {
 	return lo.Map(addonsStatus.EnabledAddons, func(addon Addon, _ int) string {

@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+apiVersion: gateway.nginx.org/v1alpha2
+kind: NginxProxy
+metadata:
+  name: ngf-proxy-config
+  namespace: nginx-gw
+  labels:
+    helm.sh/chart: nginx-gateway-fabric-2.3.0
+    app.kubernetes.io/name: nginx-gw
+    app.kubernetes.io/instance: nginx-gw
+    app.kubernetes.io/version: "2.3.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  kubernetes:
+    deployment:
+      replicas: 1
+      container:
+        image:
+          pullPolicy: IfNotPresent
+          repository: ghcr.io/nginx/nginx-gateway-fabric/nginx
+          tag: 2.3.0
+    service:
+      externalTrafficPolicy: Local
+      type: LoadBalancer
+      patches:
+      - type: Merge
+        value:
+          spec:
+            externalIPs:
+            - __CONTROL_PLANE_IP__
