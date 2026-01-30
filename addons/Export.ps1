@@ -253,7 +253,6 @@ try {
             }
             
             # Look for specific addon config files (like orthanc.json for dicom)
-            # These are usually in manifests/<addonname>/ as JSON files that are not k8s manifests
             $addonSpecificConfigs = Get-ChildItem -Path $dirPath -Recurse -Include '*.json' -File -ErrorAction SilentlyContinue | 
                 Where-Object { 
                     $_.Name -notmatch '^(package|tsconfig|eslint|babel)' -and
@@ -834,9 +833,7 @@ Write-Log "  blobs/sha256/        - Content-addressable blob storage" -Console
 Write-Log "  addons.json          - K2s addon metadata" -Console
 Write-Log "[OCI] Layer types:" -Console
 Write-Log "  Config:  metadata.json       (application/vnd.k2s.addon.config.v1+json)" -Console
-Write-Log "           {name, version, implementation, description, k2sVersion, exportDate}" -Console
 Write-Log "  Layer 0: config.tar.gz       (application/vnd.k2s.addon.configfiles.v1.tar+gzip)" -Console
-Write-Log "           addon.manifest.yaml, values.yaml, settings.json, orthanc.json, etc." -Console
 Write-Log "  Layer 1: manifests.tar.gz    (application/vnd.k2s.addon.manifests.v1.tar+gzip)" -Console
 Write-Log "  Layer 2: charts.tar.gz       (application/vnd.cncf.helm.chart.content.v1.tar+gzip) [if helm-based]" -Console
 Write-Log "  Layer 3: scripts.tar.gz      (application/vnd.k2s.addon.scripts.v1.tar+gzip)" -Console
