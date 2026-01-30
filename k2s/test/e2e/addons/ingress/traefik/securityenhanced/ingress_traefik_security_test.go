@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -8,10 +8,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path"
 	"testing"
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,8 +23,11 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
-var suite *framework.K2sTestSuite
-var testFailed = false
+var (
+	suite      *framework.K2sTestSuite
+	k2s        *dsl.K2s
+	testFailed = false
+)
 
 func TestTraefikSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -34,20 +40,26 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		framework.SystemMustBeRunning,
 		framework.EnsureAddonsAreDisabled,
 		framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 	GinkgoWriter.Println(">>> TEST: BeforeSuite complete")
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up ingress-traefik security test")
-
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
-
 	if !testFailed {
-		suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\..\\traefik\\workloads")
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+		suite.SetupInfo().ReloadRuntimeConfig()
+		suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\..\\traefik\\workloads", "--ignore-not-found")
+
+		if k2s.IsAddonEnabled("ingress", "traefik") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+		}
+
+		if k2s.IsAddonEnabled("security") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+		}
 	}
 
 	suite.TearDown(ctx)
@@ -81,6 +93,21 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			GinkgoWriter.Println(">>> TEST: Traefik addon enabled and verified with linkerd injection")
 		})
 
+		It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Verifying cmctl.exe installation")
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(err).To(BeNil())
+			GinkgoWriter.Println(">>> TEST: cmctl.exe installation verified")
+		})
+
+		It("creates the ca-issuer-root-secret", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Verifying ca-issuer-root-secret creation")
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+			Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
+			GinkgoWriter.Println(">>> TEST: ca-issuer-root-secret creation verified")
+		})
+
 		It("tests connectivity to albums-linux using bearer token", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: Applying sample workloads and testing connectivity")
 			// Apply sample workloads if necessary.
@@ -103,6 +130,21 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
 			GinkgoWriter.Println(">>> TEST: All addons deactivated")
+		})
+
+		It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Verifying cmctl.exe installation")
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(os.IsNotExist(err)).To(BeTrue())
+			GinkgoWriter.Println(">>> TEST: cmctl.exe installation verified")
+		})
+
+		It("removed the ca-issuer-root-secret", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Verifying ca-issuer-root-secret removal")
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
+			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
+			GinkgoWriter.Println(">>> TEST: ca-issuer-root-secret removal verified")
 		})
 	})
 
@@ -138,6 +180,29 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			url := "https://k2s.cluster.local/albums-linux1"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 			GinkgoWriter.Println(">>> TEST: Albums connectivity verified")
+		})
+
+		It("Deactivates all the addons", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Deactivating all addons")
+			suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\..\\traefik\\workloads")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+			GinkgoWriter.Println(">>> TEST: All addons deactivated")
+		})
+
+		It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Verifying cmctl.exe uninstallation")
+			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+			_, err := os.Stat(cmCtlPath)
+			Expect(os.IsNotExist(err)).To(BeTrue())
+			GinkgoWriter.Println(">>> TEST: cmctl.exe uninstallation verified")
+		})
+
+		It("removed the ca-issuer-root-secret", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Verifying ca-issuer-root-secret removal")
+			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
+			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
+			GinkgoWriter.Println(">>> TEST: ca-issuer-root-secret removal verified")
 		})
 	})
 })

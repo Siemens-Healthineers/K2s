@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -30,4 +30,6 @@ else {
     $isExternalIPSetProp.Message = "The external IP for ingress-nginx service is not set properly. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress nginx' and 'k2s addons enable ingress nginx'"
 }
 
-return $isIngressNginxRunningProp, $isExternalIPSetProp
+$certManagerProp, $caRootCertificateProp = Get-CertManagerStatusProperties
+
+return $isIngressNginxRunningProp, $isExternalIPSetProp, $certManagerProp, $caRootCertificateProp

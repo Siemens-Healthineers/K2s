@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -44,8 +44,7 @@ same time since they use the same ports.
 This Addon prepares one central TLS termination, matching the hostname
 `k2s.cluster.local`, and using as certificate a secret named
 `k2s-cluster-local-tls` which is configured to be created and updated by
-`cert-manager` - if the `security` addon is installed.
-If the security add-on is not installed, NGINX provides a default certificate.
+`cert-manager` - it will be installed along with ingress addon.
 See also [Security Addon](../../security/README.md).
 
 Web applications can use this host name in their ingress rules
@@ -71,6 +70,71 @@ to understand the different mechanisms:
   [NGINX Ingress](../../logging/manifests/opensearch-dashboards/ingress.yaml).
 - Monitoring:
   [NGINX Ingress](../../monitoring/manifests/grafana/ingress.yaml).
+
+## Certificate Management with cert-manager
+
+When you enable the `ingress nginx` addon, it automatically installs and configures [cert-manager](https://cert-manager.io/), a powerful add-on for Kubernetes that automates the management, issuance, and renewal of TLS certificates. This brings the crucial task of securing communication with Transport Layer Security (TLS) directly into the Kubernetes ecosystem, eliminating the need for manual certificate handling and reducing the risk of outages due to expired certificates.
+
+### What gets installed
+
+The ingress nginx addon configures:
+
+- **cert-manager controllers**: Services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
+- **k2s-ca-issuer**: A global `ClusterIssuer` of type CA (Certification Authority) that can be used in annotations to obtain and renew certificates. See: [CA Issuer](https://cert-manager.io/docs/configuration/ca/)
+- **cmctl.exe CLI**: Command-line interface tool installed in the `bin` path of your K2s installation directory for interacting with cert-manager.
+- **Trusted CA Certificate**: The public certificate of the CA Issuer is imported into the trusted authorities of your Windows host.
+
+### Securing your application with TLS
+
+To secure the ingress to your Kubernetes application, add the following annotations to your Ingress resource:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    ...
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: your-ingress-host.domain
+...
+spec:
+...
+  tls:
+  - hosts:
+    - your-ingress-host.domain
+    secretName: your-secret-name
+```
+
+cert-manager will observe these annotations, create a certificate, and store it in the secret named 'your-secret-name' so that the ingress controller uses it.
+
+### Inspecting certificates
+
+If you also enable the `dashboard` addon, you can inspect the server certificate by visiting the dashboard URL in your browser and clicking on the lock icon: <https://k2s.cluster.local>.
+
+You can also use the command line interface `cmctl.exe` to interact with cert-manager:
+
+```cmd
+# Check cert-manager API status
+cmctl.exe check api
+
+# Renew a specific certificate
+cmctl.exe renew k2s-cluster-local-tls -n ingress-nginx
+
+# Renew all certificates
+cmctl.exe renew --all --all-namespaces
+```
+
+### Browser security considerations
+
+Browsers keep track of several security-related properties of web sites. If you encounter weaker security settings than previously, the browser may assume it's an attack.
+
+You can **reset HSTS** of your site stored by your browser by navigating to:
+
+```
+chrome://net-internals/#hsts
+```
+
+and deleting the settings for `k2s.cluster.local`.
 
 ## Further Reading
 

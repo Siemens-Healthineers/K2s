@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx-gw-test

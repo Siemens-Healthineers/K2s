@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  labels:
+    app.kubernetes.io/instance: nginx-gw
+    app.kubernetes.io/name: nginx-gw
+    app.kubernetes.io/version: "2.3.0"
+  name: nginx-gw
+spec:
+  controllerName: gateway.nginx.org/nginx-gw-controller
+  parametersRef:
+    group: gateway.nginx.org
+    kind: NginxProxy
+    name: ngf-proxy-config
+    namespace: nginx-gw
