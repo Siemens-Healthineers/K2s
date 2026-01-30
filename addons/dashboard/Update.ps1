@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -24,8 +24,13 @@ if ($SecurityAddonEnabled) {
 		# remove middleware if exists
 		(Invoke-Kubectl -Params 'delete', 'middleware', 'add-bearer-token', '-n', 'dashboard', '--ignore-not-found').Output | Write-Log
 	}
+	elseif (Test-NginxGatewayAvailability) {
+		# Create kong CA certificate ConfigMap for BackendTLSPolicy validation
+		Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw with security addon' -Console
+		New-KongCACertConfigMap
+	}
 	else {
-		Write-Log 'Nginx or Traefik ingress controller is not available'
+		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'
 	}	
 }
 else {
@@ -65,8 +70,24 @@ spec:
 		# delete middleware file
 		Remove-Item -Path "$tempPath\middleware.yaml"
 	}
+	elseif (Test-NginxGatewayAvailability) {
+		# Create kong CA certificate ConfigMap for BackendTLSPolicy validation
+		Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw' -Console
+		New-KongCACertConfigMap
+		
+		# create Bearer token for next 24h
+		Write-Log 'Creating Bearer token for next 24h'
+		$token = Get-BearerToken
+		# Apply HTTPRoute with Authorization header using template
+		Write-Log 'Applying HTTPRoute with Authorization header'
+		$tempPath = [System.IO.Path]::GetTempPath()
+		Copy-Item -Path "$PSScriptRoot\manifests\ingress-nginx-gw\dashboard-nginx-gw.yaml" -Destination "$tempPath\dashboard-nginx-gw.yaml"
+		(Get-Content -Path "$tempPath\dashboard-nginx-gw.yaml").replace('BEARER-TOKEN', $token) | Out-File -FilePath "$tempPath\dashboard-nginx-gw.yaml"
+		(Invoke-Kubectl -Params 'apply', '-f', "$tempPath\dashboard-nginx-gw.yaml").Output | Write-Log
+		Remove-Item -Path "$tempPath\dashboard-nginx-gw.yaml"
+	}
 	else {
-		Write-Log 'Nginx or Traefik ingress controller is not available'
+		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'
 	}
 }
 

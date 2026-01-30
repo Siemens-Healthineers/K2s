@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -8,24 +8,6 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 
 Import-Module $infraModule, $k8sApiModule
-
-$cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
-
-function Get-CAIssuerName {
-    return 'K2s Self-Signed CA'
-}
-
-function Get-TrustedRootStoreLocation {
-    return 'Cert:\LocalMachine\Root'
-}
-
-function Get-CertManagerConfig {
-    return "$PSScriptRoot\manifests\certmanager\cert-manager.yaml"
-}
-
-function Get-CAIssuerConfig {
-    return "$PSScriptRoot\manifests\certmanager\ca-issuer.yaml"
-}
 
 function Get-KeyCloakConfig {
     return "$PSScriptRoot\manifests\keycloak\keycloak.yaml"
@@ -223,50 +205,6 @@ chrome://net-internals/#hsts
 
 <#
 .DESCRIPTION
-Waits for the cert-manager API to be available.
-#>
-function Wait-ForCertManagerAvailable {
-    $out = &$cmctlExe check api --wait=3m
-    if ($out -match 'The cert-manager API is ready') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Marks all cert-manager Certificate resources for renewal.
-#>
-function Update-CertificateResources {
-    &$cmctlExe renew --all --all-namespaces
-}
-
-<#
-.DESCRIPTION
-Waits for the kubernetes secret 'ca-issuer-root-secret' in the namespace 'cert-manager' to be created.
-#>
-function Wait-ForCARootCertificate(
-    [int]$SleepDurationInSeconds = 10,
-    [int]$NumberOfRetries = 10) {
-    for (($i = 1); $i -le $NumberOfRetries; $i++) {
-        $out = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o=jsonpath="{.metadata.name}"', '--ignore-not-found').Output
-        if ($out -match 'ca-issuer-root-secret') {
-            Write-Log "'ca-issuer-root-secret' created and ready for use."
-            return $true
-        }
-        Write-Log "Retry {$i}: 'ca-issuer-root-secret' not yet created. Will retry after $SleepDurationInSeconds Seconds" -Console
-        Start-Sleep -Seconds $SleepDurationInSeconds
-    }
-    return $false
-}
-
-function Remove-Cmctl {
-    Write-Log "Removing $cmctlExe.."
-    Remove-Item -Path $cmctlExe -Force -ErrorAction SilentlyContinue
-}
-
-<#
-.DESCRIPTION
 Waits for the keycloak pods to be available.
 #>
 function Wait-ForKeyCloakAvailable($waiTime = 120) {
@@ -308,12 +246,17 @@ function Enable-IngressForSecurity([string]$Ingress) {
             (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\traefik-ingress.yaml").Output | Write-Log
             break
         }
+        'nginx-gw' {
+            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\nginx-gw-ingress.yaml").Output | Write-Log
+            break
+        }
     }
 }
 
 function Remove-IngressForSecurity {
     (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml", '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\traefik-ingress.yaml", '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\nginx-gw-ingress.yaml", '--ignore-not-found').Output | Write-Log
 }
 
 function Confirm-EnhancedSecurityOn([string]$Type) {
@@ -476,48 +419,6 @@ function Remove-LinkerdManifests {
     }
 }
 
-# function Remove-Access-ToCNIPluginFile {
-#     # Specify the path of the file
-#     $k2sConfigDir = Get-K2sConfigDir
-#     $filePath = $k2sConfigDir +"\cniconfig"  
-#     # Get the current ACL for the file
-#     $acl = Get-Acl $filePath
-#     # Define the Local System account (SYSTEM)
-#     $systemAccount = New-Object System.Security.Principal.NTAccount("SYSTEM")
-#     $currentAccount = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-
-#     # Define the access rule: Full control for SYSTEM only
-#     $accessRuleSystem = New-Object System.Security.AccessControl.FileSystemAccessRule(
-#         $systemAccount, 
-#         "FullControl", 
-#         "Allow"
-#     )
-#     # Define the access rule: Full control for current user only
-#     $accessRuleCurrent = New-Object System.Security.AccessControl.FileSystemAccessRule(
-#         $currentAccount, 
-#         "FullControl", 
-#         "Allow"
-#     )
-#     # Deny access to everyone else
-#     $everyoneAccount = New-Object System.Security.Principal.NTAccount("Everyone")
-#     $denyRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-#         $everyoneAccount, 
-#         "FullControl", 
-#         "Deny"
-#     )
-
-#     # Set access rule protection (to prevent inheritance from parent)
-#     $acl.SetAccessRuleProtection($true, $false)
-
-#     # Add the access rules to the ACL
-#     $acl.AddAccessRule($accessRuleSystem)  # Allow SYSTEM full control
-#     $acl.AddAccessRule($accessRuleCurrent)  # Allow SYSTEM full control
-#     $acl.AddAccessRule($denyRule)    # Deny Everyone access
-
-#     # Apply the updated ACL to the file
-#     Set-Acl -Path $filePath -AclObject $acl
-# } 
-
 function Initialize-ConfigFileForCNI {
     # Variables
     $secretName = 'cni-plugin-token'
@@ -569,84 +470,4 @@ function Remove-ConfigFileForCNI {
     if (Test-Path $kubeconfigPath) {
         Remove-Item -Path $kubeconfigPath -Force
     }
-}
-
-function Wait-ForK8sSecret {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$SecretName,
-        [Parameter(Mandatory = $true)]
-        [string]$Namespace,
-        [int]$TimeoutSeconds = 60,
-        [int]$CheckIntervalSeconds = 4
-    )
-
-    $startTime = Get-Date
-    $endTime = $startTime.AddSeconds($TimeoutSeconds)
-
-    $kubeToolsPath = Get-KubeToolsPath
-    while ((Get-Date) -lt $endTime) {
-        try {
-            $secret = &"$kubeToolsPath\kubectl.exe" get secret $SecretName -n $Namespace --ignore-not-found
-            if ($secret) {
-                Write-Log "Secret '$SecretName' is available." -Console
-                return $true
-            }
-        }
-        catch {
-            Write-Log "Error checking for secret: $_" -Console
-        }
-
-        Start-Sleep -Seconds $CheckIntervalSeconds
-    }
-
-    Write-Log "Timed out waiting for secret '$SecretName' in namespace '$Namespace'." -Console
-    return $false
-}
-
-function Ensure-IngressTlsCertificate {
-    <#
-    .SYNOPSIS
-    Ensures TLS certificate exists in ingress namespace, re-applying manifest if needed.
-    
-    .DESCRIPTION
-    Checks if k2s-cluster-local-tls secret exists in the ingress namespace.
-    If not found, re-applies the cluster-local-ingress manifest to trigger cert-manager creation.
-    
-    .PARAMETER IngressType
-    Type of ingress controller (nginx or traefik)
-    
-    .PARAMETER ManifestPath
-    Optional path to cluster-local-ingress manifest. If not provided, derived from ingress type.
-    #>
-    param (
-        [Parameter(Mandatory = $true)]
-        [ValidateSet('nginx', 'traefik')]
-        [string]$IngressType,
-        
-        [Parameter(Mandatory = $false)]
-        [string]$ManifestPath
-    )
-    
-    $namespace = if ($IngressType -eq 'nginx') { 'ingress-nginx' } else { 'ingress-traefik' }
-    
-    if (-not $ManifestPath) {
-        $manifestFile = if ($IngressType -eq 'nginx') { 'cluster-local-ingress.yaml' } else { 'cluster-local-ingress-secure.yaml' }
-        $ManifestPath = "$PSScriptRoot\..\ingress\$IngressType\manifests\$manifestFile"
-    }
-    
-    Write-Log "Verifying TLS certificate exists in $namespace namespace" -Console
-    $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 30
-    
-    if (-not $certExists) {
-        Write-Log "Certificate not found, re-applying cluster-local ingress to trigger creation" -Console
-        (Invoke-Kubectl -Params 'apply', '-f', $ManifestPath).Output | Write-Log
-        $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 60
-        
-        if (-not $certExists) {
-            Write-Log "Warning: TLS certificate still not available after re-applying manifest" -Console
-        }
-    }
-    
-    return $certExists
 }
