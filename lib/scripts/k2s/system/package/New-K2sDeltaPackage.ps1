@@ -274,8 +274,36 @@ if ($wholeDirsNormalized.Count -gt 0) {
 }
 
 # Internal list of special files that should be excluded from diff/staging and handled separately if needed.
-$SpecialSkippedFiles = @('Kubemaster-Base.vhdx', 'trivy.exe', 'virtctl.exe', 'virt-viewer-x64-11.0-1.0.msi', 'k2s-bom.json', 'k2s-bom.xml', 'Kubemaster-Base.rootfs.tar.gz', 'WindowsNodeArtifacts.zip')
+# NOTE: Large binary artifacts are excluded because they are handled by separate delta logic (VHDX, images, etc.)
+# NOTE: Cluster-specific config files are excluded because overwriting them would break a running cluster.
+#       These files are generated during kubeadm init with cluster-specific certificates and IPs.
+$SpecialSkippedFiles = @(
+    # Large binary artifacts (handled separately)
+    'Kubemaster-Base.vhdx',
+    'trivy.exe',
+    'virtctl.exe',
+    'virt-viewer-x64-11.0-1.0.msi',
+    'k2s-bom.json',
+    'k2s-bom.xml',
+    'Kubemaster-Base.rootfs.tar.gz',
+    'WindowsNodeArtifacts.zip',
+    # Cluster-specific configuration (must be preserved to keep cluster running)
+    'config'  # Main kubeconfig file at $kubePath\config - contains cluster certs and API endpoint
+)
+
+# Path patterns for cluster-specific files that should never be overwritten during updates.
+# These patterns match against the full relative path, not just the filename.
+# Format: Use forward slashes, no leading slash, matches via -like operator with wildcards.
+$ClusterConfigSkippedPaths = @(
+    # Windows kubelet configuration and PKI
+    'etc/kubernetes/bootstrap-kubelet.conf',
+    'etc/kubernetes/pki/*',
+    'var/lib/kubelet/config.yaml',
+    'var/lib/kubelet/pki/*'
+)
+
 Write-Log "Special skipped files: $($SpecialSkippedFiles -join ', ')" -Console
+Write-Log "Cluster config skipped paths: $($ClusterConfigSkippedPaths -join ', ')" -Console
  # (Test-SpecialSkippedFile / Test-InWholeDir provided via methods file)
 
 # ---- Special Handling: Analyze Debian packages inside Kubemaster-Base.vhdx (best effort) ---------
@@ -298,17 +326,19 @@ $added    = @()
 $removed  = @()
 $changed  = @()
 
-# Added & changed (exclude files beneath wholesale directories)
+# Added & changed (exclude files beneath wholesale directories and cluster-specific config)
 foreach ($p in $newMap.Keys) {
     if (Test-InWholeDir -path $p -dirs $wholeDirsNormalized) { continue }
     if (Test-SpecialSkippedFile -path $p -list $SpecialSkippedFiles) { continue }
+    if (Test-ClusterConfigSkippedPath -path $p -patterns $ClusterConfigSkippedPaths) { continue }
     if (-not $oldMap.ContainsKey($p)) { $added += $p; continue }
     if ($oldMap[$p].Hash -ne $newMap[$p].Hash) { $changed += $p }
 }
-# Removed (exclude files beneath wholesale directories)
+# Removed (exclude files beneath wholesale directories and cluster-specific config)
 foreach ($p in $oldMap.Keys) {
     if (Test-InWholeDir -path $p -dirs $wholeDirsNormalized) { continue }
     if (Test-SpecialSkippedFile -path $p -list $SpecialSkippedFiles) { continue }
+    if (Test-ClusterConfigSkippedPath -path $p -patterns $ClusterConfigSkippedPaths) { continue }
     if (-not $newMap.ContainsKey($p)) { $removed += $p }
 }
 
@@ -330,8 +360,11 @@ foreach ($wd in $wholeDirsNormalized) {
 # Initial purge after wholesale copy
 Remove-SpecialSkippedFilesFromStage -StagePath $stageDir -Skipped $SpecialSkippedFiles
 
-# Stage added + changed files
-$deltaFileList = $added + $changed | Where-Object { -not (Test-SpecialSkippedFile -path $_ -list $SpecialSkippedFiles) }
+# Stage added + changed files (filter out special skipped files and cluster config paths)
+$deltaFileList = $added + $changed | Where-Object { 
+    (-not (Test-SpecialSkippedFile -path $_ -list $SpecialSkippedFiles)) -and
+    (-not (Test-ClusterConfigSkippedPath -path $_ -patterns $ClusterConfigSkippedPaths))
+}
 # Final purge to ensure no special skipped files remain (handles files among added/changed set)
 Remove-SpecialSkippedFilesFromStage -StagePath $stageDir -Skipped $SpecialSkippedFiles
 $deltaTotal = $deltaFileList.Count

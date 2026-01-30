@@ -25,6 +25,53 @@ function Test-SpecialSkippedFile {
     return $false
 }
 
+<#
+.SYNOPSIS
+    Tests if a file path matches any of the cluster config skip patterns.
+
+.DESCRIPTION
+    Checks if the given relative path matches any of the patterns in the cluster config
+    skip list. These patterns protect cluster-specific files (certificates, kubeconfig,
+    kubelet config) from being overwritten during delta updates.
+
+.PARAMETER Path
+    The relative file path to check (forward slashes, no leading slash).
+
+.PARAMETER Patterns
+    Array of path patterns to match against. Supports wildcards (*).
+
+.OUTPUTS
+    $true if the path matches a pattern and should be skipped, $false otherwise.
+#>
+function Test-ClusterConfigSkippedPath {
+    param(
+        [string] $Path,
+        [string[]] $Patterns
+    )
+    
+    if (-not $Patterns -or $Patterns.Count -eq 0) { return $false }
+    
+    # Normalize path to forward slashes
+    $normalizedPath = $Path -replace '\\', '/'
+    $normalizedPath = $normalizedPath -replace '^/', ''  # Remove leading slash if present
+    
+    foreach ($pattern in $Patterns) {
+        if ([string]::IsNullOrWhiteSpace($pattern)) { continue }
+        
+        # Normalize pattern
+        $normalizedPattern = $pattern -replace '\\', '/'
+        $normalizedPattern = $normalizedPattern -replace '^/', ''
+        
+        # Use -like for wildcard matching
+        if ($normalizedPath -like $normalizedPattern) {
+            Write-Log "[SkipList] Excluding cluster config file from diff: $Path (matches pattern: $pattern)" -Console
+            return $true
+        }
+    }
+    
+    return $false
+}
+
 function Test-InWholeDir {
     param(
         [string] $Path,
