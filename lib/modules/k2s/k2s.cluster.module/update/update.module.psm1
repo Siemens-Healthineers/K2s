@@ -79,7 +79,7 @@ function PerformClusterUpdate {
 		  4. Version compatibility validation
 		  5. Apply Debian package delta (if cluster is running)
 		  6. Stop cluster automatically (if it was running)
-		  7. Apply updated Windows artifacts (executables, dlls, scripts) from delta to target installation
+		  7. Apply updated Windows artifacts (add/update files, remove obsolete files) from delta to target installation
 		  8. Restart cluster automatically (if it was running before)
 		  9. Load / import container images from delta if included
 		  10. Run optional hooks (pre/post) [placeholder]
@@ -152,7 +152,7 @@ Current directory: $deltaRoot
 	}
 
 	$phaseId = 0
-	function _phase { param($name) if ($ShowProgress) { $script:phaseId++; Write-Progress -Activity 'Cluster delta update' -Id 1 -Status ("{0}" -f $name) -PercentComplete (($script:phaseId) * 100 / 10) } Write-Log ("[Update] Phase: {0}" -f $name) -Console:$consoleSwitch }
+	function _phase { param($name) if ($ShowProgress) { $script:phaseId++; Write-Progress -Activity 'Cluster delta update' -Id 1 -Status ("{0}" -f $name) -PercentComplete (($script:phaseId) * 100 / 11) } Write-Log ("[Update] Phase: {0}" -f $name) -Console:$consoleSwitch }
 
 	# 1. Load manifest from delta root
 	_phase 'Manifest'
@@ -305,6 +305,30 @@ Current directory: $deltaRoot
 	}
 	Write-Log ("[Update] Applied {0} Windows artifacts" -f $filesToApply.Count) -Console:$consoleSwitch
 
+	# 6b. Remove obsolete files (Removed) from target installation
+	$removedFiles = @($manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
+	if ($removedFiles.Count -gt 0) {
+		Write-Log ("[Update] Removing {0} obsolete files from target installation" -f $removedFiles.Count) -Console:$consoleSwitch
+		$removedCount = 0
+		foreach ($rel in $removedFiles) {
+			$target = Join-Path $targetInstallPath $rel
+			if (Test-Path -LiteralPath $target) {
+				try {
+					Remove-Item -LiteralPath $target -Force
+					Write-Log ("[Update] Removed: {0}" -f $rel) -Console:$consoleSwitch
+					$removedCount++
+				} catch {
+					Write-Log ("[Update][Warn] Failed to remove '{0}': {1}" -f $rel, $_.Exception.Message) -Console:$consoleSwitch
+				}
+			} else {
+				Write-Log ("[Update][Info] Already absent: {0}" -f $rel) -Console:$consoleSwitch
+			}
+		}
+		Write-Log ("[Update] Removed {0} of {1} obsolete files" -f $removedCount, $removedFiles.Count) -Console:$consoleSwitch
+	} else {
+		Write-Log '[Update] No files to remove' -Console:$consoleSwitch
+	}
+
 	# 7. Restart cluster if it was running before
 	_phase 'RestartCluster'
 	if ($wasRunning) {
@@ -334,7 +358,7 @@ Current directory: $deltaRoot
 	}
 
 	# 8. Container images (if any .tar/.gz under delta/images)
-	_phase 'Images'
+	_phase 'ContainerImages'
 	$imagesRoot = Join-Path $deltaRoot 'images'
 	if (Test-Path -LiteralPath $imagesRoot) {
 		$imageFiles = Get-ChildItem -LiteralPath $imagesRoot -Recurse -File -Include '*.tar','*.tar.gz','*.tgz' -ErrorAction SilentlyContinue
@@ -354,11 +378,11 @@ Current directory: $deltaRoot
 		} else { Write-Log '[Update] No image archives found.' -Console:$consoleSwitch }
 	} else { Write-Log '[Update] images/ directory absent; skipping image load' -Console:$consoleSwitch }
 
-	# 8. Hooks placeholder
+	# 9. Hooks placeholder
 	_phase 'Hooks'
 	if ($ExecuteHooks) { Write-Log '[Update][Info] Hooks execution placeholder (none implemented).' -Console:$consoleSwitch } else { Write-Log '[Update] Hooks disabled.' -Console:$consoleSwitch }
 
-	# 9. Health check
+	# 10. Health check
 	_phase 'Health'
 	try {
 		if ($wasRunning) {
@@ -370,7 +394,7 @@ Current directory: $deltaRoot
 		}
 	} catch { Write-Log ("[Update][Warn] Health check encountered issues: {0}" -f $_.Exception.Message) -Console:$consoleSwitch }
 
-	# 10. Update VERSION file to reflect successful delta update
+	# 11. Update VERSION file to reflect successful delta update
 	_phase 'UpdateVersion'
 	if ($deltaTargetVersion) {
 		try {
