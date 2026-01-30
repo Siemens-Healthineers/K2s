@@ -1,0 +1,140 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+ 
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: oauth2-proxy-nginx-gw-cluster-local
+  namespace: security
+spec:
+  parentRefs:
+    - name: nginx-cluster-local
+      namespace: nginx-gw
+      sectionName: https
+  hostnames:
+    - k2s.cluster.local
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth2
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              - name: X-Forwarded-Proto
+                value: https
+              - name: X-Forwarded-Host
+                value: k2s.cluster.local
+      backendRefs:
+        - name: oauth2-proxy
+          port: 4180
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: keycloak-nginx-gw-cluster-local
+  namespace: security
+spec:
+  parentRefs:
+    - name: nginx-cluster-local
+      namespace: nginx-gw
+      sectionName: https
+  hostnames:
+    - k2s.cluster.local
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /keycloak
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              - name: X-Forwarded-Proto
+                value: https
+              - name: X-Forwarded-Host
+                value: k2s.cluster.local
+      backendRefs:
+        - name: keycloak
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: security-to-nginx-gw
+  namespace: nginx-gw
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: security
+  to:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: nginx-cluster-local
+---
+#
+# NGINX Gateway API Ingress with Linkerd Authorization
+# =====================================================
+# Gateway API (nginx-gw) requires explicit Linkerd ServerAuthorization because
+# Linkerd doesn't automatically trust Gateway API traffic routing, unlike traditional Ingress.
+#
+# Traffic Flow:
+#   External Client → nginx-gw-controller (port 443) → oauth2-proxy/keycloak
+#
+# Security Model:
+# - Layer 1: skip-inbound-ports allows external clients → nginx-gw (unauthenticated)
+# - Layer 2: ServerAuthorization allows both mesh members AND unauthenticated clients
+#
+# Result: OAuth2-proxy and Keycloak are accessible from outside the mesh (browsers, token requests)
+# as well as from within the mesh. This matches the behavior of traditional nginx/traefik Ingress.
+ 
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: oauth2-proxy
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: oauth2-proxy
+  port: 4180
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: oauth2-proxy-allow-all
+  namespace: security
+spec:
+  server:
+    name: oauth2-proxy
+  # Allow unauthenticated access to match nginx/traefik behavior.
+  # OAuth2-proxy handles authentication and redirects.
+  client:
+    unauthenticated: true
+---
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: keycloak
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  port: 8080
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: keycloak-allow-all
+  namespace: security
+spec:
+  server:
+    name: keycloak
+  # Allow unauthenticated access to match nginx/traefik behavior.
+  # Keycloak handles its own authentication via OAuth2/OIDC.
+  client:
+    unauthenticated: true

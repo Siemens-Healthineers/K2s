@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -15,6 +15,9 @@ if (Test-NginxIngressControllerAvailability) {
 }
 elseif (Test-TraefikIngressControllerAvailability) {
     Enable-IngressForSecurity -Ingress:'traefik'
+}
+elseif (Test-NginxGatewayAvailability) {
+    Enable-IngressForSecurity -Ingress:'nginx-gw'
 }
 
 Write-Log 'Updating security addon finished.' -Console

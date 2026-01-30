@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -17,8 +17,10 @@ import (
 
 const autoscalingSecTimeout = time.Minute * 10
 
-var suite *framework.K2sTestSuite
-var testFailed = false
+var (
+	suite      *framework.K2sTestSuite
+	testFailed = false
+)
 
 func TestAutoscalingSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
