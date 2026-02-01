@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# The kubernetes-dashboard service exposes an application on port 443.
+# The application constructs relative paths based on the value stored in the 
+# X-Forwarded-Prefix header of the request. When the application is exposed 
+# on a non-root path, this header must contain that path value.
+
+# This HTTPRoute attaches to the nginx-cluster-local Gateway in the nginx-gw namespace.
+# The ReferenceGrant allows cross-namespace attachment from the dashboard namespace.
+# The route exposes the kubernetes-dashboard application on:
+# https://k2s.cluster.local/dashboard/
+# The certificate is managed by the Gateway configuration in the nginx-gw namespace.
+# 
+# Path /dashboard/* is rewritten to /* and the X-Forwarded-Prefix header is added
+# to ensure the application generates correct relative URLs.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: dashboard-to-nginx-gw
+  namespace: nginx-gw
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: dashboard
+  to:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: nginx-cluster-local
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: dashboard-nginx-gw-cluster-local
+  namespace: dashboard
+spec:
+  hostnames:
+  - k2s.cluster.local
+  parentRefs:
+  - name: nginx-cluster-local
+    namespace: nginx-gw
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /dashboard/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-Forwarded-Prefix
+          value: /dashboard/
+        - name: Authorization
+          value: Bearer BEARER-TOKEN
+    backendRefs:
+    - name: kubernetes-dashboard-kong-proxy
+      port: 443
+status:
+  parents: []

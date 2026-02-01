@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -239,6 +239,54 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dashboard/#/pod?namespace=_all"
 				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+				Expect(httpStatus).To(ContainSubstring("200"))
+			})
+
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
+				expectAddonToBeAlreadyEnabled(ctx)
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+		})
+
+		When("nginx-gw as ingress controller", func() {
+			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
+			})
+
+			AfterAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "dashboard", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+				k2s.VerifyAddonIsDisabled("dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", "nginx-gw")
+			})
+
+			It("is in enabled state and pods are in running state", func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "dashboard", "-o")
+				k2s.VerifyAddonIsEnabled("dashboard")
+				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-api", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-auth", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-kong", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-web", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
+			})
+
+			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
+				url := "https://k2s.cluster.local/dashboard/#/pod?namespace=_all"
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
