@@ -125,7 +125,7 @@ try {
     New-OciLayoutFile -LayoutPath $artifactsRoot
     $blobsDir = New-OciBlobsDirectory -LayoutPath $artifactsRoot
 
-    $addonExportInfo = @{addons = @() }
+    $addonManifestReferences = @()
 
     foreach ($manifest in $addonManifests) {
         foreach ($implementation in $manifest.spec.implementations) {
@@ -732,6 +732,15 @@ try {
             $manifestBlobResult = Add-JsonContentToBlobs -BlobsDir $blobsDir -Content $ociManifest
             Write-Log "[OCI] Stored addon manifest in blobs: $($manifestBlobResult.Digest)"
             
+            # Track manifest reference for index.json
+            $addonManifestReferences += @{
+                dirName = $addonFolderName
+                implementation = $implementation.name
+                version = $addonVersion
+                manifestDigest = $manifestBlobResult.Digest
+                manifestSize = $manifestBlobResult.Size
+            }
+            
             # Clean up per-addon staging directory (layers are now in blobs)
             Remove-Item -Path $artifactPath -Recurse -Force -ErrorAction SilentlyContinue
             
@@ -741,24 +750,10 @@ try {
             Remove-Item -Path $packagesStaging -Recurse -Force -ErrorAction SilentlyContinue
             Remove-Item -Path $imagesStaging -Recurse -Force -ErrorAction SilentlyContinue
 
-            $addonExportInfo.addons += @{
-                name = $addonName;
-                dirName = $addonFolderName;
-                implementation = $implementation.name;
-                version = $addonVersion;
-                offline_usage = $implementation.offline_usage;
-                manifestDigest = $manifestBlobResult.Digest
-                manifestSize = $manifestBlobResult.Size
-            }
-
             Write-Log '---' -Console    
         }    
     }
 
-    $addonExportInfo.k2sVersion = $k2sVersion
-    $addonExportInfo.exportType = if ($All) { "all" } else { "specific" }
-    $addonExportInfo.artifactFormat = 'oci'
-    
     # Create OCI Image Index (index.json) with proper digest and size references
     $indexManifest = @{
         schemaVersion = 2
@@ -768,27 +763,28 @@ try {
             'vnd.k2s.version' = $k2sVersion
             'vnd.k2s.export.date' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
             'vnd.k2s.export.type' = if ($All) { 'all' } else { 'specific' }
-            'vnd.k2s.addon.count' = $addonExportInfo.addons.Count
+            'vnd.k2s.addon.count' = $addonManifestReferences.Count
         }
     }
     
-    foreach ($addon in $addonExportInfo.addons) {
+    foreach ($addonRef in $addonManifestReferences) {
         # Reference the manifest stored in blobs by digest
         $indexManifest.manifests += @{
             mediaType = 'application/vnd.oci.image.manifest.v1+json'
-            size = $addon.manifestSize
-            digest = $addon.manifestDigest
+            size = $addonRef.manifestSize
+            digest = $addonRef.manifestDigest
             artifactType = 'application/vnd.k2s.addon.v1'
             annotations = @{
-                'vnd.k2s.addon.name' = $addon.dirName
-                'vnd.k2s.addon.implementation' = $addon.implementation
-                'vnd.k2s.addon.version' = $addon.version
+                'vnd.k2s.addon.name' = $addonRef.dirName
+                'vnd.k2s.addon.implementation' = $addonRef.implementation
+                'vnd.k2s.addon.version' = $addonRef.version
             }
         }
     }
     
-    $indexManifest | ConvertTo-Json -Depth 10 | Set-Content -Path "${tmpExportDir}\artifacts\index.json" -Force
-    $addonExportInfo | ConvertTo-Json -Depth 100 | Set-Content -Path "${tmpExportDir}\artifacts\addons.json" -Force
+    $indexJsonPath = "${tmpExportDir}\artifacts\index.json"
+    $json = $indexManifest | ConvertTo-Json -Depth 10
+    [System.IO.File]::WriteAllText($indexJsonPath, $json, [System.Text.UTF8Encoding]::new($false))
 }
 finally {
     $env:http_proxy = $currentHttpProxy
@@ -799,8 +795,8 @@ finally {
 $exportedAddonNames = if ($All) {
     "all"
 } else {
-    ($addonExportInfo.addons | ForEach-Object { 
-        ($_.name -replace '\s+', '-').ToLower()
+    ($addonManifestReferences | ForEach-Object { 
+        ($_.dirName -replace '\s+', '-').ToLower()
     }) -join '-'
 }
 
@@ -830,7 +826,6 @@ Write-Log "[OCI] OCI Image Layout structure:" -Console
 Write-Log "  oci-layout           - OCI layout marker (imageLayoutVersion: 1.0.0)" -Console
 Write-Log "  index.json           - OCI image index with manifest references" -Console
 Write-Log "  blobs/sha256/        - Content-addressable blob storage" -Console
-Write-Log "  addons.json          - K2s addon metadata" -Console
 Write-Log "[OCI] Layer types:" -Console
 Write-Log "  Config:  metadata.json       (application/vnd.k2s.addon.config.v1+json)" -Console
 Write-Log "  Layer 0: config.tar.gz       (application/vnd.k2s.addon.configfiles.v1.tar+gzip)" -Console

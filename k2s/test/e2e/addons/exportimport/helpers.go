@@ -193,12 +193,6 @@ func VerifyExportedOciStructure(extractedArtifactsDir string, expectedDirName st
 	}
 	Expect(len(blobEntries)).To(BeNumerically(">", 0), "blobs directory should contain at least one blob")
 
-	// Verify addons.json exists (K2s-specific metadata)
-	addonsJsonPath := filepath.Join(extractedArtifactsDir, "addons.json")
-	_, err = os.Stat(addonsJsonPath)
-	Expect(os.IsNotExist(err)).To(BeFalse(), "addons.json file should exist at %s", addonsJsonPath)
-	GinkgoWriter.Println("[Structure] addons.json file exists")
-
 	// Verify the expected addon is referenced in index.json
 	Expect(string(indexJsonContent)).To(ContainSubstring(expectedDirName))
 	GinkgoWriter.Printf("[Structure] index.json references addon: %s\n", expectedDirName)

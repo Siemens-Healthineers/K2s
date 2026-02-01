@@ -155,10 +155,6 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			_, err = os.Stat(blobsPath)
 			Expect(os.IsNotExist(err)).To(BeFalse(), "blobs/sha256 directory should exist")
 
-			// Verify addons.json metadata file
-			_, err = os.Stat(filepath.Join(artifactsPath, "addons.json"))
-			Expect(os.IsNotExist(err)).To(BeFalse(), "addons.json metadata file should exist")
-
 			// Read and parse index.json
 			indexPath := filepath.Join(artifactsPath, "index.json")
 			_, err = os.Stat(indexPath)
@@ -354,22 +350,30 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			GinkgoWriter.Println("[Test] All addons OCI layers verified successfully in blobs")
 		})
 
-		It("metadata files contain correct OCI information", func(ctx context.Context) {
-			addonsJsonPath := filepath.Join(exportPath, "artifacts", "addons.json")
-			addonsJsonBytes, err := os.ReadFile(addonsJsonPath)
-			Expect(err).To(BeNil())
-			Expect(string(addonsJsonBytes)).To(ContainSubstring("k2sVersion"))
-			Expect(string(addonsJsonBytes)).To(ContainSubstring("exportType"))
-			Expect(string(addonsJsonBytes)).To(ContainSubstring("artifactFormat"))
-			Expect(string(addonsJsonBytes)).To(ContainSubstring("addons"))
-
+		It("index.json contains correct OCI structure and K2s annotations", func(ctx context.Context) {
 			indexJsonPath := filepath.Join(exportPath, "artifacts", "index.json")
 			indexJsonBytes, err := os.ReadFile(indexJsonPath)
-			Expect(err).To(BeNil())
-			Expect(string(indexJsonBytes)).To(ContainSubstring("schemaVersion"))
-			Expect(string(indexJsonBytes)).To(ContainSubstring("mediaType"))
-			Expect(string(indexJsonBytes)).To(ContainSubstring("vnd.k2s.version"))
-			Expect(string(indexJsonBytes)).To(ContainSubstring("vnd.k2s.addon.count"))
+			Expect(err).To(BeNil(), "should be able to read index.json")
+
+			indexJsonStr := string(indexJsonBytes)
+
+			// Verify OCI standard fields
+			Expect(indexJsonStr).To(ContainSubstring("schemaVersion"), "should have OCI schema version")
+			Expect(indexJsonStr).To(ContainSubstring("mediaType"), "should have OCI media type")
+			Expect(indexJsonStr).To(ContainSubstring("manifests"), "should have manifests array")
+
+			// Verify K2s-specific annotations in index
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.version"), "should have K2s version annotation")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.count"), "should have addon count annotation")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.export.type"), "should have export type annotation")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.export.date"), "should have export date annotation")
+
+			// Verify addon-specific annotations in manifests
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.name"), "should have addon name annotations")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.implementation"), "should have addon implementation annotations")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.version"), "should have addon version annotations")
+
+			GinkgoWriter.Println("[Test] All OCI and K2s annotations verified in index.json")
 		})
 
 		It("OCI manifests in blobs contain proper structure", func(ctx context.Context) {

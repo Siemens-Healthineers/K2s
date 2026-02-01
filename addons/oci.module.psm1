@@ -63,7 +63,8 @@ function New-OciLayoutFile {
     }
     
     $ociLayoutPath = Join-Path $LayoutPath 'oci-layout'
-    $ociLayout | ConvertTo-Json | Set-Content -Path $ociLayoutPath -Force
+    $json = $ociLayout | ConvertTo-Json
+    [System.IO.File]::WriteAllText($ociLayoutPath, $json, [System.Text.UTF8Encoding]::new($false))
     
     Write-Log "[OCI] Created oci-layout file with version $($script:OciLayoutVersion)"
     return $ociLayoutPath
@@ -139,7 +140,8 @@ function Add-JsonContentToBlobs {
     
     $tempFile = New-TemporaryFile
     try {
-        $Content | ConvertTo-Json -Depth 20 | Set-Content -Path $tempFile.FullName -Encoding UTF8 -NoNewline
+        $json = $Content | ConvertTo-Json -Depth 20
+        [System.IO.File]::WriteAllText($tempFile.FullName, $json, [System.Text.UTF8Encoding]::new($false))
         $result = Add-ContentToBlobs -BlobsDir $BlobsDir -SourcePath $tempFile.FullName -Move
         return $result
     }
