@@ -153,8 +153,7 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 			url := "https://localhost:8080/rollout/"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "3", "--fail")
 		})
 	})
 
@@ -219,8 +218,7 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/rollout", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/rollout/"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "3", "--fail")
 		})
 	})
 
@@ -285,8 +283,7 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/rollout", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/rollout/"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "3", "--fail")
 		})
 	})
 

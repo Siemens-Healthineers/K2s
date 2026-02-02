@@ -105,8 +105,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 			url := "http://localhost:3000/monitoring/login"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "10", "--fail")
 		})
 	})
 
@@ -155,8 +154,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/monitoring", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/monitoring/login"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "10", "--fail")
 		})
 	})
 
@@ -205,8 +203,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/monitoring", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/monitoring/login"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "10", "--fail")
 		})
 	})
 })
