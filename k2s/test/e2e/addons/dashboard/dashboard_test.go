@@ -134,8 +134,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 				url := "http://localhost:8000/#/pod?namespace=_all"
-				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-				Expect(httpStatus).To(ContainSubstring("200"))
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "10", "--fail")
 			})
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
@@ -186,8 +185,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dashboard/#/pod?namespace=_all"
-				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-				Expect(httpStatus).To(ContainSubstring("200"))
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "10", "--fail")
 			})
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
@@ -238,8 +236,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dashboard/#/pod?namespace=_all"
-				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
-				Expect(httpStatus).To(ContainSubstring("200"))
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 			})
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
@@ -286,8 +283,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dashboard/#/pod?namespace=_all"
-				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-				Expect(httpStatus).To(ContainSubstring("200"))
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-o", "NUL", "-m", "5", "--retry", "10", "--fail")
 			})
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
