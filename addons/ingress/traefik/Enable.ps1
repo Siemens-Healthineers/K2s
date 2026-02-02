@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -34,6 +34,9 @@ $traefikModule = "$PSScriptRoot\traefik.module.psm1"
 Import-Module $infraModule, $clusterModule, $addonsModule, $traefikModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
 
 Write-Log 'Checking cluster status' -Console
 
@@ -84,6 +87,19 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementa
     exit 1
 }
 
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx-gw' })) -eq $true) {
+    $errMsg = "Addon 'ingress nginx-gw' is enabled. Disable it first to avoid port conflicts."
+
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq $true) {
     $errMsg = "Addon 'gateway-api' is enabled. Disable it first to avoid port conflicts."
 
@@ -97,9 +113,14 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq
     exit 1
 }
 
+Install-GatewayApiCrds
+
 Write-Log 'Installing external-dns' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
+
+Write-Log 'Installing cert-manager' -Console
+Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
 
 # we prepare all patches and apply them in a single kustomization,
 # instead of applying the unpatched manifests and then applying patches one by one
@@ -165,6 +186,8 @@ if ($allPodsAreUp -ne $true) {
 Write-Log 'All ingress traefik pods are up and ready.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
+
+Assert-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
 
 &"$PSScriptRoot\Update.ps1"
 

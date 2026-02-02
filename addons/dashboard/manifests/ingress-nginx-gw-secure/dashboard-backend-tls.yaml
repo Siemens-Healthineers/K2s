@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# BackendTLSPolicy for dashboard with security addon enabled
+# Kong proxy still uses self-signed certificate, so we need the CA certificate reference
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: dashboard-backend-tls
+  namespace: dashboard
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: kubernetes-dashboard-kong-proxy
+  validation:
+    # Use caCertificateRefs for kong's self-signed certificate
+    # The kong-ca-cert ConfigMap is created by dashboard/Enable.ps1
+    caCertificateRefs:
+    - name: kong-ca-cert
+      group: ""
+      kind: ConfigMap
+    # Hostname must match the certificate CN (localhost for kong default cert)
+    hostname: localhost

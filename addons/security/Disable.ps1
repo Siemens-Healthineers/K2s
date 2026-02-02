@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -49,8 +49,7 @@ if ($systemError) {
     Write-Log $systemError.Message -Error
     exit 1
 }
-
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
     $errMsg = "Addon 'security' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -63,19 +62,17 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ign
     exit 1
 }
 
-Write-Log 'Uninstalling security cert manager parts' -Console
-$certManagerConfig = Get-CertManagerConfig
-$caIssuerConfig = Get-CAIssuerConfig
+Write-Log 'Checking if cert-manager can be uninstalled' -Console
+$hasNginxIngress = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
+$hasTraefikIngress = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
+$hasNginxGwIngress = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx-gw' })
 
-(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $caIssuerConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $certManagerConfig).Output | Write-Log
-
-Remove-Cmctl
-
-Write-Log 'Removing CA issuer certificate from trusted root' -Console
-$caIssuerName = Get-CAIssuerName
-$trustedRootStoreLocation = Get-TrustedRootStoreLocation
-Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
+if ($hasNginxIngress -or $hasTraefikIngress -or $hasNginxGwIngress) {
+    Write-Log 'cert-manager is required for enabled ingress addons. Skipping cert-manager uninstallation.' -Console
+} else {
+    Write-Log 'Uninstalling cert-manager' -Console
+    Uninstall-CertManager
+}
 
 $oauth2ProxyYaml = Get-OAuth2ProxyConfig
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $oauth2ProxyYaml).Output | Write-Log

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -7,6 +7,8 @@ package traefik
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path"
 	"testing"
 	"time"
 
@@ -61,6 +63,9 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
 		suite.Kubectl().MustExec(ctx, "delete", "-k", "workloads")
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(os.IsNotExist(err)).To(BeTrue())
 
 		k2s.VerifyAddonIsDisabled("ingress", "traefik")
 
@@ -114,6 +119,28 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 	})
 
+	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(err).To(BeNil())
+	})
+
+	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
+	})
+
+	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(err).To(BeNil())
+	})
+
+	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
+		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
+	})
+
 	It("prints already-enabled message and exits with non-zero", func(ctx context.Context) {
 		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "ingress", "traefik")
 
@@ -122,7 +149,7 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 
 	It("makes k2s.cluster.local reachable, with http status NotFound", func(ctx context.Context) {
 		url := "https://k2s.cluster.local/"
-		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10")
+		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-s", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10")
 		Expect(httpStatus).To(ContainSubstring("404"))
 	})
 
@@ -152,6 +179,8 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 			MatchRegexp(`Implementation .+traefik.+ of Addon .+ingress.+ is .+enabled.+`),
 			MatchRegexp("The traefik ingress controller is working"),
 			MatchRegexp("The external IP for traefik service is set to %s", regex.IpAddressRegex),
+			MatchRegexp("The cert-manager API is ready"),
+			MatchRegexp("The CA root certificate is available"),
 		))
 
 		output = suite.K2sCli().MustExec(ctx, "addons", "status", "ingress", "traefik", "-o", "json")
@@ -177,6 +206,16 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 				HaveField("Value", true),
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
 				HaveField("Message", gstruct.PointTo(MatchRegexp("The external IP for traefik service is set to %s", regex.IpAddressRegex)))),
+			SatisfyAll(
+				HaveField("Name", "IsCertManagerAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
+			SatisfyAll(
+				HaveField("Name", "IsCaRootCertificateAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available")))),
 		))
 	})
 })
