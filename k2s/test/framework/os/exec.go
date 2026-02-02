@@ -90,6 +90,7 @@ func (c *CliExecutor) Exec(ctx context.Context, cliArgs ...string) (string, int)
 		exitCodeMatcher = gexec.Exit(*c.expectedExitCode)
 	}
 
+	GinkgoWriter.Printf(">>> EXEC: %s %v\n", c.cliPath, cliArgs)
 	GinkgoWriter.Printf(">>> EXEC: timeout=%v, pollInterval=%v, ctx=%v\n", c.timeout, c.pollInterval, ctx)
 	if deadline, ok := ctx.Deadline(); ok {
 		GinkgoWriter.Printf(">>> EXEC: context has deadline: %v (remaining: %v)\n", deadline, time.Until(deadline))

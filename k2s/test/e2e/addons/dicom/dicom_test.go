@@ -95,11 +95,13 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 	Describe("enable command", func() {
 		When("no ingress controller is configured", func() {
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
-				k2s.VerifyAddonIsDisabled("dicom")
+				if( !failed ){
+					suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+					k2s.VerifyAddonIsDisabled("dicom")
 
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
+					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
+					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
+				}
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -129,14 +131,16 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
-				k2s.VerifyAddonIsDisabled("dicom")
+				if( !failed ){
+					suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+					suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+					k2s.VerifyAddonIsDisabled("dicom")
 
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
+					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
+					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
+					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
+				}
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -178,14 +182,16 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-				k2s.VerifyAddonIsDisabled("dicom")
+				if( !failed ){
+					suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+					suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+					k2s.VerifyAddonIsDisabled("dicom")
 
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
+					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
+					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
+					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
+				}
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
