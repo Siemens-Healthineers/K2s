@@ -95,7 +95,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 	Describe("enable command", func() {
 		When("no ingress controller is configured", func() {
 			AfterAll(func(ctx context.Context) {
-				if( !failed ){
+				if !testFailed {
 					suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
 					k2s.VerifyAddonIsDisabled("dicom")
 
@@ -131,7 +131,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			AfterAll(func(ctx context.Context) {
-				if( !failed ){
+				if !testFailed {
 					suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
 					suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
 					k2s.VerifyAddonIsDisabled("dicom")
@@ -180,7 +180,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			AfterAll(func(ctx context.Context) {
-				if( !failed ){
+				if !testFailed {
 					suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
 					suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 					k2s.VerifyAddonIsDisabled("dicom")
