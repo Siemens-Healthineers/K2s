@@ -655,20 +655,35 @@ foreach ($addon in $addonsToImport) {
         # Process Layer 6: Packages (already extracted to temp location)
         $packagesExtractDir = Join-Path $tempLayerDir 'packages'
         if (Test-Path $packagesExtractDir) {
-            if ($null -ne $addon.offline_usage) {
-                Write-Log "[OCI] Installing packages for addon $($addon.name)" -Console
-                $linuxPackages = $addon.offline_usage.linux
-                $linuxCurlPackages = $linuxPackages.curl
-                $windowsPackages = $addon.offline_usage.windows
-                $windowsCurlPackages = $windowsPackages.curl
+            # Load addon manifest from config layer to get offline_usage information
+            $tempConfigDir = Join-Path $tempLayerDir 'config'
+            $configManifestPath = Join-Path $tempConfigDir 'addon.manifest.yaml'
+            if (Test-Path $configManifestPath) {
+                $importedManifest = Get-FromYamlFile -Path $configManifestPath
                 
-                # Import debian packages
-                $debianPkgDir = Join-Path $packagesExtractDir 'debianpackages'
-                if (Test-Path $debianPkgDir) {
-                    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf .$($addon.name)").Output | Write-Log
-                    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$($addon.name)").Output | Write-Log
-                    Copy-ToControlPlaneViaSSHKey -Source "$debianPkgDir\*" -Target ".$($addon.name)"
+                # Find the matching implementation
+                $matchingImpl = $null
+                if ($addon.implementation) {
+                    $matchingImpl = $importedManifest.spec.implementations | Where-Object { $_.name -eq $addon.implementation } | Select-Object -First 1
+                } else {
+                    # Single implementation addon - use first (and only) implementation
+                    $matchingImpl = $importedManifest.spec.implementations | Select-Object -First 1
                 }
+                
+                if ($null -ne $matchingImpl -and $null -ne $matchingImpl.offline_usage) {
+                    Write-Log "[OCI] Installing packages for addon $($addon.name)" -Console
+                    $linuxPackages = $matchingImpl.offline_usage.linux
+                    $linuxCurlPackages = $linuxPackages.curl
+                    $windowsPackages = $matchingImpl.offline_usage.windows
+                    $windowsCurlPackages = $windowsPackages.curl
+                    
+                    # Import debian packages
+                    $debianPkgDir = Join-Path $packagesExtractDir 'debianpackages'
+                    if (Test-Path $debianPkgDir) {
+                        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf .$($addon.name)").Output | Write-Log
+                        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$($addon.name)").Output | Write-Log
+                        Copy-ToControlPlaneViaSSHKey -Source "$debianPkgDir\*" -Target ".$($addon.name)"
+                    }
                 
                 # Import Linux packages
                 $linuxPkgDir = Join-Path $packagesExtractDir 'linuxpackages'
@@ -685,22 +700,22 @@ foreach ($addon in $addonsToImport) {
                     }
                 }
                 
-            # Import Windows packages
-            $windowsPkgDir = Join-Path $packagesExtractDir 'windowspackages'
-            if (Test-Path $windowsPkgDir) {
-                foreach ($package in $windowsCurlPackages) {
-                    $filename = ([uri]$package.url).Segments[-1]
-                    $destination = $package.destination
-                    $sourcePath = Join-Path $windowsPkgDir $filename
-                    $destinationFolder = Split-Path -Path "$PSScriptRoot\..\$destination"
-                    if (Test-Path $sourcePath) {
-                        mkdir -Force $destinationFolder | Out-Null
-                        Copy-Item -Path $sourcePath -Destination "$PSScriptRoot\..\$destination" -Force
+                # Import Windows packages
+                $windowsPkgDir = Join-Path $packagesExtractDir 'windowspackages'
+                if (Test-Path $windowsPkgDir) {
+                    foreach ($package in $windowsCurlPackages) {
+                        $filename = ([uri]$package.url).Segments[-1]
+                        $destination = $package.destination
+                        $sourcePath = Join-Path $windowsPkgDir $filename
+                        $destinationFolder = Split-Path -Path "$PSScriptRoot\..\$destination"
+                        if (Test-Path $sourcePath) {
+                            mkdir -Force $destinationFolder | Out-Null
+                            Copy-Item -Path $sourcePath -Destination "$PSScriptRoot\..\$destination" -Force
+                        }
                     }
                 }
             }
         }
-    }
     
     # Cleanup temp layer directory
     Remove-Item -Path $tempLayerDir -Recurse -Force -ErrorAction SilentlyContinue
