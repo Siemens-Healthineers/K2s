@@ -257,7 +257,15 @@ function Install-PesterIfNecessary {
         [string]
         $PesterVersion = $(throw 'PesterVersion not specified')
     )
-    $pesterModule = Get-InstalledModule -Name Pester
+    
+    $pesterModule = $null
+    try {
+        $pesterModule = Get-InstalledModule -Name Pester -ErrorAction SilentlyContinue
+    } catch {
+        # PowerShellGet 1.0.0.1 has a bug with null dates in module metadata
+        Write-Warning "Get-InstalledModule failed (likely PowerShellGet bug): $_"
+        Write-Warning "Consider updating PowerShellGet: Install-Module -Name PowerShellGet -Force -AllowClobber"
+    }
 
     if (!$pesterModule) {
         Write-Output 'Pester not found, installing it..'
