@@ -796,7 +796,7 @@ $exportedAddonNames = if ($All) {
     "all"
 } else {
     ($addonManifestReferences | ForEach-Object { 
-        ($_.dirName -replace '\s+', '-').ToLower()
+        ($_.dirName -replace '[_\s]+', '-').ToLower()
     }) -join '-'
 }
 

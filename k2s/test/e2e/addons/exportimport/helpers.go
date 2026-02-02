@@ -81,7 +81,7 @@ func ExportAddon(ctx context.Context, suite *framework.K2sTestSuite, addonName s
 	}
 	GinkgoWriter.Println("[Export] Export command completed")
 
-	// Find the exported OCI tar file
+	// Export.ps1 creates files with pattern: K2s-{version}-addons-{dirname}.oci.tar
 	var pattern string
 	if implName != "" && implName != addonName {
 		pattern = filepath.Join(outputDir, fmt.Sprintf("K2s-*-addons-%s-%s.oci.tar", addonName, implName))

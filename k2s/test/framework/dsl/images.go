@@ -89,8 +89,29 @@ func (k2s *K2s) GetNonK8sImagesFromNodes(ctx context.Context) (images []string) 
 	imagesFromWindowsNode := k2s.getImagesFromWindowsNode(ctx)
 	k8sImages := k2s.getK8sImages()
 
+	// Build set of K8s image repositories for efficient lookup
+	k8sRepos := make(map[string]bool)
+	for _, k8sImage := range k8sImages {
+		// Extract repository from "repository:tag" format
+		repo := strings.Split(k8sImage, ":")[0]
+		k8sRepos[repo] = true
+	}
+
 	for _, image := range append(imagesFromLinuxNode, imagesFromWindowsNode...) {
-		if !slices.Contains(k8sImages, image) {
+		// Extract repository from various formats:
+		// - "repository:tag"
+		// - "repository@sha256:digest"
+		var repo string
+		if strings.Contains(image, "@") {
+			repo = strings.Split(image, "@")[0]
+		} else if strings.Contains(image, ":") {
+			repo = strings.Split(image, ":")[0]
+		} else {
+			repo = image
+		}
+
+		// Only include if not a K8s system image
+		if !k8sRepos[repo] {
 			images = append(images, image)
 		}
 	}
