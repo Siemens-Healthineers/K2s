@@ -85,6 +85,60 @@ if ($manifest.PSObject.Properties.Name -contains "configSnapshot") {
 $kubePath    = Get-KubePath
 $kubectlPath = Get-KubeBinPathGivenKubePath -KubePathLocal $kubePath
 
+# ------------------------------------------------------------
+# Restore persistent volumes
+# ------------------------------------------------------------
+Write-Log "Restoring persistent volumes..." -Console
+
+$pvBackupPath = Join-Path $restoreRoot "pv"
+if (Test-Path $pvBackupPath) {
+    try {
+        $pvRestoreResult = Invoke-PVRestore -BackupDirectory $pvBackupPath -Force
+
+        if ($pvRestoreResult.RestoredCount -gt 0) {
+            Write-Log "Successfully restored $($pvRestoreResult.RestoredCount) persistent volume(s)" -Console
+        } else {
+            Write-Log "No persistent volumes found to restore" -Console
+        }
+
+        if ($pvRestoreResult.FailedCount -gt 0) {
+            Write-Log "Warning: Failed to restore $($pvRestoreResult.FailedCount) persistent volume(s)" -Console
+        }
+    }
+    catch {
+        Write-Log "Warning: PV restore failed - $_. Continuing with restore..." -Console
+    }
+} else {
+    Write-Log "No PV backup found, skipping PV restore" -Console
+}
+
+# ------------------------------------------------------------
+# Restore user workload images
+# ------------------------------------------------------------
+Write-Log "Restoring user workload images..." -Console
+
+$imagesBackupPath = Join-Path $restoreRoot "images"
+if (Test-Path $imagesBackupPath) {
+    try {
+        $imageRestoreResult = Invoke-ImageRestore -BackupDirectory $imagesBackupPath
+
+        if ($imageRestoreResult.RestoredImages.Count -gt 0) {
+            Write-Log "Successfully restored $($imageRestoreResult.RestoredImages.Count) user workload container images" -Console
+        } else {
+            Write-Log "No images found to restore" -Console
+        }
+
+        if ($imageRestoreResult.FailedImages.Count -gt 0) {
+            Write-Log "Warning: Failed to restore $($imageRestoreResult.FailedImages.Count) images" -Console
+        }
+    }
+    catch {
+        Write-Log "Warning: Image restore failed - $_. Continuing with restore..." -Console
+    }
+} else {
+    Write-Log "No image backup found, skipping image restore" -Console
+}
+
 $notNamespacedDir = Join-Path $restoreRoot "NotNamespaced"
 $namespacedDir    = Join-Path $restoreRoot "Namespaced"
 
@@ -114,22 +168,7 @@ $namespacedResult = Import-NamespacedResources `
     -ShowLogs:$ShowLogs `
     -ErrorOnFailure:$ErrorOnFailure
 
-# Report webhook-dependent failures that need addon re-enablement
-<#if ($namespacedResult.WebhookFailures.Count -gt 0) {
-    Write-Log "⚠️  Some resources require addons to be re-enabled:" -Console
-    Write-Log "   - For example - Ingresses require 'ingress-nginx' addon" -Console
-    Write-Log "   - For example - Certificates require 'cert-manager' addon" -Console
-    Write-Log "   Run 'k2s addons enable <addon-name>' and then try restore again" -Console
-}
-
-if ($ErrorOnFailure -and $namespacedResult.Errors.Count -gt 0) {
-    throw "Namespaced resource restore failed"
-}
-
-
-if (($clusterResult.Errors.Count -gt 0 -or $namespacedResult.Errors.Count -gt 0) -and $ErrorOnFailure) {
-    throw "System restore finished with errors"
-}#>
+# Collect all errors from both cluster and namespaced restores
 $allErrors = @()
 $allErrors += $clusterResult.Errors
 $allErrors += $namespacedResult.Errors

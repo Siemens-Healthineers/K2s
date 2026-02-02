@@ -1397,14 +1397,15 @@ function Invoke-PVBackup {
 
     try {
         # Define addon PVs to exclude (managed by addon enable/disable)
-        $excludeNames = @(
+<#        $excludeNames = @(
             'postgresql-pv-volume',
             'dicom-pv-volume',
             'orthanc-pv',
             'registry-pv',
             'smb-static-pv',
 		    'opensearch-cluster-master-pv'
-        )
+        )#>
+		$excludeNames = @()
 
         Write-Log "Excluding addon-managed PVs: $($excludeNames -join ', ')" -Console
 
@@ -1437,9 +1438,118 @@ function Invoke-PVBackup {
     }
 }
 
+function Invoke-PVRestore {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $BackupDirectory,
+
+        [Parameter(Mandatory = $false)]
+        [switch] $Force
+    )
+
+    Write-Log "Starting persistent volume restore..." -Console
+
+    try {
+        # Check if PV backup directory exists
+        if (-not (Test-Path $BackupDirectory)) {
+            Write-Log "No PV backup directory found at: $BackupDirectory" -Console
+            return @{
+                Success = $true
+                RestoredCount = 0
+                Details = @{}
+                Message = "No PV backups to restore"
+            }
+        }
+
+        # Invoke the core restore function
+        $restoreResult = Restore-AllPersistentVolumes -BackupPath $BackupDirectory -Force:$Force
+
+        if ($restoreResult) {
+            $successCount = ($restoreResult.GetEnumerator() | Where-Object { $_.Value -eq $true }).Count
+            $failCount = ($restoreResult.GetEnumerator() | Where-Object { $_.Value -eq $false }).Count
+            Write-Log "PV restore completed: $successCount PV(s) restored successfully, $failCount failed" -Console
+
+            return @{
+                Success = ($failCount -eq 0)
+                RestoredCount = $successCount
+                FailedCount = $failCount
+                Details = $restoreResult
+            }
+        }
+        else {
+            Write-Log "No persistent volumes found to restore" -Console
+            return @{
+                Success = $true
+                RestoredCount = 0
+                FailedCount = 0
+                Details = @{}
+                Message = "No PVs to restore"
+            }
+        }
+    }
+    catch {
+        Write-Log "Error during PV restore: $_" -Console
+        throw $_
+    }
+}
+
+function Invoke-ImageRestore {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $BackupDirectory
+    )
+
+    Write-Log "Starting image restore..." -Console
+
+    try {
+        # Check if image backup directory exists
+        if (-not (Test-Path $BackupDirectory)) {
+            Write-Log "No image backup directory found at: $BackupDirectory" -Console
+            return @{
+                Success = $true
+                RestoredImages = @()
+                FailedImages = @()
+                Message = "No image backups to restore"
+            }
+        }
+
+        # Check for manifest (it's created as manifest.json by Backup-K2sImages)
+        $manifestPath = Join-Path $BackupDirectory "manifest.json"
+        if (-not (Test-Path $manifestPath)) {
+            Write-Log "No image manifest found at: $manifestPath" -Console
+            return @{
+                Success = $true
+                RestoredImages = @()
+                FailedImages = @()
+                Message = "No image manifest to restore"
+            }
+        }
+
+        Write-Log "Found image manifest at: $manifestPath" -Console
+
+        # Perform restore
+        $restoreResult = Restore-K2sImages -BackupDirectory $BackupDirectory -ManifestPath $manifestPath
+
+        if ($restoreResult.RestoredImages.Count -gt 0) {
+            Write-Log "Successfully restored $($restoreResult.RestoredImages.Count) image(s)" -Console
+        }
+
+        if ($restoreResult.FailedImages.Count -gt 0) {
+            Write-Log "Warning: Failed to restore $($restoreResult.FailedImages.Count) image(s)" -Console
+        }
+
+        return $restoreResult
+    }
+    catch {
+        Write-Log "Error during image restore: $_" -Console
+        throw $_
+    }
+}
+
 
 Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources, `
     Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources, `
     Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles, `
     Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath, `
-    Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath, PrepareClusterUpgrade, PerformClusterUpgrade, Invoke-ImageBackup, Invoke-PVBackup
+    Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath, PrepareClusterUpgrade, PerformClusterUpgrade, Invoke-ImageBackup, Invoke-PVBackup, `
+    Invoke-ImageRestore, Invoke-PVRestore
