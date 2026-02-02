@@ -79,7 +79,7 @@ function PerformClusterUpdate {
 		  4. Version compatibility validation
 		  5. Apply Debian package delta (if cluster is running)
 		  6. Stop cluster automatically (if it was running)
-		  7. Apply updated Windows artifacts (executables, dlls, scripts) from delta to target installation
+		  7. Apply updated Windows artifacts (add/update files, remove obsolete files) from delta to target installation
 		  8. Restart cluster automatically (if it was running before)
 		  9. Load / import container images from delta if included
 		  10. Run optional hooks (pre/post) [placeholder]
@@ -152,7 +152,7 @@ Current directory: $deltaRoot
 	}
 
 	$phaseId = 0
-	function _phase { param($name) if ($ShowProgress) { $script:phaseId++; Write-Progress -Activity 'Cluster delta update' -Id 1 -Status ("{0}" -f $name) -PercentComplete (($script:phaseId) * 100 / 10) } Write-Log ("[Update] Phase: {0}" -f $name) -Console:$consoleSwitch }
+	function _phase { param($name) if ($ShowProgress) { $script:phaseId++; Write-Progress -Activity 'Cluster delta update' -Id 1 -Status ("{0}" -f $name) -PercentComplete (($script:phaseId) * 100 / 11) } Write-Log ("[Update] Phase: {0}" -f $name) -Console:$consoleSwitch }
 
 	# 1. Load manifest from delta root
 	_phase 'Manifest'
@@ -190,7 +190,8 @@ Current directory: $deltaRoot
 	$deltaBasePackage = [string]$manifest.BasePackage
 	$deltaTargetPackage = [string]$manifest.TargetPackage
 	
-	# Extract version from package names (assumes format like k2s-v1.6.0-something.zip)
+	# Use version fields directly from manifest (populated from VERSION files during delta generation)
+	# Fall back to parsing package name for backward compatibility with older manifests
 	function _ExtractVersionFromPackage([string]$packageName) {
 		if ([string]::IsNullOrWhiteSpace($packageName)) { return $null }
 		# Match patterns like k2s-v1.6.0, k2s-1.6.0, or just 1.6.0
@@ -200,8 +201,17 @@ Current directory: $deltaRoot
 		return $null
 	}
 	
-	$deltaBaseVersion = _ExtractVersionFromPackage $deltaBasePackage
-	$deltaTargetVersion = _ExtractVersionFromPackage $deltaTargetPackage
+	# Prefer explicit version fields from manifest; fall back to filename parsing for older manifests
+	$deltaBaseVersion = if (-not [string]::IsNullOrWhiteSpace($manifest.BaseVersion)) { 
+		$manifest.BaseVersion.Trim() 
+	} else { 
+		_ExtractVersionFromPackage $deltaBasePackage 
+	}
+	$deltaTargetVersion = if (-not [string]::IsNullOrWhiteSpace($manifest.TargetVersion)) { 
+		$manifest.TargetVersion.Trim() 
+	} else { 
+		_ExtractVersionFromPackage $deltaTargetPackage 
+	}
 	
 	Write-Log ("[Update] Version Check: Current={0}, DeltaBase={1}, DeltaTarget={2}" -f $currentVersion, $deltaBaseVersion, $deltaTargetVersion) -Console:$consoleSwitch
 	
@@ -295,6 +305,30 @@ Current directory: $deltaRoot
 	}
 	Write-Log ("[Update] Applied {0} Windows artifacts" -f $filesToApply.Count) -Console:$consoleSwitch
 
+	# 6b. Remove obsolete files (Removed) from target installation
+	$removedFiles = @($manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
+	if ($removedFiles.Count -gt 0) {
+		Write-Log ("[Update] Removing {0} obsolete files from target installation" -f $removedFiles.Count) -Console:$consoleSwitch
+		$removedCount = 0
+		foreach ($rel in $removedFiles) {
+			$target = Join-Path $targetInstallPath $rel
+			if (Test-Path -LiteralPath $target) {
+				try {
+					Remove-Item -LiteralPath $target -Force
+					Write-Log ("[Update] Removed: {0}" -f $rel) -Console:$consoleSwitch
+					$removedCount++
+				} catch {
+					Write-Log ("[Update][Warn] Failed to remove '{0}': {1}" -f $rel, $_.Exception.Message) -Console:$consoleSwitch
+				}
+			} else {
+				Write-Log ("[Update][Info] Already absent: {0}" -f $rel) -Console:$consoleSwitch
+			}
+		}
+		Write-Log ("[Update] Removed {0} of {1} obsolete files" -f $removedCount, $removedFiles.Count) -Console:$consoleSwitch
+	} else {
+		Write-Log '[Update] No files to remove' -Console:$consoleSwitch
+	}
+
 	# 7. Restart cluster if it was running before
 	_phase 'RestartCluster'
 	if ($wasRunning) {
@@ -324,7 +358,7 @@ Current directory: $deltaRoot
 	}
 
 	# 8. Container images (if any .tar/.gz under delta/images)
-	_phase 'Images'
+	_phase 'ContainerImages'
 	$imagesRoot = Join-Path $deltaRoot 'images'
 	if (Test-Path -LiteralPath $imagesRoot) {
 		$imageFiles = Get-ChildItem -LiteralPath $imagesRoot -Recurse -File -Include '*.tar','*.tar.gz','*.tgz' -ErrorAction SilentlyContinue
@@ -344,11 +378,11 @@ Current directory: $deltaRoot
 		} else { Write-Log '[Update] No image archives found.' -Console:$consoleSwitch }
 	} else { Write-Log '[Update] images/ directory absent; skipping image load' -Console:$consoleSwitch }
 
-	# 8. Hooks placeholder
+	# 9. Hooks placeholder
 	_phase 'Hooks'
 	if ($ExecuteHooks) { Write-Log '[Update][Info] Hooks execution placeholder (none implemented).' -Console:$consoleSwitch } else { Write-Log '[Update] Hooks disabled.' -Console:$consoleSwitch }
 
-	# 9. Health check
+	# 10. Health check
 	_phase 'Health'
 	try {
 		if ($wasRunning) {
@@ -360,7 +394,7 @@ Current directory: $deltaRoot
 		}
 	} catch { Write-Log ("[Update][Warn] Health check encountered issues: {0}" -f $_.Exception.Message) -Console:$consoleSwitch }
 
-	# 10. Update VERSION file to reflect successful delta update
+	# 11. Update VERSION file to reflect successful delta update
 	_phase 'UpdateVersion'
 	if ($deltaTargetVersion) {
 		try {
@@ -453,9 +487,9 @@ function Invoke-CommandInMasterVM {
 		try { $wslEnabled = (Get-ConfigWslFlag) } catch { $wslEnabled = $false }
 	}
 	if (-not $wslEnabled) {
-		# Import vmnode module for Start-VirtualMachine / Wait helpers if available
-		$vmNodeModule = "$PSScriptRoot/../../k2s.node.module/vmnode/vmnode.module.psm1"
-		if (Test-Path -LiteralPath $vmNodeModule) { Import-Module $vmNodeModule -ErrorAction SilentlyContinue }
+		# Import vm module for Get-IsControlPlaneRunning / Wait-ForSSHConnectionToLinuxVMViaSshKey
+		$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+		if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
 		$cpRunning = $false
 		if (Get-Command -Name Get-IsControlPlaneRunning -ErrorAction SilentlyContinue) {
 			try { $cpRunning = Get-IsControlPlaneRunning } catch { $cpRunning = $false }
@@ -466,7 +500,11 @@ function Invoke-CommandInMasterVM {
 		}
 		if ($cpRunning -and (Get-Command -Name Wait-ForSSHConnectionToLinuxVMViaSshKey -ErrorAction SilentlyContinue)) {
 			Write-Log '[DebPkg][VM] Waiting for SSH availability' -Console:$consoleSwitch
-			try { Wait-ForSSHConnectionToLinuxVMViaSshKey } catch { Write-Log "[DebPkg][VM][Warn] SSH wait failed: $($_.Exception.Message)" -Console:$consoleSwitch }
+			# Skip SSH wait during delta update - the control plane is already verified running
+			# and calling Wait-ForSSHConnectionToLinuxVMViaSshKey can hang in CI environments
+			# where the outer SSH session uses -n (stdin from /dev/null), causing nested ssh.exe
+			# calls to behave unexpectedly on Windows
+			Write-Log '[DebPkg][VM] Skipping SSH wait (control plane already verified running)' -Console:$consoleSwitch
 		}
 	}
 
@@ -481,6 +519,8 @@ function Invoke-CommandInMasterVM {
 	Write-Log "[DebPkg][VM] Staging Debian delta script '$remoteScriptName'" -Console:$consoleSwitch
 	try {
 		# Ensure remote directory and make it writable by the user
+		# Note: Do NOT use -Nested:$true as it removes -n flag from SSH which causes hangs
+		# in CI environments where outer SSH uses stdin from /dev/null
 		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Retries $RetryCount -Timeout 2).Output | Out-Null
 
 		# Copy only the script (avoid large recursive transfers unless needed)
@@ -499,28 +539,72 @@ function Invoke-CommandInMasterVM {
 
 	Write-Log '[DebPkg][VM] Executing Debian delta script inside control plane VM' -Console:$consoleSwitch
 	$start = Get-Date
-	$execCmd = "sudo $remoteScriptPath"
+	
+	# Use background execution with polling to avoid stdin/stdout blocking in nested SSH environments
+	# The script runs with nohup and writes output to a log file; we poll for completion via exit code file
+	$remoteLogFile = "$remoteBase/deb-delta.log"
+	$remoteExitFile = "$remoteBase/deb-delta.exit"
+	
+	# Cleanup any previous run artifacts
+	$cleanupCmd = "sudo rm -f $remoteLogFile $remoteExitFile </dev/null 2>&1"
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -NoLog:$true).Output | Out-Null
+	
+	# Launch script in background with nohup, redirect all I/O, capture exit code to file
+	$bgCmd = "nohup sudo $remoteScriptPath >$remoteLogFile 2>&1 </dev/null; echo `$? >$remoteExitFile &"
+	# Use sh -c to ensure proper background handling
+	$launchCmd = "sh -c '$bgCmd' </dev/null >/dev/null 2>&1"
+	
+	Write-Log '[DebPkg][VM] Launching script in background...' -Console:$consoleSwitch
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $launchCmd -IgnoreErrors:$true).Output | Out-Null
+	
+	# Brief wait to let the script start
+	Start-Sleep -Seconds 2
+	
+	# Poll for exit code file with timeout
 	$elapsed = $null
 	$exitCode = -1
 	$success = $false
 	$outputAggregate = @()
-	try {
-		$attempts = 0
-		$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-		while ($true) {
-			$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $execCmd -Retries $RetryCount -Timeout 3 -IgnoreErrors:$true
-			$exitCode = $LASTEXITCODE
+	$pollInterval = 5
+	$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+	
+	Write-Log "[DebPkg][VM] Polling for completion (timeout=${TimeoutSeconds}s)..." -Console:$consoleSwitch
+	while ((Get-Date) -lt $deadline) {
+		Start-Sleep -Seconds $pollInterval
+		
+		# Check if exit file exists (indicates script finished)
+		$checkCmd = "test -f $remoteExitFile && cat $remoteExitFile || echo 'RUNNING'"
+		$checkResult = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $checkCmd -IgnoreErrors:$true -NoLog:$true).Output
+		
+		if ($null -ne $checkResult -and $checkResult -ne 'RUNNING' -and $checkResult -match '^\d+$') {
+			$exitCode = [int]$checkResult
 			$success = ($exitCode -eq 0)
-			$outputAggregate += $result.Output
-			if ($success -or (Get-Date) -ge $deadline) { break }
-			Start-Sleep -Seconds 2
-			$attempts++
+			break
 		}
-		$elapsed = (Get-Date) - $start
-	} catch {
-		$elapsed = (Get-Date) - $start
-		if (-not $NoThrow) { throw "Debian delta script execution failed: $($_.Exception.Message)" }
+		
+		Write-Log '[DebPkg][VM] Script still running...' -Console:$consoleSwitch
 	}
+	
+	$elapsed = (Get-Date) - $start
+	
+	# Retrieve log output
+	$logCmd = "cat $remoteLogFile 2>/dev/null || echo '(no output)'"
+	$logOutput = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $logCmd -IgnoreErrors:$true -NoLog:$true).Output
+	if ($logOutput) {
+		$outputAggregate += $logOutput
+		Write-Log "[DebPkg][VM] Script output: $logOutput" -Console:$consoleSwitch
+	}
+	
+	# Cleanup remote artifacts
+	$cleanupCmd = "sudo rm -f $remoteLogFile $remoteExitFile </dev/null 2>&1"
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -NoLog:$true).Output | Out-Null
+	
+	if ($exitCode -eq -1) {
+		# Script didn't finish within timeout
+		Write-Log "[DebPkg][VM] Script execution timed out after $TimeoutSeconds seconds" -Console
+		if (-not $NoThrow) { throw "Debian delta script timed out after $TimeoutSeconds seconds" }
+	}
+	
 	$durationSec = [Math]::Round($elapsed.TotalSeconds,2)
 	Write-Log ("[DebPkg][VM] Script completed exit={0} duration={1}s" -f $exitCode, $durationSec) -Console:$consoleSwitch
 	if (-not $success -and -not $NoThrow) { throw "Debian delta script returned non-zero exit code: $exitCode" }

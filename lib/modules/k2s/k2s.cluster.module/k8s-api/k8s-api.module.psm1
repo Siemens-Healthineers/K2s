@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $formattingModule = "$PSScriptRoot/formatting/formatting.module.psm1"
@@ -728,7 +728,7 @@ function Wait-ForPodCondition {
         $Condition = 'Ready',
         [Parameter(Mandatory = $false)]
         [int]
-        $TimeoutSeconds = 30
+        $TimeoutSeconds = 60
     )
 
     if ($Condition -eq 'Ready') {

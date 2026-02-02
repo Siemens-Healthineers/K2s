@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -34,6 +34,9 @@ $nginxModule = "$PSScriptRoot\nginx.module.psm1"
 Import-Module $infraModule, $clusterModule, $addonsModule, $nginxModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
 
 Write-Log 'Checking cluster status' -Console
 
@@ -117,6 +120,9 @@ Write-Log 'Installing ExternalDNS' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
 
+Write-Log 'Installing cert-manager' -Console
+Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
+
 Write-Log 'Installing ingress nginx' -Console
 $ingressNginxNamespace = 'ingress-nginx'
 $ingressNginxConfig = Get-IngressNginxConfig
@@ -156,9 +162,13 @@ if ($allPodsAreUp -ne $true -or $allJobsAreCompleted -ne $true) {
 $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
+
+
 Write-Log 'All ingress nginx pods are up and ready.'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
+
+Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath $clusterIngressConfig
 
 &"$PSScriptRoot\Update.ps1"
 
