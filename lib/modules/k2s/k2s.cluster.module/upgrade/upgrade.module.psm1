@@ -117,13 +117,13 @@ function Export-NotNamespacedResources {
 		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
 		[string] $ExePath
 	)
-	# get all the resources
+	# get all the resources (suppress kubectl warnings about deprecated APIs)
 	Write-Log "Export global (not namespaced) resources from existing cluster using $ExePath\kubectl.exe" -Console
-	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=false
+	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=false 2>$null
 
 	# read cluster configuration json
 	$excludedresources = 'componentstatuses', 'nodes', 'csinodes'
-	$eresources = $rootConfig.upgrade.excludedclusterresources
+	$eresources = $rootConfig.backup.excludedclusterresources
 	if ( $eresources ) {
 		$excludedresources = $eresources.Split(',')
 	}
@@ -138,8 +138,8 @@ function Export-NotNamespacedResources {
 			# collect all resources
 			$name = $entry[0]
 
-			# check size of items
-			$res1 = &$ExePath\kubectl.exe get $name -o json
+			# check size of items (suppress kubectl warnings about deprecated APIs)
+			$res1 = &$ExePath\kubectl.exe get $name -o json 2>$null
 			$nr = $res1 | & $binPath\jq '.items | length'
 			# if no items, export does not make sense
 			Write-Log "Items in resource $name -> $nr"
@@ -164,7 +164,7 @@ function Export-NotNamespacedResources {
 				.metadata.generation,
 				.metadata.ownerReferences)'
 			$filter = $filter -replace '\r*\n', ''
-			$res2 = &$ExePath\kubectl.exe get $name -o json | & $binPath\jq.exe $filter
+			$res2 = &$ExePath\kubectl.exe get $name -o json 2>$null | & $binPath\jq.exe $filter
 			$res3 = $res2 | & $binPath\yq eval - -P
 			$file = "$FolderOut\\$name.yaml"
 			Write-Log " $name -> $file"
@@ -182,19 +182,19 @@ function Export-NamespacedResources {
 	)
 	# get all the resources
 	Write-Log "Export namespaced resources from existing cluster using $ExePath\kubectl.exe" -Console
-	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=true
-	$namespaces = &$ExePath\kubectl.exe get ns --no-headers -o custom-columns=":metadata.name"
+	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=true 2>$null
+	$namespaces = &$ExePath\kubectl.exe get ns --no-headers -o custom-columns=":metadata.name" 2>$null
 
 	# get excluded namespaces
 	# default namespaces are only the kubernetes ones, more shall be available in the default config file
 	$excludednamespaces = 'kube-flannel', 'kube-node-lease', 'kube-public', 'kube-system'
-	$enspaces = $rootConfig.upgrade.excludednamespaces
+	$enspaces = $rootConfig.backup.excludednamespaces
 	if ( $enspaces ) {
 		$excludednamespaces = $enspaces.Split(',')
 	}
 	# excluded resource list
 	$excludednamespacedresources = @()
-	$enamespacedres = $rootConfig.upgrade.excludednamespacedresources
+	$enamespacedres = $rootConfig.backup.excludednamespacedresources
 	if ( $enamespacedres ) {
 		$excludednamespacedresources = $enamespacedres.Split(',')
 	}
@@ -218,8 +218,8 @@ function Export-NamespacedResources {
 				# check if resource needs to be excluded
 				if ($excludednamespacedresources -contains $name) { continue }
 
-				# check size of items
-				$res1 = &$ExePath\kubectl.exe get $name -n $namespace -o json
+				# check size of items (suppress kubectl warnings about deprecated APIs)
+				$res1 = &$ExePath\kubectl.exe get $name -n $namespace -o json 2>$null
 				$nr = $res1 | & $binPath\jq '.items | length'
 				# if no items, export does not make sense
 				Write-Log "Items in resource $name in namespace $namespace -> $nr"
@@ -243,8 +243,8 @@ function Export-NamespacedResources {
 				.metadata.generation,
 				.metadata.ownerReferences)'
 				$filter = $filter -replace '\r*\n', ''
-				# remove unwanted items
-				$res2 = &$ExePath\kubectl.exe get $name -n $namespace -o json | & $binPath\jq $filter
+				# remove unwanted items (suppress kubectl warnings about deprecated APIs)
+				$res2 = &$ExePath\kubectl.exe get $name -n $namespace -o json 2>$null | & $binPath\jq $filter
 
 				$res3 = $res2 | & $binPath\yq eval - -P
 				$file = "$FolderOut\\$namespace\\$name.yaml"
@@ -1337,8 +1337,109 @@ function PerformClusterUpgrade {
 	}
 }
 
-Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources,
-Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
-Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
-Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath,
-Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath, PrepareClusterUpgrade, PerformClusterUpgrade
+function Invoke-ImageBackup {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $BackupDirectory,
+
+        [Parameter(Mandatory = $false)]
+        [switch] $ExcludeAddonImages
+    )
+
+    Write-Log "Starting image backup..." -Console
+
+    try {
+        # Get images based on filtering options
+        # System images are already excluded by default
+        # ExcludeAddonImages further filters out addon namespace images for system backup
+        $images = Get-K2sImageList -ExcludeAddonImages:$ExcludeAddonImages
+
+        if ($images.Count -eq 0) {
+            Write-Log "No images found to backup" -Console
+            return @{
+                Success = $true
+                Images = @()
+                FailedImages = @()
+                Message = "No images to backup"
+            }
+        }
+
+        # Check disk space
+        $hasSufficientSpace = Test-BackupDiskSpace -BackupDirectory $BackupDirectory -Images $images
+        if (-not $hasSufficientSpace) {
+            Write-Log "Warning: Insufficient disk space for image backup. Skipping." -Console
+            return @{
+                Success = $false
+                Images = @()
+                FailedImages = @()
+                Error = "Insufficient disk space"
+            }
+        }
+
+        # Perform backup
+        $backupResult = Backup-K2sImages -BackupDirectory $BackupDirectory -Images $images
+
+        return $backupResult
+    }
+    catch {
+        Write-Log "Error during image backup: $_" -Console
+        throw $_
+    }
+}
+
+function Invoke-PVBackup {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $BackupDirectory
+    )
+
+    Write-Log "Starting persistent volume backup..." -Console
+
+    try {
+        # Define addon PVs to exclude (managed by addon enable/disable)
+        $excludeNames = @(
+            'postgresql-pv-volume',
+            'dicom-pv-volume',
+            'orthanc-pv',
+            'registry-pv',
+            'smb-static-pv',
+		    'opensearch-cluster-master-pv'
+        )
+
+        Write-Log "Excluding addon-managed PVs: $($excludeNames -join ', ')" -Console
+
+        # Invoke the core backup function
+        $backupResult = Backup-AllPersistentVolumes -ExportPath $BackupDirectory -ExcludeNames $excludeNames
+
+        if ($backupResult) {
+            $successCount = ($backupResult.GetEnumerator() | Where-Object { $_.Value -eq $true }).Count
+            Write-Log "PV backup completed: $successCount PV(s) backed up successfully" -Console
+
+            return @{
+                Success = $true
+                BackedUpCount = $successCount
+                Details = $backupResult
+            }
+        }
+        else {
+            Write-Log "No persistent volumes found to backup" -Console
+            return @{
+                Success = $true
+                BackedUpCount = 0
+                Details = @{}
+                Message = "No PVs to backup"
+            }
+        }
+    }
+    catch {
+        Write-Log "Error during PV backup: $_" -Console
+        throw $_
+    }
+}
+
+
+Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources, `
+    Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources, `
+    Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles, `
+    Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath, `
+    Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath, PrepareClusterUpgrade, PerformClusterUpgrade, Invoke-ImageBackup, Invoke-PVBackup

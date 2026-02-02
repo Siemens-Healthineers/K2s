@@ -13,6 +13,7 @@ Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.modu
 Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\runningstate\runningstate.module.psm1") -Force
 
+Write-Log "Checking cluster status" -Console
 
 # ------------------------------------------------------------
 # Verify K2s is installed

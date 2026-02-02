@@ -16,12 +16,15 @@ import (
 
 const (
 	backupFileFlag = "file"
+	skipImagesFlag = "skip-images"
+	skipPVsFlag    = "skip-pvs"
 	defaultBackupDir = "C:\\ProgramData\\k2s\\backups"
 )
 
+
 var SystemBackupCmd = &cobra.Command{
 	Use:   "backup",
-	Short: "Creates a backup of the K2s cluster resources",
+	Short: "Backs up cluster resources, persistent volumes, and user application images",
 	RunE:  runSystemBackup,
 }
 
@@ -39,6 +42,18 @@ func init() {
 		common.AdditionalHooksDirFlagName,
 		"",
 		common.AdditionalHooksDirFlagUsage,
+	)
+
+	SystemBackupCmd.Flags().Bool(
+		skipImagesFlag,
+		false,
+		"Skip backing up container images",
+	)
+
+	SystemBackupCmd.Flags().Bool(
+		skipPVsFlag,
+		false,
+		"Skip backing up persistent volumes",
 	)
 }
 
@@ -80,6 +95,17 @@ func createSystemBackupPsCommand(cmd *cobra.Command) string {
 	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
 	if additionalHooksDir != "" {
 		psCmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
+	}
+
+	// Pass skip flags to PowerShell if set
+	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImagesFlag).Value.String())
+	if skipImages {
+		psCmd += " -SkipImages"
+	}
+
+	skipPVs, _ := strconv.ParseBool(cmd.Flags().Lookup(skipPVsFlag).Value.String())
+	if skipPVs {
+		psCmd += " -SkipPVs"
 	}
 
 	return psCmd

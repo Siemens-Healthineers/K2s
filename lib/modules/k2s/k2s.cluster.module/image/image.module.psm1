@@ -17,6 +17,7 @@ $kubeBinPath = Get-KubeBinPath
 $dockerExe = "$kubeBinPath\docker\docker.exe"
 $nerdctlExe = "$kubeBinPath\nerdctl.exe"
 $ctrExe = "$kubeBinPath\containerd\ctr.exe"
+$kubectlExe = "$kubeBinPath\kube\kubectl.exe"
 $crictlExe = Get-CrictlExePath
 class ContainerImage {
     [string]$ImageId
@@ -85,7 +86,9 @@ function Get-FilteredImages([ContainerImage[]]$ContainerImages, [ContainerImage[
     return $filteredImages
 }
 
-function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
+function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
+    Write-Log "[LinuxNode] IncludeK8sImages=$IncludeK8sImages, ExcludeAddonImages=$ExcludeAddonImages"
+
     $setupFilePath = Get-SetupConfigFilePath
     $hostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
     $KubernetesImages = Get-KubernetesImagesFromJson
@@ -102,14 +105,72 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
         }
         $linuxContainerImages += $containerImage
     }
+
+    Write-Log "[LinuxNode] Total images before filtering: $($linuxContainerImages.Count)"
+
+    # Filter infrastructure (K8s) images
     if ($IncludeK8sImages -eq $false) {
         $linuxContainerImages =
         Get-FilteredImages -ContainerImages $linuxContainerImages -ContainerImagesToBeCleaned $KubernetesImages
+        Write-Log "[LinuxNode] After infrastructure filter: $($linuxContainerImages.Count)"
     }
+
+    # Filter addon images from excluded namespaces
+    if ($ExcludeAddonImages -eq $true) {
+        Write-Log '[ImageFilter] Filtering addon images from Linux node...' -Console
+        $addonImageStrings = Get-ImagesFromExcludedNamespaces
+
+        if ($addonImageStrings.Count -gt 0) {
+            Write-Log "[ImageFilter] Addon images to exclude: $($addonImageStrings.Count)"
+
+            # Extract repository names from addon images (without tags) for <none> matching
+            $addonRepositories = $addonImageStrings | ForEach-Object {
+                if ($_ -match '^(.+):') { $Matches[1] } else { $_ }
+            } | Select-Object -Unique
+
+            # Filter by matching Repository:Tag
+            $linuxContainerImages = $linuxContainerImages | Where-Object {
+                # For <none> tags, match by repository only
+                if ($_.Tag -eq '<none>') {
+                    return $addonRepositories -notcontains $_.Repository
+                }
+                # For proper tags, match full image name
+                $imageFullName = "$($_.Repository):$($_.Tag)"
+                return $addonImageStrings -notcontains $imageFullName
+            }
+            Write-Log "[ImageFilter] After addon filtering: $($linuxContainerImages.Count) image(s) (includes <none> tags, will be deduplicated)" -Console
+        }
+    } else {
+        Write-Log "[LinuxNode] ExcludeAddonImages is FALSE, skipping addon filter"
+    }
+
+    # Deduplicate images with same ImageID (prefer tagged over <none>)
+    $uniqueImages = @{}
+    foreach ($image in $linuxContainerImages) {
+        $imageId = $image.ImageId
+
+        if ($uniqueImages.ContainsKey($imageId)) {
+            # If existing entry has <none> tag and new one has real tag, replace it
+            if ($uniqueImages[$imageId].Tag -eq '<none>' -and $image.Tag -ne '<none>') {
+                $uniqueImages[$imageId] = $image
+                Write-Log "[LinuxNode] Replaced <none> tag with proper tag for ImageID: $imageId"
+            }
+            # If both are <none> or both are proper tags, keep first
+        }
+        else {
+            # Only add if not <none> tag OR if it's the only version of this ImageID
+            $uniqueImages[$imageId] = $image
+        }
+    }
+
+    # Final pass: remove any remaining <none> tagged images
+    $linuxContainerImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
+    Write-Log "[LinuxNode] After deduplication and <none> removal: $($linuxContainerImages.Count) unique images" -Console
+
     return $linuxContainerImages
 }
 
-function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
+function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
     $output = &$crictlExe --config $kubeBinPath\crictl.yaml images 2> $null
     $node = $env:ComputerName.ToLower()
 
@@ -128,10 +189,60 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
             }
             $windowsContainerImages += $containerImage
         }
+
+        # Filter infrastructure (K8s) images
         if ($IncludeK8sImages -eq $false) {
             $windowsContainerImages =
             Get-FilteredImages -ContainerImages $windowsContainerImages -ContainerImagesToBeCleaned $KubernetesImages
         }
+
+        # Filter addon images from excluded namespaces
+        if ($ExcludeAddonImages -eq $true) {
+            Write-Log '[ImageFilter] Filtering addon images from Windows node...' -Console
+            $addonImageStrings = Get-ImagesFromExcludedNamespaces
+
+            if ($addonImageStrings.Count -gt 0) {
+                # Extract repository names from addon images (without tags) for <none> matching
+                $addonRepositories = $addonImageStrings | ForEach-Object {
+                    if ($_ -match '^(.+):') { $Matches[1] } else { $_ }
+                } | Select-Object -Unique
+
+                # Filter by matching Repository:Tag
+                $windowsContainerImages = $windowsContainerImages | Where-Object {
+                    # For <none> tags, match by repository only
+                    if ($_.Tag -eq '<none>') {
+                        return $addonRepositories -notcontains $_.Repository
+                    }
+                    # For proper tags, match full image name
+                    $imageFullName = "$($_.Repository):$($_.Tag)"
+                    return $addonImageStrings -notcontains $imageFullName
+                }
+                Write-Log "[ImageFilter] After addon filtering: $($windowsContainerImages.Count) image(s) (includes <none> tags, will be deduplicated)" -Console
+            }
+        }
+
+        # Deduplicate images with same ImageID (prefer tagged over <none>)
+        $uniqueImages = @{}
+        foreach ($image in $windowsContainerImages) {
+            $imageId = $image.ImageId
+
+            if ($uniqueImages.ContainsKey($imageId)) {
+                # If existing entry has <none> tag and new one has real tag, replace it
+                if ($uniqueImages[$imageId].Tag -eq '<none>' -and $image.Tag -ne '<none>') {
+                    $uniqueImages[$imageId] = $image
+                    Write-Log "[WindowsNode] Replaced <none> tag with proper tag for ImageID: $imageId"
+                }
+                # If both are <none> or both are proper tags, keep first
+            }
+            else {
+                # Only add if not <none> tag OR if it's the only version of this ImageID
+                $uniqueImages[$imageId] = $image
+            }
+        }
+
+        # Final pass: remove any remaining <none> tagged images
+        $windowsContainerImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
+        Write-Log "[WindowsNode] After deduplication and <none> removal: $($windowsContainerImages.Count) unique images" -Console
     }
     return $windowsContainerImages
 }
@@ -333,12 +444,17 @@ function Get-RegistryAuthToken($registryName) {
     $dockerAuth = $dockerConfig.psobject.properties['auths'].value
     $authk2s = $dockerAuth.psobject.properties["$registryName"].value
     $auth = $authk2s.psobject.properties['auth'].value
-    return $auth
+     return $auth
 }
 
-function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false) {
-    $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages
-    $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages
+function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
+    $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages
+    Write-Log "[ImageFilter] Final Linux images count: $($linuxContainerImages.Count)" -Console
+    $linuxContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Linux: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" -Console }
+
+    $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages
+    Write-Log "[ImageFilter] Final Windows images count: $($windowsContainerImages.Count)" -Console
+    $windowsContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Windows: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" -Console }
     $allContainerImages = @($linuxContainerImages) + @($windowsContainerImages)
     return $allContainerImages
 }
@@ -621,18 +737,81 @@ function Push-DockerManifest {
     }
 }
 
-Export-ModuleMember -Function Get-ContainerImagesInk2s,
-Remove-Image,
-Get-PushedContainerImages,
-Remove-PushedImage,
-Show-ImageDeletionStatus,
-Get-ContainerImagesOnLinuxNode,
-Get-ContainerImagesOnWindowsNode,
-Write-KubernetesImagesIntoJson,
-Get-BuildArgs,
-Get-DockerfileAbsolutePathAndPreCompileFlag,
-New-WindowsImage,
-Set-DockerToExperimental,
-New-DockerManifest,
-New-DockerManifestAnnotation,
-Push-DockerManifest
+<#
+.SYNOPSIS
+    Gets container images from excluded (addon/infrastructure) namespaces.
+
+.DESCRIPTION
+    Queries all namespaces listed in backup.excludednamespaces from config.json
+    and collects container images used by pods in those namespaces.
+    Used to filter out addon images from system backup.
+
+.OUTPUTS
+    Array of image strings in format "repository:tag"
+#>
+function Get-ImagesFromExcludedNamespaces {
+    # Get excluded namespaces from config
+    $rootConfig = Get-RootConfigk2s
+    $excludedNamespacesString = $rootConfig.backup.excludednamespaces
+
+    if ([string]::IsNullOrWhiteSpace($excludedNamespacesString)) {
+        Write-Log '[ImageFilter] No excluded namespaces configured'
+        return @()
+    }
+
+    # Parse comma-separated namespace list
+    $excludedNamespaces = $excludedNamespacesString -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+
+    Write-Log "[ImageFilter] Excluding images from $($excludedNamespaces.Count) addon/infrastructure namespaces"
+
+    # Get kubectl path from module variable
+
+    if (-not (Test-Path $kubectlExe)) {
+        Write-Log "[ImageFilter] Warning: kubectl not found at '$kubectlExe', skipping addon image filtering" -Console
+        return @()
+    }
+
+    $addonImages = @()
+
+    foreach ($namespace in $excludedNamespaces) {
+        try {
+            # Query images from namespace using jsonpath for efficiency
+            $output = & $kubectlExe get pods -n $namespace -o jsonpath="{.items[*].spec.containers[*].image}" 2>$null
+
+            if ($output) {
+                # Split by whitespace and filter empty strings
+                $images = $output -split '\s+' | Where-Object { $_ -ne '' }
+
+                if ($images.Count -gt 0) {
+                    Write-Log "[ImageFilter]   Namespace '$namespace': found $($images.Count) image(s)"
+                    $addonImages += $images
+                }
+            }
+        }
+        catch {
+            Write-Log "[ImageFilter]   Warning: Failed to query namespace '$namespace': $_"
+        }
+    }
+
+    # Return unique images
+    $uniqueImages = $addonImages | Select-Object -Unique
+    Write-Log "[ImageFilter] Total unique addon images to exclude: $($uniqueImages.Count)"
+
+    return $uniqueImages
+}
+
+Export-ModuleMember -Function Get-ContainerImagesInk2s, `
+    Remove-Image, `
+    Get-PushedContainerImages, `
+    Remove-PushedImage, `
+    Show-ImageDeletionStatus, `
+    Get-ContainerImagesOnLinuxNode, `
+    Get-ContainerImagesOnWindowsNode, `
+    Write-KubernetesImagesIntoJson, `
+    Get-BuildArgs, `
+    Get-DockerfileAbsolutePathAndPreCompileFlag, `
+    New-WindowsImage, `
+    Set-DockerToExperimental, `
+    New-DockerManifest, `
+    New-DockerManifestAnnotation, `
+    Push-DockerManifest

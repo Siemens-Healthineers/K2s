@@ -186,8 +186,8 @@ function Get-PersistentVolumes {
         }
         
         $pvDetails = ConvertFrom-PVList -PVListJson $pvListJson
-        
-        Write-Log "[PVBackup] Found $($pvDetails.Count) PersistentVolume(s)" -Console
+
+        Write-Log "[PVBackup] Found $($pvDetails.Count) PersistentVolume(s) in cluster (includes system, user workload, and addon volumes)" -Console
         return $pvDetails
     }
     catch {
@@ -1007,9 +1007,9 @@ function Backup-AllPersistentVolumes {
         [Parameter(Mandatory = $false)]
         [string[]]$ExcludeNames
     )
-    
+
     Write-Log "[PVBackup] Starting backup of all PersistentVolumes..." -Console
-    
+
     $pvList = Get-PersistentVolumes
     
     if ($pvList.Count -eq 0) {
@@ -1026,9 +1026,17 @@ function Backup-AllPersistentVolumes {
         # Exclude filter
         (-not $ExcludeNames -or $ExcludeNames -notcontains $_.Name)
     }
-    
+    if ($ExcludeNames -and $ExcludeNames.Count -gt 0) {
+        Write-Log "[PVBackup] Applying addon PV exclusion filter to cluster PVs..." -Console
+        $excludedPVs = $pvList | Where-Object { $ExcludeNames -contains $_.Name }
+        if ($excludedPVs.Count -gt 0) {
+            Write-Log "[PVBackup] Excluding addon-managed PV(s): $($excludedPVs.Name -join ', ')" -Console
+        } else {
+            Write-Log "[PVBackup] No addon PVs found in cluster to exclude" -Console
+        }
+    }
     Write-Log "[PVBackup] Found $($pvsToBackup.Count) PV(s) to backup" -Console
-    
+
     $results = @{}
     $successCount = 0
     $failCount = 0

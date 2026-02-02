@@ -6,7 +6,13 @@ param(
     [switch] $ShowLogs = $false,
 
     [Parameter(Mandatory = $false)]
-    [string] $AdditionalHooksDir = ''
+    [string] $AdditionalHooksDir = '',
+
+    [Parameter(Mandatory = $false)]
+    [switch] $SkipImages = $false,
+
+    [Parameter(Mandatory = $false)]
+    [switch] $SkipPVs = $false
 )
 
 Set-StrictMode -Version Latest
@@ -18,6 +24,8 @@ Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.modu
 # ------------------------------------------------------------
 # Verify K2s is installed
 # ------------------------------------------------------------
+Write-Log "Checking cluster status" -Console
+
 $setupInfo = Get-SetupInfo
 if ($null -eq $setupInfo -or -not $setupInfo.Name) {
     throw "K2s is not installed. Please run 'k2s install' first."
@@ -26,10 +34,23 @@ if ($null -eq $setupInfo -or -not $setupInfo.Name) {
 Write-Log "Starting K2s system backup..." -Console
 
 # ------------------------------------------------------------
-# Prepare temporary backup directory
+# Prepare backup directory based on BackupFile location
 # ------------------------------------------------------------
-$backupRoot = Get-TempPath
-Write-Log "Using temporary backup directory: $backupRoot"
+# Extract the directory from the BackupFile path
+$backupDir = Split-Path -Path $BackupFile -Parent
+if ([string]::IsNullOrWhiteSpace($backupDir)) {
+    # Relative path with no directory component, use current directory
+    $backupDir = Get-Location | Select-Object -ExpandProperty Path
+    Write-Log "Using current directory for backup: $backupDir"
+} elseif (-not (Test-Path $backupDir)) {
+    New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+    Write-Log "Created backup directory: $backupDir"
+}
+
+# Create a temporary staging directory within the backup directory
+$backupRoot = Join-Path $backupDir "k2s-backup-staging-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+Write-Log "Using backup staging directory: $backupRoot"
 
 # ------------------------------------------------------------
 # Resolve kube paths (once, reuse)
@@ -38,13 +59,81 @@ $kubePath    = Get-KubePath
 $kubeExePath = Get-KubeBinPathGivenKubePath -KubePathLocal $kubePath
 
 # ------------------------------------------------------------
+# Backup persistent volumes
+# ------------------------------------------------------------
+if ($SkipPVs) {
+    Write-Log "Skipping PV backup as requested" -Console
+} else {
+    Write-Log "Backing up persistent volumes..." -Console
+    $pvBackupPath = Join-Path $backupRoot "pv"
+
+    try {
+        $pvBackupResult = Invoke-PVBackup -BackupDirectory $pvBackupPath
+
+        if ($pvBackupResult.Success) {
+            Write-Log "Successfully backed up $($pvBackupResult.BackedUpCount) persistent volume(s)" -Console
+        } else {
+            Write-Log "PV backup completed with some failures. Check backup logs for details." -Console
+        }
+    }
+    catch {
+        Write-Log "Warning: PV backup failed - $_. Continuing with backup..." -Console
+    }
+}
+
+# ------------------------------------------------------------
+# Backup user workload images (excluding addon images)
+# ------------------------------------------------------------
+if ($SkipImages) {
+    Write-Log "Skipping image backup as requested" -Console
+} else {
+    Write-Log "Backing up user workload images..." -Console
+    $imagesBackupPath = Join-Path $backupRoot "images"
+
+    try {
+        # For system backup, exclude addon images (they're handled by addon backup)
+        $imageBackupResult = Invoke-ImageBackup -BackupDirectory $imagesBackupPath -ExcludeAddonImages
+
+        if ($imageBackupResult.Success) {
+            Write-Log "Successfully backed up $($imageBackupResult.Images.Count) user workload container images" -Console
+        } else {
+            Write-Log "Image backup completed with some failures. Check backup logs for details." -Console
+        }
+    }
+    catch {
+        Write-Log "Warning: Image backup failed - $_. Continuing with backup..." -Console
+    }
+}
+
+
+# ------------------------------------------------------------
 # Export cluster resources (no cluster start/stop)
 # ------------------------------------------------------------
 Write-Log "Exporting cluster resources..."
-Export-ClusterResources `
-    -SkipResources:$false `
-    -PathResources $backupRoot `
-    -ExePath $kubeExePath
+
+# Temporarily allow kubectl warnings to not fail the backup
+$previousErrorAction = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+
+    Export-ClusterResources `
+        -SkipResources:$false `
+        -PathResources $backupRoot `
+        -ExePath $kubeExePath
+
+    $ErrorActionPreference = $previousErrorAction
+}
+catch {
+    $ErrorActionPreference = $previousErrorAction
+
+    # Only fail if it's a real error, not just warnings
+    if ($_.Exception.Message -notmatch "Warning:" -and $_.Exception.Message -notmatch "deprecated") {
+        throw $_
+    }
+    else {
+        Write-Log "Kubectl warnings encountered during export (non-fatal): $_" -Console
+    }
+}
 
 # ------------------------------------------------------------
 # Determine included namespaces from exported content
@@ -115,9 +204,9 @@ $backupManifest = @{
             namespaces       = $includedNamespaces
         }
         excluded = @{
-            namespaces          = ($rootConfig.upgrade.excludednamespaces -split ",")
-            namespacedResources = ($rootConfig.upgrade.excludednamespacedresources -split ",")
-            clusterResources    = ($rootConfig.upgrade.excludedclusterresources -split ",")
+            namespaces          = ($rootConfig.backup.excludednamespaces -split ",")
+            namespacedResources = ($rootConfig.backup.excludednamespacedresources -split ",")
+            clusterResources    = ($rootConfig.backup.excludedclusterresources -split ",")
         }
     }
 
@@ -134,19 +223,10 @@ $backupManifest |
 # ------------------------------------------------------------
 # Create final ZIP archive
 # ------------------------------------------------------------
-Write-Log "Creating backup archive: $BackupFile"
-
-$backupDir = Split-Path -Path $BackupFile -Parent
-if ([string]::IsNullOrWhiteSpace($backupDir)) {
-    # Relative path with no directory component, use current directory
-    $backupDir = Get-Location | Select-Object -ExpandProperty Path
-    Write-Log "Using current directory for backup: $backupDir"
-} elseif (-not (Test-Path $backupDir)) {
-    New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
-    Write-Log "Created backup directory: $backupDir"
-}
+Write-Log "Creating backup archive: $BackupFile" -Console
 
 if (Test-Path $BackupFile) {
+    Write-Log "Removing existing backup file: $BackupFile"
     Remove-Item $BackupFile -Force
 }
 
@@ -157,3 +237,16 @@ Compress-Archive `
 
 Write-Log "System backup completed successfully." -Console
 Write-Log "Backup file created at: $BackupFile" -Console
+
+# ------------------------------------------------------------
+# Cleanup staging directory
+# ------------------------------------------------------------
+try {
+    Write-Log "Cleaning up staging directory: $backupRoot"
+    Remove-Item -Path $backupRoot -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "Staging directory cleaned up successfully"
+}
+catch {
+    Write-Log "Warning: Failed to clean up staging directory: $_"
+}
+

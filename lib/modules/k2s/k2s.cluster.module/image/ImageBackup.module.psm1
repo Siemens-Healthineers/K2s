@@ -376,11 +376,15 @@ Array of image objects with metadata
 function Get-K2sImageList {
     param(
         [Parameter(Mandatory = $false)]
-        [switch] $IncludeSystemImages
+        [switch] $IncludeSystemImages,
+
+        [Parameter(Mandatory = $false)]
+        [switch] $ExcludeAddonImages
     )
     
     Write-Log "Discovering images in the cluster..." -Console
-    
+    Write-Log "[ImageBackup] Parameters: IncludeSystemImages=$IncludeSystemImages, ExcludeAddonImages=$ExcludeAddonImages" -Console
+
     try {
         # Use the existing Get-Images.ps1 script which already has proper filtering logic
         $getImagesScript = "$PSScriptRoot\..\..\..\..\scripts\k2s\image\Get-Images.ps1"
@@ -390,19 +394,30 @@ function Get-K2sImageList {
             return ,@()
         }
         
-        # Build command arguments based on parameter
-        $scriptArgs = @()
-        if ($IncludeSystemImages) { 
-            $scriptArgs += "-IncludeK8sImages" 
+        # Build command arguments based on parameters using hashtable for proper splatting
+        $scriptArgs = @{}
+        if ($IncludeSystemImages) {
+            $scriptArgs['IncludeK8sImages'] = $true
+        }
+        if ($ExcludeAddonImages) {
+            $scriptArgs['ExcludeAddonImages'] = $true
+            Write-Log "[ImageBackup] Adding -ExcludeAddonImages flag to Get-Images.ps1" -Console
+        }
+
+        # Determine image type for logging
+        if ($IncludeSystemImages) {
             $imageType = "all images including system images"
             $resultType = "total images"
+        } elseif ($ExcludeAddonImages) {
+            $imageType = "user workload images only (excluding system and addon images)"
+            $resultType = "user workload images"
         } else {
             $imageType = "user application images only (excluding system images)"
             $resultType = "user application images"
         }
         
         Write-Log "Getting $imageType" -Console
-        
+
         # Execute script with appropriate arguments
         $imageResult = & $getImagesScript @scriptArgs
         
@@ -450,7 +465,7 @@ function Backup-K2sImages {
         [array] $Images = @()
     )
     
-    Write-Log "Starting image backup to directory: $BackupDirectory" -Console
+    Write-Log "Starting image backup to backup directory" -Console
     
     if ($Images.Count -eq 0) {
         return New-EmptyBackupResult -BackupDirectory $BackupDirectory
