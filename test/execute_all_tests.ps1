@@ -86,7 +86,17 @@ if ($ExcludePowershellTests -and $ExcludeGoTests) {
 Import-Module "$PSScriptRoot\test.module.psm1" -Force
 
 $pesterVersion = '5.7.1'
-$ginkgoVersion = '2.27.3'
+
+# Read ginkgo version from go.mod to avoid version mismatch
+$goModPath = Join-Path -Path $PSScriptRoot -ChildPath '..\k2s\go.mod'
+$ginkgoVersionMatch = Select-String -Path $goModPath -Pattern 'github\.com/onsi/ginkgo/v2\s+v([\d\.]+)' | Select-Object -First 1
+if ($ginkgoVersionMatch) {
+    $ginkgoVersion = $ginkgoVersionMatch.Matches[0].Groups[1].Value
+    Write-Output "Detected ginkgo version from go.mod: $ginkgoVersion"
+} else {
+    $ginkgoVersion = '2.28.1'
+    Write-Warning "Could not detect ginkgo version from go.mod, using default: $ginkgoVersion"
+}
 
 # Normalize and resolve repository root directory robustly (handles .. and spaces)
 $rootDir = Join-Path -Path $PSScriptRoot -ChildPath '..'
