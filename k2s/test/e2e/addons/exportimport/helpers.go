@@ -50,7 +50,7 @@ func GetImplementation(addon *addons.Addon, implName string) *addons.Implementat
 	return nil
 }
 
-// GetExpectedDirName returns the expected directory name for an addon implementation in the exported ZIP.
+// GetExpectedDirName returns the expected directory name for an addon implementation in the exported OCI tar.
 func GetExpectedDirName(addonName, implName string) string {
 	if implName != addonName {
 		return strings.ReplaceAll(addonName+"_"+implName, " ", "_")
@@ -81,7 +81,7 @@ func ExportAddon(ctx context.Context, suite *framework.K2sTestSuite, addonName s
 	}
 	GinkgoWriter.Println("[Export] Export command completed")
 
-	// Export.ps1 creates files with pattern: K2s-{version}-addons-{dirname}.oci.tar
+	// Export creates files with pattern: K2s-{version}-addons-{dirname}.oci.tar
 	var pattern string
 	if implName != "" && implName != addonName {
 		pattern = filepath.Join(outputDir, fmt.Sprintf("K2s-*-addons-%s-%s.oci.tar", addonName, implName))
@@ -485,10 +485,10 @@ func VerifyImportedWindowsCurlPackages(suite *framework.K2sTestSuite, impl *addo
 }
 
 // CleanupExportedFiles removes exported files and directories.
-func CleanupExportedFiles(exportPath string, zipPath string) {
+func CleanupExportedFiles(exportPath string, ociTarPath string) {
 	GinkgoWriter.Println("=== CLEANUP EXPORTED FILES START ===")
 	GinkgoWriter.Printf("[Cleanup] Export path: %s\n", exportPath)
-	GinkgoWriter.Printf("[Cleanup] ZIP path: %s\n", zipPath)
+	GinkgoWriter.Printf("[Cleanup] OCI tar path: %s\n", ociTarPath)
 
 	extractedFolder := filepath.Join(exportPath, "addons")
 	if info, err := os.Stat(extractedFolder); !os.IsNotExist(err) {
@@ -502,16 +502,16 @@ func CleanupExportedFiles(exportPath string, zipPath string) {
 		GinkgoWriter.Printf("[Cleanup] Extracted folder does not exist: %s\n", extractedFolder)
 	}
 
-	if zipPath != "" {
-		if info, err := os.Stat(zipPath); !os.IsNotExist(err) {
-			GinkgoWriter.Printf("[Cleanup] Removing ZIP file: %s (%d bytes)\n", zipPath, info.Size())
-			if err := os.Remove(zipPath); err != nil {
-				GinkgoWriter.Printf("[Cleanup] WARNING: Failed to remove ZIP file: %v\n", err)
+	if ociTarPath != "" {
+		if info, err := os.Stat(ociTarPath); !os.IsNotExist(err) {
+			GinkgoWriter.Printf("[Cleanup] Removing OCI tar file: %s (%d bytes)\n", ociTarPath, info.Size())
+			if err := os.Remove(ociTarPath); err != nil {
+				GinkgoWriter.Printf("[Cleanup] WARNING: Failed to remove OCI tar file: %v\n", err)
 			} else {
-				GinkgoWriter.Println("[Cleanup] ZIP file removed successfully")
+				GinkgoWriter.Println("[Cleanup] OCI tar file removed successfully")
 			}
 		} else {
-			GinkgoWriter.Printf("[Cleanup] ZIP file does not exist: %s\n", zipPath)
+			GinkgoWriter.Printf("[Cleanup] OCI tar file does not exist: %s\n", ociTarPath)
 		}
 	}
 	GinkgoWriter.Println("=== CLEANUP EXPORTED FILES END ===")
