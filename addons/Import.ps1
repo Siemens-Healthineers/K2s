@@ -684,33 +684,34 @@ foreach ($addon in $addonsToImport) {
                         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$($addon.name)").Output | Write-Log
                         Copy-ToControlPlaneViaSSHKey -Source "$debianPkgDir\*" -Target ".$($addon.name)"
                     }
-                
-                # Import Linux packages
-                $linuxPkgDir = Join-Path $packagesExtractDir 'linuxpackages'
-                if (Test-Path $linuxPkgDir) {
-                    foreach ($package in $linuxCurlPackages) {
-                        $filename = ([uri]$package.url).Segments[-1]
-                        $destination = $package.destination
-                        $sourcePath = Join-Path $linuxPkgDir $filename
-                        if (Test-Path $sourcePath) {
-                            Copy-ToControlPlaneViaSSHKey -Source $sourcePath -Target '/tmp'
-                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo cp /tmp/${filename} ${destination}").Output | Write-Log
-                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /tmp/${filename}").Output | Write-Log
+                    
+                    # Import Linux packages
+                    $linuxPkgDir = Join-Path $packagesExtractDir 'linuxpackages'
+                    if (Test-Path $linuxPkgDir) {
+                        foreach ($package in $linuxCurlPackages) {
+                            $filename = ([uri]$package.url).Segments[-1]
+                            $destination = $package.destination
+                            $sourcePath = Join-Path $linuxPkgDir $filename
+                            if (Test-Path $sourcePath) {
+                                Copy-ToControlPlaneViaSSHKey -Source $sourcePath -Target '/tmp'
+                                (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo cp /tmp/${filename} ${destination}").Output | Write-Log
+                                (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /tmp/${filename}").Output | Write-Log
+                            }
                         }
                     }
-                }
-                
-                # Import Windows packages
-                $windowsPkgDir = Join-Path $packagesExtractDir 'windowspackages'
-                if (Test-Path $windowsPkgDir) {
-                    foreach ($package in $windowsCurlPackages) {
-                        $filename = ([uri]$package.url).Segments[-1]
-                        $destination = $package.destination
-                        $sourcePath = Join-Path $windowsPkgDir $filename
-                        $destinationFolder = Split-Path -Path "$PSScriptRoot\..\$destination"
-                        if (Test-Path $sourcePath) {
-                            mkdir -Force $destinationFolder | Out-Null
-                            Copy-Item -Path $sourcePath -Destination "$PSScriptRoot\..\$destination" -Force
+                    
+                    # Import Windows packages
+                    $windowsPkgDir = Join-Path $packagesExtractDir 'windowspackages'
+                    if (Test-Path $windowsPkgDir) {
+                        foreach ($package in $windowsCurlPackages) {
+                            $filename = ([uri]$package.url).Segments[-1]
+                            $destination = $package.destination
+                            $sourcePath = Join-Path $windowsPkgDir $filename
+                            $destinationFolder = Split-Path -Path "$PSScriptRoot\..\$destination"
+                            if (Test-Path $sourcePath) {
+                                mkdir -Force $destinationFolder | Out-Null
+                                Copy-Item -Path $sourcePath -Destination "$PSScriptRoot\..\$destination" -Force
+                            }
                         }
                     }
                 }
