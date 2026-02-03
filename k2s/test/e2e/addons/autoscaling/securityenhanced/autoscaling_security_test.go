@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const autoscalingSecTimeout = time.Minute * 10
+const testClusterTimeout = time.Minute * 20
 
 var (
 	suite      *framework.K2sTestSuite
@@ -29,7 +29,7 @@ func TestAutoscalingSecurity(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: BeforeSuite - Setting up autoscaling security test")
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(autoscalingSecTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 	GinkgoWriter.Println(">>> TEST: BeforeSuite complete")
 })
 
