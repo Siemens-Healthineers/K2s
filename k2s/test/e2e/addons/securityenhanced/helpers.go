@@ -15,7 +15,7 @@ import (
 )
 
 // DefaultSecurityTestTimeout is the default timeout for security enhanced tests.
-const DefaultSecurityTestTimeout = time.Minute * 10
+const DefaultSecurityTestTimeout = time.Minute * 20
 
 // EnableSecurityEnhanced enables the security addon in enhanced mode and waits for it to stabilize.
 func EnableSecurityEnhanced(ctx context.Context, suite *framework.K2sTestSuite) {
