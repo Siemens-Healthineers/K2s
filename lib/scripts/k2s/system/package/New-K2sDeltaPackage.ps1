@@ -229,16 +229,19 @@ try {
 
  # (Get-FileMap provided via methods file)
 
-# Normalize wholesale directories using helper function
-$wholeDirsNormalized = Expand-WholeDirList -WholeDirectories $WholeDirectories
-if ($wholeDirsNormalized.Count -gt 0) {
-    Write-Log "Whole directories (no diffing): $($wholeDirsNormalized -join ', ')" -Console
-}
-
 # Get default skip lists using helper function
 $skipLists = Get-DefaultSkipLists
 $SpecialSkippedFiles = $skipLists.SpecialSkippedFiles
 $ClusterConfigSkippedPaths = $skipLists.ClusterConfigSkippedPaths
+
+# Combine user-specified wholesale directories with defaults (Windows binaries must always be replaced)
+$userWholeDirs = Expand-WholeDirList -WholeDirectories $WholeDirectories
+$defaultWholeDirs = $skipLists.DefaultWholesaleDirectories
+$wholeDirsNormalized = @($defaultWholeDirs) + @($userWholeDirs) | Sort-Object -Unique
+
+if ($wholeDirsNormalized.Count -gt 0) {
+    Write-Log "Whole directories (no diffing): $($wholeDirsNormalized -join ', ')" -Console
+}
 
 Write-Log "Special skipped files: $($SpecialSkippedFiles -join ', ')" -Console
 Write-Log "Cluster config skipped paths: $($ClusterConfigSkippedPaths -join ', ')" -Console

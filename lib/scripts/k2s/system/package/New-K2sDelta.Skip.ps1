@@ -155,9 +155,22 @@ function Get-DefaultSkipLists {
         'var/lib/kubelet/pki/*'
     )
 
+    # Default wholesale directories that should always be included in their entirety.
+    # These directories contain version-specific binaries that must be replaced as a unit.
+    # NOTE: bin/docker, bin/kube, bin/windowsnode contain Windows Kubernetes binaries
+    #       from WindowsNodeArtifacts.zip which is skipped as a large artifact.
+    #       Without wholesale replacement, Windows nodes would keep old k8s versions.
+    $defaultWholesaleDirectories = @(
+        'bin/docker',       # Docker CLI and daemon
+        'bin/kube',         # kubectl, kubelet, kubeadm, kube-proxy
+        'bin/windowsnode',  # Windows node setup scripts and binaries
+        'bin/cni'           # CNI plugins
+    )
+
     return [pscustomobject]@{
-        SpecialSkippedFiles      = $specialSkippedFiles
+        SpecialSkippedFiles       = $specialSkippedFiles
         ClusterConfigSkippedPaths = $clusterConfigSkippedPaths
+        DefaultWholesaleDirectories = $defaultWholesaleDirectories
     }
 }
 
