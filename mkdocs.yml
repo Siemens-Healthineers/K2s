@@ -98,6 +98,7 @@ nav:
       - Supported OS Versions: op-manual/os-support.md
       - Getting K2s: op-manual/getting-k2s.md
       - Creating Offline Package: op-manual/creating-offline-package.md
+      - Delta Packages: op-manual/delta-packages.md
       - Installing K2s: op-manual/installing-k2s.md
       - Starting K2s: op-manual/starting-k2s.md
       - Checking K2s Status: op-manual/checking-k2s-status.md
