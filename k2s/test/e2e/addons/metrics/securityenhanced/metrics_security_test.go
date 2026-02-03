@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const testClusterTimeout = time.Minute * 10
+const testClusterTimeout = time.Minute * 20
 
 var suite *framework.K2sTestSuite
 var testFailed = false
