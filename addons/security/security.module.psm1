@@ -207,7 +207,7 @@ chrome://net-internals/#hsts
 .DESCRIPTION
 Waits for the keycloak pods to be available.
 #>
-function Wait-ForKeyCloakAvailable($waiTime = 120) {
+function Wait-ForKeyCloakAvailable($waiTime = 240) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds $waiTime)
 }
 
