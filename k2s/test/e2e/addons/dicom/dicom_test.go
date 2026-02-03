@@ -219,6 +219,55 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 				expectStatusToBePrinted(ctx)
 			})
 		})
+
+		When("nginx-gw as ingress controller", func() {
+			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
+			})
+
+			AfterAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+				k2s.VerifyAddonIsDisabled("dicom")
+
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
+
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", "nginx-gw")
+			})
+
+			It("is in enabled state and pods are in running state", func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
+				k2s.VerifyAddonIsEnabled("dicom")
+
+				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
+
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
+			})
+
+			It("is reachable through k2s.cluster.local for the ui app", func(ctx context.Context) {
+				url := "https://k2s.cluster.local/dicom/ui/app"
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				Expect(httpStatus).To(ContainSubstring("200"))
+			})
+
+			It("is reachable through k2s.cluster.local for DICOM Web", func(ctx context.Context) {
+				url := "https://k2s.cluster.local/dicom/studies"
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				Expect(httpStatus).To(ContainSubstring("200"))
+			})
+
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
+				expectAddonToBeAlreadyEnabled(ctx)
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+		})
 	})
 })
 

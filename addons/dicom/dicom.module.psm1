@@ -37,6 +37,22 @@ function Get-PVConfigStorage {
 
 <#
 .DESCRIPTION
+Gets the location of manifests for nginx-gw ingress.
+#>
+function Get-IngressNginxGwConfig {
+    return "$PSScriptRoot\manifests\ingress-nginx-gw"
+}
+
+<#
+.DESCRIPTION
+Gets the location of manifests for nginx-gw ingress with Linkerd authorization.
+#>
+function Get-IngressNginxGwSecureConfig {
+    return "$PSScriptRoot\manifests\ingress-nginx-gw-secure"
+}
+
+<#
+.DESCRIPTION
 Writes the usage notes for dicom server user interface for the user.
 #>
 function Write-UsageForUser {
