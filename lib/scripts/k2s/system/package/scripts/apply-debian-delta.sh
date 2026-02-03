@@ -94,7 +94,8 @@ if [[ -n "$KUBE_VERSION" ]]; then
     # --yes: auto-approve the upgrade
     # --certificate-renewal=false: preserve existing certificates
     # --etcd-upgrade=false: do not upgrade etcd (already handled by package)
-    if kubeadm upgrade apply "v${KUBE_VERSION}" --yes --certificate-renewal=false --etcd-upgrade=false 2>&1; then
+    # --ignore-preflight-errors: skip CoreDNS plugin migration warnings (etcd plugin is custom config)
+    if kubeadm upgrade apply "v${KUBE_VERSION}" --yes --certificate-renewal=false --etcd-upgrade=false --ignore-preflight-errors=CoreDNSUnsupportedPlugins 2>&1; then
         echo "[debian-delta] kubeadm upgrade completed successfully"
     else
         echo "[debian-delta][warn] kubeadm upgrade encountered issues, attempting fallback cleanup"
