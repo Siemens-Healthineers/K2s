@@ -771,95 +771,24 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 $debDeltaManifest | ConvertTo-Json -Depth 4 | Out-File -FilePath (Join-Path $debianDeltaDir 'debian-delta-manifest.json') -Encoding UTF8 -Force
 
                 # Apply script (bash) - installs added + upgraded with explicit versions, removes removed
-                $applyScript = @('#!/usr/bin/env bash',
-                'set -euo pipefail',
-                'echo "[debian-delta] Apply start"',
-                'if [[ $EUID -ne 0 ]]; then echo "Run as root" >&2; exit 1; fi',
-                'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
-                'cd "$SCRIPT_DIR"',
-                'ADDED_FILE=packages.added',
-                'REMOVED_FILE=packages.removed',
-                'UPGRADED_FILE=packages.upgraded',
-                'PKG_DIR=packages',
-                'INSTALL_SPECS=()',
-                'if [[ -f "$REMOVED_FILE" ]]; then echo "[debian-delta] Purging removed packages"; xargs -r dpkg --purge < "$REMOVED_FILE" || true; fi',
-                'if [[ -f "$ADDED_FILE" ]]; then while IFS= read -r l; do [[ -z "$l" ]] && continue; INSTALL_SPECS+=("$l"); done < "$ADDED_FILE"; fi',
-                'if [[ -f "$UPGRADED_FILE" ]]; then while IFS= read -r l; do [[ -z "$l" ]] && continue; PKG=$(echo "$l" | awk "{print $1}"); NEWV=$(echo "$l" | awk "{print $3}"); INSTALL_SPECS+=("${PKG}=${NEWV}"); done < "$UPGRADED_FILE"; fi',
-                'if [[ -d "$PKG_DIR" ]]; then',
-                '  shopt -s nullglob',
-                '  DEBS=($PKG_DIR/*.deb)',
-                '  if [[ ${#DEBS[@]} -gt 0 ]]; then',
-                '    echo "[debian-delta] Installing local .deb files (${#DEBS[@]})"',
-                '    dpkg -i ${DEBS[@]} || true',
-                '    # Attempt to fix missing dependencies without network if possible',
-                '    if command -v apt-get >/dev/null 2>&1; then apt-get -y --no-install-recommends install -f || true; fi',
-                '  else',
-                '    echo "[debian-delta] No local .deb files present"',
-                '  fi',
-                'fi',
-                'if [[ ${#INSTALL_SPECS[@]} -gt 0 ]]; then',
-                '  echo "[debian-delta] Ensuring target versions for ${#INSTALL_SPECS[@]} packages"',
-                '  # Attempt version enforcement using dpkg (requires local .debs); fallback echo warnings',
-                '  for spec in "${INSTALL_SPECS[@]}"; do',
-                '     P=${spec%%=*}; V=${spec#*=};',
-                '     CUR=$(dpkg-query -W -f="${Version}" "$P" 2>/dev/null || echo missing)',
-                '     if [[ "$CUR" != "$V" ]]; then echo "[debian-delta][warn] Version mismatch for $P expected $V got $CUR"; fi',
-                '  done',
-                'else',
-                '  echo "[debian-delta] No packages specified for install/upgrade"',
-                'fi',
-                '# Run kubeadm upgrade to migrate cluster configuration (manifests, kubelet flags, etc.)',
-                'echo "[debian-delta] Running kubeadm upgrade to migrate cluster configuration"',
-                'KUBE_VERSION=$(kubelet --version 2>/dev/null | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" || echo "")',
-                'if [[ -n "$KUBE_VERSION" ]]; then',
-                '  echo "[debian-delta] Detected Kubernetes version: v${KUBE_VERSION}"',
-                '  # Reload systemd to pick up any changes to kubelet.service',
-                '  systemctl daemon-reload',
-                '  # Run kubeadm upgrade apply with appropriate flags',
-                '  # --yes: auto-approve the upgrade',
-                '  # --certificate-renewal=false: preserve existing certificates',
-                '  # --etcd-upgrade=false: do not upgrade etcd (already handled by package)',
-                '  if kubeadm upgrade apply "v${KUBE_VERSION}" --yes --certificate-renewal=false --etcd-upgrade=false 2>&1; then',
-                '    echo "[debian-delta] kubeadm upgrade completed successfully"',
-                '  else',
-                '    echo "[debian-delta][warn] kubeadm upgrade encountered issues, attempting fallback cleanup"',
-                '    # Fallback: Clean deprecated kubelet flags manually',
-                '    KUBEADM_FLAGS_FILE="/var/lib/kubelet/kubeadm-flags.env"',
-                '    if [[ -f "$KUBEADM_FLAGS_FILE" ]]; then',
-                '      echo "[debian-delta] Cleaning deprecated kubelet flags from $KUBEADM_FLAGS_FILE"',
-                '      # Remove --pod-infra-container-image (deprecated in 1.27, removed in 1.34)',
-                '      sed -i "s/--pod-infra-container-image=[^ \"]*//g" "$KUBEADM_FLAGS_FILE"',
-                '      # Clean up whitespace',
-                '      sed -i "s/  */ /g" "$KUBEADM_FLAGS_FILE"',
-                '      sed -i "s/\" /\"/g" "$KUBEADM_FLAGS_FILE"',
-                '      echo "[debian-delta] Kubelet flags after cleanup: $(cat $KUBEADM_FLAGS_FILE)"',
-                '    fi',
-                '  fi',
-                'else',
-                '  echo "[debian-delta][warn] Could not detect Kubernetes version, skipping kubeadm upgrade"',
-                'fi',
-                    'echo "[debian-delta] Apply complete"'
-                ) -join "`n"
+                # Copy bash scripts from external files (maintained separately for readability)
+                $scriptsSourceDir = Join-Path $PSScriptRoot 'scripts'
+                
+                $applyScriptSource = Join-Path $scriptsSourceDir 'apply-debian-delta.sh'
                 $applyPath = Join-Path $debianDeltaDir 'apply-debian-delta.sh'
-                $applyScript | Out-File -FilePath $applyPath -Encoding ASCII -Force
-                # Verification script
-                $verifyScript = @('#!/usr/bin/env bash',
-                'set -euo pipefail',
-                'if [[ $EUID -ne 0 ]]; then echo "Run as root" >&2; exit 1; fi',
-                'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
-                'cd "$SCRIPT_DIR"',
-                'MJSON=debian-delta-manifest.json',
-                'command -v jq >/dev/null 2>&1 || { echo "jq required for verification" >&2; exit 2; }',
-                'ADDED=$(jq -r ".Added[]?" "$MJSON" || true)',
-                'UPG=$(jq -r ".Upgraded[]?" "$MJSON" || true)',
-                'FAIL=0',
-                'for entry in $ADDED; do P=${entry%%=*}; V=${entry#*=}; CV=$(dpkg-query -W -f="${Version}" "$P" 2>/dev/null || echo missing); if [[ "$CV" != "$V" ]]; then echo "[verify] Added pkg mismatch: $P expected $V got $CV"; FAIL=1; fi; done',
-                'while read -r line; do [[ -z "$line" ]] && continue; PKG=$(echo "$line" | awk "{print $1}"); OV=$(echo "$line" | awk "{print $2}"); NV=$(echo "$line" | awk "{print $3}"); CV=$(dpkg-query -W -f="${Version}" "$PKG" 2>/dev/null || echo missing); if [[ "$CV" != "$NV" ]]; then echo "[verify] Upgraded pkg mismatch: $PKG expected $NV got $CV"; FAIL=1; fi; done <<< "$UPG"',
-                'if [[ $FAIL -eq 0 ]]; then echo "[verify] Debian delta verification PASSED"; else echo "[verify] Debian delta verification FAILED"; fi',
-                    'exit $FAIL'
-                ) -join "`n"
+                if (Test-Path -LiteralPath $applyScriptSource) {
+                    Copy-Item -LiteralPath $applyScriptSource -Destination $applyPath -Force
+                } else {
+                    throw "Required script not found: $applyScriptSource"
+                }
+                
+                $verifyScriptSource = Join-Path $scriptsSourceDir 'verify-debian-delta.sh'
                 $verifyPath = Join-Path $debianDeltaDir 'verify-debian-delta.sh'
-                $verifyScript | Out-File -FilePath $verifyPath -Encoding ASCII -Force
+                if (Test-Path -LiteralPath $verifyScriptSource) {
+                    Copy-Item -LiteralPath $verifyScriptSource -Destination $verifyPath -Force
+                } else {
+                    throw "Required script not found: $verifyScriptSource"
+                }
                 
                 # Attempt offline .deb acquisition using a second VHDX scan pass (best effort)
                 try {
