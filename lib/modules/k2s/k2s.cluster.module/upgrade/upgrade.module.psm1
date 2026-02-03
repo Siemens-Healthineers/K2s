@@ -1406,6 +1406,10 @@ function Invoke-PVBackup {
 		    'opensearch-cluster-master-pv'
         )#>
 		$excludeNames = @()
+		$excludePVs = $rootConfig.backup.excludedAddonPersistentVolumes
+		if ($excludePVs) {
+			$excludeNames = $excludePVs.Split(',')
+		}
 
         Write-Log "Excluding addon-managed PVs: $($excludeNames -join ', ')" -Console
 
