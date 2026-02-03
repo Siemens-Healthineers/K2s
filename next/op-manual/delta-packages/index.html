@@ -13,9 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/code-signing/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/delta-packages/">
       
       
+        <link rel="prev" href="../creating-offline-package/">
+      
+      
+        <link rel="next" href="../installing-k2s/">
       
       
         
@@ -26,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Code signing - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Delta Packages - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -79,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#k2s-code-signing" class="md-skip">
+        <a href="#delta-packages" class="md-skip">
           Skip to content
         </a>
       
@@ -130,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Code signing
+              Delta Packages
             
           </span>
         </div>
@@ -303,10 +307,12 @@ You're not viewing the latest release version.
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../os-support/" class="md-tabs__link">
           
   
@@ -762,8 +768,10 @@ You're not viewing the latest release version.
       
   
   
+    
   
   
+  
     
     
       
@@ -807,17 +815,20 @@ You're not viewing the latest release version.
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -835,7 +846,7 @@ You're not viewing the latest release version.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -934,10 +945,37 @@ You're not viewing the latest release version.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../delta-packages/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delta Packages
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -953,6 +991,349 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#delta-package-vs-full-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delta Package vs Full Package
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-a-delta-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating a Delta Package
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Creating a Delta Package">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-with-code-signing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example with Code Signing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#delta-package-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delta Package Contents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Delta Package Contents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#delta-manifest-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delta Manifest Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#applying-a-delta-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Applying a Delta Package
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Applying a Delta Package">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#application-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Application Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-delta-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use Delta Packages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-mismatch-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version Mismatch Error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#missing-files-after-apply" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Missing Files After Apply
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#debian-delta-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debian Delta Failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-with-cicd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration with CI/CD
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integration with CI/CD">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automated-delta-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automated Delta Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#artifact-publishing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Artifact Publishing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1975,47 +2356,14 @@ You're not viewing the latest release version.
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-start" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick Start
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Quick Start">
+    <nav class="md-nav" aria-label="Overview">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#create-a-signed-package" class="md-nav__link">
+  <a href="#delta-package-vs-full-package" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Create a Signed Package
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#install-certificate-for-trust" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install Certificate for Trust
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#create-self-signed-certificate-for-testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Create Self-Signed Certificate for Testing
+        Delta Package vs Full Package
       
     </span>
   </a>
@@ -2028,22 +2376,55 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#command-reference" class="md-nav__link">
+  <a href="#creating-a-delta-package" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Command Reference
+        Creating a Delta Package
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Command Reference">
+    <nav class="md-nav" aria-label="Creating a Delta Package">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#k2s-system-package" class="md-nav__link">
+  <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
       
-        k2s system package
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-with-code-signing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example with Code Signing
       
     </span>
   </a>
@@ -2056,33 +2437,22 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#powershell-module-reference" class="md-nav__link">
+  <a href="#delta-package-contents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PowerShell Module Reference
+        Delta Package Contents
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="PowerShell Module Reference">
+    <nav class="md-nav" aria-label="Delta Package Contents">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#certificate-management" class="md-nav__link">
+  <a href="#delta-manifest-structure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Certificate Management
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#signing-operations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Signing Operations
+        Delta Manifest Structure
       
     </span>
   </a>
@@ -2095,22 +2465,22 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#certificate-requirements" class="md-nav__link">
+  <a href="#applying-a-delta-package" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Certificate Requirements
+        Applying a Delta Package
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Certificate Requirements">
+    <nav class="md-nav" aria-label="Applying a Delta Package">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#self-signed-certificates" class="md-nav__link">
+  <a href="#prerequisites_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Self-Signed Certificates
+        Prerequisites
       
     </span>
   </a>
@@ -2118,10 +2488,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#external-certificates" class="md-nav__link">
+  <a href="#application-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
-        External Certificates
+        Application Steps
       
     </span>
   </a>
@@ -2134,22 +2504,22 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#security-considerations" class="md-nav__link">
+  <a href="#best-practices" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Security Considerations
+        Best Practices
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Security Considerations">
+    <nav class="md-nav" aria-label="Best Practices">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#certificate-storage" class="md-nav__link">
+  <a href="#when-to-use-delta-packages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Certificate Storage
+        When to Use Delta Packages
       
     </span>
   </a>
@@ -2157,121 +2527,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#trust-validation" class="md-nav__link">
+  <a href="#version-compatibility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Trust Validation
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#execution-policy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Execution Policy
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cicd-integration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CI/CD Integration
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="CI/CD Integration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#github-actions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GitHub Actions
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#setup-github-secrets" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Setup GitHub Secrets
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#manual-certificate-creation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Manual Certificate Creation
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verification
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Verification">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#verify-powershell-scripts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verify PowerShell Scripts
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#verify-executables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verify Executables
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#package-verification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Package Verification
+        Version Compatibility
       
     </span>
   </a>
@@ -2304,41 +2563,14 @@ You're not viewing the latest release version.
     </span>
   </a>
   
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#debug-signing-issues" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Debug Signing Issues
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Best Practices
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Best Practices">
+    <nav class="md-nav" aria-label="Common Issues">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#development" class="md-nav__link">
+  <a href="#version-mismatch-error" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Development
+        Version Mismatch Error
       
     </span>
   </a>
@@ -2346,10 +2578,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#production" class="md-nav__link">
+  <a href="#missing-files-after-apply" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Production
+        Missing Files After Apply
       
     </span>
   </a>
@@ -2357,10 +2589,26 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#distribution" class="md-nav__link">
+  <a href="#debian-delta-failures" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Distribution
+        Debian Delta Failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logs
       
     </span>
   </a>
@@ -2373,33 +2621,33 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#related-documentation" class="md-nav__link">
+  <a href="#integration-with-cicd" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Related Documentation
+        Integration with CI/CD
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#development-and-testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Development and Testing
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Development and Testing">
+    <nav class="md-nav" aria-label="Integration with CI/CD">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#unit-testing" class="md-nav__link">
+  <a href="#automated-delta-generation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unit Testing
+        Automated Delta Generation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#artifact-publishing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Artifact Publishing
       
     </span>
   </a>
@@ -2408,6 +2656,17 @@ You're not viewing the latest release version.
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2428,7 +2687,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/code-signing.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/delta-packages.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2437,287 +2696,272 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="k2s-code-signing">K2s Code Signing</h1>
-<p>This document describes the K2s code signing functionality that ensures all executables and PowerShell scripts are signed with a trusted certificate.</p>
+<h1 id="delta-packages">Delta Packages</h1>
+<p>Delta packages provide a bandwidth-efficient way to upgrade <em>K2s</em> installations by including only the files that have changed between two versions, rather than redistributing the entire package.</p>
 <h2 id="overview">Overview</h2>
-<p>K2s includes comprehensive code signing capabilities to meet enterprise security requirements:</p>
+<p>A delta package contains:</p>
 <ul>
-<li><strong>PowerShell Scripts</strong>: All <code>.ps1</code>, <code>.psm1</code> files are signed with Authenticode signatures</li>
-<li><strong>Executables</strong>: All <code>.exe</code>, <code>.dll</code> files are signed with code signing certificates</li>
-<li><strong>Installer Packages</strong>: All <code>.msi</code> files are signed with code signing certificates</li>
-<li><strong>Automated Packaging</strong>: Create complete signed packages via <code>k2s system package</code></li>
-<li><strong><abbr title="Continuous Integration">CI</abbr>/<abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> Integration</strong>: Automated signing in GitHub Actions workflows</li>
+<li><strong>Changed files</strong>: Files that differ between the source and target versions</li>
+<li><strong>Wholesale directories</strong>: Complete directories that must be replaced entirely (e.g., <code>bin/</code>, <code>addons/</code>)</li>
+<li><strong>Delta manifest</strong>: A <abbr title="JavaScript Object Notation">JSON</abbr> file describing the changes and metadata</li>
+<li><strong>Debian package changes</strong> (optional): Linux package differences for the KubeMaster <abbr title="Virtual Machine">VM</abbr></li>
+<li><strong>Apply script</strong>: A PowerShell script to apply the delta to an existing installation</li>
 </ul>
-<p><strong>Note</strong>: CMD and BAT files cannot be Authenticode signed as they are plain text files and are excluded from the signing process.</p>
-<p><strong>Important</strong>: Certificate operations require administrator privileges as certificates are stored in the LocalMachine certificate store for enterprise-wide deployment.</p>
-<h2 id="quick-start">Quick Start</h2>
-<h3 id="create-a-signed-package">Create a Signed Package</h3>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c"># Create package with existing certificate</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">k2s</span> <span class="n">system</span> <span class="n">package</span> <span class="p">-</span><span class="n">-target-dir</span> <span class="s2">&quot;C:\tmp&quot;</span> <span class="p">-</span><span class="n">-name</span> <span class="s2">&quot;k2s-signed.zip&quot;</span> <span class="p">-</span><span class="n">-certificate</span> <span class="s2">&quot;mycert.pfx&quot;</span> <span class="p">-</span><span class="n">-password</span> <span class="s2">&quot;mycertpassword&quot;</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c"># Create package for offline installation with code signing</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">k2s</span> <span class="n">system</span> <span class="n">package</span> <span class="p">-</span><span class="n">-target-dir</span> <span class="s2">&quot;C:\tmp&quot;</span> <span class="p">-</span><span class="n">-name</span> <span class="s2">&quot;k2s-offline-signed.zip&quot;</span> <span class="p">-</span><span class="n">-for-offline-installation</span> <span class="p">-</span><span class="n">-certificate</span> <span class="s2">&quot;mycert.pfx&quot;</span> <span class="p">-</span><span class="n">-password</span> <span class="s2">&quot;mycertpassword&quot;</span>
+<h3 id="delta-package-vs-full-package">Delta Package vs Full Package</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Full Package</th>
+<th>Delta Package</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Size</td>
+<td>2-4 GB typically</td>
+<td>50-500 MB typically</td>
+</tr>
+<tr>
+<td>Contains</td>
+<td>All K2s files</td>
+<td>Only changed files</td>
+</tr>
+<tr>
+<td>Requires</td>
+<td>Nothing</td>
+<td>Specific source version</td>
+</tr>
+<tr>
+<td>Use case</td>
+<td>Fresh installs, major upgrades</td>
+<td>Minor/patch upgrades</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creating-a-delta-package">Creating a Delta Package</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li>Two <em>K2s</em> offline packages (source and target versions)</li>
+<li>PowerShell 5.1 or later</li>
+<li>Sufficient disk space for extraction (3x package size recommended)</li>
+</ul>
+<h3 id="basic-usage">Basic Usage</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s system package --delta-package `</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">    -d C:\packages `</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">    -n k2s-delta-v1.4.0-to-v1.5.0.zip `</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">    --package-version-from C:\packages\k2s-v1.4.0.zip `</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">    --package-version-to C:\packages\k2s-v1.5.0.zip</span>
 </code></pre></div>
-<h3 id="install-certificate-for-trust">Install Certificate for Trust</h3>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c"># Import certificate from package using standard PowerShell cmdlets (requires administrator privileges)</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">Import-PfxCertificate</span> <span class="n">-FilePath</span> <span class="n">k2s-signing</span><span class="p">.</span><span class="n">pfx</span> <span class="n">-CertStoreLocation</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">My</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">Import-Certificate</span> <span class="n">-FilePath</span> <span class="n">k2s-signing</span><span class="p">.</span><span class="n">pfx</span> <span class="n">-CertStoreLocation</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">TrustedPublisher</span>
+<div class="admonition note">
+<p class="admonition-title">Experimental Feature</p>
+<p>Delta package creation is currently marked as experimental. The feature is fully functional but the <abbr title="Command-Line Interface">CLI</abbr> interface may evolve in future releases.</p>
+</div>
+<h3 id="parameters">Parameters</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--delta-package</code></td>
+<td>Yes</td>
+<td>Enables delta package creation mode</td>
+</tr>
+<tr>
+<td><code>-d, --target-dir</code></td>
+<td>Yes</td>
+<td>Target directory for the output package</td>
+</tr>
+<tr>
+<td><code>-n, --name</code></td>
+<td>Yes</td>
+<td>Name of the output delta package ZIP file</td>
+</tr>
+<tr>
+<td><code>--package-version-from</code></td>
+<td>Yes</td>
+<td>Path to the older (source) K2s package ZIP</td>
+</tr>
+<tr>
+<td><code>--package-version-to</code></td>
+<td>Yes</td>
+<td>Path to the newer (target) K2s package ZIP</td>
+</tr>
+<tr>
+<td><code>-c, --certificate</code></td>
+<td>No</td>
+<td>Path to code signing certificate (.pfx file)</td>
+</tr>
+<tr>
+<td><code>-w, --password</code></td>
+<td>No</td>
+<td>Password for the code signing certificate</td>
+</tr>
+<tr>
+<td><code>-o, --output</code></td>
+<td>No</td>
+<td>Show log output in terminal</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-with-code-signing">Example with Code Signing</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s system package --delta-package `</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">    -d C:\packages `</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="go">    -n k2s-delta-v1.4.0-to-v1.5.0.zip `</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="go">    --package-version-from C:\packages\k2s-v1.4.0.zip `</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="go">    --package-version-to C:\packages\k2s-v1.5.0.zip `</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="go">    -c path\to\cert.pfx `</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="go">    -w mycertpassword</span>
 </code></pre></div>
-<h3 id="create-self-signed-certificate-for-testing">Create Self-Signed Certificate for Testing</h3>
-<p>For development and testing purposes, you can create a self-signed code signing certificate. <strong>Important</strong>: Self-signed certificates must be installed to the Trusted Root store to avoid trust warnings.</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c"># Create a self-signed code signing certificate (requires administrator privileges)</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">$cert</span> <span class="p">=</span> <span class="nb">New-SelfSignedCertificate</span> <span class="n">-Subject</span> <span class="s2">&quot;CN=K2s Test Code Signing&quot;</span> <span class="p">`</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">-Type</span> <span class="n">CodeSigningCert</span> <span class="p">`</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">-KeyUsage</span> <span class="n">DigitalSignature</span> <span class="p">`</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">-KeyAlgorithm</span> <span class="n">RSA</span> <span class="p">`</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">-KeyLength</span> <span class="n">2048</span> <span class="p">`</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">-NotAfter</span> <span class="p">(</span><span class="nb">Get-Date</span><span class="p">).</span><span class="n">AddYears</span><span class="p">(</span><span class="n">5</span><span class="p">)</span> <span class="p">`</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">-CertStoreLocation</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">My</span> <span class="p">`</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">-KeyExportPolicy</span> <span class="n">Exportable</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c"># Export to PFX file with password</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="nv">$password</span> <span class="p">=</span> <span class="nb">ConvertTo-SecureString</span> <span class="s2">&quot;TestPassword123&quot;</span> <span class="n">-AsPlainText</span> <span class="n">-Force</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="nb">Export-PfxCertificate</span> <span class="n">-Cert</span> <span class="nv">$cert</span> <span class="n">-FilePath</span> <span class="s2">&quot;k2s-test-signing.pfx&quot;</span> <span class="n">-Password</span> <span class="nv">$password</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="c"># Export the public certificate for trust installation</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nb">Export-Certificate</span> <span class="n">-Cert</span> <span class="nv">$cert</span> <span class="n">-FilePath</span> <span class="s2">&quot;k2s-test-signing.cer&quot;</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="c"># Install to Trusted Root Certification Authorities (makes the certificate trusted)</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="nb">Import-Certificate</span> <span class="n">-FilePath</span> <span class="s2">&quot;k2s-test-signing.cer&quot;</span> <span class="n">-CertStoreLocation</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">Root</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="c"># Install to TrustedPublisher store for PowerShell script execution</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="nb">Import-Certificate</span> <span class="n">-FilePath</span> <span class="s2">&quot;k2s-test-signing.cer&quot;</span> <span class="n">-CertStoreLocation</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">TrustedPublisher</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="c"># Test the certificate with K2s package creation</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="n">k2s</span> <span class="n">system</span> <span class="n">package</span> <span class="p">-</span><span class="n">-target-dir</span> <span class="s2">&quot;C:\tmp&quot;</span> <span class="p">-</span><span class="n">-name</span> <span class="s2">&quot;k2s-test-signed.zip&quot;</span> <span class="p">-</span><span class="n">-certificate</span> <span class="s2">&quot;k2s-test-signing.pfx&quot;</span> <span class="p">-</span><span class="n">-password</span> <span class="s2">&quot;TestPassword123&quot;</span>
+<h2 id="delta-package-contents">Delta Package Contents</h2>
+<p>After creation, the delta package contains:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>k2s-delta-v1.4.0-to-v1.5.0.zip
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── delta-manifest.json          # Metadata and file lists
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>├── Apply-Delta.ps1              # Application script
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>├── bin/                         # Changed binaries (wholesale)
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>├── addons/                      # Changed addon files (wholesale)
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>├── lib/                         # Changed library files
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>├── smallsetup/                  # Changed setup scripts
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>├── scripts/                     # Delta application scripts
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>│   ├── apply-debian-delta.sh   # Linux package update script
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>│   └── verify-debian-delta.sh  # Linux package verification
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>└── debian-delta/                # (Optional) Debian package changes
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    ├── added-packages.txt
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    ├── removed-packages.txt
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    ├── changed-packages.txt
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    └── packages/                # Downloaded .deb files
 </code></pre></div>
-<p><strong>Why install to Trusted Root?</strong>
-Self-signed certificates are not trusted by default. Installing the certificate to <code>Cert:\LocalMachine\Root</code> makes Windows trust the certificate, preventing "certificate chain terminated in a root certificate which is not trusted" errors during code signing verification.</p>
-<h2 id="command-reference">Command Reference</h2>
-<h3 id="k2s-system-package"><code>k2s system package</code></h3>
-<p>Creates a complete K2s package with all components signed.</p>
-<p><strong>Required Options:</strong></p>
-<ul>
-<li><code>--target-dir, -d</code>: Target directory for the package</li>
-<li><code>--name, -n</code>: The name of the zip package (must have .zip extension)</li>
-</ul>
-<p><strong>Code Signing Options:</strong></p>
-<ul>
-<li><code>--certificate, -c</code>: Path to code signing certificate (.pfx file)</li>
-<li><code>--password, -w</code>: Password for the certificate file</li>
-</ul>
-<p><strong>Additional Options:</strong></p>
-<ul>
-<li><code>--for-offline-installation</code>: Creates a package for offline installation</li>
-<li><code>--proxy, -p</code>: <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy if available</li>
-<li><code>--master-cpus</code>: Number of CPUs allocated to master <abbr title="Virtual Machine">VM</abbr></li>
-<li><code>--master-memory</code>: Amount of <abbr title="Random-Access Memory">RAM</abbr> to allocate to master <abbr title="Virtual Machine">VM</abbr> (minimum 2GB)</li>
-<li><code>--master-disk</code>: Disk size allocated to the master <abbr title="Virtual Machine">VM</abbr> (minimum 10GB)</li>
-<li><code>--k8s-bins</code>: Path to directory of locally built Kubernetes binaries</li>
-</ul>
-<p><strong>Examples:</strong></p>
-<div class="highlight"><span class="filename">Bash</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Basic package creation</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>k2s<span class="w"> </span>system<span class="w"> </span>package<span class="w"> </span>--target-dir<span class="w"> </span><span class="s2">&quot;C:\tmp&quot;</span><span class="w"> </span>--name<span class="w"> </span><span class="s2">&quot;k2s-package.zip&quot;</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Package for offline installation</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>k2s<span class="w"> </span>system<span class="w"> </span>package<span class="w"> </span>--target-dir<span class="w"> </span><span class="s2">&quot;C:\tmp&quot;</span><span class="w"> </span>--name<span class="w"> </span><span class="s2">&quot;k2s-offline.zip&quot;</span><span class="w"> </span>--for-offline-installation
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Signed package with existing certificate</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>k2s<span class="w"> </span>system<span class="w"> </span>package<span class="w"> </span>--target-dir<span class="w"> </span><span class="s2">&quot;C:\tmp&quot;</span><span class="w"> </span>--name<span class="w"> </span><span class="s2">&quot;k2s-signed.zip&quot;</span><span class="w"> </span>--certificate<span class="w"> </span><span class="s2">&quot;./certs/my-cert.pfx&quot;</span><span class="w"> </span>--password<span class="w"> </span><span class="s2">&quot;certpassword&quot;</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Signed offline package with all options</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>k2s<span class="w"> </span>system<span class="w"> </span>package<span class="w"> </span>--target-dir<span class="w"> </span><span class="s2">&quot;C:\tmp&quot;</span><span class="w"> </span>--name<span class="w"> </span><span class="s2">&quot;k2s-complete.zip&quot;</span><span class="w"> </span>--for-offline-installation<span class="w"> </span>--certificate<span class="w"> </span><span class="s2">&quot;./certs/my-cert.pfx&quot;</span><span class="w"> </span>--password<span class="w"> </span><span class="s2">&quot;certpassword&quot;</span><span class="w"> </span>--proxy<span class="w"> </span><span class="s2">&quot;http://proxy:8080&quot;</span>
+<h3 id="delta-manifest-structure">Delta Manifest Structure</h3>
+<p>The <code>delta-manifest.json</code> file describes the changes between versions. A typical manifest includes:</p>
+<div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;sourceVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.4.0&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;targetVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.5.0&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;createdAt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-02-03T10:30:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">&quot;filesAdded&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;lib/new-module.psm1&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">&quot;filesModified&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;lib/existing-module.psm1&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">&quot;filesRemoved&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;lib/deprecated-module.psm1&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">&quot;wholesaleDirectories&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;bin&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;addons&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">&quot;debianDelta&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">&quot;added&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;new-package&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">&quot;removed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;old-package&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">&quot;changed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;updated-package&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">&quot;imageDiff&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">&quot;added&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;new-image:tag&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">&quot;removed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;old-image:tag&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="p">}</span>
 </code></pre></div>
-<p><strong>Note</strong>: When using code signing, both <code>--certificate</code> and <code>--password</code> must be provided together.</p>
-<h2 id="powershell-module-reference">PowerShell Module Reference</h2>
-<p>The <code>k2s.signing.module</code> provides low-level signing functionality. <strong>Note</strong>: All certificate operations require administrator privileges.</p>
-<h3 id="certificate-management">Certificate Management</h3>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c"># List K2s certificates (requires administrator privileges) - Use standard PowerShell cmdlets</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">Get-ChildItem</span> <span class="n">-Path</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">My</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="p">{</span> <span class="nv">$_</span><span class="p">.</span><span class="n">Subject</span> <span class="o">-like</span> <span class="s2">&quot;*K2s*&quot;</span> <span class="p">}</span>
-</code></pre></div>
-<h3 id="signing-operations">Signing Operations</h3>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c"># Sign all files (executables and scripts) in directory using certificate file</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">Set-K2sFileSignature</span> <span class="n">-SourcePath</span> <span class="s2">&quot;C:\k2s&quot;</span> <span class="n">-CertificatePath</span> <span class="s2">&quot;cert.pfx&quot;</span> <span class="n">-Password</span> <span class="nv">$securePassword</span>
-</code></pre></div>
-<h2 id="certificate-requirements">Certificate Requirements</h2>
-<h3 id="self-signed-certificates">Self-Signed Certificates</h3>
-<p>The built-in certificate creation uses:</p>
+<h2 id="applying-a-delta-package">Applying a Delta Package</h2>
+<h3 id="prerequisites_1">Prerequisites</h3>
 <ul>
-<li><strong>Algorithm</strong>: RSA 2048-bit</li>
-<li><strong>Key Usage</strong>: Digital Signature</li>
-<li><strong>Validity</strong>: 10 years (configurable)</li>
-<li><strong>Type</strong>: Code Signing Certificate</li>
+<li>An existing <em>K2s</em> installation matching the delta's source version</li>
+<li>Administrator privileges</li>
+<li>The delta package ZIP file</li>
 </ul>
-<h3 id="external-certificates">External Certificates</h3>
-<p>For production use, you can provide:</p>
+<h3 id="application-steps">Application Steps</h3>
+<ol>
+<li>
+<p>Extract the delta package to a temporary location:
+   <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">Expand-Archive</span> <span class="n">-Path</span> <span class="s2">&quot;k2s-delta-v1.4.0-to-v1.5.0.zip&quot;</span> <span class="n">-DestinationPath</span> <span class="s2">&quot;C:\temp\delta&quot;</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>Run the upgrade from the extracted delta folder:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">cd C:\temp\delta</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">k2s system upgrade</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>Verify the installation:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system status</span>
+</code></pre></div></p>
+</li>
+</ol>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="when-to-use-delta-packages">When to Use Delta Packages</h3>
+<p>✅ <strong>Recommended for:</strong></p>
 <ul>
-<li><strong>Commercial certificates</strong> from trusted CAs (Digicert, GlobalSign, etc.)</li>
-<li><strong>Enterprise certificates</strong> from internal CAs</li>
-<li><strong>Hardware Security Module (HSM)</strong> certificates</li>
+<li>Minor version upgrades (e.g., 1.4.0 → 1.5.0)</li>
+<li>Patch releases (e.g., 1.4.0 → 1.4.1)</li>
+<li>Bandwidth-constrained environments</li>
+<li>Large-scale deployments with many nodes</li>
 </ul>
-<p>Requirements:</p>
+<p>❌ <strong>Not recommended for:</strong></p>
 <ul>
-<li>Must support code signing (<code>Enhanced Key Usage: 1.3.6.1.5.5.7.3.3</code>)</li>
-<li>Must be in PKCS#12 (.pfx) format with private key</li>
-<li>Must be password-protected</li>
+<li>Major version upgrades (e.g., 1.x → 2.x)</li>
+<li>Fresh installations</li>
+<li>Upgrades spanning multiple minor versions</li>
 </ul>
-<h2 id="security-considerations">Security Considerations</h2>
-<h3 id="certificate-storage">Certificate Storage</h3>
-<ul>
-<li><strong>Development</strong>: Self-signed certificates stored in <code>LocalMachine\My</code> (requires administrator privileges)</li>
-<li><strong>Production</strong>: Use HSM or secure certificate storage</li>
-<li><strong><abbr title="Continuous Integration">CI</abbr>/<abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr></strong>: Certificates stored as encrypted secrets</li>
-</ul>
-<h3 id="trust-validation">Trust Validation</h3>
-<p>The signing process installs certificates in:</p>
-<ul>
-<li><code>LocalMachine\My</code>: For signing operations</li>
-<li><code>LocalMachine\TrustedPublisher</code>: For script execution</li>
-<li><code>LocalMachine\Root</code>: For trust chain validation</li>
-</ul>
-<h3 id="execution-policy">Execution Policy</h3>
-<p>Signed scripts work with these PowerShell execution policies:</p>
-<ul>
-<li><code>RemoteSigned</code>: Allows locally created and signed scripts</li>
-<li><code>AllSigned</code>: Requires all scripts to be signed</li>
-<li><code>Restricted</code>: Blocks all script execution</li>
-</ul>
-<h2 id="cicd-integration"><abbr title="Continuous Integration">CI</abbr>/<abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> Integration</h2>
-<h3 id="github-actions">GitHub Actions</h3>
-<p>The included workflow (<code>.github/workflows/code-signing.yml</code>) provides:</p>
-<ul>
-<li><strong>Automatic signing</strong> on commits to main/develop</li>
-<li><strong>Certificate management</strong> via GitHub Secrets</li>
-<li><strong>Signed release packages</strong> for tagged versions</li>
-<li><strong>Signature verification</strong> in <abbr title="Continuous Integration">CI</abbr> pipeline</li>
-</ul>
-<h3 id="setup-github-secrets">Setup GitHub Secrets</h3>
-<p>For automated signing, configure these secrets:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>K2S_SIGNING_CERT_BASE64    # Base64-encoded .pfx certificate
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>K2S_SIGNING_CERT_PASSWORD  # Certificate password
-</code></pre></div>
-<h3 id="manual-certificate-creation">Manual Certificate Creation</h3>
-<p>To create certificates for <abbr title="Continuous Integration">CI</abbr>/<abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr>, use standard PowerShell cmdlets:</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c"># Create certificate using standard PowerShell</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">$cert</span> <span class="p">=</span> <span class="nb">New-SelfSignedCertificate</span> <span class="n">-Subject</span> <span class="s2">&quot;CN=K2s Code Signing Certificate&quot;</span> <span class="p">`</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">-Type</span> <span class="n">CodeSigningCert</span> <span class="p">`</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">-KeyUsage</span> <span class="n">DigitalSignature</span> <span class="p">`</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">-KeyAlgorithm</span> <span class="n">RSA</span> <span class="p">`</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">-KeyLength</span> <span class="n">2048</span> <span class="p">`</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">-NotAfter</span> <span class="p">(</span><span class="nb">Get-Date</span><span class="p">).</span><span class="n">AddYears</span><span class="p">(</span><span class="n">10</span><span class="p">)</span> <span class="p">`</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">-CertStoreLocation</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">My</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c"># Export to PFX file</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="nv">$password</span> <span class="p">=</span> <span class="nb">ConvertTo-SecureString</span> <span class="s2">&quot;YourPassword&quot;</span> <span class="n">-AsPlainText</span> <span class="n">-Force</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="nb">Export-PfxCertificate</span> <span class="n">-Cert</span> <span class="nv">$cert</span> <span class="n">-FilePath</span> <span class="s2">&quot;k2s-ci.pfx&quot;</span> <span class="n">-Password</span> <span class="nv">$password</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="c"># Convert to base64 for GitHub Secrets</span>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="nv">$bytes</span> <span class="p">=</span> <span class="no">[System.IO.File]</span><span class="p">::</span><span class="n">ReadAllBytes</span><span class="p">(</span><span class="s2">&quot;k2s-ci.pfx&quot;</span><span class="p">)</span>
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="nv">$base64</span> <span class="p">=</span> <span class="no">[Convert]</span><span class="p">::</span><span class="n">ToBase64String</span><span class="p">(</span><span class="nv">$bytes</span><span class="p">)</span>
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="nb">Write-Output</span> <span class="nv">$base64</span>
-</code></pre></div>
-<h2 id="verification">Verification</h2>
-<h3 id="verify-powershell-scripts">Verify PowerShell Scripts</h3>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c"># Check script signature</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nv">$sig</span> <span class="p">=</span> <span class="nb">Get-AuthenticodeSignature</span> <span class="n">-FilePath</span> <span class="s2">&quot;script.ps1&quot;</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nb">Write-Host</span> <span class="s2">&quot;Status: </span><span class="p">$(</span><span class="nv">$sig</span><span class="p">.</span><span class="n">Status</span><span class="p">)</span><span class="s2">&quot;</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nb">Write-Host</span> <span class="s2">&quot;Signer: </span><span class="p">$(</span><span class="nv">$sig</span><span class="p">.</span><span class="n">SignerCertificate</span><span class="p">.</span><span class="n">Subject</span><span class="p">)</span><span class="s2">&quot;</span>
-</code></pre></div>
-<h3 id="verify-executables">Verify Executables</h3>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a># Using signtool (Windows SDK required)
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>signtool verify /v /pa app.exe
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a># Check certificate details
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>signtool verify /v /pa /all app.exe
-</code></pre></div>
-<h3 id="package-verification">Package Verification</h3>
-<p>Signed packages include a <code>package-manifest.json</code> with:</p>
-<ul>
-<li>Package creation timestamp</li>
-<li>Certificate information</li>
-<li>Count of signed files</li>
-<li>Verification checksums</li>
-</ul>
+<h3 id="version-compatibility">Version Compatibility</h3>
+<blockquote>
+<p><strong>⚠️ Version Matching:</strong> Delta packages are version-specific. A delta from v1.4.0 to v1.5.0 can <strong>only</strong> be applied to installations running exactly v1.4.0.</p>
+</blockquote>
+<p>To upgrade across multiple versions, either:</p>
+<ol>
+<li>Create sequential delta packages (v1.4.0 → v1.4.1 → v1.5.0)</li>
+<li>Use a full package for the final version</li>
+</ol>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <h3 id="common-issues">Common Issues</h3>
-<p><strong>"Execution policy does not allow this script"</strong></p>
-<ul>
-<li>Solution: Install certificate using standard PowerShell cmdlets (<code>Import-PfxCertificate</code>, <code>Import-Certificate</code>)</li>
-<li>Alternative: Set execution policy to <code>RemoteSigned</code></li>
-</ul>
-<p><strong>"Certificate not found for signing"</strong></p>
-<ul>
-<li>Solution: Verify certificate is in <code>LocalMachine\My</code> store (requires administrator privileges)</li>
-<li>Check thumbprint matches signing command</li>
-</ul>
-<p><strong>"Signtool not found"</strong></p>
-<ul>
-<li>Solution: Install Windows SDK or Visual Studio Build Tools</li>
-<li>Alternative: Use Windows ADK</li>
-</ul>
-<h3 id="debug-signing-issues">Debug Signing Issues</h3>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c"># List available certificates (requires administrator privileges)</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nb">Get-ChildItem</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">My</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="p">{</span> <span class="nv">$_</span><span class="p">.</span><span class="n">KeyUsage</span> <span class="o">-band</span> <span class="no">[System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]</span><span class="p">::</span><span class="n">DigitalSignature</span> <span class="p">}</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c"># Test certificate</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="nv">$cert</span> <span class="p">=</span> <span class="nb">Get-ChildItem</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">My</span><span class="p">\</span><span class="n">THUMBPRINT</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="nb">Test-Certificate</span> <span class="n">-Cert</span> <span class="nv">$cert</span> <span class="n">-Policy</span> <span class="n">SSL</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="c"># Validate script signature</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="nv">$sig</span> <span class="p">=</span> <span class="nb">Get-AuthenticodeSignature</span> <span class="n">-FilePath</span> <span class="s2">&quot;script.ps1&quot;</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="nv">$sig</span> <span class="p">|</span> <span class="nb">Format-List</span> <span class="p">*</span>
+<h4 id="version-mismatch-error">Version Mismatch Error</h4>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Error: Source version mismatch. Expected 1.4.0, found 1.3.0
 </code></pre></div>
-<h2 id="best-practices">Best Practices</h2>
-<h3 id="development">Development</h3>
-<ul>
-<li>Use self-signed certificates for local development</li>
-<li>Include certificate import in setup scripts</li>
-<li>Test with <code>AllSigned</code> execution policy</li>
-</ul>
-<h3 id="production">Production</h3>
-<ul>
-<li>Use commercial or enterprise <abbr title="Certificate Authority">CA</abbr> certificates</li>
-<li>Implement certificate rotation procedures</li>
-<li>Monitor certificate expiration dates</li>
-<li>Use HSM for private key protection</li>
-</ul>
-<h3 id="distribution">Distribution</h3>
-<ul>
-<li>Include certificates in installation packages</li>
-<li>Document certificate import procedures</li>
-<li>Provide verification instructions</li>
-<li>Maintain certificate trust chains</li>
-</ul>
-<h2 id="related-documentation">Related Documentation</h2>
-<ul>
-<li><a href="https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies">PowerShell Execution Policies</a></li>
-<li><a href="https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-authenticodesignature">Authenticode Signing</a></li>
-<li><a href="https://docs.microsoft.com/en-us/windows-hardware/drivers/dashboard/code-signing-best-practices">Code Signing Best Practices</a></li>
-</ul>
-<h2 id="development-and-testing">Development and Testing</h2>
-<h3 id="unit-testing">Unit Testing</h3>
-<p>The K2s signing module includes comprehensive unit tests that demonstrate best practices for testing PowerShell modules with external dependencies:</p>
-<p><strong>Location</strong>: <code>lib\modules\k2s\k2s.signing.module\k2s.signing.module.unit.tests.ps1</code></p>
-<p><strong>Key Features</strong>:</p>
-<ul>
-<li><strong>Zero Side Effects</strong>: Tests use mocks and don't create certificates or modify system state</li>
-<li><strong>Fast Execution</strong>: Complete test suite runs in ~1-2 seconds</li>
-<li><strong>Comprehensive Coverage</strong>: Tests all signing functions and edge cases</li>
-<li><strong>Mock Strategy</strong>: Uses module-level mocking with PSObject-based certificate mocks</li>
-</ul>
-<p><strong>Running Tests</strong>:</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c"># Run signing module unit tests</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">Invoke-Pester</span> <span class="p">.\</span><span class="n">lib</span><span class="p">\</span><span class="n">modules</span><span class="p">\</span><span class="n">k2s</span><span class="p">\</span><span class="n">k2s</span><span class="p">.</span><span class="n">signing</span><span class="p">.</span><span class="n">module</span><span class="p">\</span><span class="n">k2s</span><span class="p">.</span><span class="n">signing</span><span class="p">.</span><span class="n">module</span><span class="p">.</span><span class="n">unit</span><span class="p">.</span><span class="n">tests</span><span class="p">.</span><span class="n">ps1</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c"># Run with detailed output</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nb">Invoke-Pester</span> <span class="n">-Output</span> <span class="n">Detailed</span> <span class="p">.\</span><span class="n">lib</span><span class="p">\</span><span class="n">modules</span><span class="p">\</span><span class="n">k2s</span><span class="p">\</span><span class="n">k2s</span><span class="p">.</span><span class="n">signing</span><span class="p">.</span><span class="n">module</span><span class="p">\</span><span class="n">k2s</span><span class="p">.</span><span class="n">signing</span><span class="p">.</span><span class="n">module</span><span class="p">.</span><span class="n">unit</span><span class="p">.</span><span class="n">tests</span><span class="p">.</span><span class="n">ps1</span>
+<p><strong>Solution</strong>: Ensure your current installation matches the delta's source version, or use <code>-Force</code> (with caution).</p>
+<h4 id="missing-files-after-apply">Missing Files After Apply</h4>
+<p>Check the delta manifest to verify which files were expected:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">Get-Content</span> <span class="n">delta-manifest</span><span class="p">.</span><span class="n">json</span> <span class="p">|</span> <span class="nb">ConvertFrom-Json</span> <span class="p">|</span> <span class="nb">Select-Object</span> <span class="n">-ExpandProperty</span> <span class="n">filesAdded</span>
 </code></pre></div>
-<p>The unit tests serve as both validation and documentation of proper mocking techniques for external dependencies like certificate operations, file system access, and external tool execution.</p>
-<p>For detailed information about PowerShell module unit testing best practices, see <a href="../../dev-guide/contributing/automated-testing/#automated-testing-with-pester">Automated Testing with Pester</a>.</p>
+<h4 id="debian-delta-failures">Debian Delta Failures</h4>
+<p>If Linux package updates fail:</p>
+<ol>
+<li>Check network connectivity in the <abbr title="Virtual Machine">VM</abbr></li>
+<li>Verify the <code>.deb</code> files exist in <code>debian-delta/packages/</code></li>
+<li>Run verification script to identify missing packages</li>
+</ol>
+<h3 id="logs">Logs</h3>
+<p>Delta package creation logs are written to:</p>
+<ul>
+<li>Console output (with <code>-o</code> or <code>--output</code> flag)</li>
+<li>K2s log directory: <code>C:\var\log\k2s\</code></li>
+</ul>
+<p>For more detailed logging, use the verbosity flag:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s system package --delta-package ... -o -v debug</span>
+</code></pre></div></p>
+<h2 id="integration-with-cicd">Integration with <abbr title="Continuous Integration">CI</abbr>/<abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr></h2>
+<h3 id="automated-delta-generation">Automated Delta Generation</h3>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Example GitHub Actions workflow snippet</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Generate Delta Package</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="no">k2s system package --delta-package `</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">      </span><span class="no">-d ${{ env.OUTPUT_DIR }} `</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">      </span><span class="no">-n &quot;k2s-delta-${{ env.PREV_VERSION }}-to-${{ env.NEW_VERSION }}.zip&quot; `</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="no">--package-version-from &quot;${{ env.PREV_PACKAGE }}&quot; `</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="no">--package-version-to &quot;${{ env.NEW_PACKAGE }}&quot; `</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="no">-o</span>
+</code></pre></div>
+<h3 id="artifact-publishing">Artifact Publishing</h3>
+<p>Delta packages can be published alongside full releases:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>releases/
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>├── k2s-v1.5.0.zip                    # Full package
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>├── k2s-delta-v1.4.0-to-v1.5.0.zip   # Delta from previous minor
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>└── k2s-delta-v1.4.1-to-v1.5.0.zip   # Delta from previous patch
+</code></pre></div>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="../creating-offline-package/">Creating Offline Package</a> - Full offline package creation</li>
+<li><a href="../upgrading-k2s/">Upgrading K2s</a> - Standard upgrade procedures</li>
+<li><a href="../signcatalog-k2s/">Sign K2s Package</a> - Code signing for packages</li>
+</ul>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -2752,6 +2996,44 @@ SPDX-License-Identifier: MIT
       
         <footer class="md-footer">
   
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../creating-offline-package/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Creating Offline Package">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Creating Offline Package
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../installing-k2s/" class="md-footer__link md-footer__link--next" aria-label="Next: Installing K2s">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Installing K2s
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
     
   
   <div class="md-footer-meta md-typeset">

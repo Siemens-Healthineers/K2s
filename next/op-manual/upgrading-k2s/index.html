@@ -26,7 +26,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
@@ -34,7 +34,7 @@ SPDX-License-Identifier: MIT
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.618322db.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -809,6 +809,8 @@ You're not viewing the latest release version.
       
         
       
+        
+      
     
     
     
@@ -926,6 +928,34 @@ You're not viewing the latest release version.
     
   
     Creating Offline Package
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../delta-packages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delta Packages
   
 
     
@@ -1239,6 +1269,45 @@ You're not viewing the latest release version.
     <span class="md-ellipsis">
       
         After Upgrade
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#delta-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delta Updates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Delta Updates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-delta-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use Delta Updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applying-a-delta-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Applying a Delta Package
       
     </span>
   </a>
@@ -2204,6 +2273,45 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#delta-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delta Updates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Delta Updates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-delta-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Use Delta Updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applying-a-delta-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Applying a Delta Package
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2330,6 +2438,21 @@ Check addon status:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons status</span>
 </code></pre></div>
 If any workload fails readiness, inspect its namespace events and logs before proceeding with further changes.</p>
+<h2 id="delta-updates">Delta Updates</h2>
+<p>For bandwidth-constrained environments or large-scale deployments, <em>K2s</em> supports delta packages that contain only the files changed between two specific versions.</p>
+<h3 id="when-to-use-delta-updates">When to Use Delta Updates</h3>
+<ul>
+<li>Upgrading between adjacent minor versions (e.g., 1.4.x → 1.5.x)</li>
+<li>Applying patch releases (e.g., 1.4.0 → 1.4.1)</li>
+<li>Environments with limited bandwidth or storage</li>
+</ul>
+<h3 id="applying-a-delta-package">Applying a Delta Package</h3>
+<ol>
+<li>Verify your current version matches the delta's source version</li>
+<li>Extract and run the delta's <code>Apply-Delta.ps1</code> script</li>
+<li>Validate the cluster as described above</li>
+</ol>
+<p>For complete documentation on creating and applying delta packages, see <a href="../delta-packages/">Delta Packages</a>.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -2435,10 +2558,10 @@ SPDX-License-Identifier: MIT
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
