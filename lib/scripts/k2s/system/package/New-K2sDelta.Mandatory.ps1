@@ -137,6 +137,16 @@ function Ensure-MandatoryFiles {
 
     if ($k2sResult.Warning) { $result.Warnings += $k2sResult.Warning }
 
+    # Ensure VERSION file (critical for version tracking after upgrade)
+    $versionResult = Ensure-MandatoryFile -RelativePath 'VERSION' `
+        -NewExtract $Context.NewExtract `
+        -StageDir $Context.StageDir `
+        -Label 'VERSION file' `
+        -Added ([ref]$Context.Added) `
+        -Changed ([ref]$Context.Changed)
+
+    if ($versionResult.Warning) { $result.Warnings += $versionResult.Warning }
+
     # Ensure update module
     $updateModuleRelPath = 'lib/modules/k2s/k2s.cluster.module/update/update.module.psm1'
     $updateResult = Ensure-MandatoryFile -RelativePath $updateModuleRelPath `
