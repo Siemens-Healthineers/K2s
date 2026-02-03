@@ -87,14 +87,35 @@ func (k2s *K2s) VerifyImageIsAvailableInLocalRegistry(ctx context.Context, name 
 func (k2s *K2s) GetNonK8sImagesFromNodes(ctx context.Context) (images []string) {
 	imagesFromLinuxNode := k2s.getImagesFromLinuxNode()
 	imagesFromWindowsNode := k2s.getImagesFromWindowsNode(ctx)
-	k8sImages := k2s.getK8sImages()
+	k8sImageRepos := k2s.getK8sImageRepositories()
 
 	for _, image := range append(imagesFromLinuxNode, imagesFromWindowsNode...) {
-		if !slices.Contains(k8sImages, image) {
+		imageRepo := extractImageRepository(image)
+		if !slices.Contains(k8sImageRepos, imageRepo) {
 			images = append(images, image)
 		}
 	}
 	return
+}
+
+// extractImageRepository extracts the repository part from an image reference.
+// It handles both tag format (repo:tag) and digest format (repo@sha256:...).
+func extractImageRepository(image string) string {
+	// First check for digest format (contains @)
+	if idx := strings.Index(image, "@"); idx != -1 {
+		return image[:idx]
+	}
+	// Then check for tag format (contains :)
+	// But be careful with registry ports like "localhost:5000/image:tag"
+	// Find the last colon after the last slash
+	lastSlash := strings.LastIndex(image, "/")
+	if lastSlash == -1 {
+		lastSlash = 0
+	}
+	if idx := strings.LastIndex(image[lastSlash:], ":"); idx != -1 {
+		return image[:lastSlash+idx]
+	}
+	return image
 }
 
 func (k2s *K2s) getK8sImages() (images []string) {
@@ -105,6 +126,18 @@ func (k2s *K2s) getK8sImages() (images []string) {
 
 	for _, imageConfig := range *config {
 		images = append(images, fmt.Sprintf("%s:%s", imageConfig.Repository, imageConfig.Tag))
+	}
+	return
+}
+
+func (k2s *K2s) getK8sImageRepositories() (repos []string) {
+	configFilePath := filepath.Join(k2s.suite.SetupInfo().Config.Host().K2sSetupConfigDir(), k8sImagesConfigFileName)
+
+	config, err := k2s_json.FromFile[[]k8sImageConfig](configFilePath)
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, imageConfig := range *config {
+		repos = append(repos, imageConfig.Repository)
 	}
 	return
 }
