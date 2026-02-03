@@ -576,6 +576,11 @@ function Invoke-CommandInMasterVM {
 
 		# Copy only the script (avoid large recursive transfers unless needed)
 		Copy-ToControlPlaneViaSSHKey -Source $ScriptPath -Target $remoteBase -IgnoreErrors:$false
+		
+		# Convert Windows CRLF line endings to Unix LF (scripts may have been corrupted by Windows zip extraction)
+		# This prevents "bash\r: No such file or directory" errors
+		(Invoke-CmdOnControlPlaneViaSSHKey "sed -i 's/\r$//' $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$true).Output | Out-Null
+		
 		# If ancillary assets exist (packages/, etc.) we copy directory selectively
 		$packagesDir = Join-Path $WorkingDirectory 'packages'
 		if (Test-Path -LiteralPath $packagesDir) {
