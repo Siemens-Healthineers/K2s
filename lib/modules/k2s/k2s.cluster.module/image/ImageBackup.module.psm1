@@ -232,9 +232,19 @@ function Invoke-K2sImageCommand {
     
     Write-Log "Executing k2s command for image: $ImageName"
     $result = & $CommandExecutor $K2sExecutable $Arguments
-    
     if ($LASTEXITCODE -ne 0) {
-        throw "Command failed with exit code $LASTEXITCODE : $result"
+        # Filter out progress/status lines that aren't actual errors
+        $realErrors = $output | Where-Object {
+            $_ -is [System.Management.Automation.ErrorRecord] -and
+                    $_.ToString() -notmatch 'exists\s+\|' -and
+                    $_.ToString() -notmatch 'resolved\s+\|' -and
+                    $_.ToString() -notmatch '\+{10,}' -and
+                    $_.ToString() -notmatch 'done\s+\|'
+        }
+
+        if ($realErrors.Count -gt 0) {
+            throw "Command failed with exit code $LASTEXITCODE : $result"
+        }
     }
     
     # Verify expected file if specified

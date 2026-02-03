@@ -18,7 +18,7 @@ const (
 	backupFileFlag = "file"
 	skipImagesFlag = "skip-images"
 	skipPVsFlag    = "skip-pvs"
-	defaultBackupDir = "C:\\ProgramData\\k2s\\backups"
+	defaultBackupDir = "C:\\Temp\\k2s\\backups"
 )
 
 
@@ -35,7 +35,7 @@ func init() {
 		backupFileFlag,
 		"f",
 		"",
-		"Backup file to create (zip). If omitted, a default file in C://ProgramData/k2s/backups is generated",
+		"Backup file to create (zip). If omitted, a default file in C://Temp/k2s/backups is generated",
 	)
 
 	SystemBackupCmd.Flags().String(

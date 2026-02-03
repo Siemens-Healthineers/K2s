@@ -165,7 +165,7 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]
 
     # Final pass: remove any remaining <none> tagged images
     $linuxContainerImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
-    Write-Log "[LinuxNode] After deduplication and <none> removal: $($linuxContainerImages.Count) unique images" -Console
+    #Write-Log "[LinuxNode] After deduplication and <none> removal: $($linuxContainerImages.Count) unique images"
 
     return $linuxContainerImages
 }
@@ -242,7 +242,7 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
 
         # Final pass: remove any remaining <none> tagged images
         $windowsContainerImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
-        Write-Log "[WindowsNode] After deduplication and <none> removal: $($windowsContainerImages.Count) unique images" -Console
+      #  Write-Log "[WindowsNode] After deduplication and <none> removal: $($windowsContainerImages.Count) unique images"
     }
     return $windowsContainerImages
 }
