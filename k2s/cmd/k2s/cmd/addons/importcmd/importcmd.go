@@ -24,11 +24,11 @@ import (
 )
 
 var importCommandExample = `
-  # Import addon "registry" and "ingress nginx"  from an exported tar archive
-  k2s addons import registry "ingress nginx" -z C:\tmp\addons.zip
+  # Import addon "registry" and "ingress nginx"  from an exported OCI artifact
+  k2s addons import registry "ingress nginx" -z C:\tmp\addons.oci.tar
 
-  # Import all addons from an exported tar archive
-  k2s addons import -z C:\tmp\addons.zip
+  # Import all addons from an exported OCI artifact
+  k2s addons import -z C:\tmp\addons.oci.tar
 `
 
 const (
@@ -39,12 +39,12 @@ const (
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "import ADDON",
-		Short:   "Import an addon from a zip file",
+		Short:   "Import an addon from an OCI artifact",
 		Example: importCommandExample,
 		RunE:    runImport,
 	}
 
-	cmd.Flags().StringP(zipLabel, "z", defaultZip, "zip archive of exported addon")
+	cmd.Flags().StringP(zipLabel, "z", defaultZip, "OCI artifact tar file of exported addon")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -115,10 +115,10 @@ func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []st
 		return "", nil, fmt.Errorf("unable to parse flag: %s", zipLabel)
 	}
 	if imagePath == "" {
-		return "", nil, errors.New("no path to tar archive provided")
+		return "", nil, errors.New("no path to OCI artifact provided")
 	}
 
-	params = append(params, " -Zipfile "+utils.EscapeWithSingleQuotes(imagePath))
+	params = append(params, " -ArtifactFile "+utils.EscapeWithSingleQuotes(imagePath))
 
 	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
