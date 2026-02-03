@@ -94,6 +94,8 @@ func (k2s *K2s) GetNonK8sImagesFromNodes(ctx context.Context) (images []string) 
 			images = append(images, image)
 		}
 	}
+	return
+}
 
 func (k2s *K2s) getK8sImages() (images []string) {
 	configFilePath := filepath.Join(k2s.suite.SetupInfo().Config.Host().K2sSetupConfigDir(), k8sImagesConfigFileName)
