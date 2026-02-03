@@ -472,6 +472,9 @@ function Backup-K2sImages {
     }
     
     try {
+        # Keep all images - don't deduplicate
+        # Each node's version will be backed up separately with node-specific filename
+
         # Create backup directory structure
         New-BackupDirectoryStructure -BackupDirectory $BackupDirectory -CreateImagesSubdir
         
@@ -498,19 +501,23 @@ function Backup-K2sImages {
                 # Generate safe filename for tar archive
                 $safeFileName = "$($image.repository -replace '[/\\:*?"<>|]', '_')-$($image.tag -replace '[/\\:*?"<>|]', '_')"
                 $tarPath = Join-Path $imagesDir "$safeFileName.tar"
-                
-                # Export image using k2s image export by name:tag (not by ID to handle multiple tags for same image)
+
+                # Export image using k2s image export by name:tag
                 $exportArgs = @("image", "export", "-n", "$($image.repository):$($image.tag)", "-t", $tarPath)
-                
+
                 Invoke-K2sImageCommand -K2sExecutable $k2sExe -Arguments $exportArgs -ImageName "$($image.repository):$($image.tag)" -ExpectedFile $tarPath
-                
+
+                # Store relative path (images/images/filename.tar) instead of absolute path
+                # This ensures the path works after ZIP extraction
+                $relativeTarPath = "images\images\$safeFileName.tar"
+
                 $imageBackupInfo = @{
                     ImageId = $image.imageid
                     Repository = $image.repository
                     Tag = $image.tag
                     Node = $image.node
                     Size = $image.size
-                    TarFile = $tarPath
+                    TarFile = $relativeTarPath
                     BackupTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
                 }
                 $backupManifest.Images += $imageBackupInfo
@@ -532,6 +539,7 @@ function Backup-K2sImages {
         $manifestPath = Join-Path $BackupDirectory "manifest.json"
         $backupManifest | ConvertTo-Json -Depth 10 | Out-File -FilePath $manifestPath -Encoding UTF8
         
+
         # Create backup log in C:\var\log
         $logDirectory = "C:\var\log"
         if (-not (Test-Path $logDirectory)) {
@@ -627,8 +635,11 @@ function Restore-K2sImages {
             Write-ProcessingProgress -Current $currentImage -Total $totalImages -Action "Restoring" -Image $imageInfo
             
             try {
-                $tarPath = $imageInfo.TarFile
-                
+                # TarFile is stored as relative path (images/images/filename.tar)
+                # Convert to absolute path by going up to backup root and joining
+                $backupRoot = Split-Path -Parent $BackupDirectory  # Go up from 'images' to backup root
+                $tarPath = Join-Path $backupRoot $imageInfo.TarFile
+
                 if (-not (Test-Path $tarPath)) {
                     throw "Tar file not found: $tarPath"
                 }
@@ -636,9 +647,28 @@ function Restore-K2sImages {
                 # Import image using k2s image import
                 $importArgs = @("image", "import", "-t", $tarPath)
                 
-                # Check if this is a Windows image (add -w flag if needed)
-                if ($imageInfo.Node -and $imageInfo.Node -like "*windows*") {
+                # Check if this is a Windows image
+                # Windows images come from Windows nodes - check if Node is NOT the Linux control plane
+                $setupInfo = Get-SetupInfo
+                $isWindowsImage = $false
+
+                if ($imageInfo.Node) {
+                    # If node name is NOT 'kubemaster' (Linux control plane), it's a Windows node
+                    if ($imageInfo.Node -ne "kubemaster") {
+                        $isWindowsImage = $true
+                    }
+                    # Also check common Windows node indicators as fallback
+                    elseif ($imageInfo.Node -like "*windows*" -or $imageInfo.Node -like "*win-*") {
+                        $isWindowsImage = $true
+                    }
+                }
+
+                if ($isWindowsImage) {
                     $importArgs += "-w"
+                    Write-Log "Importing Windows image from node: $($imageInfo.Node)"
+                }
+                else {
+                    Write-Log "Importing Linux image from node: $($imageInfo.Node)"
                 }
                 
                 Invoke-K2sImageCommand -K2sExecutable $k2sExe -Arguments $importArgs -ImageName "$($imageInfo.Repository):$($imageInfo.Tag)"
