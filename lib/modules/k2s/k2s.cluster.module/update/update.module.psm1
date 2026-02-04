@@ -415,6 +415,38 @@ Current directory: $deltaRoot
 		Write-Log '[Update] No files to remove' -Console:$consoleSwitch
 	}
 
+	# 6c. Clean deprecated kubelet flags from Windows kubeadm-flags.env
+	# The --pod-infra-container-image flag was deprecated in K8s 1.27 and removed in 1.34
+	# This matches the Linux fix in apply-debian-delta.sh
+	_phase 'CleanKubeletFlags'
+	$kubeletFlagsFile = "$($env:SystemDrive)\var\lib\kubelet\kubeadm-flags.env"
+	if (Test-Path -LiteralPath $kubeletFlagsFile) {
+		Write-Log "[Update] Cleaning deprecated kubelet flags from $kubeletFlagsFile" -Console:$consoleSwitch
+		try {
+			$content = Get-Content -LiteralPath $kubeletFlagsFile -Raw
+			$originalContent = $content
+			
+			# Remove --pod-infra-container-image flag (deprecated in 1.27, removed in 1.34)
+			$content = $content -replace '--pod-infra-container-image=[^\s"]*\s*', ''
+			
+			# Clean up any double spaces left behind
+			$content = $content -replace '\s+', ' '
+			$content = $content -replace '"\s+"', '""'
+			
+			if ($content -ne $originalContent) {
+				Set-Content -LiteralPath $kubeletFlagsFile -Value $content.Trim() -NoNewline
+				Write-Log "[Update] Removed deprecated --pod-infra-container-image flag" -Console:$consoleSwitch
+				Write-Log "[Update] Kubelet flags after cleanup: $($content.Trim())" -Console:$consoleSwitch
+			} else {
+				Write-Log "[Update] No deprecated kubelet flags to remove" -Console:$consoleSwitch
+			}
+		} catch {
+			Write-Log ("[Update][Warn] Failed to clean kubelet flags: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		}
+	} else {
+		Write-Log "[Update] Kubelet flags file not found at $kubeletFlagsFile (may be normal for some setups)" -Console:$consoleSwitch
+	}
+
 	# 7. Restart cluster if it was running before
 	_phase 'RestartCluster'
 	if ($wasRunning) {
