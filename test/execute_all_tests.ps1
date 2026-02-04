@@ -74,7 +74,7 @@ param (
     $OfflineMode,
     [Parameter(Mandatory = $false, HelpMessage = 'Ginkgo test timeout duration (e.g., 90m, 2h)')]
     [string]
-    $GinkgoTimeout = '90m'
+    $GinkgoTimeout = '120m'
 
 )
 

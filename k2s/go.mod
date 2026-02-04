@@ -12,7 +12,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v1.3.0
-	github.com/elazarl/goproxy v1.8.0
+	github.com/elazarl/goproxy v1.8.1
 	github.com/failsafe-go/failsafe-go v0.9.5
 	github.com/gentlemanautomaton/windevice v0.0.0-20250112023717-77498d8a77fe
 	github.com/gin-gonic/gin v1.11.0
@@ -27,7 +27,7 @@ require (
 	github.com/pkg/sftp v1.13.10
 	github.com/pterm/pterm v0.12.82
 	github.com/samber/lo v1.52.0
-	github.com/samber/slog-multi v1.7.0
+	github.com/samber/slog-multi v1.7.1
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/spf13/cobra v1.10.2
@@ -111,7 +111,7 @@ require (
 	github.com/quic-go/quic-go v0.57.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
-	github.com/samber/slog-common v0.19.0 // indirect
+	github.com/samber/slog-common v0.20.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
