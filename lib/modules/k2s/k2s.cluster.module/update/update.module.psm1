@@ -661,6 +661,29 @@ function Invoke-CommandInMasterVM {
 			Write-Log '[DebPkg][VM] Copying packages/ directory' -Console:$consoleSwitch
 			Copy-ToControlPlaneViaSSHKey -Source $packagesDir -Target $remoteBase -IgnoreErrors:$false
 		}
+		
+		# Copy Linux container images for air-gapped kubeadm upgrade
+		# Images are required by kubeadm upgrade apply to pull control plane components
+		# Check both delta root level and image-delta subdirectory for Linux images
+		$deltaRoot = Split-Path -Parent $WorkingDirectory
+		$imagesDirs = @(
+			(Join-Path $deltaRoot 'image-delta/linux/images'),
+			(Join-Path $deltaRoot 'images')
+		)
+		$imagesCopied = $false
+		foreach ($imagesDir in $imagesDirs) {
+			if ((Test-Path -LiteralPath $imagesDir) -and -not $imagesCopied) {
+				$tarFiles = Get-ChildItem -LiteralPath $imagesDir -Filter '*.tar' -File -ErrorAction SilentlyContinue
+				if ($tarFiles.Count -gt 0) {
+					Write-Log "[DebPkg][VM] Copying $($tarFiles.Count) container images for offline kubeadm upgrade" -Console:$consoleSwitch
+					(Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $remoteBase/images" -Retries $RetryCount -Timeout 2).Output | Out-Null
+					Copy-ToControlPlaneViaSSHKey -Source $imagesDir -Target $remoteBase -IgnoreErrors:$false
+					$imagesCopied = $true
+					Write-Log '[DebPkg][VM] Container images copied successfully' -Console:$consoleSwitch
+				}
+			}
+		}
+		
 		# Make executable
 		(Invoke-CmdOnControlPlaneViaSSHKey "sudo chmod +x $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$false).Output | Out-Null
 	} catch {

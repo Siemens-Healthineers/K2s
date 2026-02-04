@@ -87,18 +87,71 @@ KUBE_VERSION=$(kubelet --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'
 if [[ -n "$KUBE_VERSION" ]]; then
     echo "[debian-delta] Detected Kubernetes version: v${KUBE_VERSION}"
     
+    # Load container images for air-gapped kubeadm upgrade
+    # kubeadm upgrade apply requires control plane images (kube-apiserver, kube-controller-manager, etc.)
+    # These images are pre-bundled in the delta package and copied to the VM
+    IMAGES_DIR="$SCRIPT_DIR/images"
+    if [[ -d "$IMAGES_DIR" ]]; then
+        shopt -s nullglob
+        TARFILES=("$IMAGES_DIR"/*.tar)
+        if [[ ${#TARFILES[@]} -gt 0 ]]; then
+            echo "[debian-delta] Loading ${#TARFILES[@]} container images for offline upgrade"
+            for tarfile in "${TARFILES[@]}"; do
+                echo "[debian-delta] Importing image: $(basename "$tarfile")"
+                # Use buildah to import OCI archive (matches K2s Linux image format)
+                if ! buildah pull oci-archive:"$tarfile" 2>&1; then
+                    echo "[debian-delta][warn] Failed to import image: $(basename "$tarfile")"
+                fi
+            done
+            echo "[debian-delta] Container images loaded successfully"
+        fi
+    fi
+    
     # Reload systemd to pick up any changes to kubelet.service
     systemctl daemon-reload
+    
+    # Verify control plane images are available before upgrade (informational)
+    # This helps diagnose air-gapped environment issues
+    echo "[debian-delta] Verifying required control plane images..."
+    MISSING_IMAGES=0
+    for img in kube-apiserver kube-controller-manager kube-scheduler kube-proxy; do
+        if ! crictl images 2>/dev/null | grep -q "registry.k8s.io/${img}.*v${KUBE_VERSION}"; then
+            echo "[debian-delta][warn] Control plane image may be missing: registry.k8s.io/${img}:v${KUBE_VERSION}"
+            MISSING_IMAGES=$((MISSING_IMAGES + 1))
+        fi
+    done
+    # Check pause image (version may vary)
+    if ! crictl images 2>/dev/null | grep -q "registry.k8s.io/pause"; then
+        echo "[debian-delta][warn] Pause image may be missing: registry.k8s.io/pause"
+        MISSING_IMAGES=$((MISSING_IMAGES + 1))
+    fi
+    if [[ $MISSING_IMAGES -eq 0 ]]; then
+        echo "[debian-delta] All required control plane images verified"
+    else
+        echo "[debian-delta][warn] $MISSING_IMAGES control plane image(s) may be missing - kubeadm will attempt to proceed"
+    fi
     
     # Run kubeadm upgrade apply with appropriate flags
     # --yes: auto-approve the upgrade
     # --certificate-renewal=false: preserve existing certificates
     # --etcd-upgrade=false: do not upgrade etcd (already handled by package)
-    # --ignore-preflight-errors: skip CoreDNS plugin migration warnings (etcd plugin is custom config)
-    if kubeadm upgrade apply "v${KUBE_VERSION}" --yes --certificate-renewal=false --etcd-upgrade=false --ignore-preflight-errors=CoreDNSUnsupportedPlugins 2>&1; then
+    # --ignore-preflight-errors: skip CoreDNS plugin migration warnings and image pull attempts (air-gapped)
+    if kubeadm upgrade apply "v${KUBE_VERSION}" --yes --certificate-renewal=false --etcd-upgrade=false --ignore-preflight-errors=CoreDNSUnsupportedPlugins,ImagePull 2>&1; then
         echo "[debian-delta] kubeadm upgrade completed successfully"
+        
+        # Cleanup imported image archives to free disk space
+        if [[ -d "$IMAGES_DIR" ]]; then
+            echo "[debian-delta] Cleaning up imported image archives"
+            rm -rf "$IMAGES_DIR"
+        fi
     else
         echo "[debian-delta][warn] kubeadm upgrade encountered issues, attempting fallback cleanup"
+        
+        # Cleanup imported image archives even on failure
+        if [[ -d "$IMAGES_DIR" ]]; then
+            echo "[debian-delta] Cleaning up imported image archives"
+            rm -rf "$IMAGES_DIR"
+        fi
         
         # Fallback: Clean deprecated kubelet flags manually
         KUBEADM_FLAGS_FILE="/var/lib/kubelet/kubeadm-flags.env"
