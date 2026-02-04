@@ -6,8 +6,8 @@ package addons
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,13 +19,11 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
-	sos "github.com/siemens-healthineers/k2s/test/framework/os"
 
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 )
 
 // This test file focuses on cross-addon integration tests for "export all addons" functionality.
@@ -140,171 +138,283 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			Expect(os.IsNotExist(err)).To(BeFalse(), "Exported OCI file should exist at %s", exportedOciFile)
 		})
 
-		It("contains a folder for every exported addon with OCI layered structure", func(ctx context.Context) {
+		It("contains proper OCI structure with all addons referenced in index.json", func(ctx context.Context) {
 			suite.Cli("tar").MustExec(ctx, "-xf", exportedOciFile, "-C", exportPath)
 
-			_, err := os.Stat(filepath.Join(exportPath, "artifacts"))
-			Expect(os.IsNotExist(err)).To(BeFalse())
+			artifactsPath := filepath.Join(exportPath, "artifacts")
+			_, err := os.Stat(artifactsPath)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "artifacts directory should exist")
 
-			_, err = os.Stat(filepath.Join(exportPath, "artifacts", "addons.json"))
-			Expect(os.IsNotExist(err)).To(BeFalse(), "addons.json metadata file should exist")
+			// Verify OCI layout file
+			ociLayoutPath := filepath.Join(artifactsPath, "oci-layout")
+			_, err = os.Stat(ociLayoutPath)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "oci-layout file should exist")
 
-			_, err = os.Stat(filepath.Join(exportPath, "artifacts", "index.json"))
+			// Verify blobs directory
+			blobsPath := filepath.Join(artifactsPath, "blobs", "sha256")
+			_, err = os.Stat(blobsPath)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "blobs/sha256 directory should exist")
+
+			// Read and parse index.json
+			indexPath := filepath.Join(artifactsPath, "index.json")
+			_, err = os.Stat(indexPath)
 			Expect(os.IsNotExist(err)).To(BeFalse(), "index.json OCI index file should exist")
-			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "artifacts"))
-			Expect(err).To(BeNil())
 
-			exportedAddonsDir = lo.Filter(exportedAddonsDir, func(x fs.DirEntry, index int) bool {
-				return x.IsDir() && x.Name() != "hooks"
-			})
+			indexData, err := os.ReadFile(indexPath)
+			Expect(err).To(BeNil(), "should be able to read index.json")
 
-			exportedAddons := lo.Map(exportedAddonsDir, func(x fs.DirEntry, index int) string {
-				return x.Name()
-			})
+			var ociIndex struct {
+				SchemaVersion int    `json:"schemaVersion"`
+				MediaType     string `json:"mediaType"`
+				Manifests     []struct {
+					MediaType    string `json:"mediaType"`
+					Size         int64  `json:"size"`
+					Digest       string `json:"digest"`
+					ArtifactType string `json:"artifactType"`
+					Annotations  struct {
+						AddonName           string `json:"vnd.k2s.addon.name"`
+						AddonImplementation string `json:"vnd.k2s.addon.implementation"`
+						AddonVersion        string `json:"vnd.k2s.addon.version"`
+					} `json:"annotations"`
+				} `json:"manifests"`
+			}
+			err = json.Unmarshal(indexData, &ociIndex)
+			Expect(err).To(BeNil(), "should be able to parse index.json")
 
-			GinkgoWriter.Println("Exported addons:", exportedAddons)
+			Expect(ociIndex.SchemaVersion).To(Equal(2), "OCI index schema version should be 2")
+			Expect(ociIndex.MediaType).To(Equal("application/vnd.oci.image.index.v1+json"), "OCI index media type should be correct")
 
+			GinkgoWriter.Printf("Found %d addon manifests in OCI index\n", len(ociIndex.Manifests))
+
+			// Verify each addon is present in index
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					var expectedDirName string
+					var expectedName string
 					if i.Name != a.Metadata.Name {
-						expectedDirName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
 					} else {
-						expectedDirName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
 					}
 
-					GinkgoWriter.Println("Checking addon:", a.Metadata.Name, ", implementation:", i.Name, ", expected directory name:", expectedDirName)
+					GinkgoWriter.Printf("Verifying addon: %s (implementation: %s) -> expected name: %s\n",
+						a.Metadata.Name, i.Name, expectedName)
 
-					contains := slices.Contains(exportedAddons, expectedDirName)
-					Expect(contains).To(BeTrue(), "Expected directory %s not found in exported addons", expectedDirName)
+					found := false
+					for _, manifest := range ociIndex.Manifests {
+						if manifest.Annotations.AddonName == expectedName {
+							found = true
+							GinkgoWriter.Printf("  Found in index.json: digest=%s, size=%d\n",
+								manifest.Digest, manifest.Size)
+
+							// Verify the manifest blob exists
+							digestHash := strings.TrimPrefix(manifest.Digest, "sha256:")
+							blobPath := filepath.Join(blobsPath, digestHash)
+							_, err := os.Stat(blobPath)
+							Expect(os.IsNotExist(err)).To(BeFalse(),
+								"manifest blob should exist at %s for addon %s", blobPath, expectedName)
+
+							Expect(manifest.ArtifactType).To(Equal("application/vnd.k2s.addon.v1"),
+								"artifact type should be correct for addon %s", expectedName)
+							break
+						}
+					}
+					Expect(found).To(BeTrue(), "addon %s should be referenced in index.json", expectedName)
 				}
-			}
-
-			for _, e := range exportedAddons {
-				addonsDir := filepath.Join(exportPath, "artifacts", e)
-
-				Expect(sos.IsEmptyDir(addonsDir)).To(BeFalse(), "addon directory should not be empty for addon %s", e)
-
-				// Check for OCI manifest
-				ociManifestPath := filepath.Join(addonsDir, "oci-manifest.json")
-				_, err = os.Stat(ociManifestPath)
-				Expect(os.IsNotExist(err)).To(BeFalse(), "oci-manifest.json should exist for addon %s", e)
-
-				// Check for addon.manifest.yaml (OCI config)
-				addonManifestPath := filepath.Join(addonsDir, "addon.manifest.yaml")
-				_, err = os.Stat(addonManifestPath)
-				Expect(os.IsNotExist(err)).To(BeFalse(), "addon.manifest.yaml should exist for addon %s", e)
-
-				// Check for scripts layer
-				scriptsLayerPath := filepath.Join(addonsDir, "scripts.tar.gz")
-				_, err = os.Stat(scriptsLayerPath)
-				Expect(os.IsNotExist(err)).To(BeFalse(), "scripts.tar.gz layer should exist for addon %s", e)
 			}
 		})
 
-		It("all resources have been exported as OCI layers", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: all resources have been exported as OCI layers")
+		It("all resources have been exported as OCI layers in blobs", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all resources have been exported as OCI layers in blobs")
 			GinkgoWriter.Printf("[Test] Checking %d addons\n", len(allAddons))
+
+			// Read index.json to get all addon manifests
+			indexPath := filepath.Join(exportPath, "artifacts", "index.json")
+			indexData, err := os.ReadFile(indexPath)
+			Expect(err).To(BeNil(), "should be able to read index.json")
+
+			var ociIndex struct {
+				Manifests []struct {
+					Digest      string `json:"digest"`
+					Annotations struct {
+						AddonName           string `json:"vnd.k2s.addon.name"`
+						AddonImplementation string `json:"vnd.k2s.addon.implementation"`
+					} `json:"annotations"`
+				} `json:"manifests"`
+			}
+			err = json.Unmarshal(indexData, &ociIndex)
+			Expect(err).To(BeNil(), "should be able to parse index.json")
+
+			blobsPath := filepath.Join(exportPath, "artifacts", "blobs", "sha256")
 
 			for addonIdx, a := range allAddons {
 				for implIdx, i := range a.Spec.Implementations {
-					var expectedDirName string
+					var expectedName string
 					if i.Name != a.Metadata.Name {
-						expectedDirName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
 					} else {
-						expectedDirName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
 					}
 
-					GinkgoWriter.Printf("[Test] [%d.%d] Addon: %s, Implementation: %s, Expected Dir: %s\n", addonIdx, implIdx, a.Metadata.Name, i.Name, expectedDirName)
-					addonExportDir := filepath.Join(exportPath, "artifacts", expectedDirName)
+					GinkgoWriter.Printf("[Test] [%d.%d] Addon: %s, Implementation: %s, Expected Name: %s\n",
+						addonIdx, implIdx, a.Metadata.Name, i.Name, expectedName)
 
+					// Find the manifest for this addon in the index
+					var manifestDigest string
+					for _, m := range ociIndex.Manifests {
+						if m.Annotations.AddonName == expectedName {
+							manifestDigest = m.Digest
+							break
+						}
+					}
+					Expect(manifestDigest).NotTo(BeEmpty(), "should find manifest for addon %s in index", expectedName)
+
+					// Read the OCI manifest from blobs
+					digestHash := strings.TrimPrefix(manifestDigest, "sha256:")
+					manifestBlobPath := filepath.Join(blobsPath, digestHash)
+					manifestData, err := os.ReadFile(manifestBlobPath)
+					Expect(err).To(BeNil(), "should be able to read manifest blob for addon %s", expectedName)
+
+					var ociManifest struct {
+						SchemaVersion int    `json:"schemaVersion"`
+						MediaType     string `json:"mediaType"`
+						Config        struct {
+							Digest string `json:"digest"`
+						} `json:"config"`
+						Layers []struct {
+							MediaType string `json:"mediaType"`
+							Digest    string `json:"digest"`
+							Size      int64  `json:"size"`
+						} `json:"layers"`
+					}
+					err = json.Unmarshal(manifestData, &ociManifest)
+					Expect(err).To(BeNil(), "should be able to parse manifest for addon %s", expectedName)
+
+					GinkgoWriter.Printf("[Test]   Manifest has %d layers\n", len(ociManifest.Layers))
+
+					// Verify config blob exists
+					configHash := strings.TrimPrefix(ociManifest.Config.Digest, "sha256:")
+					configBlobPath := filepath.Join(blobsPath, configHash)
+					_, err = os.Stat(configBlobPath)
+					Expect(os.IsNotExist(err)).To(BeFalse(), "config blob should exist for addon %s", expectedName)
+					GinkgoWriter.Printf("[Test]   Config blob exists: %s\n", ociManifest.Config.Digest)
+
+					// Verify all layer blobs exist
+					for layerIdx, layer := range ociManifest.Layers {
+						layerHash := strings.TrimPrefix(layer.Digest, "sha256:")
+						layerBlobPath := filepath.Join(blobsPath, layerHash)
+						_, err = os.Stat(layerBlobPath)
+						Expect(os.IsNotExist(err)).To(BeFalse(),
+							"layer %d blob should exist for addon %s (digest: %s)",
+							layerIdx, expectedName, layer.Digest)
+						GinkgoWriter.Printf("[Test]   Layer %d exists: %s (size: %d, type: %s)\n",
+							layerIdx, layer.Digest, layer.Size, layer.MediaType)
+					}
+
+					// Verify expected layer types based on addon configuration
 					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
 					Expect(err).ToNot(HaveOccurred())
-					GinkgoWriter.Printf("[Test]   Expected images: %d\n", len(images))
 
-					// Check for image layers (consolidated into single tar files per platform)
 					if len(images) > 0 {
-						linuxImagesLayer := filepath.Join(addonExportDir, "images-linux.tar")
-						windowsImagesLayer := filepath.Join(addonExportDir, "images-windows.tar")
-						linuxExists := false
-						windowsExists := false
-						if _, err := os.Stat(linuxImagesLayer); err == nil {
-							linuxExists = true
-							GinkgoWriter.Println("[Test]   Found images-linux.tar layer")
+						// Should have at least one image layer
+						hasImageLayer := false
+						for _, layer := range ociManifest.Layers {
+							if strings.Contains(layer.MediaType, "vnd.oci.image.layer") {
+								hasImageLayer = true
+								break
+							}
 						}
-						if _, err := os.Stat(windowsImagesLayer); err == nil {
-							windowsExists = true
-							GinkgoWriter.Println("[Test]   Found images-windows.tar layer")
-						}
-						Expect(linuxExists || windowsExists).To(BeTrue(),
-							"Expected at least one image layer (images-linux.tar or images-windows.tar) for addon %s with %d images", expectedDirName, len(images))
+						Expect(hasImageLayer).To(BeTrue(),
+							"addon %s with %d images should have image layer", expectedName, len(images))
+						GinkgoWriter.Printf("[Test]   Image layers verified (%d images expected)\n", len(images))
 					}
 
-					// Check OCI manifest exists
-					_, err = os.Stat(filepath.Join(addonExportDir, "oci-manifest.json"))
-					Expect(os.IsNotExist(err)).To(BeFalse(), "oci-manifest.json should exist for addon %s", expectedDirName)
-					GinkgoWriter.Println("[Test]   oci-manifest.json exists")
-
-					// Check for packages layer if offline_usage is defined
+					// Verify packages layer if offline_usage is defined
 					hasLinuxPackages := len(i.OfflineUsage.LinuxResources.CurlPackages) > 0 || len(i.OfflineUsage.LinuxResources.DebPackages) > 0
 					hasWindowsPackages := len(i.OfflineUsage.WindowsResources.CurlPackages) > 0
 					if hasLinuxPackages || hasWindowsPackages {
-						packagesLayer := filepath.Join(addonExportDir, "packages.tar.gz")
-						_, err = os.Stat(packagesLayer)
-						Expect(os.IsNotExist(err)).To(BeFalse(), "packages.tar.gz should exist for addon %s with offline packages", expectedDirName)
-						GinkgoWriter.Printf("[Test]   packages.tar.gz exists (Linux packages: %d, Windows packages: %d)\n",
-							len(i.OfflineUsage.LinuxResources.CurlPackages)+len(i.OfflineUsage.LinuxResources.DebPackages),
-							len(i.OfflineUsage.WindowsResources.CurlPackages))
+						hasPackageLayer := false
+						for _, layer := range ociManifest.Layers {
+							if strings.Contains(layer.MediaType, "vnd.k2s.addon.packages") {
+								hasPackageLayer = true
+								break
+							}
+						}
+						Expect(hasPackageLayer).To(BeTrue(),
+							"addon %s with offline packages should have packages layer", expectedName)
+						GinkgoWriter.Printf("[Test]   Packages layer verified\n")
 					}
 
-					GinkgoWriter.Printf("[Test]   OK: All OCI layers verified for %s\n", expectedDirName)
+					GinkgoWriter.Printf("[Test]   OK: All OCI layers verified in blobs for %s\n", expectedName)
 				}
 			}
-			GinkgoWriter.Println("[Test] All addons OCI layers verified successfully")
+			GinkgoWriter.Println("[Test] All addons OCI layers verified successfully in blobs")
 		})
 
-		It("metadata files contain correct OCI information", func(ctx context.Context) {
-			addonsJsonPath := filepath.Join(exportPath, "artifacts", "addons.json")
-			addonsJsonBytes, err := os.ReadFile(addonsJsonPath)
-			Expect(err).To(BeNil())
-			Expect(string(addonsJsonBytes)).To(ContainSubstring("k2sVersion"))
-			Expect(string(addonsJsonBytes)).To(ContainSubstring("exportType"))
-			Expect(string(addonsJsonBytes)).To(ContainSubstring("artifactFormat"))
-			Expect(string(addonsJsonBytes)).To(ContainSubstring("addons"))
-
+		It("index.json contains correct OCI structure and K2s annotations", func(ctx context.Context) {
 			indexJsonPath := filepath.Join(exportPath, "artifacts", "index.json")
 			indexJsonBytes, err := os.ReadFile(indexJsonPath)
-			Expect(err).To(BeNil())
-			Expect(string(indexJsonBytes)).To(ContainSubstring("schemaVersion"))
-			Expect(string(indexJsonBytes)).To(ContainSubstring("mediaType"))
-			Expect(string(indexJsonBytes)).To(ContainSubstring("vnd.k2s.version"))
-			Expect(string(indexJsonBytes)).To(ContainSubstring("vnd.k2s.addon.count"))
+			Expect(err).To(BeNil(), "should be able to read index.json")
+
+			indexJsonStr := string(indexJsonBytes)
+
+			// Verify OCI standard fields
+			Expect(indexJsonStr).To(ContainSubstring("schemaVersion"), "should have OCI schema version")
+			Expect(indexJsonStr).To(ContainSubstring("mediaType"), "should have OCI media type")
+			Expect(indexJsonStr).To(ContainSubstring("manifests"), "should have manifests array")
+
+			// Verify K2s-specific annotations in index
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.version"), "should have K2s version annotation")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.count"), "should have addon count annotation")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.export.type"), "should have export type annotation")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.export.date"), "should have export date annotation")
+
+			// Verify addon-specific annotations in manifests
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.name"), "should have addon name annotations")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.implementation"), "should have addon implementation annotations")
+			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.version"), "should have addon version annotations")
+
+			GinkgoWriter.Println("[Test] All OCI and K2s annotations verified in index.json")
 		})
 
-		It("oci-manifest.json files contain proper OCI structure", func(ctx context.Context) {
-			exportedAddonsDir, err := os.ReadDir(filepath.Join(exportPath, "artifacts"))
-			Expect(err).To(BeNil())
+		It("OCI manifests in blobs contain proper structure", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: OCI manifests in blobs contain proper structure")
 
-			addonDirs := []string{}
-			for _, entry := range exportedAddonsDir {
-				if entry.IsDir() {
-					addonDirs = append(addonDirs, entry.Name())
-				}
+			// Read index.json to get all addon manifests
+			indexPath := filepath.Join(exportPath, "artifacts", "index.json")
+			indexData, err := os.ReadFile(indexPath)
+			Expect(err).To(BeNil(), "should be able to read index.json")
+
+			var ociIndex struct {
+				Manifests []struct {
+					Digest      string `json:"digest"`
+					Annotations struct {
+						AddonName string `json:"vnd.k2s.addon.name"`
+					} `json:"annotations"`
+				} `json:"manifests"`
+			}
+			err = json.Unmarshal(indexData, &ociIndex)
+			Expect(err).To(BeNil(), "should be able to parse index.json")
+
+			blobsPath := filepath.Join(exportPath, "artifacts", "blobs", "sha256")
+			GinkgoWriter.Printf("[Test] Checking %d manifests in blobs\n", len(ociIndex.Manifests))
+
+			for idx, manifest := range ociIndex.Manifests {
+				digestHash := strings.TrimPrefix(manifest.Digest, "sha256:")
+				manifestBlobPath := filepath.Join(blobsPath, digestHash)
+				manifestData, err := os.ReadFile(manifestBlobPath)
+				Expect(err).To(BeNil(), "should be able to read manifest blob for addon %s", manifest.Annotations.AddonName)
+
+				manifestStr := string(manifestData)
+				Expect(manifestStr).To(ContainSubstring("schemaVersion"), "manifest should have schemaVersion")
+				Expect(manifestStr).To(ContainSubstring("mediaType"), "manifest should have mediaType")
+				Expect(manifestStr).To(ContainSubstring("layers"), "manifest should have layers")
+				Expect(manifestStr).To(ContainSubstring("config"), "manifest should have config")
+
+				GinkgoWriter.Printf("[Test] [%d] OCI manifest verified for %s (digest: %s)\n",
+					idx, manifest.Annotations.AddonName, manifest.Digest)
 			}
 
-			for _, addonDir := range addonDirs {
-				ociManifestPath := filepath.Join(exportPath, "artifacts", addonDir, "oci-manifest.json")
-				ociManifestBytes, err := os.ReadFile(ociManifestPath)
-				Expect(err).To(BeNil(), "should be able to read oci-manifest.json for addon %s", addonDir)
-
-				Expect(string(ociManifestBytes)).To(ContainSubstring("schemaVersion"))
-				Expect(string(ociManifestBytes)).To(ContainSubstring("mediaType"))
-				Expect(string(ociManifestBytes)).To(ContainSubstring("layers"))
-				Expect(string(ociManifestBytes)).To(ContainSubstring("vnd.k2s.addon.name"))
-				Expect(string(ociManifestBytes)).To(ContainSubstring("org.opencontainers.image.version"))
-
-				GinkgoWriter.Printf("OCI manifest for %s verified", addonDir)
-			}
+			GinkgoWriter.Println("[Test] All OCI manifests in blobs verified")
 		})
 	})
 

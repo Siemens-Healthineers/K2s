@@ -4,6 +4,62 @@
 # Guest configuration file diff helpers for delta packaging
 # Tracks changes to config files, systemd units, and custom binaries in Linux Kubemaster VM
 
+# Path patterns for cluster-specific guest VM files that should NEVER be overwritten during updates.
+# These files are generated during kubeadm init and contain cluster-specific certificates, keys, and configuration.
+# Overwriting them would break the running cluster.
+# Format: Linux paths with forward slashes, supports wildcard (*) matching.
+$script:GuestConfigSkippedPaths = @(
+    # Kubernetes PKI - contains all cluster certificates and keys (CA, API server, etcd, etc.)
+    '/etc/kubernetes/pki/*',
+    # Kubeconfig files - contain cluster-specific certificates and API server endpoints
+    '/etc/kubernetes/admin.conf',
+    '/etc/kubernetes/kubelet.conf',
+    '/etc/kubernetes/controller-manager.conf',
+    '/etc/kubernetes/scheduler.conf',
+    # Static pod manifests - contain cluster-specific IPs and settings
+    '/etc/kubernetes/manifests/*',
+    # Kubelet PKI and configuration
+    '/var/lib/kubelet/pki/*',
+    '/var/lib/kubelet/config.yaml',
+    # CNI network configuration - may contain cluster-specific settings
+    '/etc/cni/net.d/*'
+)
+
+<#
+.SYNOPSIS
+    Tests if a guest VM file path matches any cluster config skip pattern.
+
+.DESCRIPTION
+    Checks if the given path should be excluded from guest config diff because
+    it contains cluster-specific certificates, keys, or configuration.
+
+.PARAMETER Path
+    The file path to check (Linux format with forward slashes).
+
+.OUTPUTS
+    $true if the path matches a skip pattern, $false otherwise.
+#>
+function Test-GuestConfigSkippedPath {
+    param(
+        [string] $Path
+    )
+    
+    if (-not $script:GuestConfigSkippedPaths -or $script:GuestConfigSkippedPaths.Count -eq 0) { 
+        return $false 
+    }
+    
+    foreach ($pattern in $script:GuestConfigSkippedPaths) {
+        if ([string]::IsNullOrWhiteSpace($pattern)) { continue }
+        
+        # Use -like for wildcard matching
+        if ($Path -like $pattern) {
+            return $true
+        }
+    }
+    
+    return $false
+}
+
 <#
 .SYNOPSIS
     Gets file hashes from specific directories in a running guest VM via SSH.
@@ -499,16 +555,23 @@ function Get-GuestConfigDiff {
         
         Write-Log "[GuestConfig] New VM scan complete: $($newHashes.FileCount) files" -Console
         
-        # --- Compute differences ---
+        # --- Compute differences (excluding cluster-specific config files) ---
         $added = @()
         $changed = @()
         $removed = @()
+        $skippedCount = 0
         
         $oldHashMap = $oldHashes.Hashes
         $newHashMap = $newHashes.Hashes
         
-        # Find added and changed files
+        # Find added and changed files (excluding cluster-specific paths)
         foreach ($path in $newHashMap.Keys) {
+            # Skip cluster-specific files that should never be overwritten
+            if (Test-GuestConfigSkippedPath -Path $path) {
+                $skippedCount++
+                continue
+            }
+            
             if (-not $oldHashMap.ContainsKey($path)) {
                 $added += $path
             } elseif ($oldHashMap[$path] -ne $newHashMap[$path]) {
@@ -516,11 +579,20 @@ function Get-GuestConfigDiff {
             }
         }
         
-        # Find removed files
+        # Find removed files (excluding cluster-specific paths)
         foreach ($path in $oldHashMap.Keys) {
+            # Skip cluster-specific files
+            if (Test-GuestConfigSkippedPath -Path $path) {
+                continue
+            }
+            
             if (-not $newHashMap.ContainsKey($path)) {
                 $removed += $path
             }
+        }
+        
+        if ($skippedCount -gt 0) {
+            Write-Log "[GuestConfig] Skipped $skippedCount cluster-specific files (PKI, kubeconfig, manifests, CNI)" -Console
         }
         
         Write-Log "[GuestConfig] Diff complete: Added=$($added.Count), Changed=$($changed.Count), Removed=$($removed.Count)" -Console
