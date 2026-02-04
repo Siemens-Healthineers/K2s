@@ -95,3 +95,21 @@ Check addon status:
 k2s addons status
 ```
 If any workload fails readiness, inspect its namespace events and logs before proceeding with further changes.
+
+## Delta Updates
+
+For bandwidth-constrained environments or large-scale deployments, *K2s* supports delta packages that contain only the files changed between two specific versions.
+
+### When to Use Delta Updates
+
+- Upgrading between adjacent minor versions (e.g., 1.4.x → 1.5.x)
+- Applying patch releases (e.g., 1.4.0 → 1.4.1)
+- Environments with limited bandwidth or storage
+
+### Applying a Delta Package
+
+1. Verify your current version matches the delta's source version
+2. Extract and run the delta's `Apply-Delta.ps1` script
+3. Validate the cluster as described above
+
+For complete documentation on creating and applying delta packages, see [Delta Packages](delta-packages.md).
