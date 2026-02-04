@@ -21,7 +21,7 @@ A delta package contains:
 
 | Aspect | Full Package | Delta Package |
 |--------|--------------|---------------|
-| Size | 2-4 GB typically | 50-500 MB typically |
+| Size | 2-4 GB typically | 50-1000 MB typically |
 | Contains | All K2s files | Only changed files |
 | Requires | Nothing | Specific source version |
 | Use case | Fresh installs, major upgrades | Minor/patch upgrades |
