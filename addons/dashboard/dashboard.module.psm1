@@ -105,35 +105,5 @@ function Get-BearerToken {
 Creates kong CA certificate ConfigMap for nginx-gw BackendTLSPolicy validation
 #>
 function New-KongCACertConfigMap {
-    Write-Log 'Extracting kong-proxy CA certificate for BackendTLSPolicy' -Console
-    
-    # Wait for kong pod to be ready
-    $waitResult = Wait-ForPodCondition -Label 'app.kubernetes.io/name=kong' -Namespace 'dashboard' -Condition 'Ready' -TimeoutSeconds 60
-    if (-not $waitResult) {
-        throw 'Kong pod in dashboard namespace did not become ready within 60 seconds. Please use kubectl describe for more details.'
-    }
-        
-    # Get kong pod name
-    $kongPod = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'dashboard', '-l', 'app.kubernetes.io/name=kong', '-o', 'jsonpath={.items[0].metadata.name}').Output
-    
-    if ($kongPod) {
-        try {
-            # Extract certificate from kong pod
-            $certPath = [System.IO.Path]::GetTempPath() + 'kong-ca.crt'
-            $extractCmd = "echo | openssl s_client -connect localhost:8443 2>&1 | openssl x509 -outform PEM"
-            $cert = (Invoke-Kubectl -Params 'exec', '-n', 'dashboard', $kongPod, '--', 'sh', '-c', $extractCmd).Output
-            $cert | Out-File -FilePath $certPath -Encoding ascii
-            
-            # Create ConfigMap with the certificate
-            (Invoke-Kubectl -Params 'create', 'configmap', 'kong-ca-cert', '-n', 'dashboard', "--from-file=ca.crt=$certPath", '--dry-run=client', '-o', 'yaml').Output | & kubectl apply -f -
-            
-            # Clean up temp file
-            Remove-Item -Path $certPath -ErrorAction SilentlyContinue
-            
-            Write-Log 'Kong CA certificate ConfigMap created successfully' -Console
-        }
-        catch {
-            Write-Log "Warning: Could not extract kong certificate: $_" -Console
-        }
-    }
+    New-BackendCACertConfigMap -Namespace 'dashboard' -PodLabel 'app.kubernetes.io/name=kong' -Port 8443 -ConfigMapName 'kong-ca-cert'
 }

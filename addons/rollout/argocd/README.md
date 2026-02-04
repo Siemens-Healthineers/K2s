@@ -19,11 +19,16 @@ k2s addons enable rollout
 
 ### Integration with ingress nginx and ingress traefik addons
 
-The ArgoCD dashboard can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
+The ArgoCD dashboard can be integrated with the ingress nginx, ingress nginx-gw, or ingress traefik addon so that it can be exposed outside the cluster.
 
 For example, the rollout addon can be enabled along with traefik addon using the following command:
 ```
 k2s addons enable rollout --ingress traefik
+```
+
+Or with nginx-gw addon using the following command:
+```
+k2s addons enable rollout --ingress nginx-gw
 ```
 _Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
 
@@ -33,7 +38,7 @@ The ArgoCD dashboard can be accessed via the following methods.
 
 ### Access using ingress
 
-To access the ArgoCD dashboard via ingress, the ingress nginx or the ingress traefik addon has to be enabled.
+To access the ArgoCD dashboard via ingress, the ingress nginx, ingress nginx-gw, or ingress traefik addon has to be enabled.
 Once the addons are enabled, then the ArgoCD dashboard can be accessed at the following URL: <https://k2s.cluster.local/rollout>
 
 ### Access using port-forwarding

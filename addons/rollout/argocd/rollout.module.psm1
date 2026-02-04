@@ -125,3 +125,11 @@ function Write-UsageForUser {
  In this case, the rollout dashboard will be accessible on the following URL: https://localhost:8080/rollout
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
+
+<#
+.SYNOPSIS
+Creates ArgoCD CA certificate ConfigMap for nginx-gw BackendTLSPolicy validation
+#>
+function New-ArgoCDCACertConfigMap {
+    New-BackendCACertConfigMap -Namespace 'rollout' -PodLabel 'app.kubernetes.io/name=argocd-server' -Port 8080 -ConfigMapName 'argocd-ca-cert'
+}

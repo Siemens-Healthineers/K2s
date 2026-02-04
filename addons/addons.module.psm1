@@ -950,6 +950,65 @@ function Enable-IngressAddon([string]$Ingress) {
 
 <#
 .DESCRIPTION
+Creates a CA certificate ConfigMap for nginx-gw BackendTLSPolicy validation.
+This function extracts the self-signed certificate from a backend service pod 
+and creates a ConfigMap that can be referenced by BackendTLSPolicy.
+.PARAMETER Namespace
+The namespace where the pod and ConfigMap should be created
+.PARAMETER PodLabel
+The label selector to find the pod (e.g., 'app.kubernetes.io/name=kong')
+.PARAMETER Port
+The port number where the service is running with TLS (e.g., 8443)
+.PARAMETER ConfigMapName
+The name of the ConfigMap to create (e.g., 'kong-ca-cert','argocd-ca-cert')
+#>
+function New-BackendCACertConfigMap {
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]$Namespace,
+		[Parameter(Mandatory = $true)]
+		[string]$PodLabel,
+		[Parameter(Mandatory = $true)]
+		[int]$Port,
+		[Parameter(Mandatory = $true)]
+		[string]$ConfigMapName
+	)
+	
+	Write-Log "Extracting CA certificate for BackendTLSPolicy from pod with label '$PodLabel' in namespace '$Namespace'" -Console
+	
+	# Wait for pod to be ready
+	$waitResult = Wait-ForPodCondition -Label $PodLabel -Namespace $Namespace -Condition 'Ready' -TimeoutSeconds 60
+	if (-not $waitResult) {
+		throw "Pod with label '$PodLabel' in namespace '$Namespace' did not become ready within 60 seconds. Please use kubectl describe for more details."
+	}
+	
+	# Get pod name
+	$pod = (Invoke-Kubectl -Params 'get', 'pods', '-n', $Namespace, '-l', $PodLabel, '-o', 'jsonpath={.items[0].metadata.name}').Output
+	
+	if ($pod) {
+		try {
+			# Extract certificate from pod
+			$certPath = [System.IO.Path]::GetTempPath() + "$ConfigMapName.crt"
+			$extractCmd = "echo | openssl s_client -connect localhost:$Port 2>&1 | openssl x509 -outform PEM"
+			$cert = (Invoke-Kubectl -Params 'exec', '-n', $Namespace, $pod, '--', 'sh', '-c', $extractCmd).Output
+			$cert | Out-File -FilePath $certPath -Encoding ascii
+			
+			# Create ConfigMap with the certificate
+			(Invoke-Kubectl -Params 'create', 'configmap', $ConfigMapName, '-n', $Namespace, "--from-file=ca.crt=$certPath", '--dry-run=client', '-o', 'yaml').Output | & kubectl apply -f -
+			
+			# Clean up temp file
+			Remove-Item -Path $certPath -ErrorAction SilentlyContinue
+			
+			Write-Log "CA certificate ConfigMap '$ConfigMapName' created successfully in namespace '$Namespace'" -Console
+		}
+		catch {
+			Write-Log "Warning: Could not extract certificate from pod '$pod': $_" -Console
+		}
+	}
+}
+
+<#
+.DESCRIPTION
 Gets the location of traefik ingress yaml
 #>
 function Get-IngressTraefikConfig {
@@ -1868,4 +1927,4 @@ Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
 Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
-Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret
+Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret, New-BackendCACertConfigMap

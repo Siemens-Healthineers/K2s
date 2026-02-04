@@ -20,7 +20,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,     
     [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]   
-    [ValidateSet('nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
@@ -72,9 +72,10 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'viewer' })) -eq $tru
 }
 
 if (!(Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -and 
-    !(Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' }))) {
+    !(Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' }))) -and
+    !(Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx-gw' }))) {
     
-        Write-Log "Neither ingress nginx nor traefik addons are enabled. Please enable one of them or activate port forwarding." -Console    
+        Write-Log "No ingress addon is enabled. Please enable one of the ingress addons (nginx, traefik, or nginx-gw) or activate port forwarding." -Console    
 }
 
 Write-Log 'Installing Kubernetes viewer' -Console
