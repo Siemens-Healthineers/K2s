@@ -80,3 +80,9 @@ k2s addons import -z <directory-containing-addons-archive>\addons.zip
     Importing a specific addon from the offline package does obviously not work when this package does not contain the specified addon.
 
 After importing an addon, it can be enabled without internet connection being available.
+
+## Delta Packages
+
+For bandwidth-efficient upgrades, *K2s* supports creating delta packages that contain only the files changed between two versions. This significantly reduces package size for minor and patch upgrades.
+
+See [Delta Packages](delta-packages.md) for detailed documentation on creating and applying delta packages.

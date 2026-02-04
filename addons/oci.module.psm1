@@ -13,7 +13,8 @@ Provides functions for creating and consuming OCI artifacts with layered structu
 for addon distribution supporting FluxCD and ArgoCD consumption.
 
 Media Types:
-- application/vnd.k2s.addon.config.v1+yaml     - Addon manifest configuration
+- application/vnd.k2s.addon.config.v1+json     - Addon metadata configuration (JSON)
+- application/vnd.k2s.addon.configfiles.v1.tar+gzip - Addon configuration files (addon.manifest.yaml, values.yaml, etc.)
 - application/vnd.k2s.addon.manifests.v1.tar+gzip - Kubernetes manifests
 - application/vnd.cncf.helm.chart.content.v1.tar+gzip - Helm charts
 - application/vnd.k2s.addon.scripts.v1.tar+gzip - Enable/Disable scripts
@@ -26,14 +27,18 @@ Import-Module $infraModule
 
 # OCI Media Types for K2s addon artifacts
 $script:MediaTypes = @{
-    Config     = 'application/vnd.k2s.addon.config.v1+yaml'
-    Manifests  = 'application/vnd.k2s.addon.manifests.v1.tar+gzip'
-    Charts     = 'application/vnd.cncf.helm.chart.content.v1.tar+gzip'
-    Scripts    = 'application/vnd.k2s.addon.scripts.v1.tar+gzip'
+    Config      = 'application/vnd.k2s.addon.config.v1+json'
+    ConfigFiles = 'application/vnd.k2s.addon.configfiles.v1.tar+gzip'
+    Manifests   = 'application/vnd.k2s.addon.manifests.v1.tar+gzip'
+    Charts      = 'application/vnd.cncf.helm.chart.content.v1.tar+gzip'
+    Scripts     = 'application/vnd.k2s.addon.scripts.v1.tar+gzip'
     ImagesLinux = 'application/vnd.oci.image.layer.v1.tar'
     ImagesWindows = 'application/vnd.oci.image.layer.v1.tar+windows'
-    Packages   = 'application/vnd.k2s.addon.packages.v1.tar+gzip'
+    Packages    = 'application/vnd.k2s.addon.packages.v1.tar+gzip'
 }
+
+# OCI Image Layout version
+$script:OciLayoutVersion = '1.0.0'
 
 function Get-OciMediaTypes {
     <#
@@ -41,6 +46,150 @@ function Get-OciMediaTypes {
     Returns the media types used for OCI artifacts
     #>
     return $script:MediaTypes
+}
+
+function New-OciLayoutFile {
+    <#
+    .SYNOPSIS
+    Creates the required oci-layout file for OCI Image Layout compliance
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LayoutPath
+    )
+    
+    $ociLayout = @{
+        imageLayoutVersion = $script:OciLayoutVersion
+    }
+    
+    $ociLayoutPath = Join-Path $LayoutPath 'oci-layout'
+    $json = $ociLayout | ConvertTo-Json
+    [System.IO.File]::WriteAllText($ociLayoutPath, $json, [System.Text.UTF8Encoding]::new($false))
+    
+    Write-Log "[OCI] Created oci-layout file with version $($script:OciLayoutVersion)"
+    return $ociLayoutPath
+}
+
+function New-OciBlobsDirectory {
+    <#
+    .SYNOPSIS
+    Creates the blobs/sha256 directory structure for OCI Image Layout
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LayoutPath
+    )
+    
+    $blobsDir = Join-Path $LayoutPath 'blobs\sha256'
+    if (-not (Test-Path $blobsDir)) {
+        New-Item -ItemType Directory -Path $blobsDir -Force | Out-Null
+    }
+    
+    Write-Log "[OCI] Created blobs directory: $blobsDir"
+    return $blobsDir
+}
+
+function Add-ContentToBlobs {
+    <#
+    .SYNOPSIS
+    Adds content to the blobs directory and returns the digest
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BlobsDir,
+        [Parameter(Mandatory = $true)]
+        [string]$SourcePath,
+        [Parameter(Mandatory = $false)]
+        [switch]$Move = $false
+    )
+    
+    if (-not (Test-Path $SourcePath)) {
+        throw "Source path not found: $SourcePath"
+    }
+    
+    $hash = Get-FileHash -Path $SourcePath -Algorithm SHA256
+    $digest = $hash.Hash.ToLower()
+    $blobPath = Join-Path $BlobsDir $digest
+    
+    if ($Move) {
+        Move-Item -Path $SourcePath -Destination $blobPath -Force
+    } else {
+        Copy-Item -Path $SourcePath -Destination $blobPath -Force
+    }
+    
+    $size = (Get-Item $blobPath).Length
+    
+    return @{
+        Digest = "sha256:$digest"
+        Size = $size
+        Path = $blobPath
+    }
+}
+
+function Add-JsonContentToBlobs {
+    <#
+    .SYNOPSIS
+    Converts an object to JSON and stores it in blobs directory
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BlobsDir,
+        [Parameter(Mandatory = $true)]
+        [object]$Content
+    )
+    
+    $tempFile = New-TemporaryFile
+    try {
+        $json = $Content | ConvertTo-Json -Depth 20
+        [System.IO.File]::WriteAllText($tempFile.FullName, $json, [System.Text.UTF8Encoding]::new($false))
+        $result = Add-ContentToBlobs -BlobsDir $BlobsDir -SourcePath $tempFile.FullName -Move
+        return $result
+    }
+    finally {
+        if (Test-Path $tempFile.FullName) {
+            Remove-Item -Path $tempFile.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Get-BlobByDigest {
+    <#
+    .SYNOPSIS
+    Retrieves blob content by digest from the blobs directory
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BlobsDir,
+        [Parameter(Mandatory = $true)]
+        [string]$Digest
+    )
+    
+    # Extract hash from digest (remove sha256: prefix)
+    $hash = $Digest -replace '^sha256:', ''
+    $blobPath = Join-Path $BlobsDir $hash
+    
+    if (-not (Test-Path $blobPath)) {
+        throw "Blob not found for digest: $Digest"
+    }
+    
+    return $blobPath
+}
+
+function Get-JsonBlobByDigest {
+    <#
+    .SYNOPSIS
+    Retrieves and parses JSON blob content by digest
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BlobsDir,
+        [Parameter(Mandatory = $true)]
+        [string]$Digest
+    )
+    
+    $blobPath = Get-BlobByDigest -BlobsDir $BlobsDir -Digest $Digest
+    $content = Get-Content -Path $blobPath -Raw | ConvertFrom-Json
+    return $content
 }
 
 function New-TarGzArchive {
@@ -220,328 +369,7 @@ function Expand-TarArchive {
     return $true
 }
 
-function New-AddonOciArtifact {
-    <#
-    .SYNOPSIS
-    Creates OCI artifact layers for an addon
-    #>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$AddonPath,
-        [Parameter(Mandatory = $true)]
-        [string]$StagingPath,
-        [Parameter(Mandatory = $true)]
-        [string]$AddonName,
-        [Parameter(Mandatory = $false)]
-        [string]$ImplementationName,
-        [Parameter(Mandatory = $false)]
-        [string]$LinuxImagesTar,
-        [Parameter(Mandatory = $false)]
-        [string]$WindowsImagesTar,
-        [Parameter(Mandatory = $false)]
-        [string]$PackagesPath
-    )
-    
-    if (-not (Test-Path $StagingPath)) {
-        New-Item -ItemType Directory -Path $StagingPath -Force | Out-Null
-    }
-    
-    $layers = @{}
-    
-    # Layer 1: Manifests
-    $manifestsDir = Join-Path $AddonPath 'manifests'
-    if (Test-Path $manifestsDir) {
-        $manifestsTar = Join-Path $StagingPath 'manifests.tar.gz'
-        if (New-TarGzArchive -SourcePath $manifestsDir -DestinationPath $manifestsTar) {
-            $layers['manifests.tar.gz'] = $script:MediaTypes.Manifests
-            Write-Log "[OCI] Created manifests layer: $manifestsTar"
-        }
-    }
-    
-    # Layer 2: Helm Charts (if present)
-    $chartsDir = Join-Path $AddonPath 'manifests\chart'
-    if (Test-Path $chartsDir) {
-        $chartsTar = Join-Path $StagingPath 'charts.tar.gz'
-        if (New-TarGzArchive -SourcePath $chartsDir -DestinationPath $chartsTar) {
-            $layers['charts.tar.gz'] = $script:MediaTypes.Charts
-            Write-Log "[OCI] Created charts layer: $chartsTar"
-        }
-    }
-    
-    # Layer 3: Scripts (Enable.ps1, Disable.ps1, Get-Status.ps1, Update.ps1)
-    $scriptFiles = @('Enable.ps1', 'Disable.ps1', 'Get-Status.ps1', 'Update.ps1') | ForEach-Object {
-        Join-Path $AddonPath $_
-    } | Where-Object { Test-Path $_ }
-    
-    if ($scriptFiles.Count -gt 0) {
-        $scriptsDir = Join-Path $StagingPath 'scripts-temp'
-        New-Item -ItemType Directory -Path $scriptsDir -Force | Out-Null
-        
-        foreach ($script in $scriptFiles) {
-            Copy-Item -Path $script -Destination $scriptsDir -Force
-        }
-        
-        # Also copy any module files
-        Get-ChildItem -Path $AddonPath -Filter '*.psm1' | ForEach-Object {
-            Copy-Item -Path $_.FullName -Destination $scriptsDir -Force
-        }
-        
-        $scriptsTar = Join-Path $StagingPath 'scripts.tar.gz'
-        if (New-TarGzArchive -SourcePath $scriptsDir -DestinationPath $scriptsTar) {
-            $layers['scripts.tar.gz'] = $script:MediaTypes.Scripts
-            Write-Log "[OCI] Created scripts layer: $scriptsTar"
-        }
-        
-        Remove-Item -Path $scriptsDir -Recurse -Force -ErrorAction SilentlyContinue
-    }
-    
-    # Layer 4: Linux Images
-    if ($LinuxImagesTar -and (Test-Path $LinuxImagesTar)) {
-        $linuxImagesLayer = Join-Path $StagingPath 'images-linux.tar'
-        Copy-Item -Path $LinuxImagesTar -Destination $linuxImagesLayer -Force
-        $layers['images-linux.tar'] = $script:MediaTypes.ImagesLinux
-        Write-Log "[OCI] Added Linux images layer: $linuxImagesLayer"
-    }
-    
-    # Layer 5: Windows Images
-    if ($WindowsImagesTar -and (Test-Path $WindowsImagesTar)) {
-        $windowsImagesLayer = Join-Path $StagingPath 'images-windows.tar'
-        Copy-Item -Path $WindowsImagesTar -Destination $windowsImagesLayer -Force
-        $layers['images-windows.tar'] = $script:MediaTypes.ImagesWindows
-        Write-Log "[OCI] Added Windows images layer: $windowsImagesLayer"
-    }
-    
-    # Layer 6: Offline Packages
-    if ($PackagesPath -and (Test-Path $PackagesPath)) {
-        $packagesTar = Join-Path $StagingPath 'packages.tar.gz'
-        if (New-TarGzArchive -SourcePath $PackagesPath -DestinationPath $packagesTar) {
-            $layers['packages.tar.gz'] = $script:MediaTypes.Packages
-            Write-Log "[OCI] Created packages layer: $packagesTar"
-        }
-    }
-    
-    return $layers
-}
-
-function Export-AddonAsOciArtifact {
-    <#
-    .SYNOPSIS
-    Exports an addon as a local OCI artifact (directory structure)
-    #>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$AddonPath,
-        [Parameter(Mandatory = $true)]
-        [string]$ExportPath,
-        [Parameter(Mandatory = $true)]
-        [string]$AddonName,
-        [Parameter(Mandatory = $false)]
-        [string]$ImplementationName,
-        [Parameter(Mandatory = $false)]
-        [string]$Version = '1.0.0',
-        [Parameter(Mandatory = $false)]
-        [string]$LinuxImagesTar,
-        [Parameter(Mandatory = $false)]
-        [string]$WindowsImagesTar,
-        [Parameter(Mandatory = $false)]
-        [string]$PackagesPath,
-        [Parameter(Mandatory = $false)]
-        [string]$K2sVersion
-    )
-    
-    # Create artifact directory name
-    $artifactName = $AddonName
-    if ($ImplementationName -and $ImplementationName -ne $AddonName) {
-        $artifactName = "${AddonName}_${ImplementationName}"
-    }
-    
-    $artifactDir = Join-Path $ExportPath $artifactName
-    
-    if (-not (Test-Path $artifactDir)) {
-        New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
-    }
-    
-    Write-Log "[OCI] Creating OCI artifact structure at $artifactDir"
-    
-    # Copy addon.manifest.yaml as config
-    $parentAddonFolder = Split-Path -Path $AddonPath -Parent
-    $manifestFile = Join-Path $parentAddonFolder 'addon.manifest.yaml'
-    if (-not (Test-Path $manifestFile)) {
-        $manifestFile = Join-Path $AddonPath 'addon.manifest.yaml'
-    }
-    
-    if (Test-Path $manifestFile) {
-        Copy-Item -Path $manifestFile -Destination (Join-Path $artifactDir 'addon.manifest.yaml') -Force
-    }
-    
-    # Create layers
-    $layers = New-AddonOciArtifact `
-        -AddonPath $AddonPath `
-        -StagingPath $artifactDir `
-        -AddonName $AddonName `
-        -ImplementationName $ImplementationName `
-        -LinuxImagesTar $LinuxImagesTar `
-        -WindowsImagesTar $WindowsImagesTar `
-        -PackagesPath $PackagesPath
-    
-    # Create artifact metadata
-    $metadata = @{
-        schemaVersion = 2
-        mediaType = 'application/vnd.oci.image.manifest.v1+json'
-        artifactType = 'application/vnd.k2s.addon.v1'
-        config = @{
-            mediaType = $script:MediaTypes.Config
-            size = 0
-            digest = ''
-        }
-        layers = @()
-        annotations = @{
-            'org.opencontainers.image.title' = $AddonName
-            'org.opencontainers.image.version' = $Version
-            'vnd.k2s.addon.name' = $AddonName
-            'vnd.k2s.addon.implementation' = if ($ImplementationName) { $ImplementationName } else { $AddonName }
-            'vnd.k2s.version' = if ($K2sVersion) { $K2sVersion } else { 'unknown' }
-            'vnd.k2s.export.date' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
-        }
-    }
-    
-    foreach ($layer in $layers.GetEnumerator()) {
-        $layerPath = Join-Path $artifactDir $layer.Key
-        if (Test-Path $layerPath) {
-            $metadata.layers += @{
-                mediaType = $layer.Value
-                size = (Get-Item $layerPath).Length
-                digest = "sha256:$(Get-FileHash -Path $layerPath -Algorithm SHA256 | Select-Object -ExpandProperty Hash)"
-                annotations = @{
-                    'org.opencontainers.image.title' = $layer.Key
-                }
-            }
-        }
-    }
-    
-    # Save manifest.json
-    $metadata | ConvertTo-Json -Depth 10 | Set-Content -Path (Join-Path $artifactDir 'oci-manifest.json') -Force
-    
-    Write-Log "[OCI] OCI artifact structure created with $($layers.Count) layers"
-    
-    return @{
-        Path = $artifactDir
-        Layers = $layers
-        Metadata = $metadata
-    }
-}
-
-function Import-OciArtifactToAddon {
-    <#
-    .SYNOPSIS
-    Imports an OCI artifact to the addons directory
-    #>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ArtifactPath,
-        [Parameter(Mandatory = $true)]
-        [string]$AddonsRoot,
-        [Parameter(Mandatory = $false)]
-        [switch]$ShowLogs
-    )
-    
-    Write-Log "[OCI] Importing OCI artifact from $ArtifactPath"
-    
-    # Read manifest
-    $manifestPath = Join-Path $ArtifactPath 'oci-manifest.json'
-    if (-not (Test-Path $manifestPath)) {
-        throw "OCI manifest not found at $manifestPath"
-    }
-    
-    $manifest = Get-Content $manifestPath | ConvertFrom-Json
-    
-    $addonName = $manifest.annotations.'vnd.k2s.addon.name'
-    $implementationName = $manifest.annotations.'vnd.k2s.addon.implementation'
-    
-    if (-not $addonName) {
-        throw "Addon name not found in OCI manifest annotations"
-    }
-    
-    Write-Log "[OCI] Importing addon: $addonName, implementation: $implementationName"
-    
-    # Determine destination path
-    $destinationPath = Join-Path $AddonsRoot $addonName
-    if ($implementationName -and $implementationName -ne $addonName) {
-        $destinationPath = Join-Path $destinationPath $implementationName
-    }
-    
-    if (-not (Test-Path $destinationPath)) {
-        New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
-    }
-    
-    $result = @{
-        AddonName = $addonName
-        ImplementationName = $implementationName
-        DestinationPath = $destinationPath
-        LinuxImages = @()
-        WindowsImages = @()
-    }
-    
-    # Process layers
-    foreach ($layer in $manifest.layers) {
-        $layerFile = $layer.annotations.'org.opencontainers.image.title'
-        $layerPath = Join-Path $ArtifactPath $layerFile
-        $mediaType = $layer.mediaType
-        
-        if (-not (Test-Path $layerPath)) {
-            Write-Log "[OCI] Warning: Layer file not found: $layerPath"
-            continue
-        }
-        
-        switch -Wildcard ($mediaType) {
-            '*manifests*' {
-                Write-Log "[OCI] Extracting manifests layer"
-                $manifestsDir = Join-Path $destinationPath 'manifests'
-                Expand-TarGzArchive -ArchivePath $layerPath -DestinationPath $manifestsDir
-            }
-            '*helm.chart*' {
-                Write-Log "[OCI] Extracting charts layer"
-                $chartsDir = Join-Path $destinationPath 'manifests\chart'
-                Expand-TarGzArchive -ArchivePath $layerPath -DestinationPath $chartsDir
-            }
-            '*scripts*' {
-                Write-Log "[OCI] Extracting scripts layer"
-                Expand-TarGzArchive -ArchivePath $layerPath -DestinationPath $destinationPath
-            }
-            '*image.layer*windows*' {
-                Write-Log "[OCI] Found Windows images layer"
-                $result.WindowsImages += $layerPath
-            }
-            '*image.layer*' {
-                Write-Log "[OCI] Found Linux images layer"
-                $result.LinuxImages += $layerPath
-            }
-            '*packages*' {
-                Write-Log "[OCI] Extracting packages layer"
-                $packagesDir = Join-Path $ArtifactPath 'packages-extracted'
-                Expand-TarGzArchive -ArchivePath $layerPath -DestinationPath $packagesDir
-                $result.PackagesPath = $packagesDir
-            }
-        }
-    }
-    
-    # Copy addon.manifest.yaml
-    $configPath = Join-Path $ArtifactPath 'addon.manifest.yaml'
-    if (Test-Path $configPath) {
-        $parentAddonFolder = Split-Path -Path $destinationPath -Parent
-        if ($implementationName -and $implementationName -ne $addonName) {
-            # Multi-implementation: manifest goes to parent
-            Copy-Item -Path $configPath -Destination (Join-Path $parentAddonFolder 'addon.manifest.yaml') -Force
-        } else {
-            Copy-Item -Path $configPath -Destination (Join-Path $destinationPath 'addon.manifest.yaml') -Force
-        }
-    }
-    
-    Write-Log "[OCI] OCI artifact imported to $destinationPath"
-    
-    return $result
-}
-
 Export-ModuleMember -Function Get-OciMediaTypes,
-    New-TarGzArchive, New-TarArchive, Expand-TarGzArchive, Expand-TarArchive,
-    New-AddonOciArtifact, Export-AddonAsOciArtifact, Import-OciArtifactToAddon
+    New-OciLayoutFile, New-OciBlobsDirectory, Add-ContentToBlobs, Add-JsonContentToBlobs,
+    Get-BlobByDigest, Get-JsonBlobByDigest,
+    New-TarGzArchive, New-TarArchive, Expand-TarGzArchive, Expand-TarArchive

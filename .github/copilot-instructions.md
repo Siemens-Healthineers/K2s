@@ -26,6 +26,12 @@ K2s is a Windows‑first Kubernetes distribution bundling a Linux VM (Hyper-V or
 - `build/` BOM, catalog metadata used for reproducibility & signing.
 - `docs/` MkDocs sources; includes dev guide, ops manual, troubleshooting.
 
+## 2a. Documentation Guidelines
+- **Document at the k2s CLI level**: The `k2s.exe` CLI is the primary user-facing API. Documentation examples should use `k2s` commands (e.g., `k2s system package`, `k2s system upgrade`, `k2s addons enable`) rather than direct PowerShell script invocations.
+- PowerShell scripts are implementation details; users interact via the CLI.
+- When documenting new features, ensure corresponding CLI commands exist or are planned.
+- Use `console` code blocks for CLI examples; use `powershell` blocks only when showing PowerShell-specific operations (e.g., `Expand-Archive`).
+
 ## 3. PowerShell Conventions
 - All logging goes through functions from `k2s.infra.module` (`Write-Log`, `Write-ErrorMessage`). Don’t use `Write-Host` directly for new code.
   - Usage: `Write-Log "message" -Console` (logs to file + console) or `Write-Log "message"` (file only).

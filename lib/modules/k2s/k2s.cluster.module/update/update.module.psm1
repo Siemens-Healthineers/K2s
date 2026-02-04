@@ -286,10 +286,53 @@ Current directory: $deltaRoot
 	# 6. Apply Windows artifacts (Added + Changed) from delta root to target install path
 	_phase 'WindowsArtifacts'
 	Write-Log ("[Update] Applying artifacts from delta root '{0}' to target '{1}'" -f $deltaRoot, $targetInstallPath) -Console:$consoleSwitch
+	
+	# Safety check: Define cluster-specific files that must NEVER be overwritten during updates.
+	# These files are generated during kubeadm init and contain cluster-specific certificates and configuration.
+	# Overwriting them would break the running cluster.
+	$clusterConfigProtectedFiles = @(
+		'config'  # Main kubeconfig at $kubePath\config
+	)
+	$clusterConfigProtectedPaths = @(
+		'etc/kubernetes/bootstrap-kubelet.conf',
+		'etc/kubernetes/pki/*',
+		'var/lib/kubelet/config.yaml',
+		'var/lib/kubelet/pki/*'
+	)
+	
+	# Helper function to check if a path should be protected
+	function Test-ProtectedClusterFile {
+		param([string]$RelPath)
+		$normalizedPath = $RelPath -replace '\\', '/'
+		$leaf = [IO.Path]::GetFileName($normalizedPath)
+		
+		# Check exact filename matches
+		foreach ($f in $clusterConfigProtectedFiles) {
+			if ($leaf -ieq $f) { return $true }
+		}
+		
+		# Check path patterns
+		foreach ($pattern in $clusterConfigProtectedPaths) {
+			$normalizedPattern = $pattern -replace '\\', '/'
+			if ($normalizedPath -like $normalizedPattern) { return $true }
+		}
+		return $false
+	}
+	
 	$addedFiles   = @($manifest.Added)
 	$changedFiles = @($manifest.Changed)
 	$filesToApply = @($addedFiles + $changedFiles) | Where-Object { $_ -and ($_ -ne '') }
+	$appliedCount = 0
+	$skippedCount = 0
+	
 	foreach ($rel in $filesToApply) {
+		# Safety check: Never overwrite cluster-specific configuration files
+		if (Test-ProtectedClusterFile -RelPath $rel) {
+			Write-Log ("[Update][Skip] Protected cluster config file skipped: {0}" -f $rel) -Console:$consoleSwitch
+			$skippedCount++
+			continue
+		}
+		
 		$src = Join-Path $deltaRoot $rel
 		if (-not (Test-Path -LiteralPath $src)) { Write-Log ("[Update][Warn] Source missing in delta: {0}" -f $rel) -Console:$consoleSwitch; continue }
 		$dest = Join-Path $targetInstallPath $rel
@@ -299,11 +342,12 @@ Current directory: $deltaRoot
 		try { 
 			Copy-Item -LiteralPath $src -Destination $dest -Force 
 			Write-Log ("[Update] Applied: {0}" -f $rel) -Console:$consoleSwitch
+			$appliedCount++
 		} catch { 
 			Write-Log ("[Update][Error] Copy failed '{0}' -> '{1}': {2}" -f $src, $dest, $_.Exception.Message) -Console 
 		}
 	}
-	Write-Log ("[Update] Applied {0} Windows artifacts" -f $filesToApply.Count) -Console:$consoleSwitch
+	Write-Log ("[Update] Applied {0} Windows artifacts (skipped {1} protected cluster config files)" -f $appliedCount, $skippedCount) -Console:$consoleSwitch
 
 	# 6b. Remove obsolete files (Removed) from target installation
 	$removedFiles = @($manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
@@ -364,17 +408,24 @@ Current directory: $deltaRoot
 		$imageFiles = Get-ChildItem -LiteralPath $imagesRoot -Recurse -File -Include '*.tar','*.tar.gz','*.tgz' -ErrorAction SilentlyContinue
 		if ($imageFiles.Count -gt 0) {
 			Write-Log ("[Update] Loading {0} container image archives" -f $imageFiles.Count) -Console:$consoleSwitch
+			$imageLoadedCount = 0
 			foreach ($img in $imageFiles) {
+				Write-Log ("[Update] Loading image: {0}" -f $img.Name) -Console:$consoleSwitch
 				try {
 					if (Get-Command -Name Import-K2sImageArchive -ErrorAction SilentlyContinue) {
 						Import-K2sImageArchive -ArchivePath $img.FullName -ShowLogs:$ShowLogs
+						Write-Log ("[Update] Image loaded successfully: {0}" -f $img.Name) -Console:$consoleSwitch
+						$imageLoadedCount++
 					} elseif (Get-Command -Name Load-K2sImage -ErrorAction SilentlyContinue) {
 						Load-K2sImage -Path $img.FullName -ShowLogs:$ShowLogs
+						Write-Log ("[Update] Image loaded successfully: {0}" -f $img.Name) -Console:$consoleSwitch
+						$imageLoadedCount++
 					} else {
 						Write-Log ("[Update][Warn] No image import function available for {0}" -f $img.Name) -Console:$consoleSwitch
 					}
 				} catch { Write-Log ("[Update][Warn] Image load failed {0}: {1}" -f $img.Name, $_.Exception.Message) -Console:$consoleSwitch }
 			}
+			Write-Log ("[Update] Loaded {0} of {1} container images" -f $imageLoadedCount, $imageFiles.Count) -Console:$consoleSwitch
 		} else { Write-Log '[Update] No image archives found.' -Console:$consoleSwitch }
 	} else { Write-Log '[Update] images/ directory absent; skipping image load' -Console:$consoleSwitch }
 
@@ -525,6 +576,11 @@ function Invoke-CommandInMasterVM {
 
 		# Copy only the script (avoid large recursive transfers unless needed)
 		Copy-ToControlPlaneViaSSHKey -Source $ScriptPath -Target $remoteBase -IgnoreErrors:$false
+		
+		# Convert Windows CRLF line endings to Unix LF (scripts may have been corrupted by Windows zip extraction)
+		# This prevents "bash\r: No such file or directory" errors
+		(Invoke-CmdOnControlPlaneViaSSHKey "sed -i 's/\r$//' $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$true).Output | Out-Null
+		
 		# If ancillary assets exist (packages/, etc.) we copy directory selectively
 		$packagesDir = Join-Path $WorkingDirectory 'packages'
 		if (Test-Path -LiteralPath $packagesDir) {
@@ -606,6 +662,17 @@ function Invoke-CommandInMasterVM {
 	}
 	
 	$durationSec = [Math]::Round($elapsed.TotalSeconds,2)
+	
+	# Log the output from the Debian delta script execution
+	if ($outputAggregate.Count -gt 0) {
+		Write-Log "[DebPkg][VM] Script output:" -Console:$consoleSwitch
+		foreach ($line in $outputAggregate) {
+			if (-not [string]::IsNullOrWhiteSpace($line)) {
+				Write-Log ("[DebPkg][VM]   {0}" -f $line) -Console:$consoleSwitch
+			}
+		}
+	}
+	
 	Write-Log ("[DebPkg][VM] Script completed exit={0} duration={1}s" -f $exitCode, $durationSec) -Console:$consoleSwitch
 	if (-not $success -and -not $NoThrow) { throw "Debian delta script returned non-zero exit code: $exitCode" }
 
