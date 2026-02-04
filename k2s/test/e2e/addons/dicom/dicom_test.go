@@ -156,12 +156,12 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local for the ui app", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/ui/app"
-				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 			})
 
 			It("is reachable through k2s.cluster.local for DICOM Web", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/studies"
-				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 			})
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
@@ -205,12 +205,12 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local for the ui app", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/ui/app"
-				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 			})
 
 			It("is reachable through k2s.cluster.local for DICOM Web", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/studies"
-				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 			})
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
