@@ -44,8 +44,7 @@ k2s system package --delta-package `
     --package-version-to C:\packages\k2s-v1.5.0.zip
 ```
 
-!!! note "Experimental Feature"
-    Delta package creation is currently marked as experimental. The feature is fully functional but the CLI interface may evolve in future releases.
+> **📝 Experimental Feature:** Delta package creation is currently marked as experimental. The feature is fully functional but the CLI interface may evolve in future releases.
 
 ### Parameters
 
