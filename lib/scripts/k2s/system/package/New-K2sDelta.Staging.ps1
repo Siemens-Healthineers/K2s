@@ -137,7 +137,10 @@ function Copy-WholesaleDirectories {
         if (-not (Test-Path -LiteralPath $dstDir)) {
             New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
         }
-        Copy-Item -LiteralPath $srcDir -Destination $dstDir -Recurse -Force
+        # Copy directory CONTENTS (not the directory itself) to avoid nested structure
+        # e.g., copy bin/kube/* to staging/bin/kube/, not bin/kube to staging/bin/kube/kube/
+        Copy-Item -Path "$srcDir\*" -Destination $dstDir -Recurse -Force
+        Write-Log "[Staging] Copied wholesale directory: $wd"
     }
 }
 
@@ -206,4 +209,138 @@ function Write-StagingSummary {
     $stagedFileCount = (Get-ChildItem -Path $Context.StageDir -Recurse -File | Measure-Object).Count
     Write-Log ("Staging summary: total staged files={0} (wholesale dirs={1}, added={2}, changed={3})" -f `
             $stagedFileCount, $Context.WholeDirsNormalized.Count, $Context.Added.Count, $Context.Changed.Count) -Console
+}
+
+<#
+.SYNOPSIS
+    Extracts Windows binaries from WindowsNodeArtifacts.zip to staging directory.
+
+.DESCRIPTION
+    The K2s offline package contains WindowsNodeArtifacts.zip which holds Windows Kubernetes
+    binaries. During installation, these are extracted to bin/kube/, bin/docker/, etc.
+    
+    For delta packages, we need to extract these binaries and stage them so that the delta
+    update can replace the Windows node binaries. Without this, Windows nodes would keep
+    old Kubernetes versions after a delta upgrade.
+    
+    Mapping from WindowsNodeArtifacts.zip folders to installed paths:
+    - kubetools/ -> bin/kube/ (kubelet.exe, kubectl.exe, kubeadm.exe, kube-proxy.exe)
+    - docker/    -> bin/docker/ (docker.exe, dockerd.exe)
+
+.PARAMETER Context
+    Hashtable containing:
+    - NewExtract: Path to extracted new package
+    - StageDir: Path to staging directory
+
+.OUTPUTS
+    PSCustomObject with:
+    - Success: Boolean indicating if extraction succeeded
+    - ExtractedDirs: Array of directory names that were extracted
+    - ErrorMessage: Error message if failed
+#>
+function Copy-WindowsNodeArtifactsToStaging {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable] $Context
+    )
+
+    $result = [pscustomobject]@{
+        Success       = $false
+        ExtractedDirs = @()
+        ErrorMessage  = ''
+    }
+
+    # Mapping from ZIP folder names to target bin/ folder names
+    $folderMappings = @{
+        'kubetools' = 'bin/kube'      # kubelet, kubectl, kubeadm, kube-proxy
+        'docker'    = 'bin/docker'    # docker, dockerd
+    }
+
+    $winArtifactsZip = Join-Path $Context.NewExtract 'bin\WindowsNodeArtifacts.zip'
+    
+    if (-not (Test-Path $winArtifactsZip)) {
+        $result.ErrorMessage = "WindowsNodeArtifacts.zip not found at: $winArtifactsZip"
+        Write-Log "[WinArtifacts] $($result.ErrorMessage)" -Console
+        # Not a fatal error - package may not have Windows artifacts
+        $result.Success = $true
+        return $result
+    }
+
+    Write-Log "[WinArtifacts] Extracting Windows binaries from WindowsNodeArtifacts.zip..." -Console
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($winArtifactsZip)
+
+        try {
+            foreach ($sourceFolder in $folderMappings.Keys) {
+                $targetFolder = $folderMappings[$sourceFolder]
+                $targetPath = Join-Path $Context.StageDir $targetFolder
+
+                # Find all entries in this source folder
+                $entries = $zip.Entries | Where-Object { 
+                    $_.FullName -match "^$sourceFolder[/\\]" -and $_.FullName -ne "$sourceFolder/" 
+                }
+
+                if ($entries.Count -eq 0) {
+                    Write-Log "[WinArtifacts] Folder '$sourceFolder' not found in WindowsNodeArtifacts.zip" -Console
+                    continue
+                }
+
+                # Create target directory
+                if (-not (Test-Path $targetPath)) {
+                    New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+                }
+
+                $extractedCount = 0
+                foreach ($entry in $entries) {
+                    # Get relative path within source folder and build target path
+                    $relativePath = $entry.FullName -replace "^$sourceFolder[/\\]", ''
+                    
+                    # Skip if it's just a directory entry
+                    if ([string]::IsNullOrEmpty($relativePath) -or $entry.FullName.EndsWith('/')) {
+                        continue
+                    }
+
+                    $destFile = Join-Path $targetPath $relativePath
+                    $destDir = Split-Path $destFile -Parent
+
+                    if (-not (Test-Path $destDir)) {
+                        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+                    }
+
+                    # Extract file
+                    $stream = $entry.Open()
+                    try {
+                        $fileStream = [System.IO.File]::Create($destFile)
+                        try {
+                            $stream.CopyTo($fileStream)
+                            $extractedCount++
+                        } finally {
+                            $fileStream.Dispose()
+                        }
+                    } finally {
+                        $stream.Dispose()
+                    }
+                }
+
+                if ($extractedCount -gt 0) {
+                    Write-Log "[WinArtifacts] Extracted $extractedCount files from '$sourceFolder' to '$targetFolder'" -Console
+                    $result.ExtractedDirs += $targetFolder
+                }
+            }
+
+            $result.Success = $true
+            Write-Log "[WinArtifacts] Windows binaries extraction complete" -Console
+
+        } finally {
+            $zip.Dispose()
+        }
+    }
+    catch {
+        $result.ErrorMessage = "Failed to extract WindowsNodeArtifacts.zip: $($_.Exception.Message)"
+        Write-Log "[WinArtifacts][Error] $($result.ErrorMessage)" -Console
+    }
+
+    return $result
 }

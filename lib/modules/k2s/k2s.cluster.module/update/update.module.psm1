@@ -287,6 +287,48 @@ Current directory: $deltaRoot
 	_phase 'WindowsArtifacts'
 	Write-Log ("[Update] Applying artifacts from delta root '{0}' to target '{1}'" -f $deltaRoot, $targetInstallPath) -Console:$consoleSwitch
 	
+	# 6a. Apply wholesale directories first - these are replaced entirely (e.g., bin/kube, bin/docker)
+	# Wholesale directories contain binaries that must be completely replaced, not merged
+	$wholesaleDirs = @($manifest.WholeDirectories) | Where-Object { $_ -and ($_ -ne '') }
+	if ($wholesaleDirs.Count -gt 0) {
+		Write-Log ("[Update] Applying {0} wholesale directories" -f $wholesaleDirs.Count) -Console:$consoleSwitch
+		foreach ($wd in $wholesaleDirs) {
+			$srcDir = Join-Path $deltaRoot $wd
+			if (-not (Test-Path -LiteralPath $srcDir)) {
+				Write-Log ("[Update][Warn] Wholesale directory not found in delta: {0}" -f $wd) -Console:$consoleSwitch
+				continue
+			}
+			$dstDir = Join-Path $targetInstallPath $wd
+			
+			# Remove existing directory completely for clean replacement
+			if (Test-Path -LiteralPath $dstDir) {
+				Write-Log ("[Update] Removing existing directory for replacement: {0}" -f $wd) -Console:$consoleSwitch
+				try {
+					Remove-Item -LiteralPath $dstDir -Recurse -Force
+				} catch {
+					Write-Log ("[Update][Warn] Failed to remove existing directory '{0}': {1}" -f $wd, $_.Exception.Message) -Console:$consoleSwitch
+				}
+			}
+			
+			# Create parent directory if needed and copy wholesale directory
+			$dstParent = Split-Path $dstDir -Parent
+			if (-not (Test-Path -LiteralPath $dstParent)) {
+				New-Item -ItemType Directory -Path $dstParent -Force | Out-Null
+			}
+			
+			try {
+				# Copy the entire directory (not contents) since we removed the target
+				Copy-Item -LiteralPath $srcDir -Destination $dstDir -Recurse -Force
+				Write-Log ("[Update] Replaced wholesale directory: {0}" -f $wd) -Console:$consoleSwitch
+			} catch {
+				Write-Log ("[Update][Error] Failed to copy wholesale directory '{0}': {1}" -f $wd, $_.Exception.Message) -Console
+			}
+		}
+	} else {
+		Write-Log '[Update] No wholesale directories to apply' -Console:$consoleSwitch
+	}
+	
+	# 6b. Apply individual file changes (Added + Changed)
 	# Safety check: Define cluster-specific files that must NEVER be overwritten during updates.
 	# These files are generated during kubeadm init and contain cluster-specific certificates and configuration.
 	# Overwriting them would break the running cluster.

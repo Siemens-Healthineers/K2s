@@ -287,6 +287,19 @@ $wholesaleContext = @{
 }
 Copy-WholesaleDirectories -Context $wholesaleContext
 
+# Extract Windows binaries from WindowsNodeArtifacts.zip to staging
+# These binaries (kubelet, kubectl, docker, etc.) are stored inside the ZIP in the offline package
+# but need to be extracted and staged for delta upgrades to update Windows nodes properly
+$winArtifactsContext = @{
+    NewExtract = $newExtract
+    StageDir   = $stageDir
+}
+$winArtifactsResult = Copy-WindowsNodeArtifactsToStaging -Context $winArtifactsContext
+if ($winArtifactsResult.ExtractedDirs.Count -gt 0) {
+    # Add extracted directories to the wholesale list for manifest tracking
+    $wholeDirsNormalized = @($wholeDirsNormalized) + @($winArtifactsResult.ExtractedDirs) | Sort-Object -Unique
+}
+
 # Helper to purge any special skipped files that were copied indirectly (e.g. via wholesale directories)
  # (Remove-SpecialSkippedFilesFromStage provided)
 
