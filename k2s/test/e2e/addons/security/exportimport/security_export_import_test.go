@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -114,21 +114,20 @@ var _ = Describe("security addon export and import", Ordered, func() {
 
 		It("all resources have been exported", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all resources have been exported")
-			expectedDirName := exportimport.GetExpectedDirName("security", "security")
-			addonDir := filepath.Join(exportPath, "artifacts", expectedDirName)
-			GinkgoWriter.Printf("[Test] Addon dir: %s\n", addonDir)
+			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
-			exportimport.VerifyExportedImages(suite, addonDir, impl)
-			exportimport.VerifyExportedPackages(addonDir, impl)
+			exportimport.VerifyExportedImages(suite, extractedArtifactsDir, impl)
+			exportimport.VerifyExportedPackages(extractedArtifactsDir, impl)
 		})
 
-		It("oci-manifest.json contains proper OCI structure", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: oci-manifest.json contains proper OCI structure")
+		It("index.json contains proper OCI structure", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: index.json contains proper OCI structure")
 			expectedDirName := exportimport.GetExpectedDirName("security", "security")
-			addonDir := filepath.Join(exportPath, "artifacts", expectedDirName)
-			GinkgoWriter.Printf("[Test] Addon dir: %s\n", addonDir)
+			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
-			exportimport.VerifyOciManifest(addonDir, expectedDirName)
+			exportimport.VerifyOciManifest(extractedArtifactsDir, expectedDirName)
 		})
 	})
 
