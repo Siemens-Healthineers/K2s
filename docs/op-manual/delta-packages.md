@@ -21,7 +21,7 @@ A delta package contains:
 
 | Aspect | Full Package | Delta Package |
 |--------|--------------|---------------|
-| Size | 2-4 GB typically | 50-500 MB typically |
+| Size | 2-4 GB typically | 50-1000 MB typically |
 | Contains | All K2s files | Only changed files |
 | Requires | Nothing | Specific source version |
 | Use case | Fresh installs, major upgrades | Minor/patch upgrades |
@@ -44,8 +44,7 @@ k2s system package --delta-package `
     --package-version-to C:\packages\k2s-v1.5.0.zip
 ```
 
-!!! note "Experimental Feature"
-    Delta package creation is currently marked as experimental. The feature is fully functional but the CLI interface may evolve in future releases.
+> **📝 Experimental Feature:** Delta package creation is currently marked as experimental. The feature is fully functional but the CLI interface may evolve in future releases.
 
 ### Parameters
 
