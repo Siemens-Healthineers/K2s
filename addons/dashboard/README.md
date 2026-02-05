@@ -106,61 +106,18 @@ k2s addons disable dashboard
 
 _Note:_ The above command will only disable dashboard addon. If other addons were enabled while enabling the dashboard addon, they will not be disabled.
 
-## Further Reading
+## Backup and restore
 
-- Kubernetes Dashboard Docs on GitHub: <https://github.com/kubernetes/dashboard/tree/master/docs>-+-+-+-+-+
-The dashboard addon supports integration with any of the following ingress controllers: nginx, traefik, or nginx-gw. This integration enables external cluster access to the dashboard.
+The dashboard addon supports backup and restore via the `k2s` CLI.
 
-Example command to enable the dashboard with traefik ingress:
+Backup stores restore-relevant settings (currently metadata-only):
+- selected ingress integration (`none`/`nginx`/`traefik`/`nginx-gw`)
+- whether the `metrics` addon was enabled
 
+```console
+k2s addons backup dashboard
+k2s addons restore dashboard -f C:\Temp\Addons\dashboard_backup_YYYYMMDD_HHMMSS.zip
 ```
-k2s addons enable dashboard --ingress traefik
-```
-
-Example command to enable the dashboard with nginx-gw ingress:
-
-```
-k2s addons enable dashboard --ingress nginx-gw
-```
-
-_Note:_ If the specified ingress controller is not already active, it will be enabled automatically.
-
-## Accessing the dashboard
-
-Multiple access methods are available for the dashboard UI.
-
-### Access using ingress
-
-Accessing the dashboard through an ingress controller requires one of the supported addons (nginx, traefik, or nginx-gw) to be active.
-After enabling the appropriate addon, navigate to: https://k2s.cluster.local/dashboard/
-
-_Note:_ When using a proxy server configured in Windows Proxy settings, add **k2s.cluster.local** to the proxy bypass list.
-
-### Access using port-forwarding
-
-Execute the following command to access the dashboard through port-forwarding:
-
-```
-kubectl -n dashboard port-forward svc/kubernetes-dashboard 8443:443
-```
-
-Access the dashboard at: <https://localhost:8443>
-
-_Note:_ Port 8443 is used as an example. You may substitute any available local port.
-
-### Login to dashboard
-
-Upon opening the dashboard in a browser, select the **Skip** option to proceed without token-based authentication or kubeconfig file login.
-
-## Disable dashboard
-
-Disable the dashboard addon with the following command:
-
-```
-k2s addons disable dashboard
-```
-
-_Note:_ This command affects only the dashboard addon. Any ingress or metrics addons enabled alongside the dashboard will remain active.
 
 ## Further Reading
 
