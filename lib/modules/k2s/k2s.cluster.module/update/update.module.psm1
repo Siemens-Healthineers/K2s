@@ -58,6 +58,111 @@ function Get-ProductVersionGivenKubePath {
 	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")"
 }
 
+<#
+.SYNOPSIS
+	Restores CoreDNS etcd plugin configuration after kubeadm upgrade.
+.DESCRIPTION
+	kubeadm upgrade may reset CoreDNS customizations. This function restores:
+	- etcd TLS secrets (etcd-ca, etcd-client-for-core-dns)
+	- CoreDNS ConfigMap etcd plugin block
+	- CoreDNS Deployment volume mounts for etcd certificates
+	
+	This is required because K2s uses CoreDNS with an etcd plugin for external DNS
+	resolution (see docs/op-manual/external-dns.md).
+.PARAMETER ControlPlaneIp
+	IP address of the control plane. Defaults to 172.19.1.100.
+.PARAMETER ShowLogs
+	Show detailed logs to console.
+.OUTPUTS
+	[bool] Success indicator.
+.NOTES
+	Requires Invoke-CmdOnControlPlaneViaSSHKey to be available (vm module).
+#>
+function Restore-CoreDnsEtcdConfiguration {
+	[CmdletBinding()]
+	param(
+		[string]$ControlPlaneIp = '172.19.1.100',
+		[switch]$ShowLogs
+	)
+	
+	$consoleSwitch = $ShowLogs
+	
+	try {
+		Write-Log "[CoreDNS] Restoring etcd plugin configuration..." -Console:$consoleSwitch
+		Write-Log "[CoreDNS] Using control plane IP: $ControlPlaneIp" -Console:$consoleSwitch
+		
+		# Verify SSH helper is available
+		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
+			$vmModule = "$PSScriptRoot/../k2s.node.module/linuxnode/vm/vm.module.psm1"
+			if (Test-Path -LiteralPath $vmModule) { 
+				Import-Module $vmModule -ErrorAction SilentlyContinue 
+			}
+		}
+		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
+			Write-Log "[CoreDNS][Error] SSH helper not available - cannot restore CoreDNS" -Console:$consoleSwitch
+			return $false
+		}
+		
+		# Step 1: Recreate etcd secrets for CoreDNS
+		Write-Log "[CoreDNS] Recreating etcd secrets..." -Console:$consoleSwitch
+		$secretCmds = @(
+			'sudo mkdir -p /tmp/etcd-certs && sudo cp /etc/kubernetes/pki/etcd/* /tmp/etcd-certs/ && sudo chmod 444 /tmp/etcd-certs/*',
+			'kubectl delete secret -n kube-system etcd-ca --ignore-not-found=true',
+			'kubectl delete secret -n kube-system etcd-client-for-core-dns --ignore-not-found=true',
+			'kubectl create secret -n kube-system tls etcd-ca --cert=/tmp/etcd-certs/ca.crt --key=/tmp/etcd-certs/ca.key',
+			'kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=/tmp/etcd-certs/healthcheck-client.crt --key=/tmp/etcd-certs/healthcheck-client.key',
+			'sudo rm -rf /tmp/etcd-certs'
+		)
+		foreach ($cmd in $secretCmds) {
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cmd -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		}
+		Write-Log "[CoreDNS] etcd secrets recreated" -Console:$consoleSwitch
+		
+		# Step 2: Update CoreDNS configmap to add etcd plugin if missing
+		Write-Log "[CoreDNS] Checking CoreDNS configmap for etcd plugin..." -Console:$consoleSwitch
+		$etcdPluginCheck = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get configmap coredns -n kube-system -o yaml | grep -c "etcd cluster.local" || echo 0' -Timeout 30 -IgnoreErrors:$true).Output
+		if ($etcdPluginCheck -match '^0') {
+			Write-Log "[CoreDNS] Adding etcd plugin to configmap..." -Console:$consoleSwitch
+			$addEtcdPlugin = "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*prometheus :9153/i\        etcd cluster.local {\n            path /skydns\n            endpoint https://${ControlPlaneIp}:2379\n            tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt\n        }' | kubectl apply -f -"
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addEtcdPlugin -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+			Write-Log "[CoreDNS] etcd plugin added to configmap" -Console:$consoleSwitch
+		} else {
+			Write-Log "[CoreDNS] etcd plugin already present in configmap" -Console:$consoleSwitch
+		}
+		
+		# Step 3: Update CoreDNS deployment to mount etcd certificate volumes if missing
+		Write-Log "[CoreDNS] Checking CoreDNS deployment for etcd volume mounts..." -Console:$consoleSwitch
+		$volumeCheck = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get deployment coredns -n kube-system -o yaml | grep -c "etcd-ca-cert" || echo 0' -Timeout 30 -IgnoreErrors:$true).Output
+		if ($volumeCheck -match '^0') {
+			Write-Log "[CoreDNS] Adding etcd volume definitions to deployment..." -Console:$consoleSwitch
+			$addVolumes = "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -"
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addVolumes -Timeout 30 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+			
+			# Wait for deployment to be available
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=60s' -Timeout 90 -IgnoreErrors:$true).Output | Out-Null
+			
+			Write-Log "[CoreDNS] Adding etcd volume mounts to container..." -Console:$consoleSwitch
+			$addMounts = "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -"
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addMounts -Timeout 30 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+			Write-Log "[CoreDNS] etcd volume mounts added to deployment" -Console:$consoleSwitch
+		} else {
+			Write-Log "[CoreDNS] etcd volume mounts already present in deployment" -Console:$consoleSwitch
+		}
+		
+		# Step 4: Restart CoreDNS to pick up changes
+		Write-Log "[CoreDNS] Restarting CoreDNS deployment..." -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/coredns -n kube-system' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=120s' -Timeout 150 -IgnoreErrors:$true).Output | Out-Null
+		
+		Write-Log "[CoreDNS] Configuration restored successfully" -Console:$consoleSwitch
+		return $true
+	} catch {
+		Write-Log ("[CoreDNS][Error] Restoration failed: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		Write-Log "[CoreDNS][Error] Manual restoration may be required - see docs/op-manual/external-dns.md" -Console:$consoleSwitch
+		return $false
+	}
+}
+
 function PerformClusterUpdate {
 	<#
 	.SYNOPSIS
@@ -152,7 +257,7 @@ Current directory: $deltaRoot
 	}
 
 	$script:phaseId = 0
-	$script:totalPhases = 12
+	$script:totalPhases = 13
 	function _phase { 
 		param($name) 
 		$script:phaseId++
@@ -527,7 +632,27 @@ Current directory: $deltaRoot
 		}
 	} catch { Write-Log ("[Update][Warn] Health check encountered issues: {0}" -f $_.Exception.Message) -Console:$consoleSwitch }
 
-	# 11. Update VERSION file to reflect successful delta update
+	# 11. Restore CoreDNS configuration (kubeadm upgrade may reset customizations)
+	_phase 'CoreDnsRestore'
+	if ($wasRunning) {
+		# Get control plane IP from setup info
+		$controlPlaneIp = $null
+		if ($setupInfo -and $setupInfo.ControlPlaneNodeHostname) {
+			$controlPlaneIp = (Get-ConfiguredIPControlPlane)
+		}
+		if (-not $controlPlaneIp) {
+			$controlPlaneIp = '172.19.1.100'  # Default K2s control plane IP
+		}
+		
+		$coreDnsResult = Restore-CoreDnsEtcdConfiguration -ControlPlaneIp $controlPlaneIp -ShowLogs:$ShowLogs
+		if (-not $coreDnsResult) {
+			Write-Log '[Update][Warn] CoreDNS restoration may have encountered issues' -Console:$consoleSwitch
+		}
+	} else {
+		Write-Log '[Update] Skipping CoreDNS restoration (cluster not running)' -Console:$consoleSwitch
+	}
+
+	# 12. Update VERSION file to reflect successful delta update
 	_phase 'UpdateVersion'
 	if ($deltaTargetVersion) {
 		try {
@@ -563,6 +688,7 @@ Current directory: $deltaRoot
 }
 
 Export-ModuleMember -Function PerformClusterUpdate
+Export-ModuleMember -Function Restore-CoreDnsEtcdConfiguration
 
 # region: VM execution helper (Debian delta application)
 function Invoke-CommandInMasterVM {
