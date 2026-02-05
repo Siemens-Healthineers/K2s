@@ -93,13 +93,21 @@ function Restore-CoreDnsEtcdConfiguration {
 		
 		# Verify SSH helper is available
 		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
-			$vmModule = "$PSScriptRoot/../k2s.node.module/linuxnode/vm/vm.module.psm1"
+			# Try relative path first (from k2s.cluster.module/update/ -> ../../k2s.node.module/)
+			$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
 			if (Test-Path -LiteralPath $vmModule) { 
 				Import-Module $vmModule -ErrorAction SilentlyContinue 
+			} else {
+				# Fallback to installed k2s folder
+				$installFolder = Get-ClusterInstalledFolder
+				$vmModule = Join-Path $installFolder 'lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1'
+				if (Test-Path -LiteralPath $vmModule) {
+					Import-Module $vmModule -ErrorAction SilentlyContinue
+				}
 			}
 		}
 		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
-			Write-Log "[CoreDNS][Error] SSH helper not available - cannot restore CoreDNS" -Console:$consoleSwitch
+			Write-Log "[CoreDNS][Error] SSH helper not available - vm module not found at $vmModule" -Console:$consoleSwitch
 			return $false
 		}
 		
