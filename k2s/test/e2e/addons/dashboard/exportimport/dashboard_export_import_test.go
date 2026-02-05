@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -26,10 +26,11 @@ var (
 	suite                 *framework.K2sTestSuite
 	k2s                   *dsl.K2s
 	exportPath            string
-	exportedZipFile       string
+	exportedOciFile       string
 	controlPlaneIpAddress string
 	addon                 *addons.Addon
 	impl                  *addons.Implementation
+	testFailed            = false
 )
 
 func TestDashboardExportImport(t *testing.T) {
@@ -69,8 +70,21 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	exportimport.CleanupExportedFiles(exportPath, exportedZipFile)
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
+	if !testFailed {
+		exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
+	}
+
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("dashboard addon export and import", Ordered, func() {
@@ -79,42 +93,41 @@ var _ = Describe("dashboard addon export and import", Ordered, func() {
 			exportimport.CleanupExportedFiles(exportPath, "")
 		})
 
-		It("exports dashboard addon to versioned zip file", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: exports dashboard addon to versioned zip file")
-			exportedZipFile = exportimport.ExportAddon(ctx, suite, "dashboard", "", exportPath)
+		It("exports dashboard addon to versioned OCI tar file", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: exports dashboard addon to versioned OCI tar file")
+			exportedOciFile = exportimport.ExportAddon(ctx, suite, "dashboard", "", exportPath)
 
-			GinkgoWriter.Printf("[Test] Verifying exported ZIP file exists: %s\n", exportedZipFile)
-			info, err := os.Stat(exportedZipFile)
-			Expect(os.IsNotExist(err)).To(BeFalse(), "exported zip file should exist at %s", exportedZipFile)
-			GinkgoWriter.Printf("[Test] ZIP file verified: %d bytes\n", info.Size())
+			GinkgoWriter.Printf("[Test] Verifying exported OCI tar file exists: %s\n", exportedOciFile)
+			info, err := os.Stat(exportedOciFile)
+			Expect(os.IsNotExist(err)).To(BeFalse(), "exported OCI tar file should exist at %s", exportedOciFile)
+			GinkgoWriter.Printf("[Test] OCI tar file verified: %d bytes\n", info.Size())
 		})
 
-		It("contains dashboard addon folder with correct structure", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: contains dashboard addon folder with correct structure")
-			extractedAddonsDir := exportimport.ExtractZip(ctx, suite, exportedZipFile, exportPath)
+		It("contains dashboard addon folder with correct OCI structure", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: contains dashboard addon folder with correct OCI structure")
+			extractedArtifactsDir := exportimport.ExtractOciTar(ctx, suite, exportedOciFile, exportPath)
 
 			expectedDirName := exportimport.GetExpectedDirName("dashboard", "dashboard")
 			GinkgoWriter.Printf("[Test] Expected directory name: %s\n", expectedDirName)
-			exportimport.VerifyExportedZipStructure(extractedAddonsDir, expectedDirName)
+			exportimport.VerifyExportedOciStructure(extractedArtifactsDir, expectedDirName)
 		})
 
 		It("all resources have been exported", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all resources have been exported")
-			expectedDirName := exportimport.GetExpectedDirName("dashboard", "dashboard")
-			addonDir := filepath.Join(exportPath, "addons", expectedDirName)
-			GinkgoWriter.Printf("[Test] Addon dir: %s\n", addonDir)
+			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
-			exportimport.VerifyExportedImages(suite, addonDir, impl)
-			exportimport.VerifyExportedPackages(addonDir, impl)
+			exportimport.VerifyExportedImages(suite, extractedArtifactsDir, impl)
+			exportimport.VerifyExportedPackages(extractedArtifactsDir, impl)
 		})
 
-		It("version.info contains CD-friendly information", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: version.info contains CD-friendly information")
+		It("index.json contains proper OCI structure", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: index.json contains proper OCI structure")
 			expectedDirName := exportimport.GetExpectedDirName("dashboard", "dashboard")
-			addonDir := filepath.Join(exportPath, "addons", expectedDirName)
-			GinkgoWriter.Printf("[Test] Addon dir: %s\n", addonDir)
+			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
-			exportimport.VerifyVersionInfo(addonDir, expectedDirName)
+			exportimport.VerifyOciManifest(extractedArtifactsDir, expectedDirName)
 		})
 	})
 
@@ -131,11 +144,11 @@ var _ = Describe("dashboard addon export and import", Ordered, func() {
 
 	Describe("import dashboard addon", func() {
 		BeforeAll(func(ctx context.Context) {
-			exportimport.ImportAddon(ctx, suite, exportedZipFile)
+			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
-			exportimport.CleanupExportedFiles(exportPath, exportedZipFile)
+			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 
 		It("debian packages available after import", func(ctx context.Context) {

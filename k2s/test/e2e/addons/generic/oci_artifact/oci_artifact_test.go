@@ -28,6 +28,7 @@ const (
 
 var suite *framework.K2sTestSuite
 var orasFilePath string
+var testFailed = false
 
 func TestOCIArtifact(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -39,7 +40,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("OCI Artifact operations", Ordered, func() {
@@ -48,11 +59,11 @@ var _ = Describe("OCI Artifact operations", Ordered, func() {
 			orasFilePath = filepath.Join(suite.RootDir(), "bin", orasFileName)
 			GinkgoWriter.Println("oras.exe path:", orasFilePath)
 
-			zipFile, err := os.Create(artifactName)
+			artifactFile, err := os.Create(artifactName)
 			Expect(err).To(BeNil())
-			defer zipFile.Close()
+			defer artifactFile.Close()
 
-			zipWriter := zip.NewWriter(zipFile)
+			zipWriter := zip.NewWriter(artifactFile)
 			defer zipWriter.Close()
 
 			sampleFile, err := zipWriter.Create("sample.txt")

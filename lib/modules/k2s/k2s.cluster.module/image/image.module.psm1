@@ -94,8 +94,25 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]
     $KubernetesImages = Get-KubernetesImagesFromJson
     $linuxContainerImages = @()
     $output = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images').Output
+
+    Write-Log "[ImageList] Raw output type = $($output.GetType().Name)"
+    Write-Log "[ImageList] Raw output count = $($output.Count)"
+    if ($output -is [array]) {
+        Write-Log "[ImageList] Output is array with $($output.Length) elements"
+        for ($i = 0; $i -lt [Math]::Min($output.Length, 10); $i++) {
+            Write-Log "[ImageList]   Line[$i]: '$($output[$i])'"
+        }
+    } else {
+        Write-Log "[ImageList] Output is single value: '$output'"
+    }
+
     foreach ($line in $output[1..($output.Count - 1)]) {
         $words = $($line -replace '\s+', ' ').split()
+        Write-Log "[ImageList] Parsing line: '$line' -> words count=$($words.Count)"
+        if ($words.Count -lt 3) {
+            Write-Log "[ImageList] Skipping line with insufficient words"
+            continue
+        }
         $containerImage = [ContainerImage]@{
             ImageId    = $words[2]
             Repository = $words[0]
@@ -103,16 +120,19 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]
             Node       = "$hostname"
             Size       = $words[$words.Count - 2] + $words[$words.Count - 1]
         }
+        Write-Log "[ImageList] Parsed image: Repository='$($words[0])' Tag='$($words[1])' ImageId='$($words[2])'"
         $linuxContainerImages += $containerImage
     }
 
     Write-Log "[LinuxNode] Total images before filtering: $($linuxContainerImages.Count)"
+    Write-Log "[ImageList] Total parsed images before K8s filter = $($linuxContainerImages.Count)"
 
     # Filter infrastructure (K8s) images
     if ($IncludeK8sImages -eq $false) {
         $linuxContainerImages =
         Get-FilteredImages -ContainerImages $linuxContainerImages -ContainerImagesToBeCleaned $KubernetesImages
         Write-Log "[LinuxNode] After infrastructure filter: $($linuxContainerImages.Count)"
+        Write-Log "[ImageList] Total images after K8s filter = $($linuxContainerImages.Count)"
     }
 
     # Filter addon images from excluded namespaces

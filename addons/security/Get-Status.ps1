@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -83,4 +83,4 @@ if ($oauth2ProxyProp.Value -eq $true) {
     $oauth2ProxyProp.Message = 'The OAuth2 proxy is not deployed (possibly omitted with -OmitOAuth2Proxy)'
 }
 
-return $securityProp, $certManagerProp, $caRootCertificateProp, $keycloakProp, $hydraProp, $oauth2ProxyProp, $trustManagerProp, $linkerdProp
+return $securityProp,$certManagerProp, $caRootCertificateProp,  $keycloakProp, $hydraProp, $oauth2ProxyProp, $trustManagerProp, $linkerdProp

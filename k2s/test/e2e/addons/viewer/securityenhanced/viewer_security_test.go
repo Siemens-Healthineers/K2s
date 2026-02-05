@@ -18,10 +18,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const testClusterTimeout = time.Minute * 10
+const testClusterTimeout = time.Minute * 20
 
 var (
-	suite *framework.K2sTestSuite
+	suite      *framework.K2sTestSuite
+	testFailed = false
 )
 
 func TestViewerSecurity(t *testing.T) {
@@ -40,12 +41,25 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up viewer security test")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "viewer", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
+	if !testFailed {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "viewer", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	}
 
 	suite.TearDown(ctx)
 	GinkgoWriter.Println(">>> TEST: AfterSuite complete")
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {

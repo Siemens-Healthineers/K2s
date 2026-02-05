@@ -30,6 +30,7 @@ var (
 	portForwardingSession *gexec.Session
 	linuxOnly             = false
 	k2s                   *dsl.K2s
+	testFailed            = false
 )
 
 func TestLogging(t *testing.T) {
@@ -44,7 +45,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'logging' addon", Ordered, func() {
@@ -132,7 +143,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 			url := "http://localhost:5601/logging"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
+			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--retry-all-errors")
 			Expect(httpStatus).To(ContainSubstring("302"))
 			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
 		})
@@ -190,7 +201,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/logging", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/logging"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
+			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--retry-all-errors")
 			// we expect a re-direct to /logging/app/home
 			Expect(httpStatus).To(ContainSubstring("302"))
 			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
@@ -249,7 +260,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/logging", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/logging"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
+			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--retry-all-errors")
 			// we expect a re-direct to /logging/app/home
 			Expect(httpStatus).To(ContainSubstring("302"))
 			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))

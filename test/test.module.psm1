@@ -139,7 +139,10 @@ function New-GinkgoTestCmd {
         $OutDir = $(throw 'OutDir not specified'),
         [Parameter(Mandatory = $false)]
         [switch]
-        $V = $false
+        $V = $false,
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Timeout = '90m'
     )
     $ginkgoCmd = 'ginkgo'
     if ($V -eq $true) {
@@ -157,6 +160,7 @@ function New-GinkgoTestCmd {
     }
 
     $ginkgoCmd += ' --require-suite' # complains about specs without test suite
+    $ginkgoCmd += " --timeout=$Timeout"
     $ginkgoCmd += " --junit-report=GoTest-$((Get-Date -Format 'yyyy-MM-dd-HH-mm-ss').ToString()).xml"
     $ginkgoCmd += " --output-dir=$OutDir"
 
@@ -253,7 +257,15 @@ function Install-PesterIfNecessary {
         [string]
         $PesterVersion = $(throw 'PesterVersion not specified')
     )
-    $pesterModule = Get-InstalledModule -Name Pester
+    
+    $pesterModule = $null
+    try {
+        $pesterModule = Get-InstalledModule -Name Pester -ErrorAction SilentlyContinue
+    } catch {
+        # PowerShellGet 1.0.0.1 has a bug with null dates in module metadata
+        Write-Warning "Get-InstalledModule failed (likely PowerShellGet bug): $_"
+        Write-Warning "Consider updating PowerShellGet: Install-Module -Name PowerShellGet -Force -AllowClobber"
+    }
 
     if (!$pesterModule) {
         Write-Output 'Pester not found, installing it..'
@@ -306,7 +318,10 @@ function Start-GinkgoTests {
         $V = $false,
         [Parameter(Mandatory = $false)]
         [switch]
-        $VV = $false
+        $VV = $false,
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Timeout = '90m'
     )
     Write-Output "  Executing Go-based tests in '$WorkingDir' with verbose='$V' and super-verbose='$VV' for tags '$Tags' and excluding tags '$ExcludeTags'.."
 
@@ -318,7 +333,7 @@ function Start-GinkgoTests {
         Invoke-GoModDownloadInDir -WorkingDir $WorkingDir
     }
 
-    $ginkgoCmd = $(New-GinkgoTestCmd -Tags $Tags -ExcludeTags $ExcludeTags -OutDir $OutDir -V:$V)
+    $ginkgoCmd = $(New-GinkgoTestCmd -Tags $Tags -ExcludeTags $ExcludeTags -OutDir $OutDir -V:$V -Timeout $Timeout)
     $testFolders = (Get-ChildItem -Path $WorkingDir -File -Recurse -Filter '*_test.go').DirectoryName | Get-Unique
 
     if ($VV -eq $true) {

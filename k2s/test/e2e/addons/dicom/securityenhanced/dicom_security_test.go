@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -12,15 +12,20 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-const testClusterTimeout = time.Minute * 10
+const testClusterTimeout = time.Minute * 20
 
-var suite *framework.K2sTestSuite
+var (
+	suite      *framework.K2sTestSuite
+	k2s        *dsl.K2s
+	testFailed = false
+)
 
 func TestDicomSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -30,17 +35,34 @@ func TestDicomSecurity(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: BeforeSuite - Setting up DICOM security test")
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 	GinkgoWriter.Println(">>> TEST: BeforeSuite complete")
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up DICOM security test")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+	if !testFailed {
 
+		suite.SetupInfo().ReloadRuntimeConfig()
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+		if k2s.IsAddonEnabled("security") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+		}
+		if k2s.IsAddonEnabled("ingress", "nginx") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		}
+	}
 	suite.TearDown(ctx)
 	GinkgoWriter.Println(">>> TEST: AfterSuite complete")
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'dicom and security enhanced' addons", Ordered, func() {

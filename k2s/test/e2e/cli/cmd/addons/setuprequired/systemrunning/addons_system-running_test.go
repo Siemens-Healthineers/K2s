@@ -48,8 +48,8 @@ var _ = Describe("addons", Ordered, func() {
 				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", "invalid-addon-name", "-z", "test-dir")
 
 				Expect(output).To(Or(
-					ContainSubstring("Invalid format for addon"),
 					ContainSubstring("is not available in Linux-only"),
+					ContainSubstring("Unknown artifact format. Supported formats: .oci.tar"),
 				))
 			})
 		})

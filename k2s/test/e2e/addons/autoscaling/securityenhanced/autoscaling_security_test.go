@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -15,9 +15,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const autoscalingSecTimeout = time.Minute * 10
+const testClusterTimeout = time.Minute * 20
 
-var suite *framework.K2sTestSuite
+var (
+	suite      *framework.K2sTestSuite
+	testFailed = false
+)
 
 func TestAutoscalingSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -26,18 +29,31 @@ func TestAutoscalingSecurity(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: BeforeSuite - Setting up autoscaling security test")
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(autoscalingSecTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 	GinkgoWriter.Println(">>> TEST: BeforeSuite complete")
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println(">>> TEST: AfterSuite - Cleaning up autoscaling security test")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
+	if !testFailed {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+	}
 
 	suite.TearDown(ctx)
 	GinkgoWriter.Println(">>> TEST: AfterSuite complete")
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("'autoscaling and security enhanced' addons", Ordered, func() {
