@@ -151,8 +151,16 @@ Current directory: $deltaRoot
 		}
 	}
 
-	$phaseId = 0
-	function _phase { param($name) if ($ShowProgress) { $script:phaseId++; Write-Progress -Activity 'Cluster delta update' -Id 1 -Status ("{0}" -f $name) -PercentComplete (($script:phaseId) * 100 / 11) } Write-Log ("[Update] Phase: {0}" -f $name) -Console:$consoleSwitch }
+	$script:phaseId = 0
+	$script:totalPhases = 12
+	function _phase { 
+		param($name) 
+		$script:phaseId++
+		if ($ShowProgress) { 
+			Write-Progress -Activity 'Cluster delta update' -Id 1 -Status ("{0}/{1}: {2}" -f $script:phaseId, $script:totalPhases, $name) -PercentComplete (($script:phaseId) * 100 / $script:totalPhases) 
+		} 
+		Write-Log ("[Update] Phase {0}/{1}: {2}" -f $script:phaseId, $script:totalPhases, $name) -Console:$consoleSwitch 
+	}
 
 	# 1. Load manifest from delta root
 	_phase 'Manifest'
