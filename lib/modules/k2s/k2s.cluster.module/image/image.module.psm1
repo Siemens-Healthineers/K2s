@@ -17,7 +17,6 @@ $kubeBinPath = Get-KubeBinPath
 $dockerExe = "$kubeBinPath\docker\docker.exe"
 $nerdctlExe = "$kubeBinPath\nerdctl.exe"
 $ctrExe = "$kubeBinPath\containerd\ctr.exe"
-$kubectlExe = "$kubeBinPath\kube\kubectl.exe"
 $crictlExe = Get-CrictlExePath
 class ContainerImage {
     [string]$ImageId
@@ -86,6 +85,41 @@ function Get-FilteredImages([ContainerImage[]]$ContainerImages, [ContainerImage[
     return $filteredImages
 }
 
+
+function Remove-DuplicateImages {
+    param(
+        [Parameter(Mandatory = $true, HelpMessage = 'Array of container images to deduplicate.')]
+        [array]$ContainerImages,
+
+        [Parameter(Mandatory = $true, HelpMessage = 'Type of node: Linux or Windows.')]
+        [string]$NodeType
+    )
+
+    # Deduplicate images with same ImageID (prefer tagged over <none>)
+    $uniqueImages = @{}
+    foreach ($image in $ContainerImages) {
+        $imageId = $image.ImageId
+
+        if ($uniqueImages.ContainsKey($imageId)) {
+            # If existing entry has <none> tag and new one has real tag, replace it
+            if ($uniqueImages[$imageId].Tag -eq '<none>' -and $image.Tag -ne '<none>') {
+                $uniqueImages[$imageId] = $image
+                Write-Log "[$NodeType`Node] Replaced <none> tag with proper tag for ImageID: $imageId"
+            }
+            # If both are <none> or both are proper tags, keep first
+        }
+        else {
+            # Only add if not <none> tag OR if it's the only version of this ImageID
+            $uniqueImages[$imageId] = $image
+        }
+    }
+
+    # Final pass: remove any remaining <none> tagged images
+    $deduplicatedImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
+
+    return $deduplicatedImages
+}
+
 function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
     $setupFilePath = Get-SetupConfigFilePath
     $hostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
@@ -129,56 +163,10 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]
     }
 
     # Filter addon images from excluded namespaces
-    if ($ExcludeAddonImages -eq $true) {
-        Write-Log '[ImageFilter] Filtering addon images from Linux node...' -Console
-        $addonImageStrings = Get-ImagesFromExcludedNamespaces
-
-        if ($addonImageStrings.Count -gt 0) {
-            Write-Log "[ImageFilter] Addon images to exclude: $($addonImageStrings.Count)"
-
-            # Extract repository names from addon images (without tags) for <none> matching
-            $addonRepositories = $addonImageStrings | ForEach-Object {
-                if ($_ -match '^(.+):') { $Matches[1] } else { $_ }
-            } | Select-Object -Unique
-
-            # Filter by matching Repository:Tag
-            $linuxContainerImages = $linuxContainerImages | Where-Object {
-                # For <none> tags, match by repository only
-                if ($_.Tag -eq '<none>') {
-                    return $addonRepositories -notcontains $_.Repository
-                }
-                # For proper tags, match full image name
-                $imageFullName = "$($_.Repository):$($_.Tag)"
-                return $addonImageStrings -notcontains $imageFullName
-            }
-            Write-Log "[ImageFilter] After addon filtering: $($linuxContainerImages.Count) image(s) (includes <none> tags, will be deduplicated)" -Console
-        }
-    } else {
-        Write-Log "[LinuxNode] ExcludeAddonImages is FALSE, skipping addon filter"
-    }
+    $linuxContainerImages = Filter-AddonImagesFromList -ContainerImages $linuxContainerImages -ExcludeAddonImages $ExcludeAddonImages -NodeType 'Linux'
 
     # Deduplicate images with same ImageID (prefer tagged over <none>)
-    $uniqueImages = @{}
-    foreach ($image in $linuxContainerImages) {
-        $imageId = $image.ImageId
-
-        if ($uniqueImages.ContainsKey($imageId)) {
-            # If existing entry has <none> tag and new one has real tag, replace it
-            if ($uniqueImages[$imageId].Tag -eq '<none>' -and $image.Tag -ne '<none>') {
-                $uniqueImages[$imageId] = $image
-                Write-Log "[LinuxNode] Replaced <none> tag with proper tag for ImageID: $imageId"
-            }
-            # If both are <none> or both are proper tags, keep first
-        }
-        else {
-            # Only add if not <none> tag OR if it's the only version of this ImageID
-            $uniqueImages[$imageId] = $image
-        }
-    }
-
-    # Final pass: remove any remaining <none> tagged images
-    $linuxContainerImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
-    #Write-Log "[LinuxNode] After deduplication and <none> removal: $($linuxContainerImages.Count) unique images"
+    $linuxContainerImages = Remove-DuplicateImages -ContainerImages $linuxContainerImages -NodeType 'Linux'
 
     return $linuxContainerImages
 }
@@ -208,52 +196,10 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
         }
 
         # Filter addon images from excluded namespaces
-        if ($ExcludeAddonImages -eq $true) {
-            Write-Log '[ImageFilter] Filtering addon images from Windows node...' -Console
-            $addonImageStrings = Get-ImagesFromExcludedNamespaces
-
-            if ($addonImageStrings.Count -gt 0) {
-                # Extract repository names from addon images (without tags) for <none> matching
-                $addonRepositories = $addonImageStrings | ForEach-Object {
-                    if ($_ -match '^(.+):') { $Matches[1] } else { $_ }
-                } | Select-Object -Unique
-
-                # Filter by matching Repository:Tag
-                $windowsContainerImages = $windowsContainerImages | Where-Object {
-                    # For <none> tags, match by repository only
-                    if ($_.Tag -eq '<none>') {
-                        return $addonRepositories -notcontains $_.Repository
-                    }
-                    # For proper tags, match full image name
-                    $imageFullName = "$($_.Repository):$($_.Tag)"
-                    return $addonImageStrings -notcontains $imageFullName
-                }
-                Write-Log "[ImageFilter] After addon filtering: $($windowsContainerImages.Count) image(s) (includes <none> tags, will be deduplicated)" -Console
-            }
-        }
+        $windowsContainerImages = Filter-AddonImagesFromList -ContainerImages $windowsContainerImages -ExcludeAddonImages $ExcludeAddonImages -NodeType 'Windows'
 
         # Deduplicate images with same ImageID (prefer tagged over <none>)
-        $uniqueImages = @{}
-        foreach ($image in $windowsContainerImages) {
-            $imageId = $image.ImageId
-
-            if ($uniqueImages.ContainsKey($imageId)) {
-                # If existing entry has <none> tag and new one has real tag, replace it
-                if ($uniqueImages[$imageId].Tag -eq '<none>' -and $image.Tag -ne '<none>') {
-                    $uniqueImages[$imageId] = $image
-                    Write-Log "[WindowsNode] Replaced <none> tag with proper tag for ImageID: $imageId"
-                }
-                # If both are <none> or both are proper tags, keep first
-            }
-            else {
-                # Only add if not <none> tag OR if it's the only version of this ImageID
-                $uniqueImages[$imageId] = $image
-            }
-        }
-
-        # Final pass: remove any remaining <none> tagged images
-        $windowsContainerImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
-      #  Write-Log "[WindowsNode] After deduplication and <none> removal: $($windowsContainerImages.Count) unique images"
+        $windowsContainerImages = Remove-DuplicateImages -ContainerImages $windowsContainerImages -NodeType 'Windows'
     }
     return $windowsContainerImages
 }
@@ -460,12 +406,12 @@ function Get-RegistryAuthToken($registryName) {
 
 function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
     $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages
-    Write-Log "[ImageFilter] Final Linux images count: $($linuxContainerImages.Count)" -Console
-    $linuxContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Linux: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" -Console }
+    Write-Log "[ImageFilter] Found $($linuxContainerImages.Count) Linux image(s)"
+    $linuxContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Linux: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" }
 
     $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages
-    Write-Log "[ImageFilter] Final Windows images count: $($windowsContainerImages.Count)" -Console
-    $windowsContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Windows: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" -Console }
+    Write-Log "[ImageFilter] Found $($windowsContainerImages.Count) Windows image(s)"
+    $windowsContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Windows: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" }
     $allContainerImages = @($linuxContainerImages) + @($windowsContainerImages)
     return $allContainerImages
 }
@@ -750,6 +696,7 @@ function Push-DockerManifest {
 
 
 function Get-ImagesFromExcludedNamespaces {
+    $kubectlExe = "$kubeBinPath\kube\kubectl.exe"
     # Get excluded namespaces from config
     $rootConfig = Get-RootConfigk2s
     $excludedNamespacesString = $rootConfig.backup.excludednamespaces
@@ -798,6 +745,56 @@ function Get-ImagesFromExcludedNamespaces {
     Write-Log "[ImageFilter] Total unique addon images to exclude: $($uniqueImages.Count)"
 
     return $uniqueImages
+}
+
+function Filter-AddonImagesFromList {
+    param(
+        [Parameter(Mandatory = $true, HelpMessage = 'Array of container images to filter.')]
+        [AllowEmptyCollection()]
+        [array]$ContainerImages,
+
+        [Parameter(Mandatory = $true, HelpMessage = 'Set to $true to exclude addon images from the list.')]
+        [bool]$ExcludeAddonImages,
+
+        [Parameter(Mandatory = $true, HelpMessage = 'Node type: Linux or Windows.')]
+        [ValidateSet('Linux', 'Windows')]
+        [string]$NodeType
+    )
+
+    if ($ExcludeAddonImages -eq $false) {
+        Write-Log "[$NodeType`Node] ExcludeAddonImages is FALSE, skipping addon filter"
+        return $ContainerImages
+    }
+
+    Write-Log "[ImageFilter] Filtering addon images from $NodeType node..."
+    $addonImageStrings = Get-ImagesFromExcludedNamespaces
+
+    if ($addonImageStrings.Count -eq 0) {
+        Write-Log "[ImageFilter] No addon images to exclude, returning all images"
+        return $ContainerImages
+    }
+
+    Write-Log "[ImageFilter] Addon images to exclude: $($addonImageStrings.Count)"
+
+    # Extract repository names from addon images (without tags) for <none> matching
+    $addonRepositories = $addonImageStrings | ForEach-Object {
+        if ($_ -match '^(.+):') { $Matches[1] } else { $_ }
+    } | Select-Object -Unique
+
+    # Filter by matching Repository:Tag
+    $filteredImages = $ContainerImages | Where-Object {
+        # For <none> tags, match by repository only
+        if ($_.Tag -eq '<none>') {
+            return $addonRepositories -notcontains $_.Repository
+        }
+        # For proper tags, match full image name
+        $imageFullName = "$($_.Repository):$($_.Tag)"
+        return $addonImageStrings -notcontains $imageFullName
+    }
+
+    Write-Log "[ImageFilter] After addon filtering: $($filteredImages.Count) image(s) (includes <none> tags, will be deduplicated)"
+
+    return $filteredImages
 }
 
 Export-ModuleMember -Function Get-ContainerImagesInk2s, `

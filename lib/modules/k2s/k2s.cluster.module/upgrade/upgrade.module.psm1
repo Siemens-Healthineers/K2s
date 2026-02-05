@@ -117,7 +117,7 @@ function Export-NotNamespacedResources {
 		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
 		[string] $ExePath
 	)
-	# get all the resources (suppress kubectl warnings about deprecated APIs)
+	# get all the resources
 	Write-Log "Export global (not namespaced) resources from existing cluster using $ExePath\kubectl.exe" -Console
 	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=false 2>$null
 
@@ -138,7 +138,7 @@ function Export-NotNamespacedResources {
 			# collect all resources
 			$name = $entry[0]
 
-			# check size of items (suppress kubectl warnings about deprecated APIs)
+			# check size of items
 			$res1 = &$ExePath\kubectl.exe get $name -o json 2>$null
 			$nr = $res1 | & $binPath\jq '.items | length'
 			# if no items, export does not make sense
@@ -218,7 +218,7 @@ function Export-NamespacedResources {
 				# check if resource needs to be excluded
 				if ($excludednamespacedresources -contains $name) { continue }
 
-				# check size of items (suppress kubectl warnings about deprecated APIs)
+				# check size of items
 				$res1 = &$ExePath\kubectl.exe get $name -n $namespace -o json 2>$null
 				$nr = $res1 | & $binPath\jq '.items | length'
 				# if no items, export does not make sense
@@ -243,7 +243,7 @@ function Export-NamespacedResources {
 				.metadata.generation,
 				.metadata.ownerReferences)'
 				$filter = $filter -replace '\r*\n', ''
-				# remove unwanted items (suppress kubectl warnings about deprecated APIs)
+				# remove unwanted items
 				$res2 = &$ExePath\kubectl.exe get $name -n $namespace -o json 2>$null | & $binPath\jq $filter
 
 				$res3 = $res2 | & $binPath\yq eval - -P
@@ -256,16 +256,16 @@ function Export-NamespacedResources {
 }
 
 function Import-NotNamespacedResources {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string] $folderResources,
-        [Parameter(Mandatory = $true)]
-        [string] $ExePath,
-        [Parameter(Mandatory = $false)]
-        [bool] $ErrorOnFailure = $false,
-        [Parameter(Mandatory = $false)]
-        [bool] $ShowLogs = $false
-    )
+	param (
+		[Parameter(Mandatory = $true, HelpMessage = 'Location where to get the not namespaced resources')]
+		[string] $folderResources,
+		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
+		[string] $ExePath,
+		[Parameter(Mandatory = $false, HelpMessage = 'If set to true, any error during resource import will cause the operation to fail immediately')]
+		[bool] $ErrorOnFailure = $false,
+		[Parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
+		[bool] $ShowLogs = $false
+	)
 
     Write-Log "Import not namespaced resources from existing cluster"
 
@@ -345,16 +345,16 @@ function Import-NotNamespacedResources {
 }
 
 function Import-NamespacedResources {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string] $folderNamespaces,
-        [Parameter(Mandatory = $true)]
-        [string] $ExePath,
-        [Parameter(Mandatory = $false)]
-        [bool] $ErrorOnFailure = $false,
-        [Parameter(Mandatory = $false)]
-        [bool] $ShowLogs = $false
-    )
+	param (
+		[Parameter(Mandatory = $true, HelpMessage = 'Location where to get the namespaced resources')]
+		[string] $folderNamespaces,
+		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
+		[string] $ExePath,
+		[Parameter(Mandatory = $false, HelpMessage = 'If set to true, any error during resource import will cause the operation to fail immediately')]
+		[bool] $ErrorOnFailure = $false,
+		[Parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
+		[bool] $ShowLogs = $false
+	)
 
     Write-Log "Import namespaced resources from existing cluster"
 
@@ -1338,13 +1338,13 @@ function PerformClusterUpgrade {
 }
 
 function Invoke-ImageBackup {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $BackupDirectory,
+	param(
+		[Parameter(Mandatory = $true, HelpMessage = 'Directory to store backed up images')]
+		[string] $BackupDirectory,
 
-        [Parameter(Mandatory = $false)]
-        [switch] $ExcludeAddonImages
-    )
+		[Parameter(Mandatory = $false, HelpMessage = 'Exclude addon images from backup')]
+		[switch] $ExcludeAddonImages
+	)
 
     Write-Log "Starting image backup..." -Console
 
@@ -1388,10 +1388,10 @@ function Invoke-ImageBackup {
 }
 
 function Invoke-PVBackup {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $BackupDirectory
-    )
+	param(
+		[Parameter(Mandatory = $true, HelpMessage = 'Directory where persistent volume backups will be stored')]
+		[string] $BackupDirectory
+	)
 
     Write-Log "Starting persistent volume backup..." -Console
 
@@ -1443,13 +1443,13 @@ function Invoke-PVBackup {
 }
 
 function Invoke-PVRestore {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $BackupDirectory,
+	param(
+		[Parameter(Mandatory = $true, HelpMessage = 'Directory containing persistent volume backups')]
+		[string] $BackupDirectory,
 
-        [Parameter(Mandatory = $false)]
-        [switch] $Force
-    )
+		[Parameter(Mandatory = $false, HelpMessage = 'Force restore even if conflicts detected')]
+		[switch] $Force
+	)
 
     Write-Log "Starting persistent volume restore..." -Console
 
@@ -1499,7 +1499,7 @@ function Invoke-PVRestore {
 
 function Invoke-ImageRestore {
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, HelpMessage = 'Directory containing backed up images')]
         [string] $BackupDirectory
     )
 

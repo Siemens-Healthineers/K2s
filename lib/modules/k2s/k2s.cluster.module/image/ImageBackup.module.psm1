@@ -142,14 +142,14 @@ function New-ImageProcessingLog {
     Write-Log "Total Images: $($Result.Images.Count + $Result.FailedImages.Count)" -Console
     Write-Log "Successful ${LogType}s: $($Result.Images.Count)" -Console
     Write-Log "Failed ${LogType}s: $($Result.FailedImages.Count)" -Console
-    
+
     if ($Result.Images.Count -gt 0) {
         Write-Log "${LogType}d Images:" -Console
         foreach ($img in $Result.Images) {
             Write-Log "✅ $($img.Repository):$($img.Tag) (ID: $($img.ImageId))" -Console
         }
     }
-    
+
     if ($Result.FailedImages.Count -gt 0) {
         Write-Log "Failed Images:" -Console
         foreach ($img in $Result.FailedImages) {
@@ -475,8 +475,8 @@ function Backup-K2sImages {
         [array] $Images = @()
     )
     
-    Write-Log "Starting image backup to directory: $BackupDirectory" -Console
-    
+    Write-Log "Starting image backup to directory: $BackupDirectory"
+
     if ($Images.Count -eq 0) {
         return New-EmptyBackupResult -BackupDirectory $BackupDirectory
     }

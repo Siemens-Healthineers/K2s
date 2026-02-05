@@ -254,15 +254,15 @@ function Export-PersistentVolume {
         $BackupName = "$PVName-backup"
     }
     
-    Write-Log "[PVBackup] Starting export of PersistentVolume '$PVName'..." -Console
-    
+    Write-Log "[PVBackup] Exporting PV '$PVName'..."
+
     try {
         # Step 1: Query PV details from cluster
-        Write-Log "[PVBackup] Querying PV details from cluster..." -Console
+        Write-Log "[PVBackup] Querying PV details from cluster..."
         $pvYaml = kubectl get pv $PVName -o json 2>&1
         
         if ($LASTEXITCODE -ne 0) {
-            Write-Log "[PVBackup] PV '$PVName' not found in cluster" -Console -Error
+            Write-Log "[PVBackup] PV '$PVName' not found in cluster" -Error
             return $false
         }
         
@@ -275,28 +275,25 @@ function Export-PersistentVolume {
         
         # Validate supported volume type
         if ($volumeType -notin @('local', 'hostPath')) {
-            Write-Log "[PVBackup] PV '$PVName' is not a local or hostPath volume (unsupported type: $volumeType)" -Console -Error
+            Write-Log "[PVBackup] PV '$PVName' is not a local or hostPath volume (unsupported type: $volumeType)" -Error
             return $false
         }
         
         # Validate path exists for supported types
         if (-not $volumePath) {
-            Write-Log "[PVBackup] PV '$PVName' is missing volume path" -Console -Error
+            Write-Log "[PVBackup] PV '$PVName' is missing volume path" -Error
             return $false
         }
         
-        Write-Log "[PVBackup] PV Type: $volumeType" -Console
-        Write-Log "[PVBackup] PV Path: $volumePath" -Console
-        Write-Log "[PVBackup] Capacity: $($pv.spec.capacity.storage)" -Console
-        Write-Log "[PVBackup] Status: $($pv.status.phase)" -Console
-        
+        Write-Log "[PVBackup] PV Type: $volumeType, Path: $volumePath, Capacity: $($pv.spec.capacity.storage)"
+
         if ($pv.spec.claimRef) {
-            Write-Log "[PVBackup] Bound to: $($pv.spec.claimRef.namespace)/$($pv.spec.claimRef.name)" -Console
+            Write-Log "[PVBackup] Bound to: $($pv.spec.claimRef.namespace)/$($pv.spec.claimRef.name)"
         }
         
         # Ensure export directory exists on Windows host
         if (-not (Test-Path $ExportPath)) {
-            Write-Log "[PVBackup] Creating export directory: $ExportPath" -Console
+            Write-Log "[PVBackup] Creating export directory: $ExportPath"
             New-Item -Path $ExportPath -ItemType Directory -Force | Out-Null
         }
         
@@ -310,56 +307,46 @@ function Export-PersistentVolume {
         $ipAddress = Get-ConfiguredIPControlPlane
         $sshUser = 'remote'  # Standard K2s VM user with passwordless sudo
         
-        Write-Log "[PVBackup] Connecting to kubemaster VM at $ipAddress" -Console
-        
+        Write-Log "[PVBackup] Connecting to VM at $ipAddress"
+
         # Step 2: Check if volume path exists on VM
-        Write-Log "[PVBackup] Checking volume path on VM..." -Console
         $checkCmd = "sudo test -d '$volumePath' && echo 'exists' || echo 'missing'"
         $checkResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $checkCmd -NoLog
         
         if ($checkResult -notmatch 'exists') {
-            Write-Log "[PVBackup] Volume path not found at $volumePath on VM" -Console -Error
+            Write-Log "[PVBackup] Volume path not found at $volumePath on VM" -Error
             return $false
         }
         
-        Write-Log "[PVBackup] Volume path found on VM" -Console
-        
         # Step 3: Get size of volume for user information
-        Write-Log "[PVBackup] Calculating volume size..." -Console
         $sizeCmd = "sudo du -sh '$volumePath' | cut -f1"
         $sizeResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 5 -CmdToExecute $sizeCmd -NoLog
         $volumeSize = $sizeResult.Output
-        Write-Log "[PVBackup] Volume size: $volumeSize" -Console
-        
+        Write-Log "[PVBackup] Volume size: $volumeSize"
+
         # Step 4: Clean up any previous temporary files
-        Write-Log "[PVBackup] Cleaning up any previous temporary files..." -Console
+        Write-Log "[PVBackup] Preparing backup..."
         $cleanupCmd = "sudo rm -rf '$tempCopyPath' '$tempArchivePath'"
         Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $cleanupCmd -NoLog | Out-Null
         
         # Step 5: Create temporary copy with proper permissions
-        Write-Log "[PVBackup] Creating temporary copy with accessible permissions..." -Console
         $copyCmd = "sudo rm -rf '$tempCopyPath' && sudo mkdir -p '$tempCopyPath' && sudo cp -r '$volumePath'/* '$tempCopyPath'/ && sudo chown -R $sshUser`:users '$tempCopyPath'"
         Invoke-CmdOnControlPlaneViaSSHKey -Timeout 60 -CmdToExecute $copyCmd -NoLog | Out-Null
         
-        Write-Log "[PVBackup] Temporary copy created successfully" -Console
-        
         # Step 6: Compress the directory into tar.gz on VM
-        Write-Log "[PVBackup] Compressing volume data (this may take a while)..." -Console
+        Write-Log "[PVBackup] Compressing volume data..."
         $compressCmd = "cd '$tempCopyPath' && tar czf '$tempArchivePath' ."
         Invoke-CmdOnControlPlaneViaSSHKey -Timeout 180 -CmdToExecute $compressCmd -NoLog | Out-Null
-        
-        Write-Log "[PVBackup] Compression completed" -Console
         
         # Step 7: Get compressed archive size
         $archiveSizeCmd = "ls -lh '$tempArchivePath' | awk '{print `$5}'"
         $archiveSizeResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $archiveSizeCmd -NoLog
         $archiveSize = $archiveSizeResult.Output
-        Write-Log "[PVBackup] Compressed archive size: $archiveSize" -Console
-        
+        Write-Log "[PVBackup] Compressed archive size: $archiveSize"
+
         # Step 8: Transfer compressed archive to Windows host via SCP
-        Write-Log "[PVBackup] Transferring archive to Windows host..." -Console
-        Write-Log "[PVBackup] Target: $finalBackupPath" -Console
-        
+        Write-Log "[PVBackup] Transferring archive..."
+
         # Use scp.exe directly (following K2s vm.module.psm1 pattern)
         $scpArgs = @(
             '-o', 'StrictHostKeyChecking=no',
@@ -374,22 +361,17 @@ function Export-PersistentVolume {
             throw "SCP transfer failed: $scpResult"
         }
         
-        Write-Log "[PVBackup] Archive transferred successfully" -Console
-        
         # Step 9: Verify tar.gz file exists on Windows
         if (-not (Test-Path $finalBackupPath)) {
             throw "Transferred file not found at: $finalBackupPath"
         }
         
         $localFileSize = (Get-Item $finalBackupPath).Length
-        Write-Log "[PVBackup] Backup archive size: $([Math]::Round($localFileSize / 1MB, 2)) MB" -Console
-        
+        Write-Log "[PVBackup] Backup size: $([Math]::Round($localFileSize / 1MB, 2)) MB"
+
         # Step 10: Clean up temporary files on VM
-        Write-Log "[PVBackup] Cleaning up temporary files on VM..." -Console
         $vmCleanupCmd = "sudo rm -rf '$tempCopyPath' '$tempArchivePath'"
         Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $vmCleanupCmd -NoLog | Out-Null
-        
-        Write-Log "[PVBackup] VM cleanup completed" -Console
         
         # Step 11: Create backup metadata file
         $metadataPath = Join-Path $ExportPath "$BackupName-metadata.json"
@@ -411,25 +393,16 @@ function Export-PersistentVolume {
         }
         
         $metadata | ConvertTo-Json -Depth 3 | Set-Content -Path $metadataPath -Encoding UTF8
-        Write-Log "[PVBackup] Backup metadata saved: $metadataPath" -Console
-        
-        Write-Log "[PVBackup] ========================================" -Console
-        Write-Log "[PVBackup] PersistentVolume backup completed successfully!" -Console
-        Write-Log "[PVBackup] PV Name: $PVName" -Console
-        Write-Log "[PVBackup] Backup location: $finalBackupPath" -Console
-        Write-Log "[PVBackup] Metadata: $metadataPath" -Console
-        Write-Log "[PVBackup] ========================================" -Console
-        
+        Write-Log "[PVBackup] PV '$PVName' backed up successfully" -Console
+
         return $true
     }
     catch {
         Write-Log "[PVBackup] Error during PV export: $_" -Console -Error
-        Write-Log "[PVBackup] Stack trace: $($_.ScriptStackTrace)" -Console
-        
+        Write-Log "[PVBackup] Stack trace: $($_.ScriptStackTrace)"
+
         # Attempt cleanup on error
         try {
-            Write-Log "[PVBackup] Attempting cleanup after error..." -Console
-            
             # Clean up VM
             $vmCleanupCmd = "sudo rm -rf '$tempCopyPath' '$tempArchivePath'"
             Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $vmCleanupCmd -NoLog -ErrorAction SilentlyContinue | Out-Null
@@ -440,7 +413,7 @@ function Export-PersistentVolume {
             }
         }
         catch {
-            Write-Log "[PVBackup] Cleanup encountered errors (non-critical): $_" -Console
+            Write-Log "[PVBackup] Cleanup encountered errors (non-critical): $_"
         }
         
         return $false
@@ -1027,12 +1000,12 @@ function Backup-AllPersistentVolumes {
         (-not $ExcludeNames -or $ExcludeNames -notcontains $_.Name)
     }
     if ($ExcludeNames -and $ExcludeNames.Count -gt 0) {
-        Write-Log "[PVBackup] Applying addon PV exclusion filter to cluster PVs..." -Console
+        Write-Log "[PVBackup] Applying addon PV exclusion filter to cluster PVs..."
         $excludedPVs = $pvList | Where-Object { $ExcludeNames -contains $_.Name }
         if ($excludedPVs.Count -gt 0) {
             Write-Log "[PVBackup] Excluding addon-managed PV(s): $($excludedPVs.Name -join ', ')" -Console
         } else {
-            Write-Log "[PVBackup] No addon PVs found in cluster to exclude" -Console
+            Write-Log "[PVBackup] No addon PVs found in cluster to exclude"
         }
     }
     Write-Log "[PVBackup] Found $($pvsToBackup.Count) PV(s) to backup" -Console
@@ -1042,7 +1015,6 @@ function Backup-AllPersistentVolumes {
     $failCount = 0
     
     foreach ($pv in $pvsToBackup) {
-        Write-Log "[PVBackup] ----------------------------------------" -Console
         Write-Log "[PVBackup] Backing up PV: $($pv.Name)" -Console
         
         $backupParams = @{
@@ -1062,11 +1034,9 @@ function Backup-AllPersistentVolumes {
         }
     }
     
-    Write-Log "[PVBackup] ========================================" -Console
     Write-Log "[PVBackup] All PV backups completed" -Console
     Write-Log "[PVBackup] Success: $successCount | Failed: $failCount" -Console
-    Write-Log "[PVBackup] ========================================" -Console
-    
+
     return $results
 }
 
