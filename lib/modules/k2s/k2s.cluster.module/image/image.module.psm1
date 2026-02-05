@@ -87,8 +87,6 @@ function Get-FilteredImages([ContainerImage[]]$ContainerImages, [ContainerImage[
 }
 
 function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
-    Write-Log "[LinuxNode] IncludeK8sImages=$IncludeK8sImages, ExcludeAddonImages=$ExcludeAddonImages"
-
     $setupFilePath = Get-SetupConfigFilePath
     $hostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
     $KubernetesImages = Get-KubernetesImagesFromJson
@@ -123,15 +121,10 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]
         Write-Log "[ImageList] Parsed image: Repository='$($words[0])' Tag='$($words[1])' ImageId='$($words[2])'"
         $linuxContainerImages += $containerImage
     }
-
-    Write-Log "[LinuxNode] Total images before filtering: $($linuxContainerImages.Count)"
     Write-Log "[ImageList] Total parsed images before K8s filter = $($linuxContainerImages.Count)"
-
-    # Filter infrastructure (K8s) images
     if ($IncludeK8sImages -eq $false) {
         $linuxContainerImages =
         Get-FilteredImages -ContainerImages $linuxContainerImages -ContainerImagesToBeCleaned $KubernetesImages
-        Write-Log "[LinuxNode] After infrastructure filter: $($linuxContainerImages.Count)"
         Write-Log "[ImageList] Total images after K8s filter = $($linuxContainerImages.Count)"
     }
 
@@ -209,8 +202,6 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
             }
             $windowsContainerImages += $containerImage
         }
-
-        # Filter infrastructure (K8s) images
         if ($IncludeK8sImages -eq $false) {
             $windowsContainerImages =
             Get-FilteredImages -ContainerImages $windowsContainerImages -ContainerImagesToBeCleaned $KubernetesImages
@@ -464,7 +455,7 @@ function Get-RegistryAuthToken($registryName) {
     $dockerAuth = $dockerConfig.psobject.properties['auths'].value
     $authk2s = $dockerAuth.psobject.properties["$registryName"].value
     $auth = $authk2s.psobject.properties['auth'].value
-     return $auth
+    return $auth
 }
 
 function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
@@ -757,18 +748,7 @@ function Push-DockerManifest {
     }
 }
 
-<#
-.SYNOPSIS
-    Gets container images from excluded (addon/infrastructure) namespaces.
 
-.DESCRIPTION
-    Queries all namespaces listed in backup.excludednamespaces from config.json
-    and collects container images used by pods in those namespaces.
-    Used to filter out addon images from system backup.
-
-.OUTPUTS
-    Array of image strings in format "repository:tag"
-#>
 function Get-ImagesFromExcludedNamespaces {
     # Get excluded namespaces from config
     $rootConfig = Get-RootConfigk2s

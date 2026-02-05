@@ -232,6 +232,7 @@ function Invoke-K2sImageCommand {
     
     Write-Log "Executing k2s command for image: $ImageName"
     $result = & $CommandExecutor $K2sExecutable $Arguments
+
     if ($LASTEXITCODE -ne 0) {
         # Filter out progress/status lines that aren't actual errors
         $realErrors = $output | Where-Object {
@@ -393,7 +394,6 @@ function Get-K2sImageList {
     )
     
     Write-Log "Discovering images in the cluster..." -Console
-    Write-Log "[ImageBackup] Parameters: IncludeSystemImages=$IncludeSystemImages, ExcludeAddonImages=$ExcludeAddonImages" -Console
 
     try {
         # Use the existing Get-Images.ps1 script which already has proper filtering logic
@@ -475,16 +475,13 @@ function Backup-K2sImages {
         [array] $Images = @()
     )
     
-    Write-Log "Starting image backup to backup directory" -Console
+    Write-Log "Starting image backup to directory: $BackupDirectory" -Console
     
     if ($Images.Count -eq 0) {
         return New-EmptyBackupResult -BackupDirectory $BackupDirectory
     }
     
     try {
-        # Keep all images - don't deduplicate
-        # Each node's version will be backed up separately with node-specific filename
-
         # Create backup directory structure
         New-BackupDirectoryStructure -BackupDirectory $BackupDirectory -CreateImagesSubdir
         
@@ -548,7 +545,6 @@ function Backup-K2sImages {
         # Save backup manifest
         $manifestPath = Join-Path $BackupDirectory "manifest.json"
         $backupManifest | ConvertTo-Json -Depth 10 | Out-File -FilePath $manifestPath -Encoding UTF8
-        
 
         # Create backup log in C:\var\log
         $logDirectory = "C:\var\log"
