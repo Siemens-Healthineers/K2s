@@ -209,6 +209,10 @@ Write-Log "Zip package available at '$zipPackagePath'." -Console
 
 Write-Log "Building delta between:'$InputPackageOne' -> '$InputPackageTwo'" -Console
 
+# Initialize phase tracking for numbered phase output
+# Phases: 1.Extraction, 2.Hashing, 3.Staging, 4.VHDXAnalysis, 5.ImageDelta, 6.GuestConfig, 7.DebianArtifacts, 8.Manifest, 9.Signing, 10.Zipping
+Initialize-PhaseTracking -TotalPhases 10
+
 # Create temporary directories for extraction and staging
 $tempDirs = New-DeltaTempDirectories
 $tempRoot = $tempDirs.TempRoot
@@ -218,6 +222,7 @@ $stageDir = $tempDirs.StageDir
 
 $overallError = $null
 try {
+    $extractPhase = Start-Phase 'Extraction'
     try {
     Expand-ZipWithProgress -ZipPath $InputPackageOne -Destination $oldExtract -Label 'old package' -Show:$ShowLogs
     Expand-ZipWithProgress -ZipPath $InputPackageTwo -Destination $newExtract -Label 'new package' -Show:$ShowLogs
@@ -226,6 +231,7 @@ try {
         Write-Log "Extraction failed: $($_.Exception.Message)" -Error
         throw
     }
+    Stop-Phase 'Extraction' $extractPhase
 
  # (Get-FileMap provided via methods file)
 
@@ -348,6 +354,7 @@ $offlineDebInfo = $null
 $imageDiffResult = $null
 $guestConfigDiff = $null
 if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
+        $vhdxPhase = Start-Phase 'VHDXAnalysis'
         Write-Log 'Analyzing Debian packages in Kubemaster-Base.vhdx ...' -Console
                 $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx' -QueryImages:(-not $SkipImageDelta) -QueryConfigHashes -KeepNewVmAlive:$true
         if ($debianPackageDiff.Processed) {
@@ -526,6 +533,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
             }
             
                         # --- Generate Debian delta artifact directory (lists + scripts) -----------------
+            $debArtifactPhase = Start-Phase 'DebianArtifacts'
             try {
                 $debianDeltaDir = Join-Path $stageDir 'debian-delta'
                 if (-not (Test-Path -LiteralPath $debianDeltaDir)) { New-Item -ItemType Directory -Path $debianDeltaDir | Out-Null }
@@ -631,8 +639,10 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     throw
                 }
                 Write-Log "Created Debian delta artifact at '$debianDeltaDir'" -Console
+                Stop-Phase 'DebianArtifacts' $debArtifactPhase
             }
             catch {
+                Stop-Phase 'DebianArtifacts' $debArtifactPhase
                 Write-Log "[Error] Failed to generate Debian delta artifact: $($_.Exception.Message)"
                 if ($EncodeStructuredOutput -eq $true) {
                     $err = New-Error -Severity Warning -Code '[Error] Failed to generate Debian delta artifact' -Message $_.Exception.Message
@@ -643,7 +653,9 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     throw $_
                 }        
             }
+            Stop-Phase 'VHDXAnalysis' $vhdxPhase
     } else {
+        Stop-Phase 'VHDXAnalysis' $vhdxPhase
         $err = "Debian package diff not processed: $($debianPackageDiff.Error)"
         # Attempt a quick verification that no temp Hyper-V artifacts remain (best effort)
         try {
@@ -658,9 +670,18 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
         $script:SuppressFinalErrorLog = $true
         throw $err
     }
+} else {
+    # VHDX not in skip list - skip phases 4-7 (VHDXAnalysis, ImageDelta, GuestConfig, DebianArtifacts)
+    Write-Log '[Phase 4/10] VHDXAnalysis - skipped (no VHDX in skip list)' -Console
+    Write-Log '[Phase 5/10] ImageDelta - skipped (no VHDX)' -Console
+    Write-Log '[Phase 6/10] GuestConfigDiff - skipped (no VHDX)' -Console
+    Write-Log '[Phase 7/10] DebianArtifacts - skipped (no VHDX)' -Console
+    # Advance phase counter to align with manifest phase
+    $script:DeltaPhaseNumber = 7
 }
 
 # Build and write delta manifest using helper function
+$manifestPhase = Start-Phase 'Manifest'
 $manifestContext = @{
     InputPackageOne     = $InputPackageOne
     InputPackageTwo     = $InputPackageTwo
@@ -678,14 +699,17 @@ $manifestContext = @{
     GuestConfigDiff     = $guestConfigDiff
 }
 $manifestPath = New-DeltaManifest -Context $manifestContext
+Stop-Phase 'Manifest' $manifestPhase
 
     # --- Code Signing (optional) using helper function -------------------------------------------------
+    $signingPhase = Start-Phase 'Signing'
     $signingContext = @{
         StageDir        = $stageDir
         CertificatePath = $CertificatePath
         Password        = $Password
     }
     $signingResult = Invoke-DeltaCodeSigning -Context $signingContext
+    Stop-Phase 'Signing' $signingPhase
 
     # --- Create delta zip after (optional) signing ------------------------------
     $zipPhase = Start-Phase "Zipping"
@@ -720,5 +744,6 @@ if ($EncodeStructuredOutput -eq $true) {
         error = $null
     }
 } else {
+    Write-Log '[DeltaPackage] All phases completed successfully' -Console
     Write-Log "DONE" -Console
 }
