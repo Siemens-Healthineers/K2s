@@ -34,6 +34,36 @@ if ($null -eq $setupInfo -or -not $setupInfo.Name) {
 Write-Log "Starting K2s system backup..." -Console
 
 # ------------------------------------------------------------
+# Validate backup file path early (fail fast on invalid paths)
+# ------------------------------------------------------------
+# First check for obvious invalid patterns (Unix paths, invalid characters)
+if ($BackupFile.StartsWith('/')) {
+    throw "Invalid backup path: '$BackupFile'. Unix-style paths (/) are not supported on Windows. Use Windows paths (e.g., C:\path\to\backup.zip)"
+}
+
+if ($BackupFile -match '^\\\\[^\\]*$') {
+    throw "Invalid backup path: '$BackupFile'. Incomplete UNC path. Use full UNC path (\\server\share\path) or local path (C:\path)"
+}
+
+try {
+    # Test if path can be resolved
+    $resolvedPath = [System.IO.Path]::GetFullPath($BackupFile)
+
+    # Check if it's a valid Windows path format (must have drive letter)
+    if ($resolvedPath -notmatch '^[a-zA-Z]:\\') {
+        throw "Path resolved to invalid format: '$resolvedPath'. Must be a Windows path with drive letter"
+    }
+
+    # Verify drive exists
+    $drive = $resolvedPath.Substring(0, 3) # e.g., "C:\"
+    if (-not (Test-Path $drive)) {
+        throw "Drive not accessible or does not exist: $drive"
+    }
+} catch {
+    throw "Invalid backup file path: '$BackupFile'. $_"
+}
+
+# ------------------------------------------------------------
 # Prepare backup directory based on BackupFile location
 # ------------------------------------------------------------
 # Extract the directory from the BackupFile path
@@ -42,9 +72,15 @@ if ([string]::IsNullOrWhiteSpace($backupDir)) {
     # Relative path with no directory component, use current directory
     $backupDir = Get-Location | Select-Object -ExpandProperty Path
     Write-Log "Using current directory for backup: $backupDir"
-} elseif (-not (Test-Path $backupDir)) {
-    New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
-    Write-Log "Created backup directory: $backupDir"
+} else {
+    if (-not (Test-Path $backupDir)) {
+        try {
+            New-Item -ItemType Directory -Path $backupDir -Force -ErrorAction Stop | Out-Null
+            Write-Log "Created backup directory: $backupDir"
+        } catch {
+            throw "Failed to create backup directory '$backupDir'. Error: $_"
+        }
+    }
 }
 
 # Create a temporary staging directory within the backup directory

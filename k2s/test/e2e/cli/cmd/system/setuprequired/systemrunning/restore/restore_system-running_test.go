@@ -38,15 +38,41 @@ func TestRestoreSystemRunning(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx,
-		framework.SystemMustBeRunning,
-		framework.ClusterTestStepPollInterval(time.Millisecond*200))
-			randomSeed = strconv.FormatInt(GinkgoRandomSeed(), 10)
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning)
+	randomSeed = strconv.FormatInt(GinkgoRandomSeed(), 10)
 
 	// Create test temp directory
 	var err error
 	testTempDir, err = os.MkdirTemp("", "k2s-restore-test-*")
 	Expect(err).ToNot(HaveOccurred())
+
+	// Cleanup orphaned resources from previous test runs (async, non-blocking)
+	GinkgoWriter.Println("Cleaning up orphaned test resources from previous runs...")
+
+	// Cleanup orphaned PVs (async)
+	output, _ := suite.Kubectl().Exec(ctx, "get", "pv", "-o", "jsonpath={.items[*].metadata.name}")
+	if output != "" {
+		pvNames := strings.Fields(output)
+		for _, pvName := range pvNames {
+			if strings.Contains(pvName, "test-restore-pv-") || strings.Contains(pvName, "test-backup-pv-") {
+				suite.Kubectl().Exec(ctx, "delete", "pv", pvName, "--ignore-not-found=true", "--wait=false")
+			}
+		}
+	}
+
+	// Cleanup orphaned test namespaces (async)
+	nsOutput, _ := suite.Kubectl().Exec(ctx, "get", "ns", "-o", "jsonpath={.items[*].metadata.name}")
+	if nsOutput != "" {
+		namespaces := strings.Fields(nsOutput)
+		for _, ns := range namespaces {
+			if strings.Contains(ns, "test-pv-restore-") || strings.Contains(ns, "test-img-restore-") ||
+			   strings.Contains(ns, "test-restore-multi-") || strings.Contains(ns, "test-orphan-") {
+				suite.Kubectl().Exec(ctx, "delete", "namespace", ns, "--ignore-not-found=true", "--timeout=30s", "--wait=false")
+			}
+		}
+	}
+
+	time.Sleep(500 * time.Millisecond) // Minimal wait for cleanup to start
 
 	// Create valid backup file
 	validBackupFile = createValidBackupForRestore(ctx)
@@ -153,10 +179,24 @@ func cleanupBackupFile(ctx context.Context, backupFile string) {
 
 	GinkgoWriter.Println("Cleaning up backup file:", backupFile)
 
-	err := os.Remove(backupFile)
-	if err != nil && !os.IsNotExist(err) {
-		GinkgoWriter.Printf("Warning: Failed to cleanup backup file %s: %v\n", backupFile, err)
+	// Wait a bit for file handles to be released
+	time.Sleep(100 * time.Millisecond)
+
+	// Retry deletion with backoff
+	for i := 0; i < 3; i++ {
+		err := os.Remove(backupFile)
+		if err == nil {
+			GinkgoWriter.Println("Successfully cleaned up backup file:", backupFile)
+			return
+		}
+		if os.IsNotExist(err) {
+			return // Already deleted
+		}
+		if i < 2 {
+			time.Sleep(time.Duration(i+1) * 200 * time.Millisecond)
+		}
 	}
+	GinkgoWriter.Printf("Warning: Could not clean up backup file (still locked): %s\n", backupFile)
 }
 
 
@@ -197,7 +237,7 @@ metadata:
   name: %s
 spec:
   capacity:
-    storage: 100Mi
+    storage: 5Mi
   accessModes:
     - ReadWriteOnce
   hostPath:
@@ -222,7 +262,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 100Mi
+      storage: 5Mi
   storageClassName: ""
   volumeName: %s
 `, pvcName, testNamespace, pvName)
@@ -231,9 +271,8 @@ spec:
 
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pvc", pvcName, "-n", testNamespace, "-o", "jsonpath={.status.phase}")
-			GinkgoWriter.Print(output)
 			return output
-		}).WithContext(ctx).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal("Bound"))
+		}).WithContext(ctx).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Equal("Bound"))
 
 		podYaml := fmt.Sprintf(`
 apiVersion: v1
@@ -245,7 +284,7 @@ spec:
   containers:
   - name: writer
     image: busybox:1.36
-    command: ["sh", "-c", "echo '%s' > /data/restore-test.txt && md5sum /data/restore-test.txt && sleep 3600"]
+    command: ["sh", "-c", "echo '%s' > /data/restore-test.txt && sleep 2"]
     volumeMounts:
     - name: data
       mountPath: /data
@@ -261,9 +300,9 @@ spec:
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pod", podName, "-n", testNamespace, "-o", "jsonpath={.status.phase}")
 			return output
-		}).WithContext(ctx).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal("Running"))
+		}).WithContext(ctx).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Or(Equal("Running"), Equal("Succeeded")))
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second) // Reduced from 2s
 
 		GinkgoWriter.Println("Creating backup for PV restore test at:", pvRestoreBackup)
 		// Use --skip-images since we're testing PV restore, not image backup
@@ -271,13 +310,13 @@ spec:
 		Expect(pvRestoreBackup).To(BeAnExistingFile())
 
 		// Now test restore
-		suite.Kubectl().Exec(ctx, "delete", "pod", podName, "-n", testNamespace, "--ignore-not-found=true")
+		suite.Kubectl().Exec(ctx, "delete", "pod", podName, "-n", testNamespace, "--ignore-not-found=true", "--wait=false")
 		suite.Kubectl().Exec(ctx, "delete", "pvc", pvcName, "-n", testNamespace, "--ignore-not-found=true")
 
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pvc", pvcName, "-n", testNamespace, "--ignore-not-found=true")
 			return output
-		}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(BeEmpty())
+		}).WithContext(ctx).WithTimeout(15 * time.Second).WithPolling(500 * time.Millisecond).Should(BeEmpty())
 
 		GinkgoWriter.Println("Restoring PVC from backup:", pvRestoreBackup)
 		output := suite.K2sCli().MustExec(ctx, "system", "restore", "-f", pvRestoreBackup)
@@ -286,7 +325,7 @@ spec:
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pvc", pvcName, "-n", testNamespace, "-o", "jsonpath={.status.phase}")
 			return output
-		}).WithContext(ctx).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal("Bound"))
+		}).WithContext(ctx).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Equal("Bound"))
 
 		// Verify data integrity
 		readerPod := "test-restore-reader"
@@ -300,7 +339,7 @@ spec:
   containers:
   - name: reader
     image: busybox:1.36
-    command: ["sh", "-c", "cat /data/restore-test.txt && sleep 60"]
+    command: ["sh", "-c", "cat /data/restore-test.txt && sleep 5"]
     volumeMounts:
     - name: data
       mountPath: /data
@@ -316,9 +355,9 @@ spec:
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pod", readerPod, "-n", testNamespace, "-o", "jsonpath={.status.phase}")
 			return output
-		}).WithContext(ctx).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal("Running"))
+		}).WithContext(ctx).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Or(Equal("Running"), Equal("Succeeded")))
 
-		time.Sleep(3 * time.Second)
+		time.Sleep(500 * time.Millisecond) // Minimal wait for logs
 		logs, exitCode := suite.Kubectl().Exec(ctx, "logs", readerPod, "-n", testNamespace)
 		Expect(exitCode).To(Equal(0))
 		Expect(logs).To(ContainSubstring(testDataContent))
@@ -366,7 +405,7 @@ spec:
       containers:
       - name: test
         image: busybox:1.36
-        command: ["sleep", "3600"]
+        command: ["sleep", "600"]
 `, deploymentName, testNamespace)
 
 		applyYaml(ctx, suite, deployYaml)
@@ -374,19 +413,19 @@ spec:
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "deployment", deploymentName, "-n", testNamespace, "-o", "jsonpath={.status.conditions[?(@.type=='Available')].status}")
 			return output
-		}).WithContext(ctx).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal("True"))
+		}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(500 * time.Millisecond).Should(Equal("True"))
 
 		// Use --skip-images since busybox:1.36 is already in cluster cache
 		// This test verifies deployment restore works correctly when images are in cache
 		suite.K2sCli().MustExec(ctx, "system", "backup", "-f", imgRestoreBackup, "--skip-images")
 
 		// Now test restore - delete deployment
-		suite.Kubectl().Exec(ctx, "delete", "deployment", deploymentName, "-n", testNamespace)
+		suite.Kubectl().Exec(ctx, "delete", "deployment", deploymentName, "-n", testNamespace, "--wait=false")
 
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "deployment", deploymentName, "-n", testNamespace, "--ignore-not-found=true")
 			return output
-		}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(BeEmpty())
+		}).WithContext(ctx).WithTimeout(15 * time.Second).WithPolling(500 * time.Millisecond).Should(BeEmpty())
 
 		// Restore from backup
 		output := suite.K2sCli().MustExec(ctx, "system", "restore", "-f", imgRestoreBackup)
@@ -396,13 +435,13 @@ spec:
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "deployment", deploymentName, "-n", testNamespace, "-o", "jsonpath={.status.conditions[?(@.type=='Available')].status}")
 			return output
-		}).WithContext(ctx).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal("True"))
+		}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(500 * time.Millisecond).Should(Equal("True"))
 
 		// Verify pods start successfully using cached images (no ImagePullBackOff)
 		Eventually(func(ctx context.Context) bool {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pods", "-n", testNamespace, "-l", "app=test-img-restore", "-o", "jsonpath={.items[*].status.containerStatuses[*].state.waiting.reason}")
 			return !strings.Contains(output, "ImagePullBackOff") && !strings.Contains(output, "ErrImagePull")
-		}).WithContext(ctx).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(BeTrue())
+		}).WithContext(ctx).WithTimeout(15 * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
 	})
 })
 
@@ -433,9 +472,9 @@ var _ = Describe("'k2s system restore' - edge cases and system consistency", Ord
 
 		defer cleanupBackupFile(ctx, multiNsBackup)
 
-		// Create multiple namespaces with resources
+		// Create multiple namespaces with resources - reduced from 3 to 2 for speed
 		createdNs := []string{}
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 2; i++ {
 			ns := fmt.Sprintf("%s-%d", testNsBase, i)
 			createdNs = append(createdNs, ns)
 			suite.Kubectl().MustExec(ctx, "create", "namespace", ns)
@@ -475,12 +514,12 @@ data:
 			Eventually(func(ctx context.Context) int {
 				_, exitCode := suite.Kubectl().Exec(ctx, "get", "namespace", ns)
 				return exitCode
-			}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(Equal(0))
+			}).WithContext(ctx).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Equal(0))
 
 			Eventually(func(ctx context.Context) string {
 				output, _ := suite.Kubectl().Exec(ctx, "get", "configmap", "test-cm", "-n", ns, "-o", "jsonpath={.data.index}")
 				return output
-			}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(Equal(fmt.Sprintf("%d", i)))
+			}).WithContext(ctx).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Equal(fmt.Sprintf("%d", i)))
 		}
 	})
 })
