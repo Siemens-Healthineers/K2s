@@ -217,18 +217,32 @@ function Write-StagingSummary {
 
 .DESCRIPTION
     The K2s offline package contains WindowsNodeArtifacts.zip which holds Windows Kubernetes
-    binaries. During installation, these are extracted to bin/kube/, bin/docker/, etc.
+    binaries. During installation, these are extracted to various bin/ subdirectories.
     
     For delta packages, we need to extract these binaries and stage them so that the delta
     update can replace the Windows node binaries. Without this, Windows nodes would keep
-    old Kubernetes versions after a delta upgrade.
+    old versions after a delta upgrade.
     
     Mapping from WindowsNodeArtifacts.zip folders to installed paths:
-    - kubetools/ -> bin/kube/ (kubelet.exe, kubectl.exe, kubeadm.exe, kube-proxy.exe)
-    - docker/    -> bin/docker/ (docker.exe, dockerd.exe)
+    - kubetools/       -> bin/kube/       (kubelet.exe, kubectl.exe, kubeadm.exe, kube-proxy.exe)
+    - docker/          -> bin/docker/     (docker.exe, dockerd.exe)
+    - flannel/         -> bin/cni/        (flanneld.exe)
+    - cni_plugins/     -> bin/cni/        (host-local.exe, win-bridge.exe, win-overlay.exe)
+    - cni_flannel/     -> bin/cni/        (flannel-amd64.exe -> flannel.exe)
+    - containerd/bin/  -> bin/containerd/ (containerd.exe, containerd-shim-runhcs-v1.exe)
+    - crictl/          -> bin/            (crictl.exe)
+    - nerdctl/         -> bin/            (nerdctl.exe)
+    - nssm/            -> bin/            (nssm.exe)
+    - dnsproxy/        -> bin/            (dnsproxy.exe)
+    - puttytools/      -> bin/            (plink.exe, pscp.exe)
+    - yaml/            -> bin/            (jq.exe, yq.exe)
+    - helm/            -> bin/            (helm.exe)
+    - oras/            -> bin/            (oras.exe)
+    - windowsexporter/ -> bin/            (windows_exporter.exe)
 
 .PARAMETER Context
     Hashtable containing:
+    - OldExtract: Path to extracted old package (for comparison)
     - NewExtract: Path to extracted new package
     - StageDir: Path to staging directory
 
@@ -236,6 +250,10 @@ function Write-StagingSummary {
     PSCustomObject with:
     - Success: Boolean indicating if extraction succeeded
     - ExtractedDirs: Array of directory names that were extracted
+    - TotalFilesExtracted: Total number of files extracted
+    - AddedFiles: Number of new files (not in old package)
+    - ChangedFiles: Number of changed files (different hash)
+    - UnchangedFiles: Number of unchanged files (skipped)
     - ErrorMessage: Error message if failed
 #>
 function Copy-WindowsNodeArtifactsToStaging {
@@ -245,18 +263,55 @@ function Copy-WindowsNodeArtifactsToStaging {
     )
 
     $result = [pscustomobject]@{
-        Success       = $false
-        ExtractedDirs = @()
-        ErrorMessage  = ''
+        Success             = $false
+        ExtractedDirs       = @()
+        TotalFilesExtracted = 0
+        AddedFiles          = 0
+        ChangedFiles        = 0
+        UnchangedFiles      = 0
+        ErrorMessage        = ''
     }
 
     # Mapping from ZIP folder names to target bin/ folder names
+    # Each entry: SourceFolder = @{ Target = 'target/path'; Subdir = 'optional/subdir'; Rename = @{'old.exe'='new.exe'} }
+    # 
+    # Complete mapping based on Invoke-Deploy*Artifacts functions in downloader modules:
+    # - kubetools/        -> bin/kube/       (kubelet, kubectl, kubeadm, kube-proxy)
+    # - docker/           -> bin/docker/     (docker, dockerd)
+    # - flannel/          -> bin/cni/        (flanneld.exe)
+    # - cni_plugins/      -> bin/cni/        (host-local, win-bridge, win-overlay)
+    # - cni_flannel/      -> bin/cni/        (flannel-amd64.exe -> flannel.exe)
+    # - containerd/bin/   -> bin/containerd/ (containerd.exe, containerd-shim-runhcs-v1.exe)
+    # - crictl/           -> bin/            (crictl.exe)
+    # - nerdctl/          -> bin/            (nerdctl.exe)
+    # - nssm/             -> bin/            (nssm.exe)
+    # - dnsproxy/         -> bin/            (dnsproxy.exe)
+    # - puttytools/       -> bin/            (plink.exe, pscp.exe)
+    # - yaml/             -> bin/            (jq.exe, yq.exe)
+    # - helm/             -> bin/            (helm.exe)
+    # - oras/             -> bin/            (oras.exe)
+    # - windowsexporter/  -> bin/            (windows_exporter.exe)
+    #
     $folderMappings = @{
-        'kubetools' = 'bin/kube'      # kubelet, kubectl, kubeadm, kube-proxy
-        'docker'    = 'bin/docker'    # docker, dockerd
+        'kubetools'       = @{ Target = 'bin/kube' }                     # kubelet, kubectl, kubeadm, kube-proxy
+        'docker'          = @{ Target = 'bin/docker' }                   # docker, dockerd
+        'flannel'         = @{ Target = 'bin/cni' }                      # flanneld.exe
+        'cni_plugins'     = @{ Target = 'bin/cni' }                      # host-local, win-bridge, win-overlay
+        'cni_flannel'     = @{ Target = 'bin/cni'; Rename = @{ 'flannel-amd64.exe' = 'flannel.exe' } }
+        'containerd'      = @{ Target = 'bin/containerd'; Subdir = 'bin' } # containerd.exe from containerd/bin/
+        'crictl'          = @{ Target = 'bin' }                          # crictl.exe
+        'nerdctl'         = @{ Target = 'bin' }                          # nerdctl.exe
+        'nssm'            = @{ Target = 'bin' }                          # nssm.exe
+        'dnsproxy'        = @{ Target = 'bin' }                          # dnsproxy.exe
+        'puttytools'      = @{ Target = 'bin' }                          # plink.exe, pscp.exe
+        'yaml'            = @{ Target = 'bin' }                          # jq.exe, yq.exe
+        'helm'            = @{ Target = 'bin' }                          # helm.exe
+        'oras'            = @{ Target = 'bin' }                          # oras.exe
+        'windowsexporter' = @{ Target = 'bin' }                          # windows_exporter.exe
     }
 
     $winArtifactsZip = Join-Path $Context.NewExtract 'bin\WindowsNodeArtifacts.zip'
+    $oldWinArtifactsZip = Join-Path $Context.OldExtract 'bin\WindowsNodeArtifacts.zip'
     
     if (-not (Test-Path $winArtifactsZip)) {
         $result.ErrorMessage = "WindowsNodeArtifacts.zip not found at: $winArtifactsZip"
@@ -266,7 +321,36 @@ function Copy-WindowsNodeArtifactsToStaging {
         return $result
     }
 
-    Write-Log "[WinArtifacts] Extracting Windows binaries from WindowsNodeArtifacts.zip..." -Console
+    # Build hash map of old ZIP entries for comparison (using CRC32 for efficiency)
+    $oldEntryMap = @{}
+    if (Test-Path $oldWinArtifactsZip) {
+        Write-Log "[WinArtifacts] Building hash map from old WindowsNodeArtifacts.zip for comparison..." -Console
+        try {
+            $oldZip = [System.IO.Compression.ZipFile]::OpenRead($oldWinArtifactsZip)
+            try {
+                foreach ($entry in $oldZip.Entries) {
+                    if (-not $entry.FullName.EndsWith('/')) {
+                        # Use CRC32 + length as a fast comparison key
+                        $oldEntryMap[$entry.FullName] = @{
+                            Crc32  = $entry.Crc32
+                            Length = $entry.Length
+                        }
+                    }
+                }
+                Write-Log "[WinArtifacts] Indexed $($oldEntryMap.Count) files from old package" -Console
+            } finally {
+                $oldZip.Dispose()
+            }
+        }
+        catch {
+            Write-Log "[WinArtifacts][Warning] Could not read old WindowsNodeArtifacts.zip: $($_.Exception.Message). Will extract all files." -Console
+            $oldEntryMap = @{}
+        }
+    } else {
+        Write-Log "[WinArtifacts] No old WindowsNodeArtifacts.zip found - will extract all files" -Console
+    }
+
+    Write-Log "[WinArtifacts] Extracting changed Windows binaries from WindowsNodeArtifacts.zip..." -Console
 
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -274,12 +358,22 @@ function Copy-WindowsNodeArtifactsToStaging {
 
         try {
             foreach ($sourceFolder in $folderMappings.Keys) {
-                $targetFolder = $folderMappings[$sourceFolder]
+                $mapping = $folderMappings[$sourceFolder]
+                $targetFolder = $mapping.Target
+                $sourceSubdir = if ($mapping.Subdir) { $mapping.Subdir } else { '' }
+                $renameMap = if ($mapping.Rename) { $mapping.Rename } else { @{} }
                 $targetPath = Join-Path $Context.StageDir $targetFolder
+
+                # Build the source path pattern (may include subdir like containerd/bin/)
+                $sourcePattern = if ($sourceSubdir) { 
+                    "^$sourceFolder[/\\]$sourceSubdir[/\\]" 
+                } else { 
+                    "^$sourceFolder[/\\]" 
+                }
 
                 # Find all entries in this source folder
                 $entries = $zip.Entries | Where-Object { 
-                    $_.FullName -match "^$sourceFolder[/\\]" -and $_.FullName -ne "$sourceFolder/" 
+                    $_.FullName -match $sourcePattern -and -not $_.FullName.EndsWith('/')
                 }
 
                 if ($entries.Count -eq 0) {
@@ -293,13 +387,45 @@ function Copy-WindowsNodeArtifactsToStaging {
                 }
 
                 $extractedCount = 0
+                $skippedCount = 0
                 foreach ($entry in $entries) {
-                    # Get relative path within source folder and build target path
+                    # Get relative path within source folder (and subdir if specified)
                     $relativePath = $entry.FullName -replace "^$sourceFolder[/\\]", ''
+                    if ($sourceSubdir) {
+                        $relativePath = $relativePath -replace "^$sourceSubdir[/\\]", ''
+                    }
                     
                     # Skip if it's just a directory entry
                     if ([string]::IsNullOrEmpty($relativePath) -or $entry.FullName.EndsWith('/')) {
                         continue
+                    }
+
+                    # Check if file changed compared to old package
+                    $isNew = $false
+                    $isChanged = $false
+                    if ($oldEntryMap.Count -gt 0) {
+                        $oldEntry = $oldEntryMap[$entry.FullName]
+                        if ($null -eq $oldEntry) {
+                            $isNew = $true
+                        } elseif ($oldEntry.Crc32 -ne $entry.Crc32 -or $oldEntry.Length -ne $entry.Length) {
+                            $isChanged = $true
+                        } else {
+                            # File unchanged - skip extraction
+                            $skippedCount++
+                            $result.UnchangedFiles++
+                            continue
+                        }
+                    } else {
+                        # No old package to compare - treat all as new
+                        $isNew = $true
+                    }
+
+                    # Apply rename if specified (e.g., flannel-amd64.exe -> flannel.exe)
+                    $fileName = [IO.Path]::GetFileName($relativePath)
+                    if ($renameMap.ContainsKey($fileName)) {
+                        $newFileName = $renameMap[$fileName]
+                        $relativePath = $relativePath -replace [regex]::Escape($fileName), $newFileName
+                        Write-Log "[WinArtifacts] Renaming '$fileName' to '$newFileName'" -Console
                     }
 
                     $destFile = Join-Path $targetPath $relativePath
@@ -316,6 +442,11 @@ function Copy-WindowsNodeArtifactsToStaging {
                         try {
                             $stream.CopyTo($fileStream)
                             $extractedCount++
+                            if ($isNew) {
+                                $result.AddedFiles++
+                            } else {
+                                $result.ChangedFiles++
+                            }
                         } finally {
                             $fileStream.Dispose()
                         }
@@ -324,14 +455,17 @@ function Copy-WindowsNodeArtifactsToStaging {
                     }
                 }
 
-                if ($extractedCount -gt 0) {
-                    Write-Log "[WinArtifacts] Extracted $extractedCount files from '$sourceFolder' to '$targetFolder'" -Console
-                    $result.ExtractedDirs += $targetFolder
+                if ($extractedCount -gt 0 -or $skippedCount -gt 0) {
+                    Write-Log "[WinArtifacts] Folder '$sourceFolder' -> '$targetFolder': $extractedCount extracted, $skippedCount unchanged" -Console
+                    if ($extractedCount -gt 0) {
+                        $result.ExtractedDirs += $targetFolder
+                    }
+                    $result.TotalFilesExtracted = ($result.TotalFilesExtracted + $extractedCount)
                 }
             }
 
             $result.Success = $true
-            Write-Log "[WinArtifacts] Windows binaries extraction complete" -Console
+            Write-Log "[WinArtifacts] Windows binaries complete: $($result.TotalFilesExtracted) extracted ($($result.AddedFiles) added, $($result.ChangedFiles) changed), $($result.UnchangedFiles) unchanged" -Console
 
         } finally {
             $zip.Dispose()

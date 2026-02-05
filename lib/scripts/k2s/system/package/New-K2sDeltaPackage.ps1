@@ -296,7 +296,9 @@ Copy-WholesaleDirectories -Context $wholesaleContext
 # Extract Windows binaries from WindowsNodeArtifacts.zip to staging
 # These binaries (kubelet, kubectl, docker, etc.) are stored inside the ZIP in the offline package
 # but need to be extracted and staged for delta upgrades to update Windows nodes properly
+# Only changed or added binaries are staged - unchanged binaries are skipped
 $winArtifactsContext = @{
+    OldExtract = $oldExtract
     NewExtract = $newExtract
     StageDir   = $stageDir
 }
