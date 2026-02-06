@@ -1175,14 +1175,14 @@ function PerformClusterUpgrade {
 				if ($addonsReenabledSuccessfully.Count -gt 0) {
 					Write-Log "** Successfully re-enabled $($addonsReenabledSuccessfully.Count) addon(s):" -Console
 					foreach ($addonDisplay in $addonsReenabledSuccessfully) {
-						Write-Log "**   ✓ $addonDisplay" -Console
+						Write-Log "**   + $addonDisplay" -Console
 					}
 				}
 				
 				if ($addonsReenabledFailed.Count -gt 0) {
 					Write-Log "** Failed to re-enable $($addonsReenabledFailed.Count) addon(s):" -Console
 					foreach ($addonDisplay in $addonsReenabledFailed) {
-						Write-Log "**   ✗ $addonDisplay" -Console
+						Write-Log "**   - $addonDisplay" -Console
 					}
 					Write-Log '**                                                                                        **' -Console
 					Write-Log '** To manually re-enable failed addon(s), run:                                           **' -Console
