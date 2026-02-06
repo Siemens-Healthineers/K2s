@@ -1303,12 +1303,12 @@ function PerformClusterUpgrade {
 			if ($ShowProgress -eq $true) {
 				Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
 			}
-			Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+			Import-NotNamespacedResources -folderResources $BackupDir -ExePath $kubeExeFolder
 			
 			if ($ShowProgress -eq $true) {
 				Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Apply namespaced resources, please wait..'
 			}
-			Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+			Import-NamespacedResources -folderNamespaces $BackupDir -ExePath $kubeExeFolder
 		}
 		
 		# show completion
@@ -1396,15 +1396,6 @@ function Invoke-PVBackup {
     Write-Log "Starting persistent volume backup..." -Console
 
     try {
-        # Define addon PVs to exclude (managed by addon enable/disable)
-<#        $excludeNames = @(
-            'postgresql-pv-volume',
-            'dicom-pv-volume',
-            'orthanc-pv',
-            'registry-pv',
-            'smb-static-pv',
-		    'opensearch-cluster-master-pv'
-        )#>
 		$excludeNames = @()
 		$excludePVs = $rootConfig.backup.excludedAddonPersistentVolumes
 		if ($excludePVs) {

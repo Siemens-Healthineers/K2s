@@ -85,41 +85,6 @@ function Get-FilteredImages([ContainerImage[]]$ContainerImages, [ContainerImage[
     return $filteredImages
 }
 
-
-function Remove-DuplicateImages {
-    param(
-        [Parameter(Mandatory = $true, HelpMessage = 'Array of container images to deduplicate.')]
-        [array]$ContainerImages,
-
-        [Parameter(Mandatory = $true, HelpMessage = 'Type of node: Linux or Windows.')]
-        [string]$NodeType
-    )
-
-    # Deduplicate images with same ImageID (prefer tagged over <none>)
-    $uniqueImages = @{}
-    foreach ($image in $ContainerImages) {
-        $imageId = $image.ImageId
-
-        if ($uniqueImages.ContainsKey($imageId)) {
-            # If existing entry has <none> tag and new one has real tag, replace it
-            if ($uniqueImages[$imageId].Tag -eq '<none>' -and $image.Tag -ne '<none>') {
-                $uniqueImages[$imageId] = $image
-                Write-Log "[$NodeType`Node] Replaced <none> tag with proper tag for ImageID: $imageId"
-            }
-            # If both are <none> or both are proper tags, keep first
-        }
-        else {
-            # Only add if not <none> tag OR if it's the only version of this ImageID
-            $uniqueImages[$imageId] = $image
-        }
-    }
-
-    # Final pass: remove any remaining <none> tagged images
-    $deduplicatedImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
-
-    return $deduplicatedImages
-}
-
 function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
     $setupFilePath = Get-SetupConfigFilePath
     $hostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
@@ -795,6 +760,40 @@ function Filter-AddonImagesFromList {
     Write-Log "[ImageFilter] After addon filtering: $($filteredImages.Count) image(s) (includes <none> tags, will be deduplicated)"
 
     return $filteredImages
+}
+
+function Remove-DuplicateImages {
+    param(
+        [Parameter(Mandatory = $true, HelpMessage = 'Array of container images to deduplicate.')]
+        [array]$ContainerImages,
+
+        [Parameter(Mandatory = $true, HelpMessage = 'Type of node: Linux or Windows.')]
+        [string]$NodeType
+    )
+
+    # Deduplicate images with same ImageID (prefer tagged over <none>)
+    $uniqueImages = @{}
+    foreach ($image in $ContainerImages) {
+        $imageId = $image.ImageId
+
+        if ($uniqueImages.ContainsKey($imageId)) {
+            # If existing entry has <none> tag and new one has real tag, replace it
+            if ($uniqueImages[$imageId].Tag -eq '<none>' -and $image.Tag -ne '<none>') {
+                $uniqueImages[$imageId] = $image
+                Write-Log "[$NodeType`Node] Replaced <none> tag with proper tag for ImageID: $imageId"
+            }
+            # If both are <none> or both are proper tags, keep first
+        }
+        else {
+            # Only add if not <none> tag OR if it's the only version of this ImageID
+            $uniqueImages[$imageId] = $image
+        }
+    }
+
+    # Final pass: remove any remaining <none> tagged images
+    $deduplicatedImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
+
+    return $deduplicatedImages
 }
 
 Export-ModuleMember -Function Get-ContainerImagesInk2s, `
