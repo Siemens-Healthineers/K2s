@@ -59,29 +59,6 @@ if ($manifest.kind -ne "SystemBackup") {
 
 Enable-ClusterIsRunning -ShowLogs:$ShowLogs
 
-<## Restore config.json if present
-if ($manifest.PSObject.Properties.Name -contains "configSnapshot") {
-    $snap = $manifest.configSnapshot
-    if ($snap -and ($snap.PSObject.Properties.Name -contains "content")) {
-
-        Write-Log "Restoring config.json" -Console
-
-        $kubePath = Get-KubePath
-        $cfgDir = Join-Path $kubePath "cfg"
-        $cfgFile = Join-Path $cfgDir "config.json"
-
-        if (-not (Test-Path $cfgDir)) {
-            New-Item -ItemType Directory -Path $cfgDir -Force | Out-Null
-        }
-
-        if (Test-Path $cfgFile) {
-            Copy-Item $cfgFile ($cfgFile + ".bak") -Force
-        }
-
-        $snap.content | ConvertTo-Json -Depth 20 | Out-File $cfgFile -Encoding utf8
-    }
-}#>
-
 $kubePath    = Get-KubePath
 $kubectlPath = Get-KubeBinPathGivenKubePath -KubePathLocal $kubePath
 
