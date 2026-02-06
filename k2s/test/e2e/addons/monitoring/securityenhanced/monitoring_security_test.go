@@ -155,6 +155,14 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 			GinkgoWriter.Println(">>> TEST: Monitoring server connectivity verified")
 		})
+
+		It("Deactivates all the addons", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Deactivating all addons")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			GinkgoWriter.Println(">>> TEST: All addons deactivated")
+		})
 	})
 
 	Describe("Security addon activated first then monitoring addon with nginx-gw ingress", func() {
