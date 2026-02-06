@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -236,7 +236,15 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", "nginx-gw")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw-controller", "nginx-gw")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
+				k2s.VerifyAddonIsEnabled("dicom")
+
+				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
+
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -252,13 +260,13 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local for the ui app", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/ui/app"
-				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", "-k", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors", url)
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
 			It("is reachable through k2s.cluster.local for DICOM Web", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dicom/studies"
-				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "--insecure", "-sS", "-k", "-m", "2", "--retry", "10", "--fail", "--retry-all-errors")
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", "-k", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors", url)
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 

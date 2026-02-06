@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2026 Siemens Healthcare GmbH
 #
 # SPDX-License-Identifier: MIT
 
@@ -72,7 +72,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'viewer' })) -eq $tru
 }
 
 if (!(Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -and 
-    !(Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' }))) -and
+    !(Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })) -and
     !(Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx-gw' }))) {
     
         Write-Log "No ingress addon is enabled. Please enable one of the ingress addons (nginx, traefik, or nginx-gw) or activate port forwarding." -Console    

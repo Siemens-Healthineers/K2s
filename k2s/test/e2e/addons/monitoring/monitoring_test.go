@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -210,7 +210,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 	Describe("nginx-gw as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
-			suite.Cluster().ExpectDeploymentToBeAvailable("nginx", "nginx-gw")
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
 		})
 
 		AfterAll(func(ctx context.Context) {
@@ -223,7 +223,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
 
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx", "nginx-gw")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw-controller", "nginx-gw")
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -161,7 +161,7 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 		It("activates the ingress addon with nginx-gw", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: Enabling ingress addon with nginx-gw")
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
-			suite.Cluster().ExpectDeploymentToBeAvailable("nginx", "nginx-gw")
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
 			GinkgoWriter.Println(">>> TEST: Ingress nginx-gw addon enabled")
 		})
 
@@ -215,7 +215,7 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 		It("activates the ingress addon with nginx-gw", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: Enabling ingress addon with nginx-gw")
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
-			suite.Cluster().ExpectDeploymentToBeAvailable("nginx", "nginx-gw")
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
 			GinkgoWriter.Println(">>> TEST: Ingress nginx-gw addon enabled")
 		})
 

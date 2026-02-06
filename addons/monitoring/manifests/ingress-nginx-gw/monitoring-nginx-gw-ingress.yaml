@@ -1,11 +1,7 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
-# This web application can be configured to re-encode its relative URLs
-# with a configurable prefix, see file `configmap.yaml`:
-# root_url = https://k2s.cluster.local/monitoring
-# This enables us to expose it through the ingress under this configured path
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

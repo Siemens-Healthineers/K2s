@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText: © 2026 Siemens Healthcare GmbH
 //
 // SPDX-License-Identifier: MIT
 
@@ -219,7 +219,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 		When("nginx-gw as ingress controller", func() {
 			BeforeAll(func(ctx context.Context) {
 				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
-				suite.Cluster().ExpectDeploymentToBeAvailable("nginx", "nginx-gw")
+				suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
 			})
 
 			AfterAll(func(ctx context.Context) {

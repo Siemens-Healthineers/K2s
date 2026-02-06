@@ -163,6 +163,11 @@ else {
 if (Test-NginxGatewayAvailability) {
 	Start-Sleep -Seconds 20 # wait for kong to be ready and create self-signed cert(waitforpodcondition does not work here)
 	New-BackendCACertConfigMap -Namespace 'dashboard' -PodLabel 'app.kubernetes.io/name=kong' -Port 8443 -ConfigMapName 'kong-ca-cert'
+	
+	# Restart nginx-gw to reload kong-ca-cert ConfigMap
+	Write-Log 'Restarting nginx-gw to reload kong-ca-cert ConfigMap' -Console
+	(Invoke-Kubectl -Params 'rollout', 'restart', 'deployment', 'nginx-gw-controller', '-n', 'nginx-gw').Output | Write-Log
+	(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', 'nginx-gw-controller', '-n', 'nginx-gw', '--timeout', '60s').Output | Write-Log
 }
 
 Write-Log 'Updating dashboard addon finished.' -Console
