@@ -143,6 +143,13 @@ var _ = Describe("'dicom and security enhanced' addons", Ordered, func() {
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 			GinkgoWriter.Println(">>> TEST: DICOM server connectivity verified")
 		})
+		It("Deactivates all the addons", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Deactivating all addons")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			GinkgoWriter.Println(">>> TEST: All addons deactivated")
+		})
 	})
 
 	Describe("DICOM addon with nginx-gw and security enhanced", func() {
@@ -205,14 +212,6 @@ var _ = Describe("'dicom and security enhanced' addons", Ordered, func() {
 			url := "https://k2s.cluster.local/dicom/studies"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 			GinkgoWriter.Println(">>> TEST: DICOM-Web API connectivity via nginx-gw verified")
-		})
-
-		It("Deactivates all the addons", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: Deactivating all addons")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
-			GinkgoWriter.Println(">>> TEST: All addons deactivated")
 		})
 	})
 })
