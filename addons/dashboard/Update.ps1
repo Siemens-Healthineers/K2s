@@ -25,9 +25,6 @@ if ($SecurityAddonEnabled) {
 		(Invoke-Kubectl -Params 'delete', 'middleware', 'add-bearer-token', '-n', 'dashboard', '--ignore-not-found').Output | Write-Log
 	}
 	elseif (Test-NginxGatewayAvailability) {
-		# Create kong CA certificate ConfigMap for BackendTLSPolicy validation
-		Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw with security addon' -Console
-		New-KongCACertConfigMap
 	}
 	else {
 		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'
@@ -71,10 +68,6 @@ spec:
 		Remove-Item -Path "$tempPath\middleware.yaml"
 	}
 	elseif (Test-NginxGatewayAvailability) {
-		# Create kong CA certificate ConfigMap for BackendTLSPolicy validation
-		Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw' -Console
-		New-KongCACertConfigMap
-		
 		# create Bearer token for next 24h
 		Write-Log 'Creating Bearer token for next 24h'
 		$token = Get-BearerToken
@@ -94,7 +87,7 @@ spec:
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
 	Write-Log 'Updating dashboard addon to be part of service mesh'  
-	$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"443\"}}}}}'
+	$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"443,8443\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-kong', '-n', 'dashboard', '-p', $annotations1).Output | Write-Log
 	$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-api', '-n', 'dashboard', '-p', $annotations2).Output | Write-Log
@@ -129,6 +122,7 @@ if ($EnancedSecurityEnabled) {
 	if (-not $hasAnnotations) {
 		throw 'Timeout waiting for patches to be applied'
 	}
+
 }
 else {
 	Write-Log 'Updating dashboard addon to not be part of service mesh'
@@ -165,5 +159,10 @@ else {
 	}
 }
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'dashboard', '--timeout', '60s').Output | Write-Log
+
+if (Test-NginxGatewayAvailability) {
+	Start-Sleep -Seconds 20 # wait for kong to be ready and create self-signed cert(waitforpodcondition does not work here)
+	New-BackendCACertConfigMap -Namespace 'dashboard' -PodLabel 'app.kubernetes.io/name=kong' -Port 8443 -ConfigMapName 'kong-ca-cert'
+}
 
 Write-Log 'Updating dashboard addon finished.' -Console

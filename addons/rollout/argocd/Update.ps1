@@ -11,11 +11,6 @@ Import-Module $addonsModule, $rolloutModule
 
 Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })
 
-if (Test-NginxGatewayAvailability) {
-    Write-Log 'Creating ArgoCD CA certificate ConfigMap for nginx-gw BackendTLSPolicy' -Console
-    New-ArgoCDCACertConfigMap
-}
-
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
     Write-Log "Updating rollout addon to be part of service mesh"  
@@ -36,3 +31,9 @@ if ($EnancedSecurityEnabled) {
 (Invoke-Kubectl -Params 'rollout', 'restart', 'statefulset', '-n', 'rollout').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
+
+if (Test-NginxGatewayAvailability) {
+    Write-Log 'Creating ArgoCD CA certificate ConfigMap for nginx-gw BackendTLSPolicy' -Console
+    Start-Sleep -Seconds 20 
+    New-BackendCACertConfigMap -Namespace 'rollout' -PodLabel 'app.kubernetes.io/name=argocd-server' -Port 8080 -ConfigMapName 'argocd-ca-cert'
+}

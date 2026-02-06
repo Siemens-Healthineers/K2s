@@ -99,11 +99,3 @@ function Get-BearerToken {
     $token = (Invoke-Kubectl -Params '-n', 'dashboard', 'create', 'token', 'admin-user', '--duration', '24h').Output 
     return $token
 }
-
-<#
-.DESCRIPTION
-Creates kong CA certificate ConfigMap for nginx-gw BackendTLSPolicy validation
-#>
-function New-KongCACertConfigMap {
-    New-BackendCACertConfigMap -Namespace 'dashboard' -PodLabel 'app.kubernetes.io/name=kong' -Port 8443 -ConfigMapName 'kong-ca-cert'
-}
