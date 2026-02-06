@@ -172,8 +172,8 @@ foreach ($part in $script:DeltaHelperParts) {
     }
 }
 
-Write-Log "- Target Directory: $TargetDirectory"
-Write-Log "- Package file name: $ZipPackageFileName"
+Write-Log "[DeltaPackage] Target Directory: $TargetDirectory" -Console
+Write-Log "[DeltaPackage] Package file name: $ZipPackageFileName" -Console
 
 # Validate input parameters using helper function
 $validationContext = @{
@@ -198,16 +198,20 @@ if (-not $validationResult.Valid) {
 $zipPackagePath = Join-Path "$TargetDirectory" "$ZipPackageFileName"
 
 if (Test-Path $zipPackagePath) {
-    Write-Log "Removing already existing file '$zipPackagePath'" -Console
+    Write-Log "[DeltaPackage] Removing already existing file '$zipPackagePath'" -Console
     Remove-Item $zipPackagePath -Force
 }
 
-Write-Log "Zip package available at '$zipPackagePath'." -Console
+Write-Log "[DeltaPackage] Output path: '$zipPackagePath'" -Console
 
 # --- Delta Package Construction -------------------------------------------------
 # Input packages already validated at script start (before SSH key generation)
 
-Write-Log "Building delta between:'$InputPackageOne' -> '$InputPackageTwo'" -Console
+Write-Log "[DeltaPackage] Building delta: '$InputPackageOne' -> '$InputPackageTwo'" -Console
+
+# Initialize phase tracking for numbered phase output
+# Phases: 1.Extraction, 2.Hashing, 3.Staging, 4.VHDXAnalysis, 5.ImageDelta, 6.GuestConfig, 7.DebianArtifacts, 8.Manifest, 9.Signing, 10.Zipping
+Initialize-PhaseTracking -TotalPhases 10
 
 # Create temporary directories for extraction and staging
 $tempDirs = New-DeltaTempDirectories
@@ -218,6 +222,7 @@ $stageDir = $tempDirs.StageDir
 
 $overallError = $null
 try {
+    $extractPhase = Start-Phase 'Extraction'
     try {
     Expand-ZipWithProgress -ZipPath $InputPackageOne -Destination $oldExtract -Label 'old package' -Show:$ShowLogs
     Expand-ZipWithProgress -ZipPath $InputPackageTwo -Destination $newExtract -Label 'new package' -Show:$ShowLogs
@@ -226,6 +231,7 @@ try {
         Write-Log "Extraction failed: $($_.Exception.Message)" -Error
         throw
     }
+    Stop-Phase 'Extraction' $extractPhase
 
  # (Get-FileMap provided via methods file)
 
@@ -240,11 +246,11 @@ $defaultWholeDirs = $skipLists.DefaultWholesaleDirectories
 $wholeDirsNormalized = @($defaultWholeDirs) + @($userWholeDirs) | Sort-Object -Unique
 
 if ($wholeDirsNormalized.Count -gt 0) {
-    Write-Log "Whole directories (no diffing): $($wholeDirsNormalized -join ', ')" -Console
+    Write-Log "[DeltaPackage] Whole directories (no diffing): $($wholeDirsNormalized -join ', ')" -Console
 }
 
-Write-Log "Special skipped files: $($SpecialSkippedFiles -join ', ')" -Console
-Write-Log "Cluster config skipped paths: $($ClusterConfigSkippedPaths -join ', ')" -Console
+Write-Log "[DeltaPackage] Special skipped files: $($SpecialSkippedFiles -join ', ')" -Console
+Write-Log "[DeltaPackage] Cluster config skipped paths: $($ClusterConfigSkippedPaths -join ', ')" -Console
  # (Test-SpecialSkippedFile / Test-InWholeDir provided via methods file)
 
 # ---- Special Handling: Analyze Debian packages inside Kubemaster-Base.vhdx (best effort) ---------
@@ -276,7 +282,7 @@ $added = $fileDiff.Added
 $removed = $fileDiff.Removed
 $changed = $fileDiff.Changed
 
-Write-Log "Added: $($added.Count)  Changed: $($changed.Count)  Removed: $($removed.Count)" -Console
+Write-Log "[DeltaPackage] Diff results: Added=$($added.Count) Changed=$($changed.Count) Removed=$($removed.Count)" -Console
 
 # Stage wholesale directories verbatim using helper function
 $stagePhase = Start-Phase "Staging"
@@ -286,6 +292,21 @@ $wholesaleContext = @{
     WholeDirsNormalized = $wholeDirsNormalized
 }
 Copy-WholesaleDirectories -Context $wholesaleContext
+
+# Extract Windows binaries from WindowsNodeArtifacts.zip to staging
+# These binaries (kubelet, kubectl, docker, etc.) are stored inside the ZIP in the offline package
+# but need to be extracted and staged for delta upgrades to update Windows nodes properly
+# Only changed or added binaries are staged - unchanged binaries are skipped
+$winArtifactsContext = @{
+    OldExtract = $oldExtract
+    NewExtract = $newExtract
+    StageDir   = $stageDir
+}
+$winArtifactsResult = Copy-WindowsNodeArtifactsToStaging -Context $winArtifactsContext
+if ($winArtifactsResult.ExtractedDirs.Count -gt 0) {
+    # Add extracted directories to the wholesale list for manifest tracking
+    $wholeDirsNormalized = @($wholeDirsNormalized) + @($winArtifactsResult.ExtractedDirs) | Sort-Object -Unique
+}
 
 # Helper to purge any special skipped files that were copied indirectly (e.g. via wholesale directories)
  # (Remove-SpecialSkippedFilesFromStage provided)
@@ -335,10 +356,11 @@ $offlineDebInfo = $null
 $imageDiffResult = $null
 $guestConfigDiff = $null
 if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
-        Write-Log 'Analyzing Debian packages in Kubemaster-Base.vhdx ...' -Console
+        $vhdxPhase = Start-Phase 'VHDXAnalysis'
+        Write-Log '[VHDXAnalysis] Analyzing Debian packages in Kubemaster-Base.vhdx...' -Console
                 $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx' -QueryImages:(-not $SkipImageDelta) -QueryConfigHashes -KeepNewVmAlive:$true
         if ($debianPackageDiff.Processed) {
-            Write-Log ("Debian package diff: Added={0} Changed={1} Removed={2}" -f $debianPackageDiff.AddedCount, $debianPackageDiff.ChangedCount, $debianPackageDiff.RemovedCount) -Console
+            Write-Log ("[VHDXAnalysis] Debian package diff: Added={0} Changed={1} Removed={2}" -f $debianPackageDiff.AddedCount, $debianPackageDiff.ChangedCount, $debianPackageDiff.RemovedCount) -Console
             
             # Process image delta if enabled
             if (-not $SkipImageDelta) {
@@ -513,6 +535,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
             }
             
                         # --- Generate Debian delta artifact directory (lists + scripts) -----------------
+            $debArtifactPhase = Start-Phase 'DebianArtifacts'
             try {
                 $debianDeltaDir = Join-Path $stageDir 'debian-delta'
                 if (-not (Test-Path -LiteralPath $debianDeltaDir)) { New-Item -ItemType Directory -Path $debianDeltaDir | Out-Null }
@@ -582,13 +605,13 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     if ($offlineSpecs.Count -gt 0) {
                         $debDownloadDir = Join-Path $debianDeltaDir 'packages'
                         if (-not (Test-Path -LiteralPath $debDownloadDir)) { New-Item -ItemType Directory -Path $debDownloadDir | Out-Null }
-                        Write-Log ("Attempting offline .deb acquisition for {0} packages" -f $offlineSpecs.Count) -Console
+                        Write-Log ("[DebPkg] Attempting offline .deb acquisition for {0} packages" -f $offlineSpecs.Count) -Console
                         $kubemasterNewRel = $debianPackageDiff.NewRelativePath
                         $kubemasterNewAbs = Join-Path $newExtract $kubemasterNewRel
                         if (Test-Path -LiteralPath $kubemasterNewAbs) {
                             $dlResult = Get-DebianPackagesFromVHDX -VhdxPath $kubemasterNewAbs -NewExtract $newExtract -OldExtract $oldExtract -switchNameEnding 'delta' -DownloadPackageSpecs $offlineSpecs -DownloadLocalDir $debDownloadDir -DownloadDebs -AllowPartialAcquisition
                             if ($dlResult.Error) {
-                                Write-Log ("[Warning] Offline package acquisition error: {0}" -f $dlResult.Error) -Console
+                                Write-Log ("[DebPkg][Warning] Offline package acquisition error: {0}" -f $dlResult.Error) -Console
                                  throw "Offline deb acquisition failed: $($dlResult.Error)"    # mandatory failure
                             }
                             elseif ($dlResult.DownloadedDebs.Count -gt 0) {
@@ -598,28 +621,30 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                                     GeneratedUtc = [DateTime]::UtcNow.ToString('o')
                                 }
                                 $debMeta | ConvertTo-Json -Depth 3 | Out-File -FilePath (Join-Path $debDownloadDir 'download-manifest.json') -Encoding UTF8 -Force
-                                Write-Log ("Offline .deb acquisition completed: {0} files" -f $dlResult.DownloadedDebs.Count) -Console
+                                Write-Log ("[DebPkg] Offline .deb acquisition completed: {0} files" -f $dlResult.DownloadedDebs.Count) -Console
                                 # FailureDetails removed; no failed-packages.json emitted
                                 $offlineDebInfo = [pscustomobject]@{
                                     Specs = $offlineSpecs
                                     Downloaded = $dlResult.DownloadedDebs | ForEach-Object { Join-Path 'debian-delta/packages' $_ }
                                 }
                             } else {
-                                Write-Log '[Warning] No .deb files downloaded (empty list)' -Console
+                                Write-Log '[DebPkg][Warning] No .deb files downloaded (empty list)' -Console
                                 throw 'Offline deb acquisition produced zero files (mandatory)'
                             }
                         } else {
-                            Write-Log ("[Warning] Expected VHDX for offline acquisition not found: {0}" -f $kubemasterNewAbs) -Console
+                            Write-Log ("[DebPkg][Warning] Expected VHDX for offline acquisition not found: {0}" -f $kubemasterNewAbs) -Console
                             throw 'Offline deb acquisition VHDX missing (mandatory)'
                         }
                     }
                 } catch {
-                    Write-Log ("[Warning] Offline acquisition attempt failed: {0}" -f $_.Exception.Message) -Console
+                    Write-Log ("[DebPkg][Warning] Offline acquisition attempt failed: {0}" -f $_.Exception.Message) -Console
                     throw
                 }
-                Write-Log "Created Debian delta artifact at '$debianDeltaDir'" -Console
+                Write-Log "[DebPkg] Created Debian delta artifact at '$debianDeltaDir'" -Console
+                Stop-Phase 'DebianArtifacts' $debArtifactPhase
             }
             catch {
+                Stop-Phase 'DebianArtifacts' $debArtifactPhase
                 Write-Log "[Error] Failed to generate Debian delta artifact: $($_.Exception.Message)"
                 if ($EncodeStructuredOutput -eq $true) {
                     $err = New-Error -Severity Warning -Code '[Error] Failed to generate Debian delta artifact' -Message $_.Exception.Message
@@ -630,24 +655,35 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     throw $_
                 }        
             }
+            Stop-Phase 'VHDXAnalysis' $vhdxPhase
     } else {
+        Stop-Phase 'VHDXAnalysis' $vhdxPhase
         $err = "Debian package diff not processed: $($debianPackageDiff.Error)"
         # Attempt a quick verification that no temp Hyper-V artifacts remain (best effort)
         try {
             if (Get-Module -ListAvailable -Name Hyper-V) {
                 $leftVMs = Get-VM -Name 'k2s-kubemaster-*' -ErrorAction SilentlyContinue | Where-Object { $_.State -ne 'Off' -or $_ }
                 $leftSwitches = Get-VMSwitch -Name 'k2s-switch-*' -ErrorAction SilentlyContinue
-                if ($leftVMs) { Write-Log ("[Warning] Residual VM objects after diff failure: {0}" -f ($leftVMs.Name -join ', ')) -Console }
-                if ($leftSwitches) { Write-Log ("[Warning] Residual VMSwitch objects after diff failure: {0}" -f ($leftSwitches.Name -join ', ')) -Console }
+                if ($leftVMs) { Write-Log ("[Cleanup][Warning] Residual VM objects after diff failure: {0}" -f ($leftVMs.Name -join ', ')) -Console }
+                if ($leftSwitches) { Write-Log ("[Cleanup][Warning] Residual VMSwitch objects after diff failure: {0}" -f ($leftSwitches.Name -join ', ')) -Console }
             }
-        } catch { Write-Log "[Warning] Cleanup verification failed: $($_.Exception.Message)" -Console }        
+        } catch { Write-Log "[Cleanup][Warning] Cleanup verification failed: $($_.Exception.Message)" -Console }        
         Write-Log $err -Error
         $script:SuppressFinalErrorLog = $true
         throw $err
     }
+} else {
+    # VHDX not in skip list - skip phases 4-7 (VHDXAnalysis, ImageDelta, GuestConfig, DebianArtifacts)
+    Write-Log '[Phase 4/10] VHDXAnalysis - skipped (no VHDX in skip list)' -Console
+    Write-Log '[Phase 5/10] ImageDelta - skipped (no VHDX)' -Console
+    Write-Log '[Phase 6/10] GuestConfigDiff - skipped (no VHDX)' -Console
+    Write-Log '[Phase 7/10] DebianArtifacts - skipped (no VHDX)' -Console
+    # Advance phase counter to align with manifest phase
+    $script:DeltaPhaseNumber = 7
 }
 
 # Build and write delta manifest using helper function
+$manifestPhase = Start-Phase 'Manifest'
 $manifestContext = @{
     InputPackageOne     = $InputPackageOne
     InputPackageTwo     = $InputPackageTwo
@@ -665,20 +701,23 @@ $manifestContext = @{
     GuestConfigDiff     = $guestConfigDiff
 }
 $manifestPath = New-DeltaManifest -Context $manifestContext
+Stop-Phase 'Manifest' $manifestPhase
 
     # --- Code Signing (optional) using helper function -------------------------------------------------
+    $signingPhase = Start-Phase 'Signing'
     $signingContext = @{
         StageDir        = $stageDir
         CertificatePath = $CertificatePath
         Password        = $Password
     }
     $signingResult = Invoke-DeltaCodeSigning -Context $signingContext
+    Stop-Phase 'Signing' $signingPhase
 
     # --- Create delta zip after (optional) signing ------------------------------
     $zipPhase = Start-Phase "Zipping"
     try {
         New-ZipWithProgress -SourceDir $stageDir -ZipPath $zipPackagePath -Show:$ShowLogs
-        Write-Log "Delta package created: $zipPackagePath" -Console
+        Write-Log "[Zipping] Delta package created: $zipPackagePath" -Console
     }
     catch {
         Write-Log "Failed to create delta zip: $($_.Exception.Message)" -Error
@@ -707,5 +746,6 @@ if ($EncodeStructuredOutput -eq $true) {
         error = $null
     }
 } else {
-    Write-Log "DONE" -Console
+    Write-Log '[DeltaPackage] All phases completed successfully' -Console
+    Write-Log '[DeltaPackage] DONE' -Console
 }
