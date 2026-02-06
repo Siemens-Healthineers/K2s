@@ -1439,7 +1439,10 @@ function Invoke-PVRestore {
 		[string] $BackupDirectory,
 
 		[Parameter(Mandatory = $false, HelpMessage = 'Force restore even if conflicts detected')]
-		[switch] $Force
+		[switch] $Force,
+
+		[Parameter(Mandatory = $false, HelpMessage = 'Fail immediately on any restore error')]
+		[switch] $ErrorOnFailure
 	)
 
     Write-Log "Starting persistent volume restore..." -Console
@@ -1463,6 +1466,10 @@ function Invoke-PVRestore {
             $successCount = ($restoreResult.GetEnumerator() | Where-Object { $_.Value -eq $true }).Count
             $failCount = ($restoreResult.GetEnumerator() | Where-Object { $_.Value -eq $false }).Count
             Write-Log "PV restore completed: $successCount PV(s) restored successfully, $failCount failed" -Console
+
+            if ($ErrorOnFailure -and $failCount -gt 0) {
+                throw "PV restore failed: $failCount PV(s) could not be restored"
+            }
 
             return @{
                 Success = ($failCount -eq 0)
@@ -1491,7 +1498,10 @@ function Invoke-PVRestore {
 function Invoke-ImageRestore {
     param(
         [Parameter(Mandatory = $true, HelpMessage = 'Directory containing backed up images')]
-        [string] $BackupDirectory
+        [string] $BackupDirectory,
+
+        [Parameter(Mandatory = $false, HelpMessage = 'Fail immediately on any restore error')]
+        [switch] $ErrorOnFailure
     )
 
     Write-Log "Starting image restore..." -Console
@@ -1531,6 +1541,10 @@ function Invoke-ImageRestore {
 
         if ($restoreResult.FailedImages.Count -gt 0) {
             Write-Log "Warning: Failed to restore $($restoreResult.FailedImages.Count) image(s)" -Console
+
+            if ($ErrorOnFailure) {
+                throw "Image restore failed: $($restoreResult.FailedImages.Count) image(s) could not be restored"
+            }
         }
 
         return $restoreResult

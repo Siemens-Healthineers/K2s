@@ -32,6 +32,9 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("'system restore' command", Ordered, func() {
+	// Note: --error-on-failure (-e) flag behavior is extensively tested in the
+	// system-running restore tests where a cluster is available
+
 	Describe("when no cluster is installed", func() {
 		It("returns an error message indicating no setup is available", func(ctx context.Context) {
 			tempDir := GinkgoT().TempDir()

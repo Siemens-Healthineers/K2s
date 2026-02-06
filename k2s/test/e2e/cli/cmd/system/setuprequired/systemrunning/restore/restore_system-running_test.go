@@ -153,6 +153,15 @@ var _ = Describe("'k2s system restore'", Ordered, func() {
 				))
 			})
 		})
+
+		Context("with valid backup containing resources", func() {
+			It("successfully restores the system with error flag enabled", func(ctx context.Context) {
+				// This uses the suite-level validBackupFile created in BeforeSuite
+				// which contains valid K8s resources
+				suite.K2sCli().MustExec(ctx, "system", "restore", "-f", validBackupFile, "-e")
+				// MustExec will fail the test if exit code is non-zero
+			})
+		})
 	})
 })
 

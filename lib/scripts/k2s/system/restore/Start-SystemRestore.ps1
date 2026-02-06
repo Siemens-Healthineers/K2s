@@ -93,7 +93,7 @@ Write-Log "Restoring persistent volumes..." -Console
 $pvBackupPath = Join-Path $restoreRoot "pv"
 if (Test-Path $pvBackupPath) {
     try {
-        $pvRestoreResult = Invoke-PVRestore -BackupDirectory $pvBackupPath -Force
+        $pvRestoreResult = Invoke-PVRestore -BackupDirectory $pvBackupPath -Force -ErrorOnFailure:$ErrorOnFailure
 
         if ($pvRestoreResult.RestoredCount -gt 0) {
             Write-Log "Successfully restored $($pvRestoreResult.RestoredCount) persistent volume(s)" -Console
@@ -106,6 +106,9 @@ if (Test-Path $pvBackupPath) {
         }
     }
     catch {
+        if ($ErrorOnFailure) {
+            throw
+        }
         Write-Log "Warning: PV restore failed - $_. Continuing with restore..." -Console
     }
 } else {
@@ -120,7 +123,7 @@ Write-Log "Restoring user workload images..." -Console
 $imagesBackupPath = Join-Path $restoreRoot "images"
 if (Test-Path $imagesBackupPath) {
     try {
-        $imageRestoreResult = Invoke-ImageRestore -BackupDirectory $imagesBackupPath
+        $imageRestoreResult = Invoke-ImageRestore -BackupDirectory $imagesBackupPath -ErrorOnFailure:$ErrorOnFailure
 
         if ($imageRestoreResult.RestoredImages.Count -gt 0) {
             Write-Log "Successfully restored $($imageRestoreResult.RestoredImages.Count) user workload container images" -Console
@@ -133,6 +136,9 @@ if (Test-Path $imagesBackupPath) {
         }
     }
     catch {
+        if ($ErrorOnFailure) {
+            throw
+        }
         Write-Log "Warning: Image restore failed - $_. Continuing with restore..." -Console
     }
 } else {
