@@ -94,6 +94,35 @@ _Note:_ The above command will only disable dicom addon. If other addons were en
 ## License Info
 
 By activating this dicom addon you will download at runtime some Orthanc components. Even if all is open source, please consider the following license terms for Orthanc components: [Orthanc License Terms](https://orthanc.uclouvain.be/book/faq/licensing.html) 
+
+## Backup and restore
+
+Backup/restore is **config-only** and **scoped to the `dicom` namespace**.
+
+### What gets backed up
+
+- Orthanc configuration `ConfigMap/json-configmap` (generated from `orthanc.json`)
+- Orthanc configuration `ConfigMap/json-configmap` (contains the effective Orthanc configuration; initially sourced from `orthanc.json`)
+- Optional dashboard exposure resources in namespace `dicom` (if present):
+	- `Ingress/dicom-nginx-cluster-local`
+	- `Ingress/dicom-traefik-cluster-local`
+	- `Ingress/dicom-traefik-cluster-local-correct1`
+	- `Ingress/dicom-traefik-cluster-local-correct2`
+	- `Middleware/strip-prefix`, `Middleware/cors-header`
+	- `Middleware/oauth2-proxy-auth` (Traefik secure mode)
+
+### What does not get backed up
+
+- DICOM study data stored on PVCs (Orthanc and Postgres data)
+- Controller manifests/CRDs (they are re-installed during restore via `k2s addons enable dicom`)
+- Resources outside of the `dicom` namespace
+
+### Commands
+
+```console
+k2s addons backup dicom
+k2s addons restore dicom <path-to-backup-zip>
+```
  
 ## Further Reading
 
