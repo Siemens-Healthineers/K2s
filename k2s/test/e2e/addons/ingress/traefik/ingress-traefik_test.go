@@ -149,7 +149,7 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 
 	It("makes k2s.cluster.local reachable, with http status NotFound", func(ctx context.Context) {
 		url := "https://k2s.cluster.local/"
-		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10")
+		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--retry-all-errors")
 		Expect(httpStatus).To(ContainSubstring("404"))
 	})
 

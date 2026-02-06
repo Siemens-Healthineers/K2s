@@ -124,13 +124,13 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 
 	It("makes k2s.cluster.local reachable via HTTP, with status NotFound", func(ctx context.Context) {
 		url := "http://k2s.cluster.local/"
-		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-I", "-m", "5", "--retry", "10")
+		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-v", "-I", "-m", "5", "--retry", "10", "--retry-all-errors")
 		Expect(httpStatus).To(ContainSubstring("404"))
 	})
 
 	It("makes k2s.cluster.local reachable via HTTPS, with status NotFound", func(ctx context.Context) {
 		url := "https://k2s.cluster.local/"
-		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10")
+		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-I", "-m", "5", "--retry", "10", "--retry-all-errors")
 		Expect(httpStatus).To(ContainSubstring("404"))
 	})
 
