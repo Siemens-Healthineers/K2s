@@ -294,7 +294,7 @@ function Copy-WindowsNodeArtifactsToStaging {
     #
     $folderMappings = @{
         'kubetools'       = @{ Target = 'bin/kube' }                     # kubelet, kubectl, kubeadm, kube-proxy
-        'docker'          = @{ Target = 'bin/docker' }                   # docker, dockerd
+        'docker'          = @{ Target = 'bin/docker'; Subdir = 'docker' } # docker.exe, dockerd.exe from docker/docker/
         'flannel'         = @{ Target = 'bin/cni' }                      # flanneld.exe
         'cni_plugins'     = @{ Target = 'bin/cni' }                      # host-local, win-bridge, win-overlay
         'cni_flannel'     = @{ Target = 'bin/cni'; Rename = @{ 'flannel-amd64.exe' = 'flannel.exe' } }
