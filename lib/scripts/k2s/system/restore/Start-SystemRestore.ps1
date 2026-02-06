@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-License-Identifier: MIT
+
 param(
     [string] $BackupFile,
     [switch] $ShowLogs = $false,
