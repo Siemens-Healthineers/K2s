@@ -21,6 +21,21 @@ The ingress traefik addon can be enabled using the `k2s` CLI by running the foll
 k2s addons enable ingress traefik
 ```
 
+## Backup and restore
+
+Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+```cmd
+k2s addons backup ingress traefik
+```
+
+Restore from a backup zip:
+```cmd
+k2s addons restore ingress traefik -f C:\Temp\Addons\ingress_traefik_backup_YYYYMMDD_HHMMSS.zip
+```
+
+The backup includes:
+- The Ingress `traefik-cluster-local` from namespace `ingress-traefik`.
+
 ## Creating ingress routes
 
 In addition to implementing the Kubernetes `Ingress` Interface,
@@ -133,3 +148,6 @@ chrome://net-internals/#hsts
 and deleting the settings for `k2s.cluster.local`.
 
 ## Further Reading
+
+- [Traefik](https://traefik.io/)
+- [Traefik Kubernetes CRD provider](https://doc.traefik.io/traefik/routing/providers/kubernetes-crd/)
