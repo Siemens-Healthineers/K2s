@@ -88,8 +88,19 @@ $keyCloakPostgresYaml = Get-KeyCloakPostgresConfig
 
 Remove-WindowsSecurityDeployments
 
+$needsGatewayApiCrds = $hasNginxGwIngress -or $hasTraefikIngress
+if ($needsGatewayApiCrds) {
+    Write-Log 'Gateway API ingress is enabled. Preserving Gateway API CRDs before Linkerd deletion.' -Console
+    $gatewayApiCrds = Get-GatewayApiCrdsConfig
+}
+
 $linkerdYaml = Get-LinkerdConfigDirectory
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-k',$linkerdYaml).Output | Write-Log
+
+if ($needsGatewayApiCrds) {
+    Write-Log 'Re-applying Gateway API CRDs (removed by Linkerd deletion)' -Console
+    (Invoke-Kubectl -Params 'apply', '-f', $gatewayApiCrds).Output | Write-Log
+}
 
 Remove-LinkerdMarkerConfig
 

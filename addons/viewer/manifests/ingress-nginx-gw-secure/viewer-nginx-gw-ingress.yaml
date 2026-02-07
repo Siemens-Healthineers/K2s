@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# This ingress exposes the viewer angular application on https://k2s.cluster.local/viewer
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: viewer-nginx-gw-http
+  namespace: viewer
+spec:
+  parentRefs:
+    - name: nginx-cluster-local
+      namespace: nginx-gw
+      sectionName: http
+  hostnames:
+    - k2s.cluster.local
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /viewer
+      backendRefs:
+        - name: viewerwebapp
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: viewer-nginx-gw-https
+  namespace: viewer
+spec:
+  parentRefs:
+    - name: nginx-cluster-local
+      namespace: nginx-gw
+      sectionName: https
+  hostnames:
+    - k2s.cluster.local
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /viewer
+      backendRefs:
+        - name: viewerwebapp
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: viewer-nginx-gw-reference-grant
+  namespace: nginx-gw
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: viewer
+  to:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: nginx-cluster-local
+---
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: viewer-nginx-gw-server
+  namespace: viewer
+spec:
+  podSelector:
+    matchLabels:
+      app: viewerwebapp
+  port: 80
+  proxyProtocol: HTTP/1
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: viewer-nginx-gw-server-authorization
+  namespace: viewer
+spec:
+  server:
+    name: viewer-nginx-gw-server
+  client:
+    unauthenticated: true

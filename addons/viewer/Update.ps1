@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2026 Siemens Healthcare GmbH
 #
 # SPDX-License-Identifier: MIT
 

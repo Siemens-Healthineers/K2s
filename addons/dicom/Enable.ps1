@@ -15,7 +15,7 @@ The "dicom" addons enables dicom server for the k2s cluster.
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [ValidateSet('nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [ValidateSet('smb', 'none')]
     [string] $Storage = 'none',    
