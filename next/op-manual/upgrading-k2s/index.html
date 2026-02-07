@@ -1265,6 +1265,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#upgrade-hooks-full-upgrade-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade Hooks (Full Upgrade Only)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#after-upgrade" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1297,6 +1308,17 @@ You're not viewing the latest release version.
     <span class="md-ellipsis">
       
         When to Use Delta Updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-delta-update-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Delta Update Does
       
     </span>
   </a>
@@ -2258,6 +2280,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#upgrade-hooks-full-upgrade-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade Hooks (Full Upgrade Only)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#after-upgrade" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2290,6 +2323,17 @@ You're not viewing the latest release version.
     <span class="md-ellipsis">
       
         When to Use Delta Updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-delta-update-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Delta Update Does
       
     </span>
   </a>
@@ -2358,10 +2402,10 @@ SPDX-License-Identifier: MIT
 <figcaption>K2s Cluster Upgrade Versioning Semantics</figcaption>
 </figure>
 <h2 id="upgrade-procedure">Upgrade Procedure</h2>
-<div class="admonition info">
-<p class="admonition-title">Info</p>
-</div>
-<p>The upgrade process re-installs the cluster binaries, then migrates (exports/imports) Kubernetes resources and re-enables addons.</p>
+<blockquote>
+<p><strong>ℹ️ Info:</strong> The upgrade process re-installs the cluster binaries, migrates (exports/imports) Kubernetes resources, and re-enables previously enabled addons. It does not also upgrade existing addons, this needs to be done separatly using the <code>k2s addons ...</code> commands.</p>
+<p><strong>⚠️ Warning:</strong> Addon data/persistence is also <strong>not</strong> automatically restored during upgrade. To backup and restore addon data, use <code>k2s addons export</code> before upgrade and <code>k2s addons import</code> after upgrade.</p>
+</blockquote>
 <ol>
 <li>Extract the new <em>K2s</em> release package into a directory (e.g. <code>C:\k2s\v1.5.0</code>).</li>
 <li>Open an elevated (Administrator) PowerShell or command prompt in that directory.</li>
@@ -2411,11 +2455,11 @@ SPDX-License-Identifier: MIT
 <h3 id="what-the-command-does">What the Command Does</h3>
 <p>Internally the following high‑level steps are performed:
 1. Export all existing workloads (cluster‑scoped resources and namespaced resources).
-2. Persist addon state (which addons are enabled and their data/persistence volumes).
+2. Capture the list of currently enabled addons.
 3. Uninstall the existing cluster components.
 4. Install the new version from the extracted package.
 5. Import previously exported workloads.
-6. Re-enable addons and restore their persisted data.
+6. Re-enable previously enabled addons.
 7. Verify workload health (basic readiness checks).
 8. Final cluster availability validation.</p>
 <h3 id="rollback-considerations">Rollback Considerations</h3>
@@ -2429,29 +2473,149 @@ SPDX-License-Identifier: MIT
 - Custom configuration files and secrets (outside of version-controlled items).</p>
 <h3 id="proxy-usage">Proxy Usage</h3>
 <p>If your environment requires <abbr title="Hypertext Transfer Protocol">HTTP</abbr>(S) proxy access, specify it with <code>-p</code>. Ensure the proxy allows access to any required artifact repositories; otherwise offline packages should include all needed assets.</p>
+<h3 id="upgrade-hooks-full-upgrade-only">Upgrade Hooks (Full Upgrade Only)</h3>
+<p>The full upgrade process supports custom backup and restore hooks for cluster resources that need special handling during upgrade (e.g., <abbr title="Server Message Block">SMB</abbr> shares, external configurations).</p>
+<blockquote>
+<p><strong>ℹ️ Note:</strong> Hooks are only executed during <strong>full upgrades</strong>. Delta updates preserve cluster state in place and do not execute hooks.</p>
+</blockquote>
+<p><strong>Hook Locations:</strong></p>
+<ol>
+<li><strong>Default location:</strong> <code>&lt;K2s-install-dir&gt;\bin\LocalHooks\</code></li>
+<li><strong>Additional location:</strong> Specify via the <code>--additional-hooks-dir</code> flag</li>
+</ol>
+<p><strong>Hook Naming Convention:</strong></p>
+<ul>
+<li>Backup hooks: <code>&lt;name&gt;.Backup.ps1</code> — executed before cluster uninstall</li>
+<li>Restore hooks: <code>&lt;name&gt;.Restore.ps1</code> — executed after cluster install</li>
+</ul>
+<p><strong>Hook Script Parameters:</strong></p>
+<p>Each hook script receives the following parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-BackupDir</code></td>
+<td>Directory where backup data should be stored/retrieved</td>
+</tr>
+<tr>
+<td><code>-ShowLogs</code></td>
+<td>Whether to display verbose logging</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example Hook Script:</strong>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c"># MyResource.Backup.ps1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">param</span><span class="p">(</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="no">[string]</span><span class="nv">$BackupDir</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="no">[switch]</span><span class="nv">$ShowLogs</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c"># Backup custom resource</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nv">$backupPath</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$BackupDir</span> <span class="s2">&quot;my-resource&quot;</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nb">New-Item</span> <span class="n">-ItemType</span> <span class="n">Directory</span> <span class="n">-Path</span> <span class="nv">$backupPath</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c"># ... backup logic here</span>
+</code></pre></div></p>
+<p><strong>Usage:</strong>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="gp"># </span>Use<span class="w"> </span>additional<span class="w"> </span>hooks<span class="w"> </span>directory
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="go">k2s system upgrade --additional-hooks-dir &quot;C:\MyHooks&quot;</span>
+</code></pre></div></p>
 <h3 id="after-upgrade">After Upgrade</h3>
 <p>Validate cluster:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">kubectl get nodes</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">kubectl get pods -A</span>
-</code></pre></div>
-Check addon status:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons status</span>
-</code></pre></div>
-If any workload fails readiness, inspect its namespace events and logs before proceeding with further changes.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">kubectl get nodes</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">kubectl get pods -A</span>
+</code></pre></div></p>
+<p>Check addon status (addons are automatically re-enabled during upgrade):
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s addons status</span>
+</code></pre></div></p>
+<p>If you exported addon data before upgrade, restore it now:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s addons import</span>
+</code></pre></div></p>
+<p>If any workload fails readiness, inspect its namespace events and logs before proceeding with further changes.</p>
 <h2 id="delta-updates">Delta Updates</h2>
 <p>For bandwidth-constrained environments or large-scale deployments, <em>K2s</em> supports delta packages that contain only the files changed between two specific versions.</p>
+<blockquote>
+<p><strong>ℹ️ Info:</strong> Delta updates perform an in-place update without uninstalling/reinstalling the cluster. The cluster is stopped, files are updated, and the cluster is restarted. This means workloads, addons, and persistent data remain intact.</p>
+</blockquote>
 <h3 id="when-to-use-delta-updates">When to Use Delta Updates</h3>
 <ul>
 <li>Upgrading between adjacent minor versions (e.g., 1.4.x → 1.5.x)</li>
 <li>Applying patch releases (e.g., 1.4.0 → 1.4.1)</li>
 <li>Environments with limited bandwidth or storage</li>
+<li>When you want to preserve running workloads and addon state</li>
 </ul>
+<h3 id="what-delta-update-does">What Delta Update Does</h3>
+<p>Unlike full upgrades, delta updates:</p>
+<ol>
+<li>Detect delta package root (current directory with <code>delta-manifest.json</code>)</li>
+<li>Detect target installation folder (from <code>setup.json</code>)</li>
+<li>Stop the cluster if running</li>
+<li>Update Windows executables and scripts from delta to target installation</li>
+<li>Update Debian packages on the Linux <abbr title="Virtual Machine">VM</abbr> (if applicable)</li>
+<li>Update container images from delta</li>
+<li>Restart the cluster</li>
+</ol>
+<p><strong>Key Differences from Full Upgrade:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Full Upgrade</th>
+<th>Delta Update</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cluster state</td>
+<td>Uninstalled and reinstalled</td>
+<td>Stopped and restarted</td>
+</tr>
+<tr>
+<td>Workloads</td>
+<td>Exported and re-imported</td>
+<td>Preserved in place</td>
+</tr>
+<tr>
+<td>Addons</td>
+<td>Re-enabled after install</td>
+<td>Remain enabled</td>
+</tr>
+<tr>
+<td>Addon data</td>
+<td>Not preserved (use export/import)</td>
+<td>Preserved</td>
+</tr>
+<tr>
+<td>Upgrade hooks</td>
+<td>Executed (backup/restore)</td>
+<td>Not executed</td>
+</tr>
+<tr>
+<td>Package size</td>
+<td>Full installation (~GB)</td>
+<td>Only changed files (~MB)</td>
+</tr>
+</tbody>
+</table>
 <h3 id="applying-a-delta-package">Applying a Delta Package</h3>
 <ol>
 <li>Verify your current version matches the delta's source version</li>
-<li>Extract and run the delta's <code>Apply-Delta.ps1</code> script</li>
+<li>Extract the delta package:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta</span>
+</code></pre></div></li>
+<li>Navigate to the extracted directory and run the upgrade:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">cd .\delta</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">.\k2s.exe system upgrade</span>
+</code></pre></div></li>
 <li>Validate the cluster as described above</li>
 </ol>
+<blockquote>
+<p><strong>⚠️ Note:</strong> The <code>k2s system upgrade</code> command automatically detects whether to perform a full upgrade or delta update based on the presence of <code>delta-manifest.json</code> in the package directory.</p>
+</blockquote>
 <p>For complete documentation on creating and applying delta packages, see <a href="../delta-packages/">Delta Packages</a>.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
