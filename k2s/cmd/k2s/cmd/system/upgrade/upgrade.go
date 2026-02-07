@@ -43,13 +43,16 @@ FULL UPGRADE:
   
   The following tasks will be executed:
   1. Export of current workloads (global resources and all namespaced resources)
-  2. Keeping addons and their persistency to be re-enabled after cluster upgrade
-  3. Uninstall existing cluster
-  4. Install a new cluster based on this version
-  5. Import previously exported workloads
-  6. Enable addons and restore persistency
-  7. Check if all workloads are running
-  8. Finally check K2s cluster availability
+  2. Uninstall existing cluster
+  3. Install a new cluster based on this version
+  4. Import previously exported workloads
+  5. Re-enable previously enabled addons
+  6. Check if all workloads are running
+  7. Finally check K2s cluster availability
+
+  ⚠  NOTE: Addon data/persistence is NOT automatically restored during upgrade.
+     To backup and restore addon data, use the separate mechanisms:
+     - k2s addons export / k2s addons import
 
 DELTA UPDATE (EXPERIMENTAL):
   ⚠  Extract the delta package and call this command from within the extracted directory:
