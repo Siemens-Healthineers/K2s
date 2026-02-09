@@ -35,7 +35,7 @@ var (
 
 func TestBackupSystemRunning(t *testing.T) {
  RegisterFailHandler(Fail)
- RunSpecs(t, "System Backup Acceptance Tests", Label("e2e", "system", "backup", "system-running"))
+ RunSpecs(t, "System Backup Acceptance Tests", Label("e2e", "system", "backup-restore", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

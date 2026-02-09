@@ -34,7 +34,7 @@ var (
 
 func TestRestoreSystemRunning(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "System Restore Acceptance Tests", Label("e2e", "system", "restore", "system-running"))
+	RunSpecs(t, "System Restore Acceptance Tests", Label("e2e", "system", "backup-restore", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
