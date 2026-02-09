@@ -18,6 +18,7 @@ $dockerExe = "$kubeBinPath\docker\docker.exe"
 $nerdctlExe = "$kubeBinPath\nerdctl.exe"
 $ctrExe = "$kubeBinPath\containerd\ctr.exe"
 $crictlExe = Get-CrictlExePath
+$rootConfig = Get-RootConfigk2s
 class ContainerImage {
     [string]$ImageId
     [string]$Repository
@@ -127,11 +128,8 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]
         Write-Log "[ImageList] Total images after K8s filter = $($linuxContainerImages.Count)"
     }
 
-    # Filter addon images from excluded namespaces
-    $linuxContainerImages = Filter-AddonImagesFromList -ContainerImages $linuxContainerImages -ExcludeAddonImages $ExcludeAddonImages -NodeType 'Linux'
-
-    # Deduplicate images with same ImageID (prefer tagged over <none>)
-    $linuxContainerImages = Remove-DuplicateImages -ContainerImages $linuxContainerImages -NodeType 'Linux'
+    # Filter addon images and deduplicate
+    $linuxContainerImages = Invoke-ImageFilteringAndDeduplication -ContainerImages $linuxContainerImages -ExcludeAddonImages $ExcludeAddonImages -NodeType 'Linux'
 
     return $linuxContainerImages
 }
@@ -160,13 +158,52 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
             Get-FilteredImages -ContainerImages $windowsContainerImages -ContainerImagesToBeCleaned $KubernetesImages
         }
 
-        # Filter addon images from excluded namespaces
-        $windowsContainerImages = Filter-AddonImagesFromList -ContainerImages $windowsContainerImages -ExcludeAddonImages $ExcludeAddonImages -NodeType 'Windows'
-
-        # Deduplicate images with same ImageID (prefer tagged over <none>)
-        $windowsContainerImages = Remove-DuplicateImages -ContainerImages $windowsContainerImages -NodeType 'Windows'
+        # Filter addon images and deduplicate
+        $windowsContainerImages = Invoke-ImageFilteringAndDeduplication -ContainerImages $windowsContainerImages -ExcludeAddonImages $ExcludeAddonImages -NodeType 'Windows'
     }
     return $windowsContainerImages
+}
+
+
+function Invoke-ImageFilteringAndDeduplication {
+    param(
+        [Parameter(Mandatory = $true, HelpMessage = 'Array of container images to process.')]
+        [AllowNull()]
+        [array]$ContainerImages,
+
+        [Parameter(Mandatory = $true, HelpMessage = 'Set to $true to exclude addon images.')]
+        [bool]$ExcludeAddonImages,
+
+        [Parameter(Mandatory = $true, HelpMessage = 'Type of node: Linux or Windows.')]
+        [ValidateSet('Linux', 'Windows')]
+        [string]$NodeType
+    )
+
+    # Handle null input
+    if ($null -eq $ContainerImages) {
+        Write-Log "[$NodeType`Node] No images available to filter"
+        $ContainerImages = @()
+        return $ContainerImages
+    }
+
+    # Filter addon images from excluded namespaces
+    $ContainerImages = Filter-AddonImagesFromList -ContainerImages $ContainerImages -ExcludeAddonImages $ExcludeAddonImages -NodeType $NodeType
+
+    # Ensure we have an array (even if empty) before deduplication
+    if ($null -eq $ContainerImages) {
+        Write-Log "[$NodeType`Node] Filter returned null, initializing empty array"
+        $ContainerImages = @()
+        return $ContainerImages
+    }
+
+    # Deduplicate images with same ImageID (prefer tagged over <none>) - only if there are images
+    if ($ContainerImages.Count -gt 0) {
+        $ContainerImages = Remove-DuplicateImages -ContainerImages $ContainerImages -NodeType $NodeType
+    } else {
+        Write-Log "[$NodeType`Node] No images to deduplicate"
+    }
+
+    return $ContainerImages
 }
 
 function Get-PushedContainerImages() {
@@ -660,10 +697,52 @@ function Push-DockerManifest {
 }
 
 
-function Get-ImagesFromExcludedNamespaces {
+function Get-ImagesFromNamespaces {
+    param(
+        [Parameter(Mandatory = $true, HelpMessage = 'Array of namespaces to query for images.')]
+        [string[]]$Namespaces,
+
+        [Parameter(Mandatory = $true, HelpMessage = 'Log prefix for filtering context (e.g., "addon", "user").')]
+        [string]$LogPrefix
+    )
+
+    if ($Namespaces.Count -eq 0) {
+        Write-Log "[ImageFilter] No $LogPrefix namespaces to query"
+        return @()
+    }
+
     $kubectlExe = "$kubeBinPath\kube\kubectl.exe"
+    $collectedImages = @()
+
+    foreach ($namespace in $Namespaces) {
+        try {
+            # Query images from namespace using jsonpath for efficiency
+            $output = & $kubectlExe get pods -n $namespace -o jsonpath="{.items[*].spec.containers[*].image}" 2>$null
+
+            if ($output) {
+                # Split by whitespace and filter empty strings
+                $images = $output -split '\s+' | Where-Object { $_ -ne '' }
+
+                if ($images.Count -gt 0) {
+                    Write-Log "[ImageFilter]   Namespace '$namespace': found $($images.Count) image(s)"
+                    $collectedImages += $images
+                }
+            }
+        }
+        catch {
+            Write-Log "[ImageFilter]   Warning: Failed to query namespace '$namespace': $_"
+        }
+    }
+
+    # Return unique images
+    $uniqueImages = $collectedImages | Select-Object -Unique
+    Write-Log "[ImageFilter] Total unique $LogPrefix images: $($uniqueImages.Count)"
+
+    return $uniqueImages
+}
+
+function Get-ImagesFromExcludedNamespaces {
     # Get excluded namespaces from config
-    $rootConfig = Get-RootConfigk2s
     $excludedNamespacesString = $rootConfig.backup.excludednamespaces
 
     if ([string]::IsNullOrWhiteSpace($excludedNamespacesString)) {
@@ -676,45 +755,105 @@ function Get-ImagesFromExcludedNamespaces {
 
     Write-Log "[ImageFilter] Excluding images from $($excludedNamespaces.Count) addon/infrastructure namespaces"
 
-    # Get kubectl path from module variable
+    # Use common helper to get images
+    return Get-ImagesFromNamespaces -Namespaces $excludedNamespaces -LogPrefix 'addon'
+}
 
-    if (-not (Test-Path $kubectlExe)) {
-        Write-Log "[ImageFilter] Warning: kubectl not found at '$kubectlExe', skipping addon image filtering" -Console
+function Get-ImagesFromUserNamespaces {
+    $kubectlExe = "$kubeBinPath\kube\kubectl.exe"
+
+    # Get excluded namespaces from config
+    $excludedNamespacesString = $rootConfig.backup.excludednamespaces
+    # Parse excluded namespaces
+    $excludedNamespaces = @()
+    if (-not [string]::IsNullOrWhiteSpace($excludedNamespacesString)) {
+        $excludedNamespaces = $excludedNamespacesString -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+    }
+
+    # Get all namespaces
+    try {
+        $allNamespacesOutput = & $kubectlExe get namespaces -o jsonpath="{.items[*].metadata.name}" 2>$null
+
+        if (-not $allNamespacesOutput) {
+            Write-Log "[ImageFilter] No namespaces found in cluster"
+            return @()
+        }
+
+        # Parse all namespaces
+        $allNamespaces = $allNamespacesOutput -split '\s+' | Where-Object { $_ -ne '' }
+
+        # Filter out excluded namespaces to get user namespaces
+        $userNamespaces = $allNamespaces | Where-Object { $excludedNamespaces -notcontains $_ }
+
+        Write-Log "[ImageFilter] Found $($userNamespaces.Count) user namespace(s) (excluding $($excludedNamespaces.Count) addon/system namespaces)"
+
+        if ($userNamespaces.Count -eq 0) {
+            Write-Log "[ImageFilter] No user namespaces found"
+            return @()
+        }
+
+        # Use common helper to get images from user namespaces
+        return Get-ImagesFromNamespaces -Namespaces $userNamespaces -LogPrefix 'user workload'
+    }
+    catch {
+        Write-Log "[ImageFilter] Error getting user namespace images: $_" -Console
         return @()
     }
+}
 
-    $addonImages = @()
+function Get-SharedImages {
+    param(
+        [string[]]$AddonImages,
+        [string[]]$UserImages
+    )
 
-    foreach ($namespace in $excludedNamespaces) {
-        try {
-            # Query images from namespace using jsonpath for efficiency
-            $output = & $kubectlExe get pods -n $namespace -o jsonpath="{.items[*].spec.containers[*].image}" 2>$null
-
-            if ($output) {
-                # Split by whitespace and filter empty strings
-                $images = $output -split '\s+' | Where-Object { $_ -ne '' }
-
-                if ($images.Count -gt 0) {
-                    Write-Log "[ImageFilter]   Namespace '$namespace': found $($images.Count) image(s)"
-                    $addonImages += $images
-                }
-            }
-        }
-        catch {
-            Write-Log "[ImageFilter]   Warning: Failed to query namespace '$namespace': $_"
+    $shared = @()
+    if ($UserImages.Count -eq 0) {
+        return $shared
+    }
+    foreach ($addonImg in $AddonImages) {
+        if ($UserImages -contains $addonImg) {
+            $shared += $addonImg
         }
     }
+    if ($shared.Count -gt 0) {
+        Write-Log "[ImageFilter] Found $($shared.Count) image(s) shared between addon and user namespaces - keeping them in backup:"
+        $shared | ForEach-Object { Write-Log "[ImageFilter]   Shared: $_" }
+    }
+    return $shared
+}
 
-    # Return unique images
-    $uniqueImages = $addonImages | Select-Object -Unique
-    Write-Log "[ImageFilter] Total unique addon images to exclude: $($uniqueImages.Count)"
+function Get-AddonOnlyRepositories {
+    param([string[]]$AddonOnlyImages)
 
-    return $uniqueImages
+    return $AddonOnlyImages | ForEach-Object {
+        if ($_ -match '^(.+):') { $Matches[1] } else { $_ }
+    } | Select-Object -Unique
+}
+
+function Check-IsUserOrSharedImage {
+    param(
+        [object]$Image,
+        [string[]]$AddonOnlyImages,
+        [string[]]$AddonOnlyRepositories
+    )
+
+    # For <none> tags, match by repository only
+    if ($Image.Tag -eq '<none>') {
+        return $AddonOnlyRepositories -notcontains $Image.Repository
+    }
+
+    # For proper tags, match full image name
+    $imageFullName = "$($Image.Repository):$($Image.Tag)"
+
+    # Check if this image is in the addon-only list (not shared with users)
+    return -not ($AddonOnlyImages -contains $imageFullName)
 }
 
 function Filter-AddonImagesFromList {
     param(
         [Parameter(Mandatory = $true, HelpMessage = 'Array of container images to filter.')]
+        [AllowNull()]
         [AllowEmptyCollection()]
         [array]$ContainerImages,
 
@@ -726,39 +865,45 @@ function Filter-AddonImagesFromList {
         [string]$NodeType
     )
 
+    # Handle null or empty input
+    if ($null -eq $ContainerImages -or $ContainerImages.Count -eq 0) {
+        Write-Log "[$NodeType`Node] No images to filter (null or empty)"
+        return @()
+    }
+
     if ($ExcludeAddonImages -eq $false) {
         Write-Log "[$NodeType`Node] ExcludeAddonImages is FALSE, skipping addon filter"
         return $ContainerImages
     }
 
     Write-Log "[ImageFilter] Filtering addon images from $NodeType node..."
-    $addonImageStrings = Get-ImagesFromExcludedNamespaces
 
+    # Get addon and user images
+    $addonImageStrings = Get-ImagesFromExcludedNamespaces
     if ($addonImageStrings.Count -eq 0) {
         Write-Log "[ImageFilter] No addon images to exclude, returning all images"
         return $ContainerImages
     }
 
-    Write-Log "[ImageFilter] Addon images to exclude: $($addonImageStrings.Count)"
+    $userImageStrings = Get-ImagesFromUserNamespaces
+    Write-Log "[ImageFilter] Found $($addonImageStrings.Count) addon image(s) and $($userImageStrings.Count) user workload image(s)"
 
-    # Extract repository names from addon images (without tags) for <none> matching
-    $addonRepositories = $addonImageStrings | ForEach-Object {
-        if ($_ -match '^(.+):') { $Matches[1] } else { $_ }
-    } | Select-Object -Unique
+    # Identify shared images (used by both addons and users)
+    $sharedImages = Get-SharedImages -AddonImages $addonImageStrings -UserImages $userImageStrings
 
-    # Filter by matching Repository:Tag
+    # Only exclude addon images that are NOT used by user workloads
+    $addonOnlyImages = $addonImageStrings | Where-Object { $sharedImages -notcontains $_ }
+    Write-Log "[ImageFilter] Excluding $($addonOnlyImages.Count) addon-only image(s) (not used by user workloads)"
+
+    # Build lookup structures for efficient filtering
+    $addonOnlyRepositories = Get-AddonOnlyRepositories -AddonOnlyImages $addonOnlyImages
+
+    # Filter images
     $filteredImages = $ContainerImages | Where-Object {
-        # For <none> tags, match by repository only
-        if ($_.Tag -eq '<none>') {
-            return $addonRepositories -notcontains $_.Repository
-        }
-        # For proper tags, match full image name
-        $imageFullName = "$($_.Repository):$($_.Tag)"
-        return $addonImageStrings -notcontains $imageFullName
+        Check-IsUserOrSharedImage -Image $_ -AddonOnlyImages $addonOnlyImages -AddonOnlyRepositories $addonOnlyRepositories
     }
 
-    Write-Log "[ImageFilter] After addon filtering: $($filteredImages.Count) image(s) (includes <none> tags, will be deduplicated)"
-
+    Write-Log "[ImageFilter] After addon filtering: $($filteredImages.Count) image(s) remaining (user workload + shared images)"
     return $filteredImages
 }
 
@@ -792,6 +937,12 @@ function Remove-DuplicateImages {
 
     # Final pass: remove any remaining <none> tagged images
     $deduplicatedImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
+
+    # Ensure we always return an array, even if empty
+    if ($null -eq $deduplicatedImages) {
+        Write-Log "[$NodeType`Node] All images were <none> tagged or list is empty, returning empty array"
+        return @()
+    }
 
     return $deduplicatedImages
 }
