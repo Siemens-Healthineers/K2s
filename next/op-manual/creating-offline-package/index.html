@@ -988,6 +988,23 @@ You're not viewing the latest release version.
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="K2s Offline Package">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#addon-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Addon Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2094,6 +2111,23 @@ You're not viewing the latest release version.
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="K2s Offline Package">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#addon-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Addon Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2186,6 +2220,19 @@ SPDX-License-Identifier: MIT
 <p>To create a fully offline-capable install package, set the <code>--for-offline-installation</code> flag:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">&lt;repo&gt;\k2s.exe system package -d &lt;path-to-output-packe&gt;.zip --for-offline-installation</span>
 </code></pre></div></p>
+<h3 id="addon-selection">Addon Selection</h3>
+<p>By default, all addons are included in the package. To customize which addons are included, use the <code>--addons-list</code> flag:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp"># </span>Include<span class="w"> </span>only<span class="w"> </span>specific<span class="w"> </span>addons
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">k2s system package -d C:\output -n k2s.zip --addons-list &quot;ingress nginx,monitoring,logging&quot;</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="gp"># </span>Exclude<span class="w"> </span>all<span class="w"> </span>addons<span class="w"> </span>from<span class="w"> </span>the<span class="w"> </span>package
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">k2s system package -d C:\output -n k2s.zip --addons-list none</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For multi-implementation addons like <em>ingress</em>, specify the implementation name separated by a space (e.g., <code>ingress nginx</code> or <code>ingress traefik</code>).</p>
+</div>
+<p>The <code>--addons-list</code> flag works with both <em>Dev</em> (default) and <em>Lite</em> profiles.</p>
 <p>When running the aforementioned command and no <em>K2s</em> variant has been installed on the current system yet, the <a href="../../user-guide/hosting-variants/#development-only">Development-Only Variant</a> will be installed in order to create an offline package (which requires an internet connection). If all dependencies are already available locally due to prior installation of <em>K2s</em>, the offline package creation does not require internet connection.</p>
 <details class="info">
 <summary>Offline Package Creation Diagram</summary>
@@ -2209,23 +2256,23 @@ SPDX-License-Identifier: MIT
 <p>To enable addons without an internet connection being available, the required binaries can be exported to an offline package as well.</p>
 <h3 id="addons-export">Addons Export</h3>
 <p>To inspect all export options, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s addons export -h</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons export -h</span>
 </code></pre></div></p>
 <p>Either specify one or more addons to export:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt;</span>
 </code></pre></div></p>
 <p>Or export all addons:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons export -d &lt;export-output-directory&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s addons export -d &lt;export-output-directory&gt;</span>
 </code></pre></div></p>
 <h3 id="addons-import">Addons Import</h3>
 <p>To inspect all export options, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s addons import -h</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s addons import -h</span>
 </code></pre></div></p>
 <p>Either specify one or more addons to import from the offline package:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s addons import registry -z &lt;directory-containing-addons-archive&gt;\addons.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s addons import registry -z &lt;directory-containing-addons-archive&gt;\addons.zip</span>
 </code></pre></div></p>
 <p>Or import all addons from the offline package:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s addons import -z &lt;directory-containing-addons-archive&gt;\addons.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s addons import -z &lt;directory-containing-addons-archive&gt;\addons.zip</span>
 </code></pre></div></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

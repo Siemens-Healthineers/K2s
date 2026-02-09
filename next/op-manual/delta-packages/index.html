@@ -2706,11 +2706,15 @@ SPDX-License-Identifier: MIT
 <p>A delta package contains:</p>
 <ul>
 <li><strong>Changed files</strong>: Files that differ between the source and target versions</li>
-<li><strong>Wholesale directories</strong>: Complete directories that must be replaced entirely (e.g., <code>bin/</code>, <code>addons/</code>)</li>
+<li><strong>Wholesale directories</strong>: Complete directories that must be replaced entirely (e.g., <code>bin/kube</code>, <code>bin/docker</code>)</li>
 <li><strong>Delta manifest</strong>: A <abbr title="JavaScript Object Notation">JSON</abbr> file describing the changes and metadata</li>
 <li><strong>Debian package changes</strong> (optional): Linux package differences for the KubeMaster <abbr title="Virtual Machine">VM</abbr></li>
 <li><strong>Apply script</strong>: A PowerShell script to apply the delta to an existing installation</li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Addons are excluded</p>
+<p>Delta packages do <strong>not</strong> include addon files. Addons are managed separately via <code>k2s addons ...</code> and are not modified during a delta upgrade.</p>
+</div>
 <h3 id="delta-package-vs-full-package">Delta Package vs Full Package</h3>
 <table>
 <thead>
@@ -2826,18 +2830,21 @@ SPDX-License-Identifier: MIT
 <div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>k2s-delta-v1.4.0-to-v1.5.0.zip
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── delta-manifest.json          # Metadata and file lists
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>├── Apply-Delta.ps1              # Application script
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>├── bin/                         # Changed binaries (wholesale)
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>├── addons/                      # Changed addon files (wholesale)
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>├── lib/                         # Changed library files
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>├── smallsetup/                  # Changed setup scripts
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>├── scripts/                     # Delta application scripts
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>│   ├── apply-debian-delta.sh   # Linux package update script
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>│   └── verify-debian-delta.sh  # Linux package verification
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>└── debian-delta/                # (Optional) Debian package changes
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    ├── added-packages.txt
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    ├── removed-packages.txt
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    ├── changed-packages.txt
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    └── packages/                # Downloaded .deb files
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>├── bin/                         # Changed binaries
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>│   ├── kube/                   # Kubernetes binaries (wholesale)
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>│   ├── docker/                 # Docker binaries (wholesale)
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>│   ├── containerd/             # Containerd binaries (wholesale)
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>│   └── cni/                    # CNI plugins (wholesale)
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>├── lib/                         # Changed library files
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>├── smallsetup/                  # Changed setup scripts
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>├── scripts/                     # Delta application scripts
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>│   ├── apply-debian-delta.sh   # Linux package update script
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>│   └── verify-debian-delta.sh  # Linux package verification
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>└── debian-delta/                # (Optional) Debian package changes
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    ├── added-packages.txt
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    ├── removed-packages.txt
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    ├── changed-packages.txt
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    └── packages/                # Downloaded .deb files
 </code></pre></div>
 <h3 id="delta-manifest-structure">Delta Manifest Structure</h3>
 <p>The <code>delta-manifest.json</code> file describes the changes between versions. A typical manifest includes:</p>
@@ -2848,7 +2855,7 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">&quot;filesAdded&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;lib/new-module.psm1&quot;</span><span class="p">],</span>
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">&quot;filesModified&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;lib/existing-module.psm1&quot;</span><span class="p">],</span>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">&quot;filesRemoved&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;lib/deprecated-module.psm1&quot;</span><span class="p">],</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">&quot;wholesaleDirectories&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;bin&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;addons&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">&quot;wholesaleDirectories&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;bin/kube&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bin/docker&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bin/cni&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bin/containerd&quot;</span><span class="p">],</span>
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">&quot;debianDelta&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">&quot;added&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;new-package&quot;</span><span class="p">],</span>
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">&quot;removed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;old-package&quot;</span><span class="p">],</span>
