@@ -28,27 +28,10 @@ var SystemRestoreCmd = &cobra.Command{
 
 func init() {
 	SystemRestoreCmd.Flags().SortFlags = false
-
-	SystemRestoreCmd.Flags().StringP(
-		restoreFileFlag,
-		"f",
-		"",
-		"Backup file to restore from (zip)",
-	)
+	SystemRestoreCmd.Flags().StringP(restoreFileFlag, "f", "", "Backup file to restore from (zip)",)
 	_ = SystemRestoreCmd.MarkFlagRequired(restoreFileFlag)
-
-	SystemRestoreCmd.Flags().BoolP(
-		errorOnFailureFlag,
-		"e",
-		false,
-		"Fail if errors occur while restoring resources",
-	)
-
-	SystemRestoreCmd.Flags().String(
-		common.AdditionalHooksDirFlagName,
-		"",
-		common.AdditionalHooksDirFlagUsage,
-	)
+	SystemRestoreCmd.Flags().BoolP(errorOnFailureFlag, "e", false, "Fail if errors occur while restoring resources",)
+	SystemRestoreCmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage,)
 }
 
 func runSystemRestore(cmd *cobra.Command, args []string) error {

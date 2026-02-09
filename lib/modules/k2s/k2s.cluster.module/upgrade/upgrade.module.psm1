@@ -118,7 +118,7 @@ function Export-NotNamespacedResources {
 		[string] $ExePath
 	)
 	# get all the resources
-	Write-Log "Export global (not namespaced) resources from existing cluster using $ExePath\kubectl.exe" -Console
+	Write-Log "Export global (not namespaced) resources from existing cluster" -Console
 	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=false 2>$null
 
 	# read cluster configuration json
@@ -181,7 +181,7 @@ function Export-NamespacedResources {
 		[string] $ExePath
 	)
 	# get all the resources
-	Write-Log "Export namespaced resources from existing cluster using $ExePath\kubectl.exe" -Console
+	Write-Log "Export namespaced resources from existing cluster" -Console
 	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=true 2>$null
 	$namespaces = &$ExePath\kubectl.exe get ns --no-headers -o custom-columns=":metadata.name" 2>$null
 

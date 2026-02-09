@@ -33,31 +33,10 @@ var SystemBackupCmd = &cobra.Command{
 
 func init() {
 	SystemBackupCmd.Flags().SortFlags = false
-
-	SystemBackupCmd.Flags().StringP(
-		backupFileFlag,
-		"f",
-		"",
-		"Backup file to create (zip). If omitted, a default file in C://Temp/k2s/backups is generated",
-	)
-
-	SystemBackupCmd.Flags().String(
-		common.AdditionalHooksDirFlagName,
-		"",
-		common.AdditionalHooksDirFlagUsage,
-	)
-
-	SystemBackupCmd.Flags().Bool(
-		skipImagesFlag,
-		false,
-		"Skip backing up container images",
-	)
-
-	SystemBackupCmd.Flags().Bool(
-		skipPVsFlag,
-		false,
-		"Skip backing up persistent volumes",
-	)
+	SystemBackupCmd.Flags().StringP(backupFileFlag, "f", "", "Backup file to create (zip). If omitted, a default file in C://Temp/k2s/backups is generated",)
+	SystemBackupCmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage,)
+	SystemBackupCmd.Flags().Bool(skipImagesFlag, false, "Skip backing up container images",)
+	SystemBackupCmd.Flags().Bool(skipPVsFlag, false, "Skip backing up persistent volumes",)
 }
 
 func runSystemBackup(cmd *cobra.Command, args []string) error {

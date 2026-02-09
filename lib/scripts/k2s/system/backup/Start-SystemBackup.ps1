@@ -97,53 +97,6 @@ Write-Log "Using backup staging directory: $backupRoot"
 $kubePath    = Get-KubePath
 $kubeExePath = Get-KubeBinPathGivenKubePath -KubePathLocal $kubePath
 
-# ------------------------------------------------------------
-# Backup persistent volumes
-# ------------------------------------------------------------
-if ($SkipPVs) {
-    Write-Log "Skipping PV backup as requested" -Console
-} else {
-    Write-Log "Backing up persistent volumes..." -Console
-    $pvBackupPath = Join-Path $backupRoot "pv"
-
-    try {
-        $pvBackupResult = Invoke-PVBackup -BackupDirectory $pvBackupPath
-
-        if ($pvBackupResult.Success) {
-            Write-Log "Successfully backed up $($pvBackupResult.BackedUpCount) persistent volume(s)" -Console
-        } else {
-            Write-Log "PV backup completed with some failures. Check backup logs for details." -Console
-        }
-    }
-    catch {
-        Write-Log "Warning: PV backup failed - $_. Continuing with backup..." -Console
-    }
-}
-
-# ------------------------------------------------------------
-# Backup user workload images (excluding addon images)
-# ------------------------------------------------------------
-if ($SkipImages) {
-    Write-Log "Skipping image backup as requested" -Console
-} else {
-    Write-Log "Backing up user workload images..." -Console
-    $imagesBackupPath = Join-Path $backupRoot "images"
-
-    try {
-        # For system backup, exclude addon images (they're handled by addon backup)
-        $imageBackupResult = Invoke-ImageBackup -BackupDirectory $imagesBackupPath -ExcludeAddonImages
-
-        if ($imageBackupResult.Success) {
-            Write-Log "Successfully backed up $($imageBackupResult.Images.Count) user workload container images" -Console
-        } else {
-            Write-Log "Image backup completed with some failures. Check backup logs for details." -Console
-        }
-    }
-    catch {
-        Write-Log "Warning: Image backup failed - $_. Continuing with backup..." -Console
-    }
-}
-
 
 # ------------------------------------------------------------
 # Export cluster resources (no cluster start/stop)
@@ -196,6 +149,53 @@ Invoke-UpgradeBackupRestoreHooks `
     -BackupDir $hooksBackupPath `
     -ShowLogs:$ShowLogs `
     -AdditionalHooksDir $AdditionalHooksDir
+
+# ------------------------------------------------------------
+# Backup persistent volumes
+# ------------------------------------------------------------
+if ($SkipPVs) {
+    Write-Log "Skipping PV backup as requested" -Console
+} else {
+    Write-Log "Backing up persistent volumes..." -Console
+    $pvBackupPath = Join-Path $backupRoot "pv"
+
+    try {
+        $pvBackupResult = Invoke-PVBackup -BackupDirectory $pvBackupPath
+
+        if ($pvBackupResult.Success) {
+            Write-Log "Successfully backed up $($pvBackupResult.BackedUpCount) persistent volume(s)" -Console
+        } else {
+            Write-Log "PV backup completed with some failures. Check backup logs for details." -Console
+        }
+    }
+    catch {
+        Write-Log "Warning: PV backup failed - $_. Continuing with backup..." -Console
+    }
+}
+
+# ------------------------------------------------------------
+# Backup user workload images (excluding addon images)
+# ------------------------------------------------------------
+if ($SkipImages) {
+    Write-Log "Skipping image backup as requested" -Console
+} else {
+    Write-Log "Backing up user workload images..." -Console
+    $imagesBackupPath = Join-Path $backupRoot "images"
+
+    try {
+        # For system backup, exclude addon images (they're handled by addon backup)
+        $imageBackupResult = Invoke-ImageBackup -BackupDirectory $imagesBackupPath -ExcludeAddonImages
+
+        if ($imageBackupResult.Success) {
+            Write-Log "Successfully backed up $($imageBackupResult.Images.Count) user workload container images" -Console
+        } else {
+            Write-Log "Image backup completed with some failures. Check backup logs for details." -Console
+        }
+    }
+    catch {
+        Write-Log "Warning: Image backup failed - $_. Continuing with backup..." -Console
+    }
+}
 
 # ------------------------------------------------------------
 # Snapshot config.json separately (human-friendly design)

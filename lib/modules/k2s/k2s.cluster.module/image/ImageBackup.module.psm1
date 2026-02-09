@@ -415,7 +415,7 @@ function Get-K2sImageList {
             $scriptArgs['ExcludeAddonImages'] = $true
             $imageType = "user workload images only (excluding system and addon images)"
             $resultType = "user workload images"
-            Write-Log "[ImageBackup] Adding -ExcludeAddonImages flag to Get-Images.ps1" -Console
+            Write-Log "[ImageBackup] Adding -ExcludeAddonImages flag to Get-Images.ps1"
         } else {
             $imageType = "user application images only (excluding system images)"
             $resultType = "user application images"
