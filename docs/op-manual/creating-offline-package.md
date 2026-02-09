@@ -21,6 +21,23 @@ To create a fully offline-capable install package, set the `--for-offline-instal
 <repo>\k2s.exe system package -d <path-to-output-packe>.zip --for-offline-installation
 ```
 
+### Addon Selection
+
+By default, all addons are included in the package. To customize which addons are included, use the `--addons-list` flag:
+
+```console
+# Include only specific addons
+k2s system package -d C:\output -n k2s.zip --addons-list "ingress nginx,monitoring,logging"
+
+# Exclude all addons from the package
+k2s system package -d C:\output -n k2s.zip --addons-list none
+```
+
+!!! note
+    For multi-implementation addons like *ingress*, specify the implementation name separated by a space (e.g., `ingress nginx` or `ingress traefik`).
+
+The `--addons-list` flag works with both *Dev* (default) and *Lite* profiles.
+
 When running the aforementioned command and no *K2s* variant has been installed on the current system yet, the [Development-Only Variant](../user-guide/hosting-variants.md#development-only) will be installed in order to create an offline package (which requires an internet connection). If all dependencies are already available locally due to prior installation of *K2s*, the offline package creation does not require internet connection.
 
 ??? info "Offline Package Creation Diagram"
