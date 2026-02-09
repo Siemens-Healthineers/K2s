@@ -15,6 +15,16 @@ spec:
   hostnames:
     - k2s.cluster.local
   rules:
+    # OAuth2 callback routes
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth2
+      backendRefs:
+        - name: oauth2-proxy
+          namespace: security
+          port: 4180
+    # Logging application route with auth_request pattern
     - matches:
         - path:
             type: PathPrefix
@@ -27,6 +37,11 @@ spec:
                 value: https
               - name: X-Forwarded-Host
                 value: k2s.cluster.local
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.nginx.org
+            kind: SnippetsFilter
+            name: oauth2-auth-filter
       backendRefs:
         - name: opensearch-dashboards
           port: 5601
@@ -74,6 +89,21 @@ spec:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: nginx-cluster-local
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: logging-to-security-oauth2-proxy
+  namespace: security
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: logging
+  to:
+    - group: ""
+      kind: Service
+      name: oauth2-proxy
 ---
 # Gateway API (nginx-gw) requires explicit Linkerd ServerAuthorization because
 # Linkerd doesn't automatically trust Gateway API traffic routing, unlike traditional Ingress.

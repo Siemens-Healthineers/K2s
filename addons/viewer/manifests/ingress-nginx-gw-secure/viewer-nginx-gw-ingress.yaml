@@ -38,10 +38,26 @@ spec:
   hostnames:
     - k2s.cluster.local
   rules:
+    # OAuth2 callback routes
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth2
+      backendRefs:
+        - name: oauth2-proxy
+          namespace: security
+          port: 4180
+    # Viewer application route with auth_request pattern
     - matches:
         - path:
             type: PathPrefix
             value: /viewer
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.nginx.org
+            kind: SnippetsFilter
+            name: oauth2-auth-filter
       backendRefs:
         - name: viewerwebapp
           port: 80
@@ -60,6 +76,21 @@ spec:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: nginx-cluster-local
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: viewer-to-security-oauth2-proxy
+  namespace: security
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: viewer
+  to:
+    - group: ""
+      kind: Service
+      name: oauth2-proxy
 ---
 apiVersion: policy.linkerd.io/v1beta3
 kind: Server
