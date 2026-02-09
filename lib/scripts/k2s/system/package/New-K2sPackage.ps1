@@ -117,8 +117,13 @@ $exclusionList += "$kubePath\bin\debian-12-genericcloud-amd64.qcow2"  # Large gu
 $inclusionList = @()
 
 # Parse addons list if provided
+# Use 'none' to exclude all addons from the package
 $selectedAddons = @()
-if ($AddonsList -ne '') {
+$excludeAllAddons = $false
+if ($AddonsList -ieq 'none') {
+    $excludeAllAddons = $true
+    Write-Log '[Addons] Excluding all addons from package (--addons-list none)' -Console
+} elseif ($AddonsList -ne '') {
     $selectedAddons = $AddonsList.Split(',') | ForEach-Object { $_.Trim() }
     Write-Log "[Addons] Custom addon list specified: $($selectedAddons -join ', ')" -Console
 }
@@ -138,7 +143,12 @@ if ($Profile -eq 'Lite') {
     )
     
     # Handle addon selection for Lite profile
-    if ($selectedAddons.Count -gt 0) {
+    if ($excludeAllAddons) {
+        # Exclude entire addons directory and test folders
+        $liteExclude += (Join-Path $kubePath 'addons')
+        $liteExclude += (Join-Path $kubePath 'k2s/test/e2e/addons')
+        Write-Log '[Profile+Addons] Lite profile: excluding all addons' -Console
+    } elseif ($selectedAddons.Count -gt 0) {
         # Specific addons requested: exclude those NOT selected
         $pathsToInclude = @()
         foreach ($addon in $selectedAddons) {
@@ -223,8 +233,14 @@ if ($Profile -eq 'Lite') {
     if (Test-Path $rootK2sExe) { $inclusionList += $rootK2sExe }
     $rootK2sExeLicense = Join-Path $kubePath 'k2s.exe.license'
     if (Test-Path $rootK2sExeLicense) { $inclusionList += $rootK2sExeLicense }
+} elseif ($excludeAllAddons) {
+    # Dev profile with 'none': exclude all addons entirely
+    $addonsFullPath = Join-Path $kubePath 'addons'
+    if (-not ($exclusionList -contains $addonsFullPath)) { $exclusionList += $addonsFullPath }
+    $testAddonsFullPath = Join-Path $kubePath 'k2s/test/e2e/addons'
+    if (-not ($exclusionList -contains $testAddonsFullPath)) { $exclusionList += $testAddonsFullPath }
+    Write-Log '[Addons] Dev profile: excluding all addons (--addons-list none)' -Console
 } elseif ($selectedAddons.Count -gt 0) {
-    # Dev profile with custom addon list: exclude addons NOT in the selected list
     Write-Log "[Addons] Dev profile with custom addon list: $($selectedAddons -join ', ')" -Console
     
     $pathsToInclude = @()

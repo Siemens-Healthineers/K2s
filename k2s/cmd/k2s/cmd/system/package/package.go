@@ -99,7 +99,7 @@ const (
 	ProfileFlagUsage = "Packaging profile: Dev (default) or Lite (skips optional parts like documentation, source code etc.)"
 
 	AddonsListFlagName  = "addons-list"
-	AddonsListFlagUsage = "Comma-separated list of addons to include (e.g., 'ingress nginx,monitoring,logging'). For ingress, specify implementation: 'ingress nginx' or 'ingress traefik'. Default: all addons"
+	AddonsListFlagUsage = "Comma-separated list of addons to include (e.g., 'ingress nginx,monitoring,logging'). For ingress, specify implementation: 'ingress nginx' or 'ingress traefik'. Use 'none' to exclude all addons. Default: all addons"
 )
 
 func init() {
