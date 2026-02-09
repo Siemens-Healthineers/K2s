@@ -294,7 +294,7 @@ function Copy-WindowsNodeArtifactsToStaging {
     #
     $folderMappings = @{
         'kubetools'       = @{ Target = 'bin/kube' }                     # kubelet, kubectl, kubeadm, kube-proxy
-        'docker'          = @{ Target = 'bin/docker' }                   # docker, dockerd
+        'docker'          = @{ Target = 'bin/docker'; Subdir = 'docker' } # docker.exe, dockerd.exe from docker/docker/
         'flannel'         = @{ Target = 'bin/cni' }                      # flanneld.exe
         'cni_plugins'     = @{ Target = 'bin/cni' }                      # host-local, win-bridge, win-overlay
         'cni_flannel'     = @{ Target = 'bin/cni'; Rename = @{ 'flannel-amd64.exe' = 'flannel.exe' } }
@@ -458,7 +458,13 @@ function Copy-WindowsNodeArtifactsToStaging {
                 if ($extractedCount -gt 0 -or $skippedCount -gt 0) {
                     Write-Log "[WinArtifacts] Folder '$sourceFolder' -> '$targetFolder': $extractedCount extracted, $skippedCount unchanged" -Console
                     if ($extractedCount -gt 0) {
-                        $result.ExtractedDirs += $targetFolder
+                        # Only add subdirectories (e.g., bin/kube, bin/docker) to wholesale list.
+                        # Root 'bin' should NOT be added - otherwise .cmd files and other bin/ root
+                        # files get deleted during upgrade when 'bin' is treated as wholesale.
+                        # Files extracted directly to 'bin/' go through normal diff logic.
+                        if ($targetFolder -match '/') {
+                            $result.ExtractedDirs += $targetFolder
+                        }
                     }
                     $result.TotalFilesExtracted = ($result.TotalFilesExtracted + $extractedCount)
                 }
