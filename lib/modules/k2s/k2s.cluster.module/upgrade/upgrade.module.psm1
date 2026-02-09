@@ -977,7 +977,7 @@ function Invoke-UpgradeBackupRestoreHooks {
 
 	$hooksFilter = "*.$HookType.ps1"
 
-	Write-Log "Executing addons hooks with hook type '$HookType'.."
+	Write-Log "Executing cluster resource hooks with hook type '$HookType'.."
 
 	$executionCount = 0
 
@@ -1021,7 +1021,7 @@ function PrepareClusterUpgrade {
 		[ref] $coresVM,
 		[ref] $memoryVM,
 		[ref] $storageVM,
-		[ref] $addonsBackupPath,
+		[ref] $enabledAddonsList,
 		[ref] $hooksBackupPath,
 		[ref] $logFilePathBeforeUninstall,
 		[ref] $imagesBackupPath,
@@ -1062,6 +1062,12 @@ function PrepareClusterUpgrade {
 
 		Enable-ClusterIsRunning -ShowLogs:$ShowLogs
 
+		# capture enabled addons list before upgrade for post-upgrade notification
+		$enabledAddonsList.Value = Get-EnabledAddons
+		if ($enabledAddonsList.Value.Count -gt 0) {
+			Write-Log "Captured $($enabledAddonsList.Value.Count) enabled addon(s) for post-upgrade notification" -Console
+		}
+
 		# keep current settings from cluster
 		$coresVM.Value = Get-LinuxVMCores
 		$memoryVM.Value = Get-LinuxVMMemory
@@ -1083,21 +1089,13 @@ function PrepareClusterUpgrade {
 		}
 		Export-ClusterResources -SkipResources:$SkipResources -PathResources $BackupDir -ExePath $currentKubeToolsFolder
 
-		# Invoke backup hooks
+		# Invoke backup hooks for cluster resources (e.g., SMB shares)
 		$hooksBackupPath.Value = Join-Path $BackupDir 'hooks'
 		Invoke-UpgradeBackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath.Value -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
-		}
-
-		# backup all addons
-		$addonsBackupPath.Value = Join-Path $BackupDir 'addons'
-		Backup-Addons -BackupDir $addonsBackupPath.Value
-
 		# backup persistent volumes
 		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Backing up persistent volumes..' -Id 1 -Status '4.3/10' -PercentComplete 43 -CurrentOperation 'Backing up PVs, please wait..'
+			Write-Progress -Activity 'Backing up persistent volumes..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up PVs, please wait..'
 		}
 
 		try {
@@ -1187,7 +1185,7 @@ function PerformClusterUpgrade {
 		[string] $memoryVM,
 		[string] $coresVM,
 		[string] $storageVM,
-		[string] $addonsBackupPath,
+		[System.Collections.ArrayList] $enabledAddonsList,
 		[string] $hooksBackupPath,
 		[string] $logFilePathBeforeUninstall,
 		[string] $imagesBackupPath,
@@ -1198,7 +1196,7 @@ function PerformClusterUpgrade {
 	try {
 		# uninstall of old cluster
 		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Uninstall cluster..' -Id 1 -Status '5/10' -PercentComplete 40 -CurrentOperation 'Uninstalling cluster, please wait..'
+			Write-Progress -Activity 'Uninstall cluster..' -Id 1 -Status '5/10' -PercentComplete 50 -CurrentOperation 'Uninstalling cluster, please wait..'
 		}
 		Invoke-ClusterUninstall -ShowLogs:$ShowLogs -DeleteFiles:$DeleteFiles
 
@@ -1214,7 +1212,7 @@ function PerformClusterUpgrade {
 
 		# install of new cluster
 		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Install cluster..' -Id 1 -Status '6/10' -PercentComplete 50 -CurrentOperation 'Installing cluster, please wait..'
+			Write-Progress -Activity 'Install cluster..' -Id 1 -Status '6/10' -PercentComplete 60 -CurrentOperation 'Installing cluster, please wait..'
 		}
 		  # Check if K2sPathToInstallFrom is null or empty and assign kubePath if so.
 		if ([string]::IsNullOrEmpty($K2sPathToInstallFrom)) {
@@ -1254,30 +1252,22 @@ function PerformClusterUpgrade {
 			Write-Log "No image backup found or images were skipped during backup" -Console
 		}
 
-		# restore addons
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Restoring addons, please wait..'
-		}
-
+		# Invoke restore hooks for cluster resources (e.g., SMB shares)
 		if ($ExecuteHooks -eq $true) {
-			Restore-Addons -BackupDir $addonsBackupPath
-			# Invoke restore hooks
-			Write-Log "Restore with executing hooks"
+			Write-Log "Executing cluster resource restore hooks"
 			Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 		} else {
-			Write-Log "Restore without executing hooks"
-			$addonsPath = Join-Path -Path $K2sPathToInstallFrom -ChildPath "addons"
-			Restore-Addons -BackupDir $addonsBackupPath -AvoidRestore -Root $addonsPath
+			Write-Log "Skipping restore hooks (rollback mode)"
 		}
 
-		# restore persistent volumes AFTER addons to replace addon content with backed up data
+		# restore persistent volumes
 		if (-not [string]::IsNullOrEmpty($pvBackupPath) -and (Test-Path $pvBackupPath)) {
 			if ($ShowProgress -eq $true) {
-				Write-Progress -Activity 'Restoring persistent volumes..' -Id 1 -Status '7.5/10' -PercentComplete 75 -CurrentOperation 'Restoring PVs, please wait..'
+				Write-Progress -Activity 'Restoring persistent volumes..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Restoring PVs, please wait..'
 			}
 			
 			try {
-				Write-Log "Starting PV restore process (after addons to overwrite with backed up data)..." -Console
+				Write-Log "Starting PV restore process..." -Console
 				$pvRestoreResult = Restore-AllPersistentVolumes -BackupPath $pvBackupPath -Force
 				
 				if ($pvRestoreResult) {
@@ -1306,9 +1296,43 @@ function PerformClusterUpgrade {
 			Import-NotNamespacedResources -folderResources $BackupDir -ExePath $kubeExeFolder
 			
 			if ($ShowProgress -eq $true) {
-				Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Apply namespaced resources, please wait..'
+				Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8.5/10' -PercentComplete 85 -CurrentOperation 'Apply namespaced resources, please wait..'
 			}
 			Import-NamespacedResources -folderNamespaces $BackupDir -ExePath $kubeExeFolder
+		}
+
+		# re-enable previously enabled addons
+		$addonsReenabledSuccessfully = @()
+		$addonsReenabledFailed = @()
+		if ($null -ne $enabledAddonsList -and $enabledAddonsList.Count -gt 0) {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Re-enabling previously enabled addons..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Re-enabling addons, please wait..'
+			}
+			Write-Log "Re-enabling $($enabledAddonsList.Count) previously enabled addon(s)..." -Console
+			
+			foreach ($addon in $enabledAddonsList) {
+				$addonConfig = [pscustomobject]@{
+					Name = $addon.Name
+				}
+				# Handle implementations if present
+				if ($null -ne $addon.Implementations -and $addon.Implementations.Count -gt 0) {
+					$addonConfig | Add-Member -MemberType NoteProperty -Name 'Implementation' -Value $addon.Implementations[0]
+				}
+				
+				$addonDisplay = $addon.Name
+				if ($null -ne $addon.Implementations -and $addon.Implementations.Count -gt 0) {
+					$addonDisplay += " ($($addon.Implementations -join ', '))"
+				}
+				
+				try {
+					Enable-AddonFromConfig -Config $addonConfig
+					$addonsReenabledSuccessfully += $addonDisplay
+				}
+				catch {
+					Write-Log "Warning: Failed to re-enable addon '$addonDisplay': $_" -Console
+					$addonsReenabledFailed += $addonDisplay
+				}
+			}
 		}
 		
 		# show completion
@@ -1322,6 +1346,37 @@ function PerformClusterUpgrade {
 		if ($ExecuteHooks -eq $true) {
 			# final message
 			Write-Log "Upgraded successfully to K2s version: $(Get-ProductVersion) ($(Get-KubePath))" -Console
+
+			# notify user about addon re-enablement results
+			if ($addonsReenabledSuccessfully.Count -gt 0 -or $addonsReenabledFailed.Count -gt 0) {
+				Write-Log '' -Console
+				Write-Log '********************************************************************************************' -Console
+				Write-Log '** ADDON RE-ENABLEMENT SUMMARY                                                            **' -Console
+				Write-Log '********************************************************************************************' -Console
+				
+				if ($addonsReenabledSuccessfully.Count -gt 0) {
+					Write-Log "** Successfully re-enabled $($addonsReenabledSuccessfully.Count) addon(s):" -Console
+					foreach ($addonDisplay in $addonsReenabledSuccessfully) {
+						Write-Log "**   + $addonDisplay" -Console
+					}
+				}
+				
+				if ($addonsReenabledFailed.Count -gt 0) {
+					Write-Log "** Failed to re-enable $($addonsReenabledFailed.Count) addon(s):" -Console
+					foreach ($addonDisplay in $addonsReenabledFailed) {
+						Write-Log "**   - $addonDisplay" -Console
+					}
+					Write-Log '**                                                                                        **' -Console
+					Write-Log '** To manually re-enable failed addon(s), run:                                           **' -Console
+					Write-Log '**   k2s addons enable <addon-name>                                                       **' -Console
+				}
+				
+				Write-Log '**                                                                                        **' -Console
+				Write-Log '** NOTE: Addon data/persistence is NOT restored during upgrade.                          **' -Console
+				Write-Log '** To backup/restore addon data, use:                                                     **' -Console
+				Write-Log '**   k2s addons export / k2s addons import                                                **' -Console
+				Write-Log '********************************************************************************************' -Console
+			}
 		} else {
 			Write-Log "Rolled back to K2s version: $(Get-ProductVersionGivenKubePath -KubePathLocal $K2sPathToInstallFrom) ($K2sPathToInstallFrom)" -Console
 		}
