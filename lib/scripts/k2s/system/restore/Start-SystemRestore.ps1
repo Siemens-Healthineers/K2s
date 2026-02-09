@@ -66,6 +66,39 @@ $kubePath    = Get-KubePath
 $kubectlPath = Get-KubeBinPathGivenKubePath -KubePathLocal $kubePath
 
 # ------------------------------------------------------------
+# Restore user workload images
+# ------------------------------------------------------------
+Write-Log "Restoring user workload images..." -Console
+
+$imagesBackupPath = Join-Path $restoreRoot "images"
+if (Test-Path $imagesBackupPath) {
+    try {
+        $imageRestoreResult = Invoke-ImageRestore -BackupDirectory $imagesBackupPath -ErrorOnFailure:$ErrorOnFailure
+
+        if ($imageRestoreResult.RestoredImages.Count -gt 0) {
+            Write-Log "Successfully restored $($imageRestoreResult.RestoredImages.Count) user workload container images" -Console
+        } else {
+            Write-Log "No images found to restore" -Console
+        }
+
+        if ($imageRestoreResult.FailedImages.Count -gt 0) {
+            Write-Log "Warning: Failed to restore $($imageRestoreResult.FailedImages.Count) images" -Console
+        }
+    }
+    catch {
+        if ($ErrorOnFailure) {
+            throw
+        }
+        Write-Log "Warning: Image restore failed - $_. Continuing with restore..." -Console
+    }
+} else {
+    Write-Log "No image backup found, skipping image restore" -Console
+}
+
+Write-Log "Running restore hooks" -Console
+Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir (Join-Path $restoreRoot "hooks") -AdditionalHooksDir $AdditionalHooksDir
+
+# ------------------------------------------------------------
 # Restore persistent volumes
 # ------------------------------------------------------------
 Write-Log "Restoring persistent volumes..." -Console
@@ -95,35 +128,6 @@ if (Test-Path $pvBackupPath) {
     Write-Log "No PV backup found, skipping PV restore" -Console
 }
 
-# ------------------------------------------------------------
-# Restore user workload images
-# ------------------------------------------------------------
-Write-Log "Restoring user workload images..." -Console
-
-$imagesBackupPath = Join-Path $restoreRoot "images"
-if (Test-Path $imagesBackupPath) {
-    try {
-        $imageRestoreResult = Invoke-ImageRestore -BackupDirectory $imagesBackupPath -ErrorOnFailure:$ErrorOnFailure
-
-        if ($imageRestoreResult.RestoredImages.Count -gt 0) {
-            Write-Log "Successfully restored $($imageRestoreResult.RestoredImages.Count) user workload container images" -Console
-        } else {
-            Write-Log "No images found to restore" -Console
-        }
-
-        if ($imageRestoreResult.FailedImages.Count -gt 0) {
-            Write-Log "Warning: Failed to restore $($imageRestoreResult.FailedImages.Count) images" -Console
-        }
-    }
-    catch {
-        if ($ErrorOnFailure) {
-            throw
-        }
-        Write-Log "Warning: Image restore failed - $_. Continuing with restore..." -Console
-    }
-} else {
-    Write-Log "No image backup found, skipping image restore" -Console
-}
 
 $notNamespacedDir = Join-Path $restoreRoot "NotNamespaced"
 $namespacedDir    = Join-Path $restoreRoot "Namespaced"
@@ -167,8 +171,5 @@ if ($allErrors.Count -gt 0) {
         throw "System restore finished with errors"
     }
 }
-
-Write-Log "Running restore hooks" -Console
-Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir (Join-Path $restoreRoot "hooks") -AdditionalHooksDir $AdditionalHooksDir
 
 Write-Log "System restore completed" -Console
