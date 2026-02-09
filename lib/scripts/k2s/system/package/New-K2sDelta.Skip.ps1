@@ -15,10 +15,11 @@ function Test-SpecialSkippedFile {
         if ($leaf -ieq $f) { return $true }
     }
     
-    # Check for addon image tarballs (handled by image delta logic, not file diff)
-    # Pattern: addons/<addon-name>/*.tar or addons/<addon-name>/*_win.tar
-    if ($Path -match '^addons/[^/]+/[^/]+\.tar$' -or $Path -match '^addons/[^/]+/[^/]+_win\.tar$') {
-        Write-Log "[SkipList] Excluding addon image tarball from file diff: $Path (handled by image delta)" -Console
+    # Skip entire addons directory - addons are not handled by delta upgrades.
+    # Users manage addons separately via 'k2s addons enable/disable' commands.
+    # Including addon files in delta could cause inconsistencies since addon
+    # enable/disable scripts don't run during delta upgrades.
+    if ($Path -match '^addons/') {
         return $true
     }
     
