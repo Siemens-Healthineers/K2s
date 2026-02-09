@@ -15,6 +15,16 @@ spec:
   hostnames:
     - k2s.cluster.local
   rules:
+    # OAuth2 callback routes
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth2
+      backendRefs:
+        - name: oauth2-proxy
+          namespace: security
+          port: 4180
+    # DICOM application route with auth_request pattern
     - matches:
         - path:
             type: PathPrefix
@@ -25,15 +35,11 @@ spec:
             path:
               type: ReplacePrefixMatch
               replacePrefixMatch: /
-        - type: RequestHeaderModifier
-          requestHeaderModifier:
-            add:
-              - name: X-Forwarded-Proto
-                value: https
-              - name: X-Forwarded-Host
-                value: k2s.cluster.local
-              - name: Access-Control-Allow-Origin
-                value: "*"
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.nginx.org
+            kind: SnippetsFilter
+            name: oauth2-auth-filter
       backendRefs:
         - name: dicom
           port: 8042
@@ -88,6 +94,21 @@ spec:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: nginx-cluster-local
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: dicom-to-security-oauth2-proxy
+  namespace: security
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: dicom
+  to:
+    - group: ""
+      kind: Service
+      name: oauth2-proxy
 ---
 #
 # NGINX Gateway API Ingress with Linkerd Authorization

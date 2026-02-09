@@ -122,6 +122,50 @@ Remove-LinkerdManifests
 Write-Log 'Deleting old storage files for postgres' -Console
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /mnt/keycloak').Output | Write-Log
 
+Write-Log 'Cleaning up NGINX Gateway OAuth2 auth resources' -Console
+Write-Log '  Deleting oauth2-auth-filter SnippetsFilters...' -Console
+(Invoke-Kubectl -Params 'delete', 'snippetsfilter', 'oauth2-auth-filter', '-A', '--ignore-not-found').Output | Write-Log
+
+Write-Log '  Deleting oauth2-proxy-config ConfigMap...' -Console
+(Invoke-Kubectl -Params 'delete', 'configmap', 'oauth2-proxy-config', '-n', 'security', '--ignore-not-found').Output | Write-Log
+
+Write-Log 'Reverting NGINX Gateway controller configuration' -Console
+$deployment = kubectl get deployment nginx-gw-controller -n nginx-gw -o json 2>$null | ConvertFrom-Json
+if ($deployment) {
+    $args = $deployment.spec.template.spec.containers[0].args
+    $flagIndex = $args.IndexOf('--snippets-filters')
+    
+    if ($flagIndex -ge 0) {
+        Write-Log '  Removing --snippets-filters flag from controller...' -Console
+        $deploymentPatchFile = [System.IO.Path]::GetTempFileName()
+        $deploymentPatch = "[{`"op`":`"remove`",`"path`":`"/spec/template/spec/containers/0/args/$flagIndex`"}]"
+        Set-Content -Path $deploymentPatchFile -Value $deploymentPatch -NoNewline
+        kubectl patch deployment nginx-gw-controller -n nginx-gw --type=json --patch-file $deploymentPatchFile 2>&1 | Write-Log
+        Remove-Item -Path $deploymentPatchFile -Force
+    }
+}
+$clusterRole = kubectl get clusterrole nginx-gw -o json 2>$null | ConvertFrom-Json
+if ($clusterRole) {
+    $ruleIndex = -1
+    for ($i = 0; $i -lt $clusterRole.rules.Count; $i++) {
+        $rule = $clusterRole.rules[$i]
+        if ($rule.apiGroups -contains 'gateway.nginx.org' -and $rule.resources -contains 'snippetsfilters') {
+            $ruleIndex = $i
+            break
+        }
+    }
+    if ($ruleIndex -ge 0) {
+        Write-Log '  Removing snippetsfilters RBAC permissions...' -Console
+        $clusterRolePatchFile = [System.IO.Path]::GetTempFileName()
+        $clusterRolePatch = "[{`"op`":`"remove`",`"path`":`"/rules/$ruleIndex`"}]"
+        Set-Content -Path $clusterRolePatchFile -Value $clusterRolePatch -NoNewline
+        kubectl patch clusterrole nginx-gw --type=json --patch-file $clusterRolePatchFile 2>&1 | Write-Log
+        Remove-Item -Path $clusterRolePatchFile -Force
+        Write-Log '  Restarting controller pod...' -Console
+        kubectl delete pod -l app.kubernetes.io/name=nginx-gateway -n nginx-gw 2>&1 | Write-Log
+    }
+}
+
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
 # if security addon is enabled, than adapt other addons
