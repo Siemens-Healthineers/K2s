@@ -24,7 +24,7 @@ spec:
             claimName: dicom-pvc
       containers:
         - name: postgres
-          image: docker.io/library/postgres:17.3
+          image: docker.io/library/postgres:18.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
