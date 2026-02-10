@@ -142,14 +142,14 @@ function New-ImageProcessingLog {
     Write-Log "Total Images: $($Result.Images.Count + $Result.FailedImages.Count)" -Console
     Write-Log "Successful ${LogType}s: $($Result.Images.Count)" -Console
     Write-Log "Failed ${LogType}s: $($Result.FailedImages.Count)" -Console
-
+    
     if ($Result.Images.Count -gt 0) {
         Write-Log "${LogType}d Images:" -Console
         foreach ($img in $Result.Images) {
             Write-Log "✅ $($img.Repository):$($img.Tag) (ID: $($img.ImageId))" -Console
         }
     }
-
+    
     if ($Result.FailedImages.Count -gt 0) {
         Write-Log "Failed Images:" -Console
         foreach ($img in $Result.FailedImages) {
@@ -232,7 +232,7 @@ function Invoke-K2sImageCommand {
     
     Write-Log "Executing k2s command for image: $ImageName"
     $result = & $CommandExecutor $K2sExecutable $Arguments
-
+    
     if ($LASTEXITCODE -ne 0) {
         # Filter out progress/status lines that aren't actual errors
         $realErrors = $result | Where-Object {
@@ -394,7 +394,7 @@ function Get-K2sImageList {
     )
     
     Write-Log "Discovering images in the cluster..." -Console
-
+    
     try {
         # Use the existing Get-Images.ps1 script which already has proper filtering logic
         $getImagesScript = "$PSScriptRoot\..\..\..\..\scripts\k2s\image\Get-Images.ps1"
@@ -422,7 +422,7 @@ function Get-K2sImageList {
         }
         
         Write-Log "Getting $imageType" -Console
-
+        
         # Execute script with appropriate arguments
         $imageResult = & $getImagesScript @scriptArgs
         
@@ -471,7 +471,7 @@ function Backup-K2sImages {
     )
     
     Write-Log "Starting image backup to directory: $BackupDirectory" -Console
-
+    
     if ($Images.Count -eq 0) {
         return New-EmptyBackupResult -BackupDirectory $BackupDirectory
     }
