@@ -12,10 +12,13 @@ Delta packages provide a bandwidth-efficient way to upgrade *K2s* installations 
 A delta package contains:
 
 - **Changed files**: Files that differ between the source and target versions
-- **Wholesale directories**: Complete directories that must be replaced entirely (e.g., `bin/`, `addons/`)
+- **Wholesale directories**: Complete directories that must be replaced entirely (e.g., `bin/kube`, `bin/docker`)
 - **Delta manifest**: A JSON file describing the changes and metadata
 - **Debian package changes** (optional): Linux package differences for the KubeMaster VM
 - **Apply script**: A PowerShell script to apply the delta to an existing installation
+
+!!! note "Addons are excluded"
+    Delta packages do **not** include addon files. Addons are managed separately via `k2s addons ...` and are not modified during a delta upgrade.
 
 ### Delta Package vs Full Package
 
@@ -79,8 +82,11 @@ After creation, the delta package contains:
 k2s-delta-v1.4.0-to-v1.5.0.zip
 ├── delta-manifest.json          # Metadata and file lists
 ├── Apply-Delta.ps1              # Application script
-├── bin/                         # Changed binaries (wholesale)
-├── addons/                      # Changed addon files (wholesale)
+├── bin/                         # Changed binaries
+│   ├── kube/                   # Kubernetes binaries (wholesale)
+│   ├── docker/                 # Docker binaries (wholesale)
+│   ├── containerd/             # Containerd binaries (wholesale)
+│   └── cni/                    # CNI plugins (wholesale)
 ├── lib/                         # Changed library files
 ├── smallsetup/                  # Changed setup scripts
 ├── scripts/                     # Delta application scripts
@@ -105,7 +111,7 @@ The `delta-manifest.json` file describes the changes between versions. A typical
   "filesAdded": ["lib/new-module.psm1"],
   "filesModified": ["lib/existing-module.psm1"],
   "filesRemoved": ["lib/deprecated-module.psm1"],
-  "wholesaleDirectories": ["bin", "addons"],
+  "wholesaleDirectories": ["bin/kube", "bin/docker", "bin/cni", "bin/containerd"],
   "debianDelta": {
     "added": ["new-package"],
     "removed": ["old-package"],
