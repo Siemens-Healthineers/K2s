@@ -69,11 +69,10 @@
                 "outboundaddressexceptions": ""
             }
         },
-        "backup": {
-            "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gateway,gpu-node,ingress-nginx,kubevirt,monitoring,registry,dicom,ingress-traefik,logging,security,viewer,storage-smb,linkerd,cert-manager,dashboard,autoscaling,metrics,rollout",
+        "upgrade": {
+            "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gateway,gpu-node,ingress-nginx,kubevirt,monitoring,registry",
             "excludednamespacedresources": "endpoints,endpointslices",
-            "excludedclusterresources": "componentstatuses,nodes,csinodes,ipaddresses,certificatesigningrequests,storageclasses,servicecidrs,apiservices,flowschemas,prioritylevelconfigurations,ingressclasses,runtimeclasses,storageclasses",
-            "excludedaddonpersistentvolumes": "postgresql-pv-volume,dicom-pv-volume,orthanc-pv,registry-pv,smb-static-pv,opensearch-cluster-master-pv"
+            "excludedclusterresources": "componentstatuses,nodes,csinodes,ipaddresses,certificatesigningrequests,storageclasses,servicecidrs,apiservices,flowschemas,prioritylevelconfigurations,ingressclasses,runtimeclasses,storageclasses"
         }
     },
     "configDir": {
