@@ -110,6 +110,30 @@ spec:
 k2s addons disable rollout fluxcd
 ```
 
+## Backup and restore
+
+Backup/restore is **scoped to the `rollout` namespace only**.
+
+### What gets backed up
+
+- Flux CD custom resources in namespace `rollout` (e.g., `GitRepository`, `Kustomization`, `HelmRelease`, notifications, image automation)
+- Secrets in namespace `rollout` that are referenced by those Flux resources (`secretRef.name`)
+- Optional webhook Ingress resources in namespace `rollout` (if present):
+  - `Ingress/rollout-nginx-cluster-local`
+  - `Ingress/rollout-traefik-cluster-local`
+
+### What does not get backed up
+
+- Flux controllers/CRDs (they are re-installed during restore via `k2s addons enable rollout fluxcd`)
+- Resources outside of the `rollout` namespace
+
+### Commands
+
+```console
+k2s addons backup rollout fluxcd
+k2s addons restore rollout fluxcd <path-to-backup-zip>
+```
+
 ## Learn More
 
 - [Flux Documentation](https://fluxcd.io/docs/)

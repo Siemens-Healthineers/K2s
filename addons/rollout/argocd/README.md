@@ -111,6 +111,32 @@ To import:
  Get-Content -Raw .\backup.yaml | argocd admin import -n rollout -
 ```
 
+## Backup and restore
+
+Backup/restore is **scoped to the `rollout` namespace only**.
+
+### What gets backed up
+
+- `argocd admin export -n rollout` output (applications, projects, repo connections, settings stored in ArgoCD)
+- Optional dashboard exposure resources in namespace `rollout` (if present):
+	- `Ingress/rollout-nginx-cluster-local`
+	- `Ingress/rollout-traefik-cluster-local`
+	- `Middleware/oauth2-proxy-auth` (Traefik secure mode)
+
+_Note:_ The ArgoCD export contains credentials (e.g., repository credentials). Handle the backup archive accordingly.
+
+### What does not get backed up
+
+- ArgoCD controller manifests/CRDs (they are re-installed during restore via `k2s addons enable rollout argocd`)
+- Resources outside of the `rollout` namespace
+
+### Commands
+
+```console
+k2s addons backup rollout argocd
+k2s addons restore rollout argocd <path-to-backup-zip>
+```
+
 
 ## Further Reading
 - [ArgoCD](https://argo-cd.readthedocs.io/en/stable/)
