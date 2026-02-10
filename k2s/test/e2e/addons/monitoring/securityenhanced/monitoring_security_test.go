@@ -48,13 +48,6 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
-
-	if !testFailed {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
-	}
-
 	suite.TearDown(ctx)
 	GinkgoWriter.Println(">>> TEST: AfterSuite complete")
 })
@@ -266,6 +259,14 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 			url := "https://k2s.cluster.local/monitoring/login"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 			GinkgoWriter.Println(">>> TEST: Monitoring server connectivity verified via nginx-gw")
+		})
+
+		It("Deactivates all the addons", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Deactivating all addons")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			GinkgoWriter.Println(">>> TEST: All addons deactivated")
 		})
 	})
 })
