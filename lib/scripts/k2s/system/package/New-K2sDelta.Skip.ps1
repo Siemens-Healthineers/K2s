@@ -15,10 +15,11 @@ function Test-SpecialSkippedFile {
         if ($leaf -ieq $f) { return $true }
     }
     
-    # Check for addon image tarballs (handled by image delta logic, not file diff)
-    # Pattern: addons/<addon-name>/*.tar or addons/<addon-name>/*_win.tar
-    if ($Path -match '^addons/[^/]+/[^/]+\.tar$' -or $Path -match '^addons/[^/]+/[^/]+_win\.tar$') {
-        Write-Log "[SkipList] Excluding addon image tarball from file diff: $Path (handled by image delta)" -Console
+    # Skip entire addons directory - addons are not handled by delta upgrades.
+    # Users manage addons separately via 'k2s addons enable/disable' commands.
+    # Including addon files in delta could cause inconsistencies since addon
+    # enable/disable scripts don't run during delta upgrades.
+    if ($Path -match '^addons/') {
         return $true
     }
     
@@ -157,14 +158,17 @@ function Get-DefaultSkipLists {
 
     # Default wholesale directories that should always be included in their entirety.
     # These directories contain version-specific binaries that must be replaced as a unit.
-    # NOTE: bin/docker, bin/kube, bin/windowsnode contain Windows Kubernetes binaries
-    #       from WindowsNodeArtifacts.zip which is skipped as a large artifact.
-    #       Without wholesale replacement, Windows nodes would keep old k8s versions.
+    #
+    # NOTE: In K2s offline packages, Windows binaries are stored inside WindowsNodeArtifacts.zip,
+    #       not as separate directories. The Copy-WindowsNodeArtifactsToStaging function extracts
+    #       bin/kube and bin/docker from the ZIP during delta package creation.
+    #       The directories listed here will be processed if they exist in the source package.
+    #       If they don't exist (e.g., bin/docker, bin/kube in offline package), they are skipped
+    #       with a warning, and the ZIP extraction provides the binaries instead.
     $defaultWholesaleDirectories = @(
-        'bin/docker',       # Docker CLI and daemon
-        'bin/kube',         # kubectl, kubelet, kubeadm, kube-proxy
-        'bin/windowsnode',  # Windows node setup scripts and binaries
-        'bin/cni'           # CNI plugins
+        'bin/cni'           # CNI plugins (exists in offline package)
+        # bin/kube and bin/docker are extracted from WindowsNodeArtifacts.zip by
+        # Copy-WindowsNodeArtifactsToStaging in New-K2sDeltaPackage.ps1
     )
 
     return [pscustomobject]@{

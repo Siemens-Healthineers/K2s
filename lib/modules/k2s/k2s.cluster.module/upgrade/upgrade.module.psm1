@@ -118,12 +118,12 @@ function Export-NotNamespacedResources {
 		[string] $ExePath
 	)
 	# get all the resources
-	Write-Log "Export global (not namespaced) resources from existing cluster using $ExePath\kubectl.exe" -Console
-	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=false
+	Write-Log "Export global (not namespaced) resources from existing cluster" -Console
+	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=false 2>$null
 
 	# read cluster configuration json
 	$excludedresources = 'componentstatuses', 'nodes', 'csinodes'
-	$eresources = $rootConfig.upgrade.excludedclusterresources
+	$eresources = $rootConfig.backup.excludedclusterresources
 	if ( $eresources ) {
 		$excludedresources = $eresources.Split(',')
 	}
@@ -139,7 +139,7 @@ function Export-NotNamespacedResources {
 			$name = $entry[0]
 
 			# check size of items
-			$res1 = &$ExePath\kubectl.exe get $name -o json
+			$res1 = &$ExePath\kubectl.exe get $name -o json 2>$null
 			$nr = $res1 | & $binPath\jq '.items | length'
 			# if no items, export does not make sense
 			Write-Log "Items in resource $name -> $nr"
@@ -164,7 +164,7 @@ function Export-NotNamespacedResources {
 				.metadata.generation,
 				.metadata.ownerReferences)'
 			$filter = $filter -replace '\r*\n', ''
-			$res2 = &$ExePath\kubectl.exe get $name -o json | & $binPath\jq.exe $filter
+			$res2 = &$ExePath\kubectl.exe get $name -o json 2>$null | & $binPath\jq.exe $filter
 			$res3 = $res2 | & $binPath\yq eval - -P
 			$file = "$FolderOut\\$name.yaml"
 			Write-Log " $name -> $file"
@@ -181,20 +181,20 @@ function Export-NamespacedResources {
 		[string] $ExePath
 	)
 	# get all the resources
-	Write-Log "Export namespaced resources from existing cluster using $ExePath\kubectl.exe" -Console
-	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=true
-	$namespaces = &$ExePath\kubectl.exe get ns --no-headers -o custom-columns=":metadata.name"
+	Write-Log "Export namespaced resources from existing cluster" -Console
+	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=true 2>$null
+	$namespaces = &$ExePath\kubectl.exe get ns --no-headers -o custom-columns=":metadata.name" 2>$null
 
 	# get excluded namespaces
 	# default namespaces are only the kubernetes ones, more shall be available in the default config file
 	$excludednamespaces = 'kube-flannel', 'kube-node-lease', 'kube-public', 'kube-system'
-	$enspaces = $rootConfig.upgrade.excludednamespaces
+	$enspaces = $rootConfig.backup.excludednamespaces
 	if ( $enspaces ) {
 		$excludednamespaces = $enspaces.Split(',')
 	}
 	# excluded resource list
 	$excludednamespacedresources = @()
-	$enamespacedres = $rootConfig.upgrade.excludednamespacedresources
+	$enamespacedres = $rootConfig.backup.excludednamespacedresources
 	if ( $enamespacedres ) {
 		$excludednamespacedresources = $enamespacedres.Split(',')
 	}
@@ -219,7 +219,7 @@ function Export-NamespacedResources {
 				if ($excludednamespacedresources -contains $name) { continue }
 
 				# check size of items
-				$res1 = &$ExePath\kubectl.exe get $name -n $namespace -o json
+				$res1 = &$ExePath\kubectl.exe get $name -n $namespace -o json 2>$null
 				$nr = $res1 | & $binPath\jq '.items | length'
 				# if no items, export does not make sense
 				Write-Log "Items in resource $name in namespace $namespace -> $nr"
@@ -244,7 +244,7 @@ function Export-NamespacedResources {
 				.metadata.ownerReferences)'
 				$filter = $filter -replace '\r*\n', ''
 				# remove unwanted items
-				$res2 = &$ExePath\kubectl.exe get $name -n $namespace -o json | & $binPath\jq $filter
+				$res2 = &$ExePath\kubectl.exe get $name -n $namespace -o json 2>$null | & $binPath\jq $filter
 
 				$res3 = $res2 | & $binPath\yq eval - -P
 				$file = "$FolderOut\\$namespace\\$name.yaml"
@@ -257,45 +257,227 @@ function Export-NamespacedResources {
 
 function Import-NotNamespacedResources {
 	param (
-		[parameter(Mandatory = $true, HelpMessage = 'Location where to get the not namespaced resources')]
-		[string] $FolderIn,
+		[Parameter(Mandatory = $true, HelpMessage = 'Location where to get the not namespaced resources')]
+		[string] $folderResources,
 		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
-		[string] $ExePath
+		[string] $ExePath,
+		[Parameter(Mandatory = $false, HelpMessage = 'If set to true, any error during resource import will cause the operation to fail immediately')]
+		[bool] $ErrorOnFailure = $false,
+		[Parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
+		[bool] $ShowLogs = $false
 	)
-	# get all the resources
-	Write-Log 'Import not namespaced resources from existing cluster' -Console
-	$folderResources = Join-Path $FolderIn 'NotNamespaced'
-	Get-ChildItem -Path $folderResources | Foreach-Object {
-		$resource = $_.FullName
-		Write-Log " Import resource with call 'kubectl apply -f $resource'"
-		# don't show any output, import of resources can show some errors which have no relevance
-		&$ExePath\kubectl.exe apply -f $resource >$null 2>&1
-	}
+
+    Write-Log "Import not namespaced resources from existing cluster"
+
+    $errors = @()
+    $warnings = @()
+
+    if (-not (Test-Path $folderResources)) {
+        Write-Log "No cluster-scoped resources to restore"
+        return @{ Errors = @(); Warnings = @() }
+    }
+
+    # Define restoration order for cluster-scoped resources
+    $orderedResourceTypes = @(
+        'customresourcedefinitions',
+        'clusterroles',
+        'clusterrolebindings',
+        'priorityclasses',
+        'storageclasses',
+        'ingressclasses',
+        'volumesnapshotclasses',
+        'mutatingwebhookconfigurations',
+        'validatingwebhookconfigurations',
+        'clusterissuers'  # cert-manager CRD-based resources
+    )
+
+    # Apply resources in order
+    foreach ($resourceType in $orderedResourceTypes) {
+        $file = Join-Path $folderResources "$resourceType.yaml"
+        if (Test-Path $file) {
+            Write-Log "[Restore] Applying cluster resource: $resourceType"
+            $output = & "$ExePath\kubectl.exe" apply -f $file 2>&1
+            $exitCode = $LASTEXITCODE
+
+            if ($ShowLogs) { Write-Log $output }
+
+            $hasError = ($exitCode -ne 0) -or
+                        ($output -match "^error:") -or
+                        ($output -match "Error from server")
+
+            if ($hasError) {
+                $msg = "Failed to apply cluster resource file $resourceType.yaml"
+                Write-Log $msg
+                Write-Log $output
+                $errors += $msg
+                if ($ErrorOnFailure) { throw $msg }
+            }
+        }
+    }
+
+    # Apply remaining unordered resources
+    Get-ChildItem -Path $folderResources -Filter *.yaml | ForEach-Object {
+        if ($orderedResourceTypes -notcontains $_.BaseName) {
+            $file = $_.FullName
+            Write-Log "[Restore] Applying cluster resource: $($_.BaseName)"
+            $output = & "$ExePath\kubectl.exe" apply -f $file 2>&1
+            $exitCode = $LASTEXITCODE
+
+            if ($ShowLogs) { Write-Log $output }
+
+            $hasError = ($exitCode -ne 0) -or
+                        ($output -match "^error:") -or
+                        ($output -match "Error from server") -or
+                        ($output -match "no matches for kind") -or
+                        ($output -match "resource mapping not found")
+
+            if ($hasError) {
+                $msg = "Failed to apply cluster resource file $($_.Name)"
+                Write-Log $msg
+                Write-Log $output
+                $errors += $msg
+                if ($ErrorOnFailure) { throw $msg }
+            }
+        }
+    }
+
+    return @{ Errors = $errors; Warnings = $warnings }
 }
 
 function Import-NamespacedResources {
 	param (
-		[parameter(Mandatory = $true, HelpMessage = 'Location where to get the namespaced resources')]
-		[string] $FolderIn,
+		[Parameter(Mandatory = $true, HelpMessage = 'Location where to get the namespaced resources')]
+		[string] $folderNamespaces,
 		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
-		[string] $ExePath
+		[string] $ExePath,
+		[Parameter(Mandatory = $false, HelpMessage = 'If set to true, any error during resource import will cause the operation to fail immediately')]
+		[bool] $ErrorOnFailure = $false,
+		[Parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
+		[bool] $ShowLogs = $false
 	)
-	# get all the resources
-	Write-Log 'Import namespaced resources from existing cluster' -Console
-	$folderNamespaces = Join-Path $FolderIn 'Namespaced'
-	Get-ChildItem -Path $folderNamespaces | Foreach-Object {
-		$namespace = $_.Name
-		Write-Log "Import namespace: $namespace" -Console
-		&$ExePath\kubectl.exe create namespace $namespace >$null 2>&1
-		$folderResources = Join-Path $folderNamespaces $namespace
-		Get-ChildItem -Path $folderResources | Foreach-Object {
-			$resource = $_.FullName
-			Write-Log "Import resource with call 'kubectl apply -f $resource -n $namespace'"
-			# don't show any output, import of resources can show some errors which have no relevance
-			&$ExePath\kubectl.exe apply -f $resource -n $namespace >$null 2>&1
-		}
-	}
+
+    Write-Log "Import namespaced resources from existing cluster"
+
+    $errors = @()
+    $warnings = @()
+    $webhookFailures = @()  # Track resources that failed due to missing webhooks
+
+    if (-not (Test-Path $folderNamespaces)) {
+        Write-Log "No namespaced resources to restore"
+        return @{ Errors = @(); Warnings = @(); WebhookFailures = @() }
+    }
+
+    # Define restoration order within each namespace
+    $orderedResourceTypes = @(
+        'serviceaccounts',
+        'secrets',
+        'configmaps',
+        'persistentvolumeclaims',
+        'roles',
+        'rolebindings',
+        'services',
+        'deployments',
+        'statefulsets',
+        'daemonsets',
+        'jobs',
+        'cronjobs',
+        'pods',
+        'ingresses',
+        'certificates',
+        'certificaterequests',
+        'issuers'
+    )
+
+    Get-ChildItem -Path $folderNamespaces -Directory | ForEach-Object {
+        $namespace = $_.Name
+        Write-Log "Import namespace: $namespace"
+
+        # Ensure namespace exists
+        $nsCheck = & "$ExePath\kubectl.exe" get namespace $namespace 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "  Namespace '$namespace' does not exist, creating it..."
+            $nsCreate = & "$ExePath\kubectl.exe" create namespace $namespace 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                $msg = "Failed to create namespace '$namespace': $nsCreate"
+                Write-Log $msg
+                $errors += $msg
+                if ($ErrorOnFailure) { throw $msg }
+                return
+            }
+            Write-Log "  Namespace '$namespace' created successfully"
+        }
+
+        # Apply resources in order
+        foreach ($resourceType in $orderedResourceTypes) {
+            $file = Join-Path $_.FullName "$resourceType.yaml"
+            if (Test-Path $file) {
+                Write-Log "[Restore] Applying $resourceType in namespace $namespace"
+                $output = & "$ExePath\kubectl.exe" apply -f $file -n $namespace 2>&1
+                $exitCode = $LASTEXITCODE
+
+                if ($ShowLogs) { Write-Log $output }
+
+                $isWebhookError = $output -match "failed calling webhook" -or
+                                  $output -match "webhook.*not found"
+
+                $hasError = ($exitCode -ne 0) -or
+                            ($output -match "^error:") -or
+                            ($output -match "Error from server")
+
+                if ($hasError) {
+                    if ($isWebhookError) {
+                        $msg = "⚠️  Webhook validation failed for $resourceType in namespace $namespace (addon may need to be re-enabled)"
+                        Write-Log $msg
+                        Write-Log $output
+                        $webhookFailures += @{
+                            Namespace = $namespace
+                            ResourceType = $resourceType
+                            File = $file
+                        }
+                        $warnings += $msg
+                    }
+                    else {
+                        $msg = "Failed to apply $resourceType.yaml in namespace $namespace"
+                        Write-Log $msg
+                        Write-Log $output
+                        $errors += $msg
+                        if ($ErrorOnFailure) { throw $msg }
+                    }
+                }
+            }
+        }
+
+        # Apply remaining unordered resources
+        Get-ChildItem -Path $_.FullName -Filter *.yaml | ForEach-Object {
+            if ($orderedResourceTypes -notcontains $_.BaseName) {
+                $file = $_.FullName
+                Write-Log "[Restore] Applying $($_.BaseName) in namespace $namespace"
+                $output = & "$ExePath\kubectl.exe" apply -f $file -n $namespace 2>&1
+                $exitCode = $LASTEXITCODE
+
+                if ($ShowLogs) { Write-Log $output }
+
+                $hasError = ($exitCode -ne 0) -or
+                            ($output -match "^error:") -or
+                            ($output -match "Error from server")
+
+                if ($hasError) {
+                    $msg = "Failed to apply $($_.Name) in namespace $namespace"
+                    Write-Log $msg
+                    Write-Log $output
+                    $errors += $msg
+                    if ($ErrorOnFailure) { throw $msg }
+                }
+            }
+        }
+    }
+
+    return @{ Errors = $errors; Warnings = $warnings; WebhookFailures = $webhookFailures }
 }
+
+
+
+
 
 function Assert-UpgradeVersionIsValid {
 	param (
@@ -795,7 +977,7 @@ function Invoke-UpgradeBackupRestoreHooks {
 
 	$hooksFilter = "*.$HookType.ps1"
 
-	Write-Log "Executing addons hooks with hook type '$HookType'.."
+	Write-Log "Executing cluster resource hooks with hook type '$HookType'.."
 
 	$executionCount = 0
 
@@ -839,7 +1021,7 @@ function PrepareClusterUpgrade {
 		[ref] $coresVM,
 		[ref] $memoryVM,
 		[ref] $storageVM,
-		[ref] $addonsBackupPath,
+		[ref] $enabledAddonsList,
 		[ref] $hooksBackupPath,
 		[ref] $logFilePathBeforeUninstall,
 		[ref] $imagesBackupPath,
@@ -880,6 +1062,12 @@ function PrepareClusterUpgrade {
 
 		Enable-ClusterIsRunning -ShowLogs:$ShowLogs
 
+		# capture enabled addons list before upgrade for post-upgrade notification
+		$enabledAddonsList.Value = Get-EnabledAddons
+		if ($enabledAddonsList.Value.Count -gt 0) {
+			Write-Log "Captured $($enabledAddonsList.Value.Count) enabled addon(s) for post-upgrade notification" -Console
+		}
+
 		# keep current settings from cluster
 		$coresVM.Value = Get-LinuxVMCores
 		$memoryVM.Value = Get-LinuxVMMemory
@@ -901,21 +1089,13 @@ function PrepareClusterUpgrade {
 		}
 		Export-ClusterResources -SkipResources:$SkipResources -PathResources $BackupDir -ExePath $currentKubeToolsFolder
 
-		# Invoke backup hooks
+		# Invoke backup hooks for cluster resources (e.g., SMB shares)
 		$hooksBackupPath.Value = Join-Path $BackupDir 'hooks'
 		Invoke-UpgradeBackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath.Value -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
-		}
-
-		# backup all addons
-		$addonsBackupPath.Value = Join-Path $BackupDir 'addons'
-		Backup-Addons -BackupDir $addonsBackupPath.Value
-
 		# backup persistent volumes
 		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Backing up persistent volumes..' -Id 1 -Status '4.3/10' -PercentComplete 43 -CurrentOperation 'Backing up PVs, please wait..'
+			Write-Progress -Activity 'Backing up persistent volumes..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up PVs, please wait..'
 		}
 
 		try {
@@ -1005,7 +1185,7 @@ function PerformClusterUpgrade {
 		[string] $memoryVM,
 		[string] $coresVM,
 		[string] $storageVM,
-		[string] $addonsBackupPath,
+		[System.Collections.ArrayList] $enabledAddonsList,
 		[string] $hooksBackupPath,
 		[string] $logFilePathBeforeUninstall,
 		[string] $imagesBackupPath,
@@ -1016,7 +1196,7 @@ function PerformClusterUpgrade {
 	try {
 		# uninstall of old cluster
 		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Uninstall cluster..' -Id 1 -Status '5/10' -PercentComplete 40 -CurrentOperation 'Uninstalling cluster, please wait..'
+			Write-Progress -Activity 'Uninstall cluster..' -Id 1 -Status '5/10' -PercentComplete 50 -CurrentOperation 'Uninstalling cluster, please wait..'
 		}
 		Invoke-ClusterUninstall -ShowLogs:$ShowLogs -DeleteFiles:$DeleteFiles
 
@@ -1032,7 +1212,7 @@ function PerformClusterUpgrade {
 
 		# install of new cluster
 		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Install cluster..' -Id 1 -Status '6/10' -PercentComplete 50 -CurrentOperation 'Installing cluster, please wait..'
+			Write-Progress -Activity 'Install cluster..' -Id 1 -Status '6/10' -PercentComplete 60 -CurrentOperation 'Installing cluster, please wait..'
 		}
 		  # Check if K2sPathToInstallFrom is null or empty and assign kubePath if so.
 		if ([string]::IsNullOrEmpty($K2sPathToInstallFrom)) {
@@ -1072,30 +1252,22 @@ function PerformClusterUpgrade {
 			Write-Log "No image backup found or images were skipped during backup" -Console
 		}
 
-		# restore addons
-		if ($ShowProgress -eq $true) {
-			Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Restoring addons, please wait..'
-		}
-
+		# Invoke restore hooks for cluster resources (e.g., SMB shares)
 		if ($ExecuteHooks -eq $true) {
-			Restore-Addons -BackupDir $addonsBackupPath
-			# Invoke restore hooks
-			Write-Log "Restore with executing hooks"
+			Write-Log "Executing cluster resource restore hooks"
 			Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 		} else {
-			Write-Log "Restore without executing hooks"
-			$addonsPath = Join-Path -Path $K2sPathToInstallFrom -ChildPath "addons"
-			Restore-Addons -BackupDir $addonsBackupPath -AvoidRestore -Root $addonsPath
+			Write-Log "Skipping restore hooks (rollback mode)"
 		}
 
-		# restore persistent volumes AFTER addons to replace addon content with backed up data
+		# restore persistent volumes
 		if (-not [string]::IsNullOrEmpty($pvBackupPath) -and (Test-Path $pvBackupPath)) {
 			if ($ShowProgress -eq $true) {
-				Write-Progress -Activity 'Restoring persistent volumes..' -Id 1 -Status '7.5/10' -PercentComplete 75 -CurrentOperation 'Restoring PVs, please wait..'
+				Write-Progress -Activity 'Restoring persistent volumes..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Restoring PVs, please wait..'
 			}
 			
 			try {
-				Write-Log "Starting PV restore process (after addons to overwrite with backed up data)..." -Console
+				Write-Log "Starting PV restore process..." -Console
 				$pvRestoreResult = Restore-AllPersistentVolumes -BackupPath $pvBackupPath -Force
 				
 				if ($pvRestoreResult) {
@@ -1121,12 +1293,46 @@ function PerformClusterUpgrade {
 			if ($ShowProgress -eq $true) {
 				Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
 			}
-			Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+			Import-NotNamespacedResources -folderResources $BackupDir -ExePath $kubeExeFolder
 			
 			if ($ShowProgress -eq $true) {
-				Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Apply namespaced resources, please wait..'
+				Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8.5/10' -PercentComplete 85 -CurrentOperation 'Apply namespaced resources, please wait..'
 			}
-			Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
+			Import-NamespacedResources -folderNamespaces $BackupDir -ExePath $kubeExeFolder
+		}
+
+		# re-enable previously enabled addons
+		$addonsReenabledSuccessfully = @()
+		$addonsReenabledFailed = @()
+		if ($null -ne $enabledAddonsList -and $enabledAddonsList.Count -gt 0) {
+			if ($ShowProgress -eq $true) {
+				Write-Progress -Activity 'Re-enabling previously enabled addons..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Re-enabling addons, please wait..'
+			}
+			Write-Log "Re-enabling $($enabledAddonsList.Count) previously enabled addon(s)..." -Console
+			
+			foreach ($addon in $enabledAddonsList) {
+				$addonConfig = [pscustomobject]@{
+					Name = $addon.Name
+				}
+				# Handle implementations if present
+				if ($null -ne $addon.Implementations -and $addon.Implementations.Count -gt 0) {
+					$addonConfig | Add-Member -MemberType NoteProperty -Name 'Implementation' -Value $addon.Implementations[0]
+				}
+				
+				$addonDisplay = $addon.Name
+				if ($null -ne $addon.Implementations -and $addon.Implementations.Count -gt 0) {
+					$addonDisplay += " ($($addon.Implementations -join ', '))"
+				}
+				
+				try {
+					Enable-AddonFromConfig -Config $addonConfig
+					$addonsReenabledSuccessfully += $addonDisplay
+				}
+				catch {
+					Write-Log "Warning: Failed to re-enable addon '$addonDisplay': $_" -Console
+					$addonsReenabledFailed += $addonDisplay
+				}
+			}
 		}
 		
 		# show completion
@@ -1140,6 +1346,37 @@ function PerformClusterUpgrade {
 		if ($ExecuteHooks -eq $true) {
 			# final message
 			Write-Log "Upgraded successfully to K2s version: $(Get-ProductVersion) ($(Get-KubePath))" -Console
+
+			# notify user about addon re-enablement results
+			if ($addonsReenabledSuccessfully.Count -gt 0 -or $addonsReenabledFailed.Count -gt 0) {
+				Write-Log '' -Console
+				Write-Log '********************************************************************************************' -Console
+				Write-Log '** ADDON RE-ENABLEMENT SUMMARY                                                            **' -Console
+				Write-Log '********************************************************************************************' -Console
+				
+				if ($addonsReenabledSuccessfully.Count -gt 0) {
+					Write-Log "** Successfully re-enabled $($addonsReenabledSuccessfully.Count) addon(s):" -Console
+					foreach ($addonDisplay in $addonsReenabledSuccessfully) {
+						Write-Log "**   + $addonDisplay" -Console
+					}
+				}
+				
+				if ($addonsReenabledFailed.Count -gt 0) {
+					Write-Log "** Failed to re-enable $($addonsReenabledFailed.Count) addon(s):" -Console
+					foreach ($addonDisplay in $addonsReenabledFailed) {
+						Write-Log "**   - $addonDisplay" -Console
+					}
+					Write-Log '**                                                                                        **' -Console
+					Write-Log '** To manually re-enable failed addon(s), run:                                           **' -Console
+					Write-Log '**   k2s addons enable <addon-name>                                                       **' -Console
+				}
+				
+				Write-Log '**                                                                                        **' -Console
+				Write-Log '** NOTE: Addon data/persistence is NOT restored during upgrade.                          **' -Console
+				Write-Log '** To backup/restore addon data, use:                                                     **' -Console
+				Write-Log '**   k2s addons export / k2s addons import                                                **' -Console
+				Write-Log '********************************************************************************************' -Console
+			}
 		} else {
 			Write-Log "Rolled back to K2s version: $(Get-ProductVersionGivenKubePath -KubePathLocal $K2sPathToInstallFrom) ($K2sPathToInstallFrom)" -Console
 		}
@@ -1155,8 +1392,228 @@ function PerformClusterUpgrade {
 	}
 }
 
-Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources,
-Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
-Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
-Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath,
-Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath, PrepareClusterUpgrade, PerformClusterUpgrade
+function Invoke-ImageBackup {
+	param(
+		[Parameter(Mandatory = $true, HelpMessage = 'Directory to store backed up images')]
+		[string] $BackupDirectory,
+
+		[Parameter(Mandatory = $false, HelpMessage = 'Exclude addon images from backup')]
+		[switch] $ExcludeAddonImages
+	)
+
+    Write-Log "Starting image backup..." -Console
+
+    try {
+        # Get images based on filtering options
+        # System images are already excluded by default
+        # ExcludeAddonImages further filters out addon namespace images for system backup
+        $images = Get-K2sImageList -ExcludeAddonImages:$ExcludeAddonImages
+
+        if ($images.Count -eq 0) {
+            Write-Log "No images found to backup" -Console
+            return @{
+                Success = $true
+                Images = @()
+                FailedImages = @()
+                Message = "No images to backup"
+            }
+        }
+
+        # Check disk space
+        $hasSufficientSpace = Test-BackupDiskSpace -BackupDirectory $BackupDirectory -Images $images
+        if (-not $hasSufficientSpace) {
+            Write-Log "Warning: Insufficient disk space for image backup. Skipping." -Console
+            return @{
+                Success = $false
+                Images = @()
+                FailedImages = @()
+                Error = "Insufficient disk space"
+            }
+        }
+
+        # Perform backup
+        $backupResult = Backup-K2sImages -BackupDirectory $BackupDirectory -Images $images
+
+        return $backupResult
+    }
+    catch {
+        Write-Log "Error during image backup: $_" -Console
+        throw $_
+    }
+}
+
+function Invoke-PVBackup {
+	param(
+		[Parameter(Mandatory = $true, HelpMessage = 'Directory where persistent volume backups will be stored')]
+		[string] $BackupDirectory
+	)
+
+    Write-Log "Starting persistent volume backup..." -Console
+
+    try {
+		$excludeNames = @()
+		$excludePVs = $rootConfig.backup.excludedAddonPersistentVolumes
+		if ($excludePVs) {
+			$excludeNames = $excludePVs.Split(',')
+		}
+
+        Write-Log "Excluding addon-managed PVs: $($excludeNames -join ', ')" -Console
+
+        # Invoke the core backup function
+        $backupResult = Backup-AllPersistentVolumes -ExportPath $BackupDirectory -ExcludeNames $excludeNames
+
+        if ($backupResult) {
+            $successCount = ($backupResult.GetEnumerator() | Where-Object { $_.Value -eq $true }).Count
+            Write-Log "PV backup completed: $successCount PV(s) backed up successfully" -Console
+
+            return @{
+                Success = $true
+                BackedUpCount = $successCount
+                Details = $backupResult
+            }
+        }
+        else {
+            Write-Log "No persistent volumes found to backup" -Console
+            return @{
+                Success = $true
+                BackedUpCount = 0
+                Details = @{}
+                Message = "No PVs to backup"
+            }
+        }
+    }
+    catch {
+        Write-Log "Error during PV backup: $_" -Console
+        throw $_
+    }
+}
+
+function Invoke-PVRestore {
+	param(
+		[Parameter(Mandatory = $true, HelpMessage = 'Directory containing persistent volume backups')]
+		[string] $BackupDirectory,
+
+		[Parameter(Mandatory = $false, HelpMessage = 'Force restore even if conflicts detected')]
+		[switch] $Force,
+
+		[Parameter(Mandatory = $false, HelpMessage = 'Fail immediately on any restore error')]
+		[switch] $ErrorOnFailure
+	)
+
+    Write-Log "Starting persistent volume restore..." -Console
+
+    try {
+        # Check if PV backup directory exists
+        if (-not (Test-Path $BackupDirectory)) {
+            Write-Log "No PV backup directory found at: $BackupDirectory" -Console
+            return @{
+                Success = $true
+                RestoredCount = 0
+                Details = @{}
+                Message = "No PV backups to restore"
+            }
+        }
+
+        # Invoke the core restore function
+        $restoreResult = Restore-AllPersistentVolumes -BackupPath $BackupDirectory -Force:$Force
+
+        if ($restoreResult) {
+            $successCount = ($restoreResult.GetEnumerator() | Where-Object { $_.Value -eq $true }).Count
+            $failCount = ($restoreResult.GetEnumerator() | Where-Object { $_.Value -eq $false }).Count
+            Write-Log "PV restore completed: $successCount PV(s) restored successfully, $failCount failed" -Console
+
+            if ($ErrorOnFailure -and $failCount -gt 0) {
+                throw "PV restore failed: $failCount PV(s) could not be restored"
+            }
+
+            return @{
+                Success = ($failCount -eq 0)
+                RestoredCount = $successCount
+                FailedCount = $failCount
+                Details = $restoreResult
+            }
+        }
+        else {
+            Write-Log "No persistent volumes found to restore" -Console
+            return @{
+                Success = $true
+                RestoredCount = 0
+                FailedCount = 0
+                Details = @{}
+                Message = "No PVs to restore"
+            }
+        }
+    }
+    catch {
+        Write-Log "Error during PV restore: $_" -Console
+        throw $_
+    }
+}
+
+function Invoke-ImageRestore {
+    param(
+        [Parameter(Mandatory = $true, HelpMessage = 'Directory containing backed up images')]
+        [string] $BackupDirectory,
+
+        [Parameter(Mandatory = $false, HelpMessage = 'Fail immediately on any restore error')]
+        [switch] $ErrorOnFailure
+    )
+
+    Write-Log "Starting image restore..." -Console
+
+    try {
+        # Check if image backup directory exists
+        if (-not (Test-Path $BackupDirectory)) {
+            Write-Log "No image backup directory found at: $BackupDirectory" -Console
+            return @{
+                Success = $true
+                RestoredImages = @()
+                FailedImages = @()
+                Message = "No image backups to restore"
+            }
+        }
+
+        # Check for manifest (it's created as manifest.json by Backup-K2sImages)
+        $manifestPath = Join-Path $BackupDirectory "manifest.json"
+        if (-not (Test-Path $manifestPath)) {
+            Write-Log "No image manifest found at: $manifestPath" -Console
+            return @{
+                Success = $true
+                RestoredImages = @()
+                FailedImages = @()
+                Message = "No image manifest to restore"
+            }
+        }
+
+        Write-Log "Found image manifest at: $manifestPath" -Console
+
+        # Perform restore
+        $restoreResult = Restore-K2sImages -BackupDirectory $BackupDirectory -ManifestPath $manifestPath
+
+        if ($restoreResult.RestoredImages.Count -gt 0) {
+            Write-Log "Successfully restored $($restoreResult.RestoredImages.Count) image(s)" -Console
+        }
+
+        if ($restoreResult.FailedImages.Count -gt 0) {
+            Write-Log "Warning: Failed to restore $($restoreResult.FailedImages.Count) image(s)" -Console
+
+            if ($ErrorOnFailure) {
+                throw "Image restore failed: $($restoreResult.FailedImages.Count) image(s) could not be restored"
+            }
+        }
+
+        return $restoreResult
+    }
+    catch {
+        Write-Log "Error during image restore: $_" -Console
+        throw $_
+    }
+}
+
+
+Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources, `
+    Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources, `
+    Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles, `
+    Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath, `
+    Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath, PrepareClusterUpgrade, PerformClusterUpgrade, Invoke-ImageBackup, Invoke-PVBackup, `
+    Invoke-ImageRestore, Invoke-PVRestore
