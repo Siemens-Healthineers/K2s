@@ -120,7 +120,7 @@ function Start-ClusterUpgrade {
 	$memoryVM = [ref]''
 	$storageVM = [ref]''
 
-	$addonsBackupPath = [ref]''
+	$enabledAddonsList = [ref]$null
 	$hooksBackupPath = [ref]''
 	$logFilePathBeforeUninstall = [ref]''
 	$imagesBackupPath = [ref]''
@@ -133,7 +133,7 @@ function Start-ClusterUpgrade {
 	Write-Log "The backup directory is '$BackupDir'"
 
 	try {
-		$prepareSuccess = PrepareClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -SkipImages:$SkipImages -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -Force:$Force -AdditionalHooksDir $AdditionalHooksDir -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall -imagesBackupPath $imagesBackupPath -pvBackupPath $pvBackupPath
+		$prepareSuccess = PrepareClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -SkipImages:$SkipImages -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -Force:$Force -AdditionalHooksDir $AdditionalHooksDir -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall -imagesBackupPath $imagesBackupPath -pvBackupPath $pvBackupPath
 		if (-not $prepareSuccess) {
 			return $false
 		}
@@ -149,7 +149,7 @@ function Start-ClusterUpgrade {
 
 	$installedFolder = Get-ClusterInstalledFolder
 	try {
-		PerformClusterUpgrade -ExecuteHooks:$true -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value -SkipImages:$SkipImages -skipResources:$SkipResources
+		PerformClusterUpgrade -ExecuteHooks:$true -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -enabledAddonsList $enabledAddonsList.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value -SkipImages:$SkipImages -skipResources:$SkipResources
 	}
 	catch {
 		Write-Log 'System upgrade failed, will rollback to previous state !'
@@ -158,7 +158,7 @@ function Start-ClusterUpgrade {
 			$logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
 			Backup-LogFile -LogFile $logFilePathBeforeUninstall.Value
 			 #Execute the upgrade without executing the upgrade hooks and from the installed folder (folder used before upgrade)
-			 PerformClusterUpgrade -ExecuteHooks:$false -K2sPathToInstallFrom $installedFolder -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value -SkipImages:$SkipImages -skipResources:$SkipResources
+			 PerformClusterUpgrade -ExecuteHooks:$false -K2sPathToInstallFrom $installedFolder -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -enabledAddonsList $enabledAddonsList.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value -imagesBackupPath $imagesBackupPath.Value -pvBackupPath $pvBackupPath.Value -SkipImages:$SkipImages -skipResources:$SkipResources
 		}
 		catch {
 			Write-Log 'An ERROR occurred:' -Console
