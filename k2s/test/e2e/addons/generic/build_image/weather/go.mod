@@ -4,7 +4,7 @@
 
 module weather
 
-go 1.25.6
+go 1.25.7
 
 require github.com/gin-gonic/gin v1.10.0
 

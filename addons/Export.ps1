@@ -763,7 +763,7 @@ try {
             'vnd.k2s.version' = $k2sVersion
             'vnd.k2s.export.date' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
             'vnd.k2s.export.type' = if ($All) { 'all' } else { 'specific' }
-            'vnd.k2s.addon.count' = $addonManifestReferences.Count
+            'vnd.k2s.addon.count' = $addonManifestReferences.Count.ToString()
         }
     }
     
