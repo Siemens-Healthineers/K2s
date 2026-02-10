@@ -235,7 +235,7 @@ function Invoke-K2sImageCommand {
 
     if ($LASTEXITCODE -ne 0) {
         # Filter out progress/status lines that aren't actual errors
-        $realErrors = $output | Where-Object {
+        $realErrors = $result | Where-Object {
             $_ -is [System.Management.Automation.ErrorRecord] -and
                     $_.ToString() -notmatch 'exists\s+\|' -and
                     $_.ToString() -notmatch 'resolved\s+\|' -and
