@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -20,6 +20,25 @@ The storage smb addon can be enabled using the k2s CLI by running the following 
 ```
 k2s addons enable storage smb
 ```
+
+## Backup and restore
+
+Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+```
+k2s addons backup "storage smb"
+```
+
+Restore from a backup zip:
+```
+k2s addons restore "storage smb" -f C:\Temp\Addons\storage_smb_backup_YYYYMMDD_HHMMSS.zip
+```
+
+The backup includes:
+- A snapshot of the SMB storage configuration (based on `config/SmbStorage.json`)
+- A best-effort snapshot of the addon entry from `setup.json`
+- The contents of the configured SMB share folder(s) on the Windows host (`winMountPath`)
+
+Secrets (e.g. the generated `smbcreds` Kubernetes Secret) are not backed up.
 
 ## Shared folder
 
