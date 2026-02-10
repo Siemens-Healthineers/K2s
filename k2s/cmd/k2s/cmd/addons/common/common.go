@@ -1,10 +1,13 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package common
 
 import (
+	"fmt"
 	"log/slog"
+	"sort"
+	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
@@ -17,6 +20,40 @@ type addonInfos struct{ allAddons addons.Addons }
 
 func LogAddons(allAddons addons.Addons) {
 	slog.Debug("addons loaded", "count", len(allAddons), "addons", addonInfos{allAddons})
+}
+
+// FindImplementation resolves an addon implementation based on command args.
+//
+// Supported forms:
+//   - ["registry"] -> matches AddonsCmdName "registry"
+//   - ["ingress", "nginx"] -> matches AddonsCmdName "ingress nginx"
+func FindImplementation(allAddons addons.Addons, args []string) (addon addons.Addon, impl addons.Implementation, err error) {
+	if len(args) < 1 || len(args) > 2 {
+		return addon, impl, fmt.Errorf("expected ADDON [IMPLEMENTATION]")
+	}
+
+	cmdName := args[0]
+	if len(args) == 2 {
+		cmdName = args[0] + " " + args[1]
+	}
+
+	for _, a := range allAddons {
+		for _, i := range a.Spec.Implementations {
+			if strings.EqualFold(i.AddonsCmdName, cmdName) {
+				return a, i, nil
+			}
+		}
+	}
+
+	valid := make([]string, 0)
+	for _, a := range allAddons {
+		for _, i := range a.Spec.Implementations {
+			valid = append(valid, i.AddonsCmdName)
+		}
+	}
+	sort.Strings(valid)
+
+	return addon, impl, fmt.Errorf("unknown addon '%s' (valid: %s)", cmdName, strings.Join(valid, ", "))
 }
 
 // LogValue is a slog.LogValuer implementation to defer the construction of a parameter until the verbosity level is determined
