@@ -52,6 +52,13 @@ spec:
             type: PathPrefix
             value: /monitoring
       filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              - name: X-Forwarded-Proto
+                value: https
+              - name: X-Forwarded-Host
+                value: k2s.cluster.local
         - type: ExtensionRef
           extensionRef:
             group: gateway.nginx.org

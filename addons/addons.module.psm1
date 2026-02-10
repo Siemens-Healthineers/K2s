@@ -990,7 +990,23 @@ function New-BackendCACertConfigMap {
 			# Extract certificate from pod
 			$certPath = [System.IO.Path]::GetTempPath() + "$ConfigMapName.crt"
 			$extractCmd = "echo | openssl s_client -connect localhost:$Port 2>&1 | openssl x509 -outform PEM"
-			$cert = (Invoke-Kubectl -Params 'exec', '-n', $Namespace, $pod, '--', 'sh', '-c', $extractCmd).Output
+			
+			# Get container name from pod spec (first container that's not linkerd-proxy or linkerd-init)
+			$containerResult = (Invoke-Kubectl -Params 'get', 'pod', $pod, '-n', $Namespace, '-o', "jsonpath={.spec.containers[?(@.name!='linkerd-proxy')].name}")
+			$containerName = if ($containerResult.Success -and $containerResult.Output) { 
+				($containerResult.Output -split '\s+')[0] 
+			} else { 
+				$null 
+			}
+			
+			if ($containerName) {
+				Write-Log "Using container '$containerName' from pod '$pod'" -Console
+				$cert = (Invoke-Kubectl -Params 'exec', '-n', $Namespace, $pod, '-c', $containerName, '--', 'sh', '-c', $extractCmd).Output
+			} else {
+				# Fallback to not specifying container (single container pods)
+				$cert = (Invoke-Kubectl -Params 'exec', '-n', $Namespace, $pod, '--', 'sh', '-c', $extractCmd).Output
+			}
+			
 			$cert | Out-File -FilePath $certPath -Encoding ascii
 			
 			# Create ConfigMap with the certificate
