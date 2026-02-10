@@ -18,8 +18,12 @@ spec:
           curl: []
           additionalImages:
             - registry.k8s.io/external-dns/external-dns
+            - quay.io/jetstack/cert-manager-cainjector
+            - quay.io/jetstack/cert-manager-controller
+            - quay.io/jetstack/cert-manager-webhook
           additionalImagesFiles:
             - ../../common/manifests/external-dns/deployment.yaml
+            - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
           curl:
             - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
@@ -48,8 +52,12 @@ spec:
           curl: []
           additionalImages:
             - registry.k8s.io/external-dns/external-dns
+            - quay.io/jetstack/cert-manager-cainjector
+            - quay.io/jetstack/cert-manager-controller
+            - quay.io/jetstack/cert-manager-webhook
           additionalImagesFiles:
             - ../../common/manifests/external-dns/deployment.yaml
+            - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
           curl: 
             - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
@@ -78,8 +86,12 @@ spec:
           curl: []
           additionalImages:
           - registry.k8s.io/external-dns/external-dns
+          - quay.io/jetstack/cert-manager-cainjector
+          - quay.io/jetstack/cert-manager-controller
+          - quay.io/jetstack/cert-manager-webhook
           additionalImagesFiles:
           - ../../common/manifests/external-dns/deployment.yaml
+          - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
           curl:
             - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
