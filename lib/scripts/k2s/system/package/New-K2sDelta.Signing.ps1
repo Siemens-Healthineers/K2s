@@ -8,8 +8,10 @@
     Signs executable and script files in the staging directory.
 
 .DESCRIPTION
-    Uses the provided certificate to sign .exe, .dll, .ps1, .psm1, and .psd1 files.
-    Logs warnings for files that fail to sign but does not throw.
+    Delegates to Set-K2sFileSignature from the signing module (k2s.signing.module)
+    which handles certificate store import, self-signed certificate validation,
+    and proper file type filtering. Logs warnings for files that fail to sign
+    but does not throw.
 
 .PARAMETER Context
     Hashtable containing:
@@ -19,7 +21,7 @@
 
 .OUTPUTS
     PSCustomObject with properties:
-    - Success: $true if signing was attempted (even with warnings)
+    - Success: $true if signing completed (even with warnings)
     - SignedCount: Number of successfully signed files
     - FailedCount: Number of files that failed to sign
     - Skipped: $true if signing was skipped due to missing parameters
@@ -49,59 +51,36 @@ function Invoke-DeltaCodeSigning {
         return $result
     }
 
-    Write-Log "Attempting code signing using certificate '$($Context.CertificatePath)'" -Console
+    Write-Log "[Signing] Attempting code signing using certificate '$($Context.CertificatePath)'" -Console
 
     try {
-        # Validate certificate file exists
-        if (-not (Test-Path -LiteralPath $Context.CertificatePath)) {
-            throw "Certificate file not found."
-        }
+        # Convert plain password to SecureString for Set-K2sFileSignature
+        $securePassword = ConvertTo-SecureString -String $Context.Password -AsPlainText -Force
 
-        # Load certificate
-        $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
-            $Context.CertificatePath,
-            $Context.Password,
-            'Exportable,MachineKeySet'
-        )
-
-        if (-not $cert.HasPrivateKey) {
-            throw "Certificate does not contain a private key."
-        }
-
-        # Find files to sign
-        $signExtensions = @('*.exe', '*.dll', '*.ps1', '*.psm1', '*.psd1')
-        $filesToSign = foreach ($pat in $signExtensions) {
-            Get-ChildItem -Path $Context.StageDir -Recurse -Include $pat -File
-        }
-
-        # Sign each file
-        foreach ($f in $filesToSign) {
-            try {
-                $sig = Set-AuthenticodeSignature -FilePath $f.FullName `
-                    -Certificate $cert `
-                    -TimestampServer "http://timestamp.digicert.com" `
-                    -ErrorAction Stop
-
-                if ($sig.Status -ne 'Valid') {
-                    Write-Log "[Warning] Signing issue for $($f.FullName): Status=$($sig.Status)"
-                    $result.FailedCount++
-                }
-                else {
-                    Write-Log "Signed: $($f.FullName)"
-                    $result.SignedCount++
-                }
-            }
-            catch {
-                Write-Log "[Warning] Failed to sign '$($f.FullName)': $($_.Exception.Message)"
-                $result.FailedCount++
-            }
-        }
+        # Delegate to the production signing module which handles:
+        # - Certificate store import (Import-PfxCertificate)
+        # - Self-signed certificate validation (UnknownError + "not trusted" = OK)
+        # - Proper file type filtering (exe, dll, ps1, psm1, psd1, msi)
+        Set-K2sFileSignature -SourcePath $Context.StageDir `
+            -CertificatePath $Context.CertificatePath `
+            -Password $securePassword `
+            -ExclusionList @()
 
         $result.Success = $true
+        Write-Log "[Signing] Code signing completed successfully" -Console
     }
     catch {
-        Write-Log "[Warning] Code signing setup failed: $($_.Exception.Message)"
-        $result.Error = $_.Exception.Message
+        $errorMsg = $_.Exception.Message
+        if ($errorMsg -match 'failed for (\d+) files') {
+            # Set-K2sFileSignature throws when files fail - extract count
+            $result.FailedCount = [int]$matches[1]
+            Write-Log "[Signing][Warning] $errorMsg" -Console
+            # Treat as non-fatal for delta packages (third-party binaries may resist signing)
+            $result.Success = $true
+        } else {
+            Write-Log "[Signing][Error] Code signing failed: $errorMsg" -Console
+            $result.Error = $errorMsg
+        }
     }
 
     return $result
