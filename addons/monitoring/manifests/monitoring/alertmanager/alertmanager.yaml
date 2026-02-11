@@ -20,8 +20,8 @@ metadata:
     release: "kube-prometheus-stack"
     heritage: "Helm"
 spec:
-  image: "quay.io/prometheus/alertmanager:v0.25.0"
-  version: v0.25.0
+  image: "quay.io/prometheus/alertmanager:v0.40.1"
+  version: v0.40.1
   replicas: 1
   listenLocal: false
   serviceAccountName: kube-prometheus-stack-alertmanager
