@@ -4,12 +4,42 @@
 
 #Requires -RunAsAdministrator
 
+Param(
+	[parameter(Mandatory = $false, HelpMessage = 'Preferred ingress integration to apply (auto/nginx/traefik/nginx-gw/none)')]
+	[ValidateSet('auto', 'nginx', 'traefik', 'nginx-gw', 'none')]
+	[string] $PreferredIngress = 'auto'
+)
+
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $dashboardModule = "$PSScriptRoot\dashboard.module.psm1"
 
 Import-Module $addonsModule, $dashboardModule
 
-Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'dashboard' })
+$addonObj = [pscustomobject] @{ Name = 'dashboard' }
+
+if ($PreferredIngress -eq 'auto') {
+	Update-IngressForAddon -Addon $addonObj
+}
+elseif ($PreferredIngress -eq 'none') {
+	Remove-IngressForTraefik -Addon $addonObj
+	Remove-IngressForNginx -Addon $addonObj
+	Remove-IngressForNginxGateway -Addon $addonObj
+}
+elseif ($PreferredIngress -eq 'nginx') {
+	Remove-IngressForTraefik -Addon $addonObj
+	Remove-IngressForNginxGateway -Addon $addonObj
+	Update-IngressForNginx -Addon $addonObj
+}
+elseif ($PreferredIngress -eq 'traefik') {
+	Remove-IngressForNginx -Addon $addonObj
+	Remove-IngressForNginxGateway -Addon $addonObj
+	Update-IngressForTraefik -Addon $addonObj
+}
+elseif ($PreferredIngress -eq 'nginx-gw') {
+	Remove-IngressForTraefik -Addon $addonObj
+	Remove-IngressForNginx -Addon $addonObj
+	Update-IngressForNginxGateway -Addon $addonObj
+}
 
 $SecurityAddonEnabled = Test-SecurityAddonAvailability
 if ($SecurityAddonEnabled) {
@@ -42,7 +72,7 @@ else {
 		Write-Log 'Replacing content of patch file'
 		(Get-Content -Path "$tempPath\patch.json").replace('BEARER-TOKEN', $token) | Out-File -FilePath "$tempPath\patch.json"
 		# apply patch
-		(Invoke-Kubectl -Params 'patch', 'ingress', 'dashboard-nginx-cluster-local', '-n', 'dashboard', '--patch-file', "$tempPath\patch.json", $annotations).Output | Write-Log
+		(Invoke-Kubectl -Params 'patch', 'ingress', 'dashboard-nginx-cluster-local', '-n', 'dashboard', '--patch-file', "$tempPath\patch.json").Output | Write-Log
 		# delete patch file
 		Remove-Item -Path "$tempPath\patch.json"
 	}

@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -38,6 +38,31 @@ spec:
     resources:
       limits:
         nvidia.com/gpu: 1
+```
+
+
+## Backup and restore
+
+The gpu-node addon supports backup and restore via the `k2s` CLI for consistency with other addons.
+
+Because gpu-node is a **pure infrastructure addon** (Hyper-V GPU passthrough, NVIDIA driver copy, WSL2 kernel swap, container toolkit installation, static Kubernetes manifests), there is **no user-configurable state to back up**. The backup writes a metadata-only manifest; restore succeeds without additional steps once the addon has been re-enabled.
+
+### What gets backed up
+
+- Metadata only (`backup.json` with addon name, K2s version, timestamp).
+
+### What does not get backed up
+
+- Hyper-V GPU partition adapter settings (recreated by enable)
+- NVIDIA driver files and WSL2 kernel on the control-plane VM (reinstalled by enable)
+- NVIDIA Container Toolkit APT packages (reinstalled by enable)
+- NVIDIA Device Plugin Deployment and DCGM Exporter DaemonSet (reapplied from static manifests by enable)
+
+### Commands
+
+```console
+k2s addons backup gpu-node
+k2s addons restore gpu-node -f C:\Temp\Addons\gpu-node_backup_YYYYMMDD_HHMMSS.zip
 ```
 
 ## Further Reading

@@ -73,6 +73,25 @@ k2s addons disable logging
 
 _Note:_ The above command will only disable logging addon. If other addons were enabled while enabling the logging addon, they will not be disabled.
 
+## Backup and restore
+
+Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+```
+k2s addons backup logging
+```
+
+Restore from a backup zip:
+```
+k2s addons restore logging -f C:\Temp\Addons\logging_backup_YYYYMMDD_HHMMSS.zip
+```
+
+What is backed up:
+- Selected ConfigMaps (best-effort) for OpenSearch and Fluent Bit.
+
+Notes:
+- Backup/restore does not include OpenSearch data (historical logs).
+- Restore applies config and triggers best-effort rollout restarts.
+
 ## Further Reading
 - [fluentbit](https://github.com/fluent/fluent-bit)
 - [opensearch](https://github.com/opensearch-project/OpenSearch)

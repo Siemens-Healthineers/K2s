@@ -67,5 +67,16 @@ k2s addons disable registry
 
 _Note:_ The above command will only disable registry addon. If other addons were enabled while enabling the registry addon, they will not be disabled.
 
+## Backup and restore
+
+The registry addon supports backup/restore via the k2s CLI:
+
+```
+k2s addons backup registry
+k2s addons restore registry -f <backup.zip>
+```
+
+Backup creates a tar.gz of the registry data directory on the control plane (`/registry/repository`) and stores it in the backup zip. Restore overwrites the existing registry data on the control plane and restarts the registry StatefulSet.
+
 ## Further Reading
 - [Zot Registry](https://github.com/project-zot/zot)

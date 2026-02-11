@@ -26,6 +26,26 @@ The monitoring addon can be enabled using the k2s CLI by running the following c
 k2s addons enable monitoring
 ```
 
+## Backup and restore
+
+Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+```
+k2s addons backup monitoring
+```
+
+Restore from a backup zip:
+```
+k2s addons restore monitoring -f C:\Temp\Addons\monitoring_backup_YYYYMMDD_HHMMSS.zip
+```
+
+Notes:
+- Backups are config-only (Kubernetes Secrets are not backed up or restored).
+- Persistent volume data is not backed up or restored.
+- Backups selectively capture user-relevant configuration (Grafana dashboards/datasources ConfigMaps, ingress objects, and non-Helm-managed Prometheus Operator custom resources).
+- If no custom resources are present, the backup can be metadata-only (`files: []`); restore is then effectively a reinstall/repair.
+
+During restore, Helm-managed resources (chart defaults) are skipped to avoid conflicts with the addon enable/reconcile process.
+
 ### Integration with ingress nginx and ingress traefik addons
 
 The monitoring addon can be integrated with the ingress nginx, ingress nginx-gw, or ingress traefik addon so that it can be exposed outside the cluster.

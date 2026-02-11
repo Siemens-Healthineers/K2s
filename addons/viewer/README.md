@@ -53,6 +53,24 @@ k2s addons disable viewer
 
 _Note:_ The above command will only disable viewer addon. If other addons were enabled while enabling the viewer addon, they will not be disabled.
 
+## Backup and restore
+
+The viewer addon is mostly stateless. Backup/restore captures the Kubernetes objects that commonly change at runtime:
+
+- `ConfigMap/config-json` in namespace `viewer` (viewer configuration)
+- `Service/viewerwebapp` in namespace `viewer` (includes NodePort)
+- Ingress resources in namespace `viewer` depending on which ingress controller is installed:
+	- nginx: `Ingress/viewer-nginx-cluster-local`
+	- traefik: `Ingress/viewer-traefik-cluster-local` (and optional `Middleware/oauth2-proxy-auth` if Traefik CRDs are installed)
+
+```console
+k2s addons backup viewer
+```
+
+```console
+k2s addons restore viewer -f <path-to-backup-zip>
+```
+
 ## License Info
 
 By activating this viewer addon you will download at runtime some OHIF components. Even if all is open source, please consider the following license terms for OHIF components: [OHIF License Terms](https://github.com/OHIF/Viewers/blob/master/LICENSE) 
