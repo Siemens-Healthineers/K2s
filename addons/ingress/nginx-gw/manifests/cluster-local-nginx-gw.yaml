@@ -38,3 +38,22 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
+  - name: registry-http
+    hostname: k2s.registry.local
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: registry-https
+    hostname: k2s.registry.local
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: k2s-registry-local-tls
+    allowedRoutes:
+      namespaces:
+        from: All

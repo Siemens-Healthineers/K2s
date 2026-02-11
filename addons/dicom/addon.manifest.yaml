@@ -25,6 +25,7 @@ spec:
                   validationSet:
                     - none
                     - nginx
+                    - nginx-gw
                     - traefik
               - name: storage
                 default: none
@@ -42,6 +43,8 @@ spec:
                 comment: Enable dicom in k2s
               - cmd: k2s addons enable dicom --ingress nginx
                 comment: Enable dicom in k2s with nginx ingres
+              - cmd: k2s addons enable dicom --ingress nginx-gw
+                comment: Enable dicom in k2s with nginx-gw ingres
               - cmd: k2s addons enable dicom --ingress traefik
                 comment: Enable dicom in k2s with traefik ingres
               - cmd: k2s addons enable dicom --storage smb
