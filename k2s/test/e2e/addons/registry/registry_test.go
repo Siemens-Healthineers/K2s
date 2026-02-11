@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package addons
@@ -239,6 +239,61 @@ var _ = Describe("'registry' addon", Ordered, func() {
 
 			It("traefik addon is disabled", func(ctx context.Context) {
 				k2s.VerifyAddonIsDisabled("ingress", "traefik")
+			})
+		})
+	})
+
+	When("NGINX Gateway Fabric Ingress", func() {
+		Context("addon is enabled {nginx-gw}", func() {
+			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o", "--ingress", "nginx-gw")
+			})
+
+			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "registry")
+
+				Expect(output).To(ContainSubstring("already enabled"))
+			})
+
+			It("registry addon with nginx-gw ingress is in enabled state", func() {
+				k2s.VerifyAddonIsEnabled("registry")
+				k2s.VerifyAddonIsEnabled("ingress", "nginx-gw")
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+
+			It("local container registry is configured", func(ctx context.Context) {
+				output := suite.K2sCli().MustExec(ctx, "image", "registry", "ls")
+				Expect(output).Should(ContainSubstring("k2s.registry.local"), "Local Registry was not enabled")
+			})
+
+			It("registry is reachable", func(ctx context.Context) {
+				url := "https://k2s.registry.local"
+				expectHttpGetStatusOk(ctx, url)
+			})
+		})
+
+		Context("addon is disabled {nginx-gw}", func() {
+			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+			})
+
+			It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", "registry")
+
+				Expect(output).To(ContainSubstring("already disabled"))
+			})
+
+			It("local container registry is not configured", func(ctx context.Context) {
+				output := suite.K2sCli().MustExec(ctx, "image", "registry", "ls")
+				Expect(output).ShouldNot(ContainSubstring("k2s.registry.local"), "Local Registry was not disabled")
+			})
+
+			It("nginx-gw addon is disabled", func(ctx context.Context) {
+				k2s.VerifyAddonIsDisabled("ingress", "nginx-gw")
 			})
 		})
 	})

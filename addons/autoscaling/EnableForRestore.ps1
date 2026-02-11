@@ -18,12 +18,9 @@ powershell <installation folder>\addons\autoscaling\EnableForRestore.ps1
 #>
 
 Param (
-<<<<<<< HEAD
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing backup.json (passed by CLI, unused by this addon)')]
     [string] $BackupDir,
 
-=======
->>>>>>> origin/main
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
