@@ -371,6 +371,14 @@ try {
 			throw $errMsg
 		}
 
+	if (-not $OmitKeycloak -and -not $OmitOAuth2Proxy) {
+			if (-not (Test-NginxGwServerAuthorizationExists)) {
+				Write-Log 'Applying Linkerd ServerAuthorization policies for nginx-gw ingress' -Console
+				&"$PSScriptRoot\Update.ps1"
+			} else {
+				Write-Log 'Linkerd ServerAuthorization policies for nginx-gw already exist, skipping update' -Console
+			}
+		}
 		if (-not $OmitKeycloak) {
 			# update basic security pods: redis, oauth2-proxy, keycloak to be part of the service mesh
 			Write-Log "Updating redis to be part of service mesh" -Console

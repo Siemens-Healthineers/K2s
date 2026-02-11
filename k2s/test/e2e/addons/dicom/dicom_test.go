@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -191,6 +191,54 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 				}
 			})
+
+			It("is in enabled state and pods are in running state", func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
+				k2s.VerifyAddonIsEnabled("dicom")
+
+				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
+
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
+			})
+
+			It("is reachable through k2s.cluster.local for the ui app", func(ctx context.Context) {
+				url := "https://k2s.cluster.local/dicom/ui/app"
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+			})
+
+			It("is reachable through k2s.cluster.local for DICOM Web", func(ctx context.Context) {
+				url := "https://k2s.cluster.local/dicom/studies"
+				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+			})
+
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
+				expectAddonToBeAlreadyEnabled(ctx)
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+		})
+
+		When("nginx-gw as ingress controller", func() {
+			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
+			})
+
+			AfterAll(func(ctx context.Context) {
+			if !testFailed {
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+				k2s.VerifyAddonIsDisabled("dicom")
+
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
+
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw-controller", "nginx-gw")
+			}
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
 				suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
