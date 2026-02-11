@@ -111,117 +111,6 @@ function Get-ImagesFromCluster {
     }
 }
 
-<#
-.SYNOPSIS
-Scans YAML files in a directory recursively for container images.
-
-.DESCRIPTION
-Extracts container images from YAML files, including both 'image:' and 'repository:'/'tag:' patterns.
-Validates that all images have tags.
-
-.PARAMETER DirectoryPath
-The directory path to scan recursively.
-
-.PARAMETER CategoryName
-The name to use for categorizing these images (e.g., "common").
-
-.OUTPUTS
-Hashtable with image list and mapping.
-#>
-function Get-ImagesFromDirectory {
-    param(
-        [string]$DirectoryPath,
-        [string]$CategoryName
-    )
-
-    $foundImages = New-Object System.Collections.Generic.List[System.String]
-    
-    if (-not (Test-Path $DirectoryPath)) {
-        Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Directory not found: $DirectoryPath"
-        return @{
-            Images = @()
-            Mapping = @{}
-        }
-    }
-
-    Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Scanning $CategoryName directory: $DirectoryPath"
-    
-    $files = Get-ChildItem -Path $DirectoryPath -Recurse -Filter "*.yaml" -File
-    
-    foreach ($file in $files) {
-        $imageLines = @()
-        $content = Get-Content -Path $file.FullName
-        
-        if ($file.Name -match 'chart\.yaml$') {
-            continue
-        }
-        
-        if ($file.Name -match 'values\.yaml$') {
-            foreach ($line in $content) {
-                if ($line -match 'image:' -or $line -match 'repository:' -or $line -match 'tag:') {
-                    $imageLines += $line
-                }
-            }
-        } else {
-            $imageLines = Get-Content $file.FullName | Select-String 'image:' | Select-Object -ExpandProperty Line
-        }
-
-        foreach ($imageLine in $imageLines) {
-            $unTrimmedFullImageName = ''
-            if ($imageLine -match 'image:') {
-                $unTrimmedFullImageName = (($imageLine -split 'image: ')[1] -split '#')[0]
-            } elseif ($imageLine -match 'repository:') {
-                $repo = ($imageLine -replace '.*repository:\s*', '') -split '#' | Select-Object -First 1
-                $repo = $repo.Trim("`"'").Trim()
-                $tagLine = $content | Where-Object { $_ -match 'tag:' } | Select-Object -First 1
-                $tag = ''
-                if ($tagLine) {
-                    $tag = ($tagLine -replace '.*tag:\s*', '') -split '#' | Select-Object -First 1
-                    $tag = $tag.Trim("`"'").Trim()
-                }
-                if ($repo -ne '') {
-                    if ($tag -ne '') {
-                        $unTrimmedFullImageName = "$($repo):$($tag)"
-                    } else {
-                        # If tag is missing, default to 'latest'
-                        $unTrimmedFullImageName = "$($repo):latest"
-                    }
-                }
-            }
-            
-            $fullImageName = $unTrimmedFullImageName.Trim().Trim("`"'")
-
-            if ($fullImageName -eq '') {
-                continue
-            }
-
-            # Validate image has a tag
-            if ($fullImageName.IndexOf(':') -eq -1) {
-                Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Skipping image without tag: $fullImageName (file: $($file.FullName))"
-                continue
-            }
-
-            # Additional validation: ensure there's actually a tag after the colon
-            $parts = $fullImageName -split ':'
-            if ($parts.Count -lt 2 -or [string]::IsNullOrWhiteSpace($parts[1])) {
-                Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] WARNING: Skipping image with empty tag: $fullImageName (file: $($file.FullName))"
-                continue
-            }
-
-            if (-not $foundImages.Contains($fullImageName)) {
-                $foundImages.Add($fullImageName)
-            }
-        }
-    }
-
-    Write-Host "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found $($foundImages.Count) unique images in $CategoryName directory"
-    
-    return @{
-        Images = $foundImages.ToArray()
-        Mapping = @{ $CategoryName = $foundImages.ToArray() }
-    }
-}
-
 $addonManifests = @()
 
 Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Starting Scrapping of Container Images for all addons"
@@ -263,32 +152,9 @@ foreach ($image in $staticImages) {
 }
 Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -----------------------------------------------------------------------------"
 
-# Scan addons/common folder for shared images
-$commonFolderPath = Join-Path -Path "$global:KubernetesPath\addons" -ChildPath "common"
-$commonImagesResult = Get-ImagesFromDirectory -DirectoryPath $commonFolderPath -CategoryName "common"
-$commonImages = $commonImagesResult.Images
-
-if ($commonImages.Count -gt 0) {
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Common folder images found:"
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Images: $([string]::Join(', ', $commonImages))"
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -----------------------------------------------------------------------------"
-    foreach ($image in $commonImages) {
-        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -> Image: $image"
-    }
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -----------------------------------------------------------------------------"
-}
-
 $images = New-Object System.Collections.Generic.List[System.Object]
 $addonImages = New-Object System.Collections.Generic.List[System.Object]
 $addonNameImagesMapping = @{}
-
-# Add common folder images to the mapping
-if ($commonImages.Count -gt 0) {
-    $addonNameImagesMapping['common'] = $commonImages
-    foreach ($commonImage in $commonImages) {
-        $images.Add($commonImage)
-    }
-}
 
 foreach ($manifest in $addonManifests) {
     foreach ($implementation in $manifest.spec.implementations) {
@@ -541,7 +407,8 @@ foreach ($image in $finalImages) {
         }
 
         if ($referrerName -eq 'core') {
-            throw "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Unable to find addon referring image: $image !!!"
+            Write-Warning "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Unable to find addon referring image: $image - assigning to 'unknown'"
+            $referrerName = 'unknown'
         }
     }
 
