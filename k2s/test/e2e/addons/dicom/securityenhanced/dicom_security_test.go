@@ -54,6 +54,9 @@ var _ = AfterSuite(func(ctx context.Context) {
 		if k2s.IsAddonEnabled("ingress", "nginx") {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 		}
+		if k2s.IsAddonEnabled("ingress", "nginx-gw") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+		}
 	}
 	suite.TearDown(ctx)
 	GinkgoWriter.Println(">>> TEST: AfterSuite complete")
@@ -139,6 +142,76 @@ var _ = Describe("'dicom and security enhanced' addons", Ordered, func() {
 			url := "https://k2s.cluster.local/dicom/ui/app"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 			GinkgoWriter.Println(">>> TEST: DICOM server connectivity verified")
+		})
+		It("Deactivates all the addons", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Deactivating all addons")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+			GinkgoWriter.Println(">>> TEST: All addons deactivated")
+		})
+	})
+
+	Describe("DICOM addon with nginx-gw and security enhanced", func() {
+		It("activates the security addon in enhanced mode", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Enabling security addon in enhanced mode")
+			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
+			suite.K2sCli().MustExec(ctx, args...)
+
+			time.Sleep(30 * time.Second)
+			GinkgoWriter.Println(">>> TEST: Security addon enabled")
+		})
+
+		It("disables the nginx addon enabled by security", func(ctx context.Context) {
+			// nginx is enabled by security addon, so we need to disable it first to avoid port conflicts.
+			GinkgoWriter.Println(">>> TEST: Disabling default ingress-nginx addon")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			GinkgoWriter.Println(">>> TEST: Disabled default ingress-nginx addon")
+		})
+
+		It("activates the ingress-nginx-gw addon", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Enabling ingress-nginx-gw addon")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "controller", "nginx-gw")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "nginx-gw")
+			GinkgoWriter.Println(">>> TEST: Ingress-nginx-gw verified with linkerd injection")
+		})
+
+		It("activates the dicom addon", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Enabling DICOM addon")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
+
+			suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+			suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "dicom")
+			GinkgoWriter.Println(">>> TEST: DICOM addon enabled and verified with linkerd injection")
+		})
+
+		It("tests connectivity to the dicom server using bearer token via nginx-gw", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Testing connectivity to DICOM server via nginx-gw")
+			token, err := addons.GetKeycloakToken()
+			Expect(err).NotTo(HaveOccurred(), "Failed to retrieve keycloak token")
+			headers := map[string]string{
+				"Authorization": fmt.Sprintf("Bearer %s", token),
+			}
+			url := "https://k2s.cluster.local/dicom/ui/app"
+			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
+			GinkgoWriter.Println(">>> TEST: DICOM server connectivity via nginx-gw verified")
+		})
+
+		It("tests connectivity to the dicom-web API using bearer token via nginx-gw", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Testing connectivity to DICOM-Web API via nginx-gw")
+			token, err := addons.GetKeycloakToken()
+			Expect(err).NotTo(HaveOccurred(), "Failed to retrieve keycloak token")
+			headers := map[string]string{
+				"Authorization": fmt.Sprintf("Bearer %s", token),
+			}
+			url := "https://k2s.cluster.local/dicom/studies"
+			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
+			GinkgoWriter.Println(">>> TEST: DICOM-Web API connectivity via nginx-gw verified")
 		})
 	})
 })
