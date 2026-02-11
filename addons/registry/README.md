@@ -19,13 +19,18 @@ k2s addons enable registry
 
 ### Integration with ingress nginx and ingress traefik addons
 
-The registry addon can be integrated with either the ingress nginx addon or the ingress traefik addon so that it can be exposed outside the cluster.
+The registry addon can be integrated with the ingress nginx, ingress nginx-gw, or ingress traefik addon so that it can be exposed outside the cluster.
 
 By default `k2s addons enable registry` enables ingress nginx addon in a first step.
 
 The registry addon can also be enabled along with ingress traefik addon using the following command:
 ```
 k2s addons enable registry --ingress traefik
+```
+
+Or with nginx-gw addon using the following command:
+```
+k2s addons enable registry --ingress nginx-gw
 ```
 _Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
 

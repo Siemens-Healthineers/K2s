@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# SnippetsFilter for OAuth2 auth_request pattern
+# Must be in same namespace as HTTPRoute (dicom) - ExtensionRef doesn't support cross-namespace
+apiVersion: gateway.nginx.org/v1alpha1
+kind: SnippetsFilter
+metadata:
+  name: oauth2-auth-filter
+  namespace: dicom
+spec:
+  snippets:
+    - context: http.server
+      value: |
+        large_client_header_buffers 4 16k;
+        proxy_buffer_size 128k;
+        proxy_buffers 8 128k;
+        proxy_busy_buffers_size 256k;
+
+        location = /_auth {
+          internal;
+          proxy_pass http://oauth2-proxy.security.svc.cluster.local:4180/oauth2/auth;
+          proxy_pass_request_body off;
+          proxy_set_header Content-Length "";
+          proxy_set_header X-Original-URI $request_uri;
+        }
+        
+        location @oauth2_redirect {
+          return 302 https://$host/oauth2/start?rd=https://$host$request_uri;
+        }
+
+    - context: http.server.location
+      value: |
+        auth_request /_auth;
+        auth_request_set $oauth_user $upstream_http_x_auth_request_user;
+        auth_request_set $oauth_email $upstream_http_x_auth_request_email;
+        proxy_set_header X-User $oauth_user;
+        proxy_set_header X-Email $oauth_email;
+        error_page 401 = @oauth2_redirect;
