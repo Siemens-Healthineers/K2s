@@ -25,6 +25,21 @@ by running the following command:
 k2s addons enable ingress nginx
 ```
 
+## Backup and restore
+
+Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+```cmd
+k2s addons backup ingress nginx
+```
+
+Restore from a backup zip:
+```cmd
+k2s addons restore ingress nginx -f C:\Temp\Addons\ingress_nginx_backup_YYYYMMDD_HHMMSS.zip
+```
+
+The backup includes:
+- The `ingress-nginx-controller` ConfigMap from namespace `ingress-nginx`.
+- The optional Ingress `nginx-cluster-local` from namespace `ingress-nginx` (if present).
 ## Creating ingress routes
 
 The Ingress NGINX Controller supports standard Kubernetes networking
