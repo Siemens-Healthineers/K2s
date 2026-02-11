@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+SPDX-FileCopyrightText: © 2026 Siemens Healthcare GmbH
 
 SPDX-License-Identifier: MIT
 -->
@@ -37,7 +37,7 @@ k2s addons enable dicom --storage smb --storagedir /mnt/k8s-smb-share
 
 ### Integration with the ingress addon
 
-The dicom addon can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
+The dicom addon can be integrated with the ingress nginx, ingress nginx-gw, or ingress traefik addon so that it can be exposed outside the cluster.
 
 For example, the dicom addon can be enabled along with traefik addon using the following command:
 
@@ -45,7 +45,13 @@ For example, the dicom addon can be enabled along with traefik addon using the f
 k2s addons enable dicom --ingress traefik
 ```
 
-_Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
+Or with nginx-gw (NGINX Gateway Fabric) addon:
+
+```
+k2s addons enable dicom --ingress nginx-gw
+```
+
+_Note:_ The above commands shall enable the respective ingress addon if it is not enabled.
 
 The ingress addon can also be enabled before or after enabling the dicom addon, the effect would be the same !
 
@@ -72,7 +78,7 @@ In this case, the dicom UI can be accessed at the following URL: <http://localho
 
 ### Access using ingress
 
-To access the dicom app UI via ingress, the ingress nginx or the ingress traefik addon has to enabled.
+To access the dicom app UI via ingress, the ingress nginx, ingress nginx-gw, or ingress traefik addon has to be enabled.
 Once the addons are enabled, then the dicom UI can be accessed at the following URL: <https://k2s.cluster.local/dicom/ui/app/>
 
 DICOM Web APIS are available under the URL: <https://k2s.cluster.local/dicom/dicomweb>
