@@ -11,13 +11,13 @@ Import-Module $addonsModule, $securityModule
 
 Remove-IngressForSecurity
 if (Test-NginxIngressControllerAvailability) {
-    Enable-IngressForSecurity -Ingress:'nginx'
+    Enable-IngressForSecurity -Ingress 'nginx'
 }
 elseif (Test-TraefikIngressControllerAvailability) {
-    Enable-IngressForSecurity -Ingress:'traefik'
+    Enable-IngressForSecurity -Ingress 'traefik'
 }
 elseif (Test-NginxGatewayAvailability) {
-    Enable-IngressForSecurity -Ingress:'nginx-gw'
+    Enable-IngressForSecurity -Ingress 'nginx-gw'
 }
 
 Write-Log 'Updating security addon finished.' -Console
