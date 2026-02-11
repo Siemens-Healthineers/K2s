@@ -99,7 +99,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: oauth2-proxy
+      k8s-app: oauth2-proxy
   port: 4180
 ---
 apiVersion: policy.linkerd.io/v1beta1

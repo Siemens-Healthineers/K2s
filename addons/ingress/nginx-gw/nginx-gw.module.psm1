@@ -107,4 +107,74 @@ function New-TlsCertificateWithCertManager {
     }
 }
 
-Export-ModuleMember -Function Get-ExternalDnsConfigDir, Get-NginxGatewayYamlDir, Get-NginxGatewayCrdsDir, Test-SecurityAddonAvailability, New-TlsCertificateWithCertManager
+<#
+.SYNOPSIS
+Enables SnippetsFilter support in NGINX Gateway Fabric controller.
+.DESCRIPTION
+Patches the nginx-gw-controller deployment to add --snippets-filters flag
+and adds necessary RBAC permissions to the ClusterRole. This is required
+for OAuth2 authentication with SnippetsFilter resources.
+.EXAMPLE
+Enable-NginxGatewaySnippetsFilter
+#>
+function Enable-NginxGatewaySnippetsFilter {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Enabling SnippetsFilter support for OAuth2 authentication' -Console
+
+    # Check if deployment exists
+    $deployment = kubectl get deployment nginx-gw-controller -n nginx-gw -o json 2>$null | ConvertFrom-Json
+    if (-not $deployment) {
+        Write-Log '  NGINX Gateway controller deployment not found, skipping SnippetsFilter setup' -Console
+        return
+    }
+
+    # Check if --snippets-filters flag already exists
+    $args = $deployment.spec.template.spec.containers[0].args
+    if ($args -contains '--snippets-filters') {
+        Write-Log '  SnippetsFilter flag already enabled' -Console
+    } else {
+        Write-Log '  Adding --snippets-filters flag to controller' -Console
+        
+        # Create temporary patch file to avoid PowerShell JSON escaping issues
+        $deploymentPatchFile = [System.IO.Path]::GetTempFileName()
+        $deploymentPatch = '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--snippets-filters"}]'
+        Set-Content -Path $deploymentPatchFile -Value $deploymentPatch -NoNewline
+        
+        kubectl patch deployment nginx-gw-controller -n nginx-gw --type=json --patch-file $deploymentPatchFile 2>&1 | Write-Log
+        Remove-Item -Path $deploymentPatchFile -Force
+    }
+
+    # Check if ClusterRole has snippetsfilters permissions
+    $clusterRole = kubectl get clusterrole nginx-gw -o json 2>$null | ConvertFrom-Json
+    $hasSnippetsFilterPermission = $false
+
+    foreach ($rule in $clusterRole.rules) {
+        if ($rule.apiGroups -contains 'gateway.nginx.org' -and $rule.resources -contains 'snippetsfilters') {
+            $hasSnippetsFilterPermission = $true
+            break
+        }
+    }
+
+    if ($hasSnippetsFilterPermission) {
+        Write-Log '  SnippetsFilter RBAC permissions already configured' -Console
+    } else {
+        Write-Log '  Adding SnippetsFilter RBAC permissions' -Console
+        
+        # Create temporary patch file to avoid PowerShell JSON escaping issues
+        $clusterRolePatchFile = [System.IO.Path]::GetTempFileName()
+        $clusterRolePatch = '[{"op":"add","path":"/rules/-","value":{"apiGroups":["gateway.nginx.org"],"resources":["snippetsfilters"],"verbs":["list","watch"]}}]'
+        Set-Content -Path $clusterRolePatchFile -Value $clusterRolePatch -NoNewline
+        
+        kubectl patch clusterrole nginx-gw --type=json --patch-file $clusterRolePatchFile 2>&1 | Write-Log
+        Remove-Item -Path $clusterRolePatchFile -Force
+        
+        Write-Log '  Restarting controller pod to apply changes' -Console
+        kubectl delete pod -l app.kubernetes.io/name=nginx-gateway -n nginx-gw 2>&1 | Write-Log
+    }
+
+    Write-Log 'SnippetsFilter support enabled for NGINX Gateway' -Console
+}
+
+Export-ModuleMember -Function Get-ExternalDnsConfigDir, Get-NginxGatewayYamlDir, Get-NginxGatewayCrdsDir, Test-SecurityAddonAvailability, New-TlsCertificateWithCertManager, Enable-NginxGatewaySnippetsFilter
