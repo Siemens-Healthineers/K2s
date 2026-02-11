@@ -186,8 +186,8 @@ function Get-PersistentVolumes {
         }
         
         $pvDetails = ConvertFrom-PVList -PVListJson $pvListJson
-
-        Write-Log "[PVBackup] Found $($pvDetails.Count) PersistentVolume(s) in cluster (includes system, user workload, and addon volumes)" -Console
+        
+        Write-Log "[PVBackup] Found $($pvDetails.Count) PersistentVolume(s)" -Console
         return $pvDetails
     }
     catch {
@@ -255,7 +255,7 @@ function Export-PersistentVolume {
     }
     
     Write-Log "[PVBackup] Starting export of PersistentVolume '$PVName'..." -Console
-
+    
     try {
         # Step 1: Query PV details from cluster
         Write-Log "[PVBackup] Querying PV details from cluster..." -Console
@@ -289,7 +289,7 @@ function Export-PersistentVolume {
         Write-Log "[PVBackup] PV Path: $volumePath" -Console
         Write-Log "[PVBackup] Capacity: $($pv.spec.capacity.storage)" -Console
         Write-Log "[PVBackup] Status: $($pv.status.phase)" -Console
-
+        
         if ($pv.spec.claimRef) {
             Write-Log "[PVBackup] Bound to: $($pv.spec.claimRef.namespace)/$($pv.spec.claimRef.name)" -Console
         }
@@ -310,8 +310,8 @@ function Export-PersistentVolume {
         $ipAddress = Get-ConfiguredIPControlPlane
         $sshUser = 'remote'  # Standard K2s VM user with passwordless sudo
         
-        Write-Log "[PVBackup] Connecting to VM at $ipAddress"
-
+        Write-Log "[PVBackup] Connecting to kubemaster VM at $ipAddress" -Console
+        
         # Step 2: Check if volume path exists on VM
         Write-Log "[PVBackup] Checking volume path on VM..." -Console
         $checkCmd = "sudo test -d '$volumePath' && echo 'exists' || echo 'missing'"
@@ -323,14 +323,14 @@ function Export-PersistentVolume {
         }
         
         Write-Log "[PVBackup] Volume path found on VM" -Console
-
+        
         # Step 3: Get size of volume for user information
         Write-Log "[PVBackup] Calculating volume size..." -Console
         $sizeCmd = "sudo du -sh '$volumePath' | cut -f1"
         $sizeResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 5 -CmdToExecute $sizeCmd -NoLog
         $volumeSize = $sizeResult.Output
         Write-Log "[PVBackup] Volume size: $volumeSize" -Console
-
+        
         # Step 4: Clean up any previous temporary files
         Write-Log "[PVBackup] Cleaning up any previous temporary files..." -Console
         $cleanupCmd = "sudo rm -rf '$tempCopyPath' '$tempArchivePath'"
@@ -342,24 +342,24 @@ function Export-PersistentVolume {
         Invoke-CmdOnControlPlaneViaSSHKey -Timeout 60 -CmdToExecute $copyCmd -NoLog | Out-Null
         
         Write-Log "[PVBackup] Temporary copy created successfully" -Console
-
+        
         # Step 6: Compress the directory into tar.gz on VM
         Write-Log "[PVBackup] Compressing volume data (this may take a while)..." -Console
         $compressCmd = "cd '$tempCopyPath' && tar czf '$tempArchivePath' ."
         Invoke-CmdOnControlPlaneViaSSHKey -Timeout 180 -CmdToExecute $compressCmd -NoLog | Out-Null
         
         Write-Log "[PVBackup] Compression completed" -Console
-
+        
         # Step 7: Get compressed archive size
         $archiveSizeCmd = "ls -lh '$tempArchivePath' | awk '{print `$5}'"
         $archiveSizeResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $archiveSizeCmd -NoLog
         $archiveSize = $archiveSizeResult.Output
         Write-Log "[PVBackup] Compressed archive size: $archiveSize" -Console
-
+        
         # Step 8: Transfer compressed archive to Windows host via SCP
         Write-Log "[PVBackup] Transferring archive to Windows host..." -Console
         Write-Log "[PVBackup] Target: $finalBackupPath" -Console
-
+        
         # Use scp.exe directly (following K2s vm.module.psm1 pattern)
         $scpArgs = @(
             '-o', 'StrictHostKeyChecking=no',
@@ -375,7 +375,7 @@ function Export-PersistentVolume {
         }
         
         Write-Log "[PVBackup] Archive transferred successfully" -Console
-
+        
         # Step 9: Verify tar.gz file exists on Windows
         if (-not (Test-Path $finalBackupPath)) {
             throw "Transferred file not found at: $finalBackupPath"
@@ -383,14 +383,14 @@ function Export-PersistentVolume {
         
         $localFileSize = (Get-Item $finalBackupPath).Length
         Write-Log "[PVBackup] Backup archive size: $([Math]::Round($localFileSize / 1MB, 2)) MB" -Console
-
+        
         # Step 10: Clean up temporary files on VM
         Write-Log "[PVBackup] Cleaning up temporary files on VM..." -Console
         $vmCleanupCmd = "sudo rm -rf '$tempCopyPath' '$tempArchivePath'"
         Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $vmCleanupCmd -NoLog | Out-Null
         
         Write-Log "[PVBackup] VM cleanup completed" -Console
-
+        
         # Step 11: Create backup metadata file
         $metadataPath = Join-Path $ExportPath "$BackupName-metadata.json"
         $metadata = @{
@@ -412,24 +412,24 @@ function Export-PersistentVolume {
         
         $metadata | ConvertTo-Json -Depth 3 | Set-Content -Path $metadataPath -Encoding UTF8
         Write-Log "[PVBackup] Backup metadata saved: $metadataPath" -Console
-
+        
         Write-Log "[PVBackup] ========================================" -Console
         Write-Log "[PVBackup] PersistentVolume backup completed successfully!" -Console
         Write-Log "[PVBackup] PV Name: $PVName" -Console
         Write-Log "[PVBackup] Backup location: $finalBackupPath" -Console
         Write-Log "[PVBackup] Metadata: $metadataPath" -Console
         Write-Log "[PVBackup] ========================================" -Console
-
+        
         return $true
     }
     catch {
         Write-Log "[PVBackup] Error during PV export: $_" -Console -Error
         Write-Log "[PVBackup] Stack trace: $($_.ScriptStackTrace)" -Console
-
+        
         # Attempt cleanup on error
         try {
             Write-Log "[PVBackup] Attempting cleanup after error..." -Console
-
+            
             # Clean up VM
             $vmCleanupCmd = "sudo rm -rf '$tempCopyPath' '$tempArchivePath'"
             Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $vmCleanupCmd -NoLog -ErrorAction SilentlyContinue | Out-Null
@@ -1007,9 +1007,9 @@ function Backup-AllPersistentVolumes {
         [Parameter(Mandatory = $false)]
         [string[]]$ExcludeNames
     )
-
+    
     Write-Log "[PVBackup] Starting backup of all PersistentVolumes..." -Console
-
+    
     $pvList = Get-PersistentVolumes
     
     if ($pvList.Count -eq 0) {
@@ -1026,17 +1026,9 @@ function Backup-AllPersistentVolumes {
         # Exclude filter
         (-not $ExcludeNames -or $ExcludeNames -notcontains $_.Name)
     }
-    if ($ExcludeNames -and $ExcludeNames.Count -gt 0) {
-        Write-Log "[PVBackup] Applying addon PV exclusion filter to cluster PVs..."
-        $excludedPVs = $pvList | Where-Object { $ExcludeNames -contains $_.Name }
-        if ($excludedPVs.Count -gt 0) {
-            Write-Log "[PVBackup] Excluding addon-managed PV(s): $($excludedPVs.Name -join ', ')" -Console
-        } else {
-            Write-Log "[PVBackup] No addon PVs found in cluster to exclude"
-        }
-    }
+    
     Write-Log "[PVBackup] Found $($pvsToBackup.Count) PV(s) to backup" -Console
-
+    
     $results = @{}
     $successCount = 0
     $failCount = 0
@@ -1066,7 +1058,7 @@ function Backup-AllPersistentVolumes {
     Write-Log "[PVBackup] All PV backups completed" -Console
     Write-Log "[PVBackup] Success: $successCount | Failed: $failCount" -Console
     Write-Log "[PVBackup] ========================================" -Console
-
+    
     return $results
 }
 
