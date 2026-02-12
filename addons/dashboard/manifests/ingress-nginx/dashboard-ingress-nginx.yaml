@@ -33,7 +33,7 @@ spec:
       http:
         paths:
           - path: /dashboard/(.*)
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: kubernetes-dashboard-kong-proxy
