@@ -397,9 +397,18 @@ function GenerateBomContainers() {
             $registryImageFull = "${registryImage}:${version}"
             Write-Output "  -> Tagging image for local registry: $registryImageFull"
             &"$global:KubernetesPath\k2s.exe" image tag -n $imagefullname -t $registryImageFull
-            
+            if ($LASTEXITCODE -ne 0) {
+                Write-Output "  -> ERROR: Failed to tag image '$imagefullname' as '$registryImageFull' (exit code: $LASTEXITCODE). Skipping."
+                continue
+            }
+
             Write-Output "  -> Pushing image to local registry: $registryImageFull"
             &"$global:KubernetesPath\k2s.exe" image push -n $registryImageFull
+            if ($LASTEXITCODE -ne 0) {
+                Write-Output "  -> ERROR: Failed to push image '$registryImageFull' to local registry (exit code: $LASTEXITCODE). Skipping."
+                &"$global:KubernetesPath\k2s.exe" image rm $registryImageFull -ErrorAction SilentlyContinue
+                continue
+            }
 
             Write-Output "  -> Creating bom for windows-exporter from registry: $imageName"
             
