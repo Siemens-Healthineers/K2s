@@ -14,6 +14,12 @@ function New-ControlPlaneNodeOnNewVM {
         # Main parameters
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of master VM (Linux)')]
         [long] $MasterVMMemory = 8GB,
+        [parameter(Mandatory = $false, HelpMessage = 'Minimum Memory for Dynamic Memory (Linux)')]
+        [long] $MasterVMMemoryMin = 0,
+        [parameter(Mandatory = $false, HelpMessage = 'Maximum Memory for Dynamic Memory (Linux)')]
+        [long] $MasterVMMemoryMax = 0,
+        [parameter(Mandatory = $false, HelpMessage = 'Enable Hyper-V Dynamic Memory')]
+        [switch] $EnableDynamicMemory = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
         [long] $MasterVMProcessorCount = 6,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
@@ -60,6 +66,9 @@ function New-ControlPlaneNodeOnNewVM {
         DnsServers                        = $DnsServers
         VmName                            = 'KubeMaster'
         VMMemoryStartupBytes              = $MasterVMMemory
+        VMMemoryMinBytes                  = $MasterVMMemoryMin
+        VMMemoryMaxBytes                  = $MasterVMMemoryMax
+        EnableDynamicMemory               = $EnableDynamicMemory
         VMProcessorCount                  = $MasterVMProcessorCount
         VMDiskSize                        = $MasterDiskSize
         Proxy                             = $Proxy
