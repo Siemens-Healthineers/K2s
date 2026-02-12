@@ -80,6 +80,9 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
 
 $controlPlaneNodeParams = @{
     MasterVMMemory = $MasterVMMemory
+    MasterVMMemoryMin = $MasterVMMemoryMin
+    MasterVMMemoryMax = $MasterVMMemoryMax
+    EnableDynamicMemory = $EnableDynamicMemory
     MasterVMProcessorCount = $MasterVMProcessorCount
     MasterDiskSize = $MasterDiskSize
     Proxy = $Proxy

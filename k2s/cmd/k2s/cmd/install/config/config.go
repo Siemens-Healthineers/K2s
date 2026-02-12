@@ -69,9 +69,12 @@ type NodeConfig struct {
 }
 
 type ResourceConfig struct {
-	Cpu    string `mapstructure:"cpu"`
-	Memory string `mapstructure:"memory"`
-	Disk   string `mapstructure:"disk"`
+	Cpu          string `mapstructure:"cpu"`
+	Memory       string `mapstructure:"memory"`
+	MemoryMin    string `mapstructure:"memoryMin"`
+	MemoryMax    string `mapstructure:"memoryMax"`
+	DynamicMemory bool  `mapstructure:"dynamicMemory"`
+	Disk         string `mapstructure:"disk"`
 }
 
 type EnvConfig struct {
@@ -103,6 +106,15 @@ const (
 
 	ControlPlaneMemoryFlagName  = "master-memory"
 	ControlPlaneMemoryFlagUsage = "Amount of RAM to allocate to master VM (minimum 2GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+
+	ControlPlaneMemoryMinFlagName  = "master-memory-min"
+	ControlPlaneMemoryMinFlagUsage = "Minimum amount of RAM for dynamic memory (format: <number>[<unit>], where unit = KB, MB or GB)"
+
+	ControlPlaneMemoryMaxFlagName  = "master-memory-max"
+	ControlPlaneMemoryMaxFlagUsage = "Maximum amount of RAM for dynamic memory (format: <number>[<unit>], where unit = KB, MB or GB)"
+
+	ControlPlaneDynamicMemoryFlagName  = "master-dynamic-memory"
+	ControlPlaneDynamicMemoryFlagUsage = "Enable Hyper-V dynamic memory management for master VM"
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
 	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
@@ -311,6 +323,12 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.Disk = vConfig.GetString(flagName)
 	case ControlPlaneMemoryFlagName:
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.Memory = vConfig.GetString(flagName)
+	case ControlPlaneMemoryMinFlagName:
+		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.MemoryMin = vConfig.GetString(flagName)
+	case ControlPlaneMemoryMaxFlagName:
+		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.MemoryMax = vConfig.GetString(flagName)
+	case ControlPlaneDynamicMemoryFlagName:
+		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.DynamicMemory = vConfig.GetBool(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
 	case NoProxyFlagName:
