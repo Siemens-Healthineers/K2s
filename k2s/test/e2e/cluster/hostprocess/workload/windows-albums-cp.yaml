@@ -20,7 +20,7 @@ spec:
       effect: 'NoSchedule'
   containers:
     - name: pause
-      image: shsk2s.azurecr.io/pause-win:v1.5.0
+      image: shsk2s.azurecr.io/pause-win:v1.7.0
       imagePullPolicy: IfNotPresent
       # No custom command required: pause.exe in image keeps container alive.
   restartPolicy: Always
@@ -56,7 +56,7 @@ spec:
       hostNetwork: true
       containers:
         - name: cplauncher
-          image: shsk2s.azurecr.io/pause-win:v1.5.0
+          image: shsk2s.azurecr.io/pause-win:v1.7.0
           imagePullPolicy: IfNotPresent
           env:
             - name: CPLAUNCHER_BASE
