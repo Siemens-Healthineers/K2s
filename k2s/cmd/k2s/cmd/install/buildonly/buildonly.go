@@ -49,6 +49,9 @@ func bindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().String(ic.ControlPlaneCPUsFlagName, "", ic.ControlPlaneCPUsFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
+	cmd.Flags().String(ic.ControlPlaneMemoryMinFlagName, "", ic.ControlPlaneMemoryMinFlagUsage)
+	cmd.Flags().String(ic.ControlPlaneMemoryMaxFlagName, "", ic.ControlPlaneMemoryMaxFlagUsage)
+	cmd.Flags().Bool(ic.ControlPlaneDynamicMemoryFlagName, false, ic.ControlPlaneDynamicMemoryFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
 	cmd.Flags().StringSlice(ic.NoProxyFlagName, []string{}, ic.NoProxyFlagUsage)
@@ -79,6 +82,16 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		controlPlaneNode.Resources.Cpu,
 		controlPlaneNode.Resources.Memory,
 		controlPlaneNode.Resources.Disk)
+
+	if controlPlaneNode.Resources.DynamicMemory {
+		cmd += " -EnableDynamicMemory"
+		if controlPlaneNode.Resources.MemoryMin != "" {
+			cmd += " -MasterVMMemoryMin " + controlPlaneNode.Resources.MemoryMin
+		}
+		if controlPlaneNode.Resources.MemoryMax != "" {
+			cmd += " -MasterVMMemoryMax " + controlPlaneNode.Resources.MemoryMax
+		}
+	}
 
 	if c.Env.Proxy != "" {
 		cmd += fmt.Sprintf(" -Proxy %s", c.Env.Proxy)
