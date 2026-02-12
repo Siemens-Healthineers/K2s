@@ -23,6 +23,7 @@ metadata:
   name: dashboard-nginx-cluster-local
   namespace: dashboard
   annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
     nginx.ingress.kubernetes.io/x-forwarded-prefix: "/dashboard/"
@@ -33,7 +34,7 @@ spec:
       http:
         paths:
           - path: /dashboard/(.*)
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: kubernetes-dashboard-kong-proxy
