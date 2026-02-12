@@ -144,10 +144,16 @@ if ($Profile -eq 'Lite') {
     
     # Handle addon selection for Lite profile
     if ($excludeAllAddons) {
-        # Exclude entire addons directory and test folders
-        $liteExclude += (Join-Path $kubePath 'addons')
+        # Exclude individual addon subdirectories but keep root-level module files and common/
+        # (addons.module.psm1, export.module.psm1, etc. are required for cluster operation;
+        #  common/ contains shared manifests needed by individually imported addons)
+        $addonsRootDir = Join-Path $kubePath 'addons'
+        $addonSubDirs = Get-ChildItem -Path $addonsRootDir -Directory | Where-Object { $_.Name -ne 'common' }
+        foreach ($dir in $addonSubDirs) {
+            $liteExclude += $dir.FullName
+        }
         $liteExclude += (Join-Path $kubePath 'k2s/test/e2e/addons')
-        Write-Log '[Profile+Addons] Lite profile: excluding all addons' -Console
+        Write-Log '[Profile+Addons] Lite profile: excluding all addons (keeping addons module files and common/)' -Console
     } elseif ($selectedAddons.Count -gt 0) {
         # Specific addons requested: exclude those NOT selected
         $pathsToInclude = @()
@@ -234,12 +240,17 @@ if ($Profile -eq 'Lite') {
     $rootK2sExeLicense = Join-Path $kubePath 'k2s.exe.license'
     if (Test-Path $rootK2sExeLicense) { $inclusionList += $rootK2sExeLicense }
 } elseif ($excludeAllAddons) {
-    # Dev profile with 'none': exclude all addons entirely
-    $addonsFullPath = Join-Path $kubePath 'addons'
-    if (-not ($exclusionList -contains $addonsFullPath)) { $exclusionList += $addonsFullPath }
+    # Dev profile with 'none': exclude addon subdirectories but keep root-level module files and common/
+    # (addons.module.psm1, export.module.psm1, etc. are required for cluster operation;
+    #  common/ contains shared manifests needed by individually imported addons)
+    $addonsRootDir = Join-Path $kubePath 'addons'
+    $addonSubDirs = Get-ChildItem -Path $addonsRootDir -Directory | Where-Object { $_.Name -ne 'common' }
+    foreach ($dir in $addonSubDirs) {
+        if (-not ($exclusionList -contains $dir.FullName)) { $exclusionList += $dir.FullName }
+    }
     $testAddonsFullPath = Join-Path $kubePath 'k2s/test/e2e/addons'
     if (-not ($exclusionList -contains $testAddonsFullPath)) { $exclusionList += $testAddonsFullPath }
-    Write-Log '[Addons] Dev profile: excluding all addons (--addons-list none)' -Console
+    Write-Log '[Addons] Dev profile: excluding all addons (keeping addons module files and common/)' -Console
 } elseif ($selectedAddons.Count -gt 0) {
     Write-Log "[Addons] Dev profile with custom addon list: $($selectedAddons -join ', ')" -Console
     
