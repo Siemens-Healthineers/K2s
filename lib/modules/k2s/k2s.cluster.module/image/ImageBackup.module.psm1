@@ -142,14 +142,14 @@ function New-ImageProcessingLog {
     Write-Log "Total Images: $($Result.Images.Count + $Result.FailedImages.Count)" -Console
     Write-Log "Successful ${LogType}s: $($Result.Images.Count)" -Console
     Write-Log "Failed ${LogType}s: $($Result.FailedImages.Count)" -Console
-    
+
     if ($Result.Images.Count -gt 0) {
         Write-Log "${LogType}d Images:" -Console
         foreach ($img in $Result.Images) {
             Write-Log "✅ $($img.Repository):$($img.Tag) (ID: $($img.ImageId))" -Console
         }
     }
-    
+
     if ($Result.FailedImages.Count -gt 0) {
         Write-Log "Failed Images:" -Console
         foreach ($img in $Result.FailedImages) {
@@ -232,7 +232,7 @@ function Invoke-K2sImageCommand {
     
     Write-Log "Executing k2s command for image: $ImageName"
     $result = & $CommandExecutor $K2sExecutable $Arguments
-    
+
     if ($LASTEXITCODE -ne 0) {
         throw "Command failed with exit code $LASTEXITCODE : $result"
     }
@@ -376,11 +376,14 @@ Array of image objects with metadata
 function Get-K2sImageList {
     param(
         [Parameter(Mandatory = $false)]
-        [switch] $IncludeSystemImages
+        [switch] $IncludeSystemImages,
+
+        [Parameter(Mandatory = $false)]
+        [switch] $ExcludeAddonImages
     )
     
     Write-Log "Discovering images in the cluster..." -Console
-    
+
     try {
         # Use the existing Get-Images.ps1 script which already has proper filtering logic
         $getImagesScript = "$PSScriptRoot\..\..\..\..\scripts\k2s\image\Get-Images.ps1"
@@ -390,19 +393,25 @@ function Get-K2sImageList {
             return ,@()
         }
         
-        # Build command arguments based on parameter
-        $scriptArgs = @()
-        if ($IncludeSystemImages) { 
-            $scriptArgs += "-IncludeK8sImages" 
+        # Build command arguments based on parameters using hashtable for proper splatting
+        $scriptArgs = @{}
+        if ($IncludeSystemImages) {
+            $scriptArgs['IncludeK8sImages'] = $true
             $imageType = "all images including system images"
             $resultType = "total images"
+        }
+        if ($ExcludeAddonImages) {
+            $scriptArgs['ExcludeAddonImages'] = $true
+            $imageType = "user workload images only (excluding system and addon images)"
+            $resultType = "user workload images"
+            Write-Log "[ImageBackup] Adding -ExcludeAddonImages flag to Get-Images.ps1"
         } else {
             $imageType = "user application images only (excluding system images)"
             $resultType = "user application images"
         }
         
         Write-Log "Getting $imageType" -Console
-        
+
         # Execute script with appropriate arguments
         $imageResult = & $getImagesScript @scriptArgs
         
@@ -451,7 +460,7 @@ function Backup-K2sImages {
     )
     
     Write-Log "Starting image backup to directory: $BackupDirectory" -Console
-    
+
     if ($Images.Count -eq 0) {
         return New-EmptyBackupResult -BackupDirectory $BackupDirectory
     }
@@ -483,19 +492,23 @@ function Backup-K2sImages {
                 # Generate safe filename for tar archive
                 $safeFileName = "$($image.repository -replace '[/\\:*?"<>|]', '_')-$($image.tag -replace '[/\\:*?"<>|]', '_')"
                 $tarPath = Join-Path $imagesDir "$safeFileName.tar"
-                
+
                 # Export image using k2s image export by name:tag (not by ID to handle multiple tags for same image)
                 $exportArgs = @("image", "export", "-n", "$($image.repository):$($image.tag)", "-t", $tarPath)
-                
+
                 Invoke-K2sImageCommand -K2sExecutable $k2sExe -Arguments $exportArgs -ImageName "$($image.repository):$($image.tag)" -ExpectedFile $tarPath
-                
+
+                # Store relative path (images/images/filename.tar) instead of absolute path
+                # This ensures the path works after ZIP extraction
+                $relativeTarPath = "images\images\$safeFileName.tar"
+
                 $imageBackupInfo = @{
                     ImageId = $image.imageid
                     Repository = $image.repository
                     Tag = $image.tag
                     Node = $image.node
                     Size = $image.size
-                    TarFile = $tarPath
+                    TarFile = $relativeTarPath
                     BackupTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
                 }
                 $backupManifest.Images += $imageBackupInfo
@@ -516,7 +529,7 @@ function Backup-K2sImages {
         # Save backup manifest
         $manifestPath = Join-Path $BackupDirectory "manifest.json"
         $backupManifest | ConvertTo-Json -Depth 10 | Out-File -FilePath $manifestPath -Encoding UTF8
-        
+
         # Create backup log in C:\var\log
         $logDirectory = "C:\var\log"
         if (-not (Test-Path $logDirectory)) {
@@ -612,8 +625,11 @@ function Restore-K2sImages {
             Write-ProcessingProgress -Current $currentImage -Total $totalImages -Action "Restoring" -Image $imageInfo
             
             try {
-                $tarPath = $imageInfo.TarFile
-                
+                # TarFile is stored as relative path (images/images/filename.tar)
+                # Convert to absolute path by going up to backup root and joining
+                $backupRoot = Split-Path -Parent $BackupDirectory  # Go up from 'images' to backup root
+                $tarPath = Join-Path $backupRoot $imageInfo.TarFile
+
                 if (-not (Test-Path $tarPath)) {
                     throw "Tar file not found: $tarPath"
                 }
@@ -621,9 +637,18 @@ function Restore-K2sImages {
                 # Import image using k2s image import
                 $importArgs = @("image", "import", "-t", $tarPath)
                 
-                # Check if this is a Windows image (add -w flag if needed)
-                if ($imageInfo.Node -and $imageInfo.Node -like "*windows*") {
+                # Check if this is a Windows image
+                # Windows images come from Windows nodes - check if Node is NOT the Linux control plane
+                $setupInfo = Get-SetupInfo
+                $isWindowsImage = $false
+
+               # If node name is NOT 'kubemaster' (Linux control plane), it's a Windows node
+                if ($imageInfo.Node -and ($imageInfo.Node -ne "kubemaster" -or $imageInfo.Node -like "*win*" -or $imageInfo.Node -like "*windows*")) {
+                    $isWindowsImage = $true
                     $importArgs += "-w"
+                    Write-Log "Importing Windows image from node: $($imageInfo.Node)"
+                }else {
+                    Write-Log "Importing Linux image from node: $($imageInfo.Node)"
                 }
                 
                 Invoke-K2sImageCommand -K2sExecutable $k2sExe -Arguments $importArgs -ImageName "$($imageInfo.Repository):$($imageInfo.Tag)"
