@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Source: kube-prometheus-stack/charts/grafana/templates/servicemonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kube-prometheus-stack-grafana
+  namespace: monitoring
+  labels:
+    helm.sh/chart: grafana-6.57.4
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/version: "9.5.5"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  endpoints:
+    - port: http-web
+      scrapeTimeout: 30s
+      honorLabels: true
+      path: /metrics
+      scheme: http
+  jobLabel: "kube-prometheus-stack"
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+      app.kubernetes.io/instance: kube-prometheus-stack
+  namespaceSelector:
+    matchNames:
+      - monitoring
