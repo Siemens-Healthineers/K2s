@@ -1118,12 +1118,26 @@ function Update-IngressForNginx {
 		$kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
 	}
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
-	if ($result.Success) {
-		Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+	# Retry logic: the admission webhook may transiently reject the ingress if the
+	# controller has not yet fully loaded the ConfigMap (e.g. annotations-risk-level).
+	$maxRetries = 3
+	$retryDelay = 10
+	$applied = $false
+	for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+		$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
+		if ($result.Success) {
+			Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+			$applied = $true
+			break
+		}
+		Write-Log "  WARNING: Failed to apply ingress manifest for $($props.Name) (attempt $attempt/$maxRetries): $($result.Output)" -Console
+		if ($attempt -lt $maxRetries) {
+			Write-Log "  Retrying in $retryDelay seconds..." -Console
+			Start-Sleep -Seconds $retryDelay
+		}
 	}
-	else {
-		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name): $($result.Output)" -Console
+	if (-not $applied) {
+		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name) after $maxRetries attempts" -Console
 	}
 }
 
