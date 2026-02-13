@@ -140,12 +140,22 @@ try {
             Write-Log "[AddonRestore] Skipping traefik middleware from backup (active: $activeIngress)" -Console
             continue
         }
+        if ($file -match '^viewer-ingress-nginx-gw-' -and $activeIngress -ne 'nginx-gw') {
+            Write-Log "[AddonRestore] Skipping nginx-gw resource from backup (active: $activeIngress)" -Console
+            continue
+        }
 
         $filePath = Join-Path $BackupDir $file
         if (-not (Test-Path -LiteralPath $filePath)) {
             throw "Backup file not found: $file"
         }
         Invoke-ApplyWithConflictFallback -FilePath $filePath
+    }
+
+    # Ensure ingress + linkerd integration is consistent with current cluster setup.
+    if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'Update.ps1')) {
+        Write-Log "[AddonRestore] Running viewer Update.ps1" -Console
+        &"$PSScriptRoot\Update.ps1"
     }
 }
 catch {

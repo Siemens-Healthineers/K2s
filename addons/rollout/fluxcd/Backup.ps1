@@ -14,7 +14,7 @@ This backup is intentionally scoped to the rollout namespace only and is config-
 - Flux controllers/CRDs are not backed up (they are re-installed by Enable.ps1)
 - Flux custom resources in namespace rollout are backed up (GitRepository, Kustomization, HelmRelease, ...)
 - Secrets referenced by those Flux resources in namespace rollout are backed up
-- Optional webhook Ingress resources in namespace rollout are backed up (nginx/traefik)
+- Optional webhook Ingress resources in namespace rollout are backed up (nginx/traefik/nginx-gw)
 
 The CLI wraps the staging folder into a zip archive.
 
@@ -322,6 +322,16 @@ try {
     $traefikIngressPath = Join-Path $BackupDir 'fluxcd-ingress-traefik.json'
     if (Export-MinimalK8sObjectIfExists -Kind 'ingress' -Name 'rollout-traefik-cluster-local' -Namespace 'rollout' -OutFile $traefikIngressPath) {
         $files += (Split-Path -Leaf $traefikIngressPath)
+    }
+
+    $nginxGwHttpPath = Join-Path $BackupDir 'fluxcd-ingress-nginx-gw-httproute-http.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'rollout-nginx-gw-http' -Namespace 'rollout' -OutFile $nginxGwHttpPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpPath)
+    }
+
+    $nginxGwHttpsPath = Join-Path $BackupDir 'fluxcd-ingress-nginx-gw-httproute-https.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'rollout-nginx-gw-https' -Namespace 'rollout' -OutFile $nginxGwHttpsPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpsPath)
     }
 }
 catch {

@@ -294,6 +294,7 @@ try {
 
     # Ingress-related resources for the monitoring UI
     Try-ExportAll -Resource 'ingress' -FilePrefix 'ingress'
+    Try-ExportAll -Resource 'httproute' -FilePrefix 'httproute'
     Try-ExportAll -Resource 'ingressroute.traefik.containo.us' -FilePrefix 'ingressroute'
     Try-ExportAll -Resource 'middleware.traefik.containo.us' -FilePrefix 'middleware'
 

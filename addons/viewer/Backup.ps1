@@ -12,7 +12,7 @@ Backs up viewer configuration/resources.
 Exports selected Kubernetes resources of the viewer addon into a staging folder.
 The backup adapts to the active ingress setup:
 - Always exports ConfigMap and Service
-- Exports ingress-nginx and/or ingress-traefik resources if present
+- Exports ingress-nginx, ingress-traefik and/or nginx-gw HTTPRoute resources if present
 - Exports Traefik Middleware (secure mode) if present
 
 The CLI wraps the staging folder into a zip archive.
@@ -149,6 +149,16 @@ try {
     $traefikIngressPath = Join-Path $BackupDir 'viewer-ingress-traefik.yaml'
     if (Export-K8sYamlIfExists -Kind 'ingress' -Name 'viewer-traefik-cluster-local' -Namespace 'viewer' -OutFile $traefikIngressPath) {
         $files += (Split-Path -Leaf $traefikIngressPath)
+    }
+
+    $nginxGwHttpPath = Join-Path $BackupDir 'viewer-ingress-nginx-gw-httproute-http.yaml'
+    if (Export-K8sYamlIfExists -Kind 'httproute' -Name 'viewer-nginx-gw-http' -Namespace 'viewer' -OutFile $nginxGwHttpPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpPath)
+    }
+
+    $nginxGwHttpsPath = Join-Path $BackupDir 'viewer-ingress-nginx-gw-httproute-https.yaml'
+    if (Export-K8sYamlIfExists -Kind 'httproute' -Name 'viewer-nginx-gw-https' -Namespace 'viewer' -OutFile $nginxGwHttpsPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpsPath)
     }
 
     # Traefik secure mode uses a Middleware in the viewer namespace.

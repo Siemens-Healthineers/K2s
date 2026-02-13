@@ -165,6 +165,11 @@ try {
             continue
         }
 
+        if ($file -match '^dicom-ingress-nginx-gw-' -and $activeIngress -ne 'nginx-gw') {
+            Write-Log "[AddonRestore] Skipping nginx-gw resource from backup (active: $activeIngress)" -Console
+            continue
+        }
+
         Invoke-ApplyWithConflictFallback -FilePath $filePath
 
         if ($file -eq 'dicom-json-configmap.json') {
