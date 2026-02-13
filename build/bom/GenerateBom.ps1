@@ -238,16 +238,43 @@ function EnsureRegistryAddon() {
     Write-Output 'Ensuring registry addon is enabled for Windows image scanning'
     
     $registryStatus = &"$global:KubernetesPath\k2s.exe" addons status registry -o json | ConvertFrom-Json
-    if ($registryStatus.enabled -ne $true) {
-        Write-Output '  -> Enabling registry addon...'
-        &"$global:KubernetesPath\k2s.exe" addons enable registry -o
-        Start-Sleep -Seconds 10
-        return $true  
-    }
-    else {
+    if ($registryStatus.enabled -eq $true) {
         Write-Output '  -> Registry addon already enabled'
-        return $false  
+        $script:registryAvailable = $true
+        return $false
     }
+
+    Write-Output '  -> Enabling registry addon (timeout: 300s)...'
+    $enableJob = Start-Job -ScriptBlock {
+        param($k2sPath)
+        & "$k2sPath\k2s.exe" addons enable registry -o 2>&1
+        return $LASTEXITCODE
+    } -ArgumentList $global:KubernetesPath
+
+    $completed = $enableJob | Wait-Job -Timeout 300
+
+    if ($null -eq $completed) {
+        Write-Output '  -> WARNING: Registry addon enable timed out after 300s'
+        $enableJob | Stop-Job
+        $enableJob | Remove-Job -Force
+        $script:registryAvailable = $false
+        return $false
+    }
+
+    $jobOutput = Receive-Job -Job $enableJob
+    Remove-Job -Job $enableJob -Force
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Output "  -> WARNING: Registry addon enable failed (exit code: $LASTEXITCODE)"
+        Write-Output "  -> Output: $jobOutput"
+        $script:registryAvailable = $false
+        return $false
+    }
+
+    Start-Sleep -Seconds 10
+    Write-Output '  -> Registry addon enabled successfully'
+    $script:registryAvailable = $true
+    return $true
 }
 
 function DisableRegistryIfNeeded($wasEnabledByScript) {
@@ -390,6 +417,10 @@ function GenerateBomContainers() {
 
         # Special handling for windows-exporter: use registry-based scanning to avoid tar format issues
         if ($image -match 'windows-exporter') {
+            if (-not $script:registryAvailable) {
+                Write-Output "  -> Skipping windows-exporter scan: registry addon not available"
+                continue
+            }
             Write-Output "  -> Detected windows-exporter image, using registry-based scanning"
             
             # Tag and push to local registry for scanning
@@ -591,7 +622,11 @@ GenerateBomGolang('k2s')
 Write-Output '6 -> Generate bom for debian VM'
 GenerateBomDebian
 Write-Output '7 -> Ensure registry addon is enabled'
+$script:registryAvailable = $false
 $script:registryEnabledByScript = EnsureRegistryAddon
+if (-not $script:registryAvailable) {
+    Write-Output '  -> WARNING: Registry not available. Windows-exporter scan will be skipped.'
+}
 Write-Output '8 -> Load k2s images'
 LoadK2sImages
 Write-Output '9 -> Generate bom for containers'
