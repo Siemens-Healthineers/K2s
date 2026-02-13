@@ -9,8 +9,8 @@ metadata:
   name: dicom-nginx-cluster-local
   namespace: dicom
   annotations:
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      add_header 'Access-Control-Allow-Origin' '*' always;
+    nginx.ingress.kubernetes.io/enable-cors: 'true'
+    nginx.ingress.kubernetes.io/cors-allow-origin: '*'
     nginx.ingress.kubernetes.io/ssl-redirect: 'false'
     nginx.ingress.kubernetes.io/use-regex: 'true'
     nginx.ingress.kubernetes.io/rewrite-target: /$2
