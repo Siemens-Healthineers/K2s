@@ -166,14 +166,23 @@ try {
                  Copy-Item -Path (Join-Path $sourceManifestsDir '*') -Destination $manifestsStaging -Recurse -Force -ErrorAction SilentlyContinue
              }
 
-             @('Enable.ps1', 'Disable.ps1', 'Get-Status.ps1', 'Update.ps1', 'README.md') | ForEach-Object {
-                 $scriptPath = Join-Path $dirPath $_
-                 if (Test-Path $scriptPath) {
-                     Copy-Item -Path $scriptPath -Destination $scriptsStaging -Force
-                 }
+             $readmePath = Join-Path $dirPath 'README.md'
+             if (Test-Path $readmePath) {
+                 Copy-Item -Path $readmePath -Destination $scriptsStaging -Force
              }
-             Get-ChildItem -Path $dirPath -Filter '*.psm1' -ErrorAction SilentlyContinue | ForEach-Object {
-                 Copy-Item -Path $_.FullName -Destination $scriptsStaging -Force
+
+             @('*.ps1', '*.psm1') | ForEach-Object {
+                 Get-ChildItem -Path $dirPath -Filter $_ -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+                     $relativePath = $_.FullName.Substring($dirPath.Length + 1)
+                     $targetPath = Join-Path $scriptsStaging $relativePath
+                     $targetDir = Split-Path $targetPath -Parent
+
+                     if (-not (Test-Path $targetDir)) {
+                         New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                     }
+
+                     Copy-Item -Path $_.FullName -Destination $targetPath -Force
+                 }
              }
              
              @('*.png', '*.jpg', '*.jpeg', '*.gif', '*.svg', '*.drawio', '*.drawio.png', '*.md', '*.ndjson', '*.json', '*.license') | ForEach-Object {
