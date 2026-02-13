@@ -301,7 +301,7 @@ function Copy-WindowsImageFromPackage {
         $imageName = $ImageChange.FullName
         
         # Windows image tar filename format: registry.domain__repo__image_tag.tar
-        # e.g., shsk2s.azurecr.io/pause-win:v1.5.0 -> shsk2s.azurecr.io__pause-win_v1.5.0.tar
+        # e.g., shsk2s.azurecr.io/pause-win:v1.7.0 -> shsk2s.azurecr.io__pause-win_v1.5.0.tar
         $sanitizedName = $imageName -replace '/', '__' -replace ':', '_'
         $sourceTarName = "$sanitizedName.tar"
         
