@@ -15838,7 +15838,7 @@ data:
                         "tableColumn": "",
                         "targets": [
                             {
-                                "expr": "sum(container_memory_usage_bytes{job=\"kubelet\", metrics_path=\"/metrics/cadvisor\", cluster=\"$cluster\", container!=\"\", namespace=\"$namespace\", pod=~\"$statefulset.*\"}) / 1024^3",
+                                "expr": "sum(container_memory_usage_bytes{job=\"kubelet\", metrics_path=\"/metrics/cadvisor\", cluster=\"$cluster\", container!=\"\", namespace=\"$namespace\", pod=~\"$statefulset.*\"}) / 2.5.0",
                                 "format": "time_series",
                                 "intervalFactor": 2,
                                 "legendFormat": "",
