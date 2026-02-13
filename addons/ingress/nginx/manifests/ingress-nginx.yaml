@@ -317,6 +317,7 @@ subjects:
 apiVersion: v1
 data:
   allow-snippet-annotations: "true"
+  annotations-risk-level: "Critical"
 kind: ConfigMap
 metadata:
   labels:
