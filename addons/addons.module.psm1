@@ -1118,7 +1118,13 @@ function Update-IngressForNginx {
 		$kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
 	}
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir 
+	$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
+	if ($result.Success) {
+		Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+	}
+	else {
+		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name): $($result.Output)" -Console
+	}
 }
 
 <#
