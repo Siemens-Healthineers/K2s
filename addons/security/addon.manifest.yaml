@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -18,12 +18,16 @@ spec:
           curl: []
           additionalImages:
             - registry.k8s.io/external-dns/external-dns
+            - quay.io/jetstack/cert-manager-cainjector
+            - quay.io/jetstack/cert-manager-controller
+            - quay.io/jetstack/cert-manager-webhook
             - cr.l5d.io/linkerd/policy-controller:edge-25.4.4
             - cr.l5d.io/linkerd/controller:edge-25.4.4
             - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4
             - shsk2s.azurecr.io/linkerd/proxy-init:v2.4.2
           additionalImagesFiles:
-            - ../common/manifests/external-dns/deployment.yaml  
+            - ../common/manifests/external-dns/deployment.yaml
+            - ../common/manifests/certmanager/cert-manager.yaml
         windows:
           additionalImages:
             - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4
@@ -47,6 +51,7 @@ spec:
                   validationSet:
                     - nginx
                     - traefik
+                    - nginx-gw
               - name: type
                 shorthand: t
                 default: basic

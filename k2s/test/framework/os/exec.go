@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -6,8 +6,10 @@ package os
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	//lint:ignore ST1001 test framework code
@@ -17,70 +19,94 @@ import (
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/types"
 )
 
 type CliExecutor struct {
-	proxy                string
-	testStepTimeout      time.Duration
-	testStepPollInterval time.Duration
+	cliPath          string
+	proxy            string
+	timeout          time.Duration
+	pollInterval     time.Duration
+	expectedExitCode *int
+	dir              string
+	noStdOut         bool
+	useProxy         bool
 }
 
-func NewCli(proxy string, testStepTimeout time.Duration, testStepPollInterval time.Duration) *CliExecutor {
+func NewCli(cliPath string, proxy string, timeout time.Duration, pollInterval time.Duration) *CliExecutor {
 	return &CliExecutor{
-		proxy:                proxy,
-		testStepTimeout:      testStepTimeout,
-		testStepPollInterval: testStepPollInterval,
+		cliPath:      cliPath,
+		proxy:        proxy,
+		timeout:      timeout,
+		pollInterval: pollInterval,
 	}
 }
 
-// Execute Command and verify it exits with exit code zero
-func (c *CliExecutor) ExecOrFail(ctx context.Context, cliPath string, cliArgs ...string) string {
-	return c.ExecOrFailWithExitCode(ctx, cliPath, int(cli.ExitCodeSuccess), cliArgs...)
+func (c *CliExecutor) ExpectedExitCode(exitCode cli.ExitCode) *CliExecutor {
+	c.expectedExitCode = func() *int { i := int(exitCode); return &i }()
+	return c
 }
 
-func (c *CliExecutor) ExecOrFailWithExitCode(ctx context.Context, cliPath string, expectedExitCode int, cliArgs ...string) string {
-	cmd := exec.Command(cliPath, cliArgs...)
-
-	return c.execWithExitCode(ctx, cmd, expectedExitCode)
+func (c *CliExecutor) WorkingDir(workingDir string) *CliExecutor {
+	c.dir = workingDir
+	return c
 }
 
-func (c *CliExecutor) ExecPathWithProxyOrFail(ctx context.Context, cliPath string, execPath string, cliArgs ...string) string {
-	cmd := exec.Command(cliPath, cliArgs...)
-	cmd.Dir = execPath
+func (c *CliExecutor) NoStdOut() *CliExecutor {
+	c.noStdOut = true
+	return c
+}
 
-	if c.proxy != "" {
+func (c *CliExecutor) UseProxy() *CliExecutor {
+	c.useProxy = true
+	return c
+}
+
+func (c *CliExecutor) MustExec(ctx context.Context, cliArgs ...string) string {
+	output, _ := c.ExpectedExitCode(cli.ExitCodeSuccess).Exec(ctx, cliArgs...)
+	return output
+}
+
+func (c *CliExecutor) Exec(ctx context.Context, cliArgs ...string) (string, int) {
+	cmd := exec.Command(c.cliPath, cliArgs...)
+	cmd.Dir = c.dir
+
+	if c.useProxy && c.proxy != "" {
 		GinkgoWriter.Println("Using proxy <", c.proxy, "> for command execution..")
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "https_proxy="+c.proxy)
 		cmd.Env = append(cmd.Env, "http_proxy="+c.proxy)
 	}
 
-	return c.execWithExitCode(ctx, cmd, int(cli.ExitCodeSuccess))
-}
+	var stdOut io.Writer = GinkgoWriter
+	if c.noStdOut {
+		stdOut = io.Discard
+	}
 
-func (c *CliExecutor) Exec(ctx context.Context, cliPath string, cliArgs ...string) (string, int) {
-	cmd := exec.Command(cliPath, cliArgs...)
-
-	session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	session, err := gexec.Start(cmd, stdOut, GinkgoWriter)
 	Expect(err).ToNot(HaveOccurred())
 
+	var exitCodeMatcher types.GomegaMatcher = gexec.Exit()
+	if c.expectedExitCode != nil {
+		exitCodeMatcher = gexec.Exit(*c.expectedExitCode)
+	}
+
+	GinkgoWriter.Printf(">>> EXEC: %s %s\n", c.cliPath, strings.Join(cliArgs, " "))
+	GinkgoWriter.Printf(">>> EXEC: timeout=%v, pollInterval=%v, ctx=%v\n", c.timeout, c.pollInterval, ctx)
+	if deadline, ok := ctx.Deadline(); ok {
+		GinkgoWriter.Printf(">>> EXEC: context has deadline: %v (remaining: %v)\n", deadline, time.Until(deadline))
+	} else {
+		GinkgoWriter.Println(">>> EXEC: context has NO deadline")
+	}
+
 	Eventually(session,
-		c.testStepTimeout,
-		c.testStepPollInterval,
-		ctx).Should(gexec.Exit(), "Command '%v' did not exit in time", session.Command)
+		c.timeout,
+		c.pollInterval,
+		ctx).Should(exitCodeMatcher, "Command '%v' exited with code '%d'", session.Command, session.ExitCode())
 
 	return string(session.Out.Contents()), session.ExitCode()
 }
 
-func (c *CliExecutor) execWithExitCode(ctx context.Context, cmd *exec.Cmd, expectedExitCode int) string {
-	session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-
-	Expect(err).ToNot(HaveOccurred())
-
-	Eventually(session,
-		c.testStepTimeout,
-		c.testStepPollInterval,
-		ctx).Should(gexec.Exit(expectedExitCode), "Command '%v' exited with exit code '%d' instead of %d", session.Command, session.ExitCode(), expectedExitCode)
-
-	return string(session.Out.Contents())
+func (k *CliExecutor) Path() string {
+	return k.cliPath
 }

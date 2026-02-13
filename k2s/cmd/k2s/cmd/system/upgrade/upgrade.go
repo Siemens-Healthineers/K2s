@@ -43,15 +43,18 @@ FULL UPGRADE:
   
   The following tasks will be executed:
   1. Export of current workloads (global resources and all namespaced resources)
-  2. Keeping addons and their persistency to be re-enabled after cluster upgrade
-  3. Uninstall existing cluster
-  4. Install a new cluster based on this version
-  5. Import previously exported workloads
-  6. Enable addons and restore persistency
-  7. Check if all workloads are running
-  8. Finally check K2s cluster availability
+  2. Uninstall existing cluster
+  3. Install a new cluster based on this version
+  4. Import previously exported workloads
+  5. Re-enable previously enabled addons
+  6. Check if all workloads are running
+  7. Finally check K2s cluster availability
 
-DELTA UPDATE (EXPERIMENTAL):
+  ⚠  NOTE: Addon data/persistence is NOT automatically restored during upgrade.
+     To backup and restore addon data, use the separate mechanisms:
+     - k2s addons export / k2s addons import
+
+DELTA UPDATE:
   ⚠  Extract the delta package and call this command from within the extracted directory:
      1. Extract: Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
      2. Navigate: cd .\delta
@@ -88,7 +91,7 @@ const (
 	deleteFiles        = "delete-files"
 	proxy              = "proxy"
 	defaultProxy       = ""
-	skipImages         = "skip-images"
+	skipImagesFlag     = "skip-images"
 	backupDir          = "backup-dir"
 	force              = "force"
 	defaultBackupDir   = ""
@@ -112,7 +115,7 @@ func AddInitFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(configFileFlagName, "c", "", "Path to config file to load. This configuration overwrites other CLI parameters")
 	cmd.Flags().StringP(proxy, "p", defaultProxy, "HTTP Proxy")
 	cmd.Flags().StringP(backupDir, "b", defaultBackupDir, "Backup directory")
-	cmd.Flags().BoolP(skipImages, "i", false, "Skip takeover of container images from old cluster to new cluster")
+	cmd.Flags().BoolP(skipImagesFlag, "i", false, "Skip takeover of container images from old cluster to new cluster")
 	cmd.Flags().BoolP(force, "f", false, "Forces the upgrade, even if the previous and current versions are not consecutive")
 	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
 	cmd.Flags().SortFlags = false
@@ -238,7 +241,7 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	if len(proxy) > 0 {
 		psCmd += " -Proxy " + proxy
 	}
-	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImages).Value.String())
+	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImagesFlag).Value.String())
 	if skipImages {
 		psCmd += " -SkipImages"
 	}

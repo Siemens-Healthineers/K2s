@@ -1,9 +1,0 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-#
-# SPDX-License-Identifier: MIT
-
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-resources:
-- rollout-ingress-nginx.yaml

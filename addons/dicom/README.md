@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+SPDX-FileCopyrightText: © 2026 Siemens Healthcare GmbH
 
 SPDX-License-Identifier: MIT
 -->
@@ -37,7 +37,7 @@ k2s addons enable dicom --storage smb --storagedir /mnt/k8s-smb-share
 
 ### Integration with the ingress addon
 
-The dicom addon can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
+The dicom addon can be integrated with the ingress nginx, ingress nginx-gw, or ingress traefik addon so that it can be exposed outside the cluster.
 
 For example, the dicom addon can be enabled along with traefik addon using the following command:
 
@@ -45,7 +45,13 @@ For example, the dicom addon can be enabled along with traefik addon using the f
 k2s addons enable dicom --ingress traefik
 ```
 
-_Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
+Or with nginx-gw (NGINX Gateway Fabric) addon:
+
+```
+k2s addons enable dicom --ingress nginx-gw
+```
+
+_Note:_ The above commands shall enable the respective ingress addon if it is not enabled.
 
 The ingress addon can also be enabled before or after enabling the dicom addon, the effect would be the same !
 
@@ -72,7 +78,7 @@ In this case, the dicom UI can be accessed at the following URL: <http://localho
 
 ### Access using ingress
 
-To access the dicom app UI via ingress, the ingress nginx or the ingress traefik addon has to enabled.
+To access the dicom app UI via ingress, the ingress nginx, ingress nginx-gw, or ingress traefik addon has to be enabled.
 Once the addons are enabled, then the dicom UI can be accessed at the following URL: <https://k2s.cluster.local/dicom/ui/app/>
 
 DICOM Web APIS are available under the URL: <https://k2s.cluster.local/dicom/dicomweb>
@@ -94,6 +100,35 @@ _Note:_ The above command will only disable dicom addon. If other addons were en
 ## License Info
 
 By activating this dicom addon you will download at runtime some Orthanc components. Even if all is open source, please consider the following license terms for Orthanc components: [Orthanc License Terms](https://orthanc.uclouvain.be/book/faq/licensing.html) 
+
+## Backup and restore
+
+Backup/restore is **config-only** and **scoped to the `dicom` namespace**.
+
+### What gets backed up
+
+- Orthanc configuration `ConfigMap/json-configmap` (generated from `orthanc.json`)
+- Orthanc configuration `ConfigMap/json-configmap` (contains the effective Orthanc configuration; initially sourced from `orthanc.json`)
+- Optional dashboard exposure resources in namespace `dicom` (if present):
+	- `Ingress/dicom-nginx-cluster-local`
+	- `Ingress/dicom-traefik-cluster-local`
+	- `Ingress/dicom-traefik-cluster-local-correct1`
+	- `Ingress/dicom-traefik-cluster-local-correct2`
+	- `Middleware/strip-prefix`, `Middleware/cors-header`
+	- `Middleware/oauth2-proxy-auth` (Traefik secure mode)
+
+### What does not get backed up
+
+- DICOM study data stored on PVCs (Orthanc and Postgres data)
+- Controller manifests/CRDs (they are re-installed during restore via `k2s addons enable dicom`)
+- Resources outside of the `dicom` namespace
+
+### Commands
+
+```console
+k2s addons backup dicom
+k2s addons restore dicom <path-to-backup-zip>
+```
  
 ## Further Reading
 

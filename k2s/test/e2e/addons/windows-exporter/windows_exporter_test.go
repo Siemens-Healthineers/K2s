@@ -13,6 +13,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,7 +21,11 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
-var suite *framework.K2sTestSuite
+var (
+	suite      *framework.K2sTestSuite
+	k2s        *dsl.K2s
+	testFailed = false
+)
 
 func TestWindowsExporter(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -29,33 +34,44 @@ func TestWindowsExporter(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	k2s = dsl.NewK2s(suite)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 	Describe("when metrics addon is enabled", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "metrics", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "metrics", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "metrics", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "metrics", "-o")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "metrics-server", "metrics")
 		})
 
 		It("deploys Windows Exporter DaemonSet to kube-system namespace", func(ctx context.Context) {
 			Eventually(func() string {
-				output := suite.Kubectl().Run(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system", "-o", "json")
+				output := suite.Kubectl().MustExec(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system", "-o", "json")
 				return output
 			}).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(ContainSubstring("windows-exporter"))
 		})
 
 		It("has Windows Exporter DaemonSet with HostProcess security context", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system", "-o", "json")
+			output := suite.Kubectl().MustExec(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system", "-o", "json")
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("windowsOptions"),
 				ContainSubstring("\"hostProcess\": true"),
@@ -64,14 +80,14 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 		})
 
 		It("has Windows Exporter DaemonSet with nodeSelector for Windows nodes", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system", "-o", "jsonpath={.spec.template.spec.nodeSelector}")
+			output := suite.Kubectl().MustExec(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system", "-o", "jsonpath={.spec.template.spec.nodeSelector}")
 			Expect(output).To(ContainSubstring("windows"))
 		})
 
 		It("has Windows Exporter pods running on all Windows nodes", func(ctx context.Context) {
 			Eventually(func() bool {
 				// Get number of Windows nodes
-				nodesOutput := suite.Kubectl().Run(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
+				nodesOutput := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
 				var nodes map[string]interface{}
 				if err := json.Unmarshal([]byte(nodesOutput), &nodes); err != nil {
 					return false
@@ -88,7 +104,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				}
 
 				// Get number of ready Windows Exporter pods
-				podsOutput := suite.Kubectl().Run(ctx, "get", "pods", "-n", "kube-system", "-l", "app=windows-exporter", "-o", "jsonpath={.items[?(@.status.phase=='Running')].metadata.name}")
+				podsOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "kube-system", "-l", "app=windows-exporter", "-o", "jsonpath={.items[?(@.status.phase=='Running')].metadata.name}")
 
 				// Count the pods (space-separated names)
 				if podsOutput == "" {
@@ -100,24 +116,24 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 		})
 
 		It("exposes metrics endpoint on port 9100", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "service", "windows-exporter", "-n", "kube-system", "-o", "jsonpath={.spec.ports[0].port}")
+			output := suite.Kubectl().MustExec(ctx, "get", "service", "windows-exporter", "-n", "kube-system", "-o", "jsonpath={.spec.ports[0].port}")
 			Expect(output).To(Equal("9100"))
 		})
 
 		It("has Windows Exporter service with correct selector", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "service", "windows-exporter", "-n", "kube-system", "-o", "jsonpath={.spec.selector.app}")
+			output := suite.Kubectl().MustExec(ctx, "get", "service", "windows-exporter", "-n", "kube-system", "-o", "jsonpath={.spec.selector.app}")
 			Expect(output).To(Equal("windows-exporter"))
 		})
 
 		It("has Windows Exporter ConfigMap with configuration", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "configmap", "windows-exporter-config", "-n", "kube-system", "-o", "json")
+			output := suite.Kubectl().MustExec(ctx, "get", "configmap", "windows-exporter-config", "-n", "kube-system", "-o", "json")
 			Expect(output).To(ContainSubstring("windows_exporter.yaml"))
 		})
 
 		It("Windows Exporter pods are healthy and ready", func(ctx context.Context) {
 			Eventually(func() bool {
 				// Check if at least one Windows Exporter pod exists and is ready
-				output := suite.Kubectl().Run(ctx, "get", "pods", "-n", "kube-system", "-l", "app=windows-exporter", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
+				output := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "kube-system", "-l", "app=windows-exporter", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
 
 				if output == "" {
 					return false
@@ -131,25 +147,25 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 
 	Describe("when monitoring addon is enabled", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "monitoring", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
 		})
 
 		It("has ServiceMonitor for Prometheus scraping", func(ctx context.Context) {
 			// Check if ServiceMonitor exists
 			Eventually(func() bool {
-				_, exitCode := suite.Kubectl().RunWithExitCode(ctx, "get", "servicemonitor", "windows-exporter", "-n", "monitoring")
+				_, exitCode := suite.Kubectl().Exec(ctx, "get", "servicemonitor", "windows-exporter", "-n", "monitoring")
 				return exitCode == 0
 			}).WithTimeout(30*time.Second).WithPolling(2*time.Second).Should(BeTrue(), "ServiceMonitor should exist")
 		})
 
 		It("ServiceMonitor has correct label selector for Windows Exporter", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "servicemonitor", "windows-exporter", "-n", "monitoring", "-o", "json")
+			output := suite.Kubectl().MustExec(ctx, "get", "servicemonitor", "windows-exporter", "-n", "monitoring", "-o", "json")
 
 			var sm map[string]interface{}
 			Expect(json.Unmarshal([]byte(output), &sm)).To(Succeed())
@@ -169,12 +185,12 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 		})
 
 		It("ServiceMonitor targets kube-system namespace", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "servicemonitor", "windows-exporter", "-n", "monitoring", "-o", "jsonpath={.spec.namespaceSelector.matchNames[0]}")
+			output := suite.Kubectl().MustExec(ctx, "get", "servicemonitor", "windows-exporter", "-n", "monitoring", "-o", "jsonpath={.spec.namespaceSelector.matchNames[0]}")
 			Expect(output).To(Equal("kube-system"))
 		})
 
 		It("ServiceMonitor has release label for Prometheus Operator discovery", func(ctx context.Context) {
-			output := suite.Kubectl().Run(ctx, "get", "servicemonitor", "windows-exporter", "-n", "monitoring", "-o", "jsonpath={.metadata.labels.release}")
+			output := suite.Kubectl().MustExec(ctx, "get", "servicemonitor", "windows-exporter", "-n", "monitoring", "-o", "jsonpath={.metadata.labels.release}")
 			Expect(output).To(Equal("kube-prometheus-stack"))
 		})
 
@@ -183,7 +199,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 			time.Sleep(45 * time.Second)
 
 			// Get Prometheus pod
-			promPodOutput := suite.Kubectl().Run(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
+			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 
 			if promPodOutput == "" {
 				Skip("No Prometheus pod found")
@@ -193,7 +209,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 			// We execute a command in the Prometheus pod to query its own API
 			Eventually(func() bool {
 				// Query Prometheus API for targets
-				output, exitCode := suite.Kubectl().RunWithExitCode(ctx,
+				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
 					"wget", "-qO-", "http://localhost:9090/api/v1/targets",
 				)
@@ -212,7 +228,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 			time.Sleep(60 * time.Second)
 
 			// Get Prometheus pod
-			promPodOutput := suite.Kubectl().Run(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
+			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 
 			if promPodOutput == "" {
 				Skip("No Prometheus pod found")
@@ -222,7 +238,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 			Eventually(func() bool {
 				// Query for windows_os_info metric which should always be present
 				query := "up{job=\"windows-exporter\"}"
-				output, exitCode := suite.Kubectl().RunWithExitCode(ctx,
+				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
 					"wget", "-qO-", "--post-data", "query="+query,
 					"http://localhost:9090/api/v1/query",
@@ -241,61 +257,52 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 	Describe("reference counting behavior", func() {
 		Context("when both metrics and monitoring addons are enabled", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "metrics", "-o")
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "monitoring", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "metrics", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 				suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			})
 
-			AfterAll(func(ctx context.Context) {
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-
-				if addonsStatus.IsAddonEnabled("metrics", "") {
-					suite.K2sCli().RunOrFail(ctx, "addons", "disable", "metrics", "-o")
-				}
-
-				if addonsStatus.IsAddonEnabled("monitoring", "") {
-					suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
-				}
+				DeferCleanup(func(ctx context.Context) {
+					suite.K2sCli().Exec(ctx, "addons", "disable", "metrics", "-o")
+					suite.K2sCli().Exec(ctx, "addons", "disable", "monitoring", "-o")
+				})
 			})
 
 			It("Windows Exporter DaemonSet exists", func(ctx context.Context) {
-				output := suite.Kubectl().Run(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system", "-o", "json")
+				output := suite.Kubectl().MustExec(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system", "-o", "json")
 				Expect(output).To(ContainSubstring("windows-exporter"))
 			})
 
 			It("remains deployed when metrics addon is disabled but monitoring is still enabled", func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "metrics", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "metrics", "-o")
 
 				// Windows Exporter should still be there because monitoring needs it
 				Eventually(func() bool {
-					_, exitCode := suite.Kubectl().RunWithExitCode(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system")
+					_, exitCode := suite.Kubectl().Exec(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system")
 					return exitCode == 0
 				}).WithTimeout(10 * time.Second).WithPolling(2 * time.Second).Should(BeTrue())
 
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("monitoring", "")).To(BeTrue())
+				k2s.VerifyAddonIsEnabled("monitoring")
 			})
 
 			It("is removed when the last dependent addon (monitoring) is disabled", func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
 
 				// Now Windows Exporter should be removed since no addon needs it
 				Eventually(func() bool {
-					_, exitCode := suite.Kubectl().RunWithExitCode(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system")
+					_, exitCode := suite.Kubectl().Exec(ctx, "get", "daemonset", "windows-exporter", "-n", "kube-system")
 					return exitCode != 0 // Should fail because DaemonSet is gone
 				}).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(BeTrue())
 
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("monitoring", "")).To(BeFalse())
+				k2s.VerifyAddonIsDisabled("monitoring")
 			})
 		})
 	})
 
 	Describe("Windows-specific metrics validation", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "monitoring", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
 
 			// Wait for Prometheus to scrape metrics
@@ -303,12 +310,12 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
 		})
 
 		It("exposes Windows OS information metrics", func(ctx context.Context) {
 			// Skip if no Windows nodes
-			nodesOutput := suite.Kubectl().Run(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
+			nodesOutput := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
 			var nodes map[string]interface{}
 			json.Unmarshal([]byte(nodesOutput), &nodes)
 			items := nodes["items"].([]interface{})
@@ -316,14 +323,14 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Windows nodes available")
 			}
 
-			promPodOutput := suite.Kubectl().Run(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
+			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 			if promPodOutput == "" {
 				Skip("No Prometheus pod found")
 			}
 
 			// Query for windows_os_info - should contain OS version
 			Eventually(func() bool {
-				output, exitCode := suite.Kubectl().RunWithExitCode(ctx,
+				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
 					"wget", "-qO-", "--post-data", "query=windows_os_info",
 					"http://localhost:9090/api/v1/query",
@@ -342,7 +349,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 
 		It("exposes CPU metrics from Windows nodes", func(ctx context.Context) {
 			// Skip if no Windows nodes
-			nodesOutput := suite.Kubectl().Run(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
+			nodesOutput := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
 			var nodes map[string]interface{}
 			json.Unmarshal([]byte(nodesOutput), &nodes)
 			items := nodes["items"].([]interface{})
@@ -350,14 +357,14 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Windows nodes available")
 			}
 
-			promPodOutput := suite.Kubectl().Run(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
+			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 			if promPodOutput == "" {
 				Skip("No Prometheus pod found")
 			}
 
 			// Query for windows_cpu_time_total
 			Eventually(func() bool {
-				output, exitCode := suite.Kubectl().RunWithExitCode(ctx,
+				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
 					"wget", "-qO-", "--post-data", "query=windows_cpu_time_total",
 					"http://localhost:9090/api/v1/query",
@@ -374,7 +381,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 
 		It("exposes memory metrics from Windows nodes", func(ctx context.Context) {
 			// Skip if no Windows nodes
-			nodesOutput := suite.Kubectl().Run(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
+			nodesOutput := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
 			var nodes map[string]interface{}
 			json.Unmarshal([]byte(nodesOutput), &nodes)
 			items := nodes["items"].([]interface{})
@@ -382,14 +389,14 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Windows nodes available")
 			}
 
-			promPodOutput := suite.Kubectl().Run(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
+			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 			if promPodOutput == "" {
 				Skip("No Prometheus pod found")
 			}
 
 			// Query for windows_memory_available_bytes
 			Eventually(func() bool {
-				output, exitCode := suite.Kubectl().RunWithExitCode(ctx,
+				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
 					"wget", "-qO-", "--post-data", "query=windows_memory_available_bytes",
 					"http://localhost:9090/api/v1/query",
@@ -406,7 +413,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 
 		It("exposes logical disk metrics from Windows nodes", func(ctx context.Context) {
 			// Skip if no Windows nodes
-			nodesOutput := suite.Kubectl().Run(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
+			nodesOutput := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
 			var nodes map[string]interface{}
 			json.Unmarshal([]byte(nodesOutput), &nodes)
 			items := nodes["items"].([]interface{})
@@ -414,14 +421,14 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Windows nodes available")
 			}
 
-			promPodOutput := suite.Kubectl().Run(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
+			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 			if promPodOutput == "" {
 				Skip("No Prometheus pod found")
 			}
 
 			// Query for windows_logical_disk_free_bytes (C: drive)
 			Eventually(func() bool {
-				output, exitCode := suite.Kubectl().RunWithExitCode(ctx,
+				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
 					"wget", "-qO-", "--post-data", "query=windows_logical_disk_free_bytes",
 					"http://localhost:9090/api/v1/query",
@@ -438,7 +445,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 
 		It("exposes network interface metrics from Windows nodes", func(ctx context.Context) {
 			// Skip if no Windows nodes
-			nodesOutput := suite.Kubectl().Run(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
+			nodesOutput := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
 			var nodes map[string]interface{}
 			json.Unmarshal([]byte(nodesOutput), &nodes)
 			items := nodes["items"].([]interface{})
@@ -446,14 +453,14 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Windows nodes available")
 			}
 
-			promPodOutput := suite.Kubectl().Run(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
+			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 			if promPodOutput == "" {
 				Skip("No Prometheus pod found")
 			}
 
 			// Query for windows_net_bytes_total
 			Eventually(func() bool {
-				output, exitCode := suite.Kubectl().RunWithExitCode(ctx,
+				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
 					"wget", "-qO-", "--post-data", "query=windows_net_bytes_total",
 					"http://localhost:9090/api/v1/query",
@@ -470,7 +477,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 
 		It("metrics have correct labels identifying Windows nodes", func(ctx context.Context) {
 			// Skip if no Windows nodes
-			nodesOutput := suite.Kubectl().Run(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
+			nodesOutput := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "kubernetes.io/os=windows", "-o", "json")
 			var nodes map[string]interface{}
 			json.Unmarshal([]byte(nodesOutput), &nodes)
 			items := nodes["items"].([]interface{})
@@ -478,14 +485,14 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Windows nodes available")
 			}
 
-			promPodOutput := suite.Kubectl().Run(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
+			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 			if promPodOutput == "" {
 				Skip("No Prometheus pod found")
 			}
 
 			// Query for up metric with job=windows-exporter
 			Eventually(func() bool {
-				output, exitCode := suite.Kubectl().RunWithExitCode(ctx,
+				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
 					"wget", "-qO-", "--post-data", "query=up{job=\"windows-exporter\"}",
 					"http://localhost:9090/api/v1/query",
@@ -506,17 +513,16 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 	Describe("addon status with Windows Exporter", func() {
 		Context("when metrics addon is enabled", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "metrics", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "metrics", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "metrics", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "metrics", "-o")
 			})
 
 			It("shows metrics addon as enabled", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "metrics")
-
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", "metrics")
 				Expect(output).To(SatisfyAll(
 					MatchRegexp("ADDON STATUS"),
 					MatchRegexp(`Addon .+metrics.+ is .+enabled.+`),
@@ -525,7 +531,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 			})
 
 			It("shows metrics addon status in JSON format", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "metrics", "-o", "json")
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", "metrics", "-o", "json")
 
 				var addonStatus status.AddonPrintStatus
 				Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
@@ -538,16 +544,16 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 
 		Context("when monitoring addon is enabled", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "monitoring", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
 			})
 
 			It("shows monitoring addon as enabled with Node Exporter working", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "monitoring")
+				output := suite.K2sCli().MustExec(ctx, "addons", "status", "monitoring")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp("ADDON STATUS"),

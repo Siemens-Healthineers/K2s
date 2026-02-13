@@ -3,7 +3,10 @@
 
 package ssh
 
-import "time"
+import (
+	"io"
+	"time"
+)
 
 type ConnectionOptions struct {
 	IpAddress         string
@@ -11,6 +14,7 @@ type ConnectionOptions struct {
 	RemoteUser        string
 	SshPrivateKeyPath string
 	Timeout           time.Duration
+	StdOutWriter      io.Writer
 }
 
 type CopyDirection bool

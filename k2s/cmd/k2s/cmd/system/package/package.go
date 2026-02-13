@@ -40,7 +40,6 @@ var (
 	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation --certificate "path\to\cert.pfx" --password "mycertpassword"
 
 	# Creates a delta package (provide full package zip paths)
-	[EXPERIMENTAL]
 	k2s system package --delta-package --target-dir "C:\tmp" --name "k2s-delta-1.4.0-to-1.4.1.zip" --package-version-from "C:\tmp\k2s-1.4.0.zip" --package-version-to "C:\tmp\k2s-1.4.1.zip"
 
 	Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
@@ -99,7 +98,7 @@ const (
 	ProfileFlagUsage = "Packaging profile: Dev (default) or Lite (skips optional parts like documentation, source code etc.)"
 
 	AddonsListFlagName  = "addons-list"
-	AddonsListFlagUsage = "Comma-separated list of addons to include (e.g., 'ingress nginx,monitoring,logging'). For ingress, specify implementation: 'ingress nginx' or 'ingress traefik'. Default: all addons"
+	AddonsListFlagUsage = "Comma-separated list of addons to include (e.g., 'ingress nginx,monitoring,logging'). For ingress, specify implementation: 'ingress nginx' or 'ingress traefik'. Use 'none' to exclude all addons. Default: all addons"
 )
 
 func init() {

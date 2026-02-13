@@ -15,7 +15,7 @@ The "monitoring" addons enables Prometheus/Grafana monitoring features for the k
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [ValidateSet('nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
@@ -32,6 +32,9 @@ $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
 Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
+Write-Log "K2s interacts with Grafana (AGPLv3) solely through its standard, public APIs; no AGPL-licensed code is incorporated or modified, and Grafana is deployed as a container. For this integration scenario, a copyleft assessment was performed with the conclusion that AGPLv3 copyleft obligations are not triggered for this specific scenario." -Console
+Write-Log "[Important] The AGPLv3 terms continue to apply to Grafana itself. Users must independently assess whether the AGPLv3 is appropriate for their use case." -Console
 
 Write-Log 'Checking cluster status' -Console
 

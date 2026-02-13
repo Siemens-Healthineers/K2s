@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -36,7 +36,7 @@ function Write-DashboardUsageForUser {
  To open dashboard, please use one of the options:
 
  Option 1: Access via ingress
- Please install either ingress nginx or ingress traefik addon from k2s.
+ Please install either ingress nginx or ingress traefik or ingress nginx gateway addon from k2s.
  or you can install them on your own. 
  Enable ingress controller via k2s cli
  eg. k2s addons enable ingress nginx
@@ -45,11 +45,11 @@ function Write-DashboardUsageForUser {
  the Kubernetes Dashboard will be accessible on the following URL: https://k2s.cluster.local/dashboard/
 
  Option 2: Port-forwarding
- Use port-forwarding to the kubernetes-dashboard using the command below:
- kubectl port-forward svc/kubernetes-dashboard-web -n dashboard 8000:8000
+ Use port-forwarding to the kubernetes-dashboard Kong proxy using the command below:
+ kubectl port-forward svc/kubernetes-dashboard-kong-proxy -n dashboard 8443:443
 
- In this case, the Kubernetes Dashboard will be accessible on the following URL: https://localhost:8000
- It is not necessary to use port 8000. Please feel free to use a port number of your choice.
+ In this case, the Kubernetes Dashboard will be accessible on the following URL: https://localhost:8443
+ It is not necessary to use port 8443. Please feel free to use a port number of your choice.
 
  The dashboard is opened in the browser.
 
@@ -67,7 +67,7 @@ function Write-DashboardUsageForUser {
 Waits for the dashboard pods to be available.
 #>
 function Wait-ForDashboardAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/instance=kubernetes-dashboard' -Namespace 'dashboard' -TimeoutSeconds 120)
+    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/instance=kubernetes-dashboard' -Namespace 'dashboard' -TimeoutSeconds 200)
 }
 
 <#

@@ -45,7 +45,219 @@ function Invoke-SSHWithKey {
         $params = $params[1..($params.Length - 1)]
     }
 
-    &ssh.exe $params 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+    # Capture all output first, then filter SSH connection warnings
+    # Use try/finally to ensure $LASTEXITCODE is captured immediately
+    $rawOutput = $null
+    $sshExitCode = 0
+    try {
+        $rawOutput = &ssh.exe $params 2>&1
+        $sshExitCode = $LASTEXITCODE
+    } catch {
+        # In case of unexpected terminating error, capture it
+        Write-Log "[SSH] Unexpected error during SSH command execution: $_"
+        throw
+    }
+    
+    # Convert to array of strings, handling both regular output and ErrorRecord objects
+    # ErrorRecord objects from stderr redirect need to be converted to strings
+    $allLines = @()
+    if ($null -ne $rawOutput) {
+        foreach ($item in $rawOutput) {
+            if ($item -is [System.Management.Automation.ErrorRecord]) {
+                # Extract the message from ErrorRecord without triggering error handling
+                $allLines += $item.ToString()
+            } else {
+                $allLines += "$item"
+            }
+        }
+    }
+    
+    # Filter out SSH-specific connection warnings that contaminate command output
+    # These are transient socket cleanup messages that don't indicate actual command failure
+    $outputLines = @()
+    $hadSocketWarning = $false
+    foreach ($line in $allLines) {
+        if ($line -match '^close - IO is still pending' -or
+            $line -match 'IO is still pending on closed socket' -or
+            $line -match '^Connection .* closed' -or
+            $line -match '^Warning: Permanently added') {
+            # Log SSH warnings separately but don't pass them to output stream
+            Write-Log "[SSH] $line"
+            if ($line -match 'IO is still pending') {
+                $hadSocketWarning = $true
+            }
+        } else {
+            $outputLines += $line
+        }
+    }
+    
+    # If a socket cleanup warning occurred, the exit code may be misleading.
+    # Windows SSH can return various non-zero exit codes (255, 3221226356, etc.)
+    # when the socket cleanup warning happens, even if the command succeeded.
+    # If we have actual output and a socket warning, treat the command as successful.
+    if ($hadSocketWarning) {
+        if ($outputLines.Count -gt 0) {
+            # We have real output - the command likely succeeded despite the socket warning
+            Write-Log "[SSH] Socket warning detected but command produced output - treating as success"
+            $global:LASTEXITCODE = 0
+        } elseif ($sshExitCode -eq 255 -or $sshExitCode -eq -1 -or $sshExitCode -gt 255) {
+            # No output and SSH-level error code - likely a transient connection issue
+            Write-Log "[SSH] Ignoring transient socket warning with exit code $sshExitCode - command likely succeeded"
+            $global:LASTEXITCODE = 0
+        } else {
+            # Non-SSH-level error code with no output - preserve the error
+            $global:LASTEXITCODE = $sshExitCode
+        }
+    } else {
+        # No socket warning - preserve the actual exit code for the caller
+        $global:LASTEXITCODE = $sshExitCode
+    }
+    
+    # Return clean output as a single string (joining with newlines if multiple lines)
+    # Note: Do NOT log output to console here - callers decide how to display output
+    if ($outputLines.Count -eq 0) {
+        return ''
+    } elseif ($outputLines.Count -eq 1) {
+        return $outputLines[0]
+    } else {
+        # Return as array to preserve line structure for callers that iterate over lines
+        return $outputLines
+    }
+}
+
+# Helper function to filter SSH socket warnings from output
+# Used to clean up transient "close - IO is still pending" and similar messages
+function Get-FilteredSSHOutput {
+    param(
+        [Parameter(Mandatory = $false)]
+        $RawOutput
+    )
+    
+    if ($null -eq $RawOutput) {
+        return ''
+    }
+    
+    $outputLines = @()
+    foreach ($item in @($RawOutput)) {
+        $line = if ($item -is [System.Management.Automation.ErrorRecord]) {
+            $item.ToString()
+        } else {
+            "$item"
+        }
+        
+        # Filter out SSH-specific connection warnings
+        if ($line -notmatch '^close - IO is still pending' -and
+            $line -notmatch 'IO is still pending on closed socket' -and
+            $line -notmatch '^Connection .* closed' -and
+            $line -notmatch '^Warning: Permanently added') {
+            $outputLines += $line
+        }
+    }
+    
+    if ($outputLines.Count -eq 0) {
+        return ''
+    } elseif ($outputLines.Count -eq 1) {
+        return $outputLines[0]
+    } else {
+        return $outputLines -join "`n"
+    }
+}
+
+# Helper function to invoke SCP with SSH socket warning handling
+# Filters transient "close - IO is still pending" warnings and corrects exit codes
+function Invoke-SCPWithKey {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Source,
+        [Parameter(Mandatory = $true)]
+        [string]$Target,
+        [Parameter(Mandatory = $false)]
+        [switch]$Recursive = $false,
+        [Parameter(Mandatory = $false)]
+        [uint16]$Retries = 3,
+        [Parameter(Mandatory = $false)]
+        [uint16]$RetryDelay = 2
+    )
+    
+    $params = @('-o', 'StrictHostKeyChecking=no', '-i', $key)
+    if ($Recursive) { $params += '-r' }
+    $params += $Source, $Target
+    
+    $attempt = 0
+    $lastOutput = $null
+    $lastExitCode = 0
+    
+    do {
+        $attempt++
+        
+        # Capture all output first, then filter SSH connection warnings
+        $rawOutput = $null
+        $scpExitCode = 0
+        try {
+            $rawOutput = &scp.exe $params 2>&1
+            $scpExitCode = $LASTEXITCODE
+        } catch {
+            Write-Log "[SCP] Unexpected error during SCP execution: $_"
+            throw
+        }
+        
+        # Convert to array of strings, handling both regular output and ErrorRecord objects
+        $allLines = @()
+        if ($null -ne $rawOutput) {
+            foreach ($item in $rawOutput) {
+                if ($item -is [System.Management.Automation.ErrorRecord]) {
+                    $allLines += $item.ToString()
+                } else {
+                    $allLines += "$item"
+                }
+            }
+        }
+        
+        # Filter out SSH-specific connection warnings
+        $outputLines = @()
+        $hadSocketWarning = $false
+        foreach ($line in $allLines) {
+            if ($line -match '^close - IO is still pending' -or
+                $line -match 'IO is still pending on closed socket' -or
+                $line -match '^Connection .* closed' -or
+                $line -match '^Warning: Permanently added') {
+                Write-Log "[SCP] $line"
+                if ($line -match 'IO is still pending') {
+                    $hadSocketWarning = $true
+                }
+            } else {
+                $outputLines += $line
+            }
+        }
+        
+        # Correct exit code if socket warning detected with SSH-level error codes
+        if ($hadSocketWarning) {
+            if ($scpExitCode -eq 255 -or $scpExitCode -eq -1 -or $scpExitCode -gt 255) {
+                Write-Log "[SCP] Ignoring transient socket warning with exit code $scpExitCode - transfer likely succeeded"
+                $global:LASTEXITCODE = 0
+            } else {
+                $global:LASTEXITCODE = $scpExitCode
+            }
+        } else {
+            $global:LASTEXITCODE = $scpExitCode
+        }
+        
+        $lastOutput = if ($outputLines.Count -eq 0) { '' } elseif ($outputLines.Count -eq 1) { $outputLines[0] } else { $outputLines -join "`n" }
+        $lastExitCode = $LASTEXITCODE
+        
+        if ($lastExitCode -eq 0) {
+            return $lastOutput
+        }
+        
+        if ($attempt -le $Retries) {
+            Write-Log "[SCP] Attempt $attempt failed with exit code $lastExitCode, retrying in $RetryDelay seconds..."
+            Start-Sleep -Seconds $RetryDelay
+        }
+    } while ($attempt -le $Retries)
+    
+    # Return the output even on failure - caller decides how to handle
+    $global:LASTEXITCODE = $lastExitCode
+    return $lastOutput
 }
 
 function Invoke-ExeWithAsciiEncoding {
@@ -231,7 +443,11 @@ function Copy-FromRemoteComputerViaSSHKey($Source, $Target,
     [Parameter(Mandatory = $false)]
     [string]$UserName = $(throw 'Argument missing: UserName'),
     [Parameter(Mandatory = $false)]
-    [switch]$IgnoreErrors = $false) {
+    [switch]$IgnoreErrors = $false,
+    [Parameter(Mandatory = $false)]
+    [uint16]$Retries = 3,
+    [Parameter(Mandatory = $false)]
+    [uint16]$RetryDelay = 2) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
     $userOnRemoteMachine = "$UserName@$IpAddress"
@@ -240,8 +456,9 @@ function Copy-FromRemoteComputerViaSSHKey($Source, $Target,
     $leaf = Split-Path $linuxSourceDirectory -Leaf
     $filter = $leaf
 
-    ssh.exe -n -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 -i $key $userOnRemoteMachine "[ -d '$linuxSourceDirectory' ]; exit"
-    $isDir = $?
+    # Use Invoke-CmdOnVmViaSSHKey with retry logic to handle transient SSH errors like "close - IO is still pending"
+    $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute "[ -d '$linuxSourceDirectory' ]" -IpAddress $IpAddress -UserName $UserName -IgnoreErrors -NoLog -Retries 2 -Timeout 2
+    $isDir = $result.Success
 
     if ($leaf.Contains("*")) {
         # copy all/specific files in directory e.g. pvc-* or *
@@ -255,7 +472,7 @@ function Copy-FromRemoteComputerViaSSHKey($Source, $Target,
         $tarFolder = $linuxSourceDirectory
         $targetDirectory = "$Target\$leaf"
     } else {
-        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "${userOnRemoteMachine}:$Source" "$Target" 2>&1
+        $output = Invoke-SCPWithKey -Source "${userOnRemoteMachine}:$Source" -Target "$Target" -Recursive -Retries $Retries -RetryDelay $RetryDelay
         if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
@@ -266,7 +483,7 @@ function Copy-FromRemoteComputerViaSSHKey($Source, $Target,
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $tarFolder .").Output | Write-Log
 
-    $output = scp.exe -o StrictHostKeyChecking=no -i $key "${userOnRemoteMachine}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1
+    $output = Invoke-SCPWithKey -Source "${userOnRemoteMachine}:/tmp/copy.tar" -Target "$env:temp\copy.tar" -Retries $Retries -RetryDelay $RetryDelay
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
     }
@@ -304,14 +521,22 @@ function Copy-FromRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
 
 function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     [Parameter(Mandatory = $false)]
-    [switch]$IgnoreErrors = $false) {
+    [switch]$IgnoreErrors = $false,
+    [Parameter(Mandatory = $false)]
+    [uint16]$Retries = 3,
+    [Parameter(Mandatory = $false)]
+    [uint16]$RetryDelay = 2) {
     
-    Copy-ToRemoteComputerViaSshKey -Source $Source -Target $Target -UserName $defaultUserName -IpAddress $ipControlPlane -IgnoreErrors:$IgnoreErrors
+    Copy-ToRemoteComputerViaSshKey -Source $Source -Target $Target -UserName $defaultUserName -IpAddress $ipControlPlane -IgnoreErrors:$IgnoreErrors -Retries $Retries -RetryDelay $RetryDelay
 }
 
 function Copy-ToRemoteComputerViaSshKey($Source, $Target, $UserName, $IpAddress,
     [Parameter(Mandatory = $false)]
-    [switch]$IgnoreErrors = $false) {
+    [switch]$IgnoreErrors = $false,
+    [Parameter(Mandatory = $false)]
+    [uint16]$Retries = 3,
+    [Parameter(Mandatory = $false)]
+    [uint16]$RetryDelay = 2) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
     $remoteComputerUser = "$UserName@$IpAddress"
@@ -337,7 +562,7 @@ function Copy-ToRemoteComputerViaSshKey($Source, $Target, $UserName, $IpAddress,
         $targetDirectory = "$targetDirectory/$leaf"
     } else {
          # single file copy
-        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteComputerUser}:$Target" 2>&1
+        $output = Invoke-SCPWithKey -Source "$Source" -Target "${remoteComputerUser}:$Target" -Recursive -Retries $Retries -RetryDelay $RetryDelay
         if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
@@ -352,7 +577,7 @@ function Copy-ToRemoteComputerViaSshKey($Source, $Target, $UserName, $IpAddress,
         throw "Could not copy '$Source' to '$Target': $output"
     }
 
-    $output = scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteComputerUser}:/tmp" 2>&1
+    $output = Invoke-SCPWithKey -Source "$env:temp\copy.tar" -Target "${remoteComputerUser}:/tmp" -Retries $Retries -RetryDelay $RetryDelay
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
     }
@@ -546,15 +771,17 @@ function Wait-ForSshPossible {
     Write-Log "Performing SSH login into VM with $($User)..."
     while ($true) {
         $iteration++
-        $result = ''
+        $rawResult = ''
 
         if ($SshKey -ne '') {
             if ($Nested) {
-                $result = ssh.exe -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $rawResult = ssh.exe -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
             }
             else {
-                $result = ssh.exe -n -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $rawResult = ssh.exe -n -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
             }
+            # Filter out SSH socket warnings that can interfere with result matching
+            $result = Get-FilteredSSHOutput -RawOutput $rawResult
         }
         else {
             $plinkArgs = @('-ssh', '-4', '-legacy-stdio-prompts', $User, '-pw', $UserPwd, '-no-antispoof', "$($SshTestCommand)")
@@ -683,12 +910,13 @@ function Copy-KubeConfigFromControlPlaneNode {
         Start-Sleep -s 3
 
         Write-Log 'Trying to get kube config from /etc/kubernetes/admin.conf'
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cp /etc/kubernetes/admin.conf /home' -Nested:$Nested).Output | Write-Log
+        # Add retries to handle transient SSH socket issues
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cp /etc/kubernetes/admin.conf /home' -Nested:$Nested -Retries 2 -Timeout 2 -IgnoreErrors).Output | Write-Log
         Write-Log 'Trying to chmod file from /home/admin.conf'
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo chmod 775 /home/admin.conf' -Nested:$Nested).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo chmod 775 /home/admin.conf' -Nested:$Nested -Retries 2 -Timeout 2 -IgnoreErrors).Output | Write-Log
         Write-Log 'Trying to scp file from /home/admin.conf'
         $source = '/home/admin.conf'
-        Copy-FromControlPlaneViaSSHKey -Source $source -Target "$kubePath\config"
+        Copy-FromControlPlaneViaSSHKey -Source $source -Target "$kubePath\config" -IgnoreErrors
         if (Test-Path "$kubePath\config") {
             Write-Log "Kube config '$kubePath\config' successfully retrieved !"
             break;
@@ -706,6 +934,7 @@ function Get-ControlPlaneRemoteUser {
 
 Export-ModuleMember -Function Invoke-CmdOnControlPlaneViaSSHKey,
 Invoke-CmdOnVmViaSSHKey,
+Invoke-SCPWithKey,
 Invoke-CmdOnControlPlaneViaUserAndPwd,
 Get-IsControlPlaneRunning,
 Copy-FromControlPlaneViaSSHKey,

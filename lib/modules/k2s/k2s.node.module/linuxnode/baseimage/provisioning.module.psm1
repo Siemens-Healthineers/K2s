@@ -200,13 +200,7 @@ function New-KubemasterBaseImage {
 
         Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-        Start-VirtualMachine -VmName $vmName
-
-        Write-Log "Waiting for VM to send heartbeat..."
-        Wait-VM -Name $vmName -For Heartbeat
-        Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-        Wait-VM -Name $vmName -For Heartbeat
-        Write-Log "  ok"
+        Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
 
 
         $remoteUser1 = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
@@ -248,12 +242,7 @@ function New-KubemasterBaseImage {
         Write-Log "Attach the VM to a network switch"
         Connect-VMNetworkAdapter -VmName $vmName -SwitchName $networkParams2.SwitchName -ErrorAction Stop
 
-        Start-VirtualMachine -VmName $vmName
-        Write-Log "Waiting for VM to send heartbeat..."
-        Wait-VM -Name $vmName -For Heartbeat
-        Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-        Wait-VM -Name $vmName -For Heartbeat
-        Write-Log "  ok"
+        Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
 
         $remoteUser2 = "$(Get-DefaultUserNameKubeNode)@$IpAddress"
 
@@ -345,12 +334,7 @@ function New-KubeworkerBaseImage {
 
     Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-    Start-VirtualMachine -VmName $vmName
-    Write-Log "Waiting for VM to send heartbeat..."
-    Wait-VM -Name $vmName -For Heartbeat
-    Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-    Wait-VM -Name $vmName -For Heartbeat
-    Write-Log "  ok"
+    Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
 
 
     $remoteUser1 = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
@@ -383,12 +367,7 @@ function New-KubeworkerBaseImage {
     $switchName = Get-ControlPlaneNodeDefaultSwitchName
     Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-    Start-VirtualMachine -VmName $vmName
-    Write-Log "Waiting for VM to send heartbeat..."
-    Wait-VM -Name $vmName -For Heartbeat
-    Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-    Wait-VM -Name $vmName -For Heartbeat
-    Write-Log "  ok"
+    Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
 
     $remoteUser2 = "$(Get-DefaultUserNameKubeNode)@$IpAddress"
 
@@ -455,12 +434,7 @@ function Start-VmBasedOnKubenodeBaseImage {
 
     Connect-VMNetworkAdapter -VmName $VmName -SwitchName $switchName -ErrorAction Stop
 
-    Start-VirtualMachine -VmName $VmName
-    Write-Log "Waiting for VM to send heartbeat..."
-    Wait-VM -Name $VmName -For Heartbeat
-    Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
-    Wait-VM -Name $VmName -For Heartbeat
-    Write-Log "  ok"
+    Start-VirtualMachineAndWaitForHeartbeat -Name $VmName
 
     $remoteUser = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
     Wait-ForSshPossible -User $remoteUser -UserPwd $(Get-DefaultUserPwdKubeNode) -SshTestCommand 'which ls' -ExpectedSshTestCommandResult '/usr/bin/ls'
@@ -723,6 +697,19 @@ $@ \n
     &$executeRemoteCommand "cd /tmp/rootfs && sudo mount /dev/nbd0p1 mntfs"
 
     &$executeRemoteCommand "cd /tmp/rootfs && sudo cp -a mntfs rootfs"
+
+    # WSL-specific fixes: The rootfs is from Hyper-V and has PARTUUID entries in fstab
+    # that don't exist in WSL, causing systemd to hang waiting for non-existent devices
+    Write-Log "Applying WSL-specific fixes to rootfs (fstab, boot-efi.mount)..."
+    # Fix fstab - replace PARTUUID entries with /dev/sdb (WSL standard)
+    &$executeRemoteCommand 'cd /tmp/rootfs && echo "/dev/sdb / ext4 rw,discard,errors=remount-ro 0 1" | sudo tee rootfs/etc/fstab'
+    # Mask boot-efi.mount - prevents waiting for non-existent EFI partition
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo ln -sf /dev/null rootfs/etc/systemd/system/boot-efi.mount"
+    # Configure systemd for cgroups v1 compatibility (WSL2 kernel uses cgroups v1)
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir -p rootfs/etc/systemd/system/user@.service.d"
+    &$executeRemoteCommand 'cd /tmp/rootfs && echo -e "[Service]\nDelegate=yes" | sudo tee rootfs/etc/systemd/system/user@.service.d/delegate.conf'
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir -p rootfs/etc/systemd/logind.conf.d"
+    &$executeRemoteCommand 'cd /tmp/rootfs && echo -e "[Login]\nKillUserProcesses=no" | sudo tee rootfs/etc/systemd/logind.conf.d/wsl.conf'
 
     &$executeRemoteCommand "cd /tmp/rootfs && sudo umount mntfs"
     &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -d /dev/nbd0"

@@ -47,7 +47,7 @@ function EnsureTrivy() {
     }
 
     $compressedFile = "$global:BinPath\trivy.zip"
-    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.65.0/trivy_0.65.0_windows-64bit.zip' $true -ProxyToUse $Proxy
+    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.69.1/trivy_0.69.1_windows-64bit.zip' $true -ProxyToUse $Proxy
 
     # Extract the archive.
     Write-Output "Extract archive to '$global:BinPath"
@@ -182,9 +182,9 @@ function GenerateBomDebian() {
     }
     else {
         Write-Output "Install trivy into $hostname"
-        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.65.0/trivy_0.65.0_Linux-64bit.tar.gz 2>&1'
-        ExecCmdMaster 'sudo tar -xzf ./trivy_0.65.0_Linux-64bit.tar.gz trivy'
-        ExecCmdMaster 'sudo rm ./trivy_0.65.0_Linux-64bit.tar.gz'
+        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.69.1/trivy_0.69.1_Linux-64bit.tar.gz 2>&1'
+        ExecCmdMaster 'sudo tar -xzf ./trivy_0.69.1_Linux-64bit.tar.gz trivy'
+        ExecCmdMaster 'sudo rm ./trivy_0.69.1_Linux-64bit.tar.gz'
         ExecCmdMaster 'sudo mv ./trivy /usr/local/bin/'
         ExecCmdMaster 'sudo chmod +x /usr/local/bin/trivy'
     }

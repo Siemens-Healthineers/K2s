@@ -163,10 +163,8 @@ function New-ProvisionedWindowsNodeBaseImage {
         $virtualMachine | Set-VM -AutomaticCheckpointsEnabled $false
     }
 
-    $virtualMachine | Start-VM
-
-    Write-Log 'Waiting for VM Heartbeat...'
-    Wait-VM -Name $VmName -For Heartbeat
+    Write-Log 'Starting VM and waiting for heartbeat...'
+    Start-VirtualMachineAndWaitForHeartbeat -Name $VmName
 
     $session1 = Open-RemoteSession -VMName $VmName -VmPwd 'admin'
 

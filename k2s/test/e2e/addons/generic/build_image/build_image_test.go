@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package addons
@@ -12,313 +12,349 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 const (
-	registryName        = "k2s.registry.local"
-	clusterIp           = "172.19.1.100"
-	weatherLinuxSrcPath = "weather"
-	weatherWinSrcPath   = "weather-win"
+	registryName    = "k2s.registry.local"
+	clusterIp       = "172.19.1.100"
+	linuxSrcDirName = "weather"
+	winSrcDirName   = "weather-win"
+	namespace       = "default"
+	labelName       = "app"
 
 	weatherLinuxDeploymentName = "weather-linux"
 	weatherWinDeploymentName   = "weather-win"
 
 	weatherLinuxUrl = "http://" + clusterIp + "/weather-linux"
 	weatherWinUrl   = "http://" + clusterIp + "/weather-win"
+
+	buildAttempts = 3
 )
 
 var (
 	randomImageTag string
 	suite          *framework.K2sTestSuite
+	k2s            *dsl.K2s
+	testFailed     = false
 )
 
-func TestImageBuild(t *testing.T) {
+func TestBuildImage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "build ContainerImage Functional Tests", Label("functional", "acceptance", "internet-required", "setup-required", "build-image", "system-running"))
+	RunSpecs(t, "Build Container Image Acceptance Tests", Label("functional", "acceptance", "internet-required", "setup-required", "build-image", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepPollInterval(time.Millisecond*200))
+	suite = framework.Setup(ctx,
+		framework.SystemMustBeRunning,
+		framework.EnsureAddonsAreDisabled,
+		framework.ClusterTestStepPollInterval(time.Millisecond*200),
+		framework.ClusterTestStepTimeout(time.Minute*10))
+	k2s = dsl.NewK2s(suite)
 
 	randomImageTag = strconv.FormatInt(GinkgoRandomSeed(), 10)
+
+	suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "--ingress", "nginx", "-o")
+
+	output := suite.K2sCli().MustExec(ctx, "image", "registry", "ls")
+	Expect(output).Should(ContainSubstring("k2s.registry.local"), "Local registry was not enabled")
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
+	}
+
 	suite.TearDown(ctx)
+
+	if !testFailed {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o", "-d")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+	}
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("build container image", Ordered, func() {
+	Context("Linux-based container image", func() {
+		When("weather app with DockerFile in input folder", func() {
+			const imageName = registryName + "/weather"
+			var fullName string
 
-	When("Default Ingress", func() {
-		Context("registry addon is enabled {nginx}", func() {
-			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
-				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "registry", "-o")
-			})
+			BeforeAll(func() {
+				fullName = imageName + ":" + randomImageTag
 
-			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "registry", "-o", "-d")
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.GetEnabledAddons()).To(BeEmpty())
-			})
-
-			It("local container registry is configured", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "image", "registry", "ls")
-				Expect(output).Should(ContainSubstring("k2s.registry.local"), "Local Registry was not enabled")
-			})
-
-			Context("build linux based container image", func() {
-				When("weather app with DockerFile in input folder", func() {
-					var weatherImageName = registryName + "/weather"
-					BeforeAll(func(ctx context.Context) {
-						GinkgoWriter.Println("Create weather linux image with Input folder as", weatherLinuxSrcPath, "and using Dockerfile in input folder and push to registry")
-
-						suite.K2sCli().RunOrFail(ctx, "image", "build",
-							"--input-folder", weatherLinuxSrcPath,
-							"--dockerfile", weatherLinuxSrcPath+"\\Dockerfile",
-							"--image-name", weatherImageName,
-							"--image-tag", randomImageTag, "-o", "--push")
-					})
-
-					AfterAll(func(ctx context.Context) {
-						cleanupBuiltImage(ctx, weatherImageName, randomImageTag, weatherLinuxSrcPath, weatherLinuxDeploymentName)
-					})
-
-					It("Built image is available in registry", func(ctx context.Context) {
-						images := suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
-					})
-
-					It("Built image is available on node after removing and pulling from registry", func(ctx context.Context) {
-						suite.K2sCli().RunOrFail(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
-						images := suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableOnNode(weatherImageName, randomImageTag)).To(BeFalse(), fmt.Sprintf("Image found on node Name:%v, Tag:%v", weatherImageName, randomImageTag))
-
-						suite.K2sCli().RunOrFail(ctx, "image", "pull", getImageNameWithTag(weatherImageName, randomImageTag))
-
-						images = suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableOnNode(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, randomImageTag))
-					})
-
-					It("Built image is available in registry after removing and pushing it to registry", func(ctx context.Context) {
-						images := suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
-
-						suite.K2sCli().RunOrFail(ctx, "image", "push", "-n", getImageNameWithTag(weatherImageName, randomImageTag))
-
-						images = suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
-					})
-
-					It("Built image can be tagged", func(ctx context.Context) {
-						newTag := "retagged"
-						suite.K2sCli().RunOrFail(ctx, "image", "tag", "-n", getImageNameWithTag(weatherImageName, randomImageTag), "-t", getImageNameWithTag(weatherImageName, newTag))
-
-						images := suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableOnNode(weatherImageName, newTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, newTag))
-					})
-
-					It("Should be deployed in the cluster", func(ctx context.Context) {
-						suite.K2sCli().RunOrFail(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
-						deployApp(ctx, weatherLinuxSrcPath, weatherImageName, randomImageTag, weatherLinuxDeploymentName)
-					})
-
-					It("Built App Deployment should be accessible from the host", func(ctx context.Context) {
-						checkAppAccessibility(ctx, weatherLinuxUrl)
-					})
-				})
-
-				When("weather app with PreCompile DockerFile in input folder", func() {
-					var weatherImageName = registryName + "/weather-precompile"
-					BeforeAll(func(ctx context.Context) {
-						GinkgoWriter.Println("Create weather linux image with Input folder as", weatherLinuxSrcPath, "and using Pre Compile Dockerfile in input folder and push to registry")
-
-						suite.K2sCli().RunOrFail(ctx, "image", "build",
-							"--input-folder", weatherLinuxSrcPath,
-							"--image-name", weatherImageName,
-							"--image-tag", randomImageTag, "-o", "--push")
-					})
-
-					AfterAll(func(ctx context.Context) {
-						cleanupBuiltImage(ctx, weatherImageName, randomImageTag, weatherLinuxSrcPath, weatherLinuxDeploymentName)
-					})
-
-					It("Built image is available in registry", func(ctx context.Context) {
-						images := suite.K2sCli().GetImages(ctx)
-
-						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
-					})
-
-					It("Should be deployed in the cluster", func(ctx context.Context) {
-						suite.K2sCli().Run(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
-						deployApp(ctx, weatherLinuxSrcPath, weatherImageName, randomImageTag, weatherLinuxDeploymentName)
-					})
-
-					It("Built App Deployment should be accessible from the host", func(ctx context.Context) {
-						checkAppAccessibility(ctx, weatherLinuxUrl)
-					})
-				})
-
-				When("weather app with Custom DockerFile and build args", func() {
-					var weatherImageName = registryName + "/weather-buildargs"
-					BeforeAll(func(ctx context.Context) {
-						GinkgoWriter.Println("Create weather linux image with custom docker file Input folder as", weatherLinuxSrcPath, "and using Pre Compile Dockerfile in input folder and push to registry")
-						customDockerFileLocation := filepath.Join(weatherLinuxSrcPath, "custom", "Dockerfile.CustomWeatherLinux")
-
-						goBuilderSdkImageArg := "--build-arg=" + "\"GOSDKBASEIMAGE=" + "public.ecr.aws/docker/library/golang:alpine\""
-						finalImageArg := "--build-arg=" + "\"FINALBASEIMAGE=" + "public.ecr.aws/docker/library/alpine:edge\""
-
-						suite.K2sCli().RunOrFail(ctx, "image", "build",
-							"--input-folder", weatherLinuxSrcPath,
-							"--dockerfile", customDockerFileLocation,
-							"--image-name", weatherImageName,
-							"--image-tag", randomImageTag, "-o", "--push",
-							goBuilderSdkImageArg, finalImageArg,
-						)
-					})
-
-					AfterAll(func(ctx context.Context) {
-						cleanupBuiltImage(ctx, weatherImageName, randomImageTag, weatherLinuxSrcPath, weatherLinuxDeploymentName)
-					})
-
-					It("Built image is available in registry", func(ctx context.Context) {
-						images := suite.K2sCli().GetImages(ctx)
-
-						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
-					})
-
-					It("Should be deployed in the cluster", func(ctx context.Context) {
-						suite.K2sCli().RunOrFail(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
-						deployApp(ctx, weatherLinuxSrcPath, weatherImageName, randomImageTag, weatherLinuxDeploymentName)
-					})
-
-					It("Built App Deployment should be accessible from the host", func(ctx context.Context) {
-						checkAppAccessibility(ctx, weatherLinuxUrl)
-					})
+				DeferCleanup(func(ctx context.Context) {
+					deleteDeployment(ctx, linuxSrcDirName, weatherLinuxDeploymentName)
+					cleanupImage(ctx, fullName)
 				})
 			})
 
-			Context("build windows based container image", func() {
-				When("win weather app with PreCompile DockerFile in input folder", func() {
-					var weatherImageName = registryName + "/weather-win"
+			It("builds the image", FlakeAttempts(buildAttempts), func(ctx context.Context) {
+				GinkgoWriter.Println("Create weather Linux image with input folder '", linuxSrcDirName, "' and using Dockerfile in input folder with push to registry")
 
-					BeforeAll(func(ctx context.Context) {
-						GinkgoWriter.Println("Create weather windows based image with Input folder as", weatherWinSrcPath, "and using Dockerfile in input folder and push to registry")
-						suite.Cli().ExecPathWithProxyOrFail(ctx, "go.exe", weatherWinSrcPath, "build")
+				suite.K2sCli().MustExec(ctx, "image", "build",
+					"--input-folder", linuxSrcDirName,
+					"--dockerfile", linuxSrcDirName+"\\Dockerfile",
+					"--image-name", imageName,
+					"--image-tag", randomImageTag, "-o", "--push")
+			})
 
-						suite.K2sCli().RunOrFail(ctx, "image", "build",
-							"--input-folder", weatherWinSrcPath,
-							"--dockerfile", weatherWinSrcPath+"\\Dockerfile.PreCompile",
-							"--image-name", weatherImageName,
-							"--image-tag", randomImageTag, "-o", "--push", "--windows")
-					})
+			It("verifies image is available in local registry", func(ctx context.Context) {
+				k2s.VerifyImageIsAvailableInLocalRegistry(ctx, fullName)
+			})
 
-					AfterAll(func(ctx context.Context) {
-						cleanupBuiltImage(ctx, weatherImageName, randomImageTag, weatherWinSrcPath, weatherWinDeploymentName)
-					})
+			It("removes image from node", func(ctx context.Context) {
+				removeImageFromNode(ctx, fullName)
+			})
 
-					It("Built image is available in registry", func(ctx context.Context) {
-						images := suite.K2sCli().GetImages(ctx)
+			It("pulls image from registry to node", func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "image", "pull", fullName)
 
-						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
-					})
+				k2s.VerifyImageIsAvailableOnAnyNode(ctx, fullName)
+			})
 
-					It("Built image is available on node after removing and pulling from registry", func(ctx context.Context) {
-						suite.K2sCli().RunOrFail(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
-						images := suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableOnNode(weatherImageName, randomImageTag)).To(BeFalse(), fmt.Sprintf("Image found on node Name:%v, Tag:%v", weatherImageName, randomImageTag))
+			It("removes image from local registry", func(ctx context.Context) {
+				removeImageFromLocalRegistry(ctx, fullName)
+			})
 
-						suite.K2sCli().RunOrFail(ctx, "image", "pull", getImageNameWithTag(weatherImageName, randomImageTag), "-w")
+			It("pushes image to local registry", func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "image", "push", "-n", fullName)
 
-						images = suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableOnNode(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, randomImageTag))
-					})
+				k2s.VerifyImageIsAvailableInLocalRegistry(ctx, fullName)
+			})
 
-					It("Built image is available in registry after removing and pushing it to registry", func(ctx context.Context) {
-						images := suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+			It("can tag the new image", func(ctx context.Context) {
+				newTag := "vNext"
+				newFullName := imageFullName(imageName, newTag)
 
-						suite.K2sCli().RunOrFail(ctx, "image", "push", "-n", getImageNameWithTag(weatherImageName, randomImageTag))
+				suite.K2sCli().MustExec(ctx, "image", "tag", "-n", fullName, "-t", newFullName)
 
-						images = suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
-					})
+				k2s.VerifyImageIsAvailableOnAnyNode(ctx, newFullName)
+			})
 
-					It("Built image can be tagged", func(ctx context.Context) {
-						newTag := "retagged"
-						suite.K2sCli().RunOrFail(ctx, "image", "tag", "-n", getImageNameWithTag(weatherImageName, randomImageTag), "-t", getImageNameWithTag(weatherImageName, newTag))
+			It("removes image from node", func(ctx context.Context) {
+				removeImageFromNode(ctx, fullName)
+			})
 
-						images := suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailableOnNode(weatherImageName, newTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, newTag))
-					})
+			It("deploys the new image in the cluster", func(ctx context.Context) {
+				deployWithImage(ctx, linuxSrcDirName, fullName, weatherLinuxDeploymentName)
+			})
 
-					It("Should be deployed in the cluster", func(ctx context.Context) {
-						suite.K2sCli().RunOrFail(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
-						deployApp(ctx, weatherWinSrcPath, weatherImageName, randomImageTag, weatherWinDeploymentName)
-					})
+			It("can access the deployment from host", func(ctx context.Context) {
+				verifyDeploymentAccessibility(ctx, weatherLinuxUrl)
+			})
+		})
 
-					It("Built App Deployment should be accessible from the host", func(ctx context.Context) {
-						checkAppAccessibility(ctx, weatherWinUrl)
-					})
+		When("weather app with PreCompile DockerFile in input folder", func() {
+			const imageName = registryName + "/weather-precompile"
+			var fullName string
+
+			BeforeAll(func() {
+				fullName = imageName + ":" + randomImageTag
+
+				DeferCleanup(func(ctx context.Context) {
+					deleteDeployment(ctx, linuxSrcDirName, weatherLinuxDeploymentName)
+					cleanupImage(ctx, fullName)
 				})
+			})
+
+			It("builds the image", FlakeAttempts(buildAttempts), func(ctx context.Context) {
+				GinkgoWriter.Println("Create weather Linux image with input folder '", linuxSrcDirName, "' and using Pre Compile Dockerfile in input folder with push to registry")
+
+				suite.K2sCli().MustExec(ctx, "image", "build",
+					"--input-folder", linuxSrcDirName,
+					"--image-name", imageName,
+					"--image-tag", randomImageTag, "-o", "--push")
+			})
+
+			It("verifies image is available in local registry", func(ctx context.Context) {
+				k2s.VerifyImageIsAvailableInLocalRegistry(ctx, fullName)
+			})
+
+			It("removes image from node", func(ctx context.Context) {
+				removeImageFromNode(ctx, fullName)
+			})
+
+			It("deploys the new image in the cluster", func(ctx context.Context) {
+				deployWithImage(ctx, linuxSrcDirName, fullName, weatherLinuxDeploymentName)
+			})
+
+			It("can access the deployment from host", func(ctx context.Context) {
+				verifyDeploymentAccessibility(ctx, weatherLinuxUrl)
+			})
+		})
+
+		When("weather app with custom DockerFile and build args", func() {
+			const imageName = registryName + "/weather-buildargs"
+			const goBuilderSdkImageArg = "--build-arg=" + "\"GOSDKBASEIMAGE=" + "public.ecr.aws/docker/library/golang:alpine\""
+			const finalImageArg = "--build-arg=" + "\"FINALBASEIMAGE=" + "public.ecr.aws/docker/library/alpine:edge\""
+
+			var fullName string
+			var customDockerFileLocation string
+
+			BeforeAll(func() {
+				fullName = imageName + ":" + randomImageTag
+				customDockerFileLocation = filepath.Join(linuxSrcDirName, "custom", "Dockerfile.CustomWeatherLinux")
+
+				DeferCleanup(func(ctx context.Context) {
+					deleteDeployment(ctx, linuxSrcDirName, weatherLinuxDeploymentName)
+					cleanupImage(ctx, fullName)
+				})
+			})
+
+			It("builds the image", FlakeAttempts(buildAttempts), func(ctx context.Context) {
+				GinkgoWriter.Println("Create weather Linux image with custom Dockerfile input folder '", linuxSrcDirName, "' and using Pre Compile Dockerfile in input folder with push to registry")
+
+				suite.K2sCli().MustExec(ctx, "image", "build",
+					"--input-folder", linuxSrcDirName,
+					"--dockerfile", customDockerFileLocation,
+					"--image-name", imageName,
+					"--image-tag", randomImageTag, "-o", "--push",
+					goBuilderSdkImageArg, finalImageArg,
+				)
+			})
+
+			It("verifies image is available in local registry", func(ctx context.Context) {
+				k2s.VerifyImageIsAvailableInLocalRegistry(ctx, fullName)
+			})
+
+			It("removes image from node", func(ctx context.Context) {
+				removeImageFromNode(ctx, fullName)
+			})
+
+			It("deploys the new image in the cluster", func(ctx context.Context) {
+				deployWithImage(ctx, linuxSrcDirName, fullName, weatherLinuxDeploymentName)
+			})
+
+			It("can access the deployment from host", func(ctx context.Context) {
+				verifyDeploymentAccessibility(ctx, weatherLinuxUrl)
 			})
 		})
 	})
 
+	Context("Windows-based container image", func() {
+		const imageName = registryName + "/weather-win"
+		var fullName string
+
+		BeforeAll(func() {
+			fullName = imageName + ":" + randomImageTag
+
+			DeferCleanup(func(ctx context.Context) {
+				deleteDeployment(ctx, winSrcDirName, weatherWinDeploymentName)
+				cleanupImage(ctx, fullName)
+			})
+		})
+
+		It("builds the image", FlakeAttempts(buildAttempts), func(ctx context.Context) {
+			GinkgoWriter.Println("Create weather Windows image with input folder '", winSrcDirName, "' and using Dockerfile in input folder with push to registry")
+
+			suite.Cli("go.exe").WorkingDir(winSrcDirName).UseProxy().MustExec(ctx, "build")
+
+			suite.K2sCli().MustExec(ctx, "image", "build",
+				"--input-folder", winSrcDirName,
+				"--dockerfile", winSrcDirName+"\\Dockerfile.PreCompile",
+				"--image-name", imageName,
+				"--image-tag", randomImageTag, "-o", "--push", "--windows")
+		})
+
+		It("verifies image is available in local registry", func(ctx context.Context) {
+			k2s.VerifyImageIsAvailableInLocalRegistry(ctx, fullName)
+		})
+
+		It("removes image from node", func(ctx context.Context) {
+			removeImageFromNode(ctx, fullName)
+		})
+
+		It("pulls image from registry to node", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "image", "pull", fullName)
+
+			k2s.VerifyImageIsAvailableOnAnyNode(ctx, fullName)
+		})
+
+		It("removes image from local registry", func(ctx context.Context) {
+			removeImageFromLocalRegistry(ctx, fullName)
+		})
+
+		It("pushes image to local registry", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "image", "push", "-n", fullName)
+
+			k2s.VerifyImageIsAvailableInLocalRegistry(ctx, fullName)
+		})
+
+		It("can tag the new image", func(ctx context.Context) {
+			newTag := "vNext"
+			newFullName := imageFullName(imageName, newTag)
+
+			suite.K2sCli().MustExec(ctx, "image", "tag", "-n", fullName, "-t", newFullName)
+
+			k2s.VerifyImageIsAvailableOnAnyNode(ctx, newFullName)
+		})
+
+		It("removes image from node", func(ctx context.Context) {
+			removeImageFromNode(ctx, fullName)
+		})
+
+		It("deploys the new image in the cluster", func(ctx context.Context) {
+			deployWithImage(ctx, winSrcDirName, fullName, weatherWinDeploymentName)
+		})
+
+		It("can access the deployment from host", func(ctx context.Context) {
+			verifyDeploymentAccessibility(ctx, weatherWinUrl)
+		})
+	})
 })
 
-func getImageNameWithTag(name string, tag string) string {
+func imageFullName(name string, tag string) string {
 	return name + ":" + tag
 }
 
-func cleanupBuiltImage(ctx context.Context, imageName, tag, srcPath, deploymentName string) {
-	deleteApp(ctx, srcPath, deploymentName)
-	removeImageFromNode(ctx, imageName, tag)
-	removeImageFromLocalRegistry(ctx, imageName, tag)
+func cleanupImage(ctx context.Context, name string) {
+	removeImageFromNode(ctx, name)
+	removeImageFromLocalRegistry(ctx, name)
 }
 
-func deployApp(ctx context.Context, srcPath, imageName, tag, deploymentName string) {
+func deployWithImage(ctx context.Context, srcPath, name, deploymentName string) {
 	deploymentLabel := fmt.Sprintf("deployment/%s", deploymentName)
-	newImageName := fmt.Sprintf("%s=%s", deploymentName, getImageNameWithTag(imageName, tag))
+	newImageName := fmt.Sprintf("%s=%s", deploymentName, name)
 
-	suite.Kubectl().Run(ctx, "apply", "-f", filepath.Join(srcPath, "weather.yaml"))
-	suite.Kubectl().Run(ctx, "apply", "-f", filepath.Join(srcPath, "ing-nginx.yaml"))
+	suite.Kubectl().MustExec(ctx, "apply", "-f", filepath.Join(srcPath, "weather.yaml"))
+	suite.Kubectl().MustExec(ctx, "apply", "-f", filepath.Join(srcPath, "ing-nginx.yaml"))
 
-	suite.Kubectl().Run(ctx, "set", "image", deploymentLabel, newImageName)
-	suite.Kubectl().Run(ctx, "rollout", "restart", deploymentLabel)
+	suite.Kubectl().MustExec(ctx, "set", "image", deploymentLabel, newImageName)
+	suite.Kubectl().MustExec(ctx, "rollout", "restart", deploymentLabel)
 
-	suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, "default")
-	suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, "default")
+	suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
+	suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, labelName, deploymentName, namespace)
 }
 
-func deleteApp(ctx context.Context, srcPath, deploymentName string) {
-	suite.Kubectl().Run(ctx, "delete", "-f", filepath.Join(srcPath, "ing-nginx.yaml"))
-	suite.Kubectl().Run(ctx, "delete", "-f", filepath.Join(srcPath, "weather.yaml"))
+func deleteDeployment(ctx context.Context, srcDirName, deploymentName string) {
+	suite.Kubectl().Exec(ctx, "delete", "-f", filepath.Join(srcDirName, "ing-nginx.yaml"))
+	suite.Kubectl().Exec(ctx, "delete", "-f", filepath.Join(srcDirName, "weather.yaml"))
 
-	suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", deploymentName, "default")
+	suite.Cluster().ExpectDeploymentToBeRemoved(ctx, labelName, deploymentName, namespace)
 }
 
-func removeImageFromNode(ctx context.Context, imageName, tag string) {
-	suite.K2sCli().RunOrFail(ctx, "image", "rm", "--name", getImageNameWithTag(imageName, tag), "-o")
-
-	images := suite.K2sCli().GetImages(ctx)
-
-	Expect(images.IsImageAvailableOnNode(imageName, tag)).To(BeFalse(), fmt.Sprintf("Image should be cleaned up after test but found on node -> Name:%v, Tag:%v", imageName, tag))
+func removeImageFromNode(ctx context.Context, name string) {
+	Eventually(func(g Gomega) {
+		suite.K2sCli().Exec(ctx, "image", "rm", "--name", name, "--force", "-o")
+		g.Expect(k2s.IsImageNotAvailableOnAnyNode(ctx, name)).To(BeTrue(), "Image '%s' should not be available on any node", name)
+	}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
 }
 
-func removeImageFromLocalRegistry(ctx context.Context, imageName, tag string) {
-	suite.K2sCli().RunOrFail(ctx, "image", "rm", "--from-registry", "--name", getImageNameWithTag(imageName, tag), "-o")
+func removeImageFromLocalRegistry(ctx context.Context, name string) {
+	suite.K2sCli().Exec(ctx, "image", "rm", "--from-registry", "--name", name, "-o")
 
-	images := suite.K2sCli().GetImages(ctx)
-
-	Expect(images.IsImageAvailableInLocalRegistry(imageName, tag)).To(BeFalse(), fmt.Sprintf("Image should be cleaned up after test but found in local registry -> Name:%v, Tag:%v", imageName, tag))
+	k2s.VerifyImageIsNotAvailableInLocalRegistry(ctx, name)
 }
 
-func checkAppAccessibility(ctx context.Context, url string) {
-	suite.Cli().ExecOrFail(ctx, "curl.exe", url, "--fail", "-v", "-ipv4", "--retry", "10", "--retry-all-errors", "--retry-connrefused", "--retry-delay", "30")
+func verifyDeploymentAccessibility(ctx context.Context, url string) {
+	suite.Cli("curl.exe").MustExec(ctx, url, "--fail", "-v", "-ipv4", "--retry", "10", "--retry-all-errors", "--retry-connrefused", "--retry-delay", "30")
 }

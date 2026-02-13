@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -15,7 +15,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    # addon security installs cert-manager, which will create the secret
+    # cert-manager will create the secret
     # based on these annotations and the tls configuration below.
     cert-manager.io/cluster-issuer: k2s-ca-issuer
     cert-manager.io/common-name: k2s.cluster.local

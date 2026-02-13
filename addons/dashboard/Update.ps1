@@ -1,15 +1,45 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
+
+Param(
+	[parameter(Mandatory = $false, HelpMessage = 'Preferred ingress integration to apply (auto/nginx/traefik/nginx-gw/none)')]
+	[ValidateSet('auto', 'nginx', 'traefik', 'nginx-gw', 'none')]
+	[string] $PreferredIngress = 'auto'
+)
 
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $dashboardModule = "$PSScriptRoot\dashboard.module.psm1"
 
 Import-Module $addonsModule, $dashboardModule
 
-Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'dashboard' })
+$addonObj = [pscustomobject] @{ Name = 'dashboard' }
+
+if ($PreferredIngress -eq 'auto') {
+	Update-IngressForAddon -Addon $addonObj
+}
+elseif ($PreferredIngress -eq 'none') {
+	Remove-IngressForTraefik -Addon $addonObj
+	Remove-IngressForNginx -Addon $addonObj
+	Remove-IngressForNginxGateway -Addon $addonObj
+}
+elseif ($PreferredIngress -eq 'nginx') {
+	Remove-IngressForTraefik -Addon $addonObj
+	Remove-IngressForNginxGateway -Addon $addonObj
+	Update-IngressForNginx -Addon $addonObj
+}
+elseif ($PreferredIngress -eq 'traefik') {
+	Remove-IngressForNginx -Addon $addonObj
+	Remove-IngressForNginxGateway -Addon $addonObj
+	Update-IngressForTraefik -Addon $addonObj
+}
+elseif ($PreferredIngress -eq 'nginx-gw') {
+	Remove-IngressForTraefik -Addon $addonObj
+	Remove-IngressForNginx -Addon $addonObj
+	Update-IngressForNginxGateway -Addon $addonObj
+}
 
 $SecurityAddonEnabled = Test-SecurityAddonAvailability
 if ($SecurityAddonEnabled) {
@@ -24,8 +54,10 @@ if ($SecurityAddonEnabled) {
 		# remove middleware if exists
 		(Invoke-Kubectl -Params 'delete', 'middleware', 'add-bearer-token', '-n', 'dashboard', '--ignore-not-found').Output | Write-Log
 	}
+	elseif (Test-NginxGatewayAvailability) {
+	}
 	else {
-		Write-Log 'Nginx or Traefik ingress controller is not available'
+		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'
 	}	
 }
 else {
@@ -40,7 +72,7 @@ else {
 		Write-Log 'Replacing content of patch file'
 		(Get-Content -Path "$tempPath\patch.json").replace('BEARER-TOKEN', $token) | Out-File -FilePath "$tempPath\patch.json"
 		# apply patch
-		(Invoke-Kubectl -Params 'patch', 'ingress', 'dashboard-nginx-cluster-local', '-n', 'dashboard', '--patch-file', "$tempPath\patch.json", $annotations).Output | Write-Log
+		(Invoke-Kubectl -Params 'patch', 'ingress', 'dashboard-nginx-cluster-local', '-n', 'dashboard', '--patch-file', "$tempPath\patch.json").Output | Write-Log
 		# delete patch file
 		Remove-Item -Path "$tempPath\patch.json"
 	}
@@ -65,15 +97,27 @@ spec:
 		# delete middleware file
 		Remove-Item -Path "$tempPath\middleware.yaml"
 	}
+	elseif (Test-NginxGatewayAvailability) {
+		# create Bearer token for next 24h
+		Write-Log 'Creating Bearer token for next 24h'
+		$token = Get-BearerToken
+		# Apply HTTPRoute with Authorization header using template
+		Write-Log 'Applying HTTPRoute with Authorization header'
+		$tempPath = [System.IO.Path]::GetTempPath()
+		Copy-Item -Path "$PSScriptRoot\manifests\ingress-nginx-gw\dashboard-nginx-gw.yaml" -Destination "$tempPath\dashboard-nginx-gw.yaml"
+		(Get-Content -Path "$tempPath\dashboard-nginx-gw.yaml").replace('BEARER-TOKEN', $token) | Out-File -FilePath "$tempPath\dashboard-nginx-gw.yaml"
+		(Invoke-Kubectl -Params 'apply', '-f', "$tempPath\dashboard-nginx-gw.yaml").Output | Write-Log
+		Remove-Item -Path "$tempPath\dashboard-nginx-gw.yaml"
+	}
 	else {
-		Write-Log 'Nginx or Traefik ingress controller is not available'
+		Write-Log 'Nginx, Traefik, or Gateway Fabric API ingress controller is not available'
 	}
 }
 
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
 	Write-Log 'Updating dashboard addon to be part of service mesh'  
-	$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"443\"}}}}}'
+	$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"443,8443\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-kong', '-n', 'dashboard', '-p', $annotations1).Output | Write-Log
 	$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-api', '-n', 'dashboard', '-p', $annotations2).Output | Write-Log
@@ -108,6 +152,7 @@ if ($EnancedSecurityEnabled) {
 	if (-not $hasAnnotations) {
 		throw 'Timeout waiting for patches to be applied'
 	}
+
 }
 else {
 	Write-Log 'Updating dashboard addon to not be part of service mesh'
@@ -144,5 +189,15 @@ else {
 	}
 }
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'dashboard', '--timeout', '60s').Output | Write-Log
+
+if (Test-NginxGatewayAvailability) {
+	Start-Sleep -Seconds 20 # wait for kong to be ready and create self-signed cert(waitforpodcondition does not work here)
+	New-BackendCACertConfigMap -Namespace 'dashboard' -PodLabel 'app.kubernetes.io/name=kong' -Port 8443 -ConfigMapName 'kong-ca-cert'
+	
+	# Restart nginx-gw to reload kong-ca-cert ConfigMap
+	Write-Log 'Restarting nginx-gw to reload kong-ca-cert ConfigMap' -Console
+	(Invoke-Kubectl -Params 'rollout', 'restart', 'deployment', 'nginx-gw-controller', '-n', 'nginx-gw').Output | Write-Log
+	(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', 'nginx-gw-controller', '-n', 'nginx-gw', '--timeout', '60s').Output | Write-Log
+}
 
 Write-Log 'Updating dashboard addon finished.' -Console

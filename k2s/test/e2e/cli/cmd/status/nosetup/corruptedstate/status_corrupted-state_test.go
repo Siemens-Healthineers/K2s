@@ -11,7 +11,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 
@@ -81,7 +81,7 @@ var _ = Describe("status", Ordered, func() {
 
 	Context("default output", func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "status")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "status")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -89,7 +89,7 @@ var _ = Describe("status", Ordered, func() {
 
 	Context("extended output", func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "status", "-o", "wide")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "status", "-o", "wide")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -99,13 +99,13 @@ var _ = Describe("status", Ordered, func() {
 		var status status.PrintStatus
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "status", "-o", "json")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "status", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})
 
 		It("contains system-in-corrupted-state info", func() {
-			Expect(*status.Error).To(Equal(cconfig.ErrSystemInCorruptedState.Error()))
+			Expect(*status.Error).To(Equal(contracts.ErrSystemInCorruptedState.Error()))
 		})
 
 		It("does not contain any other info", func() {

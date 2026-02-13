@@ -139,7 +139,10 @@ function New-GinkgoTestCmd {
         $OutDir = $(throw 'OutDir not specified'),
         [Parameter(Mandatory = $false)]
         [switch]
-        $V = $false
+        $V = $false,
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Timeout = '90m'
     )
     $ginkgoCmd = 'ginkgo'
     if ($V -eq $true) {
@@ -157,6 +160,7 @@ function New-GinkgoTestCmd {
     }
 
     $ginkgoCmd += ' --require-suite' # complains about specs without test suite
+    $ginkgoCmd += " --timeout=$Timeout"
     $ginkgoCmd += " --junit-report=GoTest-$((Get-Date -Format 'yyyy-MM-dd-HH-mm-ss').ToString()).xml"
     $ginkgoCmd += " --output-dir=$OutDir"
 
@@ -205,21 +209,36 @@ function New-GinkgoTestCmd {
 function Install-GinkgoIfNecessary {
     param (
         [Parameter(Mandatory = $false)]
-        [string]
-        $Proxy,
+        [string] $Proxy,
+
         [Parameter(Mandatory = $false)]
-        [string]
-        $GinkgoVersion = $(throw 'GinkgoVersion not specified')
+        [string] $GinkgoVersion = $(throw 'GinkgoVersion not specified')
     )
+
+    # Ensure Go bin is on PATH for this session
+    $goBinPath = if ($env:GOPATH) {
+        Join-Path $env:GOPATH 'bin'
+    } else {
+        Join-Path $env:USERPROFILE 'go\bin'
+    }
+
+    if ($env:PATH -notmatch [regex]::Escape($goBinPath)) {
+        $env:PATH = "$goBinPath;$env:PATH"
+    }
+
     $ginkgoCmd = Get-Command -ErrorAction Ignore -Type Application ginkgo
 
     if (!$ginkgoCmd) {
         Write-Output 'Ginkgo not found, installing it..'
         Invoke-GoCommand -Proxy $Proxy -Cmd "go.exe install 'github.com/onsi/ginkgo/v2/ginkgo@v$GinkgoVersion'"
+
+        # Re-check after install
+        if ($env:PATH -notmatch [regex]::Escape($goBinPath)) {
+            $env:PATH = "$goBinPath;$env:PATH"
+        }
     }
 
     $foundVersion = (ginkgo.exe version).Split(' ')[2].Trim()
-
     Write-Output "Found Ginkgo version $foundVersion"
 
     if ($foundVersion -ne $GinkgoVersion) {
@@ -227,6 +246,7 @@ function Install-GinkgoIfNecessary {
         Invoke-GoCommand -Proxy $Proxy -Cmd "go.exe install 'github.com/onsi/ginkgo/v2/ginkgo@v$GinkgoVersion'"
     }
 }
+
 
 function Install-PesterIfNecessary {
     param (
@@ -237,7 +257,15 @@ function Install-PesterIfNecessary {
         [string]
         $PesterVersion = $(throw 'PesterVersion not specified')
     )
-    $pesterModule = Get-InstalledModule -Name Pester
+    
+    $pesterModule = $null
+    try {
+        $pesterModule = Get-InstalledModule -Name Pester -ErrorAction SilentlyContinue
+    } catch {
+        # PowerShellGet 1.0.0.1 has a bug with null dates in module metadata
+        Write-Warning "Get-InstalledModule failed (likely PowerShellGet bug): $_"
+        Write-Warning "Consider updating PowerShellGet: Install-Module -Name PowerShellGet -Force -AllowClobber"
+    }
 
     if (!$pesterModule) {
         Write-Output 'Pester not found, installing it..'
@@ -290,7 +318,10 @@ function Start-GinkgoTests {
         $V = $false,
         [Parameter(Mandatory = $false)]
         [switch]
-        $VV = $false
+        $VV = $false,
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Timeout = '90m'
     )
     Write-Output "  Executing Go-based tests in '$WorkingDir' with verbose='$V' and super-verbose='$VV' for tags '$Tags' and excluding tags '$ExcludeTags'.."
 
@@ -302,7 +333,7 @@ function Start-GinkgoTests {
         Invoke-GoModDownloadInDir -WorkingDir $WorkingDir
     }
 
-    $ginkgoCmd = $(New-GinkgoTestCmd -Tags $Tags -ExcludeTags $ExcludeTags -OutDir $OutDir -V:$V)
+    $ginkgoCmd = $(New-GinkgoTestCmd -Tags $Tags -ExcludeTags $ExcludeTags -OutDir $OutDir -V:$V -Timeout $Timeout)
     $testFolders = (Get-ChildItem -Path $WorkingDir -File -Recurse -Filter '*_test.go').DirectoryName | Get-Unique
 
     if ($VV -eq $true) {
@@ -328,9 +359,11 @@ function Start-GinkgoTests {
             }
         }
         else {
-            $result = $labelsResult.Trim().Replace(' ', '').Split(':')[1] | ConvertFrom-Json
-
-            $foundLabels.AddRange($result) | Out-Null
+            $splitResult = $labelsResult.Trim().Replace(' ', '').Split(':')[1]
+            if ($splitResult) {
+                $result = $splitResult | ConvertFrom-Json
+                $foundLabels.AddRange($result) | Out-Null
+            }
         }
 
         if ($VV -eq $true) {

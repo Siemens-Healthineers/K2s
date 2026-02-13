@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package core
@@ -10,6 +10,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/siemens-healthineers/k2s/test/framework/watcher"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,6 +30,7 @@ var manifestDir string
 var proxy string
 
 var testFailed = false
+var podWatcher *watcher.PodWatcher
 
 func TestClusterCore(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -41,7 +43,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(time.Millisecond*200),
-		framework.ClusterTestStepTimeout(8*time.Minute)) // Increased timeout for Windows workloads
+		framework.ClusterTestStepTimeout(8*time.Minute))
 	k2s = dsl.NewK2s(suite)
 
 	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
@@ -53,11 +55,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Using proxy <", proxy, "> for internet access")
 	GinkgoWriter.Println("Deploying workloads to cluster..")
 
-	suite.Kubectl().Run(ctx, "apply", "-k", manifestDir)
+	// Start pod watcher in background
+	podWatcher = watcher.NewPodWatcher(GinkgoWriter, namespace)
+	if err := podWatcher.Start(ctx, suite.Kubectl().Path()); err != nil {
+		GinkgoWriter.Printf("Warning: failed to start pod watcher: %v\n", err)
+	}
+
+	suite.Kubectl().MustExec(ctx, "apply", "-k", manifestDir)
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
-	suite.Kubectl().Run(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
 
 	for _, deploymentName := range linuxDeploymentNames {
 		suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
@@ -75,21 +83,21 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if podWatcher != nil {
+		podWatcher.Stop()
+	}
 
-	GinkgoWriter.Println("Status of cluster after test runs...")
-	status := suite.K2sCli().GetStatus(ctx)
-	isRunning := status.IsClusterRunning()
-	GinkgoWriter.Println("Cluster is running:", isRunning)
+	suite.StatusChecker().IsK2sRunning(ctx)
 
 	GinkgoWriter.Println("Deleting workloads..")
 
 	if testFailed {
-		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
 	// for finding out the sporadically failed test runs
 	if !testFailed {
-		suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)
+		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
 
 		GinkgoWriter.Println("Workloads deleted")
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -18,10 +18,16 @@ spec:
           curl: []
           additionalImages:
             - registry.k8s.io/external-dns/external-dns
+            - quay.io/jetstack/cert-manager-cainjector
+            - quay.io/jetstack/cert-manager-controller
+            - quay.io/jetstack/cert-manager-webhook
           additionalImagesFiles:
             - ../../common/manifests/external-dns/deployment.yaml
+            - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
-          curl: []
+          curl:
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
       commands:
         enable:
           cli:
@@ -46,10 +52,16 @@ spec:
           curl: []
           additionalImages:
             - registry.k8s.io/external-dns/external-dns
+            - quay.io/jetstack/cert-manager-cainjector
+            - quay.io/jetstack/cert-manager-controller
+            - quay.io/jetstack/cert-manager-webhook
           additionalImagesFiles:
             - ../../common/manifests/external-dns/deployment.yaml
+            - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
-          curl: []
+          curl: 
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
       commands:
         enable:
           cli:
@@ -65,3 +77,37 @@ spec:
                 comment: Disable addon ingress traefik in k2s
           script:
             subPath: traefik/Disable.ps1
+    - name: nginx-gw
+      description: Ingress Controller for external access that uses NGINX Gateway Fabric
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages:
+          - registry.k8s.io/external-dns/external-dns
+          - quay.io/jetstack/cert-manager-cainjector
+          - quay.io/jetstack/cert-manager-controller
+          - quay.io/jetstack/cert-manager-webhook
+          additionalImagesFiles:
+          - ../../common/manifests/external-dns/deployment.yaml
+          - ../../common/manifests/certmanager/cert-manager.yaml
+        windows:
+          curl:
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
+      commands:
+        enable:
+          cli:
+            examples:
+              - cmd: k2s addons enable ingress nginx-gw
+                comment: Enable ingress nginx-gw in k2s
+          script:
+            subPath: nginx-gw/Enable.ps1
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable ingress nginx-gw
+                comment: Disable addon ingress nginx-gw in k2s
+          script:
+            subPath: nginx-gw/Disable.ps1 
