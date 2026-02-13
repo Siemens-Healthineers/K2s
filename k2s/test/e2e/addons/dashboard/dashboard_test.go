@@ -234,8 +234,8 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
 			})
 
-			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
-				url := "https://k2s.cluster.local/dashboard/#/pod?namespace=_all"
+			It("is reachable through dashboard.k2s.cluster.local", func(ctx context.Context) {
+				url := "https://dashboard.k2s.cluster.local/#/pod?namespace=_all"
 				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 			})
 

@@ -20,21 +20,18 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: dashboard-nginx-cluster-local
+  name: dashboard-nginx
   namespace: dashboard
   annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-    nginx.ingress.kubernetes.io/x-forwarded-prefix: "/dashboard/"
 spec:
   ingressClassName: nginx
   rules:
-    - host: k2s.cluster.local
+    - host: dashboard.k2s.cluster.local
       http:
         paths:
-          - path: /dashboard/(.*)
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: kubernetes-dashboard-kong-proxy
