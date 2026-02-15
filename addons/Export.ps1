@@ -13,6 +13,10 @@ Param(
     [switch] $All,
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to export')]
     [string[]] $Names,
+    [parameter(Mandatory = $false, HelpMessage = 'Omit container images from export')]
+    [switch] $OmitImages,
+    [parameter(Mandatory = $false, HelpMessage = 'Omit packages (debian, linux, windows) from export')]
+    [switch] $OmitPackages,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -294,6 +298,9 @@ try {
             # Add version information as OCI annotations (stored in oci-manifest.json)
             Write-Log "Preparing OCI artifact for addon $addonName" -Console
             
+            if ($OmitImages) {
+                Write-Log "[OCI] Omitting container images for addon $addonName (--omit-images)" -Console
+            } else {
             Write-Log "Pulling images for addon $addonName from $dirPath" -Console
 
             Write-Log '---'
@@ -547,8 +554,9 @@ try {
             else {
                 Write-Log "No images found for addon $addonName"
             }
+            } 
 
-            if ($null -ne $implementation.offline_usage) {
+            if ($null -ne $implementation.offline_usage -and -not $OmitPackages) {
                 Write-Log '---'
                 Write-Log "Downloading packages for addon $addonName" -Console
                 $linuxPackages = $implementation.offline_usage.linux
@@ -610,6 +618,9 @@ try {
                         Invoke-DownloadFile "$targetWinPkgDir\${filename}" $package.url $true -ProxyToUse $Proxy
                     }
                 }
+            }
+            elseif ($OmitPackages) {
+                Write-Log "[OCI] Omitting packages for addon $addonName (--omit-packages)" -Console
             }
 
             Write-Log "Creating OCI artifact layers for $addonName" -Console
@@ -889,9 +900,18 @@ Write-Log "  Layer 0: config.tar.gz       (application/vnd.k2s.addon.configfiles
 Write-Log "  Layer 1: manifests.tar.gz    (application/vnd.k2s.addon.manifests.v1.tar+gzip)" -Console
 Write-Log "  Layer 2: charts.tar.gz       (application/vnd.cncf.helm.chart.content.v1.tar+gzip) [if helm-based]" -Console
 Write-Log "  Layer 3: scripts.tar.gz      (application/vnd.k2s.addon.scripts.v1.tar+gzip)" -Console
-Write-Log "  Layer 4: images-linux.tar    (application/vnd.oci.image.layer.v1.tar)" -Console
-Write-Log "  Layer 5: images-windows.tar  (application/vnd.k2s.addon.images-windows.v1.tar)" -Console
-Write-Log "  Layer 6: packages.tar.gz     (application/vnd.k2s.addon.packages.v1.tar+gzip)" -Console
+if ($OmitImages) {
+    Write-Log "  Layer 4: images-linux.tar    (application/vnd.oci.image.layer.v1.tar) [SKIPPED]" -Console
+    Write-Log "  Layer 5: images-windows.tar  (application/vnd.oci.image.layer.v1.tar+windows) [SKIPPED]" -Console
+} else {
+    Write-Log "  Layer 4: images-linux.tar    (application/vnd.oci.image.layer.v1.tar)" -Console
+    Write-Log "  Layer 5: images-windows.tar  (application/vnd.oci.image.layer.v1.tar+windows)" -Console
+}
+if ($OmitPackages) {
+    Write-Log "  Layer 6: packages.tar.gz     (application/vnd.k2s.addon.packages.v1.tar+gzip) [SKIPPED]" -Console
+} else {
+    Write-Log "  Layer 6: packages.tar.gz     (application/vnd.k2s.addon.packages.v1.tar+gzip)" -Console
+}
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
