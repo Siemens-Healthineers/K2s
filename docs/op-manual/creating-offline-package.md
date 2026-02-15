@@ -77,6 +77,21 @@ Or export all addons:
 k2s addons export -d <export-output-directory>
 ```
 
+To export without container images (produces a lighter artifact):
+```console
+k2s addons export registry -d <export-output-directory> --omit-images
+```
+
+To export without packages (Debian, Linux, and Windows packages):
+```console
+k2s addons export registry -d <export-output-directory> --omit-packages
+```
+
+Both flags can be combined to export only configuration, manifests, and scripts:
+```console
+k2s addons export registry -d <export-output-directory> --omit-images --omit-packages
+```
+
 ### Addons Import
 To inspect all export options, run:
 ```console
