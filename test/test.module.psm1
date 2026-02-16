@@ -359,9 +359,11 @@ function Start-GinkgoTests {
             }
         }
         else {
-            $result = $labelsResult.Trim().Replace(' ', '').Split(':')[1] | ConvertFrom-Json
-
-            $foundLabels.AddRange($result) | Out-Null
+            $splitResult = $labelsResult.Trim().Replace(' ', '').Split(':')[1]
+            if ($splitResult) {
+                $result = $splitResult | ConvertFrom-Json
+                $foundLabels.AddRange($result) | Out-Null
+            }
         }
 
         if ($VV -eq $true) {

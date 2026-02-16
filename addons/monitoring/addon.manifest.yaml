@@ -39,6 +39,7 @@ spec:
                   validationSet:
                     - none
                     - nginx
+                    - nginx-gw
                     - traefik
             examples:
               - cmd: k2s addons enable monitoring

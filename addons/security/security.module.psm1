@@ -236,7 +236,12 @@ function Test-OAuth2ProxyServiceAvailability {
     return $deployment -and $deployment -notmatch 'NotFound'
 }
 
-function Enable-IngressForSecurity([string]$Ingress) {
+function Enable-IngressForSecurity {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Ingress
+    )
+    
     switch ($Ingress) {
         'nginx' {
             (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml").Output | Write-Log
@@ -257,6 +262,23 @@ function Remove-IngressForSecurity {
     (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml", '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\traefik-ingress.yaml", '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\nginx-gw-ingress.yaml", '--ignore-not-found').Output | Write-Log
+}
+
+<#
+.DESCRIPTION
+Checks if Linkerd ServerAuthorization policies exist for nginx-gw ingress in security namespace.
+Returns $true if both oauth2-proxy and keycloak ServerAuthorization resources exist.
+#>
+function Test-NginxGwServerAuthorizationExists {
+    $oauth2Auth = (Invoke-Kubectl -Params 'get', 'serverauthorization', 'oauth2-proxy-allow-all', '-n', 'security', '--ignore-not-found').Output
+    $keycloakAuth = (Invoke-Kubectl -Params 'get', 'serverauthorization', 'keycloak-allow-all', '-n', 'security', '--ignore-not-found').Output
+    
+    if ($oauth2Auth -and $keycloakAuth) {
+        Write-Log '[Security] ServerAuthorization policies already exist for nginx-gw' -Console
+        return $true
+    }
+    
+    return $false
 }
 
 function Confirm-EnhancedSecurityOn([string]$Type) {
