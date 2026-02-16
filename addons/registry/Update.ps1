@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -18,6 +18,7 @@ if (Test-NginxIngressControllerAvailability) {
     $registryName = 'k2s.registry.local'
 
     Remove-IngressForTraefik -Addon $Addon
+    Remove-IngressForNginxGateway -Addon $Addon
     Remove-NodePort
 
     Remove-Registry -Name 'k2s.registry.local*'
@@ -30,10 +31,29 @@ if (Test-NginxIngressControllerAvailability) {
 
     Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
 }
+elseif (Test-NginxGatewayAvailability) {
+    $registryName = 'k2s.registry.local'
+
+    Remove-IngressForNginx -Addon $Addon
+    Remove-IngressForTraefik -Addon $Addon
+    Remove-NodePort
+
+    Remove-Registry -Name 'k2s.registry.local*'
+    Set-Registry -Name $registryName -Https -LocalRegistry
+
+    $certificatePath = "$PSScriptRoot\manifests\ingress-nginx-gw\k2s-registry-local-tls-certificate.yaml"
+    if (Test-Path $certificatePath) {
+        Write-Log "  Ensuring registry TLS certificate exists..." -Console
+        Invoke-Kubectl -Params 'apply', '-f', $certificatePath | Out-Null
+    }
+
+    Update-IngressForNginxGateway -Addon $Addon
+}
 elseif (Test-TraefikIngressControllerAvailability) {
     $registryName = 'k2s.registry.local'
 
     Remove-IngressForNginx -Addon $Addon
+    Remove-IngressForNginxGateway -Addon $Addon
     Remove-NodePort
 
     Remove-Registry -Name 'k2s.registry.local*'
@@ -46,6 +66,7 @@ else {
 
     Remove-IngressForNginx -Addon $Addon
     Remove-IngressForTraefik -Addon $Addon
+    Remove-IngressForNginxGateway -Addon $Addon
 
     Update-NodePort
 

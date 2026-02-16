@@ -19,6 +19,23 @@ The autoscaling addon can be enabled using the k2s CLI by running the following 
 k2s addons enable autoscaling
 ```
 
+## Backup and restore
+
+Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+```
+k2s addons backup autoscaling
+```
+
+Restore from a backup zip:
+```
+k2s addons restore autoscaling -f C:\Temp\Addons\autoscaling_backup_YYYYMMDD_HHMMSS.zip
+```
+
+The backup includes:
+- Addon-owned ConfigMaps in the `autoscaling` namespace (excluding the auto-generated `kube-root-ca.crt`).
+
+If no addon-owned ConfigMaps exist, the backup is metadata-only. In that case, restore will only reinstall/repair autoscaling by re-enabling the addon.
+
 ## Scaling
 KEDA supports a wide range of [scalers](https://keda.sh/docs/latest/scalers/) e.g. [CPU](https://keda.sh/docs/latest/scalers/cpu/) or [Memory](https://keda.sh/docs/latest/scalers/memory/). KEDA scalers can both detect if a deployment should be activated or deactivated, and feed custom metrics for a specific event source.
 
