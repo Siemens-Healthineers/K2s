@@ -568,6 +568,190 @@ var _ = Describe("config", func() {
 			Expect(ControlPlaneDiskSizeFlagUsage).To(ContainSubstring("minimum 10GB"))
 		})
 	})
+
+	Describe("validateDynamicMemoryConfiguration", func() {
+		When("dynamic memory is disabled", func() {
+			It("does not validate", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+								MemoryMin:     "8GB",
+								MemoryMax:     "4GB", // Invalid but shouldn't be checked
+							},
+						},
+					},
+				}
+
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		When("min is greater than max", func() {
+			It("returns an error", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: true,
+								Memory:        "4GB",
+								MemoryMin:     "8GB",
+								MemoryMax:     "4GB",
+							},
+						},
+					},
+				}
+
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("minimum memory (8GB) cannot be greater than maximum memory (4GB)"))
+			})
+		})
+
+		When("min is greater than startup", func() {
+			It("returns an error", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: true,
+								Memory:        "4GB",
+								MemoryMin:     "6GB",
+								MemoryMax:     "8GB",
+							},
+						},
+					},
+				}
+
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("minimum memory (6GB) cannot be greater than startup memory (4GB)"))
+			})
+		})
+
+		When("max is less than startup", func() {
+			It("returns an error", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: true,
+								Memory:        "6GB",
+								MemoryMin:     "2GB",
+								MemoryMax:     "4GB",
+							},
+						},
+					},
+				}
+
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("maximum memory (4GB) cannot be less than startup memory (6GB)"))
+			})
+		})
+
+		When("all values are valid", func() {
+			It("does not return an error", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: true,
+								Memory:        "4GB",
+								MemoryMin:     "2GB",
+								MemoryMax:     "8GB",
+							},
+						},
+					},
+				}
+
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		When("only max is specified", func() {
+			It("does not validate min vs max", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: true,
+								Memory:        "4GB",
+								MemoryMax:     "8GB",
+							},
+						},
+					},
+				}
+
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).To(BeNil())
+			})
+		})
+	})
+
+	Describe("parseMemorySize", func() {
+		DescribeTable("parses memory sizes correctly",
+			func(input string, expectedBytes int64) {
+				result, err := parseMemorySize(input)
+				Expect(err).To(BeNil())
+				Expect(result).To(Equal(expectedBytes))
+			},
+			Entry("GB suffix", "4GB", int64(4*1000*1000*1000)),
+			Entry("MB suffix", "512MB", int64(512*1000*1000)),
+			Entry("KB suffix", "1024KB", int64(1024*1000)),
+			Entry("G suffix (binary)", "4G", int64(4*1024*1024*1024)),
+			Entry("M suffix (binary)", "512M", int64(512*1024*1024)),
+			Entry("lowercase gb", "4gb", int64(4*1000*1000*1000)),
+			Entry("with spaces", " 4GB ", int64(4*1000*1000*1000)),
+			Entry("plain number", "1073741824", int64(1073741824)),
+			Entry("8GB should not match B", "8GB", int64(8*1000*1000*1000)),
+			Entry("6GB should not match B", "6GB", int64(6*1000*1000*1000)),
+			Entry("2GB should not match B", "2GB", int64(2*1000*1000*1000)),
+		)
+
+		When("input is empty", func() {
+			It("returns an error", func() {
+				_, err := parseMemorySize("")
+				Expect(err).ToNot(BeNil())
+			})
+		})
+
+		When("input is invalid", func() {
+			It("returns an error", func() {
+				_, err := parseMemorySize("invalid")
+				Expect(err).ToNot(BeNil())
+			})
+		})
+
+		When("parsing 4GB, 6GB, 8GB in sequence", func() {
+			It("returns consistent values", func() {
+				val4, err := parseMemorySize("4GB")
+				Expect(err).To(BeNil())
+
+				val6, err := parseMemorySize("6GB")
+				Expect(err).To(BeNil())
+
+				val8, err := parseMemorySize("8GB")
+				Expect(err).To(BeNil())
+
+				// Verify ordering: 4GB < 6GB < 8GB
+				Expect(val4).To(BeNumerically("<", val6))
+				Expect(val6).To(BeNumerically("<", val8))
+				Expect(val4).To(Equal(int64(4 * 1000 * 1000 * 1000)))
+				Expect(val6).To(Equal(int64(6 * 1000 * 1000 * 1000)))
+				Expect(val8).To(Equal(int64(8 * 1000 * 1000 * 1000)))
+			})
+		})
+	})
 })
 
 func createInitialInstallConfig() *InstallConfig {
