@@ -176,7 +176,7 @@ function PerformClusterUpdate {
 	.SYNOPSIS
 		Applies a delta package to perform an in-place K2s cluster update.
 	.DESCRIPTION
-		Implements experimental update flow using a previously extracted delta package.
+		Implements update flow using a previously extracted delta package.
 		This function MUST be executed from the extracted delta package directory, NOT from
 		the installed k2s directory. The delta package directory is identified by the presence
 		of delta-manifest.json in the current working directory.
@@ -207,7 +207,7 @@ function PerformClusterUpdate {
 	.OUTPUTS
 		[bool] success indicator.
 	.NOTES
-		EXPERIMENTAL: logic may evolve; keeps offline guarantees (no network pulls).
+		Keeps offline guarantees (no network pulls).
 		IMPORTANT: Execute this function from the extracted delta package directory.
 		The user must:
 		  1. Extract the delta package zip: Expand-Archive k2s-delta-xxx.zip -Destination .\delta
@@ -224,7 +224,7 @@ function PerformClusterUpdate {
 
 	$consoleSwitch = $ShowLogs
 	Write-Log '#####################################################################' -Console:$consoleSwitch
-	Write-Log '[EXPERIMENTAL] Delta update starting' -Console:$consoleSwitch
+	Write-Log '[DeltaUpdate] Delta update starting' -Console:$consoleSwitch
 	Write-Log '#####################################################################' -Console:$consoleSwitch
 	Write-Log ("[Update] Parameters: ExecuteHooks={0} ShowProgress={1} ShowLogs={2}" -f $ExecuteHooks, $ShowProgress, $ShowLogs) -Console:$consoleSwitch
 
@@ -724,7 +724,7 @@ function Invoke-CommandInMasterVM {
 	.OUTPUTS
 		PSCustomObject { ExitCode; DurationSeconds; RemotePath; Success; }
 	.NOTES
-		EXPERIMENTAL: May evolve to include cleanup logic or hash verification of script.
+		May evolve to include cleanup logic or hash verification of script.
 	#>
 	[CmdletBinding()] param(
 		[Parameter(Mandatory=$true)][string] $ScriptPath,
