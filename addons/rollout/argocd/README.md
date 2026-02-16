@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -19,11 +19,16 @@ k2s addons enable rollout
 
 ### Integration with ingress nginx and ingress traefik addons
 
-The ArgoCD dashboard can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
+The ArgoCD dashboard can be integrated with the ingress nginx, ingress nginx-gw, or ingress traefik addon so that it can be exposed outside the cluster.
 
 For example, the rollout addon can be enabled along with traefik addon using the following command:
 ```
 k2s addons enable rollout --ingress traefik
+```
+
+Or with nginx-gw addon using the following command:
+```
+k2s addons enable rollout --ingress nginx-gw
 ```
 _Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
 
@@ -33,7 +38,7 @@ The ArgoCD dashboard can be accessed via the following methods.
 
 ### Access using ingress
 
-To access the ArgoCD dashboard via ingress, the ingress nginx or the ingress traefik addon has to be enabled.
+To access the ArgoCD dashboard via ingress, the ingress nginx, ingress nginx-gw, or ingress traefik addon has to be enabled.
 Once the addons are enabled, then the ArgoCD dashboard can be accessed at the following URL: <https://k2s.cluster.local/rollout>
 
 ### Access using port-forwarding
@@ -109,6 +114,32 @@ The reason for this is the scoped installation of ArgoCD to the `rollout` namesp
 To import:
 ```
  Get-Content -Raw .\backup.yaml | argocd admin import -n rollout -
+```
+
+## Backup and restore
+
+Backup/restore is **scoped to the `rollout` namespace only**.
+
+### What gets backed up
+
+- `argocd admin export -n rollout` output (applications, projects, repo connections, settings stored in ArgoCD)
+- Optional dashboard exposure resources in namespace `rollout` (if present):
+	- `Ingress/rollout-nginx-cluster-local`
+	- `Ingress/rollout-traefik-cluster-local`
+	- `Middleware/oauth2-proxy-auth` (Traefik secure mode)
+
+_Note:_ The ArgoCD export contains credentials (e.g., repository credentials). Handle the backup archive accordingly.
+
+### What does not get backed up
+
+- ArgoCD controller manifests/CRDs (they are re-installed during restore via `k2s addons enable rollout argocd`)
+- Resources outside of the `rollout` namespace
+
+### Commands
+
+```console
+k2s addons backup rollout argocd
+k2s addons restore rollout argocd <path-to-backup-zip>
 ```
 
 

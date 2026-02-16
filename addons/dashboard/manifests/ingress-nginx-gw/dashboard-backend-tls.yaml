@@ -6,7 +6,6 @@
 # This enables NGINX Gateway Fabric to use HTTPS when connecting to kong-proxy:443
 #
 # Certificate Validation Strategy:
-# - Without security addon: kong uses self-signed cert (CN=localhost)
 #   → Enable.ps1 extracts the certificate and creates kong-ca-cert ConfigMap
 #   → This policy references that ConfigMap for validation
 # - With security addon (cert-manager): kong may use cert-manager issued cert

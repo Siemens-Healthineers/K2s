@@ -54,7 +54,7 @@ FULL UPGRADE:
      To backup and restore addon data, use the separate mechanisms:
      - k2s addons export / k2s addons import
 
-DELTA UPDATE (EXPERIMENTAL):
+DELTA UPDATE:
   ⚠  Extract the delta package and call this command from within the extracted directory:
      1. Extract: Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
      2. Navigate: cd .\delta

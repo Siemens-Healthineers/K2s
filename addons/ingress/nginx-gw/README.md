@@ -52,6 +52,29 @@ by running the following command:
 k2s addons enable ingress nginx-gw
 ```
 
+## Backup and restore
+
+The `ingress nginx-gw` addon requires an explicit TLS Secret (`k2s-cluster-local-tls`) for the Gateway HTTPS listener.
+If that Secret is missing after restore, TLS will fail closed and HTTPS will not work.
+
+`k2s addons backup ingress nginx-gw` performs a **config-only** backup.
+
+- It backs up the Gateway API resources needed for the shared cluster Gateway setup.
+- It does **not** back up certificates or private keys.
+
+`k2s addons restore ingress nginx-gw` runs the addon enable flow first and then reapplies the backed up configuration.
+Certificates are (re)created by cert-manager during the enable phase.
+
+```console
+k2s addons backup ingress nginx-gw
+```
+
+```console
+k2s addons restore ingress nginx-gw -f <path-to-backup-zip>
+```
+
+During restore, the CA root certificate is imported into the Windows Trusted Root store by the cert-manager enable flow.
+
 ## Creating Gateway API routes
 
 NGINX Gateway Fabric uses the standard Kubernetes Gateway API resources to define

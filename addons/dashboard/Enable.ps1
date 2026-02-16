@@ -116,11 +116,6 @@ if ($dashboardStatus -ne $true) {
 $dashboardServiceAccount = "$dashboardChartDirectory/dashboard-service-account.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $dashboardServiceAccount).Output | Write-Log
 
-if ($Ingress -eq 'nginx-gw') {
-    Write-Log 'Configuring BackendTLSPolicy certificate validation for nginx-gw' -Console
-    New-KongCACertConfigMap
-}
-
 &"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })

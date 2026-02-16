@@ -169,6 +169,7 @@ function Invoke-ImageFilteringAndDeduplication {
     param(
         [Parameter(Mandatory = $true, HelpMessage = 'Array of container images to process.')]
         [AllowNull()]
+        [AllowEmptyCollection()]
         [array]$ContainerImages,
 
         [Parameter(Mandatory = $true, HelpMessage = 'Set to $true to exclude addon images.')]
@@ -910,33 +911,53 @@ function Filter-AddonImagesFromList {
 function Remove-DuplicateImages {
     param(
         [Parameter(Mandatory = $true, HelpMessage = 'Array of container images to deduplicate.')]
-        [array]$ContainerImages,
+        [AllowEmptyCollection()]
+        [object[]]$ContainerImages,
 
         [Parameter(Mandatory = $true, HelpMessage = 'Type of node: Linux or Windows.')]
         [string]$NodeType
     )
 
-    # Deduplicate images with same ImageID (prefer tagged over <none>)
-    $uniqueImages = @{}
+    # Group images by ImageID to handle multiple tags per image
+    $imageGroups = @{}
     foreach ($image in $ContainerImages) {
         $imageId = $image.ImageId
 
-        if ($uniqueImages.ContainsKey($imageId)) {
-            # If existing entry has <none> tag and new one has real tag, replace it
-            if ($uniqueImages[$imageId].Tag -eq '<none>' -and $image.Tag -ne '<none>') {
-                $uniqueImages[$imageId] = $image
-                Write-Log "[$NodeType`Node] Replaced <none> tag with proper tag for ImageID: $imageId"
+        if (-not $imageGroups.ContainsKey($imageId)) {
+            $imageGroups[$imageId] = @()
+        }
+        $imageGroups[$imageId] += $image
+    }
+
+    # For each ImageID group, filter out <none> tags if real tags exist
+    $deduplicatedImages = @()
+    foreach ($imageId in $imageGroups.Keys) {
+        $imagesForThisId = $imageGroups[$imageId]
+
+        # Separate real tags from <none> tags
+        $realTaggedImages = @($imagesForThisId | Where-Object { $_.Tag -ne '<none>' })
+        $noneTaggedImages = @($imagesForThisId | Where-Object { $_.Tag -eq '<none>' })
+
+        if ($realTaggedImages.Count -gt 0) {
+            # Keep all real tags for this ImageID
+            $deduplicatedImages += $realTaggedImages
+
+            if ($noneTaggedImages.Count -gt 0) {
+                Write-Log "[$NodeType`Node] Filtered out $($noneTaggedImages.Count) <none> tag(s) for ImageID: $imageId (keeping $($realTaggedImages.Count) real tag(s))"
             }
-            # If both are <none> or both are proper tags, keep first
         }
         else {
-            # Only add if not <none> tag OR if it's the only version of this ImageID
-            $uniqueImages[$imageId] = $image
+            # Only <none> tags exist for this ImageID, keep one representative
+            $deduplicatedImages += $imagesForThisId[0]
+
+            if ($imagesForThisId.Count -gt 1) {
+                Write-Log "[$NodeType`Node] Kept one representative <none> tag for ImageID: $imageId (had $($imagesForThisId.Count) duplicate(s))"
+            }
         }
     }
 
-    # Final pass: remove any remaining <none> tagged images
-    $deduplicatedImages = $uniqueImages.Values | Where-Object { $_.Tag -ne '<none>' } | Sort-Object Repository, Tag
+    # Sort for consistent output
+    $deduplicatedImages = $deduplicatedImages | Sort-Object Repository, Tag
 
     # Ensure we always return an array, even if empty
     if ($null -eq $deduplicatedImages) {

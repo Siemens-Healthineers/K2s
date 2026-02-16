@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText: © 2026 Siemens Healthcare GmbH
 //
 // SPDX-License-Identifier: MIT
 
@@ -194,6 +194,46 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
 				suite.K2sCli().MustExec(ctx, "addons", "enable", "viewer", "-o")
+
+				k2s.VerifyAddonIsEnabled("viewer")
+
+				suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")
+			})
+
+			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
+				url := "https://k2s.cluster.local/viewer/#/pod?namespace=_all"
+				_, err := suite.HttpClient(&tls.Config{InsecureSkipVerify: true}).Get(ctx, url)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
+				expectAddonToBeAlreadyEnabled(ctx)
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+		})
+
+		When("nginx-gw as ingress controller", func() {
+			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
+			})
+
+			AfterAll(func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "viewer", "-o")
+				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+
+				k2s.VerifyAddonIsDisabled("viewer")
+
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx", "nginx-gw")
+			})
+
+			It("is in enabled state and pods are in running state", func(ctx context.Context) {
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "viewer", "--ingress", "nginx-gw", "-o")
 
 				k2s.VerifyAddonIsEnabled("viewer")
 

@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -13,8 +13,20 @@ The `kubevirt` addon provides the possibility to deploy virtual machines in the 
 ## Getting started
 
 The kubevirt addon can be enabled using the k2s CLI by running the following command:
-```
+```console
 k2s addons enable kubevirt
+```
+
+To enable with software virtualization (no nested hardware virtualization required):
+```console
+k2s addons enable kubevirt -o software-virtualization=true
+```
+
+## Disable kubevirt
+
+The kubevirt addon can be disabled using the k2s CLI by running the following command:
+```console
+k2s addons disable kubevirt
 ```
 
 ## Using KubeVirt
@@ -28,4 +40,31 @@ For this, *K2s* provides a *PowerShell* the script [BuildKubevirtImage.ps1](Buil
 
 ```ps
 .\BuildKubevirtImage.ps1 -InputQCOW2Image "some\path\windows20h2.qcow2" -ImageName "virt-win20h2"
+```
+
+## Backup and restore
+
+The kubevirt addon supports backup and restore via the `k2s` CLI for consistency with other addons.
+
+Because kubevirt is an **infrastructure addon** (nested virtualization, QEMU/libvirt packages, KubeVirt operator/CR, virtctl, VirtViewer), there is **no user-configurable state to back up**. The backup writes a metadata-only manifest; restore succeeds without additional steps once the addon has been re-enabled.
+
+### What gets backed up
+
+- Metadata only (`backup.json` with addon name, K2s version, timestamp).
+
+### What does not get backed up
+
+- Hyper-V nested virtualization settings (recreated by enable)
+- Debian packages on the control-plane VM: QEMU, libvirt, fuse3 (reinstalled by enable)
+- GRUB cgroup v1 configuration (reconfigured by enable)
+- KubeVirt operator and CR (reapplied from static manifests by enable)
+- virtctl binary on the VM and Windows host (re-downloaded by enable)
+- VirtViewer MSI on the Windows host (re-downloaded and reinstalled by enable)
+- User-created VirtualMachines and uploaded VM images (user workloads, outside addon scope)
+
+### Commands
+
+```console
+k2s addons backup kubevirt
+k2s addons restore kubevirt -f C:\Temp\Addons\kubevirt_backup_YYYYMMDD_HHMMSS.zip
 ```

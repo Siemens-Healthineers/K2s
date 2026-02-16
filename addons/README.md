@@ -20,6 +20,7 @@ The following addons will be deployed with **K2s**:
 | [dashboard](./dashboard/README.md) | Dashboard for Kubernetes | 
 | [gpu-node](./gpu-node/README.md) | Configure the control plane node to utilize GPUs for direct GPU access and high-performance computing tasks. | 
 | [ingress nginx](./ingress/nginx/README.md) | Ingress Controller for external access that uses nginx as a reverse proxy | 
+| [ingress nginx-gw](./ingress/nginx-gw/README.md) | Gateway API controller for external access that uses NGINX Gateway Fabric as a reverse proxy | 
 | [ingress traefik](./ingress/traefik/README.md) | Ingress Controller for external access that uses traefik as a reverse proxy | 
 | [kubevirt](./kubevirt/README.md) | Manage VM workloads with k2s | 
 | [logging](./logging/README.md) | Dashboard for Kubernetes container logs | 

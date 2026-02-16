@@ -4,9 +4,13 @@
 
 #Requires -RunAsAdministrator
 
+$infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $nginxGateWayModule = "$PSScriptRoot\nginx-gw.module.psm1"
-Import-Module $addonsModule, $nginxGateWayModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $nginxGateWayModule
+
+Initialize-Logging -ShowLogs:$false
 
 function Update-LinkerdAnnotation {
 	param (
@@ -40,12 +44,21 @@ function Update-LinkerdAnnotation {
 
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 Write-Log "Updating addon with name: $addonName"
-
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
+$securityAddonEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })
+if ($EnancedSecurityEnabled -or $securityAddonEnabled) {
+	Enable-NginxGatewaySnippetsFilter
+}
+
 if ($EnancedSecurityEnabled) {
-	Write-Log "Updating nginx gateway fabric addon to be part of service mesh"
+	Write-Log "Updating nginx gateway fabric addon to be part of service mesh" -Console
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":\"443,8443,9113\",\"config.linkerd.io/skip-outbound-ports\":\"443\",\"linkerd.io/inject\":\"enabled\"}}}}}'
 	Update-LinkerdAnnotation -AnnotationsPatch $annotations -ExpectedValue 'enabled' -EnhancedSecurityEnabled $true
+	
+	# Patch oauth2-proxy to skip outbound port 443 for Keycloak HTTPS communication
+	Write-Log "Patching oauth2-proxy for service mesh compatibility" -Console
+	$oauth2Annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-outbound-ports\":\"443\"}}}}}'
+	(Invoke-Kubectl -Params 'patch', 'deployment', 'oauth2-proxy', '-n', 'security', '-p', $oauth2Annotations).Output | Write-Log
 } else {
 	Write-Log "Updating nginx gateway fabric addon to not be part of service mesh"
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"config.linkerd.io/skip-outbound-ports\":null,\"linkerd.io/inject\":null}}}}}'

@@ -580,9 +580,9 @@
       "type": "application"
     },
     {
-      "group": "https://get.helm.sh/helm-v4.1.0-windows-amd64.zip",
+      "group": "https://get.helm.sh/helm-v4.1.1-windows-amd64.zip",
       "name": "helm",
-      "version": "v4.1.0",
+      "version": "v4.1.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -599,7 +599,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/helm/helm@v4.1.0",
+      "purl": "pkg:github/helm/helm@v4.1.1",
       "type": "application"
     }
   ],
