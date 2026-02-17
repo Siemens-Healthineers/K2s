@@ -698,6 +698,100 @@ var _ = Describe("config", func() {
 		})
 	})
 
+	Describe("validateWslCompatibility", func() {
+		When("WSL is enabled with dynamic memory", func() {
+			It("returns an error", func() {
+				config := &InstallConfig{
+					Behavior: BehaviorConfig{
+						Wsl: true,
+					},
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: true,
+								Memory:        "4GB",
+							},
+						},
+					},
+				}
+
+				err := validateWslCompatibility(config)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("dynamic memory"))
+				Expect(err.Error()).To(ContainSubstring("not supported with WSL2"))
+			})
+		})
+
+		When("WSL is enabled without dynamic memory", func() {
+			It("does not return an error", func() {
+				config := &InstallConfig{
+					Behavior: BehaviorConfig{
+						Wsl: true,
+					},
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+								Memory:        "4GB",
+							},
+						},
+					},
+				}
+
+				err := validateWslCompatibility(config)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		When("WSL is disabled with dynamic memory", func() {
+			It("does not return an error", func() {
+				config := &InstallConfig{
+					Behavior: BehaviorConfig{
+						Wsl: false,
+					},
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: true,
+								Memory:        "4GB",
+								MemoryMin:     "2GB",
+								MemoryMax:     "8GB",
+							},
+						},
+					},
+				}
+
+				err := validateWslCompatibility(config)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		When("neither WSL nor dynamic memory is enabled", func() {
+			It("does not return an error", func() {
+				config := &InstallConfig{
+					Behavior: BehaviorConfig{
+						Wsl: false,
+					},
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+								Memory:        "4GB",
+							},
+						},
+					},
+				}
+
+				err := validateWslCompatibility(config)
+				Expect(err).To(BeNil())
+			})
+		})
+	})
+
 	Describe("parseMemorySize", func() {
 		DescribeTable("parses memory sizes correctly",
 			func(input string, expectedBytes int64) {
