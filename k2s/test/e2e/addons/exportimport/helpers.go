@@ -562,10 +562,7 @@ func FilterAddonByName(allAddons addons.Addons, addonName string) addons.Addons 
 	})
 }
 
-// VerifyImportedAddonFiles verifies that all expected addon files are present at the correct
-// paths after import. It walks the implementation directory and checks that every file that
-// existed before export is restored. The expectedFiles list should contain paths relative to
-// the implementation directory (e.g., "build/Dockerfile.smbplugin", "config/SmbStorage.json").
+// verifies that all expected addon files are present at the correct paths after import.
 func VerifyImportedAddonFiles(implDir string, expectedFiles []string) {
 	GinkgoWriter.Println("=== VERIFY IMPORTED ADDON FILES START ===")
 	GinkgoWriter.Printf("[AddonFiles] Implementation directory: %s\n", implDir)
@@ -588,8 +585,7 @@ func VerifyImportedAddonFiles(implDir string, expectedFiles []string) {
 	GinkgoWriter.Println("=== VERIFY IMPORTED ADDON FILES END ===")
 }
 
-// VerifyNoStrayFiles verifies that no addon files were placed at incorrect paths after import.
-// unexpectedFiles should contain absolute paths that must NOT exist.
+// verifies that no addon files were placed at incorrect paths after import.
 func VerifyNoStrayFiles(unexpectedFiles []string) {
 	GinkgoWriter.Println("=== VERIFY NO STRAY FILES START ===")
 	GinkgoWriter.Printf("[StrayFiles] Checking %d paths that should NOT exist\n", len(unexpectedFiles))
