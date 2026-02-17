@@ -560,3 +560,48 @@ func FilterAddonByName(allAddons addons.Addons, addonName string) addons.Addons 
 		return a.Metadata.Name == addonName
 	})
 }
+
+// VerifyImportedAddonFiles verifies that all expected addon files are present at the correct
+// paths after import. It walks the implementation directory and checks that every file that
+// existed before export is restored. The expectedFiles list should contain paths relative to
+// the implementation directory (e.g., "build/Dockerfile.smbplugin", "config/SmbStorage.json").
+func VerifyImportedAddonFiles(implDir string, expectedFiles []string) {
+	GinkgoWriter.Println("=== VERIFY IMPORTED ADDON FILES START ===")
+	GinkgoWriter.Printf("[AddonFiles] Implementation directory: %s\n", implDir)
+	GinkgoWriter.Printf("[AddonFiles] Expected files: %d\n", len(expectedFiles))
+
+	for i, relPath := range expectedFiles {
+		fullPath := filepath.Join(implDir, relPath)
+		info, err := os.Stat(fullPath)
+		if os.IsNotExist(err) {
+			GinkgoWriter.Printf("[AddonFiles]   [%d] MISSING: %s\n", i, relPath)
+		} else if err != nil {
+			GinkgoWriter.Printf("[AddonFiles]   [%d] ERROR: %s - %v\n", i, relPath, err)
+		} else {
+			GinkgoWriter.Printf("[AddonFiles]   [%d] OK: %s (%d bytes)\n", i, relPath, info.Size())
+		}
+		Expect(os.IsNotExist(err)).To(BeFalse(), "File %s should exist at %s after import", relPath, fullPath)
+		Expect(info.Size()).To(BeNumerically(">", 0), "File %s should not be empty", relPath)
+	}
+
+	GinkgoWriter.Println("=== VERIFY IMPORTED ADDON FILES END ===")
+}
+
+// VerifyNoStrayFiles verifies that no addon files were placed at incorrect paths after import.
+// unexpectedFiles should contain absolute paths that must NOT exist.
+func VerifyNoStrayFiles(unexpectedFiles []string) {
+	GinkgoWriter.Println("=== VERIFY NO STRAY FILES START ===")
+	GinkgoWriter.Printf("[StrayFiles] Checking %d paths that should NOT exist\n", len(unexpectedFiles))
+
+	for i, path := range unexpectedFiles {
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			GinkgoWriter.Printf("[StrayFiles]   [%d] OK (absent): %s\n", i, path)
+		} else {
+			GinkgoWriter.Printf("[StrayFiles]   [%d] UNEXPECTED: %s exists!\n", i, path)
+		}
+		Expect(os.IsNotExist(err)).To(BeTrue(), "File %s should NOT exist (placed at wrong path during import)", path)
+	}
+
+	GinkgoWriter.Println("=== VERIFY NO STRAY FILES END ===")
+}

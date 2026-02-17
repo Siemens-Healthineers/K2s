@@ -170,5 +170,23 @@ var _ = Describe("metrics addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
 		})
+
+		It("all addon files present at correct paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
+			metricsImplDir := filepath.Join(suite.RootDir(), "addons", "metrics")
+			GinkgoWriter.Printf("[Test] Metrics implementation directory: %s\n", metricsImplDir)
+
+			expectedFiles := []string{
+				"Enable.ps1",
+				"Disable.ps1",
+				"Get-Status.ps1",
+				"Backup.ps1",
+				"Restore.ps1",
+				"Update.ps1",
+				"README.md",
+				"metrics.module.psm1",
+			}
+			exportimport.VerifyImportedAddonFiles(metricsImplDir, expectedFiles)
+		})
 	})
 })
