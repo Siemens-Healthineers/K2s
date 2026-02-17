@@ -168,5 +168,39 @@ var _ = Describe("storage smb addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
 		})
+
+		It("all addon files present at correct paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
+			smbImplDir := filepath.Join(suite.RootDir(), "addons", "storage", "smb")
+			GinkgoWriter.Printf("[Test] SMB implementation directory: %s\n", smbImplDir)
+
+			// These files must exist under addons/storage/smb/ after import
+			expectedFiles := []string{
+				"Enable.ps1",
+				"Disable.ps1",
+				"Get-Status.ps1",
+				"Backup.ps1",
+				"Restore.ps1",
+				"README.md",
+				"config/SmbStorage.json",
+				"config/SmbStorage.json.license",
+				"build/Dockerfile.smbplugin",
+				"build/Dockerfile.csi-node-driver-registrar",
+			}
+			exportimport.VerifyImportedAddonFiles(smbImplDir, expectedFiles)
+		})
+
+		It("no stray files at wrong addon paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: no stray files at wrong addon paths after import")
+			storageBaseDir := filepath.Join(suite.RootDir(), "addons", "storage")
+
+			// Config files must NOT appear at the base addon level —
+			// they belong under the implementation subdirectory (smb/config/)
+			unexpectedFiles := []string{
+				filepath.Join(storageBaseDir, "config", "SmbStorage.json"),
+				filepath.Join(storageBaseDir, "config", "SmbStorage.json.license"),
+			}
+			exportimport.VerifyNoStrayFiles(unexpectedFiles)
+		})
 	})
 })

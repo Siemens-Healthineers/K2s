@@ -168,5 +168,23 @@ var _ = Describe("ingress traefik addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
 		})
+
+		It("all addon files present at correct paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
+			traefikImplDir := filepath.Join(suite.RootDir(), "addons", "ingress", "traefik")
+			GinkgoWriter.Printf("[Test] Traefik implementation directory: %s\n", traefikImplDir)
+
+			expectedFiles := []string{
+				"Enable.ps1",
+				"Disable.ps1",
+				"Get-Status.ps1",
+				"Backup.ps1",
+				"Restore.ps1",
+				"Update.ps1",
+				"README.md",
+				"traefik.module.psm1",
+			}
+			exportimport.VerifyImportedAddonFiles(traefikImplDir, expectedFiles)
+		})
 	})
 })

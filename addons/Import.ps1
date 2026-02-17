@@ -403,17 +403,17 @@ foreach ($addon in $addonsToImport) {
                 }
             }
             
-            # Copy any additional config files to the destination (values.yaml, settings.json, etc.)
+            # Copy any additional config files to the implementation path (values.yaml, settings.json, etc.)
             Get-ChildItem -Path $tempConfigDir -File -ErrorAction SilentlyContinue | 
                 Where-Object { $_.Name -ne 'addon.manifest.yaml' } | ForEach-Object {
-                    Copy-Item -Path $_.FullName -Destination $destinationPath -Force
+                    Copy-Item -Path $_.FullName -Destination $implementationPath -Force
                     Write-Log "[OCI] Copied config file: $($_.Name)"
                 }
             
             # Copy config subdirectory if present
             $configSubDir = Join-Path $tempConfigDir 'config'
             if (Test-Path $configSubDir) {
-                $destConfigSubDir = Join-Path $destinationPath 'config'
+                $destConfigSubDir = Join-Path $implementationPath 'config'
                 New-Item -ItemType Directory -Path $destConfigSubDir -Force | Out-Null
                 Copy-Item -Path (Join-Path $configSubDir '*') -Destination $destConfigSubDir -Recurse -Force
                 Write-Log "[OCI] Copied config subdirectory"
