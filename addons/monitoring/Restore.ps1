@@ -48,7 +48,7 @@ function Fail([string]$errMsg, [string]$code = 'addon-restore-failed') {
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code $code -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
-        return
+        exit 1
     }
 
     Write-Log $errMsg -Error
@@ -58,13 +58,11 @@ function Fail([string]$errMsg, [string]$code = 'addon-restore-failed') {
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     Fail $systemError.Message 'system-not-available'
-    return
 }
 
 $manifestPath = Join-Path $BackupDir 'backup.json'
 if (-not (Test-Path -LiteralPath $manifestPath)) {
     Fail "backup.json not found in '$BackupDir'" 'addon-restore-failed'
-    return
 }
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
@@ -259,7 +257,6 @@ try {
 }
 catch {
     Fail "Restore of addon 'monitoring' failed: $($_.Exception.Message)" 'addon-restore-failed'
-    return
 }
 
 # Best-effort rollouts
