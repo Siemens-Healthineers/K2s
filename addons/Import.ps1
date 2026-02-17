@@ -40,7 +40,7 @@ if ($systemError) {
 $setupInfo = Get-SetupInfo
 
 $tmpDir = "$env:TEMP\$(Get-Date -Format ddMMyyyy-HHmmss)-tmp-extracted-addons"
-$extractionFolder = "$tmpDir\artifacts"
+$extractionFolder = $tmpDir
 
 if ($ArtifactFile) {
     Write-Log "[OCI] Extracting artifact from $ArtifactFile" -Console

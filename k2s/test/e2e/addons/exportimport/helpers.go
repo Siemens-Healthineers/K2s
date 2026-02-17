@@ -125,9 +125,10 @@ func ExtractOciTar(ctx context.Context, suite *framework.K2sTestSuite, ociTarPat
 	suite.Cli("tar").MustExec(ctx, "-xf", ociTarPath, "-C", outputDir)
 	GinkgoWriter.Println("[Extract] Extraction completed")
 
-	extractedArtifactsDir := filepath.Join(outputDir, "artifacts")
-	_, err := os.Stat(extractedArtifactsDir)
-	Expect(os.IsNotExist(err)).To(BeFalse(), "artifacts directory should exist after extraction at %s", extractedArtifactsDir)
+	// OCI layout files (oci-layout, index.json, blobs/) are at the tar root
+	extractedArtifactsDir := outputDir
+	_, err := os.Stat(filepath.Join(extractedArtifactsDir, "oci-layout"))
+	Expect(os.IsNotExist(err)).To(BeFalse(), "oci-layout should exist after extraction at %s", extractedArtifactsDir)
 
 	// List contents of extracted directory
 	entries, _ := os.ReadDir(extractedArtifactsDir)
