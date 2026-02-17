@@ -226,7 +226,7 @@ func VerifyExportedImages(suite *framework.K2sTestSuite, extractedArtifactsDir s
 		hasLinuxImages := strings.Contains(string(indexJsonContent), "images-linux.tar") ||
 			strings.Contains(string(indexJsonContent), "vnd.oci.image.layer.v1.tar")
 		hasWindowsImages := strings.Contains(string(indexJsonContent), "images-windows.tar") ||
-			strings.Contains(string(indexJsonContent), "vnd.oci.image.layer.v1.tar+windows")
+			strings.Contains(string(indexJsonContent), "vnd.k2s.addon.images-windows.v1.tar")
 
 		// Verify blobs exist
 		blobsDir := filepath.Join(extractedArtifactsDir, "blobs", "sha256")
@@ -334,7 +334,7 @@ func VerifyOciManifest(extractedArtifactsDir string, expectedDirName string) {
 	}
 
 	// Verify K2s-specific annotations are present
-	k2sAnnotations := []string{"vnd.k2s.addon.name", "vnd.k2s.addon.implementation", "vnd.k2s.addon.version"}
+	k2sAnnotations := []string{"vnd.k2s.addon.name", "vnd.k2s.addon.implementation", "org.opencontainers.image.version"}
 	for _, annotation := range k2sAnnotations {
 		if strings.Contains(indexJson, annotation) {
 			GinkgoWriter.Printf("[OciManifest] K2s annotation '%s': FOUND\n", annotation)

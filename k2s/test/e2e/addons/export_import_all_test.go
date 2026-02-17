@@ -177,7 +177,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 					Annotations  struct {
 						AddonName           string `json:"vnd.k2s.addon.name"`
 						AddonImplementation string `json:"vnd.k2s.addon.implementation"`
-						AddonVersion        string `json:"vnd.k2s.addon.version"`
+						AddonVersion        string `json:"org.opencontainers.image.version"`
 					} `json:"annotations"`
 				} `json:"manifests"`
 			}
@@ -374,7 +374,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			// Verify addon-specific annotations in manifests
 			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.name"), "should have addon name annotations")
 			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.implementation"), "should have addon implementation annotations")
-			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.version"), "should have addon version annotations")
+			Expect(indexJsonStr).To(ContainSubstring("org.opencontainers.image.version"), "should have addon version annotations")
 
 			GinkgoWriter.Println("[Test] All OCI and K2s annotations verified in index.json")
 		})
