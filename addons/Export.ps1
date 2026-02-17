@@ -784,6 +784,7 @@ try {
             digest = $addonRef.manifestDigest
             artifactType = 'application/vnd.k2s.addon.v1'
             annotations = @{
+                'org.opencontainers.image.ref.name' = "v$($addonRef.version)"
                 'vnd.k2s.addon.name' = $addonRef.dirName
                 'vnd.k2s.addon.implementation' = $addonRef.implementation
                 'vnd.k2s.addon.version' = $addonRef.version
@@ -818,8 +819,8 @@ Remove-Item -Force $finalExportPath -ErrorAction SilentlyContinue
 # Create OCI-layout tar archive
 $currentLocation = Get-Location
 try {
-    Set-Location "${tmpExportDir}"
-    $tarResult = & tar -cvf $finalExportPath "artifacts" 2>&1
+    Set-Location "${tmpExportDir}\artifacts"
+    $tarResult = & tar -cvf $finalExportPath "." 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Log "[OCI] Warning: tar creation returned: $tarResult"
     }

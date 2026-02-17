@@ -112,7 +112,7 @@ var _ = Describe("rollout fluxcd addon export and import", Ordered, func() {
 
 		It("all resources have been exported", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all resources have been exported")
-			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			extractedArtifactsDir := exportPath
 			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
 			exportimport.VerifyExportedImages(suite, extractedArtifactsDir, impl)
@@ -122,7 +122,7 @@ var _ = Describe("rollout fluxcd addon export and import", Ordered, func() {
 		It("index.json contains proper OCI structure", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: index.json contains proper OCI structure")
 			expectedDirName := exportimport.GetExpectedDirName("rollout", "fluxcd")
-			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			extractedArtifactsDir := exportPath
 			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
 			exportimport.VerifyOciManifest(extractedArtifactsDir, expectedDirName)
