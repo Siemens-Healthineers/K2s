@@ -29,16 +29,16 @@ var (
 	backupDir  string
 )
 
-func TestRegistryBackupRestore(t *testing.T) {
+func TestMetricsBackupRestore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "registry Addon Backup/Restore Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "registry", "backup-restore", "system-running"))
+	RunSpecs(t, "metrics Addon Backup/Restore Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "metrics", "backup-restore", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 	k2s = dsl.NewK2s(suite)
 
-	backupDir = filepath.Join(os.TempDir(), "k2s-test-backup-registry")
+	backupDir = filepath.Join(os.TempDir(), "k2s-test-backup-metrics")
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -50,7 +50,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
+	suite.K2sCli().Exec(ctx, "addons", "disable", "metrics", "-o")
 
 	cleanupBackupDir()
 
@@ -68,10 +68,10 @@ func cleanupBackupDir() {
 }
 
 func backupZipPath(suffix string) string {
-	return filepath.Join(backupDir, fmt.Sprintf("registry_backup_%s.zip", suffix))
+	return filepath.Join(backupDir, fmt.Sprintf("metrics_backup_%s.zip", suffix))
 }
 
-var _ = Describe("'registry' addon backup/restore", Ordered, func() {
+var _ = Describe("'metrics' addon backup/restore", Ordered, func() {
 
 	Describe("backup and restore", func() {
 		var zipPath string
@@ -83,14 +83,14 @@ var _ = Describe("'registry' addon backup/restore", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
-			k2s.VerifyAddonIsDisabled("registry")
+			suite.K2sCli().Exec(ctx, "addons", "disable", "metrics", "-o")
+			k2s.VerifyAddonIsDisabled("metrics")
 		})
 
 		// --- error tests while addon is disabled ---
 
 		It("fails backup when addon is disabled", func(ctx context.Context) {
-			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "backup", "registry")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "backup", "metrics")
 
 			Expect(output).To(ContainSubstring("not enabled"))
 		})
@@ -98,7 +98,7 @@ var _ = Describe("'registry' addon backup/restore", Ordered, func() {
 		It("fails restore with a non-existent backup file", func(ctx context.Context) {
 			fakePath := filepath.Join(backupDir, "does-not-exist.zip")
 
-			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "restore", "registry", "-f", fakePath)
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "restore", "metrics", "-f", fakePath)
 
 			Expect(output).To(ContainSubstring("not found"))
 		})
@@ -106,50 +106,51 @@ var _ = Describe("'registry' addon backup/restore", Ordered, func() {
 		// --- enable → backup → error while enabled → disable → restore ---
 
 		It("enables the addon", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "metrics", "-o")
 
-			k2s.VerifyAddonIsEnabled("registry")
+			k2s.VerifyAddonIsEnabled("metrics")
 
-			suite.Cluster().ExpectStatefulSetToBeReady("registry", "registry", 1, ctx)
+			suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 		})
 
 		It("creates a backup", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "backup", "registry", "-f", zipPath, "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "backup", "metrics", "-f", zipPath, "-o")
 
 			Expect(zipPath).To(BeAnExistingFile())
 		})
 
 		It("fails restore while addon is still enabled", func(ctx context.Context) {
-			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "restore", "registry", "-f", zipPath)
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "restore", "metrics", "-f", zipPath)
 
 			Expect(output).To(ContainSubstring("disable"))
 		})
 
 		It("disables the addon", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "metrics", "-o")
 
-			k2s.VerifyAddonIsDisabled("registry")
+			k2s.VerifyAddonIsDisabled("metrics")
 
-			suite.Cluster().ExpectStatefulSetToBeDeleted("registry", "registry", ctx)
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "metrics-server", "metrics")
 		})
 
 		It("restores from backup successfully", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "restore", "registry", "-f", zipPath, "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "restore", "metrics", "-f", zipPath, "-o")
 
-			k2s.VerifyAddonIsEnabled("registry")
+			k2s.VerifyAddonIsEnabled("metrics")
 
-			suite.Cluster().ExpectStatefulSetToBeReady("registry", "registry", 1, ctx)
+			suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 		})
 	})
 
-	Describe("backup and restore preserves registry-config ConfigMap data", func() {
-		// Backup.ps1 captures the registry-config ConfigMap's .data field.
-		// Restore.ps1 re-applies it with server-side apply after Enable.ps1
-		// creates a fresh ConfigMap.  We add a custom data key before backup
-		// and verify it survives the full cycle.
+	Describe("backup and restore preserves windows-exporter-config ConfigMap data", func() {
+		// Backup.ps1 captures the windows-exporter-config ConfigMap from
+		// kube-system with its full .data field.  Restore.ps1 applies the
+		// backed-up JSON on top of the freshly created ConfigMap from
+		// Enable.ps1.  We add a custom data key before backup and verify
+		// it survives the full cycle.
 		const (
-			testNamespace   = "registry"
-			configMapName   = "registry-config"
+			configMapName   = "windows-exporter-config"
+			configMapNS     = "kube-system"
 			customDataKey   = "k2s-test-marker"
 			customDataValue = "backup-restore-sentinel"
 		)
@@ -163,52 +164,52 @@ var _ = Describe("'registry' addon backup/restore", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
-			k2s.VerifyAddonIsDisabled("registry")
+			suite.K2sCli().Exec(ctx, "addons", "disable", "metrics", "-o")
+			k2s.VerifyAddonIsDisabled("metrics")
 		})
 
 		It("enables the addon", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "metrics", "-o")
 
-			k2s.VerifyAddonIsEnabled("registry")
+			k2s.VerifyAddonIsEnabled("metrics")
 
-			suite.Cluster().ExpectStatefulSetToBeReady("registry", "registry", 1, ctx)
+			suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 		})
 
 		It("patches the ConfigMap with a custom data key", func(ctx context.Context) {
-			suite.Kubectl().MustExec(ctx, "patch", "configmap", configMapName, "-n", testNamespace,
+			suite.Kubectl().MustExec(ctx, "patch", "configmap", configMapName, "-n", configMapNS,
 				"--type=merge", "-p", fmt.Sprintf(`{"data":{"%s":"%s"}}`, customDataKey, customDataValue))
 
-			output := suite.Kubectl().MustExec(ctx, "get", "configmap", configMapName, "-n", testNamespace,
+			output := suite.Kubectl().MustExec(ctx, "get", "configmap", configMapName, "-n", configMapNS,
 				"-o", fmt.Sprintf("jsonpath={.data['%s']}", customDataKey))
 			Expect(output).To(Equal(customDataValue))
 		})
 
 		It("creates a backup containing the patched ConfigMap", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "backup", "registry", "-f", zipPath, "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "backup", "metrics", "-f", zipPath, "-o")
 
 			Expect(zipPath).To(BeAnExistingFile())
 		})
 
 		It("disables the addon", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "metrics", "-o")
 
-			k2s.VerifyAddonIsDisabled("registry")
+			k2s.VerifyAddonIsDisabled("metrics")
 
-			suite.Cluster().ExpectStatefulSetToBeDeleted("registry", "registry", ctx)
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "metrics-server", "metrics")
 		})
 
 		It("restores from backup and the custom data key is present", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "restore", "registry", "-f", zipPath, "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "restore", "metrics", "-f", zipPath, "-o")
 
-			k2s.VerifyAddonIsEnabled("registry")
+			k2s.VerifyAddonIsEnabled("metrics")
 
-			suite.Cluster().ExpectStatefulSetToBeReady("registry", "registry", 1, ctx)
+			suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 
 			// The backed-up ConfigMap contained our custom data key.
-			// Restore.ps1 applies it with --server-side --force-conflicts,
-			// overwriting the fresh ConfigMap from Enable.ps1.
-			output := suite.Kubectl().MustExec(ctx, "get", "configmap", configMapName, "-n", testNamespace,
+			// Restore.ps1 applies it via kubectl apply, merging with the
+			// freshly created ConfigMap from Enable.ps1.
+			output := suite.Kubectl().MustExec(ctx, "get", "configmap", configMapName, "-n", configMapNS,
 				"-o", fmt.Sprintf("jsonpath={.data['%s']}", customDataKey))
 			Expect(output).To(Equal(customDataValue))
 		})
