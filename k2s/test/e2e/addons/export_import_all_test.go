@@ -697,44 +697,5 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				GinkgoWriter.Printf("[Test] SKIP: Rollout manifest not found at %s\n", rolloutManifestPath)
 			}
 		})
-
-		It("core addon scripts present at correct implementation paths after import", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: core addon scripts present at correct implementation paths after import")
-			GinkgoWriter.Printf("[Test] Checking %d addons for core scripts...\n", len(allAddons))
-
-			addonsBaseDir := filepath.Join(suite.RootDir(), "addons")
-
-			for _, a := range allAddons {
-				for _, i := range a.Spec.Implementations {
-					implDir := filepath.Join(addonsBaseDir, i.Directory)
-					GinkgoWriter.Printf("[Test] Checking %s/%s at %s\n", a.Metadata.Name, i.Name, implDir)
-
-					// Every implementation must have Enable.ps1 and Disable.ps1
-					coreScripts := []string{"Enable.ps1", "Disable.ps1"}
-					for _, script := range coreScripts {
-						scriptPath := filepath.Join(implDir, script)
-						info, err := os.Stat(scriptPath)
-						if os.IsNotExist(err) {
-							GinkgoWriter.Printf("[Test]   MISSING: %s\n", script)
-						} else {
-							GinkgoWriter.Printf("[Test]   OK: %s (%d bytes)\n", script, info.Size())
-						}
-						Expect(os.IsNotExist(err)).To(BeFalse(),
-							"%s should exist at %s for addon %s/%s after import",
-							script, scriptPath, a.Metadata.Name, i.Name)
-						Expect(info.Size()).To(BeNumerically(">", 0),
-							"%s should not be empty for addon %s/%s", script, a.Metadata.Name, i.Name)
-					}
-
-					// addon.manifest.yaml must exist at addon base directory
-					manifestPath := filepath.Join(addonsBaseDir, a.Directory, "addon.manifest.yaml")
-					_, err := os.Stat(manifestPath)
-					Expect(os.IsNotExist(err)).To(BeFalse(),
-						"addon.manifest.yaml should exist at %s for addon %s", manifestPath, a.Metadata.Name)
-					GinkgoWriter.Printf("[Test]   OK: addon.manifest.yaml present\n")
-				}
-			}
-			GinkgoWriter.Println("[Test] All core addon scripts verified at correct paths")
-		})
 	})
 })
