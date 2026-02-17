@@ -197,6 +197,12 @@ func (i *installConfigAccess) Load(kind Kind, flags *pflag.FlagSet) (*InstallCon
 		return nil, err
 	}
 
+	// Validate WSL compatibility
+	err = validateWslCompatibility(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return config, nil
 }
 
@@ -422,6 +428,21 @@ func validateDynamicMemoryConfiguration(config *InstallConfig) error {
 			if maxBytes < startupBytes {
 				return fmt.Errorf("dynamic memory configuration error: maximum memory (%s) cannot be less than startup memory (%s)",
 					node.Resources.MemoryMax, node.Resources.Memory)
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateWslCompatibility validates WSL-specific configurations
+func validateWslCompatibility(config *InstallConfig) error {
+	// WSL + Dynamic Memory is not supported
+	if config.Behavior.Wsl {
+		for i := range config.Nodes {
+			node := &config.Nodes[i]
+			if node.Resources.DynamicMemory {
+				return fmt.Errorf("dynamic memory configuration error: dynamic memory (--master-dynamic-memory) is not supported with WSL2 (--wsl). WSL2 has its own memory management. Please remove either --master-dynamic-memory or --wsl flag")
 			}
 		}
 	}
