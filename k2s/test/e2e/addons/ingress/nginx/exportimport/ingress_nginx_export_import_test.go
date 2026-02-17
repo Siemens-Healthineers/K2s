@@ -168,5 +168,23 @@ var _ = Describe("ingress nginx addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
 		})
+
+		It("all addon files present at correct paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
+			nginxImplDir := filepath.Join(suite.RootDir(), "addons", "ingress", "nginx")
+			GinkgoWriter.Printf("[Test] Nginx implementation directory: %s\n", nginxImplDir)
+
+			expectedFiles := []string{
+				"Enable.ps1",
+				"Disable.ps1",
+				"Get-Status.ps1",
+				"Backup.ps1",
+				"Restore.ps1",
+				"Update.ps1",
+				"README.md",
+				"nginx.module.psm1",
+			}
+			exportimport.VerifyImportedAddonFiles(nginxImplDir, expectedFiles)
+		})
 	})
 })

@@ -170,5 +170,23 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
 		})
+
+		It("all addon files present at correct paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
+			registryImplDir := filepath.Join(suite.RootDir(), "addons", "registry")
+			GinkgoWriter.Printf("[Test] Registry implementation directory: %s\n", registryImplDir)
+
+			expectedFiles := []string{
+				"Enable.ps1",
+				"Disable.ps1",
+				"Get-Status.ps1",
+				"Backup.ps1",
+				"Restore.ps1",
+				"Update.ps1",
+				"README.md",
+				"registry.module.psm1",
+			}
+			exportimport.VerifyImportedAddonFiles(registryImplDir, expectedFiles)
+		})
 	})
 })
