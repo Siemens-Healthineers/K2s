@@ -170,5 +170,21 @@ var _ = Describe("security addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
 		})
+
+		It("all addon files present at correct paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
+			securityImplDir := filepath.Join(suite.RootDir(), "addons", "security")
+			GinkgoWriter.Printf("[Test] Security implementation directory: %s\n", securityImplDir)
+
+			expectedFiles := []string{
+				"Enable.ps1",
+				"Disable.ps1",
+				"Get-Status.ps1",
+				"Update.ps1",
+				"README.md",
+				"security.module.psm1",
+			}
+			exportimport.VerifyImportedAddonFiles(securityImplDir, expectedFiles)
+		})
 	})
 })
