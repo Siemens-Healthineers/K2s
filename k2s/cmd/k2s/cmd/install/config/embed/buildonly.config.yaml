@@ -9,8 +9,8 @@ nodes:
     resources:
       cpu: 6 # default
       memory: 6GB # default startup memory
-      memoryMin: # optional, minimum RAM for dynamic memory (when dynamicMemory is true)
-      memoryMax: # optional, maximum RAM for dynamic memory (when dynamicMemory is true)
+      memoryMin: 2GB # optional, minimum RAM for dynamic memory (when dynamicMemory is true)
+      memoryMax: 8GB # optional, maximum RAM for dynamic memory (when dynamicMemory is true)
       dynamicMemory: false # default, enable Hyper-V dynamic memory management
       disk: 50GB # default
 env:
