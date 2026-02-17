@@ -1,0 +1,155 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# K2s Addon Controller - Linux DaemonSet
+# Runs on Linux nodes to process OCI artifacts, import images, and install packages
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: k2s-addon-controller-linux
+  namespace: k2s-system
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/component: linux-processor
+    app.kubernetes.io/part-of: k2s
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k2s-addon-controller
+      app.kubernetes.io/component: linux-processor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k2s-addon-controller
+        app.kubernetes.io/component: linux-processor
+    spec:
+      serviceAccountName: k2s-addon-controller
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      hostPID: true      # Required for nsenter to run commands on host
+      hostNetwork: true  # Required for accessing host network for package downloads
+      containers:
+        - name: controller
+          image: k2s.registry.local:30500/k2s/addon-controller-linux:latest
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true  # Required for containerd socket and host filesystem access
+            runAsUser: 0
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NODE_TYPE
+              value: "linux"
+            - name: ADDONS_PATH
+              value: "/host/addons"  # Maps to host's /addons directory
+            - name: CRIO_SOCKET
+              value: "/var/run/crio/crio.sock"
+          volumeMounts:
+            # Host addons directory - where addon files are extracted
+            - name: host-addons
+              mountPath: /host/addons
+            # CRI-O socket for importing container images
+            - name: crio-socket
+              mountPath: /var/run/crio/crio.sock
+            # Host filesystem for package installation via nsenter
+            - name: host-root
+              mountPath: /host
+              readOnly: false
+            # Temporary directory for OCI artifact processing
+            - name: tmp-storage
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          # Health probes temporarily disabled for testing
+          # livenessProbe:
+          #   httpGet:
+          #     path: /healthz
+          #     port: 8081
+          #   initialDelaySeconds: 15
+          #   periodSeconds: 20
+          # readinessProbe:
+          #   httpGet:
+          #     path: /readyz
+          #     port: 8081
+          #   initialDelaySeconds: 5
+          #   periodSeconds: 10
+      volumes:
+        - name: host-addons
+          hostPath:
+            path: /addons
+            type: DirectoryOrCreate
+        - name: crio-socket
+          hostPath:
+            path: /var/run/crio/crio.sock
+            type: Socket
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory
+        - name: tmp-storage
+          emptyDir:
+            sizeLimit: 30Gi
+      # Priority class for addon controller
+      priorityClassName: system-cluster-critical
+---
+# ConfigMap for controller configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k2s-addon-controller-config
+  namespace: k2s-system
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/part-of: k2s
+data:
+  config.yaml: |
+    # K2s Addon Controller Configuration
+    addons:
+      basePath: /addons
+      manifestPattern: "addon.manifest.yaml"
+    
+    processing:
+      # Maximum concurrent addon processing per node
+      maxConcurrent: 2
+      # Timeout for pulling OCI artifacts
+      pullTimeout: 10m
+      # Retry configuration
+      retryAttempts: 3
+      retryDelay: 30s
+    
+    images:
+      # Tool to use for importing Linux images
+      importTool: buildah
+      # Alternative: ctr
+      namespace: k8s.io
+    
+    packages:
+      # Use nsenter to run dpkg on host
+      useNsenter: true
+      # Target PID for nsenter (1 = init/systemd)
+      targetPid: 1
+    
+    registry:
+      # Default registry for pulling addon artifacts
+      defaultRegistry: k2s-registry.local:30500
+      # Allow insecure (HTTP) connections
+      insecure: true
+    
+    logging:
+      level: info
+      format: json

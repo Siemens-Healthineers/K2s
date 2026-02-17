@@ -1,0 +1,256 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# K2sAddon Custom Resource Definition
+# Enables GitOps-based addon deployment via FluxCD/ArgoCD
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: k2saddons.k2s.siemens-healthineers.com
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/part-of: k2s
+spec:
+  group: k2s.siemens-healthineers.com
+  names:
+    kind: K2sAddon
+    listKind: K2sAddonList
+    plural: k2saddons
+    singular: k2saddon
+    shortNames:
+      - k2sa
+      - addon
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Addon
+          type: string
+          jsonPath: .spec.name
+        - name: Implementation
+          type: string
+          jsonPath: .spec.implementation
+        - name: Version
+          type: string
+          jsonPath: .spec.version
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Available
+          type: boolean
+          jsonPath: .status.available
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - name
+                - source
+              properties:
+                name:
+                  type: string
+                  description: "Name of the addon (e.g., 'ingress', 'monitoring')"
+                  pattern: "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                implementation:
+                  type: string
+                  description: "Implementation variant (e.g., 'nginx', 'traefik')"
+                  pattern: "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                version:
+                  type: string
+                  description: "Version of the addon"
+                description:
+                  type: string
+                  description: "Human-readable description of the addon"
+                source:
+                  type: object
+                  description: "Source location of the OCI artifact"
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - oci
+                        - local
+                        - OCIRepository
+                      description: "Source type: 'oci' for direct registry, 'local' for filesystem, 'OCIRepository' for FluxCD"
+                    ociRef:
+                      type: string
+                      description: "OCI reference (e.g., 'registry.example.com/addons/ingress:v1.0.0')"
+                    ociRepository:
+                      type: object
+                      description: "Reference to FluxCD OCIRepository"
+                      properties:
+                        name:
+                          type: string
+                          description: "Name of the OCIRepository resource"
+                        namespace:
+                          type: string
+                          description: "Namespace of the OCIRepository resource"
+                      required:
+                        - name
+                        - namespace
+                    localPath:
+                      type: string
+                      description: "Local filesystem path to OCI tar file"
+                    insecure:
+                      type: boolean
+                      default: false
+                      description: "Allow insecure (HTTP) registry connections"
+                    pullSecretRef:
+                      type: object
+                      description: "Reference to pull secret for private registries"
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                          default: "default"
+                layers:
+                  type: object
+                  description: "Layer processing configuration"
+                  properties:
+                    skipImages:
+                      type: boolean
+                      default: false
+                      description: "Skip importing container images"
+                    skipLinuxImages:
+                      type: boolean
+                      default: false
+                      description: "Skip importing Linux container images"
+                    skipWindowsImages:
+                      type: boolean
+                      default: false
+                      description: "Skip importing Windows container images"
+                    skipPackages:
+                      type: boolean
+                      default: false
+                      description: "Skip installing OS packages"
+                    skipManifests:
+                      type: boolean
+                      default: false
+                      description: "Skip extracting Kubernetes manifests"
+                nodeSelector:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: "Node selector for targeted processing"
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - Pending
+                    - Pulling
+                    - Processing
+                    - Available
+                    - Failed
+                  description: "Current phase of addon processing"
+                available:
+                  type: boolean
+                  default: false
+                  description: "Whether addon is ready for 'k2s addons enable'"
+                enabled:
+                  type: boolean
+                  default: false
+                  description: "Whether addon is currently enabled in cluster"
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - Ready
+                          - ImagesPulled
+                          - PackagesInstalled
+                          - ManifestsExtracted
+                          - ScriptsReady
+                      status:
+                        type: string
+                        enum:
+                          - "True"
+                          - "False"
+                          - "Unknown"
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                layerStatus:
+                  type: object
+                  description: "Processing status per layer"
+                  properties:
+                    config:
+                      type: string
+                      enum: [Pending, Processing, Completed, Failed, Skipped]
+                    manifests:
+                      type: string
+                      enum: [Pending, Processing, Completed, Failed, Skipped]
+                    charts:
+                      type: string
+                      enum: [Pending, Processing, Completed, Failed, Skipped]
+                    scripts:
+                      type: string
+                      enum: [Pending, Processing, Completed, Failed, Skipped]
+                    imagesLinux:
+                      type: string
+                      enum: [Pending, Processing, Completed, Failed, Skipped]
+                    imagesWindows:
+                      type: string
+                      enum: [Pending, Processing, Completed, Failed, Skipped]
+                    packages:
+                      type: string
+                      enum: [Pending, Processing, Completed, Failed, Skipped]
+                nodeStatus:
+                  type: array
+                  description: "Per-node processing status"
+                  items:
+                    type: object
+                    properties:
+                      nodeName:
+                        type: string
+                      nodeType:
+                        type: string
+                        enum: [linux, windows]
+                      imagesImported:
+                        type: boolean
+                      packagesInstalled:
+                        type: boolean
+                      lastUpdated:
+                        type: string
+                        format: date-time
+                addonPath:
+                  type: string
+                  description: "Filesystem path where addon is installed"
+                observedGeneration:
+                  type: integer
+                  format: int64
+                lastProcessedTime:
+                  type: string
+                  format: date-time
+                lastPulledDigest:
+                  type: string
+                  description: "Digest of the last successfully pulled OCI artifact from FluxCD OCIRepository. Used for automatic change detection — when FluxCD detects a new tag/digest, the controller compares against this value to trigger re-processing."
+                errorMessage:
+                  type: string
+                  description: "Error message if phase is Failed"

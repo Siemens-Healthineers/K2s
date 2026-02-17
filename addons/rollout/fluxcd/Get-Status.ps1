@@ -5,6 +5,8 @@
 #Requires -RunAsAdministrator
 
 Import-Module "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+$controllerModule = "$PSScriptRoot\..\controller\controller.module.psm1"
+Import-Module $controllerModule
 
 $success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'rollout', 'deployment/source-controller').Success
 
@@ -46,4 +48,12 @@ else {
     $isFluxNotificationControllerRunningProp.Message = "Flux Notification Controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable rollout fluxcd' and 'k2s addons enable rollout fluxcd'"
 }
 
-return $isFluxSourceControllerRunningProp, $isFluxKustomizeControllerRunningProp, $isFluxHelmControllerRunningProp, $isFluxNotificationControllerRunningProp
+$statusProps = @($isFluxSourceControllerRunningProp, $isFluxKustomizeControllerRunningProp, $isFluxHelmControllerRunningProp, $isFluxNotificationControllerRunningProp)
+
+# Append GitOps addon controller status if deployed
+if (Test-AddonGitOpsControllerDeployed) {
+    $controllerStatus = Get-AddonGitOpsControllerStatus -ImplementationName 'fluxcd'
+    $statusProps += $controllerStatus
+}
+
+return $statusProps

@@ -918,7 +918,23 @@ function Remove-DuplicateImages {
         [string]$NodeType
     )
 
-    # Group images by ImageID to handle multiple tags per image
+    # Step 1: Filter out fully orphaned images (<none>:<none> repository AND tag)
+    # These are dangling content digests left behind when nerdctl load reassigns a tag
+    # to a new content digest. They have unique ImageIDs so the per-ID grouping below
+    # would keep them. Removing them here prevents clutter in k2s image ls output.
+    $orphanedImages = @($ContainerImages | Where-Object { $_.Repository -eq '<none>' -and $_.Tag -eq '<none>' })
+    if ($orphanedImages.Count -gt 0) {
+        Write-Log "[$NodeType`Node] Filtering out $($orphanedImages.Count) fully orphaned image(s) (<none>:<none>)"
+        $ContainerImages = @($ContainerImages | Where-Object { -not ($_.Repository -eq '<none>' -and $_.Tag -eq '<none>') })
+    }
+
+    # Handle case where all images were orphaned
+    if ($null -eq $ContainerImages -or $ContainerImages.Count -eq 0) {
+        Write-Log "[$NodeType`Node] No non-orphaned images remain after filtering"
+        return @()
+    }
+
+    # Step 2: Group images by ImageID to handle multiple tags per image
     $imageGroups = @{}
     foreach ($image in $ContainerImages) {
         $imageId = $image.ImageId

@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Windows image for pre-compiled K2s Addon Controller binary.
+# Pre-compile on the host before building:
+#   go build -o addon-controller.exe -ldflags="-s -w" ./cmd/main.go
+#
+# Then build with k2s:
+#   k2s image build --input-folder addons\rollout\controller\pkg\controller ^
+#     --dockerfile addons\rollout\controller\Dockerfile.windows --windows ^
+#     --image-name k2s.registry.local:30500/k2s/addon-controller-windows --image-tag latest -p -o
+
+FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
+
+WORKDIR /
+
+# Copy pre-compiled controller binary from the build context
+COPY addon-controller.exe /addon-controller.exe
+
+# HostProcess containers run as SYSTEM by default
+USER ContainerAdministrator
+
+# HostProcess containers set CWD to CONTAINER_SANDBOX_MOUNT_POINT;
+# use relative path so cmd.exe finds the binary in the sandbox.
+ENTRYPOINT ["addon-controller.exe"]

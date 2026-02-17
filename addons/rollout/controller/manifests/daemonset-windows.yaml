@@ -1,0 +1,104 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: k2s-addon-controller-windows
+  namespace: k2s-system
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/component: windows-processor
+    app.kubernetes.io/part-of: k2s
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k2s-addon-controller
+      app.kubernetes.io/component: windows-processor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k2s-addon-controller
+        app.kubernetes.io/component: windows-processor
+    spec:
+      serviceAccountName: k2s-addon-controller
+      nodeSelector:
+        kubernetes.io/os: windows
+      tolerations:
+        - key: OS
+          operator: Equal
+          value: Windows
+          effect: NoSchedule
+      containers:
+        - name: controller
+          image: k2s.registry.local:30500/k2s/addon-controller-windows:latest
+          imagePullPolicy: Always
+          securityContext:
+            windowsOptions:
+              hostProcess: true
+              runAsUserName: "NT AUTHORITY\\SYSTEM"
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NODE_TYPE
+              value: "windows"
+            - name: ADDONS_PATH
+              value: "C:\\addons"
+            - name: CONTAINERD_PIPE
+              value: "\\\\.\\pipe\\containerd-containerd"
+            - name: NERDCTL_PATH
+              value: "C:\\k\\bin\\nerdctl.exe"
+            - name: CRICTL_PATH
+              value: "C:\\k\\bin\\crictl.exe"
+            - name: CRICTL_CONFIG
+              value: "C:\\k\\bin\\crictl.yaml"
+          volumeMounts: []
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+      hostNetwork: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k2s-addon-controller-config-windows
+  namespace: k2s-system
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/component: windows-processor
+    app.kubernetes.io/part-of: k2s
+data:
+  config.yaml: |
+    addons:
+      basePath: C:\addons
+      manifestPattern: "addon.manifest.yaml"
+    
+    processing:
+      maxConcurrent: 2
+      pullTimeout: 10m
+      retryAttempts: 3
+      retryDelay: 30s
+    
+    images:
+      nerdctlPath: C:\k\bin\nerdctl.exe
+      crictlPath: C:\k\bin\crictl.exe
+      crictlConfig: C:\k\bin\crictl.yaml
+      namespace: k8s.io
+    
+    packages:
+      downloadPath: C:\addons\packages\windowspackages
+    
+    registry:
+      defaultRegistry: k2s-registry.local:30500
+      insecure: true
+    
+    logging:
+      level: info
+      format: json

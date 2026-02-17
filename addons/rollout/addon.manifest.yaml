@@ -11,6 +11,19 @@ spec:
   implementations:
     - name: argocd
       description: Automating the deployment/updating of applications using ArgoCD
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages: []
+          additionalImagesFiles:
+            - controller/manifests/daemonset-linux.yaml
+        windows:
+          curl: []
+          additionalImages: []
+          additionalImagesFiles:
+            - controller/manifests/daemonset-windows.yaml
       commands:
         enable:
           cli:
@@ -26,16 +39,24 @@ spec:
                     - nginx
                     - nginx-gw
                     - traefik
+              - name: addongitops
+                shorthand: g
+                default: false
+                description: Deploy the K2s GitOps addon controller for declarative addon management via OCI artifacts
             examples:
               - cmd: k2s addons enable rollout argocd
                 comment: Enable rollout with ArgoCD in k2s
               - cmd: k2s addons enable rollout argocd --ingress traefik
                 comment: Enable rollout with ArgoCD in k2s with traefik ingress
+              - cmd: k2s addons enable rollout argocd -g
+                comment: Enable rollout with ArgoCD and GitOps addon controller
           script:
             subPath: argocd/Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
+              - cliFlagName: addongitops
+                scriptParameterName: AddonGitOps
         disable:
           cli:
             examples:
@@ -45,6 +66,19 @@ spec:
             subPath: argocd/Disable.ps1
     - name: fluxcd
       description: Automating the deployment/updating of applications using Flux CD
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages: []
+          additionalImagesFiles:
+            - controller/manifests/daemonset-linux.yaml
+        windows:
+          curl: []
+          additionalImages: []
+          additionalImagesFiles:
+            - controller/manifests/daemonset-windows.yaml
       commands:
         enable:
           cli:
@@ -60,16 +94,24 @@ spec:
                     - nginx
                     - nginx-gw
                     - traefik
+              - name: addongitops
+                shorthand: g
+                default: false
+                description: Deploy the K2s GitOps addon controller for declarative addon management via OCI artifacts
             examples:
               - cmd: k2s addons enable rollout fluxcd
                 comment: Enable rollout with Flux CD in k2s
               - cmd: k2s addons enable rollout fluxcd --ingress nginx
                 comment: Enable rollout with Flux CD and webhook ingress in k2s
+              - cmd: k2s addons enable rollout fluxcd -g
+                comment: Enable rollout with Flux CD and GitOps addon controller
           script:
             subPath: fluxcd/Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
+              - cliFlagName: addongitops
+                scriptParameterName: AddonGitOps
         disable:
           cli:
             examples:

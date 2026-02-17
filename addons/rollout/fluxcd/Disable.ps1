@@ -30,8 +30,9 @@ $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
+$controllerModule = "$PSScriptRoot\..\controller\controller.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule, $controllerModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 Write-Log 'Checking cluster status' -Console
@@ -61,6 +62,11 @@ if (-not (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Imple
 }
 
 Write-Log 'Uninstalling Flux addon' -Console
+
+# Remove GitOps addon controller if it was deployed
+if (Test-AddonGitOpsControllerDeployed) {
+    Uninstall-AddonGitOpsController
+}
 
 # Remove optional ingress manifests (silently skips if not present)
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })

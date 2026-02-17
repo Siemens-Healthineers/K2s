@@ -27,6 +27,8 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
     [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
+    [parameter(Mandatory = $false, HelpMessage = 'Deploy the K2s GitOps addon controller for declarative addon management')]
+    [switch] $AddonGitOps = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -40,8 +42,9 @@ $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infr
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
+$controllerModule = "$PSScriptRoot\..\controller\controller.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule, $controllerModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 Write-Log 'Checking cluster status' -Console
@@ -96,6 +99,20 @@ Write-Log 'Waiting for Flux controllers to be ready...' -Console
 
 if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
+}
+
+if ($AddonGitOps) {
+    $controllerError = Install-AddonGitOpsController
+    if ($controllerError) {
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $controllerError
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $controllerError -Error
+        exit 1
+    }
 }
 
 &"$PSScriptRoot\Update.ps1"

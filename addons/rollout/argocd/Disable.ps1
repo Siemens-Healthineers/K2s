@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -30,8 +30,9 @@ $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
+$controllerModule = "$PSScriptRoot\..\controller\controller.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule, $controllerModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -63,6 +64,11 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'rollout', '--ignore-n
 
 Write-Log 'Uninstalling rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
+
+# Remove GitOps addon controller if it was deployed
+if (Test-AddonGitOpsControllerDeployed) {
+    Uninstall-AddonGitOpsController
+}
 
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout' })

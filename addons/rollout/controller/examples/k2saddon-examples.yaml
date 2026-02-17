@@ -1,0 +1,118 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Example K2sAddon Custom Resources
+# These examples show how to deploy addons via GitOps (FluxCD/ArgoCD)
+---
+# Example 1: Deploy ingress-nginx addon from local registry
+apiVersion: k2s.siemens-healthineers.com/v1alpha1
+kind: K2sAddon
+metadata:
+  name: ingress-nginx
+  labels:
+    app.kubernetes.io/managed-by: flux
+spec:
+  name: ingress
+  implementation: nginx
+  version: "1.9.4"
+  description: "NGINX Ingress Controller for Kubernetes"
+  source:
+    type: oci
+    ociRef: k2s-registry.local:30500/k2s/addons/ingress-nginx:v1.0.0
+    insecure: true
+---
+# Example 2: Deploy monitoring addon from external registry with auth
+apiVersion: k2s.siemens-healthineers.com/v1alpha1
+kind: K2sAddon
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/managed-by: argocd
+spec:
+  name: monitoring
+  version: "2.0.0"
+  description: "Prometheus + Grafana monitoring stack"
+  source:
+    type: oci
+    ociRef: registry.example.com/k2s/addons/monitoring:v2.0.0
+    pullSecretRef:
+      name: registry-credentials
+      namespace: k2s-system
+---
+# Example 3: Deploy addon from local tar file (air-gapped)
+apiVersion: k2s.siemens-healthineers.com/v1alpha1
+kind: K2sAddon
+metadata:
+  name: logging
+spec:
+  name: logging
+  version: "1.5.0"
+  description: "EFK logging stack"
+  source:
+    type: local
+    localPath: /mnt/addons/K2s-1.0.0-addons-logging.oci.tar
+  layers:
+    # Skip package installation if already done
+    skipPackages: true
+---
+# Example 4: Deploy dashboard addon with selective layer processing
+apiVersion: k2s.siemens-healthineers.com/v1alpha1
+kind: K2sAddon
+metadata:
+  name: dashboard
+spec:
+  name: dashboard
+  version: "7.0.0"
+  source:
+    type: oci
+    ociRef: k2s-registry.local:30500/k2s/addons/dashboard:v1.0.0
+    insecure: true
+  layers:
+    # Images already present in cluster
+    skipImages: true
+---
+# Example 5: FluxCD Kustomization to sync K2sAddon CRs from Git
+# This would be placed in your GitOps repository
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: k2s-addons
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./addons/deploy
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: infrastructure
+  healthChecks:
+    - apiVersion: k2s.siemens-healthineers.com/v1alpha1
+      kind: K2sAddon
+      name: ingress-nginx
+    - apiVersion: k2s.siemens-healthineers.com/v1alpha1
+      kind: K2sAddon
+      name: monitoring
+  timeout: 10m
+---
+# Example 6: ArgoCD Application for K2sAddon deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: k2s-addons
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/k2s-gitops.git
+    path: addons
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

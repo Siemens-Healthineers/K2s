@@ -1,0 +1,123 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k2s-system
+  labels:
+    app.kubernetes.io/name: k2s-system
+    app.kubernetes.io/part-of: k2s
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k2s-addon-controller
+  namespace: k2s-system
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/part-of: k2s
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k2s-addon-controller
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/part-of: k2s
+rules:
+  - apiGroups: ["k2s.siemens-healthineers.com"]
+    resources: ["k2saddons"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["k2s.siemens-healthineers.com"]
+    resources: ["k2saddons/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["k2s.siemens-healthineers.com"]
+    resources: ["k2saddons/finalizers"]
+    verbs: ["update"]
+  
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create"]
+  
+  - apiGroups: ["source.toolkit.fluxcd.io"]
+    resources: ["ocirepositories"]
+    verbs: ["get", "list", "watch"]
+  
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k2s-addon-controller
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/part-of: k2s
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k2s-addon-controller
+subjects:
+  - kind: ServiceAccount
+    name: k2s-addon-controller
+    namespace: k2s-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: k2s-addon-controller-leader-election
+  namespace: k2s-system
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/part-of: k2s
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: k2s-addon-controller-leader-election
+  namespace: k2s-system
+  labels:
+    app.kubernetes.io/name: k2s-addon-controller
+    app.kubernetes.io/part-of: k2s
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: k2s-addon-controller-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: k2s-addon-controller
+    namespace: k2s-system
