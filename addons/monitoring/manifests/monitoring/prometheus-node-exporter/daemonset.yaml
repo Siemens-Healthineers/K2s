@@ -52,7 +52,7 @@ spec:
       serviceAccountName: kube-prometheus-stack-prometheus-node-exporter
       containers:
         - name: node-exporter
-          image: quay.io/prometheus/node-exporter:v1.6.0
+          image: quay.io/prometheus/node-exporter:v1.10.2
           imagePullPolicy: IfNotPresent
           args:
             - --path.procfs=/host/proc
