@@ -18,7 +18,8 @@ Media Types:
 - application/vnd.k2s.addon.manifests.v1.tar+gzip - Kubernetes manifests
 - application/vnd.cncf.helm.chart.content.v1.tar+gzip - Helm charts
 - application/vnd.k2s.addon.scripts.v1.tar+gzip - Enable/Disable scripts
-- application/vnd.oci.image.layer.v1.tar       - Container images
+- application/vnd.oci.image.layer.v1.tar       - Linux container images
+- application/vnd.k2s.addon.images-windows.v1.tar - Windows container images
 - application/vnd.k2s.addon.packages.v1.tar+gzip - Offline packages
 #>
 
@@ -33,7 +34,7 @@ $script:MediaTypes = @{
     Charts      = 'application/vnd.cncf.helm.chart.content.v1.tar+gzip'
     Scripts     = 'application/vnd.k2s.addon.scripts.v1.tar+gzip'
     ImagesLinux = 'application/vnd.oci.image.layer.v1.tar'
-    ImagesWindows = 'application/vnd.oci.image.layer.v1.tar+windows'
+    ImagesWindows = 'application/vnd.k2s.addon.images-windows.v1.tar'
     Packages    = 'application/vnd.k2s.addon.packages.v1.tar+gzip'
 }
 
@@ -156,13 +157,23 @@ function Get-BlobByDigest {
     <#
     .SYNOPSIS
     Retrieves blob content by digest from the blobs directory
+    .DESCRIPTION
+    Resolves a blob path from its digest and optionally verifies content integrity
+    per OCI spec: "Retrieved content SHOULD be verified against this digest"
     #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$BlobsDir,
         [Parameter(Mandatory = $true)]
-        [string]$Digest
+        [string]$Digest,
+        [Parameter(Mandatory = $false)]
+        [switch]$SkipVerification = $false
     )
+    
+    # Validate digest format: must be sha256:<64 hex chars>
+    if ($Digest -notmatch '^sha256:[a-f0-9]{64}$') {
+        throw "Invalid digest format: $Digest (expected sha256:<64 lowercase hex chars>)"
+    }
     
     # Extract hash from digest (remove sha256: prefix)
     $hash = $Digest -replace '^sha256:', ''
@@ -170,6 +181,14 @@ function Get-BlobByDigest {
     
     if (-not (Test-Path $blobPath)) {
         throw "Blob not found for digest: $Digest"
+    }
+    
+    # Verify content integrity per OCI Image Spec descriptor verification
+    if (-not $SkipVerification) {
+        $computedHash = (Get-FileHash -Path $blobPath -Algorithm SHA256).Hash.ToLower()
+        if ($computedHash -ne $hash) {
+            throw "Blob integrity check failed for digest: $Digest (computed: sha256:$computedHash)"
+        }
     }
     
     return $blobPath
