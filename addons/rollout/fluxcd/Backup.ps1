@@ -136,6 +136,7 @@ function Get-SecretRefNames {
         $Node,
 
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.HashSet[string]] $Names
     )
 
