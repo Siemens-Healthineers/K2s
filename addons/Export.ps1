@@ -185,7 +185,7 @@ try {
                  }
              }
              
-             @('*.png', '*.jpg', '*.jpeg', '*.gif', '*.svg', '*.drawio', '*.drawio.png', '*.md', '*.ndjson', '*.json', '*.license') | ForEach-Object {
+             @('*.png', '*.jpg', '*.jpeg', '*.gif', '*.svg', '*.drawio', '*.drawio.png', '*.md', '*.ndjson', '*.json', '*.license', 'Dockerfile*') | ForEach-Object {
                  Get-ChildItem -Path $dirPath -Filter $_ -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
                      if ($_.Name -ne 'README.md') {
                          $relativePath = $_.FullName.Substring($dirPath.Length + 1)
@@ -726,6 +726,10 @@ try {
                 annotations = @{
                     'org.opencontainers.image.title' = $manifest.metadata.name
                     'org.opencontainers.image.version' = $addonVersion
+                    'org.opencontainers.image.created' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
+                    'org.opencontainers.image.vendor' = 'Siemens Healthineers AG'
+                    'org.opencontainers.image.licenses' = 'MIT'
+                    'org.opencontainers.image.description' = if ($manifest.metadata.description) { $manifest.metadata.description } else { "K2s addon: $($manifest.metadata.name)" }
                     'vnd.k2s.addon.name' = $manifest.metadata.name
                     'vnd.k2s.addon.implementation' = $implementation.name
                     'vnd.k2s.version' = $k2sVersion
@@ -734,8 +738,30 @@ try {
                 }
             }
             
-            # Add layer descriptors to manifest
-            $ociManifest.layers = $ociLayerDescriptors
+            # Add layer descriptors to manifest 
+            if ($ociLayerDescriptors.Count -gt 0) {
+                $ociManifest.layers = $ociLayerDescriptors
+            } else {
+                # Use OCI empty descriptor as fallback 
+                $emptyJson = '{}'
+                $emptyTempFile = New-TemporaryFile
+                try {
+                    [System.IO.File]::WriteAllText($emptyTempFile.FullName, $emptyJson, [System.Text.UTF8Encoding]::new($false))
+                    $emptyBlobResult = Add-ContentToBlobs -BlobsDir $blobsDir -SourcePath $emptyTempFile.FullName -Move
+                } finally {
+                    if (Test-Path $emptyTempFile.FullName) {
+                        Remove-Item -Path $emptyTempFile.FullName -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                $ociManifest.layers = @(
+                    @{
+                        mediaType = 'application/vnd.oci.empty.v1+json'
+                        size = $emptyBlobResult.Size
+                        digest = $emptyBlobResult.Digest
+                    }
+                )
+                Write-Log "[OCI] No content layers - added OCI empty descriptor as fallback"
+            }
             
             # Store the manifest itself in blobs
             $manifestBlobResult = Add-JsonContentToBlobs -BlobsDir $blobsDir -Content $ociManifest
@@ -769,6 +795,9 @@ try {
         mediaType = 'application/vnd.oci.image.index.v1+json'
         manifests = @()
         annotations = @{
+            'org.opencontainers.image.created' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
+            'org.opencontainers.image.vendor' = 'Siemens Healthineers AG'
+            'org.opencontainers.image.licenses' = 'MIT'
             'vnd.k2s.version' = $k2sVersion
             'vnd.k2s.export.date' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
             'vnd.k2s.export.type' = if ($All) { 'all' } else { 'specific' }
@@ -784,9 +813,10 @@ try {
             digest = $addonRef.manifestDigest
             artifactType = 'application/vnd.k2s.addon.v1'
             annotations = @{
+                'org.opencontainers.image.ref.name' = "v$($addonRef.version)"
+                'org.opencontainers.image.version' = $addonRef.version
                 'vnd.k2s.addon.name' = $addonRef.dirName
                 'vnd.k2s.addon.implementation' = $addonRef.implementation
-                'vnd.k2s.addon.version' = $addonRef.version
             }
         }
     }
@@ -818,8 +848,8 @@ Remove-Item -Force $finalExportPath -ErrorAction SilentlyContinue
 # Create OCI-layout tar archive
 $currentLocation = Get-Location
 try {
-    Set-Location "${tmpExportDir}"
-    $tarResult = & tar -cvf $finalExportPath "artifacts" 2>&1
+    Set-Location "${tmpExportDir}\artifacts"
+    $tarResult = & tar -cvf $finalExportPath "." 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Log "[OCI] Warning: tar creation returned: $tarResult"
     }
@@ -842,7 +872,7 @@ Write-Log "  Layer 1: manifests.tar.gz    (application/vnd.k2s.addon.manifests.v
 Write-Log "  Layer 2: charts.tar.gz       (application/vnd.cncf.helm.chart.content.v1.tar+gzip) [if helm-based]" -Console
 Write-Log "  Layer 3: scripts.tar.gz      (application/vnd.k2s.addon.scripts.v1.tar+gzip)" -Console
 Write-Log "  Layer 4: images-linux.tar    (application/vnd.oci.image.layer.v1.tar)" -Console
-Write-Log "  Layer 5: images-windows.tar  (application/vnd.oci.image.layer.v1.tar+windows)" -Console
+Write-Log "  Layer 5: images-windows.tar  (application/vnd.k2s.addon.images-windows.v1.tar)" -Console
 Write-Log "  Layer 6: packages.tar.gz     (application/vnd.k2s.addon.packages.v1.tar+gzip)" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
