@@ -40,7 +40,7 @@ if ($systemError) {
 $setupInfo = Get-SetupInfo
 
 $tmpDir = "$env:TEMP\$(Get-Date -Format ddMMyyyy-HHmmss)-tmp-extracted-addons"
-$extractionFolder = "$tmpDir\artifacts"
+$extractionFolder = $tmpDir
 
 if ($ArtifactFile) {
     Write-Log "[OCI] Extracting artifact from $ArtifactFile" -Console
@@ -125,6 +125,19 @@ if (-not (Test-Path $ociLayoutPath)) {
 $ociLayout = Get-Content $ociLayoutPath | ConvertFrom-Json
 Write-Log "[OCI] OCI Layout version: $($ociLayout.imageLayoutVersion)" -Console
 
+# Validate OCI Image Layout version per spec (MUST be "1.0.0")
+if ($ociLayout.imageLayoutVersion -ne '1.0.0') {
+    $errMsg = "Unsupported OCI Image Layout version: '$($ociLayout.imageLayoutVersion)' (expected '1.0.0')"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'image-format-invalid' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+# Verify blobs directory exists
 $blobsDir = Join-Path $extractionFolder 'blobs\sha256'
 if (-not (Test-Path $blobsDir)) {
     $errMsg = 'Invalid OCI artifact format: blobs/sha256 directory not found.'
@@ -150,12 +163,29 @@ if (-not (Test-Path $indexJsonPath)) {
 }
 
 $indexManifest = Get-Content $indexJsonPath | Out-String | ConvertFrom-Json
+
+# Validate OCI Image Index required fields per spec
+if ($indexManifest.schemaVersion -ne 2) {
+    $errMsg = "Invalid OCI image index: schemaVersion must be 2, got '$($indexManifest.schemaVersion)'"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'image-format-invalid' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+if ($indexManifest.mediaType -and $indexManifest.mediaType -ne 'application/vnd.oci.image.index.v1+json') {
+    Write-Log "[OCI] Warning: Unexpected index.json mediaType: '$($indexManifest.mediaType)' (expected 'application/vnd.oci.image.index.v1+json')" -Console
+}
+
 $exportedAddons = @()
 foreach ($manifest in $indexManifest.manifests) {
     $exportedAddons += @{
         name = $manifest.annotations.'vnd.k2s.addon.name'
         implementation = $manifest.annotations.'vnd.k2s.addon.implementation'
-        version = $manifest.annotations.'vnd.k2s.addon.version'
+        version = $manifest.annotations.'org.opencontainers.image.version'
         manifestDigest = $manifest.digest
         manifestSize = $manifest.size
     }
@@ -199,10 +229,16 @@ foreach ($addon in $addonsToImport) {
     $ociManifest = $null
     if ($addon.manifestDigest) {
             $ociManifest = Get-JsonBlobByDigest -BlobsDir $blobsDir -Digest $addon.manifestDigest
+            
+            # Validate manifest schemaVersion per OCI Image Manifest spec
+            if ($ociManifest.schemaVersion -ne 2) {
+                Write-Log "[OCI] Warning: Unexpected manifest schemaVersion '$($ociManifest.schemaVersion)' for $($addon.name) (expected 2)" -Console
+            }
+            
             Write-Log "[OCI] -> Manifest digest: $($addon.manifestDigest)"
             Write-Log "[OCI] -> Version: $($ociManifest.annotations.'org.opencontainers.image.version')"
             Write-Log "[OCI] -> K2s Version: $($ociManifest.annotations.'vnd.k2s.version')"
-            Write-Log "[OCI] -> Export Date: $($ociManifest.annotations.'vnd.k2s.export.date')"
+            Write-Log "[OCI] -> Export Date: $($ociManifest.annotations.'org.opencontainers.image.created')"
         } else {
             Write-Log "[OCI] Warning: No manifest digest for addon $($addon.name)" -Console
             continue
@@ -246,9 +282,22 @@ foreach ($addon in $addonsToImport) {
             $layerDigest = $layer.digest
             $layerMediaType = $layer.mediaType
             
+            # Skip OCI empty descriptors (used as fallback for addons with no content layers)
+            if ($layerMediaType -eq 'application/vnd.oci.empty.v1+json') {
+                Write-Log "[OCI] Skipping OCI empty descriptor layer"
+                continue
+            }
+            
             Write-Log "[OCI] Processing layer: $layerTitle ($layerDigest)"
             
+            # Get the blob path for this layer (includes digest verification)
             $blobPath = Get-BlobByDigest -BlobsDir $blobsDir -Digest $layerDigest
+            
+            # Verify blob size matches descriptor size per OCI spec
+            $actualSize = (Get-Item $blobPath).Length
+            if ($layer.size -and $actualSize -ne $layer.size) {
+                Write-Log "[OCI] Warning: Size mismatch for layer $layerTitle - descriptor: $($layer.size), actual: $actualSize" -Console
+            }
             
             switch -Wildcard ($layerMediaType) {
                 '*configfiles*' {
@@ -278,7 +327,8 @@ foreach ($addon in $addonsToImport) {
                     Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $implementationPath
                     break
                 }
-                '*image.layer*windows*' {
+                '*images-windows*' {
+                    # Layer 5: Windows Images - copy to temp for later processing
                     $tempWindowsImages = Join-Path $tempLayerDir 'images-windows.tar'
                     Copy-Item -Path $blobPath -Destination $tempWindowsImages -Force
                     Write-Log "[OCI] Staged Windows images layer for import"
@@ -371,15 +421,16 @@ foreach ($addon in $addonsToImport) {
                 }
             }
             
+            # Copy any additional config files to the implementation path (values.yaml, settings.json, etc.)
             Get-ChildItem -Path $tempConfigDir -File -ErrorAction SilentlyContinue | 
                 Where-Object { $_.Name -ne 'addon.manifest.yaml' } | ForEach-Object {
-                    Copy-Item -Path $_.FullName -Destination $destinationPath -Force
+                    Copy-Item -Path $_.FullName -Destination $implementationPath -Force
                     Write-Log "[OCI] Copied config file: $($_.Name)"
                 }
             
             $configSubDir = Join-Path $tempConfigDir 'config'
             if (Test-Path $configSubDir) {
-                $destConfigSubDir = Join-Path $destinationPath 'config'
+                $destConfigSubDir = Join-Path $implementationPath 'config'
                 New-Item -ItemType Directory -Path $destConfigSubDir -Force | Out-Null
                 Copy-Item -Path (Join-Path $configSubDir '*') -Destination $destConfigSubDir -Recurse -Force
                 Write-Log "[OCI] Copied config subdirectory"
