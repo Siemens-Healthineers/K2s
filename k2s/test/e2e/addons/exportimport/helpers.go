@@ -396,8 +396,8 @@ func ImportAddon(ctx context.Context, suite *framework.K2sTestSuite, ociTarPath 
 		GinkgoWriter.Printf("[Import] WARNING: Cannot stat OCI tar file: %s - %v\n", ociTarPath, err)
 	}
 
-	GinkgoWriter.Println("[Import] Executing 'k2s addons import -z' command...")
-	suite.K2sCli().MustExec(ctx, "addons", "import", "-z", ociTarPath)
+	GinkgoWriter.Println("[Import] Executing 'k2s addons import -f' command...")
+	suite.K2sCli().MustExec(ctx, "addons", "import", "-f", ociTarPath)
 	GinkgoWriter.Println("[Import] Import command completed successfully")
 	GinkgoWriter.Println("=== IMPORT ADDON END ===")
 }
