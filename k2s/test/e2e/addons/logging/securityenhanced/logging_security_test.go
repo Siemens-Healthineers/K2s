@@ -47,7 +47,10 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	if !testFailed {
 		suite.SetupInfo().ReloadRuntimeConfig()
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
+
+		if k2s.IsAddonEnabled("logging") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
+		}
 
 		if k2s.IsAddonEnabled("ingress", "nginx") {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
