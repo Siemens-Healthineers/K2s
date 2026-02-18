@@ -114,7 +114,7 @@ var _ = Describe("security addon export and import", Ordered, func() {
 
 		It("all resources have been exported", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all resources have been exported")
-			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			extractedArtifactsDir := exportPath
 			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
 			exportimport.VerifyExportedImages(suite, extractedArtifactsDir, impl)
@@ -124,7 +124,7 @@ var _ = Describe("security addon export and import", Ordered, func() {
 		It("index.json contains proper OCI structure", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: index.json contains proper OCI structure")
 			expectedDirName := exportimport.GetExpectedDirName("security", "security")
-			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			extractedArtifactsDir := exportPath
 			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
 			exportimport.VerifyOciManifest(extractedArtifactsDir, expectedDirName)
@@ -169,6 +169,22 @@ var _ = Describe("security addon export and import", Ordered, func() {
 		It("windows curl packages available after import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
+		})
+
+		It("all addon files present at correct paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
+			securityImplDir := filepath.Join(suite.RootDir(), "addons", "security")
+			GinkgoWriter.Printf("[Test] Security implementation directory: %s\n", securityImplDir)
+
+			expectedFiles := []string{
+				"Enable.ps1",
+				"Disable.ps1",
+				"Get-Status.ps1",
+				"Update.ps1",
+				"README.md",
+				"security.module.psm1",
+			}
+			exportimport.VerifyImportedAddonFiles(securityImplDir, expectedFiles)
 		})
 	})
 })
