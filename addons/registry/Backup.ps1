@@ -56,6 +56,19 @@ if ($systemError) {
 
 Write-Log "[RegistryBackup] Backing up addon 'registry'" -Console
 
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{ Name = 'registry' })) -ne $true) {
+    $errMsg = "Addon 'registry' is not enabled. Enable it before running backup."
+
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'addon-not-enabled' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
 
 $files = @()
