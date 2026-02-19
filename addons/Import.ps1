@@ -43,7 +43,7 @@ $tmpDir = "$env:TEMP\$(Get-Date -Format ddMMyyyy-HHmmss)-tmp-extracted-addons"
 $extractionFolder = $tmpDir
 
 if ($ArtifactFile) {
-    Write-Log "[OCI] Extracting artifact from $ArtifactFile" -Console
+    Write-Log "Extracting artifact from $ArtifactFile" -Console
     Write-Log '---' -Console
     
     Remove-Item -Force $extractionFolder -Recurse -Confirm:$False -ErrorAction SilentlyContinue
@@ -72,7 +72,7 @@ if ($ArtifactFile) {
     # Detect format and extract
     if ($ArtifactFile -match '\.oci\.tar$') {
         # OCI tar artifact
-        Write-Log "[OCI] Detected OCI artifact format" -Console
+        Write-Log "Detected OCI artifact format" -Console
         New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
         
         $currentLocation = Get-Location
@@ -113,7 +113,7 @@ else {
 $addonsToImport = @()
 
 # OCI Artifact format processing
-Write-Log "[OCI] Processing OCI artifact structure" -Console
+Write-Log "Processing OCI artifact structure" -Console
 
 # Verify OCI Image Layout compliance
 $ociLayoutPath = Join-Path $extractionFolder 'oci-layout'
@@ -129,7 +129,7 @@ if (-not (Test-Path $ociLayoutPath)) {
 }
 
 $ociLayout = Get-Content $ociLayoutPath | ConvertFrom-Json
-Write-Log "[OCI] OCI Layout version: $($ociLayout.imageLayoutVersion)" -Console
+Write-Log "OCI Layout version: $($ociLayout.imageLayoutVersion)" -Console
 
 # Validate OCI Image Layout version per spec (MUST be "1.0.0")
 if ($ociLayout.imageLayoutVersion -ne '1.0.0') {
@@ -184,7 +184,7 @@ if ($indexManifest.schemaVersion -ne 2) {
 }
 
 if ($indexManifest.mediaType -and $indexManifest.mediaType -ne 'application/vnd.oci.image.index.v1+json') {
-    Write-Log "[OCI] Warning: Unexpected index.json mediaType: '$($indexManifest.mediaType)' (expected 'application/vnd.oci.image.index.v1+json')" -Console
+    Write-Log "Warning: Unexpected index.json mediaType: '$($indexManifest.mediaType)' (expected 'application/vnd.oci.image.index.v1+json')" -Console
 }
 
 $exportedAddons = @()
@@ -209,10 +209,40 @@ if ($null -eq $exportedAddons -or $exportedAddons.Count -lt 1) {
     exit 1
 }
 
-# Filter by names if specified
-if ($Names.Count -gt 0) {
-    foreach ($name in $Names) {
-        $foundAddons = $exportedAddons | Where-Object { $_.name -match $name }
+# Combine unquoted multi-word addon names (e.g., ingress nginx -> ingress-nginx)
+$processedNames = @()
+$i = 0
+while ($i -lt $Names.Count) {
+    $currentName = $Names[$i]
+    
+    if ($i + 1 -lt $Names.Count) {
+        $nextName = $Names[$i + 1]
+        $combinedName = "$currentName-$nextName"
+        $matchesCombined = $exportedAddons | Where-Object { $_.name -eq $combinedName }
+        
+        if ($matchesCombined) {
+            Write-Log "Recognized multi-word addon: '$currentName $nextName' -> '$combinedName'"
+            $processedNames += $combinedName
+            $i += 2
+            continue
+        }
+    }
+    
+    $processedNames += $currentName
+    $i++
+}
+
+if ($processedNames.Count -gt 0) {
+    foreach ($name in $processedNames) {
+        $normalizedName = $name -replace '\s+', '-'
+        $foundAddons = $exportedAddons | Where-Object { $_.name -eq $normalizedName }
+        if ($null -eq $foundAddons) {
+            $foundAddons = $exportedAddons | Where-Object { $_.name -eq $name }
+        }
+        if ($null -eq $foundAddons) {
+            # Try matching by implementation name suffix
+            $foundAddons = $exportedAddons | Where-Object { $_.name -like "*-${name}" }
+        }
         if ($null -eq $foundAddons) {
             Remove-Item -Force $tmpDir -Recurse -Confirm:$False -ErrorAction SilentlyContinue
             $errMsg = "Addon '$name' not found in OCI artifact for import!"
@@ -226,13 +256,16 @@ if ($Names.Count -gt 0) {
         }
         $addonsToImport += $foundAddons
     }
+
+    # Deduplicate in case of multiple matches
+    $addonsToImport = $addonsToImport | Sort-Object -Property { $_.name } -Unique
 }
 else {
     $addonsToImport = $exportedAddons
 }
 
 foreach ($addon in $addonsToImport) {
-    Write-Log "[OCI] Importing addon: $($addon.name)" -Console
+    Write-Log "Importing addon: $($addon.name)" -Console
     
     # Read manifest from blobs using digest
     $ociManifest = $null
@@ -241,24 +274,23 @@ foreach ($addon in $addonsToImport) {
             
             # Validate manifest schemaVersion per OCI Image Manifest spec
             if ($ociManifest.schemaVersion -ne 2) {
-                Write-Log "[OCI] Warning: Unexpected manifest schemaVersion '$($ociManifest.schemaVersion)' for $($addon.name) (expected 2)" -Console
+                Write-Log "Warning: Unexpected manifest schemaVersion '$($ociManifest.schemaVersion)' for $($addon.name) (expected 2)" -Console
             }
             
-            Write-Log "[OCI] -> Manifest digest: $($addon.manifestDigest)"
-            Write-Log "[OCI] -> Version: $($ociManifest.annotations.'org.opencontainers.image.version')"
-            Write-Log "[OCI] -> K2s Version: $($ociManifest.annotations.'vnd.k2s.version')"
-            Write-Log "[OCI] -> Export Date: $($ociManifest.annotations.'org.opencontainers.image.created')"
+            Write-Log "-> Manifest digest: $($addon.manifestDigest)"
+            Write-Log "-> Version: $($ociManifest.annotations.'org.opencontainers.image.version')"
+            Write-Log "-> K2s Version: $($ociManifest.annotations.'vnd.k2s.version')"
+            Write-Log "-> Export Date: $($ociManifest.annotations.'org.opencontainers.image.created')"
         } else {
-            Write-Log "[OCI] Warning: No manifest digest for addon $($addon.name)" -Console
+            Write-Log "Warning: No manifest digest for addon $($addon.name)" -Console
             continue
         }
         
         # Extract base addon name and implementation name for multi-implementation addons
-        # Directory name format: addonname_implementation (e.g., ingress_traefik)
         $implementationName = $null
-        $baseAddonName = if ($addon.name -match '^([^_]+)_(.+)$') {
-            $implementationName = $matches[2]  # Get the part after the underscore (e.g., "traefik")
-            $matches[1]  # Get the part before the first underscore (e.g., "ingress")
+        $baseAddonName = if ($addon.name -match '^([^-]+)-(.+)$') {
+            $implementationName = $matches[2]
+            $matches[1]
         } else {
             $addon.name  # Single implementation addon
         }
@@ -271,13 +303,12 @@ foreach ($addon in $addonsToImport) {
         }
         
         # For multi-implementation addons, create implementation subdirectory
-        # e.g., addons/ingress/traefik/ for ingress_traefik
         $implementationPath = $destinationPath
         if ($implementationName) {
             $implementationPath = Join-Path $destinationPath $implementationName
-            Write-Log "[OCI] Destination: $implementationPath (base addon: $baseAddonName, implementation: $implementationName)"
+            Write-Log "Destination: $implementationPath (base addon: $baseAddonName, implementation: $implementationName)"
         } else {
-            Write-Log "[OCI] Destination: $destinationPath (addon: $baseAddonName)"
+            Write-Log "Destination: $destinationPath (addon: $baseAddonName)"
         }
         
         # Ensure base destination path exists
@@ -302,11 +333,11 @@ foreach ($addon in $addonsToImport) {
             
             # Skip OCI empty descriptors (used as fallback for addons with no content layers)
             if ($layerMediaType -eq 'application/vnd.oci.empty.v1+json') {
-                Write-Log "[OCI] Skipping OCI empty descriptor layer"
+                Write-Log "Skipping OCI empty descriptor layer"
                 continue
             }
             
-            Write-Log "[OCI] Processing layer: $layerTitle ($layerDigest)"
+            Write-Log "Processing layer: $layerTitle ($layerDigest)"
             
             # Get the blob path for this layer (includes digest verification)
             $blobPath = Get-BlobByDigest -BlobsDir $blobsDir -Digest $layerDigest
@@ -314,22 +345,22 @@ foreach ($addon in $addonsToImport) {
             # Verify blob size matches descriptor size per OCI spec
             $actualSize = (Get-Item $blobPath).Length
             if ($layer.size -and $actualSize -ne $layer.size) {
-                Write-Log "[OCI] Warning: Size mismatch for layer $layerTitle - descriptor: $($layer.size), actual: $actualSize" -Console
+                Write-Log "Warning: Size mismatch for layer $layerTitle - descriptor: $($layer.size), actual: $actualSize" -Console
             }
             
             switch -Wildcard ($layerMediaType) {
                 '*configfiles*' {
                     # Layer 0: Configuration files (addon.manifest.yaml, values.yaml, settings.json, etc.)
-                    Write-Log "[OCI] Extracting config files layer from blob"
+                    Write-Log "Extracting config files layer from blob"
                     $tempConfigDir = Join-Path $tempLayerDir 'config'
                     New-Item -ItemType Directory -Path $tempConfigDir -Force | Out-Null
                     Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $tempConfigDir
-                    Write-Log "[OCI] Staged config files layer for processing"
+                    Write-Log "Staged config files layer for processing"
                     break
                 }
                 '*manifests*' {
                     # Layer 1: Manifests - extract to implementation path for multi-impl addons
-                    Write-Log "[OCI] Extracting manifests layer from blob"
+                    Write-Log "Extracting manifests layer from blob"
                     $manifestsDestDir = Join-Path $implementationPath 'manifests'
                     New-Item -ItemType Directory -Path $manifestsDestDir -Force | Out-Null
                     Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $manifestsDestDir
@@ -337,7 +368,7 @@ foreach ($addon in $addonsToImport) {
                 }
                 '*helm.chart*' {
                     # Layer 2: Charts - extract to implementation path for multi-impl addons
-                    Write-Log "[OCI] Extracting charts layer from blob"
+                    Write-Log "Extracting charts layer from blob"
                     $chartsDestDir = Join-Path $implementationPath 'manifests\chart'
                     New-Item -ItemType Directory -Path $chartsDestDir -Force | Out-Null
                     Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $chartsDestDir
@@ -345,7 +376,7 @@ foreach ($addon in $addonsToImport) {
                 }
                 '*scripts*' {
                     # Layer 3: Scripts - extract to implementation path for multi-impl addons
-                    Write-Log "[OCI] Extracting scripts layer from blob"
+                    Write-Log "Extracting scripts layer from blob"
                     Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $implementationPath
                     break
                 }
@@ -353,14 +384,14 @@ foreach ($addon in $addonsToImport) {
                     # Layer 5: Windows Images - copy to temp for later processing
                     $tempWindowsImages = Join-Path $tempLayerDir 'images-windows.tar'
                     Copy-Item -Path $blobPath -Destination $tempWindowsImages -Force
-                    Write-Log "[OCI] Staged Windows images layer for import"
+                    Write-Log "Staged Windows images layer for import"
                     break
                 }
                 '*image.layer*' {
                     # Layer 4: Linux Images - copy to temp for later processing
                     $tempLinuxImages = Join-Path $tempLayerDir 'images-linux.tar'
                     Copy-Item -Path $blobPath -Destination $tempLinuxImages -Force
-                    Write-Log "[OCI] Staged Linux images layer for import"
+                    Write-Log "Staged Linux images layer for import"
                     break
                 }
                 '*packages*' {
@@ -368,7 +399,7 @@ foreach ($addon in $addonsToImport) {
                     $tempPackagesDir = Join-Path $tempLayerDir 'packages'
                     New-Item -ItemType Directory -Path $tempPackagesDir -Force | Out-Null
                     Expand-TarGzArchive -ArchivePath $blobPath -DestinationPath $tempPackagesDir
-                    Write-Log "[OCI] Staged packages layer for import"
+                    Write-Log "Staged packages layer for import"
                     break
                 }
             }
@@ -389,22 +420,22 @@ foreach ($addon in $addonsToImport) {
                 $destManifestPath = Join-Path $destinationPath 'addon.manifest.yaml'
                 if (Test-Path $destManifestPath) {
                     # Existing manifest - need to merge implementations
-                    Write-Log "[OCI] Merging addon.manifest.yaml implementations" -Console
+                    Write-Log "Merging addon.manifest.yaml implementations" -Console
                     
                     $existingManifest = Get-FromYamlFile -Path $destManifestPath
                     $importedManifest = Get-FromYamlFile -Path $configManifestPath
                     $existingImplNames = $existingManifest.spec.implementations | ForEach-Object { $_.name }
                     
-                    Write-Log "[OCI] Existing implementations: $($existingImplNames -join ', ')"
+                    Write-Log "Existing implementations: $($existingImplNames -join ', ')"
                     $importedImplNames = $importedManifest.spec.implementations | ForEach-Object { $_.name }
-                    Write-Log "[OCI] Imported implementations: $($importedImplNames -join ', ')"
+                    Write-Log "Imported implementations: $($importedImplNames -join ', ')"
                     
                     foreach ($importedImpl in $importedManifest.spec.implementations) {
                         if ($importedImpl.name -notin $existingImplNames) {
-                            Write-Log "[OCI] Adding new implementation: $($importedImpl.name)" -Console
+                            Write-Log "Adding new implementation: $($importedImpl.name)" -Console
                             $existingManifest.spec.implementations += $importedImpl
                         } else {
-                            Write-Log "[OCI] Implementation '$($importedImpl.name)' already exists, skipping" -Console
+                            Write-Log "Implementation '$($importedImpl.name)' already exists, skipping" -Console
                         }
                     }
                     
@@ -436,12 +467,12 @@ foreach ($addon in $addonsToImport) {
                             
                             $finalContent = ($headerLines -join "`n") + "`n" + $yamlContent
                             Set-Content -Path $destManifestPath -Value $finalContent -Encoding UTF8
-                            Write-Log "[OCI] Merged manifest saved to: $destManifestPath" -Console
+                            Write-Log "Merged manifest saved to: $destManifestPath" -Console
                         } finally {
                             Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
                         }
                     } else {
-                        Write-Log "[OCI] Warning: yq.exe not found, copying manifest as-is"
+                        Write-Log "Warning: yq.exe not found, copying manifest as-is"
                         Copy-Item -Path $configManifestPath -Destination $destManifestPath -Force
                     }
                 } else {
@@ -454,7 +485,7 @@ foreach ($addon in $addonsToImport) {
             Get-ChildItem -Path $tempConfigDir -File -ErrorAction SilentlyContinue | 
                 Where-Object { $_.Name -ne 'addon.manifest.yaml' } | ForEach-Object {
                     Copy-Item -Path $_.FullName -Destination $implementationPath -Force
-                    Write-Log "[OCI] Copied config file: $($_.Name)"
+                    Write-Log "Copied config file: $($_.Name)"
                 }
             
             # Copy config subdirectory if present
@@ -463,25 +494,25 @@ foreach ($addon in $addonsToImport) {
                 $destConfigSubDir = Join-Path $implementationPath 'config'
                 New-Item -ItemType Directory -Path $destConfigSubDir -Force | Out-Null
                 Copy-Item -Path (Join-Path $configSubDir '*') -Destination $destConfigSubDir -Recurse -Force
-                Write-Log "[OCI] Copied config subdirectory"
+                Write-Log "Copied config subdirectory"
             }
         }
         
 
         
-        Write-Log "[OCI] Looking for manifest at: $configManifestPath"
+        Write-Log "Looking for manifest at: $configManifestPath"
         if ($configManifestPath -and (Test-Path $configManifestPath)) {
             $importedManifest = Get-FromYamlFile -Path $configManifestPath
             
             if ($implementationName) {
                 # Just log and skip - the yq-based merging has already handled this
-                Write-Log "[OCI] Multi-implementation addon '$baseAddonName/$implementationName' - manifest merging already completed"
+                Write-Log "Multi-implementation addon '$baseAddonName/$implementationName' - manifest merging already completed"
                 
                 # Remove stray manifest in implementation folder if it exists
                 $manifestAtImpl = Join-Path $implementationPath "addon.manifest.yaml"
                 if (Test-Path $manifestAtImpl) {
                     Remove-Item -Path $manifestAtImpl -Force
-                    Write-Log "[OCI] Removed stray manifest from implementation folder"
+                    Write-Log "Removed stray manifest from implementation folder"
                 }
             }
             elseif ($folderParts.Count -gt 1) {
@@ -494,16 +525,16 @@ foreach ($addon in $addonsToImport) {
                 }
 
                 if (Test-Path $parentManifestPath) {
-                    Write-Log "[OCI] Merging with existing manifest at: $parentManifestPath" -Console
+                    Write-Log "Merging with existing manifest at: $parentManifestPath" -Console
                     $existingManifest = Get-FromYamlFile -Path $parentManifestPath
                     $existingImplNames = $existingManifest.spec.implementations | ForEach-Object { $_.name }
                     
                     foreach ($importedImpl in $importedManifest.spec.implementations) {
                         if ($importedImpl.name -notin $existingImplNames) {
-                            Write-Log "[OCI] Adding new implementation: $($importedImpl.name)" -Console
+                            Write-Log "Adding new implementation: $($importedImpl.name)" -Console
                             $existingManifest.spec.implementations += $importedImpl
                         } else {
-                            Write-Log "[OCI] Implementation '$($importedImpl.name)' already exists, updating" -Console
+                            Write-Log "Implementation '$($importedImpl.name)' already exists, updating" -Console
                             for ($i = 0; $i -lt $existingManifest.spec.implementations.Count; $i++) {
                                 if ($existingManifest.spec.implementations[$i].name -eq $importedImpl.name) {
                                     $existingManifest.spec.implementations[$i] = $importedImpl
@@ -541,17 +572,17 @@ foreach ($addon in $addonsToImport) {
                             
                             $finalContent = ($headerLines -join "`n") + "`n" + $yamlContent
                             Set-Content -Path $parentManifestPath -Value $finalContent -Encoding UTF8
-                            Write-Log "[OCI] Merged manifest saved to: $parentManifestPath" -Console
+                            Write-Log "Merged manifest saved to: $parentManifestPath" -Console
                         } finally {
                             Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
                         }
                     } else {
-                        Write-Log "[OCI] Warning: yq.exe not found, copying manifest as-is"
+                        Write-Log "Warning: yq.exe not found, copying manifest as-is"
                         Copy-Item -Path $configManifestPath -Destination $parentManifestPath -Force
                     }
                 } else {
                     Copy-Item -Path $configManifestPath -Destination $parentManifestPath -Force
-                    Write-Log "[OCI] New manifest created at: $parentManifestPath" -Console
+                    Write-Log "New manifest created at: $parentManifestPath" -Console
                 }
                 
                 # Remove stray manifest in implementation folder
@@ -564,17 +595,17 @@ foreach ($addon in $addonsToImport) {
                 # Single-level addon
                 $finalManifestPath = Join-Path $destinationPath "addon.manifest.yaml"
                 Copy-Item -Path $configManifestPath -Destination $finalManifestPath -Force
-                Write-Log "[OCI] Single-level addon manifest copied to: $finalManifestPath"
+                Write-Log "Single-level addon manifest copied to: $finalManifestPath"
             }
         }
         else {
-            Write-Log "[OCI] Warning: addon.manifest.yaml not found for $($addon.name)" -Console
+            Write-Log "Warning: addon.manifest.yaml not found for $($addon.name)" -Console
         }
         
         # Import Layer 4: Linux Images (from staged temp location)
         $linuxImagesLayer = Join-Path $tempLayerDir 'images-linux.tar'
         if (Test-Path $linuxImagesLayer) {
-            Write-Log "[OCI] Importing Linux images layer from blob" -Console
+            Write-Log "Importing Linux images layer from blob" -Console
             
             # Check if this is a consolidated tar (tar of tars) or single image tar
             $tempImagesDir = Join-Path $tempLayerDir 'images-linux-extracted'
@@ -588,7 +619,7 @@ foreach ($addon in $addonsToImport) {
                 Set-Location $tempImagesDir
                 $extractResult = & tar -xf $linuxImagesLayer 2>&1
                 if ($LASTEXITCODE -ne 0) {
-                    Write-Log "[OCI] Warning: Failed to extract Linux images tar: $extractResult" -Console
+                    Write-Log "Warning: Failed to extract Linux images tar: $extractResult" -Console
                 }
             }
             finally {
@@ -598,48 +629,48 @@ foreach ($addon in $addonsToImport) {
             # Check if we extracted individual image tars or a single image
             $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
             
-            Write-Log "[OCI] Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
+            Write-Log "Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
             if ($extractedTars.Count -gt 0) {
                 foreach ($tar in $extractedTars) {
-                    Write-Log "[OCI]   - $($tar.Name) ($([math]::Round($tar.Length / 1MB, 2)) MB)" -Console
+                    Write-Log "  - $($tar.Name) ($([math]::Round($tar.Length / 1MB, 2)) MB)" -Console
                 }
             }
             
             $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
             if ($extractedTars.Count -gt 0) {
                 # Multiple image tars extracted - use directory import
-                Write-Log "[OCI] Found $($extractedTars.Count) image tar(s), importing from directory" -Console
+                Write-Log "Found $($extractedTars.Count) image tar(s), importing from directory" -Console
                 &$importImageScript -ImageDir $tempImagesDir -ShowLogs:$ShowLogs
                 $importExitCode = $LASTEXITCODE
             } else {
                 # Single image tar - check if extraction created image files directly
                 $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
                 if ($imageFiles.Count -gt 0) {
-                    Write-Log "[OCI] Importing extracted image files from directory" -Console
+                    Write-Log "Importing extracted image files from directory" -Console
                     &$importImageScript -ImageDir $tempImagesDir -ShowLogs:$ShowLogs
                     $importExitCode = $LASTEXITCODE
                 } else {
-                    Write-Log "[OCI] Warning: No image files found after extraction" -Console
+                    Write-Log "Warning: No image files found after extraction" -Console
                     $importExitCode = 1
                 }
             }
             
             if ($importExitCode -ne 0) {
-                Write-Log "[OCI] Warning: Linux images import failed for $($addon.name) with exit code $importExitCode" -Console
+                Write-Log "Warning: Linux images import failed for $($addon.name) with exit code $importExitCode" -Console
             } else {
-                Write-Log "[OCI] Linux images imported successfully for $($addon.name)" -Console
+                Write-Log "Linux images imported successfully for $($addon.name)" -Console
             }
             
             # Cleanup extracted images
             Remove-Item -Path $tempImagesDir -Recurse -Force -ErrorAction SilentlyContinue
         } else {
-            Write-Log "[OCI] No Linux images layer found for $($addon.name)"
+            Write-Log "No Linux images layer found for $($addon.name)"
         }
         
         # Import Layer 5: Windows Images (from staged temp location)
         $windowsImagesLayer = Join-Path $tempLayerDir 'images-windows.tar'
         if ((Test-Path $windowsImagesLayer) -and (-not $setupInfo.LinuxOnly)) {
-            Write-Log "[OCI] Importing Windows images layer from blob" -Console
+            Write-Log "Importing Windows images layer from blob" -Console
             
             # Check if this is a consolidated tar (tar of tars) or single image tar
             $tempImagesDir = Join-Path $tempLayerDir 'images-windows-extracted'
@@ -653,7 +684,7 @@ foreach ($addon in $addonsToImport) {
                 Set-Location $tempImagesDir
                 $extractResult = & tar -xf $windowsImagesLayer 2>&1
                 if ($LASTEXITCODE -ne 0) {
-                    Write-Log "[OCI] Warning: Failed to extract Windows images tar: $extractResult" -Console
+                    Write-Log "Warning: Failed to extract Windows images tar: $extractResult" -Console
                 }
             }
             finally {
@@ -663,40 +694,40 @@ foreach ($addon in $addonsToImport) {
             # Check if we extracted individual image tars
             $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
             
-            Write-Log "[OCI] Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
+            Write-Log "Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
             if ($extractedTars.Count -gt 0) {
                 foreach ($tar in $extractedTars) {
-                    Write-Log "[OCI]   - $($tar.Name) ($([math]::Round($tar.Length / 1MB, 2)) MB)" -Console
+                    Write-Log "  - $($tar.Name) ($([math]::Round($tar.Length / 1MB, 2)) MB)" -Console
                 }
             }
             
             $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
             if ($extractedTars.Count -gt 0) {
-                Write-Log "[OCI] Found $($extractedTars.Count) Windows image tar(s), importing from directory" -Console
+                Write-Log "Found $($extractedTars.Count) Windows image tar(s), importing from directory" -Console
                 &$importImageScript -ImageDir $tempImagesDir -Windows -ShowLogs:$ShowLogs
                 $importExitCode = $LASTEXITCODE
             } else {
                 $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
                 if ($imageFiles.Count -gt 0) {
-                    Write-Log "[OCI] Importing extracted Windows image files from directory" -Console
+                    Write-Log "Importing extracted Windows image files from directory" -Console
                     &$importImageScript -ImageDir $tempImagesDir -Windows -ShowLogs:$ShowLogs
                     $importExitCode = $LASTEXITCODE
                 } else {
-                    Write-Log "[OCI] Warning: No Windows image files found after extraction" -Console
+                    Write-Log "Warning: No Windows image files found after extraction" -Console
                     $importExitCode = 1
                 }
             }
             
             if ($importExitCode -ne 0) {
-                Write-Log "[OCI] Warning: Windows images import failed for $($addon.name) with exit code $importExitCode" -Console
+                Write-Log "Warning: Windows images import failed for $($addon.name) with exit code $importExitCode" -Console
             } else {
-                Write-Log "[OCI] Windows images imported successfully for $($addon.name)" -Console
+                Write-Log "Windows images imported successfully for $($addon.name)" -Console
             }
             
             # Cleanup extracted images
             Remove-Item -Path $tempImagesDir -Recurse -Force -ErrorAction SilentlyContinue
         } else {
-            Write-Log "[OCI] No Windows images layer found for $($addon.name) or Linux-only setup"
+            Write-Log "No Windows images layer found for $($addon.name) or Linux-only setup"
         }
         
         # Process Layer 6: Packages (already extracted to temp location)
@@ -718,7 +749,7 @@ foreach ($addon in $addonsToImport) {
                 }
                 
                 if ($null -ne $matchingImpl -and $null -ne $matchingImpl.offline_usage) {
-                    Write-Log "[OCI] Installing packages for addon $($addon.name)" -Console
+                    Write-Log "Installing packages for addon $($addon.name)" -Console
                     $linuxPackages = $matchingImpl.offline_usage.linux
                     $linuxCurlPackages = $linuxPackages.curl
                     $windowsPackages = $matchingImpl.offline_usage.windows
@@ -776,8 +807,8 @@ Remove-Item -Force "$tmpDir" -Recurse -Confirm:$False -ErrorAction SilentlyConti
 
 Write-Log '---'
 $importedNames = ($addonsToImport | ForEach-Object { $_.name }) -join ', '
-Write-Log "[OCI] Addons '$importedNames' imported successfully from OCI artifact!" -Console
-Write-Log "[OCI] Artifact layers processed:" -Console
+Write-Log "Addons '$importedNames' imported successfully from OCI artifact!" -Console
+Write-Log "OCI Artifact layers processed:" -Console
 Write-Log "  Config:  metadata.json       (addon metadata)" -Console
 Write-Log "  Layer 0: config.tar.gz       (addon.manifest.yaml, addon configs etc.)" -Console
 Write-Log "  Layer 1: manifests.tar.gz    (Kubernetes manifests)" -Console

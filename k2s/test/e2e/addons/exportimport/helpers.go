@@ -53,9 +53,9 @@ func GetImplementation(addon *addons.Addon, implName string) *addons.Implementat
 // GetExpectedDirName returns the expected directory name for an addon implementation in the exported OCI tar.
 func GetExpectedDirName(addonName, implName string) string {
 	if implName != addonName {
-		return strings.ReplaceAll(addonName+"_"+implName, " ", "_")
+		return strings.ReplaceAll(addonName+"-"+implName, " ", "-")
 	}
-	return strings.ReplaceAll(addonName, " ", "_")
+	return strings.ReplaceAll(addonName, " ", "-")
 }
 
 // ExportAddon exports a single addon (or implementation) to an OCI tar file.
