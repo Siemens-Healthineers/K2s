@@ -25,8 +25,8 @@ import (
 )
 
 var importCommandExample = `
-  # Import addon "registry" and "ingress nginx"  from an exported OCI artifact
-  k2s addons import registry "ingress nginx" -f C:\tmp\addons.oci.tar
+  # Import multiple addons from an exported OCI artifact
+  k2s addons import registry ingress nginx -f C:\tmp\addons.oci.tar
 
   # Import all addons from an exported OCI artifact
   k2s addons import -f C:\tmp\addons.oci.tar
