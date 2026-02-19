@@ -160,6 +160,10 @@ try {
             Write-Log "[AddonRestore] Skipping traefik ingress from backup (active: $activeIngress)" -Console
             continue
         }
+        if ($file -match '^fluxcd-ingress-nginx-gw-' -and $activeIngress -ne 'nginx-gw') {
+            Write-Log "[AddonRestore] Skipping nginx-gw resource from backup (active: $activeIngress)" -Console
+            continue
+        }
 
         $filePath = Join-Path $BackupDir $file
         if (-not (Test-Path -LiteralPath $filePath)) {
