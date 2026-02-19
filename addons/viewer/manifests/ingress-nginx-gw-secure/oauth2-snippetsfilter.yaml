@@ -4,7 +4,7 @@
 
 # SnippetsFilter for OAuth2 auth_request pattern
 # Must be in same namespace as HTTPRoute (viewer) - ExtensionRef doesn't support cross-namespace
-# Note: Shared locations (/_auth, @oauth2_redirect) are defined in nginx-gw namespace
+# Shared locations (/_auth, @oauth2_redirect) are attached once via security/oauth2-proxy
 apiVersion: gateway.nginx.org/v1alpha1
 kind: SnippetsFilter
 metadata:

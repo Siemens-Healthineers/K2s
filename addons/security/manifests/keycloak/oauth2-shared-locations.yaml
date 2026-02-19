@@ -4,13 +4,13 @@
 
 # Shared OAuth2 locations for nginx-gw
 # This SnippetsFilter defines the shared /_auth and @oauth2_redirect locations
-# that are used by all addons. It must be in nginx-gw namespace to be globally
-# available to all server contexts.
+# that are used by all addons. It is attached once via the security namespace
+# oauth2-proxy HTTPRoute to avoid duplicate location errors.
 apiVersion: gateway.nginx.org/v1alpha1
 kind: SnippetsFilter
 metadata:
   name: oauth2-shared-locations
-  namespace: nginx-gw
+  namespace: security
 spec:
   snippets:
     - context: http.server
