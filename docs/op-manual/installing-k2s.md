@@ -123,7 +123,6 @@ Instead of assembling many command-line parameters/flags to customize the instal
           dynamicMemory: true   # Enable dynamic memory
           disk: 50GB
     ```
-    For details, see [Dynamic Memory Configuration](dynamic-memory.md).
 
 To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/Siemens-Healthineers/K2s/tree/main/k2s/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
 

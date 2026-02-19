@@ -81,7 +81,15 @@ function New-ControlPlaneNodeOnNewVM {
         Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
         Write-Log 'Configuring WSL2'
         Set-WSL -MasterVMMemory $MasterVMMemory -MasterVMProcessorCount $MasterVMProcessorCount
-        New-WslLinuxVmAsControlPlaneNode @controlPlaneParams
+
+        # WSL2 doesn't support Hyper-V dynamic memory - it has its own memory management
+        # Remove dynamic memory parameters before calling WSL function
+        $wslParams = $controlPlaneParams.Clone()
+        $wslParams.Remove('VMMemoryMinBytes')
+        $wslParams.Remove('VMMemoryMaxBytes')
+        $wslParams.Remove('EnableDynamicMemory')
+
+        New-WslLinuxVmAsControlPlaneNode @wslParams
         Start-WSL
         Set-WSLSwitch -IpAddress $($controlPlaneParams.GatewayIpAddress)
     }
