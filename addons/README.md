@@ -56,9 +56,9 @@ k2s addons export ingress -d d:\                      - exports all implementati
 ```
 Importing all addons from an previously exported file:
 ```
-k2s addons import -z d:\addons.oci.tar                    - imports all addons from a specific archive
-k2s addons import "ingress nginx" -z d:\addons.oci.tar    - imports implementation 'nginx' of addon 'ingress' from a specific archive
-k2s addons import ingress -z d:\addons.oci.tar            - imports all implementations of addon 'ingress' from a specific archive
+k2s addons import -f d:\addons.oci.tar                    - imports all addons from a specific archive
+k2s addons import "ingress nginx" -f d:\addons.oci.tar    - imports implementation 'nginx' of addon 'ingress' from a specific archive
+k2s addons import ingress -f d:\addons.oci.tar            - imports all implementations of addon 'ingress' from a specific archive
 ```
 Backing up addon data:
 ```
