@@ -125,9 +125,10 @@ func ExtractOciTar(ctx context.Context, suite *framework.K2sTestSuite, ociTarPat
 	suite.Cli("tar").MustExec(ctx, "-xf", ociTarPath, "-C", outputDir)
 	GinkgoWriter.Println("[Extract] Extraction completed")
 
-	extractedArtifactsDir := filepath.Join(outputDir, "artifacts")
-	_, err := os.Stat(extractedArtifactsDir)
-	Expect(os.IsNotExist(err)).To(BeFalse(), "artifacts directory should exist after extraction at %s", extractedArtifactsDir)
+	// OCI layout files (oci-layout, index.json, blobs/) are at the tar root
+	extractedArtifactsDir := outputDir
+	_, err := os.Stat(filepath.Join(extractedArtifactsDir, "oci-layout"))
+	Expect(os.IsNotExist(err)).To(BeFalse(), "oci-layout should exist after extraction at %s", extractedArtifactsDir)
 
 	// List contents of extracted directory
 	entries, _ := os.ReadDir(extractedArtifactsDir)
@@ -225,7 +226,7 @@ func VerifyExportedImages(suite *framework.K2sTestSuite, extractedArtifactsDir s
 		hasLinuxImages := strings.Contains(string(indexJsonContent), "images-linux.tar") ||
 			strings.Contains(string(indexJsonContent), "vnd.oci.image.layer.v1.tar")
 		hasWindowsImages := strings.Contains(string(indexJsonContent), "images-windows.tar") ||
-			strings.Contains(string(indexJsonContent), "vnd.oci.image.layer.v1.tar+windows")
+			strings.Contains(string(indexJsonContent), "vnd.k2s.addon.images-windows.v1.tar")
 
 		// Verify blobs exist
 		blobsDir := filepath.Join(extractedArtifactsDir, "blobs", "sha256")
@@ -333,7 +334,7 @@ func VerifyOciManifest(extractedArtifactsDir string, expectedDirName string) {
 	}
 
 	// Verify K2s-specific annotations are present
-	k2sAnnotations := []string{"vnd.k2s.addon.name", "vnd.k2s.addon.implementation", "vnd.k2s.addon.version"}
+	k2sAnnotations := []string{"vnd.k2s.addon.name", "vnd.k2s.addon.implementation", "org.opencontainers.image.version"}
 	for _, annotation := range k2sAnnotations {
 		if strings.Contains(indexJson, annotation) {
 			GinkgoWriter.Printf("[OciManifest] K2s annotation '%s': FOUND\n", annotation)
@@ -559,4 +560,45 @@ func FilterAddonByName(allAddons addons.Addons, addonName string) addons.Addons 
 	return lo.Filter(allAddons, func(a addons.Addon, _ int) bool {
 		return a.Metadata.Name == addonName
 	})
+}
+
+// verifies that all expected addon files are present at the correct paths after import.
+func VerifyImportedAddonFiles(implDir string, expectedFiles []string) {
+	GinkgoWriter.Println("=== VERIFY IMPORTED ADDON FILES START ===")
+	GinkgoWriter.Printf("[AddonFiles] Implementation directory: %s\n", implDir)
+	GinkgoWriter.Printf("[AddonFiles] Expected files: %d\n", len(expectedFiles))
+
+	for i, relPath := range expectedFiles {
+		fullPath := filepath.Join(implDir, relPath)
+		info, err := os.Stat(fullPath)
+		if os.IsNotExist(err) {
+			GinkgoWriter.Printf("[AddonFiles]   [%d] MISSING: %s\n", i, relPath)
+		} else if err != nil {
+			GinkgoWriter.Printf("[AddonFiles]   [%d] ERROR: %s - %v\n", i, relPath, err)
+		} else {
+			GinkgoWriter.Printf("[AddonFiles]   [%d] OK: %s (%d bytes)\n", i, relPath, info.Size())
+		}
+		Expect(os.IsNotExist(err)).To(BeFalse(), "File %s should exist at %s after import", relPath, fullPath)
+		Expect(info.Size()).To(BeNumerically(">", 0), "File %s should not be empty", relPath)
+	}
+
+	GinkgoWriter.Println("=== VERIFY IMPORTED ADDON FILES END ===")
+}
+
+// verifies that no addon files were placed at incorrect paths after import.
+func VerifyNoStrayFiles(unexpectedFiles []string) {
+	GinkgoWriter.Println("=== VERIFY NO STRAY FILES START ===")
+	GinkgoWriter.Printf("[StrayFiles] Checking %d paths that should NOT exist\n", len(unexpectedFiles))
+
+	for i, path := range unexpectedFiles {
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			GinkgoWriter.Printf("[StrayFiles]   [%d] OK (absent): %s\n", i, path)
+		} else {
+			GinkgoWriter.Printf("[StrayFiles]   [%d] UNEXPECTED: %s exists!\n", i, path)
+		}
+		Expect(os.IsNotExist(err)).To(BeTrue(), "File %s should NOT exist (placed at wrong path during import)", path)
+	}
+
+	GinkgoWriter.Println("=== VERIFY NO STRAY FILES END ===")
 }
