@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/adding-k2s-users/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/backing-up-restoring-addons/">
       
       
-        <link rel="prev" href="../checking-k2s-status/">
+        <link rel="prev" href="../upgrading-k2s/">
       
       
-        <link rel="next" href="../stopping-k2s/">
+        <link rel="next" href="../configuring-httpproxy-service/">
       
       
         
@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Adding K2s Users - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Backing Up and Restoring Addons - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#adding-k2s-users" class="md-skip">
+        <a href="#backing-up-and-restoring-k2s-addons" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Adding K2s Users
+              Backing Up and Restoring Addons
             
           </span>
         </div>
@@ -1059,37 +1059,10 @@ You're not viewing the latest release version.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Adding K2s Users
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../adding-k2s-users/" class="md-nav__link">
         
   
   
@@ -1105,171 +1078,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#granting-access-to-k2s" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Granting Access to K2s
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Granting Access to K2s">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#access-verification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Access Verification
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Access Verification">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#control-plane-node" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Control-Plane Node
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#k8s-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        K8s API
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#authorizing-users-to-call-k8s-api-endpoints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Authorizing Users to Call K8s API Endpoints
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#revoking-access" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Revoking Access
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Revoking Access">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#control-plane" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Control-plane
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#k8s-api_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        K8s API
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="K8s API">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#authn" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AuthN
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#authz" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AuthZ
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#caveats" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Caveats
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1335,10 +1143,37 @@ You're not viewing the latest release version.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../backing-up-restoring-addons/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backing Up and Restoring Addons
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1354,6 +1189,374 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backup Command
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backup Command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#restore-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restore Command
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Restore Command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flags_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#typical-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typical Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-backed-up-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Backed Up — Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-addon-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Addon Details
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Per-Addon Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autoscaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        autoscaling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dicom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dicom
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gpu-node
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-nginx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ingress nginx
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-nginx-gw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ingress nginx-gw
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-traefik" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ingress traefik
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kubevirt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        kubevirt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        logging
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-argocd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rollout argocd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-fluxcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rollout fluxcd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        security
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage-smb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        storage smb
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#viewer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        viewer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-manifest-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backup Manifest Format
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2200,34 +2403,33 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#granting-access-to-k2s" class="md-nav__link">
+  <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Granting Access to K2s
+        Prerequisites
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Granting Access to K2s">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#access-verification" class="md-nav__link">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-command" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Access Verification
+        Backup Command
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Access Verification">
+    <nav class="md-nav" aria-label="Backup Command">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#control-plane-node" class="md-nav__link">
+  <a href="#flags" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Control-Plane Node
+        Flags
       
     </span>
   </a>
@@ -2235,18 +2437,24 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#k8s-api" class="md-nav__link">
+  <a href="#default-behavior" class="md-nav__link">
     <span class="md-ellipsis">
       
-        K8s API
+        Default Behavior
       
     </span>
   </a>
   
 </li>
         
-      </ul>
-    </nav>
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
   
 </li>
         
@@ -2256,33 +2464,22 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#authorizing-users-to-call-k8s-api-endpoints" class="md-nav__link">
+  <a href="#restore-command" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Authorizing Users to Call K8s API Endpoints
+        Restore Command
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#revoking-access" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Revoking Access
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Revoking Access">
+    <nav class="md-nav" aria-label="Restore Command">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#control-plane" class="md-nav__link">
+  <a href="#flags_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Control-plane
+        Flags
       
     </span>
   </a>
@@ -2290,33 +2487,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#k8s-api_1" class="md-nav__link">
+  <a href="#examples_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        K8s API
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="K8s API">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#authn" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AuthN
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#authz" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AuthZ
+        Examples
       
     </span>
   </a>
@@ -2327,6 +2501,227 @@ You're not viewing the latest release version.
     </nav>
   
 </li>
+      
+        <li class="md-nav__item">
+  <a href="#typical-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typical Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-backed-up-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Backed Up — Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-addon-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Addon Details
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Per-Addon Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autoscaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        autoscaling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dicom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dicom
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gpu-node
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-nginx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ingress nginx
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-nginx-gw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ingress nginx-gw
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-traefik" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ingress traefik
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kubevirt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        kubevirt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        logging
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-argocd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rollout argocd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-fluxcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rollout fluxcd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        security
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage-smb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        storage smb
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#viewer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        viewer
+      
+    </span>
+  </a>
+  
+</li>
         
       </ul>
     </nav>
@@ -2334,10 +2729,21 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#caveats" class="md-nav__link">
+  <a href="#backup-manifest-format" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Caveats
+        Backup Manifest Format
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
       
     </span>
   </a>
@@ -2361,7 +2767,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/adding-k2s-users.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/backing-up-restoring-addons.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2370,129 +2776,393 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="adding-k2s-users">Adding <em>K2s</em> Users</h1>
-<p>A <em>K2s</em> user is a <em>Windows</em> user that:</p>
+<h1 id="backing-up-and-restoring-k2s-addons">Backing Up and Restoring <em>K2s</em> Addons</h1>
+<p><em>K2s</em> provides built-in <abbr title="Command-Line Interface">CLI</abbr> commands to back up and restore addon configuration and data. This allows you to preserve addon state across upgrade, migration, or disaster-recovery scenarios.</p>
+<p>Each addon ships its own <code>Backup.ps1</code> and <code>Restore.ps1</code> scripts that know exactly which Kubernetes resources, configuration files, or persistent data to capture. The <abbr title="Command-Line Interface">CLI</abbr> orchestrates staging, zip creation/extraction, manifest validation, and the addon re-enable cycle automatically.</p>
+<h2 id="prerequisites">Prerequisites</h2>
 <ul>
-<li>has administrative access to the <em><abbr title="Kubernetes">K8s</abbr></em> nodes (<abbr title="Authentication">authN</abbr>/<abbr title="Authorization">authZ</abbr>)</li>
-<li>can call the <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> (<abbr title="Authentication">authN</abbr> only, see <a href="#authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</a>)</li>
+<li><strong>Administrator privileges</strong> — all backup and restore commands must run in an elevated shell.</li>
+<li><strong>Cluster running</strong> — the <em>K2s</em> cluster must be started before executing backup or restore (exception: <em>storage smb</em> can back up local data even when the cluster is not running).</li>
+<li><strong>Addon enabled</strong> — an addon must be <strong>enabled</strong> for backup to capture its state.</li>
+<li><strong>Addon disabled</strong> — an addon must be <strong>disabled</strong> before restore. The <abbr title="Command-Line Interface">CLI</abbr> enforces this and returns an error otherwise.</li>
 </ul>
-<p>When <em>K2s</em> is being installed, the <em>Windows</em> user executing the installation routine will be granted administrator access to the control-plane (via <abbr title="Secure Shell">SSH</abbr>) and worker nodes. In addition, this user will be configured as <em><abbr title="Kubernetes">K8s</abbr></em> cluster admin (<abbr title="Authentication">authN</abbr> via cert).</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><em><abbr title="Kubernetes">K8s</abbr></em> provides different ways to authenticate users (<abbr title="Authentication">authN</abbr>). <em>K2s</em> uses <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#x509-client-certificates" target="_blank" rel="noopener">X509 client certificates</a>.</p>
-</div>
-<p>How to enable other <em>Windows</em> users on the same host machine to interact with <em>K2s</em> will be shown in the following.</p>
-<h2 id="granting-access-to-k2s">Granting Access to <em>K2s</em></h2>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>A <em>Windows</em> user must have a local profile on the host machine in order to be granted access to <em>K2s</em>.</p>
-<p>Additionally, a <em>Windows</em> user must have administrator privileges to interact with <em>K2s</em> (see <a href="../installing-k2s/#prerequisites">Prerequisites</a>).</p>
-</div>
-<p>To grant a specific <em>Windows</em> user access to <em>K2s</em>, run as <em>K2s</em> admin:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s system users add -u &lt;username&gt;</span>
-</code></pre></div></p>
-<p>See <code>k2s system users add -h</code> for more options.</p>
-<div class="admonition tip">
-<p class="admonition-title">Windows Username</p>
-<p>Typically the <em>Windows</em> username can be specified without the domain.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The <em>Windows</em> account <code>NT AUTHORITY\SYSTEM</code> (<code>SID S-1-5-18</code>) is a special case since it is not a user account. Nevertheless, you can specify the system account's name or <code>SID</code> to grant the system account access to <em>K2s</em>.</p>
-<p>Examples how to specify the <em>Windows</em> system account:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s system users add -u system</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="go">k2s system users add -u &quot;NT AUTHORITY\SYSTEM&quot;</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="go">k2s system users add -i S-1-5-18</span>
-</code></pre></div></p>
-</div>
-<details class="example">
-<summary>Full Example With Detailed Steps</summary>
-<p>Given that the <em>Windows</em> user <code>desktop1234\john</code> exists on the host and has a local profile/home directory, the <em>K2s</em> admin runs <code>k2s system users add -u john</code> which triggers the following steps:</p>
+<h2 id="backup-command">Backup Command</h2>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s addons backup ADDON [IMPLEMENTATION] [-f &lt;path&gt;]</span>
+</code></pre></div>
+<p>Creates a zip archive containing the addon's backed-up resources and a <code>backup.json</code> manifest.</p>
+<h3 id="flags">Flags</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--file</code></td>
+<td><code>-f</code></td>
+<td>Output zip file path</td>
+<td>Auto-generated in <code>C:\Temp\Addons</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="default-behavior">Default Behavior</h3>
+<p>When <code>-f</code> is omitted the zip is written to <code>C:\Temp\Addons</code> with the naming pattern:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>{addon_name}_backup_{yyyyMMdd_HHmmss}.zip
+</code></pre></div>
+<p>Spaces and slashes in the addon name are replaced with underscores (e.g. <code>ingress nginx</code> → <code>ingress_nginx_backup_20260219_143012.zip</code>).</p>
+<h3 id="examples">Examples</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp"># </span>Backup<span class="w"> </span>a<span class="w"> </span>single<span class="w"> </span>addon<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>default<span class="w"> </span>location
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">k2s addons backup registry</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="gp"># </span>Backup<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>implementation<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>custom<span class="w"> </span>path
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">k2s addons backup &quot;ingress nginx&quot; -f D:\backups\ingress-nginx.zip</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="gp"># </span>Backup<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>implementation<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>default<span class="w"> </span>folder
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="go">k2s addons backup &quot;ingress traefik&quot;</span>
+</code></pre></div>
+<h2 id="restore-command">Restore Command</h2>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons restore ADDON [IMPLEMENTATION] [-f &lt;path&gt;]</span>
+</code></pre></div>
+<p>Restores an addon from a previously created backup zip. The restore flow is:</p>
+<ol>
+<li>Extract the zip to a temporary staging directory.</li>
+<li>Validate the <code>backup.json</code> manifest (addon name, implementation, K2s version).</li>
+<li>Re-enable the addon (using <code>EnableForRestore.ps1</code> if available, otherwise standard <code>Enable.ps1</code>).</li>
+<li>Execute the addon's <code>Restore.ps1</code> to apply backed-up resources.</li>
+<li>Clean up staging files.</li>
+</ol>
+<h3 id="flags_1">Flags</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--file</code></td>
+<td><code>-f</code></td>
+<td>Input zip file path</td>
+<td>Newest matching zip in <code>C:\Temp\Addons</code></td>
+</tr>
+</tbody>
+</table>
+<p>When <code>-f</code> is omitted the <abbr title="Command-Line Interface">CLI</abbr> searches <code>C:\Temp\Addons</code> for files matching <code>{addon_name}_backup_*.zip</code> and picks the most recently modified one.</p>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> The addon <strong>must be disabled</strong> before running restore. If the addon is still enabled the command will fail with: <code>addon '&lt;name&gt;' must be disabled before restore</code>.</p>
+</blockquote>
+<h3 id="examples_1">Examples</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>an<span class="w"> </span>explicit<span class="w"> </span>backup<span class="w"> </span>file
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">k2s addons restore registry -f D:\backups\registry-backup.zip</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>the<span class="w"> </span>latest<span class="w"> </span>backup<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span>default<span class="w"> </span>folder
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="go">k2s addons restore &quot;ingress nginx&quot;</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="gp"># </span>Restore<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon<span class="w"> </span>implementation
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="go">k2s addons restore &quot;storage smb&quot; -f C:\Temp\Addons\storage_smb_backup_20260219_143012.zip</span>
+</code></pre></div>
+<h2 id="typical-workflow">Typical Workflow</h2>
+<p>A common scenario is backing up addons before a <em>K2s</em> upgrade and restoring them afterwards:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gp"># </span><span class="m">1</span>.<span class="w"> </span>Back<span class="w"> </span>up<span class="w"> </span>the<span class="w"> </span>addons<span class="w"> </span>you<span class="w"> </span>want<span class="w"> </span>to<span class="w"> </span>preserve
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">k2s addons backup registry</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="go">k2s addons backup &quot;ingress nginx&quot;</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="go">k2s addons backup security</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="gp"># </span><span class="m">2</span>.<span class="w"> </span>Disable<span class="w"> </span>the<span class="w"> </span>addons
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="go">k2s addons disable registry</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="go">k2s addons disable ingress nginx</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="go">k2s addons disable security</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="gp"># </span><span class="m">3</span>.<span class="w"> </span>Perform<span class="w"> </span>the<span class="w"> </span>upgrade
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="go">k2s system upgrade</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="gp"># </span><span class="m">4</span>.<span class="w"> </span>Restore<span class="w"> </span>each<span class="w"> </span>addon<span class="w"> </span><span class="o">(</span>re-enables<span class="w"> </span>automatically<span class="o">)</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="go">k2s addons restore registry</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="go">k2s addons restore &quot;ingress nginx&quot;</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="go">k2s addons restore security</span>
+</code></pre></div>
+<p>After restore each addon is re-enabled with its backed-up configuration applied on top.</p>
+<h2 id="what-gets-backed-up-summary">What Gets Backed Up — Summary</h2>
+<p>The following table shows at a glance what each addon's backup contains.</p>
+<table>
+<thead>
+<tr>
+<th>Addon</th>
+<th>Backup Type</th>
+<th>What Gets Backed Up</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>autoscaling</strong></td>
+<td>Config</td>
+<td>ConfigMaps in <code>autoscaling</code> namespace</td>
+<td><code>EnableForRestore.ps1</code> with best-effort pod readiness</td>
+</tr>
+<tr>
+<td><strong>dashboard</strong></td>
+<td>Metadata</td>
+<td>Ingress type, metrics-addon-enabled flag</td>
+<td>Restore calls <code>Update.ps1</code>; may re-enable metrics addon</td>
+</tr>
+<tr>
+<td><strong>dicom</strong></td>
+<td>Config</td>
+<td>Orthanc ConfigMap, ingress resources, Traefik middlewares</td>
+<td>Restarts deployment after config restore</td>
+</tr>
+<tr>
+<td><strong>gpu-node</strong></td>
+<td>Metadata</td>
+<td>Nothing (infrastructure-only)</td>
+<td>Re-enable fully restores functionality</td>
+</tr>
+<tr>
+<td><strong>ingress nginx</strong></td>
+<td>Config</td>
+<td>Controller ConfigMap, cluster-local Ingress</td>
+<td>Waits for controller pod readiness</td>
+</tr>
+<tr>
+<td><strong>ingress nginx-gw</strong></td>
+<td>Config</td>
+<td>Gateway CR, NginxGateway CR</td>
+<td>Certificates regenerated on enable; not backed up</td>
+</tr>
+<tr>
+<td><strong>ingress traefik</strong></td>
+<td>Config</td>
+<td>Cluster-local Ingress</td>
+<td>Waits for traefik pod readiness</td>
+</tr>
+<tr>
+<td><strong>kubevirt</strong></td>
+<td>Metadata</td>
+<td>Nothing (infrastructure-only)</td>
+<td>Re-enable fully restores functionality</td>
+</tr>
+<tr>
+<td><strong>logging</strong></td>
+<td>Config</td>
+<td>4 ConfigMaps (OpenSearch, Fluent Bit Linux/Windows)</td>
+<td>Rollout-restarts StatefulSet, Deployments, DaemonSets</td>
+</tr>
+<tr>
+<td><strong>metrics</strong></td>
+<td>Config</td>
+<td>Metrics-server Deployment, APIService, Windows exporter resources</td>
+<td>Rollout-restarts after apply</td>
+</tr>
+<tr>
+<td><strong>monitoring</strong></td>
+<td>Config</td>
+<td>User Grafana dashboards/datasources, Ingress resources, non-Helm Prometheus CRs</td>
+<td>Secrets and PV data <strong>not</strong> backed up; Helm-managed resources skipped</td>
+</tr>
+<tr>
+<td><strong>registry</strong></td>
+<td>Data</td>
+<td><code>tar.gz</code> of <code>/registry/repository</code> from control-plane <abbr title="Virtual Machine">VM</abbr>, ConfigMap</td>
+<td>Overwrites existing data; <abbr title="Secure Shell">SSH</abbr> to <abbr title="Virtual Machine">VM</abbr></td>
+</tr>
+<tr>
+<td><strong>rollout argocd</strong></td>
+<td>Data</td>
+<td>ArgoCD state export, ingress resources, Traefik middleware</td>
+<td>Export <strong>contains credentials</strong> (repo creds)</td>
+</tr>
+<tr>
+<td><strong>rollout fluxcd</strong></td>
+<td>Config</td>
+<td>All Flux CRs, referenced Secrets, webhook ingress</td>
+<td>Secrets backed up (Flux requires them)</td>
+</tr>
+<tr>
+<td><strong>security</strong></td>
+<td>Data</td>
+<td><abbr title="Certificate Authority">CA</abbr> root Secret, Keycloak PostgreSQL dump, enhanced-security marker</td>
+<td><code>EnableForRestore.ps1</code> reconstructs original enable flags; drops/recreates Keycloak DB</td>
+</tr>
+<tr>
+<td><strong>storage smb</strong></td>
+<td>Data</td>
+<td><code>SmbStorage.json</code>, addon config snapshot, <abbr title="Server Message Block">SMB</abbr> share file data</td>
+<td>Disable/enable cycle with <code>-Keep</code>; works offline</td>
+</tr>
+<tr>
+<td><strong>viewer</strong></td>
+<td>Config</td>
+<td>ConfigMap, Service, ingress resources, Traefik middleware</td>
+<td>Runs <code>Update.ps1</code> after restore</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Backup Types:</strong></p>
 <ul>
-<li>Creating an <abbr title="Secure Shell">SSH</abbr> key pair for <em>John</em> in <code>c:\users\john\.ssh\k2s\</code> on the host. The admin must confirm overwriting existing key pairs. Since the <abbr title="Secure Shell">SSH</abbr> key pair was initially created by the admin's <em>Windows</em> account, the file security inheritance must be disabled, the <em>Administrators</em> group granted full file access (so that the <em>K2s</em> admin can revoke/delete <em>John's</em> access later) and the admin user must be removed from the <abbr title="Access Control List">ACL</abbr>, otherwise <abbr title="Secure Shell">SSH</abbr> would complain about too open access permissions when <em>John</em> tries to use his <abbr title="Secure Shell">SSH</abbr> key. <em>John's</em> public <abbr title="Secure Shell">SSH</abbr> key contains the <em>K2s</em>-specific username as comment, i.e. <code>k2s-desktop1234-john</code>, so that removing entries only targets <abbr title="Secure Shell">SSH</abbr> fingerprints that have been created by <em>K2s</em>. As of now, none of the <abbr title="Secure Shell">SSH</abbr> keys being created by <em>K2s</em> are password-protected.</li>
-<li>Adding control-plane's <abbr title="Secure Shell">SSH</abbr> fingerprint to <code>c:\users\john\.ssh\known_hosts</code> file on the host. It removes previous control-plane fingerprint if existing.</li>
-<li>Adding <em>John's</em> <abbr title="Secure Shell">SSH</abbr> fingerprint to <code>~/.ssh/authorized_keys</code> on the control-plane. It removes <em>John's</em> previous fingerprint if existing.</li>
-<li>Creating <code>c:\users\john\.kube\config</code> if not existing, copying the <em>K2s</em> cluster configuration from admin's <code>kubeconfig</code>.</li>
-<li>Signing a new certificate for username <code>k2s-desktop1234-john</code> and group <code>k2s-users</code> using <em><abbr title="Kubernetes">K8s</abbr>'s</em> <abbr title="Certificate Authority">CA</abbr> cert on the control-plane.</li>
-<li>Copying the new certificate to the host, embedding the certificate data for <code>k2s-desktop1234-john</code> in <code>c:\users\john\.kube\config</code> and deleting the cert files.</li>
-<li>Adding a new <em><abbr title="Kubernetes">K8s</abbr></em> context for <code>k2s-desktop1234-john</code> to <code>c:\users\john\.kube\config</code>, verifying the <em><abbr title="Kubernetes">K8s</abbr></em> authentication and switching back to previously active context if there was any.</li>
+<li><strong>Config</strong> — Kubernetes resources (ConfigMaps, Ingresses, CRDs) exported as <abbr title="Yet Another Markup Language">YAML</abbr>/<abbr title="JavaScript Object Notation">JSON</abbr>. No persistent volume data.</li>
+<li><strong>Data</strong> — Includes files or database dumps copied from the cluster or <abbr title="Virtual Machine">VM</abbr>, in addition to configuration.</li>
+<li><strong>Metadata</strong> — Only <code>backup.json</code> manifest with flags/settings. No files are captured; re-enabling restores full functionality.</li>
 </ul>
-<p><em>John</em> has access to the control-plane now (<abbr title="Authentication">authN</abbr>/<abbr title="Authorization">authZ</abbr>) as well as to the <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> (<abbr title="Authentication">authN</abbr>). To authorize <em>John</em> (<abbr title="Authorization">authZ</abbr>) on the <em><abbr title="Kubernetes">K8s</abbr></em> cluster, see <a href="#authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</a>.</p>
-</details>
-<h3 id="access-verification">Access Verification</h3>
-<h4 id="control-plane-node">Control-Plane Node</h4>
-<p>The new user can verify the <abbr title="Secure Shell">SSH</abbr> access to the control-plane by running:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">ssh -o StrictHostKeyChecking=no -i &quot;~/.ssh\k2s\id_rsa&quot; &quot;remote@172.19.1.100&quot;</span>
+<h2 id="per-addon-details">Per-Addon Details</h2>
+<h3 id="autoscaling">autoscaling</h3>
+<p><strong>Backup:</strong> Exports all ConfigMaps in the <code>autoscaling</code> namespace (excluding <code>kube-root-ca.crt</code>) as <abbr title="Yet Another Markup Language">YAML</abbr> files.</p>
+<p><strong>Restore:</strong> Uses <code>EnableForRestore.ps1</code> which applies the KEDA manifest with best-effort readiness checks, allowing restore to proceed even if the keda-operator pod is temporarily unhealthy. Applies backed-up ConfigMaps with server-side apply fallback on conflict. Waits for KEDA pods (admission-webhooks, metrics-apiserver, operator).</p>
+<h3 id="dashboard">dashboard</h3>
+<p><strong>Backup:</strong> Metadata-only — records the active ingress type (<code>none</code>, <code>nginx</code>, <code>traefik</code>, or <code>nginx-gw</code>) and whether the metrics addon was enabled. No Kubernetes resources are exported.</p>
+<p><strong>Restore:</strong> Re-enables the metrics addon if it was enabled at backup time. Ensures the correct ingress addon is enabled. Calls <code>Update.ps1</code> to regenerate authentication wiring. Waits for dashboard pod availability.</p>
+<h3 id="dicom">dicom</h3>
+<p><strong>Backup:</strong> Exports the Orthanc <code>json-configmap</code> ConfigMap (required), plus optional ingress resources: nginx Ingress, traefik Ingress (including <code>correct1</code>/<code>correct2</code> variants), nginx-gw HTTPRoutes (http + https), and Traefik middlewares (<code>strip-prefix</code>, <code>cors-header</code>, <code>oauth2-proxy-auth</code>). Resources are exported as minimal <abbr title="JavaScript Object Notation">JSON</abbr> with server-managed fields stripped.</p>
+<p><strong>Restore:</strong> Detects the active ingress controller and skips non-matching ingress resources. Waits for DICOM deployments, applies resources, restarts the DICOM deployment if configuration was restored, then runs <code>Update.ps1</code>.</p>
+<h3 id="gpu-node">gpu-node</h3>
+<p><strong>Backup:</strong> No-op. This is an infrastructure-only addon — <code>backup.json</code> contains <code>files: []</code>. Re-enabling the addon fully restores GPU passthrough functionality.</p>
+<h3 id="ingress-nginx">ingress nginx</h3>
+<p><strong>Backup:</strong> Exports the <code>ingress-nginx-controller</code> ConfigMap and the optional <code>nginx-cluster-local</code> Ingress resource.</p>
+<p><strong>Restore:</strong> Waits for the ingress-nginx controller pod, then applies resources with conflict fallback.</p>
+<h3 id="ingress-nginx-gw">ingress nginx-gw</h3>
+<p><strong>Backup:</strong> Exports the <code>nginx-cluster-local</code> Gateway and <code>nginx-gw-config</code> NginxGateway CR as minimal <abbr title="JavaScript Object Notation">JSON</abbr>. TLS certificates are <strong>intentionally not backed up</strong> — they are regenerated when the addon is re-enabled.</p>
+<p><strong>Restore:</strong> Applies backed-up resources, then applies the NginxProxy configuration with the current control-plane <abbr title="Internet Protocol">IP</abbr>. Waits for the controller pod. Runs <code>Update.ps1</code>.</p>
+<h3 id="ingress-traefik">ingress traefik</h3>
+<p><strong>Backup:</strong> Exports the <code>traefik-cluster-local</code> Ingress as <abbr title="Yet Another Markup Language">YAML</abbr>.</p>
+<p><strong>Restore:</strong> Waits for the traefik pod to become ready, then applies the Ingress with conflict fallback.</p>
+<h3 id="kubevirt">kubevirt</h3>
+<p><strong>Backup:</strong> No-op. Infrastructure-only addon — <code>backup.json</code> contains <code>files: []</code>. Re-enabling fully restores KubeVirt functionality.</p>
+<h3 id="logging">logging</h3>
+<p><strong>Backup:</strong> Exports four ConfigMaps as minimal <abbr title="JavaScript Object Notation">JSON</abbr>: <code>opensearch-cluster-master-config</code>, <code>fluent-bit</code>, <code>fluent-bit-win-parsers</code>, <code>fluent-bit-win-config</code>.</p>
+<p><strong>Restore:</strong> Applies all configuration files, then performs best-effort rollout restarts of the OpenSearch StatefulSet, Dashboards Deployment, and Fluent Bit DaemonSets (Linux and Windows). Waits for rollout completion with a 600-second timeout.</p>
+<h3 id="metrics">metrics</h3>
+<p><strong>Backup:</strong> Exports the <code>metrics-server</code> Deployment (from <code>metrics</code> namespace), the <code>v1beta1.metrics.k8s.io</code> APIService (cluster-scoped), and Windows exporter resources in <code>kube-system</code> namespace (ConfigMap, DaemonSet, Service) plus the <code>windows-exporter</code> ServiceMonitor in the <code>monitoring</code> namespace. All exported as minimal <abbr title="JavaScript Object Notation">JSON</abbr>.</p>
+<p><strong>Restore:</strong> Applies all files, then performs rollout restarts of the <code>metrics-server</code> Deployment and <code>windows-exporter</code> DaemonSet.</p>
+<h3 id="monitoring">monitoring</h3>
+<p><strong>Backup:</strong> Exports user-created (non-Helm-managed) Grafana dashboard and datasource ConfigMaps (labeled <code>grafana_dashboard=1</code> / <code>grafana_datasource=1</code>; default <code>kube-prometheus-stack-*</code> ConfigMaps are also excluded), all Ingress/HTTPRoute/IngressRoute/Middleware resources, and non-Helm-managed Prometheus Operator CRs (Prometheus, Alertmanager, PrometheusRule, ServiceMonitor, PodMonitor, AlertmanagerConfig).</p>
+<blockquote>
+<p><strong>ℹ️ Note:</strong> Secrets and PersistentVolume data are <strong>not</strong> backed up. Helm-managed resources are skipped — they are recreated when the addon is re-enabled.</p>
+</blockquote>
+<p><strong>Restore:</strong> Skips ingress resources that do not match the currently active ingress controller. Uses server-side apply with sanitized fields (removes <code>resourceVersion</code>, <code>uid</code>, <code>managedFields</code>). Performs best-effort rollout status checks for all monitoring workloads.</p>
+<h3 id="registry">registry</h3>
+<p><strong>Backup:</strong> Creates a <code>tar.gz</code> archive of <code>/registry/repository</code> on the control-plane <abbr title="Virtual Machine">VM</abbr> via <abbr title="Secure Shell">SSH</abbr>, copies it to the staging directory. Also exports the <code>registry-config</code> ConfigMap.</p>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> Restore <strong>overwrites</strong> any existing registry data. The StatefulSet is scaled to zero during restore.</p>
+</blockquote>
+<p><strong>Restore:</strong> Scales the StatefulSet to 0, waits for pod termination, copies the archive to the <abbr title="Virtual Machine">VM</abbr> via <abbr title="Secure Shell">SSH</abbr>, deletes existing data, extracts the archive, optionally restores the ConfigMap, then scales back to 1.</p>
+<h3 id="rollout-argocd">rollout argocd</h3>
+<p><strong>Backup:</strong> Uses <code>argocd admin export</code> to capture the full ArgoCD state (applications, projects, repositories, clusters). Also exports ingress resources (nginx Ingress, traefik Ingress, nginx-gw HTTPRoutes) and the Traefik <code>oauth2-proxy-auth</code> Middleware. The export is run via the host <code>argocd.exe</code> binary if available, otherwise via <code>kubectl exec</code> into the argocd-server pod.</p>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> The ArgoCD export <strong>contains credentials</strong> (repository secrets). Handle the backup zip with care.</p>
+</blockquote>
+<p><strong>Restore:</strong> Waits for ArgoCD deployments and StatefulSets. Applies ingress resources matching the active controller only. Uses <code>argocd admin import</code> with sanitized <abbr title="Yet Another Markup Language">YAML</abbr>. Runs <code>Update.ps1</code>. Cleans up export files to prevent credential lingering.</p>
+<h3 id="rollout-fluxcd">rollout fluxcd</h3>
+<p><strong>Backup:</strong> Exports all Flux custom resources in the <code>rollout</code> namespace (GitRepository, Kustomization, HelmRelease, HelmRepository, OCIRepository, Bucket, ImageRepository, ImagePolicy, ImageUpdateAutomation, Provider, Alert, Receiver), plus referenced Secrets (discovered via recursive <code>secretRef</code> scanning), plus webhook ingress resources. Secrets are written first in the manifest's file list.</p>
+<p><strong>Restore:</strong> Waits for Flux controller deployments. Applies resources with ingress-aware filtering. Runs <code>Update.ps1</code>.</p>
+<h3 id="security">security</h3>
+<p><strong>Backup:</strong> Exports the <abbr title="Certificate Authority">CA</abbr> root Secret (<code>ca-issuer-root-secret</code> from <code>cert-manager</code> namespace), a PostgreSQL dump of the Keycloak database (via <code>pg_dump</code> exec into the pod), and the enhanced-security marker file. Detects and records the current enable flags (<code>--type</code>, <code>--ingress</code>, <code>--omitKeycloak</code>, <code>--omitHydra</code>, <code>--omitOAuth2Proxy</code>).</p>
+<p><strong>Restore:</strong> Uses <code>EnableForRestore.ps1</code> which reads <code>backup.json</code> to reconstruct the original enable flags and delegates to <code>Enable.ps1</code>. Restores the <abbr title="Certificate Authority">CA</abbr> Secret with <code>--force</code> and restarts cert-manager. For Keycloak: scales down the Keycloak pod, drops and recreates the database, imports the dump via <code>psql</code> exec, then scales back up. Restores the enhanced-security marker file.</p>
+<h3 id="storage-smb">storage smb</h3>
+<p><strong>Backup:</strong> Copies the <code>SmbStorage.json</code> configuration file, an addon config snapshot from <code>setup.json</code>, and the <abbr title="Server Message Block">SMB</abbr> share data from the Windows mount path. Works even when the cluster is not running (local data only).</p>
+<p><strong>Restore:</strong> Restores the config snapshot, determines the <abbr title="Server Message Block">SMB</abbr> host type from addon configuration, performs a disable/enable cycle with the <code>-Keep</code> flag, then restores the share data.</p>
+<h3 id="viewer">viewer</h3>
+<p><strong>Backup:</strong> Exports the <code>config-json</code> ConfigMap, the <code>viewerwebapp</code> Service, and ingress resources for all three ingress types, plus the Traefik <code>oauth2-proxy-auth</code> Middleware.</p>
+<p><strong>Restore:</strong> Detects the active ingress controller, waits for the viewer deployment, applies resources with ingress-aware filtering (skips non-matching), handles missing CRDs gracefully. Runs <code>Update.ps1</code>.</p>
+<h2 id="backup-manifest-format">Backup Manifest Format</h2>
+<p>Each backup zip contains a <code>backup.json</code> file at the root with the following structure:</p>
+<div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;k2sVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.5.0&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;files&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;configmap.yaml&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;ingress.json&quot;</span><span class="p">],</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">&quot;addon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">&quot;implementation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">&quot;createdAt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-19T14:30:12Z&quot;</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
 </code></pre></div>
-<p>where <code>172.19.1.100</code> is the <abbr title="Internet Protocol">IP</abbr> address of the control-plane and <code>remote</code> the <em>Linux</em> user with admin privileges.</p>
-<h4 id="k8s-api"><em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr></h4>
-<p>As the new user, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">kubectl auth whoami -o jsonpath=&quot;{.status.userInfo}&quot;</span>
-</code></pre></div>
-<p>The response should look similar to:
-<div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="nt">&quot;groups&quot;</span><span class="p">:[</span><span class="s2">&quot;k2s-users&quot;</span><span class="p">,</span><span class="s2">&quot;system:authenticated&quot;</span><span class="p">],</span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="s2">&quot;k2s-DESKTOP-user1234&quot;</span><span class="p">}</span>
-</code></pre></div></p>
-<p>This response proves that <em><abbr title="Kubernetes">K8s</abbr></em> verified the user cert presented in the current <code>kubeconfig</code> and extracted the username and group successfully.</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>To run this check for a different <em>Windows</em> user, e.g. as admin for a new <em>K2s</em> user, specify the <code>kubeconfig</code> explicitly:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">kubectl auth whoami -o jsonpath=&quot;{.status.userInfo} --kubeconfig path\to\other\users\kube\config&quot;</span>
-</code></pre></div>
-</div>
-<h2 id="authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</h2>
-<p>Since <em><abbr title="Kubernetes">K8s</abbr></em> authorization is highly dependent on use cases and can get very complex, <em>K2s</em> does not provide built-in <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Authorization">authZ</abbr> besides the cluster admin permissions.</p>
-<p>A common approach to <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Authorization">authZ</abbr> is <a href="https://kubernetes.io/docs/reference/access-authn-authz/rbac/" target="_blank" rel="noopener"><abbr title="Role-Based Access Control">RBAC</abbr> Authorization</a>.</p>
-<div class="admonition example">
-<p class="admonition-title">Grant Permissions to Start <em>K2s</em></p>
-<p>This example shows how to grant the new <em>K2s</em> user <em>John</em> from the previous example <abbr title="Role-Based Access Control">RBAC</abbr>-based permissions to start the <em>K2s</em> cluster and inspect its status.</p>
-<p>To create a role for displaying nodes' status and taint nodes at startup, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">kubectl create clusterrole EditNodesRole --verb=&quot;get,list,watch,patch&quot; --resource=&quot;nodes&quot;</span>
-</code></pre></div>
-<p>To create a role for displaying Pod status, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">kubectl create clusterrole ViewPodsRole --verb=&quot;get,list,watch&quot; --resource=&quot;pods&quot;</span>
-</code></pre></div>
-<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2139.svg" title=":information:"> It is common practice to define roles cluster-wide (i.e. <code>clusterrole</code>) and to use them in a narrower scope/context (i.e. <code>rolebinding</code>). They can be seen as globally available templates with local instances.</p>
-<p>To assign <em>John</em> the <code>EditNodesRole</code> role, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">kubectl create clusterrolebinding EditNodesBinding --clusterrole=EditNodesRole --user=k2s-desktop1234-john</span>
-</code></pre></div>
-<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2139.svg" title=":information:"> Instead of assigning a role to specific users, roles can also be assigned to groups, e.g. the <code>k2s-users</code> group. The downside would be, that roles cannot be removed from specific users if e.g. an admin wants to revoke access to <em>K2s</em>.</p>
-<p>To assign <em>John</em> the <code>ViewPodsRole</code> role in <code>kube-system</code> and <code>kube-flannel</code> namespaces, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-system&quot;</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-flannel&quot;</span>
-</code></pre></div>
-<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2139.svg" title=":information:"> In contrast to the role <code>EditNodesRole</code> which applies to the whole cluster, the role <code>ViewPodsRole</code> is only applied in <code>kube-system</code> and <code>kube-flannel</code> namespaces, therefore scoped to a narrow context.</p>
-</div>
-<h2 id="revoking-access">Revoking Access</h2>
-<p>There is no automated or bullet-proof way to revoke access to <em>K2s</em> (or removing a <em>K2s</em> user respectively). The manual best-effort steps will be described in the following.</p>
-<h3 id="control-plane">Control-plane</h3>
-<ul>
-<li>[Essential] On control-plane, remove <abbr title="Secure Shell">SSH</abbr> key fingerprint from <code>~/.ssh/authorized_keys</code> for the specific user (entry should contain username with <code>k2s-</code> prefix).</li>
-<li>[Cleanup] Remove <abbr title="Secure Shell">SSH</abbr> key pair folder <code>&lt;home-dir&gt;\.ssh\k2s\</code>.</li>
-<li>[Cleanup] Remove control-plane fingerprint from <code>&lt;home-dir&gt;\.ssh\known_hosts</code>, normally starting with the control-plane's <abbr title="Internet Protocol">IP</abbr> address <code>172.19.1.100</code>.</li>
-</ul>
-<h3 id="k8s-api_1"><em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr></h3>
-<h4 id="authn">AuthN</h4>
-<p><em><abbr title="Kubernetes">K8s</abbr></em> offers no mechanism to revoke user certificates. As long as the user holds the certificate (assuming it did not expire yet), the user can authenticate himself to <em><abbr title="Kubernetes">K8s</abbr></em>. Without permissions, though, the user can only call unrestricted <abbr title="Application Programming Interface">API</abbr> endpoints like <code>kubectl version</code>.</p>
-<ul>
-<li>Assuming the user is unharmful and did not create a copy of his certificate, his credentials including the certificate data can be removed from the <code>&lt;home-dir&gt;\.kube\config</code> file. The <code>k2s-</code> prefix uniquely identifies the user.</li>
-<li>Additionally, the <em>K2s</em> cluster config and corresponding context can be removed. If no more clusters are configured, the whole <code>kubeconfig</code> file can be removed.</li>
-</ul>
-<h4 id="authz">AuthZ</h4>
-<p>Remove all <code>rolebinding</code> and <code>clusterrolebinding</code> <em><abbr title="Kubernetes">K8s</abbr></em> resources associated with the user, e.g. undo the example steps in <a href="#authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</a>.</p>
-<h2 id="caveats">Caveats</h2>
-<ul>
-<li>Without external <abbr title="Identity and Access Management">IAM</abbr>, <em><abbr title="Kubernetes">K8s</abbr></em> does not provide user management or means to revoke access when cert <abbr title="Authentication">authN</abbr> is being used. As long as a user presents a valid cert, he is authenticated to <em><abbr title="Kubernetes">K8s</abbr></em>.</li>
-<li>When <em><abbr title="Kubernetes">K8s</abbr></em>' <abbr title="Certificate Authority">CA</abbr> cert expires, all derived user certs have to be re-generated and all <code>kubeconfig</code> files must be updated with the new cluster config and user credentials.</li>
-<li><em>K2s</em> does not provide <abbr title="Role-Based Access Control">RBAC</abbr> for control-plane access, all <em>Windows</em> users use the same <em>Linux</em> admin account.</li>
-<li>There is no info available yet, which <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> command requires which <em><abbr title="Kubernetes">K8s</abbr></em> permissions (<abbr title="Role-Based Access Control">RBAC</abbr>), e.g. for stopping the <em>K2s</em> cluster, <abbr title="Secure Shell">SSH</abbr> access to the control-plane is sufficient, whereas for starting the cluster, the <em><abbr title="Kubernetes">K8s</abbr></em> permissions to patch a node's config is required (see example in <a href="#authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</a>).</li>
-<li>The <abbr title="Secure Shell">SSH</abbr> keys created by <em>K2s</em> are not password-protected.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>k2sVersion</code></td>
+<td>The <em>K2s</em> version that created the backup</td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td>List of files in the zip (may be empty for metadata-only backups)</td>
+</tr>
+<tr>
+<td><code>addon</code></td>
+<td>Addon name</td>
+</tr>
+<tr>
+<td><code>implementation</code></td>
+<td>Implementation name (omitted when addon has a single implementation)</td>
+</tr>
+<tr>
+<td><code>createdAt</code></td>
+<td>Timestamp of backup creation</td>
+</tr>
+</tbody>
+</table>
+<p>Some addons add extra fields (e.g. <code>ingress</code>, <code>enableParams</code>, <code>scope</code>, <code>storageUsage</code>) that their <code>Restore.ps1</code> / <code>EnableForRestore.ps1</code> scripts use to customize the restore flow.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>addon '&lt;name&gt;' must be disabled before restore</code></td>
+<td>The addon is still enabled</td>
+<td>Run <code>k2s addons disable &lt;name&gt;</code> first</td>
+</tr>
+<tr>
+<td><code>no backup zip found</code></td>
+<td>No matching zip in <code>C:\Temp\Addons</code></td>
+<td>Provide an explicit path with <code>-f</code></td>
+</tr>
+<tr>
+<td>Manifest addon/implementation mismatch</td>
+<td>The zip was created for a different addon</td>
+<td>Use the correct zip file for the target addon</td>
+</tr>
+<tr>
+<td><code>No Backup.ps1 found</code></td>
+<td>Addon does not support backup</td>
+<td>Nothing to back up — the addon is fully recreated on enable</td>
+</tr>
+<tr>
+<td>Restore fails during re-enable</td>
+<td>Cluster resources unavailable</td>
+<td>Check cluster health with <code>k2s system status</code> and retry</td>
+</tr>
+<tr>
+<td>Registry restore overwrites data</td>
+<td>By design — restore replaces existing repository contents</td>
+<td>Back up the current state first if needed</td>
+</tr>
+<tr>
+<td>ArgoCD credentials in backup</td>
+<td><code>argocd admin export</code> includes repo secrets</td>
+<td>Store the backup zip securely; delete after restore</td>
+</tr>
+</tbody>
+</table>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -2532,7 +3202,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../checking-k2s-status/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Checking K2s Status">
+          <a href="../upgrading-k2s/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Upgrading K2s">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2542,20 +3212,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Checking K2s Status
+                Upgrading K2s
               </div>
             </div>
           </a>
         
         
           
-          <a href="../stopping-k2s/" class="md-footer__link md-footer__link--next" aria-label="Next: Stopping K2s">
+          <a href="../configuring-httpproxy-service/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuring HTTPProxy Service">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Stopping K2s
+                Configuring HTTPProxy Service
               </div>
             </div>
             <div class="md-footer__button md-icon">
