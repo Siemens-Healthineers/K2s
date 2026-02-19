@@ -561,7 +561,48 @@ Current directory: $deltaRoot
 	}
 	Write-Log ("[Update] Applied {0} Windows artifacts (skipped {1} protected cluster config files)" -f $appliedCount, $skippedCount) -Console:$consoleSwitch
 
-	# 6b. Remove obsolete files (Removed) from target installation
+	# 6b. Regenerate containerd config.toml from updated template if the template changed.
+	# The live config.toml is generated at install time from config.toml.template by replacing
+	# %BEST-DRIVE%, %INSTALLATION_DIRECTORY%, and %CONTAINERD_TOKEN% placeholders.
+	# The template is diffed and staged in the delta package, but the generated config.toml
+	# does not exist in packages, so it must be regenerated after the template is updated.
+	# Without this, containerd keeps using the old sandbox_image (pause-win) version.
+	$containerdTemplatePath = 'cfg/containerd/config.toml.template'
+	$templateWasUpdated = $filesToApply | Where-Object { ($_ -replace '\\', '/') -ieq $containerdTemplatePath }
+	if ($templateWasUpdated) {
+		Write-Log '[Update] Containerd config.toml.template was updated - regenerating config.toml...' -Console:$consoleSwitch
+		$containerdTomlPath = Join-Path $targetInstallPath 'cfg\containerd\config.toml'
+		try {
+			# Import the containerd module from the target installation so that Get-KubePath
+			# (resolved via PSScriptRoot) points to the correct install directory and all
+			# dependent modules (system, config, path) are loaded from the same tree.
+			$containerdModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
+			if (-not (Test-Path -LiteralPath $containerdModule)) {
+				throw "Containerd module not found at $containerdModule"
+			}
+			Import-Module $containerdModule -Force
+
+			# 1. Generate config.toml from template (replaces %BEST-DRIVE%)
+			Set-RootPathForImagesInConfig $containerdTomlPath
+			# 2. Replace %INSTALLATION_DIRECTORY% with escaped kubePath
+			Set-InstallationDirectory $containerdTomlPath
+			# 3. Replace %CONTAINERD_TOKEN% with registry auth token
+			Set-UserTokenForRegistryInConfig $containerdTomlPath
+
+			if (Test-Path -LiteralPath $containerdTomlPath) {
+				Write-Log "[Update] Containerd config.toml regenerated successfully at $containerdTomlPath" -Console:$consoleSwitch
+			} else {
+				throw "config.toml was not created at $containerdTomlPath after template substitution"
+			}
+		} catch {
+			Write-Log ("[Update][Error] Failed to regenerate containerd config.toml: {0}" -f $_.Exception.Message) -Console
+			throw
+		}
+	} else {
+		Write-Log '[Update] Containerd config.toml.template not changed - skipping config.toml regeneration' -Console:$consoleSwitch
+	}
+
+	# 6c. Remove obsolete files (Removed) from target installation
 	$removedFiles = @($manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
 	if ($removedFiles.Count -gt 0) {
 		Write-Log ("[Update] Removing {0} obsolete files from target installation" -f $removedFiles.Count) -Console:$consoleSwitch
@@ -585,7 +626,7 @@ Current directory: $deltaRoot
 		Write-Log '[Update] No files to remove' -Console:$consoleSwitch
 	}
 
-	# 6c. Clean deprecated kubelet flags from Windows kubeadm-flags.env
+	# 6d. Clean deprecated kubelet flags from Windows kubeadm-flags.env
 	# The --pod-infra-container-image flag was deprecated in K8s 1.27 and removed in 1.34
 	# This matches the Linux fix in apply-debian-delta.sh
 	_phase 'CleanKubeletFlags'
