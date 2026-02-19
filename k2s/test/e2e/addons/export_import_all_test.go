@@ -472,7 +472,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		BeforeAll(func(ctx context.Context) {
 			GinkgoWriter.Println("=== IMPORT ALL ADDONS - BeforeAll START ===")
 			GinkgoWriter.Printf("[BeforeAll] Importing from OCI tar file: %s\n", exportedOciFile)
-			suite.K2sCli().MustExec(ctx, "addons", "import", "-z", exportedOciFile)
+			suite.K2sCli().MustExec(ctx, "addons", "import", "-f", exportedOciFile)
 			GinkgoWriter.Println("[BeforeAll] Import completed")
 			GinkgoWriter.Println("=== IMPORT ALL ADDONS - BeforeAll END ===")
 		}, NodeTimeout(time.Minute*30))

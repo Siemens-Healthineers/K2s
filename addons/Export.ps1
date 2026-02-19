@@ -81,18 +81,35 @@ if ($All) {
     $addonManifests += $allManifests
 }
 else {    
-    foreach ($name in $Names) {
+    # Support both quoted ("ingress nginx") and unquoted (ingress nginx) multi-word addon names
+    $i = 0
+    while ($i -lt $Names.Count) {
+        $name = $Names[$i]
         $foundManifest = $null
-        $addonName = ($name -split ' ')[0]
-        $implementationName = ($name -split ' ')[1]
+        
+        $nameParts = $name -split '\s+'
+        $addonName = $nameParts[0]
+        $implementationName = if ($nameParts.Count -gt 1) { $nameParts[1] } else { $null }
+        
+        # Lookahead: treat next arg as implementation name if it's not a known addon
+        if ($null -eq $implementationName -and ($i + 1) -lt $Names.Count) {
+            $nextArg = $Names[$i + 1]
+            $nextArgBase = ($nextArg -split '\s+')[0]
+            $isAddonBaseName = $allManifests | Where-Object { $_.metadata.name -eq $nextArgBase } | Select-Object -First 1
+            if ($null -eq $isAddonBaseName) {
+                $implementationName = $nextArg
+                $i++
+            }
+        }
 
         foreach ($manifest in $allManifests) {
             if ($manifest.metadata.name -eq $addonName) {
-                $foundManifest = $manifest
+                # Clone to prevent mutations when exporting multiple implementations
+                $foundManifest = $manifest.PSObject.Copy()
+                $foundManifest.spec = $manifest.spec.PSObject.Copy()
 
-                # specific implementation specified
                 if ($null -ne $implementationName) {
-                    $foundManifest.spec.implementations = $foundManifest.spec.implementations | Where-Object { $_.name -eq $implementationName }
+                    $foundManifest.spec.implementations = @($manifest.spec.implementations | Where-Object { $_.name -eq $implementationName })
                 }
                 break
             }
@@ -111,6 +128,7 @@ else {
         }
 
         $addonManifests += $foundManifest
+        $i++
     }
 }
 
@@ -139,13 +157,13 @@ try {
             $dirPath = $manifest.dir.path
             if ($implementation.name -ne $addonName) {
                 $addonName += " $($implementation.name)"
-                $dirName += "_$($implementation.name)"
+                $dirName += "-$($implementation.name)"
                 $dirPath = Join-Path -Path $($manifest.dir.path) -ChildPath $($implementation.name)
             }
 
-             $addonFolderName = ($addonName -split '\s+') -join '_'
+             $addonFolderName = ($addonName -split '\s+') -join '-'
 
-             # Destination path for OCI artifact: $tmpExportDir\artifacts\ingress_nginx
+             # Destination path for OCI artifact: $tmpExportDir\artifacts\ingress-nginx
              $artifactPath = Join-Path -Path $tmpExportDir -ChildPath "artifacts\$addonFolderName"
 
              if (-not (Test-Path $artifactPath)) {
@@ -201,7 +219,7 @@ try {
                          }
                          
                          Copy-Item -Path $_.FullName -Destination $targetPath -Force
-                         Write-Log "[OCI] Copying documentation asset: $relativePath"
+                         Write-Log "Copying documentation asset: $relativePath"
                      }
                  }
              }
@@ -232,10 +250,10 @@ try {
                         
                         & $yqExe eval --from-file $tempFilterFile --inplace $configManifestPath
                         
-                        Write-Log "[OCI] Filtered manifest for single implementation: $($implementation.name)" -Console
+                        Write-Log "Filtered manifest for single implementation: $($implementation.name)" -Console
                         Remove-Item -Path $tempFilterFile -Force -ErrorAction SilentlyContinue
                     } catch {
-                        Write-Log "[OCI] Failed to filter manifest with yq.exe (Path: $yqExe), falling back to copy: $_" -Console
+                        Write-Log "Failed to filter manifest with yq.exe (Path: $yqExe), falling back to copy: $_" -Console
                         Copy-Item -Path $manifestFile -Destination $configManifestPath -Force
                     }
                 } else {
@@ -243,7 +261,7 @@ try {
                     Copy-Item -Path $manifestFile -Destination $configManifestPath -Force
                 }
             } else {
-                Write-Log "[OCI] Warning: addon.manifest.yaml not found for $addonName"
+                Write-Log "Warning: addon.manifest.yaml not found for $addonName"
             }
             
             # Collect additional configuration files into config layer
@@ -252,7 +270,7 @@ try {
             foreach ($pattern in $configFilePatterns) {
                 Get-ChildItem -Path $dirPath -Filter $pattern -File -ErrorAction SilentlyContinue | ForEach-Object {
                     Copy-Item -Path $_.FullName -Destination $configStaging -Force
-                    Write-Log "[OCI] Added config file to config layer: $($_.Name)"
+                    Write-Log "Added config file to config layer: $($_.Name)"
                 }
             }
             
@@ -262,7 +280,7 @@ try {
                 $configSubDirDest = Join-Path $configStaging 'config'
                 New-Item -ItemType Directory -Path $configSubDirDest -Force | Out-Null
                 Copy-Item -Path (Join-Path $configSubDir '*') -Destination $configSubDirDest -Recurse -Force -ErrorAction SilentlyContinue
-                Write-Log "[OCI] Added config subdirectory to config layer"
+                Write-Log "Added config subdirectory to config layer"
             }
             
             # Look for specific addon config files (like orthanc.json for dicom)
@@ -274,11 +292,11 @@ try {
                 }
             foreach ($configFile in $addonSpecificConfigs) {
                 Copy-Item -Path $configFile.FullName -Destination $configStaging -Force
-                Write-Log "[OCI] Added addon-specific config file to config layer: $($configFile.Name)"
+                Write-Log "Added addon-specific config file to config layer: $($configFile.Name)"
             }
 
             # Add version information as OCI annotations (stored in oci-manifest.json)
-            Write-Log "[OCI] Preparing OCI artifact for addon $addonName" -Console
+            Write-Log "Preparing OCI artifact for addon $addonName" -Console
             
             if ($OmitImages) {
                 Write-Log "[OCI] Omitting container images for addon $addonName (--omit-images)" -Console
@@ -517,7 +535,7 @@ try {
                 
                 # Consolidate Linux images into single tar layer
                 if ($linuxImageTars.Count -gt 0) {
-                    Write-Log "[OCI] Consolidating $($linuxImageTars.Count) Linux images into single layer"
+                    Write-Log "Consolidating $($linuxImageTars.Count) Linux images into single layer"
                     $linuxImagesLayerPath = Join-Path $artifactPath 'images-linux.tar'
                     
                     # creating a consolidated tar (even for single image) to maintain consistent structure
@@ -526,7 +544,7 @@ try {
                 
                 # Consolidate Windows images into single tar layer
                 if ($windowsImageTars.Count -gt 0) {
-                    Write-Log "[OCI] Consolidating $($windowsImageTars.Count) Windows images into single layer"
+                    Write-Log "Consolidating $($windowsImageTars.Count) Windows images into single layer"
                     $windowsImagesLayerPath = Join-Path $artifactPath 'images-windows.tar'
                     
                     # creating a consolidated tar (even for single image) to maintain consistent structure
@@ -540,7 +558,7 @@ try {
 
             if ($null -ne $implementation.offline_usage -and -not $OmitPackages) {
                 Write-Log '---'
-                Write-Log "[OCI] Downloading packages for addon $addonName" -Console
+                Write-Log "Downloading packages for addon $addonName" -Console
                 $linuxPackages = $implementation.offline_usage.linux
 
                 # adding repos for debian packages download
@@ -605,7 +623,7 @@ try {
                 Write-Log "[OCI] Omitting packages for addon $addonName (--omit-packages)" -Console
             }
 
-            Write-Log "[OCI] Creating OCI artifact layers for $addonName" -Console
+            Write-Log "Creating OCI artifact layers for $addonName" -Console
             
             $ociLayerDescriptors = @()
             
@@ -620,7 +638,7 @@ try {
                         digest = $blobResult.Digest
                         annotations = @{ 'org.opencontainers.image.title' = 'config.tar.gz' }
                     }
-                    Write-Log "[OCI] Created config files layer: $($blobResult.Digest)"
+                    Write-Log "Created config files layer: $($blobResult.Digest)"
                 }
             }
             
@@ -635,7 +653,7 @@ try {
                         digest = $blobResult.Digest
                         annotations = @{ 'org.opencontainers.image.title' = 'manifests.tar.gz' }
                     }
-                    Write-Log "[OCI] Created manifests layer: $($blobResult.Digest)"
+                    Write-Log "Created manifests layer: $($blobResult.Digest)"
                 }
             }
             
@@ -651,7 +669,7 @@ try {
                         digest = $blobResult.Digest
                         annotations = @{ 'org.opencontainers.image.title' = 'charts.tar.gz' }
                     }
-                    Write-Log "[OCI] Created charts layer: $($blobResult.Digest)"
+                    Write-Log "Created charts layer: $($blobResult.Digest)"
                 }
             }
             
@@ -666,7 +684,7 @@ try {
                         digest = $blobResult.Digest
                         annotations = @{ 'org.opencontainers.image.title' = 'scripts.tar.gz' }
                     }
-                    Write-Log "[OCI] Created scripts layer: $($blobResult.Digest)"
+                    Write-Log "Created scripts layer: $($blobResult.Digest)"
                 }
             }
             
@@ -680,7 +698,7 @@ try {
                     digest = $blobResult.Digest
                     annotations = @{ 'org.opencontainers.image.title' = 'images-linux.tar' }
                 }
-                Write-Log "[OCI] Created Linux images layer: $($blobResult.Digest)"
+                Write-Log "Created Linux images layer: $($blobResult.Digest)"
             }
             
             # Layer 5: Windows Images - store in blobs
@@ -693,7 +711,7 @@ try {
                     digest = $blobResult.Digest
                     annotations = @{ 'org.opencontainers.image.title' = 'images-windows.tar' }
                 }
-                Write-Log "[OCI] Created Windows images layer: $($blobResult.Digest)"
+                Write-Log "Created Windows images layer: $($blobResult.Digest)"
             }
             
             # Layer 6: Packages - store in blobs
@@ -707,7 +725,7 @@ try {
                         digest = $blobResult.Digest
                         annotations = @{ 'org.opencontainers.image.title' = 'packages.tar.gz' }
                     }
-                    Write-Log "[OCI] Created packages layer: $($blobResult.Digest)"
+                    Write-Log "Created packages layer: $($blobResult.Digest)"
                 }
             }
             
@@ -722,7 +740,7 @@ try {
                 exportDate = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
             }
             $metadataBlobResult = Add-JsonContentToBlobs -BlobsDir $blobsDir -Content $metadataJson
-            Write-Log "[OCI] Created metadata.json config: $($metadataBlobResult.Digest)"
+            Write-Log "Created metadata.json config: $($metadataBlobResult.Digest)"
             
             $ociManifest = @{
                 schemaVersion = 2
@@ -771,12 +789,12 @@ try {
                         digest = $emptyBlobResult.Digest
                     }
                 )
-                Write-Log "[OCI] No content layers - added OCI empty descriptor as fallback"
+                Write-Log "No content layers - added OCI empty descriptor as fallback"
             }
             
             # Store the manifest itself in blobs
             $manifestBlobResult = Add-JsonContentToBlobs -BlobsDir $blobsDir -Content $ociManifest
-            Write-Log "[OCI] Stored addon manifest in blobs: $($manifestBlobResult.Digest)"
+            Write-Log "Stored addon manifest in blobs: $($manifestBlobResult.Digest)"
             
             # Track manifest reference for index.json
             $addonManifestReferences += @{
@@ -862,7 +880,7 @@ try {
     Set-Location "${tmpExportDir}\artifacts"
     $tarResult = & tar -cvf $finalExportPath "." 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Log "[OCI] Warning: tar creation returned: $tarResult"
+        Write-Log "Warning: tar creation returned: $tarResult"
     }
 }
 finally {
@@ -871,12 +889,12 @@ finally {
 
 Remove-Item -Force "$tmpExportDir" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 Write-Log '---'
-Write-Log "[OCI] Addons exported successfully as OCI-compliant artifact to $finalExportPath" -Console
-Write-Log "[OCI] OCI Image Layout structure:" -Console
+Write-Log "Addons exported successfully as OCI-compliant artifact to $finalExportPath" -Console
+Write-Log "OCI Image Layout structure:" -Console
 Write-Log "  oci-layout           - OCI layout marker (imageLayoutVersion: 1.0.0)" -Console
 Write-Log "  index.json           - OCI image index with manifest references" -Console
 Write-Log "  blobs/sha256/        - Content-addressable blob storage" -Console
-Write-Log "[OCI] Layer types:" -Console
+Write-Log "Layer types:" -Console
 Write-Log "  Config:  metadata.json       (application/vnd.k2s.addon.config.v1+json)" -Console
 Write-Log "  Layer 0: config.tar.gz       (application/vnd.k2s.addon.configfiles.v1.tar+gzip)" -Console
 Write-Log "  Layer 1: manifests.tar.gz    (application/vnd.k2s.addon.manifests.v1.tar+gzip)" -Console

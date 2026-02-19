@@ -124,14 +124,26 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	enableScriptPath := filepath.Join(impl.Directory, "EnableForRestore.ps1")
-	if !k2sos.PathExists(enableScriptPath) {
+	useEnableForRestore := k2sos.PathExists(enableScriptPath)
+	if !useEnableForRestore {
 		enableScriptPath = filepath.Join(impl.Directory, "Enable.ps1")
 	}
 	if !k2sos.PathExists(enableScriptPath) {
 		return fmt.Errorf("Enable.ps1 not found for addon '%s'", impl.AddonsCmdName)
 	}
-	if err := executeScript(enableScriptPath, outputFlag); err != nil {
-		return err
+	// Pass the staging directory to EnableForRestore scripts so they can read
+	// backup.json for addon-specific enable parameters (e.g. security addon
+	// flags like --type, --ingress, --omitKeycloak). Only EnableForRestore.ps1
+	// scripts accept -BackupDir; plain Enable.ps1 scripts do not.
+	if useEnableForRestore {
+		enableParams := []string{fmt.Sprintf(" -BackupDir %s", utils.EscapeWithSingleQuotes(stagingDir))}
+		if err := executeScript(enableScriptPath, outputFlag, enableParams...); err != nil {
+			return err
+		}
+	} else {
+		if err := executeScript(enableScriptPath, outputFlag); err != nil {
+			return err
+		}
 	}
 
 	restoreParams := []string{fmt.Sprintf(" -BackupDir %s", utils.EscapeWithSingleQuotes(stagingDir))}

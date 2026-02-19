@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -24,8 +25,11 @@ import (
 )
 
 var exportCommandExample = `
-  # Export addon "registry" and "ingress nginx" to specified folder
-  k2s addons export registry "ingress nginx" -d C:\tmp
+  # Export individual addon to specified folder
+  k2s addons export ingress nginx -d C:\tmp
+
+  # Export multiple addons to specified folder
+  k2s addons export registry ingress nginx -d C:\tmp
 
   # Export all addons to specified folder
   k2s addons export -d C:\tmp
@@ -127,6 +131,11 @@ func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, par
 	}
 	if exportPath == "" {
 		return "", nil, errors.New("no export path provided")
+	}
+
+	exportPath, err = filepath.Abs(exportPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to resolve absolute path for export directory: %w", err)
 	}
 
 	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Export.ps1")
