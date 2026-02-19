@@ -172,7 +172,7 @@ var _ = Describe("addons commands", func() {
 				for _, impl := range addon.Spec.Implementations {
 					GinkgoWriter.Println("Calling addons import for", addon.Metadata.Name)
 
-					output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", impl.AddonsCmdName, "-z", "test-dir")
+					output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", impl.AddonsCmdName, "-f", "test-dir")
 
 					Expect(output).To(ContainSubstring("not installed"))
 				}
@@ -180,7 +180,7 @@ var _ = Describe("addons commands", func() {
 		})
 
 		It("prints system-not-installed message for all addons and exits with non-zero", func(ctx context.Context) {
-			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", "-z", "test-dir")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", "-f", "test-dir")
 
 			Expect(output).To(ContainSubstring("not installed"))
 		})
