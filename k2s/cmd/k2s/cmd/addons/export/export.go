@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -108,6 +109,11 @@ func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, par
 	}
 	if exportPath == "" {
 		return "", nil, errors.New("no export path provided")
+	}
+
+	exportPath, err = filepath.Abs(exportPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to resolve absolute path for export directory: %w", err)
 	}
 
 	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Export.ps1")
