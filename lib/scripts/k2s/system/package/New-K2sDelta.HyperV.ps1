@@ -817,15 +817,26 @@ function Get-DebianPackagesFromVHDX {
                     $result.BuildahImages = @()
                 } else {
                     $images = @()
+                    $skippedNoneCount = 0
                     foreach ($line in $buildahOut) {
                         if ([string]::IsNullOrWhiteSpace($line)) { continue }
                         if ($line -match '^(.+?)\|(.+?)\|(.+?)$') {
+                            $fullName = $matches[1]
+                            # Skip images with <none> tag - these are dangling/intermediate images
+                            if ($fullName -match ':<none>$') {
+                                $skippedNoneCount++
+                                Write-Log "[ImageDiff] Skipping dangling image (tag=<none>): $fullName" -Console
+                                continue
+                            }
                             $images += [PSCustomObject]@{
-                                FullName = $matches[1]
+                                FullName = $fullName
                                 ImageId  = $matches[2]
                                 Size     = $matches[3]
                             }
                         }
+                    }
+                    if ($skippedNoneCount -gt 0) {
+                        Write-Log "[ImageDiff] Skipped $skippedNoneCount dangling image(s) with <none> tag" -Console
                     }
                     $result.BuildahImages = $images
                     Write-Log "[ImageDiff] Successfully parsed $($images.Count) buildah images from VM" -Console
