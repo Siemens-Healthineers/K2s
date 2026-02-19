@@ -28,7 +28,7 @@ Upgrade support is available starting from *K2s* `v1.1.0`.
 
 > **ℹ️ Info:** The upgrade process re-installs the cluster binaries, migrates (exports/imports) Kubernetes resources, and re-enables previously enabled addons. It does not also upgrade existing addons, this needs to be done separatly using the `k2s addons ...` commands.
 
-> **⚠️ Warning:** Addon data/persistence is also **not** automatically restored during upgrade. To backup and restore addon data, use `k2s addons export` before upgrade and `k2s addons import` after upgrade.
+> **⚠️ Warning:** Addon data/persistence is also **not** automatically restored during upgrade. To backup and restore addon data, use `k2s addons backup` before upgrade and `k2s addons restore` after upgrade.
 
 1. Extract the new *K2s* release package into a directory (e.g. `C:\k2s\v1.5.0`).
 2. Open an elevated (Administrator) PowerShell or command prompt in that directory.
