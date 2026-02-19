@@ -48,7 +48,7 @@ function Fail([string]$errMsg, [string]$code = 'addon-backup-failed') {
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code $code -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
-        return
+        exit 1
     }
 
     Write-Log $errMsg -Error
@@ -58,21 +58,18 @@ function Fail([string]$errMsg, [string]$code = 'addon-backup-failed') {
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     Fail $systemError.Message 'system-not-available'
-    return
 }
 
 Write-Log "[MonitoringBackup] Backing up addon 'monitoring'" -Console
 
 if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{ Name = 'monitoring' })) -ne $true) {
     Fail "Addon 'monitoring' is not enabled. Enable it before running backup." 'addon-not-enabled'
-    return
 }
 
 $namespace = 'monitoring'
 $nsCheck = Invoke-Kubectl -Params 'get', 'ns', $namespace
 if (-not $nsCheck.Success) {
     Fail "Namespace '$namespace' not found. Is addon 'monitoring' installed? Details: $($nsCheck.Output)" 'namespace-not-found'
-    return
 }
 
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
@@ -294,6 +291,7 @@ try {
 
     # Ingress-related resources for the monitoring UI
     Try-ExportAll -Resource 'ingress' -FilePrefix 'ingress'
+    Try-ExportAll -Resource 'httproute' -FilePrefix 'httproute'
     Try-ExportAll -Resource 'ingressroute.traefik.containo.us' -FilePrefix 'ingressroute'
     Try-ExportAll -Resource 'middleware.traefik.containo.us' -FilePrefix 'middleware'
 
@@ -307,7 +305,6 @@ try {
 }
 catch {
     Fail "Backup of addon 'monitoring' failed: $($_.Exception.Message)" 'addon-backup-failed'
-    return
 }
 
 $version = 'unknown'
