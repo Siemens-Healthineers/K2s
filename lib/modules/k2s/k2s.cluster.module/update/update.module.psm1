@@ -412,6 +412,38 @@ Current directory: $deltaRoot
 	# Wholesale directories contain binaries that must be completely replaced, not merged
 	$wholesaleDirs = @($manifest.WholeDirectories) | Where-Object { $_ -and ($_ -ne '') }
 	if ($wholesaleDirs.Count -gt 0) {
+		# Stop Windows services whose executables reside inside wholesale directories.
+		# Even when the cluster is not running (flanneld/kubelet/kubeproxy are down),
+		# containerd or other services may still be active and lock their binaries,
+		# causing sporadic "Access is denied" / "being used by another process" errors.
+		$servicesToDirMap = @{
+			'containerd' = 'bin/containerd'
+			'docker'     = 'bin/docker'
+		}
+		$stoppedServices = @()
+		foreach ($svcName in $servicesToDirMap.Keys) {
+			$svcDir = $servicesToDirMap[$svcName] -replace '/', '\'
+			$matchesWholesale = $wholesaleDirs | Where-Object { ($_ -replace '/', '\') -ieq $svcDir }
+			if (-not $matchesWholesale) { continue }
+
+			$svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+			if ($svc -and $svc.Status -ne 'Stopped') {
+				Write-Log ("[Update] Stopping service '{0}' (status: {1}) to unlock files in wholesale directory '{2}'" -f $svcName, $svc.Status, $svcDir) -Console:$consoleSwitch
+				try {
+					Stop-Service -Name $svcName -Force -ErrorAction Stop
+					# Wait briefly for the process to fully release file handles
+					Start-Sleep -Seconds 2
+					$stoppedServices += $svcName
+					Write-Log ("[Update] Service '{0}' stopped successfully" -f $svcName) -Console:$consoleSwitch
+				} catch {
+					Write-Log ("[Update][Warn] Could not stop service '{0}': {1}" -f $svcName, $_.Exception.Message) -Console:$consoleSwitch
+				}
+			}
+		}
+		# Also stop any leftover containerd-shim processes that may hold handles
+		Stop-Process -Name 'containerd-shim-runhcs-v1' -Force -ErrorAction SilentlyContinue
+		Stop-Process -Name 'containerd' -Force -ErrorAction SilentlyContinue
+
 		Write-Log ("[Update] Applying {0} wholesale directories" -f $wholesaleDirs.Count) -Console:$consoleSwitch
 		foreach ($wd in $wholesaleDirs) {
 			$srcDir = Join-Path $deltaRoot $wd
@@ -421,13 +453,30 @@ Current directory: $deltaRoot
 			}
 			$dstDir = Join-Path $targetInstallPath $wd
 			
-			# Remove existing directory completely for clean replacement
+			# Remove existing directory completely for clean replacement.
+			# Retry with back-off in case file handles are still being released.
 			if (Test-Path -LiteralPath $dstDir) {
 				Write-Log ("[Update] Removing existing directory for replacement: {0}" -f $wd) -Console:$consoleSwitch
-				try {
-					Remove-Item -LiteralPath $dstDir -Recurse -Force
-				} catch {
-					Write-Log ("[Update][Warn] Failed to remove existing directory '{0}': {1}" -f $wd, $_.Exception.Message) -Console:$consoleSwitch
+				$maxRetries = 5
+				$retryDelay = 2
+				$removed = $false
+				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+					try {
+						Remove-Item -LiteralPath $dstDir -Recurse -Force -ErrorAction Stop
+						$removed = $true
+						break
+					} catch {
+						if ($attempt -lt $maxRetries) {
+							Write-Log ("[Update][Warn] Attempt {0}/{1} to remove '{2}' failed: {3} - retrying in {4}s" -f $attempt, $maxRetries, $wd, $_.Exception.Message, $retryDelay) -Console:$consoleSwitch
+							Start-Sleep -Seconds $retryDelay
+							$retryDelay = [Math]::Min($retryDelay * 2, 10)
+						} else {
+							Write-Log ("[Update][Error] Failed to remove directory '{0}' after {1} attempts: {2}" -f $wd, $maxRetries, $_.Exception.Message) -Console
+						}
+					}
+				}
+				if (-not $removed) {
+					Write-Log ("[Update][Warn] Continuing despite failure to fully remove '{0}' - copy will attempt force-overwrite" -f $wd) -Console:$consoleSwitch
 				}
 			}
 			
