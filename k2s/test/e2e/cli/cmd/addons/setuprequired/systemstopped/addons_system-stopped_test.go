@@ -108,7 +108,7 @@ var _ = Describe("addons commands", Ordered, func() {
 	Describe("import", func() {
 		It("prints system-not-running message for each addon and exits with non-zero", func(ctx context.Context) {
 			addons.Foreach(allAddons, func(_, _, cmdName string) {
-				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", cmdName, "-z", "test-dir")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", cmdName, "-f", "test-dir")
 
 				Expect(output).To(ContainSubstring("not running"))
 
@@ -116,7 +116,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		})
 
 		It("prints system-not-running message for all addons", func(ctx context.Context) {
-			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", "-z", "test-dir")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", "-f", "test-dir")
 
 			Expect(output).To(ContainSubstring("not running"))
 		})
