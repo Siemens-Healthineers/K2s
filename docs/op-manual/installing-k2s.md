@@ -161,3 +161,59 @@ To build and test containers without a *K8s* cluster, run:
 ```console
 <repo>\k2s.exe install buildonly
 ```
+
+## WSL 2 vs. Hyper-V
+
+The Linux control-plane VM can be hosted in either Hyper-V (default) or WSL 2. The table below summarises the trade-offs:
+
+| Aspect | Hyper-V (default) | WSL 2 (`--wsl`) |
+|--------|-------------------|-----------------|
+| Isolation | Full hardware-level VM | Lightweight utility VM, shared kernel |
+| Startup time | Slower (full VM boot) | Faster (managed by Windows) |
+| Resource overhead | Higher (dedicated memory reservation) | Lower (dynamic memory) |
+| Nested virtualisation | Required when running inside a VM | Required when running inside a VM |
+| L2Bridge networking | Yes | Yes |
+| DNSProxy support | Yes | Yes |
+| HttpProxy support | Yes | Yes |
+| VFP rules | Yes | No |
+| Disk passthrough | Dedicated VHDX | WSL 2 managed VHDX |
+
+!!! tip
+    Use Hyper-V for production-like environments and full feature support. Use WSL 2 for development environments where faster startup and lower overhead are preferred.
+
+See the [Hosting Variants Features Matrix](../dev-guide/hosting-variants-features-matrix.md) for the complete feature comparison.
+
+## Advanced Installation Options
+
+### Install Without Starting
+
+To install the cluster without automatically starting it (useful for pre-provisioning):
+
+```console
+<repo>\k2s.exe install --skip-start
+```
+
+Start the cluster later with `k2s start`.
+
+### Using Locally-Built Kubernetes Binaries
+
+For development or testing with custom Kubernetes builds:
+
+```console
+<repo>\k2s.exe install --k8s-bins "C:\path\to\k8s-binaries"
+```
+
+The directory must contain the Kubernetes binaries (kubelet, kubeadm, kubectl, kube-proxy).
+
+### Post-Install Restarts
+
+The `restartPostInstallCount` config option triggers automatic cluster restarts after installation. This can help stabilise the cluster on systems where the first start encounters transient issues:
+
+```yaml
+env:
+  restartPostInstallCount: 1
+```
+
+### Configuration Reference
+
+For the full list of configuration files and their settings (network CIDRs, registry mirrors, runtime state, and more), see the [Configuration Reference](configuration-reference.md).
