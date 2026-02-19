@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Shared OAuth2 locations for nginx-gw
+# This SnippetsFilter defines the shared /_auth and @oauth2_redirect locations
+# that are used by all addons. It must be in nginx-gw namespace to be globally
+# available to all server contexts.
+apiVersion: gateway.nginx.org/v1alpha1
+kind: SnippetsFilter
+metadata:
+  name: oauth2-shared-locations
+  namespace: nginx-gw
+spec:
+  snippets:
+    - context: http.server
+      value: |
+        location = /_auth {
+          internal;
+          proxy_pass http://oauth2-proxy.security.svc.cluster.local:4180/oauth2/auth;
+          proxy_pass_request_body off;
+          proxy_set_header Content-Length "";
+          proxy_set_header X-Original-URI $request_uri;
+        }
+        
+        location @oauth2_redirect {
+          return 302 https://$host/oauth2/start?rd=https://$host$request_uri;
+        }
