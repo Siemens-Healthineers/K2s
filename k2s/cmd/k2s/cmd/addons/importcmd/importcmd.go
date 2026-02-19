@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -116,6 +117,11 @@ func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []st
 	}
 	if imagePath == "" {
 		return "", nil, errors.New("no path to OCI artifact provided")
+	}
+
+	imagePath, err = filepath.Abs(imagePath)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to resolve absolute path for artifact file: %w", err)
 	}
 
 	params = append(params, " -ArtifactFile "+utils.EscapeWithSingleQuotes(imagePath))
