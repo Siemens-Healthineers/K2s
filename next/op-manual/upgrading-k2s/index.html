@@ -26,7 +26,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.2">
     
     
       
@@ -2404,7 +2404,7 @@ SPDX-License-Identifier: MIT
 <h2 id="upgrade-procedure">Upgrade Procedure</h2>
 <blockquote>
 <p><strong>ℹ️ Info:</strong> The upgrade process re-installs the cluster binaries, migrates (exports/imports) Kubernetes resources, and re-enables previously enabled addons. It does not also upgrade existing addons, this needs to be done separatly using the <code>k2s addons ...</code> commands.</p>
-<p><strong>⚠️ Warning:</strong> Addon data/persistence is also <strong>not</strong> automatically restored during upgrade. To backup and restore addon data, use <code>k2s addons export</code> before upgrade and <code>k2s addons import</code> after upgrade.</p>
+<p><strong>⚠️ Warning:</strong> Addon data/persistence is also <strong>not</strong> automatically restored during upgrade. To backup and restore addon data, use <code>k2s addons backup</code> before upgrade and <code>k2s addons restore</code> after upgrade.</p>
 </blockquote>
 <ol>
 <li>Extract the new <em>K2s</em> release package into a directory (e.g. <code>C:\k2s\v1.5.0</code>).</li>
