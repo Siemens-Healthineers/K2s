@@ -26,10 +26,10 @@ import (
 
 var exportCommandExample = `
   # Export individual addon to specified folder
-  k2s addons export registry -d C:\tmp
+  k2s addons export ingress nginx -d C:\tmp
 
-  # Export addon "registry" and "ingress nginx" to specified folder
-  k2s addons export registry "ingress nginx" -d C:\tmp
+  # Export multiple addons to specified folder
+  k2s addons export registry ingress nginx -d C:\tmp
 
   # Export all addons to specified folder
   k2s addons export -d C:\tmp
