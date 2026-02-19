@@ -11,7 +11,7 @@ Backs up rollout argocd configuration/resources.
 .DESCRIPTION
 Creates a config-only backup scoped to the rollout namespace:
 - Exports ArgoCD state via `argocd admin export -n rollout`
-- Optionally exports ingress resources for dashboard exposure (nginx/traefik)
+- Optionally exports ingress resources for dashboard exposure (nginx/traefik/nginx-gw)
 - Optionally exports Traefik Middleware (secure mode) if present
 
 The ArgoCD export contains credentials (e.g., repository credentials). Handle backups accordingly.
@@ -299,6 +299,16 @@ try {
     $traefikIngressPath = Join-Path $BackupDir 'argocd-ingress-traefik.json'
     if (Export-MinimalK8sObjectIfExists -Kind 'ingress' -Name 'rollout-traefik-cluster-local' -Namespace 'rollout' -OutFile $traefikIngressPath) {
         $files += (Split-Path -Leaf $traefikIngressPath)
+    }
+
+    $nginxGwHttpPath = Join-Path $BackupDir 'argocd-ingress-nginx-gw-httproute-http.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'rollout-nginx-gw-http' -Namespace 'rollout' -OutFile $nginxGwHttpPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpPath)
+    }
+
+    $nginxGwHttpsPath = Join-Path $BackupDir 'argocd-ingress-nginx-gw-httproute-https.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'rollout-nginx-gw-https' -Namespace 'rollout' -OutFile $nginxGwHttpsPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpsPath)
     }
 
     $mwPath = Join-Path $BackupDir 'argocd-traefik-middleware.json'

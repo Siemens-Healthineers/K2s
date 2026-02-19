@@ -47,7 +47,7 @@ function Fail([string]$errMsg, [string]$code = 'addon-restore-failed') {
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code $code -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
-        return
+        exit 1
     }
 
     Write-Log $errMsg -Error

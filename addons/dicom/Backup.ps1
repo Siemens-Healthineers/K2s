@@ -11,7 +11,7 @@ Backs up dicom configuration/resources.
 .DESCRIPTION
 Creates a config-only backup scoped to the dicom namespace:
 - Exports Orthanc configuration ConfigMap (json-configmap)
-- Optionally exports ingress resources (nginx / traefik) and Traefik Middleware resources, if present
+- Optionally exports ingress resources (nginx / traefik / nginx-gw) and Traefik Middleware resources, if present
 
 The CLI wraps the staging folder into a zip archive.
 
@@ -182,6 +182,16 @@ try {
     $traefikIngressPath = Join-Path $BackupDir 'dicom-ingress-traefik.json'
     if (Export-MinimalK8sObjectIfExists -Kind 'ingress' -Name 'dicom-traefik-cluster-local' -Namespace 'dicom' -OutFile $traefikIngressPath) {
         $files += (Split-Path -Leaf $traefikIngressPath)
+    }
+
+    $nginxGwHttpsPath = Join-Path $BackupDir 'dicom-ingress-nginx-gw-httproute-https.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'dicom-nginx-gw-cluster-local-https' -Namespace 'dicom' -OutFile $nginxGwHttpsPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpsPath)
+    }
+
+    $nginxGwHttpPath = Join-Path $BackupDir 'dicom-ingress-nginx-gw-httproute-http.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'dicom-nginx-gw-cluster-local-http' -Namespace 'dicom' -OutFile $nginxGwHttpPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpPath)
     }
 
     $traefikIngressCorrect1Path = Join-Path $BackupDir 'dicom-ingress-traefik-correct1.json'

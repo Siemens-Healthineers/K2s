@@ -105,6 +105,7 @@ nav:
       - Adding K2s Users: op-manual/adding-k2s-users.md
       - Stopping K2s: op-manual/stopping-k2s.md
       - Upgrading K2s: op-manual/upgrading-k2s.md
+      - Backing Up and Restoring Addons: op-manual/backing-up-restoring-addons.md
       - Configuring HTTPProxy Service: op-manual/configuring-httpproxy-service.md
       - External DNS: op-manual/external-dns.md
       - Extending K2s cluster: op-manual/extending-k2s-cluster.md
