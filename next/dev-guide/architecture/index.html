@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/user-guide/cluster-ip-addresses/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/dev-guide/architecture/">
       
       
-        <link rel="prev" href="../addons/">
+        <link rel="prev" href="../hosting-variants-features-matrix/">
       
       
-        <link rel="next" href="../adding-container-registry/">
+        <link rel="next" href="../contributing/linux-development/linux-development/">
       
       
         
@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Assignment of Cluster IP Addresses for Services - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Architecture & Tools - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#assignment-of-cluster-ip-addresses-for-services" class="md-skip">
+        <a href="#architecture-tools" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Assignment of Cluster IP Addresses for Services
+              Architecture & Tools
             
           </span>
         </div>
@@ -285,13 +285,11 @@ You're not viewing the latest release version.
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../hosting-variants/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../user-guide/hosting-variants/" class="md-tabs__link">
           
   
   
@@ -331,6 +329,8 @@ You're not viewing the latest release version.
   
   
   
+    
+  
   
     
     
@@ -338,11 +338,13 @@ You're not viewing the latest release version.
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../dev-guide/contributing/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../contributing/" class="md-tabs__link">
           
   
   
@@ -551,10 +553,8 @@ You're not viewing the latest release version.
       
   
   
-    
   
   
-  
     
     
       
@@ -576,20 +576,17 @@ You're not viewing the latest release version.
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -607,7 +604,7 @@ You're not viewing the latest release version.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -625,7 +622,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../hosting-variants/" class="md-nav__link">
+      <a href="../../user-guide/hosting-variants/" class="md-nav__link">
         
   
   
@@ -653,7 +650,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../k2s-cli/" class="md-nav__link">
+      <a href="../../user-guide/k2s-cli/" class="md-nav__link">
         
   
   
@@ -681,7 +678,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../cli-shortcuts/" class="md-nav__link">
+      <a href="../../user-guide/cli-shortcuts/" class="md-nav__link">
         
   
   
@@ -709,7 +706,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../addons/" class="md-nav__link">
+      <a href="../../user-guide/addons/" class="md-nav__link">
         
   
   
@@ -734,37 +731,10 @@ You're not viewing the latest release version.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Assignment of Cluster IP Addresses for Services
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../user-guide/cluster-ip-addresses/" class="md-nav__link">
         
   
   
@@ -780,48 +750,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#linux-based-workloads" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Linux-based workloads
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#windows-based-workloads" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Windows-based workloads
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -834,7 +762,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../adding-container-registry/" class="md-nav__link">
+      <a href="../../user-guide/adding-container-registry/" class="md-nav__link">
         
   
   
@@ -862,7 +790,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../building-container-image/" class="md-nav__link">
+      <a href="../../user-guide/building-container-image/" class="md-nav__link">
         
   
   
@@ -1613,8 +1541,10 @@ You're not viewing the latest release version.
       
   
   
+    
   
   
+  
     
     
       
@@ -1632,17 +1562,20 @@ You're not viewing the latest release version.
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -1660,7 +1593,7 @@ You're not viewing the latest release version.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1717,7 +1650,7 @@ You're not viewing the latest release version.
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../dev-guide/contributing/" class="md-nav__link ">
+            <a href="../contributing/" class="md-nav__link ">
               
   
   
@@ -1761,7 +1694,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/cla-corporate-contributor/" class="md-nav__link">
+      <a href="../contributing/cla-corporate-contributor/" class="md-nav__link">
         
   
   
@@ -1789,7 +1722,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/cla-individual-contributor/" class="md-nav__link">
+      <a href="../contributing/cla-individual-contributor/" class="md-nav__link">
         
   
   
@@ -1817,7 +1750,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/licensing/" class="md-nav__link">
+      <a href="../contributing/licensing/" class="md-nav__link">
         
   
   
@@ -1845,7 +1778,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/powershell-dev/" class="md-nav__link">
+      <a href="../contributing/powershell-dev/" class="md-nav__link">
         
   
   
@@ -1873,7 +1806,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/building-locally/" class="md-nav__link">
+      <a href="../contributing/building-locally/" class="md-nav__link">
         
   
   
@@ -1901,7 +1834,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/automated-testing/" class="md-nav__link">
+      <a href="../contributing/automated-testing/" class="md-nav__link">
         
   
   
@@ -1929,7 +1862,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/tags-labels/" class="md-nav__link">
+      <a href="../contributing/tags-labels/" class="md-nav__link">
         
   
   
@@ -1957,7 +1890,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/updating-documentation/" class="md-nav__link">
+      <a href="../contributing/updating-documentation/" class="md-nav__link">
         
   
   
@@ -1985,7 +1918,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/submitting-changes/" class="md-nav__link">
+      <a href="../contributing/submitting-changes/" class="md-nav__link">
         
   
   
@@ -2021,7 +1954,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/hosting-variants-features-matrix/" class="md-nav__link">
+      <a href="../hosting-variants-features-matrix/" class="md-nav__link">
         
   
   
@@ -2046,10 +1979,37 @@ You're not viewing the latest release version.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../dev-guide/architecture/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture & Tools
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2065,6 +2025,242 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#high-level-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Level Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="High-Level Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-design-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Design Decisions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hosting-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hosting Variants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bundled-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bundled Tools
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bundled Tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#networking-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Networking Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vm-provisioning-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VM &amp; Provisioning Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#service-mesh-security-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service Mesh &amp; Security Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#container-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Container Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Utilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-tools-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building Tools from Source
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#powershell-module-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PowerShell Module Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PowerShell Module Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#k2sinframodule-infrastructure-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        k2s.infra.module — Infrastructure &amp; Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k2sclustermodule-cluster-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        k2s.cluster.module — Cluster Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k2snodemodule-node-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        k2s.node.module — Node Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k2ssigningmodule-code-signing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        k2s.signing.module — Code Signing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#script-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Script Layers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-files-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Files Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2077,7 +2273,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/contributing/linux-development/linux-development/" class="md-nav__link">
+      <a href="../contributing/linux-development/linux-development/" class="md-nav__link">
         
   
   
@@ -2105,7 +2301,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../dev-guide/training/" class="md-nav__link">
+      <a href="../training/" class="md-nav__link">
         
   
   
@@ -2368,10 +2564,193 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#linux-based-workloads" class="md-nav__link">
+  <a href="#high-level-architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Linux-based workloads
+        High-Level Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="High-Level Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-design-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Design Decisions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hosting-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hosting Variants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bundled-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bundled Tools
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bundled Tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#networking-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Networking Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vm-provisioning-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VM &amp; Provisioning Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#service-mesh-security-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service Mesh &amp; Security Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#container-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Container Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Utilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-tools-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building Tools from Source
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#powershell-module-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PowerShell Module Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PowerShell Module Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#k2sinframodule-infrastructure-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        k2s.infra.module — Infrastructure &amp; Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k2sclustermodule-cluster-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        k2s.cluster.module — Cluster Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k2snodemodule-node-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        k2s.node.module — Node Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k2ssigningmodule-code-signing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        k2s.signing.module — Code Signing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#script-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Script Layers
       
     </span>
   </a>
@@ -2379,10 +2758,21 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#windows-based-workloads" class="md-nav__link">
+  <a href="#configuration-files-overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Windows-based workloads
+        Configuration Files Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
       
     </span>
   </a>
@@ -2406,7 +2796,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/user-guide/cluster-ip-addresses.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/dev-guide/architecture.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2415,69 +2805,459 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="assignment-of-cluster-ip-addresses-for-services">Assignment of Cluster <abbr title="Internet Protocol">IP</abbr> Addresses for Services</h1>
-<h2 id="linux-based-workloads"><em>Linux</em>-based workloads</h2>
-<p>In case of services on <em>Linux</em> side please use the subnet <code>172.21.0.0/24</code> starting from <code>172.21.0.50</code> (<em>K2s</em> reserves addresses up to <code>172.21.0.49</code>).</p>
-<div class="admonition example">
-<p class="admonition-title">Example</p>
-<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">example-service-manifest.yaml</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-0-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-0-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-0-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-0-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-0-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-0-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-0-10">10</a></span>
-<span class="normal"><a href="#__codelineno-0-11">11</a></span>
-<span class="normal"><a href="#__codelineno-0-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Linux-example</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="nt">selector</span><span class="p">:</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Linux-example</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="nt">ports</span><span class="p">:</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="w">    </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="nt">clusterIP</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">172.21.0.210</span>
-</code></pre></div></td></tr></table></div>
-</div>
-<h2 id="windows-based-workloads"><em>Windows</em>-based workloads</h2>
-<p>In case of services on <em>Windows</em> side please use the subnet <code>172.21.1.0/24</code> starting from <code>172.21.1.50</code> (<em>K2s</em> reserves addresses up to <code>172.21.1.49</code>).</p>
-<div class="admonition example">
-<p class="admonition-title">Example</p>
-<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">example-service-manifest.yaml</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-1-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-1-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-1-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-1-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-1-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-1-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-1-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-1-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-1-10">10</a></span>
-<span class="normal"><a href="#__codelineno-1-11">11</a></span>
-<span class="normal"><a href="#__codelineno-1-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Windows-example</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6"></a><span class="nt">selector</span><span class="p">:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7"></a><span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Windows-example</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8"></a><span class="nt">ports</span><span class="p">:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11"></a><span class="w">    </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12"></a><span class="nt">clusterIP</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">172.21.1.210</span>
-</code></pre></div></td></tr></table></div>
-</div>
+<h1 id="architecture-tools">Architecture &amp; Tools</h1>
+<p>This page describes the high-level architecture of a <em>K2s</em> cluster, the supporting tools bundled with the distribution, and the internal module structure.</p>
+<h2 id="high-level-architecture">High-Level Architecture</h2>
+<p>A <em>K2s</em> default cluster runs on a single Windows host with a Linux <abbr title="Virtual Machine">VM</abbr> acting as the Kubernetes control plane:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────────┐
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  Windows Host                                           │
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│                                                         │
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│  ┌──────────────────┐    ┌───────────────────────────┐  │
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│  │ Windows Worker   │    │ Linux VM (KubeMaster)     │  │
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│  │                  │    │                           │  │
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│  │ • containerd     │    │ • CRI-O                   │  │
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│  │ • kubelet        │    │ • kubelet                 │  │
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│  │ • kube-proxy     │    │ • kube-apiserver          │  │
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│  │ • flannel (CNI)  │    │ • kube-scheduler          │  │
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│  │ • Docker (opt.)  │    │ • kube-controller-manager │  │
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│  │                  │    │ • etcd                    │  │
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│  └──────────────────┘    │ • flannel (CNI)           │  │
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│                          │ • CoreDNS                 │  │
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│  k2s.exe CLI             │ • buildah                 │  │
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│  httpproxy.exe           └───────────────────────────┘  │
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│  PowerShell modules                                     │
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│                                                         │
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│  ─── Hyper-V / WSL 2 ────────────────────────────────── │
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>└─────────────────────────────────────────────────────────┘
+</code></pre></div>
+<h3 id="key-design-decisions">Key Design Decisions</h3>
+<ul>
+<li><strong>Flannel CNI with host-gateway mode</strong> — routes pod traffic directly through host routing tables for maximum performance and simplicity. A VXLAN backend template is also available.</li>
+<li><strong>Mixed <abbr title="Operating System">OS</abbr> support</strong> — Windows containers run on the host via containerd; Linux containers run in the <abbr title="Virtual Machine">VM</abbr> via <abbr title="Container Runtime Interface">CRI</abbr>-O.</li>
+<li><strong>Offline-first</strong> — all dependencies are bundled or downloadable as offline packages. No runtime network fetches unless explicitly triggered.</li>
+<li><strong>Single-binary <abbr title="Command-Line Interface">CLI</abbr></strong> — <code>k2s.exe</code> is the only user-facing tool; all operations route through it.</li>
+</ul>
+<h3 id="hosting-variants">Hosting Variants</h3>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th><code>kind</code></th>
+<th style="text-align: center;">Windows Worker</th>
+<th style="text-align: center;">Linux <abbr title="Virtual Machine">VM</abbr></th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Host (default)</td>
+<td><code>k2s</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+<td>Full mixed-<abbr title="Operating System">OS</abbr> cluster</td>
+</tr>
+<tr>
+<td>Host + Linux-Only</td>
+<td><code>k2s</code> + <code>--linux-only</code></td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">Yes</td>
+<td>Linux-only workloads</td>
+</tr>
+<tr>
+<td>Host + <abbr title="Windows Subsystem for Linux">WSL</abbr> 2</td>
+<td><code>k2s</code> + <code>--wsl</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes (<abbr title="Windows Subsystem for Linux">WSL</abbr>)</td>
+<td>Lighter footprint, shared kernel</td>
+</tr>
+<tr>
+<td>Development-Only</td>
+<td><code>buildonly</code></td>
+<td style="text-align: center;">No</td>
+<td style="text-align: center;">Yes</td>
+<td>Container image building only, no <abbr title="Kubernetes">K8s</abbr></td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="../../user-guide/hosting-variants/">Hosting Variants</a> and the <a href="../hosting-variants-features-matrix/">Features Matrix</a> for detailed comparisons.</p>
+<hr />
+<h2 id="bundled-tools">Bundled Tools</h2>
+<p><em>K2s</em> ships several supporting executables beyond the main <code>k2s.exe</code> <abbr title="Command-Line Interface">CLI</abbr>. All are built from Go source under <code>k2s/cmd/</code> and placed in the <code>bin/</code> directory.</p>
+<h3 id="networking-tools">Networking Tools</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Source</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>httpproxy.exe</strong></td>
+<td><code>k2s/cmd/httpproxy/</code></td>
+<td><abbr title="Hypertext Transfer Protocol">HTTP</abbr> forward proxy running on the Windows host. Transparently proxies internet traffic for the Linux <abbr title="Virtual Machine">VM</abbr> when a corporate proxy is configured.</td>
+</tr>
+<tr>
+<td><strong>vfprules.exe</strong></td>
+<td><code>k2s/cmd/vfprules/</code></td>
+<td>Manages Virtual Filtering Platform (VFP) rules on the <code>cbr0</code> Hyper-V external switch. Routes pod and service traffic between the host and the Linux <abbr title="Virtual Machine">VM</abbr>.</td>
+</tr>
+<tr>
+<td><strong>bridge.exe</strong></td>
+<td><code>k2s/cmd/bridge/</code></td>
+<td>Windows CNI bridge plugin (based on Microsoft's windows-container-networking). Creates the <code>cbr0</code> bridge for pod networking on the Windows worker.</td>
+</tr>
+<tr>
+<td><strong>l4proxy.exe</strong></td>
+<td><code>k2s/cmd/l4proxy/</code></td>
+<td>Layer 4 (TCP/UDP) proxy used in CNI networking for forwarding traffic between network namespaces.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="vm-provisioning-tools"><abbr title="Virtual Machine">VM</abbr> &amp; Provisioning Tools</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Source</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>cloudinitisobuilder.exe</strong></td>
+<td><code>k2s/cmd/cloudinitisobuilder/</code></td>
+<td>Builds cloud-init ISO images (ISO 9660) for provisioning the Linux <abbr title="Virtual Machine">VM</abbr> with network config, <abbr title="Secure Shell">SSH</abbr> keys, and initial setup scripts.</td>
+</tr>
+<tr>
+<td><strong>devgon.exe</strong></td>
+<td><code>k2s/cmd/devgon/</code></td>
+<td>Go reimplementation of Microsoft's <code>devcon.exe</code> (Device Console). Manages network adapters without requiring the VC Runtime (<code>vcruntime140.dll</code>).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="service-mesh-security-tools">Service Mesh &amp; Security Tools</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Source</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>cplauncher.exe</strong></td>
+<td><code>k2s/cmd/cplauncher/</code></td>
+<td>Compartment Launcher — starts Windows processes inside a specific network compartment, enabling Linkerd service mesh on Windows. Resolves compartments from Kubernetes pod labels and optionally injects a DLL for per-thread compartment switching.</td>
+</tr>
+<tr>
+<td><strong>login.exe</strong></td>
+<td><code>k2s/cmd/login/</code></td>
+<td>OAuth2/OIDC login provider using Ory Hydra. Provides Windows-logon-based authentication for the security addon's zero-trust mode.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="container-tools">Container Tools</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Source</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>pause.exe</strong></td>
+<td><code>k2s/cmd/pause/</code></td>
+<td>Windows pause container. Every Windows pod includes this as the infrastructure container (holds the network namespace). Ships with its own Dockerfile.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="utilities">Utilities</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Source</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>yaml2json.exe</strong></td>
+<td><code>k2s/cmd/yaml2json/</code></td>
+<td>Converts <abbr title="Yet Another Markup Language">YAML</abbr> to <abbr title="JavaScript Object Notation">JSON</abbr>. Used internally by scripts that need <abbr title="JavaScript Object Notation">JSON</abbr> input from <abbr title="Yet Another Markup Language">YAML</abbr> sources.</td>
+</tr>
+<tr>
+<td><strong>zap.exe</strong></td>
+<td><code>k2s/cmd/zap/</code></td>
+<td>Forcefully removes directories that Windows file locks prevent from being deleted (used by <code>k2s image reset-win-storage --force-zap</code>).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="building-tools-from-source">Building Tools from Source</h3>
+<p>All Go tools can be built locally using the build script:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gp"># </span>Build<span class="w"> </span>k2s.exe<span class="w"> </span>only
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">bgo</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="gp"># </span>Build<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>tool
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="go">bgo -ProjectDir &quot;k2s\cmd\httpproxy&quot; -ExeOutDir &quot;bin&quot;</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="gp"># </span>Build<span class="w"> </span>all<span class="w"> </span>Go<span class="w"> </span>executables
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="go">bgo -BuildAll</span>
+</code></pre></div>
+<p>See <a href="../contributing/building-locally/">Building Locally</a> for prerequisites.</p>
+<hr />
+<h2 id="powershell-module-structure">PowerShell Module Structure</h2>
+<p><em>K2s</em> organises its PowerShell automation into four major modules under <code>lib/modules/k2s/</code>:</p>
+<h3 id="k2sinframodule-infrastructure-configuration">k2s.infra.module — Infrastructure &amp; Configuration</h3>
+<table>
+<thead>
+<tr>
+<th>Submodule</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config/config.module.psm1</code></td>
+<td>Reads and writes cluster configuration (<code>setup.json</code>, <code>config.json</code>). Exports ~50 functions for querying setup type, flags, proxy settings, mirror registries, <abbr title="Kubernetes">K8s</abbr> version, etc.</td>
+</tr>
+<tr>
+<td><code>config/cluster.config.module.psm1</code></td>
+<td>Multi-node cluster topology management (<code>cluster.json</code>). CRUD operations for node entries.</td>
+</tr>
+<tr>
+<td><code>hooks/hooks.module.psm1</code></td>
+<td>Hook system — discovers and executes lifecycle hook scripts. See <a href="../../op-manual/hook-system/">Hook System</a>.</td>
+</tr>
+<tr>
+<td><code>network/</code></td>
+<td>Windows host network management (adapters, routes, <abbr title="Domain Name System">DNS</abbr>).</td>
+</tr>
+<tr>
+<td><code>validation/</code></td>
+<td>Path validation, pattern matching, hashtable comparison utilities.</td>
+</tr>
+<tr>
+<td><code>dump/</code></td>
+<td>Diagnostic dump file generation.</td>
+</tr>
+<tr>
+<td><code>path/</code></td>
+<td>K2s installation path resolution.</td>
+</tr>
+<tr>
+<td><code>log/</code></td>
+<td>Logging infrastructure (<code>Write-Log</code>, <code>Write-ErrorMessage</code>).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="k2sclustermodule-cluster-lifecycle">k2s.cluster.module — Cluster Lifecycle</h3>
+<table>
+<thead>
+<tr>
+<th>Submodule</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>upgrade/</code></td>
+<td>Full cluster upgrade orchestration (export/import resources, uninstall/install, re-enable addons).</td>
+</tr>
+<tr>
+<td><code>update/</code></td>
+<td>Delta update application (in-place file replacement, Debian package diff, container image update).</td>
+</tr>
+<tr>
+<td><code>system/</code></td>
+<td>Time sync, <abbr title="Application Programming Interface">API</abbr> server readiness checks, node label/taint management.</td>
+</tr>
+<tr>
+<td><code>image/</code></td>
+<td>Container image management and backup/restore of images.</td>
+</tr>
+<tr>
+<td><code>setupinfo/</code></td>
+<td>Setup information queries.</td>
+</tr>
+<tr>
+<td><code>runningstate/</code></td>
+<td>Cluster running state checks.</td>
+</tr>
+<tr>
+<td><code>k8s-api/</code></td>
+<td>Kubernetes <abbr title="Application Programming Interface">API</abbr> integration helpers.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="k2snodemodule-node-management">k2s.node.module — Node Management</h3>
+<table>
+<thead>
+<tr>
+<th>Submodule</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>linuxnode/baseimage/</code></td>
+<td>Linux <abbr title="Virtual Machine">VM</abbr> base image building, cloud-init provisioning templates.</td>
+</tr>
+<tr>
+<td><code>linuxnode/distros/</code></td>
+<td>Multi-distro support: Debian and Ubuntu with distro-specific network configuration.</td>
+</tr>
+<tr>
+<td><code>linuxnode/security/</code></td>
+<td><abbr title="Secure Shell">SSH</abbr> key generation and deployment (<code>New-SshKey</code>, <code>Copy-LocalPublicSshKeyToRemoteComputer</code>).</td>
+</tr>
+<tr>
+<td><code>linuxnode/vm/</code></td>
+<td>Hyper-V <abbr title="Virtual Machine">VM</abbr> lifecycle management for the control-plane node.</td>
+</tr>
+<tr>
+<td><code>windowsnode/</code></td>
+<td>Windows worker node setup: base image, binary downloads, network config, proxy, services, system configuration.</td>
+</tr>
+<tr>
+<td><code>vmnode/</code></td>
+<td>Generic <abbr title="Virtual Machine">VM</abbr> node management for additional cluster nodes.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="k2ssigningmodule-code-signing">k2s.signing.module — Code Signing</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Set-K2sFileSignature</code></td>
+<td>Signs all K2s executables (.exe, .dll, .msi) and PowerShell scripts (.ps1, .psm1) using a PFX certificate with Authenticode.</td>
+</tr>
+<tr>
+<td><code>Get-SignableFiles</code></td>
+<td>Discovers signable files with built-in exclusion lists.</td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="../../security/security-features/">Security Features</a> for details.</p>
+<hr />
+<h2 id="script-layers">Script Layers</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Location</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><abbr title="Command-Line Interface">CLI</abbr> orchestration</strong></td>
+<td><code>lib/scripts/k2s/</code></td>
+<td>Top-level scripts invoked by <code>k2s.exe</code>: install, start, stop, upgrade, backup, restore, image management, proxy, certificates, packaging.</td>
+</tr>
+<tr>
+<td><strong>Host provisioning</strong></td>
+<td><code>smallsetup/</code></td>
+<td>Windows host environment bootstrap: loopback adapter, HNS network, kubeadm flags, debug helpers, network repair scripts.</td>
+</tr>
+<tr>
+<td><strong>Addon lifecycle</strong></td>
+<td><code>addons/</code></td>
+<td>Per-addon Enable/Disable/Backup/Restore/Update/Get-Status scripts and Kubernetes manifests.</td>
+</tr>
+<tr>
+<td><strong>Multi-variant installs</strong></td>
+<td><code>lib/scripts/buildonly/</code>, <code>lib/scripts/linuxonly/</code></td>
+<td>Variant-specific install/uninstall/start/stop scripts.</td>
+</tr>
+<tr>
+<td><strong>Worker node setup</strong></td>
+<td><code>lib/scripts/worker/</code></td>
+<td>Setup scripts for Windows and Linux worker nodes.</td>
+</tr>
+<tr>
+<td><strong>Control plane setup</strong></td>
+<td><code>lib/scripts/control-plane/</code></td>
+<td>Control plane installation script.</td>
+</tr>
+<tr>
+<td><strong>Packaging</strong></td>
+<td><code>lib/scripts/k2s/system/package/</code></td>
+<td>Full and delta package creation, image acquisition, signing, Debian diff, addon packaging.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="configuration-files-overview">Configuration Files Overview</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Location</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config.json</code></td>
+<td><code>cfg/</code></td>
+<td>Network CIDRs, registries, VFP rules, backup exclusions</td>
+</tr>
+<tr>
+<td><code>config.toml.template</code></td>
+<td><code>cfg/containerd/</code></td>
+<td>Containerd runtime configuration template</td>
+</tr>
+<tr>
+<td><code>net-conf.json.template</code></td>
+<td><code>cfg/cni/</code></td>
+<td>Flannel host-gw CNI backend</td>
+</tr>
+<tr>
+<td><code>net-conf-vxlan.json.template</code></td>
+<td><code>cfg/cni/</code></td>
+<td>Flannel VXLAN CNI backend</td>
+</tr>
+<tr>
+<td><code>applockerrules.xml</code></td>
+<td><code>cfg/applocker/</code></td>
+<td>AppLocker policies for container accounts</td>
+</tr>
+<tr>
+<td><code>joinnode.template.yaml</code></td>
+<td><code>cfg/kubeadm/</code></td>
+<td>Windows node kubeadm join template</td>
+</tr>
+<tr>
+<td><code>joinnode-linux.template.yaml</code></td>
+<td><code>cfg/kubeadm/</code></td>
+<td>Linux node kubeadm join template</td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="../../op-manual/configuration-reference/">Configuration Reference</a> for detailed documentation of each file.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="../../op-manual/configuration-reference/">Configuration Reference</a> — all config files and settings</li>
+<li><a href="../../user-guide/hosting-variants/">Hosting Variants</a> — setup types</li>
+<li><a href="../../op-manual/networking-architecture/">Networking Architecture</a> — CNI and network design</li>
+<li><a href="../contributing/building-locally/">Building Locally</a> — building Go tools from source</li>
+</ul>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -2517,7 +3297,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../addons/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Addons">
+          <a href="../hosting-variants-features-matrix/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Hosting Variants Features Matrix">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2527,20 +3307,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Addons
+                Hosting Variants Features Matrix
               </div>
             </div>
           </a>
         
         
           
-          <a href="../adding-container-registry/" class="md-footer__link md-footer__link--next" aria-label="Next: Adding a Container Registry">
+          <a href="../contributing/linux-development/linux-development/" class="md-footer__link md-footer__link--next" aria-label="Next: Linux Development">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Adding a Container Registry
+                Linux Development
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/user-guide/k2s-cli/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/user-guide/addons/">
       
       
-        <link rel="prev" href="../hosting-variants/">
+        <link rel="prev" href="../cli-shortcuts/">
       
       
-        <link rel="next" href="../cli-shortcuts/">
+        <link rel="next" href="../cluster-ip-addresses/">
       
       
         
@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>k2s CLI - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Addons - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#k2s-cli" class="md-skip">
+        <a href="#addons" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              k2s CLI
+              Addons
             
           </span>
         </div>
@@ -650,37 +650,10 @@ You're not viewing the latest release version.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    k2s CLI
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../k2s-cli/" class="md-nav__link">
         
   
   
@@ -696,585 +669,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#install" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        install
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="install">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#install-buildonly" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        install buildonly
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#uninstall" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        uninstall
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#start" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        start
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stop" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        stop
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        status
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#version" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        version
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#image" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="image">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#image-ls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image ls
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-build" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image build
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-pull" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image pull
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-push" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image push
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-tag" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image tag
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-export" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image export
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-import" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image import
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-rm" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image rm
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-clean" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image clean
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-reset-win-storage" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image reset-win-storage
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-registry" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image registry
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="image registry">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#image-registry-add" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image registry add
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-registry-rm" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image registry rm
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#image-registry-ls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image registry ls
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#addons" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="addons">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#addons-ls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons ls
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-enable-disable" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons enable / disable
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons status
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-export" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons export
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-import" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons import
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-backup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons backup
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-restore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons restore
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#system" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="system">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#system-upgrade" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system upgrade
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-package" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system package
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-backup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system backup
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-restore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system restore
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-dump" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system dump
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-certificate-renew" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system certificate renew
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system proxy
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="system proxy">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#system-proxy-override" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system proxy override
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-users-add" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system users add
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-reset-network" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system reset network
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#node" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        node
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="node">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#node-add" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        node add
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#node-remove" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        node remove
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#node-copy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        node copy
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#node-exec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        node exec
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#node-connect" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        node connect
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1312,10 +706,37 @@ You're not viewing the latest release version.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../addons/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Addons
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1331,6 +752,469 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-use-addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Use Addons?
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Why Use Addons?">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#comparison-addons-vs-manual-workloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison: Addons vs. Manual Workloads
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#available-addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available Addons
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#addon-configuration-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Addon Configuration Details
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Addon Configuration Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ingress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ingress
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        logging
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        security
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rollout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        storage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dicom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dicom
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#viewer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        viewer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kubevirt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        kubevirt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gpu-node
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#autoscaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        autoscaling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#managing-addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managing Addons
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Managing Addons">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#listing-addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Listing Addons
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enabling-an-addon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enabling an Addon
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disabling-an-addon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disabling an Addon
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#checking-addon-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking Addon Status
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#offline-usage-oci-export-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline Usage: OCI Export &amp; Import
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Offline Usage: OCI Export &amp; Import">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#exporting-addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exporting Addons
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#importing-addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Importing Addons
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#typical-offline-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typical Offline Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backup &amp; Restore
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backup &amp; Restore">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backing-up-addon-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backing Up Addon Data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#restoring-addon-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restoring Addon Data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gitops-with-the-rollout-addon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitOps with the Rollout Addon
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GitOps with the Rollout Addon">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-gitops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why GitOps?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#argocd-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ArgoCD Implementation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flux-cd-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flux CD Implementation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#offline-gitops-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline GitOps Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2905,22 +2789,22 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#install" class="md-nav__link">
+  <a href="#why-use-addons" class="md-nav__link">
     <span class="md-ellipsis">
       
-        install
+        Why Use Addons?
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="install">
+    <nav class="md-nav" aria-label="Why Use Addons?">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#install-buildonly" class="md-nav__link">
+  <a href="#comparison-addons-vs-manual-workloads" class="md-nav__link">
     <span class="md-ellipsis">
       
-        install buildonly
+        Comparison: Addons vs. Manual Workloads
       
     </span>
   </a>
@@ -2933,10 +2817,10 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#uninstall" class="md-nav__link">
+  <a href="#available-addons" class="md-nav__link">
     <span class="md-ellipsis">
       
-        uninstall
+        Available Addons
       
     </span>
   </a>
@@ -2944,66 +2828,22 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#start" class="md-nav__link">
+  <a href="#addon-configuration-details" class="md-nav__link">
     <span class="md-ellipsis">
       
-        start
+        Addon Configuration Details
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stop" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        stop
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        status
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#version" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        version
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#image" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="image">
+    <nav class="md-nav" aria-label="Addon Configuration Details">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#image-ls" class="md-nav__link">
+  <a href="#ingress" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image ls
+        ingress
       
     </span>
   </a>
@@ -3011,10 +2851,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-build" class="md-nav__link">
+  <a href="#dashboard" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image build
+        dashboard
       
     </span>
   </a>
@@ -3022,10 +2862,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-pull" class="md-nav__link">
+  <a href="#monitoring" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image pull
+        monitoring
       
     </span>
   </a>
@@ -3033,10 +2873,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-push" class="md-nav__link">
+  <a href="#logging" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image push
+        logging
       
     </span>
   </a>
@@ -3044,10 +2884,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-tag" class="md-nav__link">
+  <a href="#registry" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image tag
+        registry
       
     </span>
   </a>
@@ -3055,10 +2895,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-export" class="md-nav__link">
+  <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image export
+        security
       
     </span>
   </a>
@@ -3066,10 +2906,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-import" class="md-nav__link">
+  <a href="#rollout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image import
+        rollout
       
     </span>
   </a>
@@ -3077,10 +2917,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-rm" class="md-nav__link">
+  <a href="#storage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image rm
+        storage
       
     </span>
   </a>
@@ -3088,10 +2928,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-clean" class="md-nav__link">
+  <a href="#dicom" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image clean
+        dicom
       
     </span>
   </a>
@@ -3099,10 +2939,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-reset-win-storage" class="md-nav__link">
+  <a href="#viewer" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image reset-win-storage
+        viewer
       
     </span>
   </a>
@@ -3110,22 +2950,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-registry" class="md-nav__link">
+  <a href="#kubevirt" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image registry
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="image registry">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#image-registry-add" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        image registry add
+        kubevirt
       
     </span>
   </a>
@@ -3133,10 +2961,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-registry-rm" class="md-nav__link">
+  <a href="#gpu-node" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image registry rm
+        gpu-node
       
     </span>
   </a>
@@ -3144,43 +2972,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#image-registry-ls" class="md-nav__link">
+  <a href="#autoscaling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        image registry ls
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#addons" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="addons">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#addons-ls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons ls
+        autoscaling
       
     </span>
   </a>
@@ -3188,65 +2983,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#addons-enable-disable" class="md-nav__link">
+  <a href="#metrics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        addons enable / disable
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons status
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-export" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons export
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-import" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons import
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-backup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons backup
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#addons-restore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        addons restore
+        metrics
       
     </span>
   </a>
@@ -3259,22 +2999,22 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#system" class="md-nav__link">
+  <a href="#managing-addons" class="md-nav__link">
     <span class="md-ellipsis">
       
-        system
+        Managing Addons
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="system">
+    <nav class="md-nav" aria-label="Managing Addons">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#system-upgrade" class="md-nav__link">
+  <a href="#listing-addons" class="md-nav__link">
     <span class="md-ellipsis">
       
-        system upgrade
+        Listing Addons
       
     </span>
   </a>
@@ -3282,10 +3022,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#system-package" class="md-nav__link">
+  <a href="#enabling-an-addon" class="md-nav__link">
     <span class="md-ellipsis">
       
-        system package
+        Enabling an Addon
       
     </span>
   </a>
@@ -3293,10 +3033,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#system-backup" class="md-nav__link">
+  <a href="#disabling-an-addon" class="md-nav__link">
     <span class="md-ellipsis">
       
-        system backup
+        Disabling an Addon
       
     </span>
   </a>
@@ -3304,82 +3044,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#system-restore" class="md-nav__link">
+  <a href="#checking-addon-status" class="md-nav__link">
     <span class="md-ellipsis">
       
-        system restore
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-dump" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system dump
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-certificate-renew" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system certificate renew
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system proxy
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="system proxy">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#system-proxy-override" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system proxy override
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-users-add" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system users add
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-reset-network" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        system reset network
+        Checking Addon Status
       
     </span>
   </a>
@@ -3392,22 +3060,22 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#node" class="md-nav__link">
+  <a href="#offline-usage-oci-export-import" class="md-nav__link">
     <span class="md-ellipsis">
       
-        node
+        Offline Usage: OCI Export &amp; Import
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="node">
+    <nav class="md-nav" aria-label="Offline Usage: OCI Export &amp; Import">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#node-add" class="md-nav__link">
+  <a href="#how-it-works" class="md-nav__link">
     <span class="md-ellipsis">
       
-        node add
+        How It Works
       
     </span>
   </a>
@@ -3415,10 +3083,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#node-remove" class="md-nav__link">
+  <a href="#exporting-addons" class="md-nav__link">
     <span class="md-ellipsis">
       
-        node remove
+        Exporting Addons
       
     </span>
   </a>
@@ -3426,10 +3094,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#node-copy" class="md-nav__link">
+  <a href="#importing-addons" class="md-nav__link">
     <span class="md-ellipsis">
       
-        node copy
+        Importing Addons
       
     </span>
   </a>
@@ -3437,21 +3105,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#node-exec" class="md-nav__link">
+  <a href="#typical-offline-workflow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        node exec
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#node-connect" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        node connect
+        Typical Offline Workflow
       
     </span>
   </a>
@@ -3460,6 +3117,117 @@ You're not viewing the latest release version.
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backup &amp; Restore
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backup &amp; Restore">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backing-up-addon-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backing Up Addon Data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#restoring-addon-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restoring Addon Data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gitops-with-the-rollout-addon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitOps with the Rollout Addon
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GitOps with the Rollout Addon">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-gitops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why GitOps?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#argocd-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ArgoCD Implementation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flux-cd-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flux CD Implementation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#offline-gitops-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline GitOps Workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
   
 </li>
       
@@ -3480,7 +3248,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/user-guide/k2s-cli.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/user-guide/addons.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -3489,1210 +3257,711 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="k2s-cli">k2s <abbr title="Command-Line Interface">CLI</abbr></h1>
-<p>The <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> is the primary interface for managing a <em>K2s</em> cluster. It covers the full lifecycle — installation, startup, upgrade, image management, addon management, and system maintenance.</p>
-<p>Every command supports <code>--output</code> / <code>-o</code> (show log in terminal) and <code>--verbosity</code> / <code>-v</code> (log level, default <code>info</code>) as global flags.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s -h</span>
-</code></pre></div>
+<h1 id="addons">Addons</h1>
+<p><em>K2s</em> provides a rich set of <strong>addons</strong> that deliver optional, pre-configured open-source components in a plugin-like manner. Addons can be enabled, disabled, exported, imported, backed up, and restored entirely through the <code>k2s</code> <abbr title="Command-Line Interface">CLI</abbr>.</p>
+<h2 id="why-use-addons">Why Use Addons?</h2>
+<p>Deploying individual workloads (e.g., manually installing an ingress controller, a monitoring stack, or a container registry) requires:</p>
+<ul>
+<li>Finding and validating compatible Helm charts or manifests for your Kubernetes version</li>
+<li>Configuring networking, storage, and security to match your cluster</li>
+<li>Managing updates and version compatibility across components</li>
+<li>Handling offline image pre-loading for air-gapped environments</li>
+<li>Writing custom backup/restore logic for each component</li>
+</ul>
+<p><strong>K2s addons solve all of these problems out of the box.</strong> Each addon:</p>
+<ul>
+<li><strong>Is pre-tested</strong> against the shipped Kubernetes version — no compatibility guesswork</li>
+<li><strong>Integrates with the K2s cluster</strong> networking, storage, and proxy configuration automatically</li>
+<li><strong>Supports offline usage</strong> — addon images can be exported as OCI artifacts and imported without network access</li>
+<li><strong>Provides lifecycle management</strong> — enable, disable, update, backup, and restore via single <abbr title="Command-Line Interface">CLI</abbr> commands</li>
+<li><strong>Is versioned with K2s</strong> — addon updates are coordinated with cluster upgrades</li>
+<li><strong>Follows consistent patterns</strong> — same <abbr title="Command-Line Interface">CLI</abbr> workflow for every addon, reducing operational complexity</li>
+</ul>
+<h3 id="comparison-addons-vs-manual-workloads">Comparison: Addons vs. Manual Workloads</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>K2s Addon</th>
+<th>Manual Workload</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Installation</td>
+<td><code>k2s addons enable &lt;name&gt;</code></td>
+<td>Find charts, write values, <code>helm install</code>, debug</td>
+</tr>
+<tr>
+<td>Offline support</td>
+<td><code>k2s addons export</code> / <code>import</code></td>
+<td>Manual image pull, save, transfer, load</td>
+</tr>
+<tr>
+<td>Configuration</td>
+<td>Pre-configured for K2s</td>
+<td>Manual adjustment for networking, storage, proxy</td>
+</tr>
+<tr>
+<td>Updates</td>
+<td><code>k2s addons enable &lt;name&gt;</code> (re-enable with new version)</td>
+<td>Manual chart/manifest version management</td>
+</tr>
+<tr>
+<td>Backup &amp; Restore</td>
+<td><code>k2s addons backup</code> / <code>restore</code></td>
+<td>Custom scripts per component</td>
+</tr>
+<tr>
+<td>Status check</td>
+<td><code>k2s addons status &lt;name&gt;</code></td>
+<td>Manual <code>kubectl</code> queries per component</td>
+</tr>
+<tr>
+<td>GitOps deployment</td>
+<td>Rollout addon with ArgoCD or Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr></td>
+<td>Set up GitOps tooling from scratch</td>
+</tr>
+<tr>
+<td>Version compatibility</td>
+<td>Tested with shipped <abbr title="Kubernetes">K8s</abbr> version</td>
+<td>User must verify compatibility</td>
+</tr>
+</tbody>
+</table>
+<h2 id="available-addons">Available Addons</h2>
+<table>
+<thead>
+<tr>
+<th>Addon</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>autoscaling</strong></td>
+<td>Horizontal workload scaling based on external events with KEDA</td>
+</tr>
+<tr>
+<td><strong>dashboard</strong></td>
+<td>Kubernetes Dashboard for cluster visualization</td>
+</tr>
+<tr>
+<td><strong>dicom</strong></td>
+<td>DICOM server based on Orthanc</td>
+</tr>
+<tr>
+<td><strong>gpu-node</strong></td>
+<td>GPU access for the control plane node</td>
+</tr>
+<tr>
+<td><strong>ingress</strong></td>
+<td>Ingress controllers (nginx, nginx-gw, traefik implementations)</td>
+</tr>
+<tr>
+<td><strong>kubevirt</strong></td>
+<td><abbr title="Virtual Machine">VM</abbr> workload management on Kubernetes</td>
+</tr>
+<tr>
+<td><strong>logging</strong></td>
+<td>Container log dashboard</td>
+</tr>
+<tr>
+<td><strong>metrics</strong></td>
+<td>Kubernetes metrics server for <abbr title="Application Programming Interface">API</abbr> access to service metrics</td>
+</tr>
+<tr>
+<td><strong>monitoring</strong></td>
+<td>Cluster resource monitoring and logging dashboard</td>
+</tr>
+<tr>
+<td><strong>registry</strong></td>
+<td>Private image registry on <code>k2s.registry.local</code></td>
+</tr>
+<tr>
+<td><strong>rollout</strong></td>
+<td>GitOps deployment automation (ArgoCD or Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr>)</td>
+</tr>
+<tr>
+<td><strong>security</strong></td>
+<td>Secure communication inside the cluster</td>
+</tr>
+<tr>
+<td><strong>storage</strong></td>
+<td><abbr title="Server Message Block">SMB</abbr>-based StorageClass provisioning between <abbr title="Kubernetes">K8s</abbr> nodes</td>
+</tr>
+<tr>
+<td><strong>viewer</strong></td>
+<td>Clinical image viewer</td>
+</tr>
+</tbody>
+</table>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>When <em>K2s</em> is installed, the executables including <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> have been added to <code>PATH</code>, so that the <abbr title="Command-Line Interface">CLI</abbr> can be called by using its name only.</p>
+<p>Some addons have multiple <strong>implementations</strong>. For example, the <em>ingress</em> addon offers <code>nginx</code>, <code>nginx-gw</code>, and <code>traefik</code>. Specify the implementation when enabling: <code>k2s addons enable ingress nginx</code>.</p>
 </div>
+<h2 id="addon-configuration-details">Addon Configuration Details</h2>
+<p>This section documents the <abbr title="Command-Line Interface">CLI</abbr> flags available for each addon. Flags without defaults are optional unless marked otherwise.</p>
+<h3 id="ingress">ingress</h3>
+<p>Three mutually exclusive implementations for external access:</p>
+<table>
+<thead>
+<tr>
+<th>Implementation</th>
+<th>Engine</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nginx</code></td>
+<td>NGINX Ingress Controller</td>
+<td>Reverse proxy based on NGINX</td>
+</tr>
+<tr>
+<td><code>traefik</code></td>
+<td>Traefik Proxy</td>
+<td>Cloud-native reverse proxy</td>
+</tr>
+<tr>
+<td><code>nginx-gw</code></td>
+<td>NGINX Gateway Fabric</td>
+<td>Gateway <abbr title="Application Programming Interface">API</abbr>-based NGINX controller</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s addons enable ingress nginx</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">k2s addons enable ingress traefik</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">k2s addons enable ingress nginx-gw</span>
+</code></pre></div>
+<p>No additional flags. Only one ingress implementation can be active at a time.</p>
+<h3 id="dashboard">dashboard</h3>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ingress</code></td>
+<td></td>
+<td>string</td>
+<td><code>none</code></td>
+<td>Ingress controller to expose the dashboard (<code>none</code>, <code>nginx</code>, <code>nginx-gw</code>, <code>traefik</code>)</td>
+</tr>
+<tr>
+<td><code>--enable-metrics</code></td>
+<td></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable metrics display in the dashboard</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s addons enable dashboard --ingress nginx --enable-metrics</span>
+</code></pre></div>
+<h3 id="monitoring">monitoring</h3>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ingress</code></td>
+<td><code>-i</code></td>
+<td>string</td>
+<td><code>none</code></td>
+<td>Ingress controller for the monitoring dashboard (<code>none</code>, <code>nginx</code>, <code>nginx-gw</code>, <code>traefik</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Includes Windows node metrics collection via <code>windows-exporter</code> alongside Linux metrics via <code>node-exporter</code>.</p>
+<h3 id="logging">logging</h3>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ingress</code></td>
+<td></td>
+<td>string</td>
+<td><code>none</code></td>
+<td>Ingress controller for log dashboards (<code>none</code>, <code>nginx</code>, <code>nginx-gw</code>, <code>traefik</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="registry">registry</h3>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ingress</code></td>
+<td><code>-i</code></td>
+<td>string</td>
+<td><code>nginx</code></td>
+<td>Ingress controller for the registry (<code>nginx</code>, <code>nginx-gw</code>, <code>traefik</code>)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Disable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--delete-images</code></td>
+<td><code>-d</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Delete all images stored in the local registry</td>
+</tr>
+</tbody>
+</table>
+<p>The registry is exposed on <code>k2s.registry.local</code>.</p>
+<h3 id="security">security</h3>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ingress</code></td>
+<td><code>-i</code></td>
+<td>string</td>
+<td><code>nginx</code></td>
+<td>Ingress controller (<code>nginx</code>, <code>traefik</code>, <code>nginx-gw</code>)</td>
+</tr>
+<tr>
+<td><code>--type</code></td>
+<td><code>-t</code></td>
+<td>string</td>
+<td><code>basic</code></td>
+<td>Security level: <code>basic</code> (cert-manager only) or <code>enhanced</code> (zero trust with Linkerd + OAuth2)</td>
+</tr>
+<tr>
+<td><code>--omitHydra</code></td>
+<td></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Skip Ory Hydra and Windows login integration</td>
+</tr>
+<tr>
+<td><code>--omitKeycloak</code></td>
+<td></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Skip Keycloak — use an external OAuth2 provider instead</td>
+</tr>
+<tr>
+<td><code>--omitOAuth2Proxy</code></td>
+<td></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Skip OAuth2 Proxy deployment</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp"># </span>Basic:<span class="w"> </span>cert-manager<span class="w"> </span>only
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">k2s addons enable security</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="gp"># </span>Enhanced:<span class="w"> </span>zero<span class="w"> </span>trust<span class="w"> </span>with<span class="w"> </span>full<span class="w"> </span>authentication<span class="w"> </span>stack
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">k2s addons enable security --type enhanced --ingress nginx</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="gp"># </span>Enhanced<span class="w"> </span>with<span class="w"> </span>external<span class="w"> </span>IdP<span class="w"> </span><span class="o">(</span>no<span class="w"> </span>Keycloak<span class="o">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="go">k2s addons enable security --type enhanced --omitKeycloak</span>
+</code></pre></div>
+<p>See <a href="../../security/security-features/">Security Features</a> for details on the zero-trust architecture.</p>
+<h3 id="rollout">rollout</h3>
+<p>Two mutually exclusive GitOps implementations:</p>
+<p><strong>ArgoCD:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ingress</code></td>
+<td><code>-i</code></td>
+<td>string</td>
+<td><code>none</code></td>
+<td>Ingress controller for the ArgoCD dashboard (<code>none</code>, <code>nginx</code>, <code>nginx-gw</code>, <code>traefik</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr>:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ingress</code></td>
+<td><code>-i</code></td>
+<td>string</td>
+<td><code>none</code></td>
+<td>Ingress controller for the webhook receiver (<code>none</code>, <code>nginx</code>, <code>nginx-gw</code>, <code>traefik</code>)</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="go">k2s addons enable rollout fluxcd --ingress traefik</span>
+</code></pre></div>
+<h3 id="storage">storage</h3>
+<p>Implementation: <code>smb</code> (<abbr title="Server Message Block">SMB</abbr> file sharing between <abbr title="Kubernetes">K8s</abbr> nodes).</p>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--smbHostType</code></td>
+<td><code>-t</code></td>
+<td>string</td>
+<td><code>windows</code></td>
+<td><abbr title="Server Message Block">SMB</abbr> host type: <code>windows</code> or <code>linux</code></td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Disable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--force</code></td>
+<td><code>-f</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Disable and <strong>delete all data</strong> without confirmation</td>
+</tr>
+<tr>
+<td><code>--keep</code></td>
+<td><code>-k</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Disable and <strong>keep all data</strong> without confirmation</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code>--force</code> and <code>--keep</code> are mutually exclusive.</p>
+</div>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons enable storage smb --smbHostType linux</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">k2s addons disable storage smb --keep</span>
+</code></pre></div>
+<h3 id="dicom">dicom</h3>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ingress</code></td>
+<td></td>
+<td>string</td>
+<td><code>none</code></td>
+<td>Ingress controller (<code>none</code>, <code>nginx</code>, <code>nginx-gw</code>, <code>traefik</code>)</td>
+</tr>
+<tr>
+<td><code>--storage</code></td>
+<td></td>
+<td>string</td>
+<td><code>none</code></td>
+<td>Storage addon for persistent DICOM data (<code>none</code>, <code>smb</code>)</td>
+</tr>
+<tr>
+<td><code>--storagedir</code></td>
+<td></td>
+<td>string</td>
+<td><code>none</code></td>
+<td>Path to <abbr title="Server Message Block">SMB</abbr> storage directory (e.g. <code>/mnt/k8s-smb-share</code>)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Disable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--force</code></td>
+<td><code>-f</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Disable and <strong>delete all data</strong> without confirmation</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s addons enable dicom --ingress nginx --storage smb --storagedir /mnt/k8s-smb-share</span>
+</code></pre></div>
+<h3 id="viewer">viewer</h3>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ingress</code></td>
+<td><code>-i</code></td>
+<td>string</td>
+<td><code>nginx</code></td>
+<td>Ingress controller (<code>nginx</code>, <code>nginx-gw</code>, <code>traefik</code>)</td>
+</tr>
+<tr>
+<td><code>--nodeport</code></td>
+<td><code>-n</code></td>
+<td>integer</td>
+<td><code>0</code></td>
+<td>NodePort for direct viewer access (range: 30000–32767, <code>0</code> = disabled)</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s addons enable viewer --ingress traefik --nodeport 31000</span>
+</code></pre></div>
+<h3 id="kubevirt">kubevirt</h3>
+<p>No <abbr title="Command-Line Interface">CLI</abbr> flags. Enables <abbr title="Virtual Machine">VM</abbr> workload management on Kubernetes.</p>
+<p>When used offline, the addon installs QEMU, libvirt, and <code>virtctl</code> on the Linux <abbr title="Virtual Machine">VM</abbr>, and <code>virt-viewer</code> MSI plus <code>virtctl</code> on the Windows host.</p>
+<p>Additional helper scripts:</p>
+<ul>
+<li><code>BuildKubevirtImage.ps1</code> — build <abbr title="Virtual Machine">VM</abbr> disk images for KubeVirt</li>
+<li><code>UploadImage.ps1</code> — upload disk images to a running KubeVirt instance</li>
+</ul>
+<h3 id="gpu-node">gpu-node</h3>
+<p>No <abbr title="Command-Line Interface">CLI</abbr> flags. Configures the Linux control-plane node to use NVIDIA GPUs.</p>
+<p>Installs the NVIDIA container toolkit on the Linux <abbr title="Virtual Machine">VM</abbr>. For <abbr title="Windows Subsystem for Linux">WSL</abbr> 2 setups, a custom kernel image (<code>microsoft-standard-wsl2</code>) is used to enable GPU passthrough.</p>
+<h3 id="autoscaling">autoscaling</h3>
+<p>No <abbr title="Command-Line Interface">CLI</abbr> flags. Installs <a href="https://keda.sh" target="_blank" rel="noopener">KEDA</a> (Kubernetes Event-Driven Autoscaling) for horizontally scaling workloads based on external events or triggers.</p>
+<h3 id="metrics">metrics</h3>
+<p>No <abbr title="Command-Line Interface">CLI</abbr> flags. Installs the Kubernetes <strong>metrics server</strong>, enabling <code>kubectl top nodes</code>, <code>kubectl top pods</code>, and Horizontal Pod Autoscaler (HPA) support.</p>
+<h2 id="managing-addons">Managing Addons</h2>
+<h3 id="listing-addons">Listing Addons</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s addons ls</span>
+</code></pre></div>
+<h3 id="enabling-an-addon">Enabling an Addon</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="gp"># </span>Enable<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span><span class="o">(</span>single<span class="w"> </span>implementation<span class="o">)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">k2s addons enable dashboard</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="gp"># </span>Enable<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>with<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="go">k2s addons enable ingress nginx</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="gp"># </span>Enable<span class="w"> </span>with<span class="w"> </span>flags
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="go">k2s addons enable dashboard --ingress</span>
+</code></pre></div>
+<h3 id="disabling-an-addon">Disabling an Addon</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s addons disable dashboard</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">k2s addons disable ingress nginx</span>
+</code></pre></div>
+<h3 id="checking-addon-status">Checking Addon Status</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons status dashboard</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="go">k2s addons status ingress nginx</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="gp"># </span>JSON<span class="w"> </span>output
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="go">k2s addons status registry -o json</span>
+</code></pre></div>
+<h2 id="offline-usage-oci-export-import">Offline Usage: OCI Export &amp; Import</h2>
+<p>One of the most powerful addon features is the ability to <strong>export addons as OCI-compliant artifacts</strong> and <strong>import them on air-gapped systems</strong>. This enables fully offline addon deployment without any network access.</p>
+<h3 id="how-it-works">How It Works</h3>
+<p>When you export an addon, K2s packages everything needed into a single OCI-compliant tar archive:</p>
+<ul>
+<li>Container images (Linux and Windows)</li>
+<li>Kubernetes manifests</li>
+<li>Helm charts</li>
+<li>Configuration files</li>
+<li>Enable/Disable scripts</li>
+</ul>
+<p>The resulting <code>.oci.tar</code> file follows the <a href="https://github.com/opencontainers/image-spec/blob/main/image-layout.md" target="_blank" rel="noopener">OCI Image Layout Specification</a>, making it compatible with standard container tooling.</p>
+<h3 id="exporting-addons">Exporting Addons</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gp"># </span>Export<span class="w"> </span>all<span class="w"> </span>addons
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="go">k2s addons export -d C:\export</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gp"># </span>Export<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">k2s addons export registry -d C:\export</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="gp"># </span>Export<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="go">k2s addons export &quot;ingress nginx&quot; -d C:\export</span>
+</code></pre></div>
+<p>The export produces a file like <code>addons.oci.tar</code> containing all requested addon artifacts.</p>
+<h3 id="importing-addons">Importing Addons</h3>
+<p>On the target system (which may be offline), import the previously exported archive:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="gp"># </span>Import<span class="w"> </span>all<span class="w"> </span>addons<span class="w"> </span>from<span class="w"> </span>archive
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">k2s addons import -z C:\transfer\addons.oci.tar</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="gp"># </span>Import<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="go">k2s addons import registry -z C:\transfer\addons.oci.tar</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="gp"># </span>Import<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="go">k2s addons import &quot;ingress nginx&quot; -z C:\transfer\addons.oci.tar</span>
+</code></pre></div>
+<p>After import, the addon images are loaded into the cluster's container runtime and the addon can be enabled normally.</p>
+<h3 id="typical-offline-workflow">Typical Offline Workflow</h3>
+<ol>
+<li><strong>On an online machine</strong> with K2s installed, export the addons you need:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s addons export &quot;ingress nginx&quot; registry monitoring -d C:\export</span>
+</code></pre></div></li>
+<li><strong>Transfer</strong> the <code>addons.oci.tar</code> file to the air-gapped environment (USB drive, secure file transfer, etc.)</li>
+<li><strong>On the offline machine</strong>, import and enable:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s addons import -z D:\transfer\addons.oci.tar</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="go">k2s addons enable ingress nginx</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="go">k2s addons enable registry</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="go">k2s addons enable monitoring</span>
+</code></pre></div></li>
+</ol>
+<h2 id="backup-restore">Backup &amp; Restore</h2>
+<p>Addons support data backup and restore for disaster recovery or migration scenarios.</p>
+<h3 id="backing-up-addon-data">Backing Up Addon Data</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="go">k2s addons backup registry -f C:\backups\registry-backup.zip</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>default<span class="w"> </span>location<span class="w"> </span><span class="o">(</span>C:<span class="se">\T</span>emp<span class="se">\A</span>ddons<span class="o">)</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="go">k2s addons backup registry</span>
+</code></pre></div>
+<h3 id="restoring-addon-data">Restoring Addon Data</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="go">k2s addons restore registry -f C:\backups\registry-backup.zip</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="gp"># </span>Restore<span class="w"> </span>newest<span class="w"> </span>backup<span class="w"> </span>from<span class="w"> </span>default<span class="w"> </span>location
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="go">k2s addons restore registry</span>
+</code></pre></div>
+<h2 id="gitops-with-the-rollout-addon">GitOps with the Rollout Addon</h2>
+<p>The <strong>rollout</strong> addon provides GitOps-based continuous deployment using either <strong>ArgoCD</strong> or <strong>Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr></strong>. This is especially powerful when combined with addon OCI export/import for offline environments.</p>
+<h3 id="why-gitops">Why GitOps?</h3>
+<ul>
+<li><strong>Declarative deployments</strong> — desired state is defined in Git, not applied manually</li>
+<li><strong>Audit trail</strong> — every change is a Git commit</li>
+<li><strong>Automated reconciliation</strong> — drift from desired state is automatically corrected</li>
+<li><strong>Reproducible environments</strong> — same Git repo produces identical deployments</li>
+</ul>
+<h3 id="argocd-implementation">ArgoCD Implementation</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s addons enable rollout argocd</span>
+</code></pre></div>
+<p>ArgoCD provides a web dashboard at <code>https://k2s.cluster.local/rollout</code> (when ingress is configured) for visual deployment management. It supports:</p>
+<ul>
+<li>Application deployment from Git repositories</li>
+<li>Sync status visualization</li>
+<li>Rollback capabilities</li>
+<li>Multi-application management</li>
+</ul>
+<p>Optional ingress integration:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
+</code></pre></div></p>
+<h3 id="flux-cd-implementation">Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> Implementation</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">k2s addons enable rollout fluxcd</span>
+</code></pre></div>
+<p>Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> provides a <abbr title="Command-Line Interface">CLI</abbr>/<abbr title="Yet Another Markup Language">YAML</abbr>-only GitOps experience with:</p>
+<ul>
+<li><code>GitRepository</code>, <code>Kustomization</code>, <code>HelmRepository</code>, <code>HelmRelease</code> CRDs</li>
+<li>Automatic polling of Git repositories (default: every 1 minute)</li>
+<li>Optional webhook ingress for push-based notifications</li>
+</ul>
+<p>Optional ingress integration:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">k2s addons enable rollout fluxcd --ingress traefik</span>
+</code></pre></div></p>
+<h3 id="offline-gitops-workflow">Offline GitOps Workflow</h3>
+<p>Combining OCI export/import with the rollout addon enables GitOps in air-gapped environments:</p>
+<ol>
+<li><strong>Export</strong> the rollout addon (and any other addons your applications depend on):
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s addons export rollout &quot;ingress nginx&quot; registry -d C:\export</span>
+</code></pre></div></li>
+<li><strong>Transfer</strong> and <strong>import</strong> on the offline cluster:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons import -z D:\transfer\addons.oci.tar</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
+</code></pre></div></li>
+<li><strong>Configure ArgoCD/Flux</strong> to point to a local Git server (also deployed in the cluster or available on the local network) containing your application manifests.</li>
+</ol>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Most of the <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> commands require administrator privileges.</p>
+<p>Only one rollout implementation can be active at a time — ArgoCD and Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> are mutually exclusive.</p>
 </div>
-<hr />
-<h2 id="install">install</h2>
-<p>Installs a <em>K2s</em> Kubernetes cluster on the host machine.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s install [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--master-cpus</code></td>
-<td></td>
-<td>Number of CPUs allocated to master <abbr title="Virtual Machine">VM</abbr></td>
-</tr>
-<tr>
-<td><code>--master-memory</code></td>
-<td></td>
-<td><abbr title="Random-Access Memory">RAM</abbr> for master <abbr title="Virtual Machine">VM</abbr> (minimum 2 GB)</td>
-</tr>
-<tr>
-<td><code>--master-disk</code></td>
-<td></td>
-<td>Disk size for master <abbr title="Virtual Machine">VM</abbr> (minimum 10 GB)</td>
-</tr>
-<tr>
-<td><code>--proxy</code></td>
-<td><code>-p</code></td>
-<td><abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy</td>
-</tr>
-<tr>
-<td><code>--no-proxy</code></td>
-<td></td>
-<td>No-proxy hosts/domains (comma-separated)</td>
-</tr>
-<tr>
-<td><code>--config</code></td>
-<td><code>-c</code></td>
-<td>Path to config file</td>
-</tr>
-<tr>
-<td><code>--wsl</code></td>
-<td></td>
-<td>Use <abbr title="Windows Subsystem for Linux">WSL</abbr> 2 for hosting the KubeMaster</td>
-</tr>
-<tr>
-<td><code>--linux-only</code></td>
-<td></td>
-<td>No Windows worker node</td>
-</tr>
-<tr>
-<td><code>--force-online-installation</code></td>
-<td><code>-f</code></td>
-<td>Force online installation</td>
-</tr>
-<tr>
-<td><code>--delete-files-for-offline-installation</code></td>
-<td><code>-d</code></td>
-<td>Delete offline-only files after online install</td>
-</tr>
-<tr>
-<td><code>--k8s-bins</code></td>
-<td></td>
-<td>Path to locally built Kubernetes binaries</td>
-</tr>
-<tr>
-<td><code>--skip-start</code></td>
-<td></td>
-<td>Do not start the cluster after installation</td>
-</tr>
-<tr>
-<td><code>--append-log</code></td>
-<td></td>
-<td>Append to existing log file</td>
-</tr>
-<tr>
-<td><code>--additional-hooks-dir</code></td>
-<td></td>
-<td>Directory with additional hook scripts</td>
-</tr>
-</tbody>
-</table>
-<h3 id="install-buildonly">install buildonly</h3>
-<p>Installs a minimal <em>buildonly</em> setup (Linux <abbr title="Virtual Machine">VM</abbr> without Windows worker node, intended for container image building only).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s install buildonly [flags]</span>
-</code></pre></div>
-<p>Accepts the same <abbr title="Virtual Machine">VM</abbr>-resource, proxy, and config flags as <code>install</code>.</p>
-<hr />
-<h2 id="uninstall">uninstall</h2>
-<p>Removes the <em>K2s</em> cluster from the host machine.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s uninstall [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--skip-purge</code></td>
-<td></td>
-<td>Keep installation files on disk</td>
-</tr>
-<tr>
-<td><code>--delete-files-for-offline-installation</code></td>
-<td><code>-d</code></td>
-<td>Delete offline-only files</td>
-</tr>
-<tr>
-<td><code>--additional-hooks-dir</code></td>
-<td></td>
-<td>Directory with additional hook scripts</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="start">start</h2>
-<p>Starts a previously installed <em>K2s</em> cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s start [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--ignore-if-running</code></td>
-<td><code>-i</code></td>
-<td>Skip if already running</td>
-</tr>
-<tr>
-<td><code>--autouse-cached-vswitch</code></td>
-<td></td>
-<td>Re-use the cached vSwitch (cbr0 / KubeSwitch)</td>
-</tr>
-<tr>
-<td><code>--additional-hooks-dir</code></td>
-<td></td>
-<td>Directory with additional hook scripts</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="stop">stop</h2>
-<p>Stops the running <em>K2s</em> cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s stop [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--cache-vswitch</code></td>
-<td></td>
-<td>Cache vswitches for cluster connectivity</td>
-</tr>
-<tr>
-<td><code>--additional-hooks-dir</code></td>
-<td></td>
-<td>Directory with additional hook scripts</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="status">status</h2>
-<p>Prints status information about the <em>K2s</em> cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s status [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--output</code></td>
-<td><code>-o</code></td>
-<td>Output format: <code>wide</code>, <code>json</code></td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="version">version</h2>
-<p>Prints the installed <em>K2s</em> version.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s version</span>
-</code></pre></div>
-<hr />
-<h2 id="image">image</h2>
-<p>Manage container images on the cluster nodes.</p>
-<h3 id="image-ls">image ls</h3>
-<p>List images on all nodes.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s image ls [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--include-k8s-images</code></td>
-<td><code>-A</code></td>
-<td>Include Kubernetes system images</td>
-</tr>
-<tr>
-<td><code>--output</code></td>
-<td><code>-o</code></td>
-<td>Output format: <code>json</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="image-build">image build</h3>
-<p>Build a container image.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s image build [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--input-folder</code></td>
-<td><code>-d</code></td>
-<td>Build context directory (default <code>.</code>)</td>
-</tr>
-<tr>
-<td><code>--dockerfile</code></td>
-<td><code>-f</code></td>
-<td>Dockerfile location</td>
-</tr>
-<tr>
-<td><code>--image-name</code></td>
-<td><code>-n</code></td>
-<td>Image name</td>
-</tr>
-<tr>
-<td><code>--image-tag</code></td>
-<td><code>-t</code></td>
-<td>Image tag</td>
-</tr>
-<tr>
-<td><code>--build-arg</code></td>
-<td></td>
-<td>Build arguments (repeatable)</td>
-</tr>
-<tr>
-<td><code>--windows</code></td>
-<td><code>-w</code></td>
-<td>Build a Windows container image</td>
-</tr>
-<tr>
-<td><code>--push</code></td>
-<td><code>-p</code></td>
-<td>Push to private registry after build</td>
-</tr>
-</tbody>
-</table>
-<h3 id="image-pull">image pull</h3>
-<p>Pull an image onto a Kubernetes node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s image pull &lt;image&gt; [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--windows</code></td>
-<td><code>-w</code></td>
-<td>Pull onto the Windows node</td>
-</tr>
-</tbody>
-</table>
-<h3 id="image-push">image push</h3>
-<p>Push an image into a registry.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s image push [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--id</code></td>
-<td></td>
-<td>Image <abbr title="Identifier">ID</abbr></td>
-</tr>
-<tr>
-<td><code>--image-name</code></td>
-<td><code>-n</code></td>
-<td>Image name including tag</td>
-</tr>
-</tbody>
-</table>
-<h3 id="image-tag">image tag</h3>
-<p>Tag an existing image with a new name.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s image tag [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--id</code></td>
-<td></td>
-<td>Image <abbr title="Identifier">ID</abbr></td>
-</tr>
-<tr>
-<td><code>--image-name</code></td>
-<td><code>-n</code></td>
-<td>Current image name including tag</td>
-</tr>
-<tr>
-<td><code>--target-name</code></td>
-<td><code>-t</code></td>
-<td>New image name including tag</td>
-</tr>
-</tbody>
-</table>
-<h3 id="image-export">image export</h3>
-<p>Export an image to a tar archive.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s image export [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--id</code></td>
-<td></td>
-<td>Image <abbr title="Identifier">ID</abbr></td>
-</tr>
-<tr>
-<td><code>--name</code></td>
-<td><code>-n</code></td>
-<td>Image name including tag</td>
-</tr>
-<tr>
-<td><code>--tar</code></td>
-<td><code>-t</code></td>
-<td>Output tar file path</td>
-</tr>
-<tr>
-<td><code>--docker-archive</code></td>
-<td></td>
-<td>Export as docker-archive (default: oci-archive)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="image-import">image import</h3>
-<p>Import an image from a tar archive.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s image import [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--tar</code></td>
-<td><code>-t</code></td>
-<td>Path to oci-archive tar</td>
-</tr>
-<tr>
-<td><code>--dir</code></td>
-<td><code>-d</code></td>
-<td>Directory containing multiple oci-archive tars</td>
-</tr>
-<tr>
-<td><code>--windows</code></td>
-<td><code>-w</code></td>
-<td>Import as Windows image</td>
-</tr>
-<tr>
-<td><code>--docker-archive</code></td>
-<td></td>
-<td>Import from docker-archive tar</td>
-</tr>
-</tbody>
-</table>
-<h3 id="image-rm">image rm</h3>
-<p>Remove a container image.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s image rm [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--id</code></td>
-<td></td>
-<td>Image <abbr title="Identifier">ID</abbr></td>
-</tr>
-<tr>
-<td><code>--name</code></td>
-<td></td>
-<td>Image name</td>
-</tr>
-<tr>
-<td><code>--from-registry</code></td>
-<td></td>
-<td>Remove from local registry</td>
-</tr>
-<tr>
-<td><code>--force</code></td>
-<td></td>
-<td>Force removal (removes containers using the image first)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="image-clean">image clean</h3>
-<p>Remove all non-system container images from every node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s image clean</span>
-</code></pre></div>
-<h3 id="image-reset-win-storage">image reset-win-storage</h3>
-<p>Reset the containerd and Docker image storage on Windows nodes.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s image reset-win-storage [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--containerd</code></td>
-<td></td>
-<td>Containerd directory</td>
-</tr>
-<tr>
-<td><code>--docker</code></td>
-<td></td>
-<td>Docker directory</td>
-</tr>
-<tr>
-<td><code>--max-retry</code></td>
-<td></td>
-<td>Max retries for directory deletion (default <code>1</code>)</td>
-</tr>
-<tr>
-<td><code>--force-zap</code></td>
-<td><code>-z</code></td>
-<td>Use <code>zap.exe</code> to forcefully remove directories</td>
-</tr>
-<tr>
-<td><code>--force</code></td>
-<td><code>-f</code></td>
-<td>No user prompts</td>
-</tr>
-</tbody>
-</table>
-<h3 id="image-registry">image registry</h3>
-<p>Manage configured container registries.</p>
-<h4 id="image-registry-add">image registry add</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s image registry add &lt;registry-url&gt; [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--username</code></td>
-<td><code>-u</code></td>
-<td>Registry username</td>
-</tr>
-<tr>
-<td><code>--password</code></td>
-<td><code>-p</code></td>
-<td>Registry password</td>
-</tr>
-<tr>
-<td><code>--skip-verify</code></td>
-<td></td>
-<td>Skip HTTPS certificate verification</td>
-</tr>
-<tr>
-<td><code>--plain-http</code></td>
-<td></td>
-<td>Allow plain <abbr title="Hypertext Transfer Protocol">HTTP</abbr> fallback</td>
-</tr>
-</tbody>
-</table>
-<h4 id="image-registry-rm">image registry rm</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">k2s image registry rm &lt;registry-url&gt;</span>
-</code></pre></div>
-<h4 id="image-registry-ls">image registry ls</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">k2s image registry ls</span>
-</code></pre></div>
-<hr />
-<h2 id="addons">addons</h2>
-<p>Manage optional cluster addons. See the <a href="../addons/">Addons</a> page for a full overview.</p>
-<h3 id="addons-ls">addons ls</h3>
-<p>List all available addons and their status.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s addons ls [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--output</code></td>
-<td><code>-o</code></td>
-<td>Output format: <code>json</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="addons-enable-disable">addons enable / disable</h3>
-<p>Enable or disable a specific addon. The subcommands and their flags are defined dynamically from each addon's <code>addon.manifest.yaml</code>.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons enable &lt;addon&gt; [flags]</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="go">k2s addons disable &lt;addon&gt;</span>
-</code></pre></div>
-<div class="admonition example">
-<p class="admonition-title">Example</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">k2s addons enable ingress</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="go">k2s addons enable registry</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="go">k2s addons disable dashboard</span>
-</code></pre></div>
-</div>
-<h3 id="addons-status">addons status</h3>
-<p>Print the status of a specific addon.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="go">k2s addons status &lt;addon&gt; [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--output</code></td>
-<td><code>-o</code></td>
-<td>Output format: <code>json</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="addons-export">addons export</h3>
-<p>Export an addon and its container images as an OCI artifact.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="go">k2s addons export &lt;addon&gt; [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--directory</code></td>
-<td><code>-d</code></td>
-<td>Target directory for the exported artifact</td>
-</tr>
-</tbody>
-</table>
-<h3 id="addons-import">addons import</h3>
-<p>Import a previously exported addon from an OCI artifact.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="go">k2s addons import &lt;addon&gt; [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--zip</code></td>
-<td><code>-z</code></td>
-<td>Path to the OCI artifact tar file</td>
-</tr>
-</tbody>
-</table>
-<h3 id="addons-backup">addons backup</h3>
-<p>Back up addon data (persistent volumes, configuration).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="go">k2s addons backup &lt;addon&gt; [implementation] [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--file</code></td>
-<td><code>-f</code></td>
-<td>Output zip file path</td>
-</tr>
-</tbody>
-</table>
-<h3 id="addons-restore">addons restore</h3>
-<p>Restore addon data from a backup.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="go">k2s addons restore &lt;addon&gt; [implementation] [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--file</code></td>
-<td><code>-f</code></td>
-<td>Input zip file path (default: newest match in <code>C:\Temp\Addons</code>)</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="system">system</h2>
-<p>Perform system-level tasks — upgrading, packaging, backup/restore, diagnostics, certificates, proxy, users, and network reset.</p>
-<h3 id="system-upgrade">system upgrade</h3>
-<p>Upgrade the installed <em>K2s</em> cluster to the version of the package (full upgrade or in-place delta update).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="go">k2s system upgrade [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--skip-resources</code></td>
-<td><code>-s</code></td>
-<td>Skip takeover of <abbr title="Kubernetes">K8s</abbr> resources</td>
-</tr>
-<tr>
-<td><code>--skip-images</code></td>
-<td><code>-i</code></td>
-<td>Skip takeover of container images</td>
-</tr>
-<tr>
-<td><code>--delete-files</code></td>
-<td><code>-d</code></td>
-<td>Delete downloaded files after upgrade</td>
-</tr>
-<tr>
-<td><code>--config</code></td>
-<td><code>-c</code></td>
-<td>Path to config file</td>
-</tr>
-<tr>
-<td><code>--proxy</code></td>
-<td><code>-p</code></td>
-<td><abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy</td>
-</tr>
-<tr>
-<td><code>--backup-dir</code></td>
-<td><code>-b</code></td>
-<td>Backup directory</td>
-</tr>
-<tr>
-<td><code>--force</code></td>
-<td><code>-f</code></td>
-<td>Force upgrade even if versions are not consecutive</td>
-</tr>
-<tr>
-<td><code>--additional-hooks-dir</code></td>
-<td></td>
-<td>Directory with additional hook scripts</td>
-</tr>
-</tbody>
-</table>
-<h3 id="system-package">system package</h3>
-<p>Build a <em>K2s</em> zip package (optionally offline, delta, or code-signed).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="go">k2s system package [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--target-dir</code></td>
-<td><code>-d</code></td>
-<td><strong>Required.</strong> Target directory</td>
-</tr>
-<tr>
-<td><code>--name</code></td>
-<td><code>-n</code></td>
-<td><strong>Required.</strong> Package zip file name</td>
-</tr>
-<tr>
-<td><code>--for-offline-installation</code></td>
-<td></td>
-<td>Create offline package</td>
-</tr>
-<tr>
-<td><code>--delta-package</code></td>
-<td></td>
-<td>Create a delta package</td>
-</tr>
-<tr>
-<td><code>--package-version-from</code></td>
-<td></td>
-<td>Base full-package zip (required with <code>--delta-package</code>)</td>
-</tr>
-<tr>
-<td><code>--package-version-to</code></td>
-<td></td>
-<td>Target full-package zip (required with <code>--delta-package</code>)</td>
-</tr>
-<tr>
-<td><code>--certificate</code></td>
-<td><code>-c</code></td>
-<td>Code-signing certificate (.pfx)</td>
-</tr>
-<tr>
-<td><code>--password</code></td>
-<td><code>-w</code></td>
-<td>Certificate password</td>
-</tr>
-<tr>
-<td><code>--profile</code></td>
-<td></td>
-<td>Packaging profile: <code>Dev</code> (default) or <code>Lite</code></td>
-</tr>
-<tr>
-<td><code>--addons-list</code></td>
-<td></td>
-<td>Comma-separated addons to include</td>
-</tr>
-<tr>
-<td><code>--master-cpus</code></td>
-<td></td>
-<td>CPUs for master <abbr title="Virtual Machine">VM</abbr></td>
-</tr>
-<tr>
-<td><code>--master-memory</code></td>
-<td></td>
-<td>Memory for master <abbr title="Virtual Machine">VM</abbr></td>
-</tr>
-<tr>
-<td><code>--master-disk</code></td>
-<td></td>
-<td>Disk for master <abbr title="Virtual Machine">VM</abbr></td>
-</tr>
-<tr>
-<td><code>--proxy</code></td>
-<td><code>-p</code></td>
-<td><abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy</td>
-</tr>
-<tr>
-<td><code>--k8s-bins</code></td>
-<td></td>
-<td>Path to locally built Kubernetes binaries</td>
-</tr>
-</tbody>
-</table>
-<h3 id="system-backup">system backup</h3>
-<p>Back up the cluster (resources, persistent volumes, user images).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="go">k2s system backup [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--file</code></td>
-<td><code>-f</code></td>
-<td>Output zip file path</td>
-</tr>
-<tr>
-<td><code>--skip-images</code></td>
-<td></td>
-<td>Skip container image backup</td>
-</tr>
-<tr>
-<td><code>--skip-pvs</code></td>
-<td></td>
-<td>Skip persistent volume backup</td>
-</tr>
-<tr>
-<td><code>--additional-hooks-dir</code></td>
-<td></td>
-<td>Directory with additional hook scripts</td>
-</tr>
-</tbody>
-</table>
-<h3 id="system-restore">system restore</h3>
-<p>Restore a <em>K2s</em> cluster from a backup.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="go">k2s system restore [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--file</code></td>
-<td><code>-f</code></td>
-<td><strong>Required.</strong> Backup zip file</td>
-</tr>
-<tr>
-<td><code>--error-on-failure</code></td>
-<td><code>-e</code></td>
-<td>Fail on resource-restore errors</td>
-</tr>
-<tr>
-<td><code>--additional-hooks-dir</code></td>
-<td></td>
-<td>Directory with additional hook scripts</td>
-</tr>
-</tbody>
-</table>
-<h3 id="system-dump">system dump</h3>
-<p>Dump full system status to a folder for diagnostics.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="go">k2s system dump [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--skip-open</code></td>
-<td><code>-S</code></td>
-<td>Do not open the dump folder afterwards</td>
-</tr>
-</tbody>
-</table>
-<h3 id="system-certificate-renew">system certificate renew</h3>
-<p>Renew Kubernetes certificates.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="go">k2s system certificate renew [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--force</code></td>
-<td><code>-f</code></td>
-<td>Force renewal</td>
-</tr>
-</tbody>
-</table>
-<h3 id="system-proxy">system proxy</h3>
-<p>Manage <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy settings for the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="go">k2s system proxy set &lt;proxy-uri&gt;</span>
-<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="go">k2s system proxy get</span>
-<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="go">k2s system proxy show</span>
-<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a><span class="go">k2s system proxy reset</span>
-</code></pre></div>
-<h4 id="system-proxy-override">system proxy override</h4>
-<p>Manage no-proxy overrides.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="go">k2s system proxy override add &lt;hosts...&gt;</span>
-<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="go">k2s system proxy override delete &lt;hosts...&gt;</span>
-<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="go">k2s system proxy override ls</span>
-</code></pre></div>
-<h3 id="system-users-add">system users add</h3>
-<p>Grant a Windows user access to the <em>K2s</em> cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="go">k2s system users add [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--username</code></td>
-<td><code>-u</code></td>
-<td>Windows user name (mutually exclusive with <code>--id</code>)</td>
-</tr>
-<tr>
-<td><code>--id</code></td>
-<td><code>-i</code></td>
-<td>Windows user <abbr title="Identifier">ID</abbr> (mutually exclusive with <code>--username</code>)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="system-reset-network">system reset network</h3>
-<p>Reset the host network configuration (requires reboot).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="go">k2s system reset network [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--force</code></td>
-<td><code>-f</code></td>
-<td>Force network reset</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="node">node</h2>
-<div class="admonition warning">
-<p class="admonition-title">Experimental</p>
-<p>All <code>node</code> subcommands are experimental.</p>
-</div>
-<p>Manage additional cluster nodes (physical machines or VMs).</p>
-<h3 id="node-add">node add</h3>
-<p>Add a node to the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="go">k2s node add [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--ip-addr</code></td>
-<td><code>-i</code></td>
-<td><strong>Required.</strong> <abbr title="Internet Protocol">IP</abbr> address of the machine</td>
-</tr>
-<tr>
-<td><code>--username</code></td>
-<td><code>-u</code></td>
-<td><strong>Required.</strong> <abbr title="Secure Shell">SSH</abbr> username</td>
-</tr>
-<tr>
-<td><code>--name</code></td>
-<td><code>-m</code></td>
-<td>Hostname</td>
-</tr>
-<tr>
-<td><code>--role</code></td>
-<td><code>-r</code></td>
-<td>Node role (default <code>worker</code>)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="node-remove">node remove</h3>
-<p>Remove a node from the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="go">k2s node remove [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--name</code></td>
-<td><code>-m</code></td>
-<td><strong>Required.</strong> Hostname of the machine</td>
-</tr>
-</tbody>
-</table>
-<h3 id="node-copy">node copy</h3>
-<p>Copy files or folders between host and node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="go">k2s node copy [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--ip-addr</code></td>
-<td><code>-i</code></td>
-<td><strong>Required.</strong> Node <abbr title="Internet Protocol">IP</abbr> address</td>
-</tr>
-<tr>
-<td><code>--username</code></td>
-<td><code>-u</code></td>
-<td><strong>Required.</strong> <abbr title="Secure Shell">SSH</abbr> username</td>
-</tr>
-<tr>
-<td><code>--source</code></td>
-<td><code>-s</code></td>
-<td><strong>Required.</strong> Source path</td>
-</tr>
-<tr>
-<td><code>--target</code></td>
-<td><code>-t</code></td>
-<td><strong>Required.</strong> Target path</td>
-</tr>
-<tr>
-<td><code>--reverse</code></td>
-<td><code>-r</code></td>
-<td>Copy from node to host</td>
-</tr>
-<tr>
-<td><code>--port</code></td>
-<td><code>-p</code></td>
-<td><abbr title="Secure Shell">SSH</abbr> port</td>
-</tr>
-<tr>
-<td><code>--timeout</code></td>
-<td></td>
-<td>Connection timeout</td>
-</tr>
-</tbody>
-</table>
-<h3 id="node-exec">node exec</h3>
-<p>Execute a command on a remote node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="go">k2s node exec [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--ip-addr</code></td>
-<td><code>-i</code></td>
-<td><strong>Required.</strong> Node <abbr title="Internet Protocol">IP</abbr> address</td>
-</tr>
-<tr>
-<td><code>--username</code></td>
-<td><code>-u</code></td>
-<td><strong>Required.</strong> <abbr title="Secure Shell">SSH</abbr> username</td>
-</tr>
-<tr>
-<td><code>--command</code></td>
-<td><code>-c</code></td>
-<td><strong>Required.</strong> Command to execute</td>
-</tr>
-<tr>
-<td><code>--port</code></td>
-<td><code>-p</code></td>
-<td><abbr title="Secure Shell">SSH</abbr> port</td>
-</tr>
-<tr>
-<td><code>--timeout</code></td>
-<td></td>
-<td>Connection timeout</td>
-</tr>
-<tr>
-<td><code>--raw</code></td>
-<td><code>-r</code></td>
-<td>Print only remote output</td>
-</tr>
-</tbody>
-</table>
-<h3 id="node-connect">node connect</h3>
-<p>Open an interactive <abbr title="Secure Shell">SSH</abbr> session to a remote node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="go">k2s node connect [flags]</span>
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Short</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--ip-addr</code></td>
-<td><code>-i</code></td>
-<td><strong>Required.</strong> Node <abbr title="Internet Protocol">IP</abbr> address</td>
-</tr>
-<tr>
-<td><code>--username</code></td>
-<td><code>-u</code></td>
-<td><strong>Required.</strong> <abbr title="Secure Shell">SSH</abbr> username</td>
-</tr>
-<tr>
-<td><code>--port</code></td>
-<td><code>-p</code></td>
-<td><abbr title="Secure Shell">SSH</abbr> port</td>
-</tr>
-<tr>
-<td><code>--timeout</code></td>
-<td></td>
-<td>Connection timeout</td>
-</tr>
-</tbody>
-</table>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="../../op-manual/creating-offline-package/">Creating Offline Package</a> — includes addon packaging in the K2s offline package</li>
+<li><a href="../../op-manual/upgrading-k2s/">Upgrading K2s</a> — addon behavior during cluster upgrades</li>
+</ul>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -4732,7 +4001,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../hosting-variants/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Hosting Variants">
+          <a href="../cli-shortcuts/" class="md-footer__link md-footer__link--prev" aria-label="Previous: CLI Shortcuts">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4742,20 +4011,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Hosting Variants
+                CLI Shortcuts
               </div>
             </div>
           </a>
         
         
           
-          <a href="../cli-shortcuts/" class="md-footer__link md-footer__link--next" aria-label="Next: CLI Shortcuts">
+          <a href="../cluster-ip-addresses/" class="md-footer__link md-footer__link--next" aria-label="Next: Assignment of Cluster IP Addresses for Services">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                CLI Shortcuts
+                Assignment of Cluster IP Addresses for Services
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -5,6 +5,10 @@
          <lastmod>2026-02-19</lastmod>
     </url>
     <url>
+         <loc>https://Siemens-Healthineers.github.io/K2s/next/dev-guide/architecture/</loc>
+         <lastmod>2026-02-19</lastmod>
+    </url>
+    <url>
          <loc>https://Siemens-Healthineers.github.io/K2s/next/dev-guide/hosting-variants-features-matrix/</loc>
          <lastmod>2026-02-19</lastmod>
     </url>
@@ -77,6 +81,10 @@
          <lastmod>2026-02-19</lastmod>
     </url>
     <url>
+         <loc>https://Siemens-Healthineers.github.io/K2s/next/op-manual/configuration-reference/</loc>
+         <lastmod>2026-02-19</lastmod>
+    </url>
+    <url>
          <loc>https://Siemens-Healthineers.github.io/K2s/next/op-manual/configuring-httpproxy-service/</loc>
          <lastmod>2026-02-19</lastmod>
     </url>
@@ -98,6 +106,10 @@
     </url>
     <url>
          <loc>https://Siemens-Healthineers.github.io/K2s/next/op-manual/getting-k2s/</loc>
+         <lastmod>2026-02-19</lastmod>
+    </url>
+    <url>
+         <loc>https://Siemens-Healthineers.github.io/K2s/next/op-manual/hook-system/</loc>
          <lastmod>2026-02-19</lastmod>
     </url>
     <url>
@@ -145,6 +157,10 @@
          <lastmod>2026-02-19</lastmod>
     </url>
     <url>
+         <loc>https://Siemens-Healthineers.github.io/K2s/next/security/security-features/</loc>
+         <lastmod>2026-02-19</lastmod>
+    </url>
+    <url>
          <loc>https://Siemens-Healthineers.github.io/K2s/next/troubleshooting/diagnostics/</loc>
          <lastmod>2026-02-19</lastmod>
     </url>
@@ -154,6 +170,10 @@
     </url>
     <url>
          <loc>https://Siemens-Healthineers.github.io/K2s/next/user-guide/adding-container-registry/</loc>
+         <lastmod>2026-02-19</lastmod>
+    </url>
+    <url>
+         <loc>https://Siemens-Healthineers.github.io/K2s/next/user-guide/addons/</loc>
          <lastmod>2026-02-19</lastmod>
     </url>
     <url>
