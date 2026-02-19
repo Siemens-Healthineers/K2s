@@ -93,7 +93,7 @@ spec:
     kubernetes.io/os: windows
   containers:
     - name: pause
-      image: shsk2s.azurecr.io/pause-win:v1.5.0
+      image: shsk2s.azurecr.io/pause-win:v1.7.0
       imagePullPolicy: IfNotPresent
   restartPolicy: Always
 ---

@@ -11,7 +11,8 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/reset"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/upgrade"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/users"
-
+    "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/backup"
+    "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/restore"
 	"github.com/spf13/cobra"
 )
 
@@ -28,4 +29,6 @@ func init() {
 	SystemCmd.AddCommand(users.NewCommand())
 	SystemCmd.AddCommand(certificate.CertificateCmd)
 	SystemCmd.AddCommand(proxy.ProxyCmd)
+	SystemCmd.AddCommand(backup.SystemBackupCmd)
+	SystemCmd.AddCommand(restore.SystemRestoreCmd)
 }

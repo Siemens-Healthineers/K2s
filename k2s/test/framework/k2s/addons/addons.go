@@ -562,8 +562,8 @@ func GetKeycloakToken() (string, error) {
 }
 
 func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expectedStatusCode int, url string, headers ...map[string]string) {
-	// Create a standard HTTP client
-	client := &http.Client{}
+	// Create an HTTP client with Windows certificate store trust for proper TLS handling
+	client := createHTTPClientWithWindowsCerts(30 * time.Second)
 
 	// Retry mechanism
 	maxRetries := 5
