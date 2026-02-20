@@ -802,6 +802,12 @@ function Invoke-ClusterInstall {
 		[switch] $DeleteFiles = $false,
 		[parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of master VM (Linux)')]
 		[string] $MasterVMMemory,
+		[parameter(Mandatory = $false, HelpMessage = 'Enable dynamic memory for master VM')]
+		[switch] $EnableDynamicMemory = $false,
+		[parameter(Mandatory = $false, HelpMessage = 'Minimum memory for master VM when dynamic memory is enabled')]
+		[string] $MasterVMMemoryMin,
+		[parameter(Mandatory = $false, HelpMessage = 'Maximum memory for master VM when dynamic memory is enabled')]
+		[string] $MasterVMMemoryMax,
 		[parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
 		[string] $MasterVMProcessorCount,
 		[parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
@@ -832,7 +838,23 @@ function Invoke-ClusterInstall {
 	if ( $DeleteFiles ) { $argsCall += ' -d' }
 	$argsCall += ' --append-log'
 	if ( -not [string]::IsNullOrEmpty($MasterVMProcessorCount) ) { $argsCall += " --master-cpus $MasterVMProcessorCount" }
-	if ( -not [string]::IsNullOrEmpty($MasterVMMemory) ) { $argsCall += " --master-memory $MasterVMMemory" }
+
+	# Handle memory configuration
+	if ( -not [string]::IsNullOrEmpty($MasterVMMemory) ) {
+		$argsCall += " --master-memory $MasterVMMemory"
+	}
+
+	# Handle dynamic memory configuration
+	if ( $EnableDynamicMemory ) {
+		$argsCall += " --master-dynamic-memory"
+		if ( -not [string]::IsNullOrEmpty($MasterVMMemoryMin) ) {
+			$argsCall += " --master-memory-min $MasterVMMemoryMin"
+		}
+		if ( -not [string]::IsNullOrEmpty($MasterVMMemoryMax) ) {
+			$argsCall += " --master-memory-max $MasterVMMemoryMax"
+		}
+	}
+
 	if ( -not [string]::IsNullOrEmpty($MasterDiskSize) ) { $argsCall += " --master-disk $MasterDiskSize" }
 	Write-Log "Install with arguments: $K2sPathToInstallFrom\k2s $argsCall"
 	$rt = Invoke-Cmd -Executable $texe -Arguments $argsCall
@@ -874,7 +896,17 @@ function Get-LinuxVMCores {
 
 function Get-LinuxVMMemory {
 	$memory = Get-VMMemory $controlPlaneName
-	return [math]::round($memory.Startup / 1GB, 2).ToString() + 'GB'
+	$memoryConfig = @{
+		Startup = [math]::round($memory.Startup / 1GB, 2).ToString() + 'GB'
+		DynamicMemoryEnabled = $memory.DynamicMemoryEnabled
+	}
+
+	if ($memory.DynamicMemoryEnabled) {
+		$memoryConfig.Minimum = [math]::round($memory.Minimum / 1GB, 2).ToString() + 'GB'
+		$memoryConfig.Maximum = [math]::round($memory.Maximum / 1GB, 2).ToString() + 'GB'
+	}
+
+	return $memoryConfig
 }
 
 function Get-LinuxVMStorageSize {
@@ -1072,7 +1104,16 @@ function PrepareClusterUpgrade {
 		$coresVM.Value = Get-LinuxVMCores
 		$memoryVM.Value = Get-LinuxVMMemory
 		$storageVM.Value = Get-LinuxVMStorageSize
-		Write-Log "Current settings for the Linux VM, Cores: $($coresVM.Value), Memory: $($memoryVM.Value) GB, Storage: $($storageVM.Value) GB" -Console
+
+		# Log current VM settings
+		$memoryInfo = "Cores: $($coresVM.Value), Memory: $($memoryVM.Value.Startup) GB"
+		if ($memoryVM.Value.DynamicMemoryEnabled) {
+			$memoryInfo += " (Dynamic Memory: Min=$($memoryVM.Value.Minimum), Max=$($memoryVM.Value.Maximum))"
+		} else {
+			$memoryInfo += " (Static Memory)"
+		}
+		$memoryInfo += ", Storage: $($storageVM.Value) GB"
+		Write-Log "Current settings for the Linux VM: $memoryInfo" -Console
 
 		# check for yaml tools
 		Assert-YamlTools -Proxy $Proxy
@@ -1182,7 +1223,7 @@ function PerformClusterUpgrade {
 		[string] $Proxy,
 		[string] $BackupDir,
 		[string] $AdditionalHooksDir,
-		[string] $memoryVM,
+		[hashtable] $memoryVM,
 		[string] $coresVM,
 		[string] $storageVM,
 		[System.Collections.ArrayList] $enabledAddonsList,
@@ -1218,7 +1259,38 @@ function PerformClusterUpgrade {
 		if ([string]::IsNullOrEmpty($K2sPathToInstallFrom)) {
 			$K2sPathToInstallFrom =  Get-KubePath
 		}
-		Invoke-ClusterInstall -K2sPathToInstallFrom $K2sPathToInstallFrom -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -DeleteFiles:$DeleteFiles -MasterVMMemory $memoryVM -MasterVMProcessorCount $coresVM -MasterDiskSize $storageVM
+
+		# Prepare memory parameters for reinstall
+		$installParams = @{
+			K2sPathToInstallFrom = $K2sPathToInstallFrom
+			ShowLogs = $ShowLogs
+			Config = $Config
+			Proxy = $Proxy
+			DeleteFiles = $DeleteFiles
+			MasterVMProcessorCount = $coresVM
+			MasterDiskSize = $storageVM
+		}
+
+		# Add memory configuration
+		if ($null -ne $memoryVM -and $memoryVM -is [hashtable]) {
+			if (-not [string]::IsNullOrEmpty($memoryVM.Startup)) {
+				$installParams.MasterVMMemory = $memoryVM.Startup
+			}
+			if ($memoryVM.DynamicMemoryEnabled -eq $true) {
+				$installParams.EnableDynamicMemory = $true
+				if (-not [string]::IsNullOrEmpty($memoryVM.Minimum)) {
+					$installParams.MasterVMMemoryMin = $memoryVM.Minimum
+				}
+				if (-not [string]::IsNullOrEmpty($memoryVM.Maximum)) {
+					$installParams.MasterVMMemoryMax = $memoryVM.Maximum
+				}
+			}
+		} elseif (-not [string]::IsNullOrEmpty($memoryVM)) {
+			# Legacy string format
+			$installParams.MasterVMMemory = $memoryVM
+		}
+
+		Invoke-ClusterInstall @installParams
 		Wait-ForAPIServerInGivenKubePath -KubePath $K2sPathToInstallFrom
 
 		# restore user application images FIRST - before importing resources to avoid image pulls

@@ -47,6 +47,9 @@ var (
 	# install K2s setup overwriting control-plane memory
 	k2s install --master-memory 8GB
 
+	# install K2s setup with dynamic memory management
+	k2s install --master-dynamic-memory --master-memory-min 2GB --master-memory-max 10GB
+
 	# install without Windows worker node
 	k2s install --linux-only
 
@@ -111,6 +114,9 @@ func bindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().String(ic.ControlPlaneCPUsFlagName, "", ic.ControlPlaneCPUsFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
+	cmd.Flags().String(ic.ControlPlaneMemoryMinFlagName, "", ic.ControlPlaneMemoryMinFlagUsage)
+	cmd.Flags().String(ic.ControlPlaneMemoryMaxFlagName, "", ic.ControlPlaneMemoryMaxFlagUsage)
+	cmd.Flags().Bool(ic.ControlPlaneDynamicMemoryFlagName, false, ic.ControlPlaneDynamicMemoryFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
 	cmd.Flags().StringSlice(ic.NoProxyFlagName, []string{}, ic.NoProxyFlagUsage)
@@ -234,6 +240,16 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		node.Resources.Cpu,
 		node.Resources.Memory,
 		node.Resources.Disk)
+
+	if node.Resources.DynamicMemory {
+		cmd += " -EnableDynamicMemory"
+		if node.Resources.MemoryMin != "" {
+			cmd += " -MasterVMMemoryMin " + node.Resources.MemoryMin
+		}
+		if node.Resources.MemoryMax != "" {
+			cmd += " -MasterVMMemoryMax " + node.Resources.MemoryMax
+		}
+	}
 
 	if c.Env.Proxy != "" {
 		cmd += " -Proxy " + c.Env.Proxy
