@@ -236,6 +236,7 @@ var _ = Describe("autoscaling addon export and import", Ordered, func() {
 
 			exportimport.ImportAddonRelativePath(ctx, suite, suite.RootDir(), relFilePath)
 			GinkgoWriter.Println("[Test] Import with relative path succeeded")
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
 		})
 
 		It("imports addon using a parent-relative file path", func(ctx context.Context) {
@@ -254,6 +255,7 @@ var _ = Describe("autoscaling addon export and import", Ordered, func() {
 
 			exportimport.ImportAddonRelativePath(ctx, suite, subDir, parentRelPath)
 			GinkgoWriter.Println("[Test] Import with parent-relative path succeeded")
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
 		})
 	})
 })
