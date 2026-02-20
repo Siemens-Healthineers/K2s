@@ -55,19 +55,19 @@ Example usage:
 
 ```powershell
 # Omit hydra and login
-k2s addons enable security -OmitHydra
+k2s addons enable security --omitHydra
 
 # Omit keycloak
-k2s addons enable security -OmitKeycloak
+k2s addons enable security --omitKeycloak
 
 # Omit OAuth2 proxy
-k2s addons enable security -OmitOAuth2Proxy
+k2s addons enable security --omitOAuth2Proxy
 
 # Omit all authentication components (cert-manager and linkerd only)
-k2s addons enable security -OmitHydra -OmitKeycloak -OmitOAuth2Proxy
+k2s addons enable security --omitHydra --omitKeycloak --omitOAuth2Proxy
 
 # Omit both
-k2s addons enable security -OmitHydra -OmitKeycloak
+k2s addons enable security --omitHydra --omitKeycloak
 ```
 
 If a component is omitted, the corresponding authentication or user management features will not be available in the cluster, and you must provide your own external solution if needed.
