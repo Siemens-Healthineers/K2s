@@ -108,6 +108,22 @@ Instead of assembling many command-line parameters/flags to customize the instal
     <repo>\k2s.exe install -c c:\temp\my_config.yaml
     ```
 
+!!! example "Dynamic Memory Config"
+    Enable dynamic memory with custom minimum and maximum values:
+    ```yaml linenums="1" title="dynamic_memory_config.yaml"
+    kind: k2s
+    apiVersion: v1
+    nodes:
+      - role: control-plane
+        resources:
+          cpu: 6
+          memory: 4GB           # Startup memory
+          memoryMin: 2GB        # Minimum memory
+          memoryMax: 8GB        # Maximum memory
+          dynamicMemory: true   # Enable dynamic memory
+          disk: 50GB
+    ```
+
 To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/Siemens-Healthineers/K2s/tree/main/k2s/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
 
 ### Online vs. Offline
