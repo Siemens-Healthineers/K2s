@@ -222,6 +222,7 @@ var _ = Describe("logging addon export and import", Ordered, func() {
 			relFilePath, err := filepath.Rel(suite.RootDir(), relOciFile)
 			Expect(err).ToNot(HaveOccurred())
 			exportimport.ImportAddonRelativePath(ctx, suite, suite.RootDir(), relFilePath)
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
 		})
 
 		It("imports addon using a parent-relative file path", func(ctx context.Context) {
@@ -232,6 +233,7 @@ var _ = Describe("logging addon export and import", Ordered, func() {
 			os.MkdirAll(subDir, 0o755)
 			parentRelPath := ".." + string(filepath.Separator) + filepath.Base(files[0])
 			exportimport.ImportAddonRelativePath(ctx, suite, subDir, parentRelPath)
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
 		})
 	})
 })
