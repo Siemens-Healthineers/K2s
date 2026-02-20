@@ -21,6 +21,7 @@ $infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.modu
 $clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\addons.module.psm1"
 $ociModule = "$PSScriptRoot\oci.module.psm1"
+$importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $ociModule
 
