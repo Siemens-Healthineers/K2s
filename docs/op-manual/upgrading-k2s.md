@@ -61,6 +61,20 @@ k2s system upgrade --force
 ### Configuration Override
 If you omit `-c`, the previous cluster's effective settings (memory, CPU, storage paths) are reused. To change them during an upgrade, provide a config file as described in [Installing Using Config Files](installing-k2s.md#installing-using-config-files).
 
+!!! info "Memory Configuration Preservation"
+    During upgrade, **all memory settings are automatically preserved**, including:
+    
+    - **Static memory**: VM memory allocation remains unchanged
+    - **Dynamic memory**: Startup, minimum, and maximum values are preserved
+    
+    Example:
+    ```
+    Before Upgrade: 4GB dynamic memory (min: 2GB, max: 8GB)
+    After Upgrade:  4GB dynamic memory (min: 2GB, max: 8GB) ✓ Preserved
+    ```
+    
+    To change memory configuration during upgrade (e.g., from static to dynamic memory), provide a config file with `-c`. See [Dynamic Memory Configuration](dynamic-memory.md) for details.
+
 ### What the Command Does
 Internally the following high‑level steps are performed:
 1. Export all existing workloads (cluster‑scoped resources and namespaced resources).
