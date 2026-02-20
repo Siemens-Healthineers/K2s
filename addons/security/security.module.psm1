@@ -252,6 +252,8 @@ function Enable-IngressForSecurity {
             break
         }
         'nginx-gw' {
+            Write-Log '[nginx-gw] Applying shared OAuth2 locations (/_auth, @oauth2_redirect)' -Console
+            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\oauth2-shared-locations.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\nginx-gw-ingress.yaml").Output | Write-Log
             break
         }
@@ -262,6 +264,7 @@ function Remove-IngressForSecurity {
     (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml", '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\traefik-ingress.yaml", '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\nginx-gw-ingress.yaml", '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\oauth2-shared-locations.yaml", '--ignore-not-found').Output | Write-Log
 }
 
 <#

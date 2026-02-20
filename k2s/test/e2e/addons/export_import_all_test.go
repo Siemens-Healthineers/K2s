@@ -194,9 +194,9 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				for _, i := range a.Spec.Implementations {
 					var expectedName string
 					if i.Name != a.Metadata.Name {
-						expectedName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name+"-"+i.Name, " ", "-")
 					} else {
-						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "-")
 					}
 
 					GinkgoWriter.Printf("Verifying addon: %s (implementation: %s) -> expected name: %s\n",
@@ -253,9 +253,9 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				for implIdx, i := range a.Spec.Implementations {
 					var expectedName string
 					if i.Name != a.Metadata.Name {
-						expectedName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name+"-"+i.Name, " ", "-")
 					} else {
-						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "-")
 					}
 
 					GinkgoWriter.Printf("[Test] [%d.%d] Addon: %s, Implementation: %s, Expected Name: %s\n",
