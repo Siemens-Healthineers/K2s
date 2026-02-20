@@ -7,6 +7,12 @@
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of master VM (Linux)')]
     [long] $MasterVMMemory = 6GB,
+    [parameter(Mandatory = $false, HelpMessage = 'Minimum Memory for Dynamic Memory (Linux Control Plane VM)')]
+    [long] $MasterVMMemoryMin = 0,
+    [parameter(Mandatory = $false, HelpMessage = 'Maximum Memory for Dynamic Memory (Linux Control Plane VM)')]
+    [long] $MasterVMMemoryMax = 0,
+    [parameter(Mandatory = $false, HelpMessage = 'Enable Hyper-V Dynamic Memory for Control Plane VM')]
+    [switch] $EnableDynamicMemory = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
     [uint64] $MasterDiskSize = 50GB,
     [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
@@ -65,6 +71,9 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
 
 $controlPlaneParams = @{
     MasterVMMemory                    = $MasterVMMemory
+    MasterVMMemoryMin                 = $MasterVMMemoryMin
+    MasterVMMemoryMax                 = $MasterVMMemoryMax
+    EnableDynamicMemory               = $EnableDynamicMemory
     MasterVMProcessorCount            = $MasterVMProcessorCount
     MasterDiskSize                    = $MasterDiskSize
     Proxy                             = $Proxy
