@@ -45,18 +45,13 @@ Use the built-in K2s export pipeline to produce an OCI artifact from any addon a
 # 1. Export the addon to an OCI Image Layout tar
 k2s addons export "metrics" -d C:\Temp\metrics-export
 
-# 2. Extract the tar (oras requires a directory, not a tar file)
+# 2. Push directly to a registry (the tar contains a standard OCI layout at its root)
 $tar = (Get-ChildItem C:\Temp\metrics-export -Filter *.oci.tar)[0].FullName
-New-Item -ItemType Directory -Force C:\Temp\metrics-oci | Out-Null
-tar -xf $tar -C C:\Temp\metrics-oci
-
-# 3. Push the OCI layout to a registry
-$digest = (Get-Content C:\Temp\metrics-oci\artifacts\index.json | ConvertFrom-Json).manifests[0].digest
-oras copy --from-oci-layout "C:\Temp\metrics-oci\artifacts@${digest}" `
+oras copy --from-oci-layout "${tar}:v1.0.0" `
   --to-plain-http k2s.registry.local:30500/k2s/addons/metrics:v1.0.0
 ```
 
-> **Why extract first?** The `k2s addons export` command produces an OCI Image Layout packaged as a `.oci.tar`. The `oras copy --from-oci-layout` command only accepts a directory path, not a tar file, so the extraction step is required.
+> **How it works:** The exported `.oci.tar` is a standard OCI Image Layout with `oci-layout`, `index.json`, and `blobs/` at the tar root. Each manifest entry includes an `org.opencontainers.image.ref.name` annotation, so `oras` can resolve by tag (e.g., `:v1.0.0`) without manual digest lookup.
 
 ### Step 3: Create a FluxCD OCIRepository
 
@@ -155,13 +150,37 @@ k2s addons enable metrics
 4. **Addon is staged** on all nodes — the controller extracts config, manifests, scripts, container images, and packages from the 7-layer OCI artifact.
 5. **You enable** the addon via `k2s addons enable <name>`.
 
+## OCI tar format
+
+The exported `.oci.tar` uses a **flat layout** — the OCI Image Layout files sit at the tar root with no wrapping subdirectory:
+
+```
+metrics.oci.tar
+├── oci-layout
+├── index.json
+└── blobs/
+    └── sha256/
+        ├── <config-descriptor>
+        ├── <manifest-descriptor>
+        └── <layer-blobs…>
+```
+
+This means:
+
+- **Extracting** the tar yields `oci-layout`, `index.json`, and `blobs/` directly in the target directory — there is no intermediate `artifacts/` subdirectory.
+- **Pushing** works in a single step with `oras copy --from-oci-layout` because the layout is at the tar root.
+- **Tag resolution** is supported via the `org.opencontainers.image.ref.name` annotation on each manifest entry in `index.json`, so you can reference by tag (e.g., `"${tar}:v1.0.0"`) without manual digest lookup.
+
+> **Migration note:** Earlier versions of the export pipeline nested the OCI layout under an `artifacts/` subdirectory inside the tar. This wrapper has been removed. If you have tooling that expected `artifacts/oci-layout` or `artifacts/index.json` after extraction, update it to look for those files at the extraction root instead.
+
 ## Updating an addon
 
 To deliver a new version, push a new tag to the registry and update the `OCIRepository` reference:
 
 ```powershell
 # Push the new version
-oras copy --from-oci-layout "artifacts@${digest}" `
+$tar = (Get-ChildItem C:\Temp\metrics-export -Filter *.oci.tar)[0].FullName
+oras copy --from-oci-layout "${tar}:v1.1.0" `
   --to-plain-http `
   k2s.registry.local:30500/k2s/addons/metrics:v1.1.0
 ```
