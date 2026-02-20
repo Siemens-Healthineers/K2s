@@ -83,6 +83,58 @@ Before upgrading across more than one minor version, back up:
 - Application persistent volumes (if external, ensure snapshots exist).
 - Custom configuration files and secrets (outside of version-controlled items).
 
+#### System Backup
+
+Use the built-in backup command to capture cluster resources, persistent volumes, and container images:
+
+```console
+k2s system backup --file C:\backups\pre-upgrade-backup.zip
+```
+
+Optional flags:
+
+| Flag | Purpose |
+|------|---------|
+| `--skip-images` | Skip backing up container images (faster, smaller backup) |
+| `--skip-pvs` | Skip backing up persistent volumes |
+| `--additional-hooks-dir` | Directory with custom backup hook scripts |
+
+The default backup path (when `--file` is omitted) is `C:\Temp\k2s\backups`.
+
+#### Per-Addon Backup
+
+Back up individual addon data before upgrade:
+
+```console
+k2s addons backup registry -f C:\backups\registry.zip
+k2s addons backup monitoring -f C:\backups\monitoring.zip
+```
+
+#### Backup Exclusions
+
+The backup system automatically excludes certain resources based on `cfg\config.json`:
+
+- **Namespaces**: system and addon namespaces (kube-system, kube-flannel, etc.)
+- **Namespaced resources**: transient resources like endpoints and endpointslices
+- **Cluster resources**: node objects, API services, storage classes, etc.
+- **Addon PVs**: addon-managed persistent volumes (registry-pv, opensearch-cluster-master-pv, etc.)
+
+See [Configuration Reference](configuration-reference.md) for the full exclusion lists.
+
+#### Restoring After a Failed Upgrade
+
+If an upgrade fails and you need to restore from backup:
+
+1. Reinstall the previous *K2s* version
+2. Restore the system backup:
+   ```console
+   k2s system restore --file C:\backups\pre-upgrade-backup.zip
+   ```
+3. Restore addon data:
+   ```console
+   k2s addons restore registry -f C:\backups\registry.zip
+   ```
+
 ### Proxy Usage
 If your environment requires HTTP(S) proxy access, specify it with `-p`. Ensure the proxy allows access to any required artifact repositories; otherwise offline packages should include all needed assets.
 
@@ -90,6 +142,8 @@ If your environment requires HTTP(S) proxy access, specify it with `-p`. Ensure 
 The full upgrade process supports custom backup and restore hooks for cluster resources that need special handling during upgrade (e.g., SMB shares, external configurations).
 
 > **ℹ️ Note:** Hooks are only executed during **full upgrades**. Delta updates preserve cluster state in place and do not execute hooks.
+
+For a complete description of the hook system (naming conventions, execution order, all available hook points), see the [Hook System](hook-system.md) page.
 
 **Hook Locations:**
 
