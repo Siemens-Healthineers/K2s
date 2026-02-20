@@ -34,6 +34,12 @@ function New-LinuxVmAsControlPlaneNode {
         [string]$VmName,
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes,
+        [parameter(Mandatory = $false, HelpMessage = 'Minimum Memory for Dynamic Memory')]
+        [long]$VMMemoryMinBytes = 0,
+        [parameter(Mandatory = $false, HelpMessage = 'Maximum Memory for Dynamic Memory')]
+        [long]$VMMemoryMaxBytes = 0,
+        [parameter(Mandatory = $false, HelpMessage = 'Enable Dynamic Memory')]
+        [switch]$EnableDynamicMemory = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
         [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
@@ -87,6 +93,9 @@ function New-LinuxVmAsControlPlaneNode {
             -VhdxPath $vhdxPath `
             -VHDXSizeBytes $VMDiskSize `
             -MemoryStartupBytes $VMMemoryStartupBytes `
+            -MemoryMinimumBytes $VMMemoryMinBytes `
+            -MemoryMaximumBytes $VMMemoryMaxBytes `
+            -EnableDynamicMemory:$EnableDynamicMemory `
             -ProcessorCount $VMProcessorCount `
             -UseGeneration1
 
@@ -164,6 +173,9 @@ function New-VmFromIso {
         [string]$VhdxPath,
         [uint64]$VHDXSizeBytes,
         [int64]$MemoryStartupBytes = 1GB,
+        [int64]$MemoryMinimumBytes = 0,
+        [int64]$MemoryMaximumBytes = 0,
+        [switch]$EnableDynamicMemory = $false,
         [int64]$ProcessorCount = 2,
         [switch]$UseGeneration1
     )
@@ -180,6 +192,13 @@ function New-VmFromIso {
     Write-Log "Creating VM: $VMName"
     Write-Log "             - Vhdx: $VhdxPath"
     Write-Log "             - MemoryStartupBytes: $MemoryStartupBytes"
+    if ($EnableDynamicMemory) {
+        Write-Log "             - Dynamic Memory: Enabled"
+        $minMemory = if ($MemoryMinimumBytes -gt 0) { $MemoryMinimumBytes } else { $MemoryStartupBytes }
+        $maxMemory = if ($MemoryMaximumBytes -gt 0) { $MemoryMaximumBytes } else { $MemoryStartupBytes }
+        Write-Log "             - MemoryMinimumBytes: $minMemory"
+        Write-Log "             - MemoryMaximumBytes: $maxMemory"
+    }
     Write-Log "             - VM Generation: $generation"
     $vm = New-VM -Name $VMName -Generation $generation -MemoryStartupBytes $MemoryStartupBytes -VHDPath $VhdxPath
     $vm | Set-VMProcessor -Count $ProcessorCount
@@ -196,7 +215,28 @@ function New-VmFromIso {
 
     $GuestServiceInterfaceID = '6C09BB55-D683-4DA0-8931-C9BF705F6480'
     Get-VMIntegrationService -VM $vm | Where-Object { $_.Id -match $GuestServiceInterfaceID } | Enable-VMIntegrationService
-    $vm | Set-VMMemory -DynamicMemoryEnabled $false
+
+    # Configure dynamic memory if enabled
+    if ($EnableDynamicMemory) {
+        Write-Log 'Configuring Hyper-V Dynamic Memory'
+        $minMemory = if ($MemoryMinimumBytes -gt 0) { $MemoryMinimumBytes } else { $MemoryStartupBytes }
+        $maxMemory = if ($MemoryMaximumBytes -gt 0) { $MemoryMaximumBytes } else { $MemoryStartupBytes }
+
+        # Validate memory range
+        if ($minMemory -gt $MemoryStartupBytes) {
+            Write-Log "Warning: Minimum memory ($minMemory) is greater than startup memory ($MemoryStartupBytes). Using startup as minimum."
+            $minMemory = $MemoryStartupBytes
+        }
+        if ($maxMemory -lt $MemoryStartupBytes) {
+            Write-Log "Warning: Maximum memory ($maxMemory) is less than startup memory ($MemoryStartupBytes). Using startup as maximum."
+            $maxMemory = $MemoryStartupBytes
+        }
+
+        $vm | Set-VMMemory -DynamicMemoryEnabled $true -MinimumBytes $minMemory -MaximumBytes $maxMemory -StartupBytes $MemoryStartupBytes
+        Write-Log "Dynamic Memory configured: Startup=$MemoryStartupBytes, Min=$minMemory, Max=$maxMemory"
+    } else {
+        $vm | Set-VMMemory -DynamicMemoryEnabled $false
+    }
 
     # Sets Secure Boot Template.
     #   Set-VMFirmware -SecureBootTemplate 'MicrosoftUEFICertificateAuthority' doesn't work anymore (!?).
