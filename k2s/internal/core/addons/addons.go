@@ -350,7 +350,7 @@ func loadAndValidate(params loadParams) (addons []Addon, err error) {
 		for i, impl := range addon.Spec.Implementations {
 			if addon.Metadata.Name != impl.Name {
 				addon.Spec.Implementations[i].Directory = filepath.Join(addon.Directory, impl.Name)
-				addon.Spec.Implementations[i].ExportDirectoryName = addon.Metadata.Name + "_" + impl.Name
+				addon.Spec.Implementations[i].ExportDirectoryName = addon.Metadata.Name + "-" + impl.Name
 				addon.Spec.Implementations[i].AddonsCmdName = addon.Metadata.Name + " " + impl.Name
 			} else {
 				addon.Spec.Implementations[i].Directory = addon.Directory
