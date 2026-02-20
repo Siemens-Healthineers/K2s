@@ -49,9 +49,10 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
-
-	suite.K2sCli().Exec(ctx, "addons", "disable", "dashboard", "-o")
-
+	if k2s.IsAddonEnabled("ingress", "nginx-gw") {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+		k2s.VerifyAddonIsDisabled("ingress", "nginx-gw")
+	}
 	cleanupBackupDir()
 
 	suite.TearDown(ctx)
@@ -85,6 +86,7 @@ var _ = Describe("'dashboard' addon backup/restore", Ordered, func() {
 		AfterAll(func(ctx context.Context) {
 			suite.K2sCli().Exec(ctx, "addons", "disable", "dashboard", "-o")
 			k2s.VerifyAddonIsDisabled("dashboard")
+
 		})
 
 		// --- error tests while addon is disabled (no extra transitions) ---
