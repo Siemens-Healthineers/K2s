@@ -14,6 +14,12 @@ function New-ControlPlaneNodeOnNewVM {
         # Main parameters
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of master VM (Linux)')]
         [long] $MasterVMMemory = 8GB,
+        [parameter(Mandatory = $false, HelpMessage = 'Minimum Memory for Dynamic Memory (Linux)')]
+        [long] $MasterVMMemoryMin = 0,
+        [parameter(Mandatory = $false, HelpMessage = 'Maximum Memory for Dynamic Memory (Linux)')]
+        [long] $MasterVMMemoryMax = 0,
+        [parameter(Mandatory = $false, HelpMessage = 'Enable Hyper-V Dynamic Memory')]
+        [switch] $EnableDynamicMemory = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
         [long] $MasterVMProcessorCount = 6,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
@@ -60,6 +66,9 @@ function New-ControlPlaneNodeOnNewVM {
         DnsServers                        = $DnsServers
         VmName                            = 'KubeMaster'
         VMMemoryStartupBytes              = $MasterVMMemory
+        VMMemoryMinBytes                  = $MasterVMMemoryMin
+        VMMemoryMaxBytes                  = $MasterVMMemoryMax
+        EnableDynamicMemory               = $EnableDynamicMemory
         VMProcessorCount                  = $MasterVMProcessorCount
         VMDiskSize                        = $MasterDiskSize
         Proxy                             = $Proxy
@@ -72,7 +81,15 @@ function New-ControlPlaneNodeOnNewVM {
         Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
         Write-Log 'Configuring WSL2'
         Set-WSL -MasterVMMemory $MasterVMMemory -MasterVMProcessorCount $MasterVMProcessorCount
-        New-WslLinuxVmAsControlPlaneNode @controlPlaneParams
+
+        # WSL2 doesn't support Hyper-V dynamic memory - it has its own memory management
+        # Remove dynamic memory parameters before calling WSL function
+        $wslParams = $controlPlaneParams.Clone()
+        $wslParams.Remove('VMMemoryMinBytes')
+        $wslParams.Remove('VMMemoryMaxBytes')
+        $wslParams.Remove('EnableDynamicMemory')
+
+        New-WslLinuxVmAsControlPlaneNode @wslParams
         Start-WSL
         Set-WSLSwitch -IpAddress $($controlPlaneParams.GatewayIpAddress)
     }
