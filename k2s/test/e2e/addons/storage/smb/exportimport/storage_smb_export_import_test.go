@@ -203,4 +203,50 @@ var _ = Describe("storage smb addon export and import", Ordered, func() {
 			exportimport.VerifyNoStrayFiles(unexpectedFiles)
 		})
 	})
+
+	Describe("export and import with relative paths", func() {
+		var (
+			relExportDir    string
+			absRelExportDir string
+			relOciFile      string
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			absRelExportDir = filepath.Join(suite.RootDir(), "tmp", "storage-smb-relpath-test")
+			os.MkdirAll(absRelExportDir, 0o755)
+			var err error
+			relExportDir, err = filepath.Rel(suite.RootDir(), absRelExportDir)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterAll(func(ctx context.Context) {
+			exportimport.CleanupExportedFiles(absRelExportDir, relOciFile)
+		})
+
+		It("exports addon using a relative directory path", func(ctx context.Context) {
+			relOciFile = exportimport.ExportAddonRelativePath(ctx, suite, "storage", "smb", suite.RootDir(), relExportDir)
+			info, err := os.Stat(relOciFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.Size()).To(BeNumerically(">", 0))
+		})
+
+		It("imports addon using a relative file path", func(ctx context.Context) {
+			Expect(relOciFile).NotTo(BeEmpty())
+			relFilePath, err := filepath.Rel(suite.RootDir(), relOciFile)
+			Expect(err).ToNot(HaveOccurred())
+			exportimport.ImportAddonRelativePath(ctx, suite, suite.RootDir(), relFilePath)
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
+		})
+
+		It("imports addon using a parent-relative file path", func(ctx context.Context) {
+			files, err := filepath.Glob(filepath.Join(absRelExportDir, "*.oci.tar"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(files)).To(BeNumerically(">=", 1))
+			subDir := filepath.Join(absRelExportDir, "subdir")
+			os.MkdirAll(subDir, 0o755)
+			parentRelPath := ".." + string(filepath.Separator) + filepath.Base(files[0])
+			exportimport.ImportAddonRelativePath(ctx, suite, subDir, parentRelPath)
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
+		})
+	})
 })

@@ -373,7 +373,7 @@ metrics-server:
 kong:
   image:
     repository: docker.io/library/kong
-    tag: "3.9.0"
+    tag: "3.9.1"
   enabled: true
   ## Configuration reference: https://docs.konghq.com/gateway/3.6.x/reference/configuration
   env:
