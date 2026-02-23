@@ -27,14 +27,14 @@ k2s addons enable ingress nginx
 
 ## Backup and restore
 
-Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+Create a backup zip (defaults to `C:\Temp\k2s\Addons` on Windows):
 ```cmd
 k2s addons backup ingress nginx
 ```
 
 Restore from a backup zip:
 ```cmd
-k2s addons restore ingress nginx -f C:\Temp\Addons\ingress_nginx_backup_YYYYMMDD_HHMMSS.zip
+k2s addons restore ingress nginx -f C:\Temp\k2s\Addons\ingress_nginx_backup_YYYYMMDD_HHMMSS.zip
 ```
 
 The backup includes:

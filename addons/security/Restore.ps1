@@ -69,7 +69,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[SecurityRestore] Restoring addon 'security' from '$BackupDir'" -Console
+Write-Log "[SecurityRestore] Restoring addon 'security'" -Console
 
 if ($null -ne $manifest.addon -and "$($manifest.addon)" -ne 'security') {
     Write-Log "[SecurityRestore] Warning: backup.json addon is '$($manifest.addon)' (expected 'security')." -Console
