@@ -217,9 +217,9 @@ func readAndValidateManifest(manifestPath string) (backupManifest, error) {
 func defaultZipPathIfEmpty(zipPath string, addonsCmdName string) (string, error) {
 	zipPath = strings.TrimSpace(zipPath)
 	if zipPath == "" {
-		wd := filepath.Join(os.TempDir(), "Addons")
+		wd := filepath.Join(os.TempDir(), "k2s", "Addons")
 		if runtime.GOOS == "windows" {
-			wd = `C:\Temp\Addons`
+			wd = `C:\Temp\k2s\Addons`
 		}
 		if err := os.MkdirAll(wd, 0o755); err != nil {
 			return "", fmt.Errorf("failed to create default addons backup directory: %w", err)

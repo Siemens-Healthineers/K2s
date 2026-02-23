@@ -393,7 +393,7 @@ k2s addons restore <addon> [implementation] [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--file` | `-f` | Input zip file path (default: newest match in `C:\Temp\Addons`) |
+| `--file` | `-f` | Input zip file path (default: newest match in `C:\Temp\k2s\Addons`) |
 
 ---
 
