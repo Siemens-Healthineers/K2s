@@ -146,14 +146,14 @@ function New-ImageProcessingLog {
     if ($Result.Images.Count -gt 0) {
         Write-Log "${LogType}d Images:" -Console
         foreach ($img in $Result.Images) {
-            Write-Log "✅ $($img.Repository):$($img.Tag) (ID: $($img.ImageId))" -Console
+            Write-Log "[OK] $($img.Repository):$($img.Tag) (ID: $($img.ImageId))" -Console
         }
     }
 
     if ($Result.FailedImages.Count -gt 0) {
         Write-Log "Failed Images:" -Console
         foreach ($img in $Result.FailedImages) {
-            Write-Log "❌ $($img.Repository):$($img.Tag) (ID: $($img.ImageId)) - Error: $($img.Error)" -Console
+            Write-Log "[FAIL] $($img.Repository):$($img.Tag) (ID: $($img.ImageId)) - Error: $($img.Error)" -Console
         }
     }
     
@@ -778,11 +778,11 @@ function Test-BackupDiskSpace {
         Write-Log "Disk space check: Available: ${freeSpaceGB}GB, Required: ${requiredSpace}GB" -Console
         
         if ($freeSpaceGB -ge $requiredSpace) {
-            Write-Log "✅ Sufficient disk space available for backup" -Console
+            Write-Log "[OK] Sufficient disk space available for backup" -Console
             return $true
         } else {
             $shortfall = $requiredSpace - $freeSpaceGB
-            Write-Log "❌ Insufficient disk space for image backup. Available: ${freeSpaceGB}GB, Required: ${requiredSpace}GB (Shortfall: ${shortfall}GB)" -Console
+            Write-Log "[FAIL] Insufficient disk space for image backup. Available: ${freeSpaceGB}GB, Required: ${requiredSpace}GB (Shortfall: ${shortfall}GB)" -Console
             return $false
         }
     }
