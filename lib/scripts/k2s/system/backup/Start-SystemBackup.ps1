@@ -21,6 +21,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\upgrade\upgrade.module.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1") -Force
 
@@ -269,10 +270,7 @@ if (Test-Path $BackupFile) {
     Remove-Item $BackupFile -Force
 }
 
-Compress-Archive `
-    -Path (Join-Path $backupRoot '*') `
-    -DestinationPath $BackupFile `
-    -Force
+New-ZipWithProgress -SourceDir $backupRoot -ZipPath $BackupFile -Label 'backup' -Show:$ShowLogs
 
 Write-Log "System backup completed successfully." -Console
 Write-Log "Backup file created at: $BackupFile" -Console
