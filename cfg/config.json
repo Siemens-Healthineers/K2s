@@ -82,5 +82,13 @@
         "docker": "~/.docker",
         "k2s": "C:\\ProgramData\\K2s"
     },
-    "clusterName": "k2s-cluster"
+    "clusterName": "k2s-cluster",
+    "supportedWorkerOS": [
+        {
+            "os": "debian12"
+        },
+        {
+            "os": "debian13"
+        }
+    ]
 }

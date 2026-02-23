@@ -28,6 +28,17 @@ $ErrorActionPreference = 'Stop'
 $installationPath = Get-KubePath
 Set-Location $installationPath
 
+# Load config.json
+$configPath = "$installationPath\cfg\config.json"
+if (!(Test-Path $configPath)) {
+    throw "Configuration file not found: $configPath"
+}
+$config = Get-Content $configPath -Raw | ConvertFrom-Json
+$supportedOS = $config.supportedWorkerOS
+if (!$supportedOS) {
+    throw "No supported OS configurations found in config.json"
+}
+
 Write-Log "Performing pre-requisites check" -Console
 
 $connectionCheck = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which ls' -UserName $UserName -IpAddress $IpAddress)
@@ -57,6 +68,23 @@ $k8sFormattedNodeName = $actualHostname.ToLower()
 # check if the intended node name to add to the cluster is the same as the hostname of the computer behind the passed IP address
 if (![string]::IsNullOrWhiteSpace($NodeName) -and ($NodeName.ToLower() -ne $k8sFormattedNodeName)) {
     throw "Precondition not met: the passed NodeName '$NodeName' is the hostname of the computer with IP '$IpAddress' ($actualHostname)"
+}
+
+$installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
+
+Write-Log "Detected OS on remote computer: $($installedDistributionOnRemoteComputer)" -Console
+
+$isSupported = $false
+foreach ($supported in $supportedOS) {
+    if ($supported.os -eq $installedDistributionOnRemoteComputer) {
+        $isSupported = $true
+        Write-Log "OS version validated: $($installedDistributionOnRemoteComputer) is supported" -Console
+        break
+    }
+}
+if (!$isSupported) {
+    $supportedList = ($supportedOS | ForEach-Object { "$($_.os) $($_.version) ($($_.codename))" }) -join ', '
+    throw "OS version not supported: $($installedDistributionOnRemoteComputer). Supported versions: $supportedList"
 }
 
 $NodeName = $actualHostname
@@ -95,6 +123,7 @@ $workerNodeParams = @{
     WindowsHostIpAddress = $WindowsHostIpAddress
     Proxy = $Proxy
     AdditionalHooksDir = $AdditionalHooksDir
+    installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer.os
 }
 Add-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
 
