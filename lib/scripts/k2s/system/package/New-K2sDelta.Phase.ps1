@@ -71,17 +71,5 @@ function Stop-Phase {
     }
 }
 
-function Format-Size {
-    param(
-        [uint64] $Bytes
-    )
-    if ($Bytes -lt 1KB) { return "$Bytes B" }
-    $kb = [double]$Bytes / 1KB
-    if ($kb -lt 1024) { return ("{0:N2} KB" -f $kb) }
-    $mb = $kb / 1024
-    if ($mb -lt 1024) { return ("{0:N2} MB" -f $mb) }
-    $gb = $mb / 1024
-    if ($gb -lt 1024) { return ("{0:N2} GB" -f $gb) }
-    $tb = $gb / 1024
-    return ("{0:N2} TB" -f $tb)
-}
+# Format-Size has been moved to k2s.infra.module/archive/archive.module.psm1
+# It is available via Import-Module k2s.infra.module.
