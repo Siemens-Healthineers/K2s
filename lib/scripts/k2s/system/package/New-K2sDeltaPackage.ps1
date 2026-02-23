@@ -716,7 +716,7 @@ Stop-Phase 'Manifest' $manifestPhase
     # --- Create delta zip after (optional) signing ------------------------------
     $zipPhase = Start-Phase "Zipping"
     try {
-        New-ZipWithProgress -SourceDir $stageDir -ZipPath $zipPackagePath -Show:$ShowLogs
+        New-ZipWithProgress -SourceDir $stageDir -ZipPath $zipPackagePath -Label 'delta' -Show:$ShowLogs
         Write-Log "[Zipping] Delta package created: $zipPackagePath" -Console
     }
     catch {
