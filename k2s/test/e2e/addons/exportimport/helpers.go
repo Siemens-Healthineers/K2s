@@ -53,9 +53,9 @@ func GetImplementation(addon *addons.Addon, implName string) *addons.Implementat
 // GetExpectedDirName returns the expected directory name for an addon implementation in the exported OCI tar.
 func GetExpectedDirName(addonName, implName string) string {
 	if implName != addonName {
-		return strings.ReplaceAll(addonName+"_"+implName, " ", "_")
+		return strings.ReplaceAll(addonName+"-"+implName, " ", "-")
 	}
-	return strings.ReplaceAll(addonName, " ", "_")
+	return strings.ReplaceAll(addonName, " ", "-")
 }
 
 // ExportAddon exports a single addon (or implementation) to an OCI tar file.
@@ -396,8 +396,8 @@ func ImportAddon(ctx context.Context, suite *framework.K2sTestSuite, ociTarPath 
 		GinkgoWriter.Printf("[Import] WARNING: Cannot stat OCI tar file: %s - %v\n", ociTarPath, err)
 	}
 
-	GinkgoWriter.Println("[Import] Executing 'k2s addons import -z' command...")
-	suite.K2sCli().MustExec(ctx, "addons", "import", "-z", ociTarPath)
+	GinkgoWriter.Println("[Import] Executing 'k2s addons import -f' command...")
+	suite.K2sCli().MustExec(ctx, "addons", "import", "-f", ociTarPath)
 	GinkgoWriter.Println("[Import] Import command completed successfully")
 	GinkgoWriter.Println("=== IMPORT ADDON END ===")
 }
@@ -601,4 +601,58 @@ func VerifyNoStrayFiles(unexpectedFiles []string) {
 	}
 
 	GinkgoWriter.Println("=== VERIFY NO STRAY FILES END ===")
+}
+
+// exports a single addon using a relative directory path.
+func ExportAddonRelativePath(ctx context.Context, suite *framework.K2sTestSuite, addonName string, implName string, workingDir string, relativeOutputDir string) string {
+	GinkgoWriter.Println("=== EXPORT ADDON (RELATIVE PATH) START ===")
+	GinkgoWriter.Printf("[ExportRel] Addon: %s\n", addonName)
+	if implName != "" && implName != addonName {
+		GinkgoWriter.Printf("[ExportRel] Implementation: %s\n", implName)
+	}
+	GinkgoWriter.Printf("[ExportRel] Working directory: %s\n", workingDir)
+	GinkgoWriter.Printf("[ExportRel] Relative output dir: %s\n", relativeOutputDir)
+
+	// Resolve the absolute path so we can find the output file
+	absOutputDir := filepath.Join(workingDir, relativeOutputDir)
+	absOutputDir, err := filepath.Abs(absOutputDir)
+	Expect(err).ToNot(HaveOccurred(), "[ExportRel] Failed to resolve absolute output path")
+	GinkgoWriter.Printf("[ExportRel] Resolved absolute output dir: %s\n", absOutputDir)
+
+	os.MkdirAll(absOutputDir, 0o755)
+
+	if implName != "" && implName != addonName {
+		suite.K2sCli().WorkingDir(workingDir).MustExec(ctx, "addons", "export", addonName+" "+implName, "-d", relativeOutputDir, "-o")
+	} else {
+		suite.K2sCli().WorkingDir(workingDir).MustExec(ctx, "addons", "export", addonName, "-d", relativeOutputDir, "-o")
+	}
+	GinkgoWriter.Println("[ExportRel] Export command completed")
+
+	var pattern string
+	if implName != "" && implName != addonName {
+		pattern = filepath.Join(absOutputDir, fmt.Sprintf("K2s-*-addons-%s-%s.oci.tar", addonName, implName))
+	} else {
+		pattern = filepath.Join(absOutputDir, fmt.Sprintf("K2s-*-addons-%s.oci.tar", addonName))
+	}
+	files, err := filepath.Glob(pattern)
+	Expect(err).ToNot(HaveOccurred(), "[ExportRel] Failed to glob for OCI tar files")
+	Expect(len(files)).To(Equal(1), "Should create exactly one OCI tar file for %s with relative path, found %d", addonName, len(files))
+
+	ociTarPath := files[0]
+	if info, err := os.Stat(ociTarPath); err == nil {
+		GinkgoWriter.Printf("[ExportRel] OCI tar file: %s (%d bytes)\n", ociTarPath, info.Size())
+	}
+	GinkgoWriter.Println("=== EXPORT ADDON (RELATIVE PATH) END ===")
+	return ociTarPath
+}
+
+// imports an addon using a relative file path.
+func ImportAddonRelativePath(ctx context.Context, suite *framework.K2sTestSuite, workingDir string, relativeFilePath string) {
+	GinkgoWriter.Println("=== IMPORT ADDON (RELATIVE PATH) START ===")
+	GinkgoWriter.Printf("[ImportRel] Working directory: %s\n", workingDir)
+	GinkgoWriter.Printf("[ImportRel] Relative file path: %s\n", relativeFilePath)
+
+	suite.K2sCli().WorkingDir(workingDir).MustExec(ctx, "addons", "import", "-f", relativeFilePath, "-o")
+	GinkgoWriter.Println("[ImportRel] Import command completed successfully")
+	GinkgoWriter.Println("=== IMPORT ADDON (RELATIVE PATH) END ===")
 }
