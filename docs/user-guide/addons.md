@@ -348,7 +348,7 @@ Addons support data backup and restore for disaster recovery or migration scenar
 # Backup to a specific file
 k2s addons backup registry -f C:\backups\registry-backup.zip
 
-# Backup to default location (C:\Temp\Addons)
+# Backup to default location (C:\Temp\k2s\Addons)
 k2s addons backup registry
 ```
 

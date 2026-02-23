@@ -75,14 +75,14 @@ _Note:_ The above command will only disable logging addon. If other addons were 
 
 ## Backup and restore
 
-Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+Create a backup zip (defaults to `C:\Temp\k2s\Addons` on Windows):
 ```
 k2s addons backup logging
 ```
 
 Restore from a backup zip:
 ```
-k2s addons restore logging -f C:\Temp\Addons\logging_backup_YYYYMMDD_HHMMSS.zip
+k2s addons restore logging -f C:\Temp\k2s\Addons\logging_backup_YYYYMMDD_HHMMSS.zip
 ```
 
 What is backed up:

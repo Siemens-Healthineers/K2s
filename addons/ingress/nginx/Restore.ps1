@@ -67,7 +67,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'ingress nginx' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'ingress nginx'" -Console
 
 Write-Log "[AddonRestore] Waiting for ingress-nginx controller pod to be Ready" -Console
 Wait-ForPodCondition -Label 'app.kubernetes.io/component=controller,app.kubernetes.io/instance=ingress-nginx,app.kubernetes.io/name=ingress-nginx' -Namespace 'ingress-nginx' -Condition Ready -TimeoutSeconds 120 | Out-Null
