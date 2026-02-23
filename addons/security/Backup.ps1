@@ -184,7 +184,7 @@ $manifest = [ordered]@{
 $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
-Write-Log "[SecurityBackup] Backup complete: $($script:files.Count) file(s) written to '$BackupDir'" -Console
+Write-Log "[SecurityBackup] Backup artifacts prepared ($($script:files.Count) file(s))" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ Error = $null }

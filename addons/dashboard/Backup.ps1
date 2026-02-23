@@ -120,7 +120,7 @@ $manifest = [pscustomobject]@{
 $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
-Write-Log "[DashboardBackup] Wrote metadata-only backup to '$BackupDir' (ingress=$ingress, enableMetrics=$metricsEnabled)" -Console
+Write-Log "[DashboardBackup] Metadata-only backup prepared (ingress=$ingress, enableMetrics=$metricsEnabled)" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ Error = $null }

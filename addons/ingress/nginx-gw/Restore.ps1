@@ -69,7 +69,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'ingress nginx-gw' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'ingress nginx-gw'" -Console
 
 function Invoke-ApplyWithConflictFallback {
     param(
