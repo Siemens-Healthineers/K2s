@@ -123,7 +123,7 @@ function Try-RolloutStatus {
     }
 }
 
-Write-Log "[MetricsRestore] Restoring addon 'metrics' from '$BackupDir'" -Console
+Write-Log "[MetricsRestore] Restoring addon 'metrics'" -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {

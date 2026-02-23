@@ -66,5 +66,5 @@ Because kubevirt is an **infrastructure addon** (nested virtualization, QEMU/lib
 
 ```console
 k2s addons backup kubevirt
-k2s addons restore kubevirt -f C:\Temp\Addons\kubevirt_backup_YYYYMMDD_HHMMSS.zip
+k2s addons restore kubevirt -f C:\Temp\k2s\Addons\kubevirt_backup_YYYYMMDD_HHMMSS.zip
 ```
