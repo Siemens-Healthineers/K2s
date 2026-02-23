@@ -48,6 +48,38 @@ The problem comes most probably from the *Docker* registry and you can clean it 
 
     You must rebuild them locally on your system with the `k2s image build` command.
 
+## VHDX File Growth (Hyper-V Only)
+
+On Hyper-V installations, the Kubemaster VHDX file grows when you write data (pull images, create files) but **does not automatically shrink** when you delete data. This is called the "High Water Mark" issue.
+
+### Symptoms
+
+- VHDX file size remains large after deleting container images
+- Low disk space on Windows host despite cleaning up inside the VM
+- VHDX grows to 20-30 GB or more over time
+
+### Solution
+
+Use the `k2s system compact` command to reclaim wasted space:
+
+```console
+k2s system compact
+```
+
+This will:
+1. Run `fstrim` inside the VM to mark freed blocks
+2. Stop the cluster temporarily
+3. Optimize the VHDX file to reclaim space
+4. Restart the cluster automatically
+
+For more details, see [Compacting VHDX Storage](../op-manual/compacting-vhdx-storage.md).
+
+### Prevention
+
+- Regularly clean up unused images: `k2s image rm <image>`
+- Run `k2s system compact` monthly or after bulk operations
+- Monitor VHDX size in Windows Explorer or PowerShell
+
 ## Volume Access Problem
 TP remove unbound volumes, run:
 ```console
