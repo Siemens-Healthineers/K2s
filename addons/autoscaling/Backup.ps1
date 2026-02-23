@@ -144,10 +144,10 @@ $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
 if ($files.Count -eq 0) {
-    Write-Log "[AddonBackup] No addon-owned files detected; created metadata-only backup in '$BackupDir' (restore will reinstall/repair only)" -Console
+    Write-Log "[AddonBackup] No addon-owned files detected; created metadata-only backup (restore will reinstall/repair only)" -Console
 }
 else {
-    Write-Log "[AddonBackup] Wrote $($files.Count) files to '$BackupDir'" -Console
+    Write-Log "[AddonBackup] Backup artifacts prepared ($($files.Count) file(s))" -Console
 }
 
 if ($EncodeStructuredOutput -eq $true) {

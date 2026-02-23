@@ -62,7 +62,7 @@ Because gpu-node is a **pure infrastructure addon** (Hyper-V GPU passthrough, NV
 
 ```console
 k2s addons backup gpu-node
-k2s addons restore gpu-node -f C:\Temp\Addons\gpu-node_backup_YYYYMMDD_HHMMSS.zip
+k2s addons restore gpu-node -f C:\Temp\k2s\Addons\gpu-node_backup_YYYYMMDD_HHMMSS.zip
 ```
 
 ## Further Reading

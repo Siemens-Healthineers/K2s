@@ -54,7 +54,7 @@ function Fail([string]$errMsg, [string]$code = 'addon-restore-failed') {
     exit 1
 }
 
-Write-Log "[DashboardRestore] Restoring addon 'dashboard' from '$BackupDir'" -Console
+Write-Log "[DashboardRestore] Restoring addon 'dashboard'" -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
