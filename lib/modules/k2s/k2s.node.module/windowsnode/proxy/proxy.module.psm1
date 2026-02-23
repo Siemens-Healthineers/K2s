@@ -407,6 +407,60 @@ function Reset-ProxyConfig {
 
 <#
 .SYNOPSIS
+Validates that HTTP_PROXY, HTTPS_PROXY and NO_PROXY environment variables are consistently configured.
+
+.DESCRIPTION
+Validates the proxy environment variables in both Process and Machine contexts according to these rules:
+  1. Either NONE of HTTP_PROXY, HTTPS_PROXY, NO_PROXY are defined, or ALL of them are defined.
+  2. If NO_PROXY is defined, it MUST contain all K2s internal hosts (cluster IPs, CIDRs, etc.).
+
+If any rule is violated, all violations are collected and thrown as a single exception.
+
+.EXAMPLE
+Test-ProxyEnvVarsConfiguration  # throws on misconfiguration
+#>
+function Test-ProxyEnvVarsConfiguration {
+    $violations = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($scope in @('Process', 'Machine')) {
+        $httpProxy  = [Environment]::GetEnvironmentVariable('HTTP_PROXY',  $scope)
+        $httpsProxy = [Environment]::GetEnvironmentVariable('HTTPS_PROXY', $scope)
+        $noProxy    = [Environment]::GetEnvironmentVariable('NO_PROXY',     $scope)
+
+        $httpProxySet  = ![string]::IsNullOrWhiteSpace($httpProxy)
+        $httpsProxySet = ![string]::IsNullOrWhiteSpace($httpsProxy)
+        $noProxySet    = ![string]::IsNullOrWhiteSpace($noProxy)
+
+        $anySet = $httpProxySet -or $httpsProxySet -or $noProxySet
+        $allSet = $httpProxySet -and $httpsProxySet -and $noProxySet
+
+        if ($anySet -and -not $allSet) {
+            $missing = @()
+            if (-not $httpProxySet)  { $missing += 'HTTP_PROXY' }
+            if (-not $httpsProxySet) { $missing += 'HTTPS_PROXY' }
+            if (-not $noProxySet)    { $missing += 'NO_PROXY' }
+
+            $violations.Add("[$scope] Inconsistent proxy environment: $($missing -join ', ') are not set while others are. Either define all of HTTP_PROXY, HTTPS_PROXY and NO_PROXY or none of them.")
+        }
+
+        if ($noProxySet) {
+            $noProxyEntries = $noProxy -split ',' | ForEach-Object { $_.Trim() }
+            $k2sHosts = Get-K2sHosts
+            $missingHosts = $k2sHosts | Where-Object { $_ -notin $noProxyEntries }
+
+            if ($missingHosts.Count -gt 0) {
+                $violations.Add("[$scope] NO_PROXY is missing required K2s hosts: $($missingHosts -join ', '). These hosts must be excluded from the proxy to allow K2s cluster communication.")
+            }
+        }
+    }
+
+    if ($violations.Count -gt 0) {
+        throw "[ProxyValidation] Invalid proxy environment variable configuration:`n$($violations -join "`n")"
+    }
+}
+
+<#
+.SYNOPSIS
 Set K2s specific hosts and subnets in NO_PROXY environment variable
 
 .DESCRIPTION
@@ -460,4 +514,5 @@ Export-ModuleMember -Function Get-OrUpdateProxyServer,
                               Reset-ProxyConfig,
                               Add-K2sHostsToNoProxyEnvVar,
                               Remove-K2sHostsFromNoProxyEnvVar,
-                              Get-K2sHosts
+                              Get-K2sHosts,
+                              Test-ProxyEnvVarsConfiguration
