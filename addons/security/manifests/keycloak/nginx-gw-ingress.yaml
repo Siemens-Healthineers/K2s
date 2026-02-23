@@ -27,6 +27,11 @@ spec:
                 value: https
               - name: X-Forwarded-Host
                 value: k2s.cluster.local
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.nginx.org
+            kind: SnippetsFilter
+            name: oauth2-shared-locations
       backendRefs:
         - name: oauth2-proxy
           port: 4180
