@@ -423,9 +423,9 @@ function Test-ProxyEnvVarsConfiguration {
     $violations = [System.Collections.Generic.List[string]]::new()
 
     foreach ($scope in @('Process', 'Machine')) {
-        $httpProxy  = [Environment]::GetEnvironmentVariable('HTTP_PROXY',  $scope)
-        $httpsProxy = [Environment]::GetEnvironmentVariable('HTTPS_PROXY', $scope)
-        $noProxy    = [Environment]::GetEnvironmentVariable('NO_PROXY',     $scope)
+        $httpProxy  = Get-HttpProxyEnvVar  -scope $scope
+        $httpsProxy = Get-HttpsProxyEnvVar -scope $scope
+        $noProxy    = Get-NoProxyEnvVar    -scope $scope
 
         $httpProxySet  = ![string]::IsNullOrWhiteSpace($httpProxy)
         $httpsProxySet = ![string]::IsNullOrWhiteSpace($httpsProxy)
@@ -459,6 +459,30 @@ function Test-ProxyEnvVarsConfiguration {
     }
 }
 
+function Get-NoProxyEnvVar([string]$scope) {
+    $value = [Environment]::GetEnvironmentVariable('NO_PROXY', $scope)
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        $value = [Environment]::GetEnvironmentVariable('no_proxy', $scope)
+    }
+    return $value
+}
+
+function Get-HttpProxyEnvVar([string]$scope) {
+    $value = [Environment]::GetEnvironmentVariable('HTTP_PROXY', $scope)
+    if ([string]::IsNullOrWhiteSpace($value)) { 
+        $value = [Environment]::GetEnvironmentVariable('http_proxy', $scope) 
+    }
+    return $value
+}
+
+function Get-HttpsProxyEnvVar([string]$scope) {
+    $value = [Environment]::GetEnvironmentVariable('HTTPS_PROXY', $scope)
+    if ([string]::IsNullOrWhiteSpace($value)) { 
+        $value = [Environment]::GetEnvironmentVariable('https_proxy', $scope) 
+    }
+    return $value
+}
+
 <#
 .SYNOPSIS
 Set K2s specific hosts and subnets in NO_PROXY environment variable
@@ -471,7 +495,7 @@ NO_PROXY environment variable to communicate with K2s parts.
 The function checks if the NO_PROXY environment variable is defined. In that case, the K2s hosts and subnets are added
 #>
 function Add-K2sHostsToNoProxyEnvVar() {
-    $noProxyEnvVar = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+    $noProxyEnvVar = Get-NoProxyEnvVar -scope 'Machine'
     $k2sHosts = Get-K2sHosts
 
     if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
@@ -493,7 +517,7 @@ Removes K2s specific hosts and subnets from NO_PROXY environment variable.
 Removes K2s specific hosts and subnets from NO_PROXY environment variable.
 #>
 function Remove-K2sHostsFromNoProxyEnvVar() {
-    $noProxyEnvVar = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+    $noProxyEnvVar = Get-NoProxyEnvVar -scope 'Machine'
     $k2sHosts = Get-K2sHosts
 
     if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {

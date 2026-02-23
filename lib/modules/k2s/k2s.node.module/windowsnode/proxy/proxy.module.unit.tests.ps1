@@ -602,11 +602,13 @@ Describe 'Remove-K2sHostsFromNoProxyEnvVar' -Tag 'unit', 'ci', 'proxy' {
 Describe 'Test-ProxyEnvVarsConfiguration' -Tag 'unit', 'ci', 'proxy' {
     BeforeEach {
         InModuleScope $moduleName {
-            # Reset all proxy env vars before each test
             foreach ($scope in @('Process', 'Machine')) {
                 [Environment]::SetEnvironmentVariable('HTTP_PROXY',  $null, $scope)
                 [Environment]::SetEnvironmentVariable('HTTPS_PROXY', $null, $scope)
                 [Environment]::SetEnvironmentVariable('NO_PROXY',    $null, $scope)
+                [Environment]::SetEnvironmentVariable('http_proxy',  $null, $scope)
+                [Environment]::SetEnvironmentVariable('https_proxy', $null, $scope)
+                [Environment]::SetEnvironmentVariable('no_proxy',    $null, $scope)
             }
             Mock Get-K2sHosts { return @('localhost', '127.0.0.1', '::1', '172.19.1.100', '172.20.0.0/16', '172.21.0.0/16', '.local', '.cluster.local') }
         }
@@ -618,6 +620,9 @@ Describe 'Test-ProxyEnvVarsConfiguration' -Tag 'unit', 'ci', 'proxy' {
                 [Environment]::SetEnvironmentVariable('HTTP_PROXY',  $null, $scope)
                 [Environment]::SetEnvironmentVariable('HTTPS_PROXY', $null, $scope)
                 [Environment]::SetEnvironmentVariable('NO_PROXY',    $null, $scope)
+                [Environment]::SetEnvironmentVariable('http_proxy',  $null, $scope)
+                [Environment]::SetEnvironmentVariable('https_proxy', $null, $scope)
+                [Environment]::SetEnvironmentVariable('no_proxy',    $null, $scope)
             }
         }
     }
@@ -705,7 +710,6 @@ Describe 'Test-ProxyEnvVarsConfiguration' -Tag 'unit', 'ci', 'proxy' {
 
     It 'throws when NO_PROXY is set but only partially contains K2s hosts in Machine scope' {
         InModuleScope $moduleName {
-            # Only localhost and 127.0.0.1 included, missing the rest
             [Environment]::SetEnvironmentVariable('HTTP_PROXY',  'http://proxy.example.com:8080', 'Machine')
             [Environment]::SetEnvironmentVariable('HTTPS_PROXY', 'http://proxy.example.com:8080', 'Machine')
             [Environment]::SetEnvironmentVariable('NO_PROXY',    'localhost,127.0.0.1',            'Machine')
@@ -720,7 +724,6 @@ Describe 'Test-ProxyEnvVarsConfiguration' -Tag 'unit', 'ci', 'proxy' {
             [Environment]::SetEnvironmentVariable('HTTP_PROXY',  'http://proxy.example.com:8080', 'Machine')
             [Environment]::SetEnvironmentVariable('HTTPS_PROXY', 'http://proxy.example.com:8080', 'Machine')
             [Environment]::SetEnvironmentVariable('NO_PROXY',    $noProxy,                        'Machine')
-            # Process scope: only HTTP_PROXY set - inconsistent
             [Environment]::SetEnvironmentVariable('HTTP_PROXY',  'http://proxy.example.com:8080', 'Process')
 
             { Test-ProxyEnvVarsConfiguration } | Should -Throw '*Process*'
@@ -733,7 +736,6 @@ Describe 'Test-ProxyEnvVarsConfiguration' -Tag 'unit', 'ci', 'proxy' {
             [Environment]::SetEnvironmentVariable('HTTP_PROXY',  'http://proxy.example.com:8080', 'Machine')
             [Environment]::SetEnvironmentVariable('HTTPS_PROXY', 'http://proxy.example.com:8080', 'Machine')
             [Environment]::SetEnvironmentVariable('NO_PROXY',    $validNoProxy,                   'Machine')
-            # Process scope: all set but NO_PROXY missing K2s hosts
             [Environment]::SetEnvironmentVariable('HTTP_PROXY',  'http://proxy.example.com:8080', 'Process')
             [Environment]::SetEnvironmentVariable('HTTPS_PROXY', 'http://proxy.example.com:8080', 'Process')
             [Environment]::SetEnvironmentVariable('NO_PROXY',    'some.other.host',               'Process')
@@ -744,9 +746,7 @@ Describe 'Test-ProxyEnvVarsConfiguration' -Tag 'unit', 'ci', 'proxy' {
 
     It 'throws with all violation messages when both scopes are invalid' {
         InModuleScope $moduleName {
-            # Machine: HTTP_PROXY only (inconsistent)
             [Environment]::SetEnvironmentVariable('HTTP_PROXY', 'http://proxy.example.com:8080', 'Machine')
-            # Process: all set but NO_PROXY missing K2s hosts
             [Environment]::SetEnvironmentVariable('HTTP_PROXY',  'http://proxy.example.com:8080', 'Process')
             [Environment]::SetEnvironmentVariable('HTTPS_PROXY', 'http://proxy.example.com:8080', 'Process')
             [Environment]::SetEnvironmentVariable('NO_PROXY',    'some.other.host',               'Process')
@@ -757,7 +757,6 @@ Describe 'Test-ProxyEnvVarsConfiguration' -Tag 'unit', 'ci', 'proxy' {
 
     It 'does not throw when NO_PROXY contains K2s hosts with extra whitespace around entries' {
         InModuleScope $moduleName {
-            # Entries with surrounding spaces should still be matched after trimming
             $noProxy = 'localhost , 127.0.0.1 , ::1 , 172.19.1.100 , 172.20.0.0/16 , 172.21.0.0/16 , .local , .cluster.local'
             [Environment]::SetEnvironmentVariable('HTTP_PROXY',  'http://proxy.example.com:8080', 'Machine')
             [Environment]::SetEnvironmentVariable('HTTPS_PROXY', 'http://proxy.example.com:8080', 'Machine')
@@ -775,6 +774,44 @@ Describe 'Test-ProxyEnvVarsConfiguration' -Tag 'unit', 'ci', 'proxy' {
             [Environment]::SetEnvironmentVariable('NO_PROXY',    $noProxy,                        'Machine')
 
             { Test-ProxyEnvVarsConfiguration } | Should -Not -Throw
+        }
+    }
+
+    It 'does not throw when all three proxy env vars are set using lowercase names in Machine scope' {
+        InModuleScope $moduleName {
+            $noProxy = 'localhost,127.0.0.1,::1,172.19.1.100,172.20.0.0/16,172.21.0.0/16,.local,.cluster.local'
+            [Environment]::SetEnvironmentVariable('http_proxy',  'http://proxy.example.com:8080', 'Machine')
+            [Environment]::SetEnvironmentVariable('https_proxy', 'http://proxy.example.com:8080', 'Machine')
+            [Environment]::SetEnvironmentVariable('no_proxy',    $noProxy,                        'Machine')
+
+            { Test-ProxyEnvVarsConfiguration } | Should -Not -Throw
+        }
+    }
+
+    It 'throws when only lowercase http_proxy is set in Machine scope' {
+        InModuleScope $moduleName {
+            [Environment]::SetEnvironmentVariable('http_proxy', 'http://proxy.example.com:8080', 'Machine')
+
+            { Test-ProxyEnvVarsConfiguration } | Should -Throw '*HTTPS_PROXY*'
+        }
+    }
+
+    It 'throws when lowercase http_proxy and https_proxy are set but no_proxy is missing K2s hosts in Machine scope' {
+        InModuleScope $moduleName {
+            [Environment]::SetEnvironmentVariable('http_proxy',  'http://proxy.example.com:8080', 'Machine')
+            [Environment]::SetEnvironmentVariable('https_proxy', 'http://proxy.example.com:8080', 'Machine')
+            [Environment]::SetEnvironmentVariable('no_proxy',    'some.other.host',               'Machine')
+
+            { Test-ProxyEnvVarsConfiguration } | Should -Throw '*missing required K2s hosts*'
+        }
+    }
+
+    It 'throws when uppercase HTTP_PROXY and lowercase https_proxy are set but NO_PROXY is missing in Machine scope' {
+        InModuleScope $moduleName {
+            [Environment]::SetEnvironmentVariable('HTTP_PROXY',  'http://proxy.example.com:8080', 'Machine')
+            [Environment]::SetEnvironmentVariable('https_proxy', 'http://proxy.example.com:8080', 'Machine')
+
+            { Test-ProxyEnvVarsConfiguration } | Should -Throw '*NO_PROXY*'
         }
     }
 }
