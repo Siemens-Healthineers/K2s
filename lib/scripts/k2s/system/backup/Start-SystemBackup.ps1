@@ -144,11 +144,18 @@ if (Test-Path $namespacedDir) {
 $hooksBackupPath = Join-Path $backupRoot "hooks"
 New-Item -ItemType Directory -Path $hooksBackupPath -Force | Out-Null
 
-Invoke-UpgradeBackupRestoreHooks `
-    -HookType Backup `
-    -BackupDir $hooksBackupPath `
-    -ShowLogs:$ShowLogs `
-    -AdditionalHooksDir $AdditionalHooksDir
+try {
+    Invoke-UpgradeBackupRestoreHooks `
+        -HookType Backup `
+        -BackupDir $hooksBackupPath `
+        -ShowLogs:$ShowLogs `
+        -AdditionalHooksDir $AdditionalHooksDir
+
+    Write-Log "Backup hooks executed successfully" -Console
+}
+catch {
+    throw "Backup hooks execution failed: $_"
+}
 
 # ------------------------------------------------------------
 # Backup persistent volumes
@@ -162,14 +169,18 @@ if ($SkipPVs) {
     try {
         $pvBackupResult = Invoke-PVBackup -BackupDirectory $pvBackupPath
 
-        if ($pvBackupResult.Success) {
-            Write-Log "Successfully backed up $($pvBackupResult.BackedUpCount) persistent volume(s)" -Console
-        } else {
-            Write-Log "PV backup completed with some failures. Check backup logs for details." -Console
+        if ($null -eq $pvBackupResult) {
+            throw "PV backup operation returned no result. This indicates a critical failure in the backup process."
         }
+
+        if (-not $pvBackupResult.Success) {
+            throw "PV backup failed. Backed up $($pvBackupResult.BackedUpCount) volume(s) but encountered errors. Use -SkipPVs to exclude PVs from backup."
+        }
+
+        Write-Log "Successfully backed up $($pvBackupResult.BackedUpCount) persistent volume(s)" -Console
     }
     catch {
-        Write-Log "Warning: PV backup failed - $_. Continuing with backup..." -Console
+        throw "PV backup operation failed: $_"
     }
 }
 
@@ -186,14 +197,18 @@ if ($SkipImages) {
         # For system backup, exclude addon images (they're handled by addon backup)
         $imageBackupResult = Invoke-ImageBackup -BackupDirectory $imagesBackupPath -ExcludeAddonImages
 
-        if ($imageBackupResult.Success) {
-            Write-Log "Successfully backed up $($imageBackupResult.Images.Count) user workload container images" -Console
-        } else {
-            Write-Log "Image backup completed with some failures. Check backup logs for details." -Console
+        if ($null -eq $imageBackupResult) {
+            throw "Image backup operation returned no result. This indicates a critical failure in the backup process."
         }
+
+        if (-not $imageBackupResult.Success) {
+            throw "Image backup failed. Backed up $($imageBackupResult.Images.Count) image(s) but encountered errors. Use -SkipImages to exclude images from backup."
+        }
+
+        Write-Log "Successfully backed up $($imageBackupResult.Images.Count) user workload container images" -Console
     }
     catch {
-        Write-Log "Warning: Image backup failed - $_. Continuing with backup..." -Console
+        throw "Image backup operation failed: $_"
     }
 }
 
