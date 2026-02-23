@@ -275,7 +275,8 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $WindowsHostIpAddress = $(throw 'Argument missing: WindowsHostIpAddress'),
         [string] $Proxy = '',
-        [string] $AdditionalHooksDir = ''
+        [string] $AdditionalHooksDir = '',
+        [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: installedDistributionOnRemoteComputer')
     )
 
     $nodeParams = @{
@@ -293,9 +294,10 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
     Write-Log "Installing node essentials" -Console
 
     Write-Log "Prepare the computer $IpAddress for provisioning"
-    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
-    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer
+
+    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer
 
     $doBeforeJoining = {
         Write-Log "Configuring networking for adding the node" -Console
@@ -462,26 +464,32 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     Param(
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $Proxy = ''
+        [string] $Proxy = '',
+        [string] $InstalledDistribution = $(throw 'Argument missing: InstalledDistribution')
     )
     $controlPlaneUserName = Get-DefaultUserNameControlPlane
     $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
     $installedDistributionOnControlPlane = Get-InstalledDistribution -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
-    $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
+    # $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
+       // $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
     Write-Log "Installed distribution in the control plane: $installedDistributionOnControlPlane"
-    Write-Log "Installed distribution in the machine with IP '$IpAddress': $installedDistributionOnRemoteComputer"
+    Write-Log "Installed distribution in the machine with IP '$IpAddress': $InstalledDistribution"
     $baseDirectoryOfKubenodeDebPackagesOnWindowsHost = Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost
-    $windowsHostDebPackagesSourcePath = "$baseDirectoryOfKubenodeDebPackagesOnWindowsHost\$installedDistributionOnRemoteComputer"
+    $windowsHostDebPackagesSourcePath = "$baseDirectoryOfKubenodeDebPackagesOnWindowsHost\$InstalledDistribution"
 
+    #bin\LinuxNodeArtifacts.zip
     $linuxNodeArtifactsPackagePath = Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost
+    #$bin\linuxnode
     $linuxNodeArtifactsPath = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
 
     $packagePathExists = $(Test-Path -Path $linuxNodeArtifactsPackagePath)
     $linuxNodeArtifactsPathExists = $(Test-Path -Path $linuxNodeArtifactsPath)
+
     Write-Log "Zip file '$linuxNodeArtifactsPackagePath' with Linux node artifacts exists?: $packagePathExists"
     Write-Log "Folder '$linuxNodeArtifactsPath' with Linux node artifacts exists?: $linuxNodeArtifactsPathExists"
 
     if (!($linuxNodeArtifactsPathExists) -and ($packagePathExists)) {
+        #$bin\linuxnode
         Write-Log "Create folder '$linuxNodeArtifactsPath'"
         New-Item -Path $linuxNodeArtifactsPath -ItemType Directory -Force | Out-Null
         Write-Log "Extracting content of file '$linuxNodeArtifactsPackagePath' into '$linuxNodeArtifactsPath'"

@@ -60,34 +60,25 @@ Function Set-UpComputerBeforeProvisioning {
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [parameter(Mandatory = $false)]
-        [string] $Proxy = ''
+        [string] $Proxy = '',
+        [string] $InstalledDistribution = 'debian12'
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
-
-    $executeRemoteCommand = {
-        param(
-            $Command = $(throw 'Argument missing: Command'),
-            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
-        )
-        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        }
-        else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        }
-    }
-
     if ( $Proxy -ne '' ) {
-        Write-Log "Setting proxy '$Proxy' for apt"
-        # Add retries to handle transient network errors like "Software caused connection abort"
-        &$executeRemoteCommand -Command 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -Retries 3
-        if ($PSVersionTable.PSVersion.Major -gt 5) {
-            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -Retries 3
-        }
-        else {
-            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -Retries 3
-        }
+        Write-Log "Setting proxy '$Proxy'"
+        $linuxScriptDir = Get-LinuxScriptPath -InstalledDistribution $InstalledDistribution -InstallationPath $installationPath
+        $setProxyScript = "$linuxScriptDir\setproxy.sh"
+        
+        Invoke-RemoteScript -LocalScriptPath $setProxyScript `
+                            -UserName $UserName `
+                            -IpAddress $IpAddress `
+                            -UserPwd $UserPwd `
+                            -Arguments @($Proxy) `
+                            -CleanupAfterExecution `
+                            -Retries 3
+        
+        Write-Log "Proxy configuration completed" -Console
     }
 
     if (![string]::IsNullOrWhiteSpace($UserPwd)) {
@@ -2034,6 +2025,93 @@ function Update-CoreDNSConfigurationviaSSH {
 
 }
 
+function Get-LinuxScriptPath {
+    param (
+        [string]$InstalledDistribution='debian12'
+    )
+    $installationPath = Get-KubePath
+    # Map OS to script filename
+    $osScriptMap = @{
+        'debian12'   = "$installationPath\cfg\nodeextension\debian-12\scripts"
+        'debian13'   = "$installationPath\cfg\nodeextension\debian-13\scripts"
+    }
+    # Get base script name from OS
+    $scriptPath = $osScriptMap[$InstalledDistribution]
+    if (!$scriptPath) {
+        throw "Unsupported OS for proxy setup: $InstalledDistribution"
+    }
+    if (!(Test-Path $scriptPath)) {
+        throw "Proxy setup script not found: $scriptPath"
+    }
+    return $scriptPath
+}
+
+function Invoke-RemoteScript {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$LocalScriptPath,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$UserName,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$IpAddress,
+        
+        [string]$UserPwd = '',
+        
+        [string[]]$Arguments = @(),
+        
+        [switch]$CleanupAfterExecution,
+        
+        [uint16]$Retries = 3
+    )
+    
+    # Generate remote script path (always /tmp)
+    $RemoteScriptPath = "/tmp/script_$([guid]::NewGuid().ToString().Substring(0, 8)).sh"
+    
+    if (!(Test-Path $LocalScriptPath)) {
+        throw "Local script not found: $LocalScriptPath"
+    }
+    
+    Write-Log "Copying script to remote: $RemoteScriptPath"
+    
+    # Copy script to remote (always use SSH key for file transfer)
+    Copy-ToRemoteComputerViaSshKey -Source $LocalScriptPath -Target $RemoteScriptPath -UserName $UserName -IpAddress $IpAddress
+    
+    # Build command with arguments
+    $argumentString = if ($Arguments.Count -gt 0) { 
+        "'$($Arguments -join "' '")'" 
+    } else { 
+        "" 
+    }
+    
+    Write-Log "Executing remote script: $RemoteScriptPath $argumentString"
+    
+    # Make executable and run (supports both SSH key and password auth for command execution)
+    $remoteUser = "$UserName@$IpAddress"
+    $executeRemoteCommand = {
+        param($Command)
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries).Output
+        }
+        else {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries).Output
+        }
+    }
+    
+    $result = &$executeRemoteCommand "chmod +x $RemoteScriptPath && $RemoteScriptPath $argumentString"
+    
+    Write-Log "Script output: $result"
+    
+    # Cleanup
+    if ($CleanupAfterExecution) {
+        Write-Log "Cleaning up remote script: $RemoteScriptPath"
+        &$executeRemoteCommand "rm $RemoteScriptPath"
+    }
+    
+    return $result
+}
+
 
 Export-ModuleMember -Function New-VmImageForControlPlaneNode,
 New-LinuxVmImageForWorkerNode,
@@ -2060,4 +2138,6 @@ Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
 Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
 Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
 Update-CoreDNSConfigurationviaSSH,
-Set-UpMasterNode
+Set-UpMasterNode,
+Get-LinuxScriptPath,
+Invoke-RemoteScript
