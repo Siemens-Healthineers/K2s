@@ -55,6 +55,9 @@ Set-ConfigSetupType -Value $script:SetupType
 Set-ConfigLinuxOnly -Value $true
 
 # Initialize the proxy settings before starting installation.
+Test-ProxyEnvVarsConfiguration
+
+# Initialize the proxy settings before starting installation.
 New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
