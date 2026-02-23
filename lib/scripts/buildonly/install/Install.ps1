@@ -58,6 +58,9 @@ $installationType = 'Build-only'
 Write-Log "Installing $installationType setup"
 
 # Initialize the proxy settings before starting installation.
+Test-ProxyEnvVarsConfiguration
+
+# Initialize the proxy settings before starting installation.
 New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
