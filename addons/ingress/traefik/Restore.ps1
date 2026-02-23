@@ -67,7 +67,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'ingress traefik' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'ingress traefik'" -Console
 
 Write-Log "[AddonRestore] Waiting for traefik pod to be Ready" -Console
 Wait-ForPodCondition -Label 'app.kubernetes.io/name=traefik' -Namespace 'ingress-traefik' -Condition Ready -TimeoutSeconds 120 | Out-Null
