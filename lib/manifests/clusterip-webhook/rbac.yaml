@@ -1,0 +1,118 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+# ServiceAccount for the webhook Deployment (runtime)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: clusterip-webhook
+  namespace: k2s-clusterip-webhook
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/part-of: k2s
+---
+# The webhook needs to list Services across all namespaces to discover used IPs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k2s:clusterip-webhook
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/part-of: k2s
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k2s:clusterip-webhook
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/part-of: k2s
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k2s:clusterip-webhook
+subjects:
+  - kind: ServiceAccount
+    name: clusterip-webhook
+    namespace: k2s-clusterip-webhook
+---
+# ServiceAccount for the TLS cert-gen Jobs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: clusterip-webhook-certgen
+  namespace: k2s-clusterip-webhook
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/component: certgen
+    app.kubernetes.io/part-of: k2s
+---
+# The certgen Job needs to read/create Secrets in its own namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: clusterip-webhook-certgen
+  namespace: k2s-clusterip-webhook
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/component: certgen
+    app.kubernetes.io/part-of: k2s
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: clusterip-webhook-certgen
+  namespace: k2s-clusterip-webhook
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/component: certgen
+    app.kubernetes.io/part-of: k2s
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: clusterip-webhook-certgen
+subjects:
+  - kind: ServiceAccount
+    name: clusterip-webhook-certgen
+    namespace: k2s-clusterip-webhook
+---
+# The certgen patch Job needs to update the MutatingWebhookConfiguration caBundle
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k2s:clusterip-webhook-certgen
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/component: certgen
+    app.kubernetes.io/part-of: k2s
+rules:
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["mutatingwebhookconfigurations"]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k2s:clusterip-webhook-certgen
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/component: certgen
+    app.kubernetes.io/part-of: k2s
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k2s:clusterip-webhook-certgen
+subjects:
+  - kind: ServiceAccount
+    name: clusterip-webhook-certgen
+    namespace: k2s-clusterip-webhook

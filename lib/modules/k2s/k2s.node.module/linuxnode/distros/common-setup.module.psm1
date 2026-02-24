@@ -957,6 +957,27 @@ function Get-FlannelImages {
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.28.1'
 }
 
+function Get-ClusterIPWebhookImages {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    }
+
+    Write-Log 'Get images used by clusterip-webhook'
+
+    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.0.0'
+    &$executeRemoteCommand 'sudo crictl pull registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.7'
+}
+
 function AddRegistryMirrors {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -1142,6 +1163,71 @@ The IP address of the the cni network interface in the VM.
 .PARAMETER Hook
 A script block that will get executed at the end of the set-up process (can be used for e.g. to install custom tools).
 #>
+
+Function Deploy-ClusterIPWebhook {
+    param(
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = '',
+        [ScriptBlock]$ExecuteRemoteCommand = $(throw 'Argument missing: ExecuteRemoteCommand')
+    )
+
+    $manifestDir = "$PSScriptRoot\..\..\..\..\manifests\clusterip-webhook"
+    $remoteDir = '/tmp/clusterip-webhook'
+    $remoteUserPwd = $UserPwd
+
+    Write-Log '[ClusterIP-Webhook] Deploying clusterip-webhook components' -Console
+
+    &$ExecuteRemoteCommand "mkdir -p $remoteDir"
+
+    $manifestFiles = @(
+        'namespace.yaml',
+        'rbac.yaml',
+        'webhook-config.yaml',
+        'deployment.yaml',
+        'certgen-jobs.yaml'
+    )
+
+    foreach ($file in $manifestFiles) {
+        $localPath = Join-Path $manifestDir $file
+        Write-Log "[ClusterIP-Webhook] Copying $file to master node"
+        if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+            Copy-ToRemoteComputerViaSshKey -Source $localPath -Target "$remoteDir/$file" -UserName $UserName -IpAddress $IpAddress
+        }
+        else {
+            Copy-ToRemoteComputerViaUserAndPwd -Source $localPath -Target "$remoteDir/$file" -UserName $UserName -UserPwd $remoteUserPwd -IpAddress $IpAddress
+        }
+    }
+
+    Write-Log '[ClusterIP-Webhook] Applying namespace and RBAC'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/namespace.yaml" -Retries 3
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/rbac.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/deployment.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Running TLS certificate generation jobs'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-jobs.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Waiting for cert-create job to complete'
+    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-clusterip-webhook --timeout=120s' -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Waiting for cert-patch job to complete'
+    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-clusterip-webhook --timeout=120s' -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Waiting for webhook deployment to be ready'
+    &$ExecuteRemoteCommand 'kubectl rollout status deployment/clusterip-webhook -n k2s-clusterip-webhook --timeout=120s' -Retries 3
+
+    &$ExecuteRemoteCommand "rm -rf $remoteDir" -IgnoreErrors
+
+    Write-Log '[ClusterIP-Webhook] ClusterIP webhook deployed successfully' -Console
+}
+
 Function Set-UpMasterNode {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -1290,6 +1376,9 @@ failCgroupV1: false
     # change config map to forward all non cluster DNS request to proxy (dnsmasq) running on master
     &$executeRemoteCommand "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $networkInterfaceCni0IP|' | kubectl apply -f -" -IgnoreErrors
 
+
+    Write-Log 'Deploy ClusterIP mutating webhook'
+    Deploy-ClusterIPWebhook -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -ExecuteRemoteCommand $executeRemoteCommand
 
     Write-Log 'Run setup hook'
     &$Hook
@@ -1530,6 +1619,7 @@ function New-VmImageForKubernetesNode {
             Install-DnsServer -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
             Install-Tools -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd -Proxy $Proxy
             Get-FlannelImages -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
+            Get-ClusterIPWebhookImages -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
             Add-SupportForWSL -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
         }
 

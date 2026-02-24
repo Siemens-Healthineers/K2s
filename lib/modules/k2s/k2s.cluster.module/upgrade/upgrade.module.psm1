@@ -187,7 +187,7 @@ function Export-NamespacedResources {
 
 	# get excluded namespaces
 	# default namespaces are only the kubernetes ones, more shall be available in the default config file
-	$excludednamespaces = 'kube-flannel', 'kube-node-lease', 'kube-public', 'kube-system'
+	$excludednamespaces = 'kube-flannel', 'kube-node-lease', 'kube-public', 'kube-system', 'k2s-clusterip-webhook'
 	$enspaces = $rootConfig.backup.excludednamespaces
 	if ( $enspaces ) {
 		$excludednamespaces = $enspaces.Split(',')

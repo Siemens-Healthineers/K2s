@@ -159,6 +159,8 @@ kind: Service
 metadata:
   name: myapp
   namespace: apps
+  labels:
+    k2s.io/os: windows
 spec:
   selector:
     app: myapp   # target the HostProcess deployment label
@@ -167,7 +169,6 @@ spec:
     - port: 80
       targetPort: 8080   # assuming binary listens on 8080
       protocol: TCP
-  clusterIP: 172.21.1.222
 ```
 
 ### Scaling Strategies

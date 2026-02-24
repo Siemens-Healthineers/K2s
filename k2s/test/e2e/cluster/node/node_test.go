@@ -45,7 +45,6 @@ type DeploymentData struct {
 	ContainerName  string
 	Image          string
 	NodeName       string
-	ClusterIP      string
 	OS             string
 }
 
@@ -70,14 +69,9 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	linuxImage := "shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0"
 	windowsImage := "shsk2s.azurecr.io/example.albums-golang-win:v1.0.0"
 
-	clusterIPStart := map[string]string{
-		linux:   "172.21.0.",
-		windows: "172.21.1.",
-	}
-
 	// Generate and apply deployments for Linux and Windows
-	generateDeployments("overlays/linux", linuxNodes, linuxImage, clusterIPStart[linux], linux)
-	generateDeployments("overlays/windows", windowsNodes, windowsImage, clusterIPStart[windows], windows)
+	generateDeployments("overlays/linux", linuxNodes, linuxImage, linux)
+	generateDeployments("overlays/windows", windowsNodes, windowsImage, windows)
 
 	applyDeployments(ctx)
 
@@ -232,7 +226,7 @@ func getNodes(ctx context.Context, osType string) []string {
 	return strings.Split(output, "\n")
 }
 
-func generateDeployments(outputDir string, nodes []string, image, clusterIPBase string, osType string) {
+func generateDeployments(outputDir string, nodes []string, image string, osType string) {
 	if len(nodes) == 0 {
 		GinkgoWriter.Println("No nodes found for OsType:", osType)
 		return
@@ -285,6 +279,10 @@ kind: Service
 metadata:
   name: {{ .AppName }}
   namespace: k2s
+  {{ if eq .OS "windows" -}}
+  labels:
+    k2s.io/os: windows
+  {{- end }}
 spec:
   selector:
     app: {{ .AppName }}
@@ -292,7 +290,6 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-  clusterIP: {{ .ClusterIP }}
 `
 
 	t, err := template.New("deployment").Parse(tmpl)
@@ -304,7 +301,6 @@ spec:
 		panic(err)
 	}
 
-	clusterIPCounter := 200
 	for _, node := range nodes {
 		overlayDir := filepath.Join(outputDir, node)
 		if err := os.MkdirAll(overlayDir, 0755); err != nil {
@@ -319,11 +315,9 @@ spec:
 				ContainerName:  fmt.Sprintf("%s-ctr-%d", node, i),
 				Image:          image,
 				NodeName:       node,
-				ClusterIP:      fmt.Sprintf("%s%d", clusterIPBase, clusterIPCounter),
 				OS:             osType,
 			}
 			deployments = append(deployments, data)
-			clusterIPCounter++
 
 			var buf bytes.Buffer
 			if err := t.Execute(&buf, data); err != nil {

@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k2s-clusterip-webhook
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/part-of: k2s
