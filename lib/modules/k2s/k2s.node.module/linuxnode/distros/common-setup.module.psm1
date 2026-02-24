@@ -189,40 +189,10 @@ Function Get-KubernetesArtifactsFromInternet {
         [string] $Proxy = '',
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string] $K8sVersion = $(throw 'Argument missing: K8sVersion'),
-        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath'),
+        [string] $InstalledDistribution = $(throw 'Argument missing: InstalledDistribution')    
     )
-    $remoteUser = "$UserName@$IpAddress"
-    
-    $executeRemoteCommand = { 
-        param(
-            $Command = $(throw 'Argument missing: Command'), 
-            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
-        )
-        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        }
-        else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        }
-    }
-
-    $kubenodeDebPackagesPath = $TargetPath
-    &$executeRemoteCommand "[ -d $kubenodeDebPackagesPath ] && rm -rf $kubenodeDebPackagesPath; mkdir -p $kubenodeDebPackagesPath" -Retries 2
-
-    $downloadPackagesCommand = { 
-        param(
-            $PackageName = $(throw 'Argument missing: PackageName'), 
-            $DebFileNamePattern = $(throw 'Argument missing: DebFileNamePattern')
-        )
-        &$executeRemoteCommand -Retries 2 -Command "cd $kubenodeDebPackagesPath && sudo apt-get download $PackageName" -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
-        &$executeRemoteCommand `
-            -Retries 2 `
-            -Command "cd $kubenodeDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./$DebFileNamePattern | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
-            -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
-    }
-
-    &$executeRemoteCommand 'echo "APT::Sandbox::User \\"root\\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s'
-
+    # Copy ZScaler certificate if needed
     Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
     $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
     $zScalerCertificateTargetPath = '/tmp/ZScalerRootCA.crt'
@@ -233,33 +203,102 @@ Function Get-KubernetesArtifactsFromInternet {
         Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     }
 
-    &$executeRemoteCommand 'sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/'
-    &$executeRemoteCommand 'sudo update-ca-certificates'
-    Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'"
-
-    Write-Log "Ensure that the system's package list is up-to-date"
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
-
-    Write-Log 'Download gpg'
-    &$downloadPackagesCommand -PackageName 'gpg' -DebFileNamePattern 'gpg*.deb'
-
-    Write-Log 'Download other depended-on tools'
-    &$downloadPackagesCommand -PackageName 'apt-transport-https' -DebFileNamePattern 'apt*.deb'
-    &$downloadPackagesCommand -PackageName 'ca-certificates' -DebFileNamePattern 'ca-*.deb'
-
-    Set-KubernetesAptRepository -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion 
+    # Copy and execute the shell script
+    Write-Log "Downloading Kubernetes artifacts for Debian 12"
+    $scriptSourcePath ="$(Get-LinuxScriptPath)\download-k8s-packages.sh"
     
-    Write-Log 'Download cri-o'
-    &$downloadPackagesCommand -PackageName 'cri-o' -DebFileNamePattern 'cri-o*.deb'
-
-    Write-Log 'Download kubetools (kubelet, kubeadm, kubectl)'
-    $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
-    &$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
-    &$downloadPackagesCommand -PackageName "kubelet=$shortKubeVers" -DebFileNamePattern 'kubelet*.deb'
-    &$downloadPackagesCommand -PackageName "kubeadm=$shortKubeVers" -DebFileNamePattern 'kubeadm*.deb'
-
-    &$executeRemoteCommand "cd /home/remote/apt-offline-k2s/kubernetes && sudo find . -maxdepth 1 -type f \( -name 'kubeadm_*.deb' -o -name 'kubectl_*.deb' -o -name 'kubelet_*.deb' \) ! -name '*_${shortKubeVers}_amd64.deb' -exec rm -f {} +"
+    Invoke-RemoteScript -LocalScriptPath $scriptSourcePath `
+                        -UserName $UserName `
+                        -IpAddress $IpAddress `
+                        -UserPwd $UserPwd `
+                        -Arguments @($TargetPath, $K8sVersion, $Proxy) `
+                        -CleanupAfterExecution `
+                        -Retries 2
+    
+    Write-Log 'Kubernetes artifacts downloaded successfully'
 }
+
+# Function Get-KubernetesArtifactsFromInternet {
+#     param (
+#         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+#         [string] $UserName = $(throw 'Argument missing: UserName'),
+#         [string] $UserPwd = '',
+#         [ValidateScript({ Get-IsValidIPv4Address($_) })]
+#         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+#         [string] $Proxy = '',
+#         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+#         [string] $K8sVersion = $(throw 'Argument missing: K8sVersion'),
+#         [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+#     )
+#     $remoteUser = "$UserName@$IpAddress"
+    
+#     $executeRemoteCommand = { 
+#         param(
+#             $Command = $(throw 'Argument missing: Command'), 
+#             [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+#         )
+#         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+#             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+#         }
+#         else {
+#             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+#         }
+#     }
+    #/home/user/apt-offline-k2s/kubernetes
+    # $kubenodeDebPackagesPath = $TargetPath
+    # &$executeRemoteCommand "[ -d $kubenodeDebPackagesPath ] && rm -rf $kubenodeDebPackagesPath; mkdir -p $kubenodeDebPackagesPath" -Retries 2
+
+    # $downloadPackagesCommand = { 
+    #     param(
+    #         $PackageName = $(throw 'Argument missing: PackageName'), 
+    #         $DebFileNamePattern = $(throw 'Argument missing: DebFileNamePattern')
+    #     )
+    #     &$executeRemoteCommand -Retries 2 -Command "cd $kubenodeDebPackagesPath && sudo apt-get download $PackageName" -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
+    #     &$executeRemoteCommand `
+    #         -Retries 2 `
+    #         -Command "cd $kubenodeDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./$DebFileNamePattern | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
+    #         -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
+    # }
+
+    # &$executeRemoteCommand 'echo "APT::Sandbox::User \\"root\\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s'
+
+    # Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
+    # $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
+    # $zScalerCertificateTargetPath = '/tmp/ZScalerRootCA.crt'
+    # if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+    #     Copy-ToRemoteComputerViaSshKey -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -IpAddress $IpAddress
+    # }
+    # else {
+    #     Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    # }
+
+    # &$executeRemoteCommand 'sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/'
+    # &$executeRemoteCommand 'sudo update-ca-certificates'
+    # Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'"
+
+    # Write-Log "Ensure that the system's package list is up-to-date"
+    # &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
+
+    # Write-Log 'Download gpg'
+    # &$downloadPackagesCommand -PackageName 'gpg' -DebFileNamePattern 'gpg*.deb'
+
+    # Write-Log 'Download other depended-on tools'
+    # &$downloadPackagesCommand -PackageName 'apt-transport-https' -DebFileNamePattern 'apt*.deb'
+    # &$downloadPackagesCommand -PackageName 'ca-certificates' -DebFileNamePattern 'ca-*.deb'
+
+    # Set-KubernetesAptRepository -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion 
+    
+    # Write-Log 'Download cri-o'
+    # &$downloadPackagesCommand -PackageName 'cri-o' -DebFileNamePattern 'cri-o*.deb'
+
+    # Write-Log 'Download kubetools (kubelet, kubeadm, kubectl)'
+    # $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
+    # &$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
+    # &$downloadPackagesCommand -PackageName "kubelet=$shortKubeVers" -DebFileNamePattern 'kubelet*.deb'
+    # &$downloadPackagesCommand -PackageName "kubeadm=$shortKubeVers" -DebFileNamePattern 'kubeadm*.deb'
+
+    # &$executeRemoteCommand "cd /home/remote/apt-offline-k2s/kubernetes && sudo find . -maxdepth 1 -type f \( -name 'kubeadm_*.deb' -o -name 'kubectl_*.deb' -o -name 'kubelet_*.deb' \) ! -name '*_${shortKubeVers}_amd64.deb' -exec rm -f {} +"
+# }
 
 Function Add-KubernetesArtifactsToRemoteComputer {
     Param(
@@ -267,16 +306,18 @@ Function Add-KubernetesArtifactsToRemoteComputer {
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $Proxy = '',
         [string] $SourcePath = $(throw 'Argument missing: SourcePath'),
-        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath'),
+        [string] $InstalledDistribution = $(throw 'Argument missing: InstalledDistribution')
     )
 
+    #binPath\linuxnode\packages\debian12\ kubernetes
     $debPackagesSourcePath = "$SourcePath\$kubernetesDebPackagesDirectory"
     
     if (Test-Path -Path $debPackagesSourcePath) {
         Copy-DebPackagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $debPackagesSourcePath -TargetPath $TargetPath
     }
     else {
-        Get-KubernetesArtifactsFromInternet -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -K8sVersion $kubernetesVersion -TargetPath $TargetPath
+        Get-KubernetesArtifactsFromInternet -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -K8sVersion $kubernetesVersion -TargetPath $TargetPath -InstalledDistribution $InstalledDistribution
     }
 }
 
@@ -2112,6 +2153,29 @@ function Invoke-RemoteScript {
     return $result
 }
 
+function Get-KubernetesPackageCachePath {
+    <#
+    .SYNOPSIS
+    Returns the path where Kubernetes packages are cached on Windows.
+    
+    .DESCRIPTION
+    This path is used to cache packages downloaded on Windows before they're
+    copied to Linux VMs. If packages exist here, they are automatically used
+    instead of downloading them on the Linux VM (offline scenario).
+    
+    .EXAMPLE
+    $cachePath = Get-KubernetesPackageCachePath
+    #>
+    return $baseDirectoryOfKubenodeDebPackagesOnWindowsHost
+}
+
+function Get-BuildahPackageCachePath {
+    <#
+    .SYNOPSIS
+    Returns the path where buildah packages are cached on Windows.
+    #>
+    return (Join-Path (Get-KubernetesPackageCachePath) $buildahDebPackagesDirectory)
+}
 
 Export-ModuleMember -Function New-VmImageForControlPlaneNode,
 New-LinuxVmImageForWorkerNode,
@@ -2140,4 +2204,6 @@ Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
 Update-CoreDNSConfigurationviaSSH,
 Set-UpMasterNode,
 Get-LinuxScriptPath,
-Invoke-RemoteScript
+Invoke-RemoteScript,
+Get-KubernetesPackageCachePath,
+Get-BuildahPackageCachePath
