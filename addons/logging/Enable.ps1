@@ -95,10 +95,12 @@ if ($setupInfo.LinuxOnly -eq $false) {
 }
 
 Write-Log 'Waiting for pods being ready...' -Console
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'logging', '--timeout=600s')
+
+# Wait for opensearch (StatefulSet) first — dashboards depends on opensearch being available at port 9200
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'logging', '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
-    $errMsg = 'Opensearch dashboards could not be deployed successfully!'
+    $errMsg = 'Opensearch could not be deployed successfully!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -109,10 +111,10 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'logging', '--timeout=600s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'logging', '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
-    $errMsg = 'Opensearch could not be deployed successfully!'
+    $errMsg = 'Opensearch dashboards could not be deployed successfully!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
