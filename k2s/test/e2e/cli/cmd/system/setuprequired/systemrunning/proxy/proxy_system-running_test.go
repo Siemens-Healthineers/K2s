@@ -50,7 +50,7 @@ var _ = Describe("system proxy", func() {
 		})
 	})
 
-	Describe("argument validation", Label("cli", "ci", "system", "proxy", "acceptance", "setup-required", "system-running"), func() {
+	Describe("argument validation", Label("cli", "system", "proxy", "acceptance", "setup-required", "system-running"), func() {
 		It("set with no args prints error", func(ctx context.Context) {
 			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "system", "proxy", "set")
 

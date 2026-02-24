@@ -19,7 +19,7 @@ var suite *framework.K2sTestSuite
 
 func TestProxy(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "system proxy CLI Commands Acceptance Tests", Label("cli", "system", "proxy", "acceptance", "no-setup"))
+	RunSpecs(t, "system proxy CLI Commands Acceptance Tests", Label("cli", "system", "proxy", "acceptance", "no-setup", "ci"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
