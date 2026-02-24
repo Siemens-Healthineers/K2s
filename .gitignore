@@ -73,7 +73,7 @@ containerd/*.tar.gz
 /bin/*.msi
 /lib/NSSM/*
 
-/smallsetup/linuxnode/containernetwork/masternode/flannel.yml
+/lib/modules/k2s/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.yml
 
 bin/dnsproxy.exe
 containerd/vfprules.log
