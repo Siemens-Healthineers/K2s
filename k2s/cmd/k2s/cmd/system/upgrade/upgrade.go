@@ -14,7 +14,6 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
@@ -218,9 +217,6 @@ func copyLegacyConfigFile(legacyDir string, targetDir string) error {
 
 func createUpgradeCommand(cmd *cobra.Command) string {
 	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "upgrade", "Start-ClusterUpgrade.ps1"))
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		slog.Debug("Param", "name", f.Name, "value", f.Value)
-	})
 	out, _ := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if out {
 		psCmd += " -ShowLogs"
