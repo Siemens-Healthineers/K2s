@@ -154,6 +154,8 @@ function Export-NotNamespacedResources {
 				.items[].metadata.creationTimestamp,
 				.items[].metadata.generation,
 				.items[].metadata.ownerReferences,
+				.items[].metadata.managedFields,
+				.items[].metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"],
 				.items[].spec.finalizers,
 				.items[].spec.claimRef,
 				.metadata.creationTimestamp,
@@ -162,7 +164,8 @@ function Export-NotNamespacedResources {
 				.metadata.selfLink,
 				.metadata.creationTimestamp,
 				.metadata.generation,
-				.metadata.ownerReferences)'
+				.metadata.ownerReferences,
+				.metadata.managedFields)'
 			$filter = $filter -replace '\r*\n', ''
 			$res2 = &$ExePath\kubectl.exe get $name -o json 2>$null | & $binPath\jq.exe $filter
 			$res3 = $res2 | & $binPath\yq eval - -P
@@ -234,6 +237,8 @@ function Export-NamespacedResources {
 				.items[].metadata.creationTimestamp,
 				.items[].metadata.generation,
 				.items[].metadata.ownerReferences,
+				.items[].metadata.managedFields,
+				.items[].metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"],
 				.items[].spec.finalizers,
 				.metadata.creationTimestamp,
 				.metadata.resourceVersion,
@@ -241,7 +246,8 @@ function Export-NamespacedResources {
 				.metadata.selfLink,
 				.metadata.creationTimestamp,
 				.metadata.generation,
-				.metadata.ownerReferences)'
+				.metadata.ownerReferences,
+				.metadata.managedFields)'
 				$filter = $filter -replace '\r*\n', ''
 				# remove unwanted items
 				$res2 = &$ExePath\kubectl.exe get $name -n $namespace -o json 2>$null | & $binPath\jq $filter
@@ -296,7 +302,7 @@ function Import-NotNamespacedResources {
         $file = Join-Path $folderResources "$resourceType.yaml"
         if (Test-Path $file) {
             Write-Log "[Restore] Applying cluster resource: $resourceType"
-            $output = & "$ExePath\kubectl.exe" apply -f $file 2>&1
+            $output = & "$ExePath\kubectl.exe" apply --server-side --force-conflicts -f $file 2>&1
             $exitCode = $LASTEXITCODE
 
             if ($ShowLogs) { Write-Log $output }
@@ -306,11 +312,22 @@ function Import-NotNamespacedResources {
                         ($output -match "Error from server")
 
             if ($hasError) {
-                $msg = "Failed to apply cluster resource file $resourceType.yaml"
-                Write-Log $msg
-                Write-Log $output
-                $errors += $msg
-                if ($ErrorOnFailure) { throw $msg }
+                # Treat 'Error from server (Invalid)' as warning — e.g. addon CRDs with encoding issues
+                # that will be properly recreated when the addon is re-enabled
+                $isInvalidError = $output -match "Error from server \(Invalid\)"
+                if ($isInvalidError) {
+                    $msg = "[Restore] Warning: Some resources in $resourceType.yaml were invalid and skipped (will be recreated by addons)"
+                    Write-Log $msg -Console
+                    Write-Log $output
+                    $warnings += $msg
+                }
+                else {
+                    $msg = "Failed to apply cluster resource file $resourceType.yaml"
+                    Write-Log $msg
+                    Write-Log $output
+                    $errors += $msg
+                    if ($ErrorOnFailure) { throw $msg }
+                }
             }
         }
     }
@@ -320,7 +337,7 @@ function Import-NotNamespacedResources {
         if ($orderedResourceTypes -notcontains $_.BaseName) {
             $file = $_.FullName
             Write-Log "[Restore] Applying cluster resource: $($_.BaseName)"
-            $output = & "$ExePath\kubectl.exe" apply -f $file 2>&1
+            $output = & "$ExePath\kubectl.exe" apply --server-side --force-conflicts -f $file 2>&1
             $exitCode = $LASTEXITCODE
 
             if ($ShowLogs) { Write-Log $output }
@@ -332,11 +349,20 @@ function Import-NotNamespacedResources {
                         ($output -match "resource mapping not found")
 
             if ($hasError) {
-                $msg = "Failed to apply cluster resource file $($_.Name)"
-                Write-Log $msg
-                Write-Log $output
-                $errors += $msg
-                if ($ErrorOnFailure) { throw $msg }
+                $isInvalidError = $output -match "Error from server \(Invalid\)"
+                if ($isInvalidError) {
+                    $msg = "[Restore] Warning: Some resources in $($_.Name) were invalid and skipped (will be recreated by addons)"
+                    Write-Log $msg -Console
+                    Write-Log $output
+                    $warnings += $msg
+                }
+                else {
+                    $msg = "Failed to apply cluster resource file $($_.Name)"
+                    Write-Log $msg
+                    Write-Log $output
+                    $errors += $msg
+                    if ($ErrorOnFailure) { throw $msg }
+                }
             }
         }
     }
@@ -412,7 +438,7 @@ function Import-NamespacedResources {
             $file = Join-Path $_.FullName "$resourceType.yaml"
             if (Test-Path $file) {
                 Write-Log "[Restore] Applying $resourceType in namespace $namespace"
-                $output = & "$ExePath\kubectl.exe" apply -f $file -n $namespace 2>&1
+                $output = & "$ExePath\kubectl.exe" apply --server-side --force-conflicts -f $file -n $namespace 2>&1
                 $exitCode = $LASTEXITCODE
 
                 if ($ShowLogs) { Write-Log $output }
@@ -452,7 +478,7 @@ function Import-NamespacedResources {
             if ($orderedResourceTypes -notcontains $_.BaseName) {
                 $file = $_.FullName
                 Write-Log "[Restore] Applying $($_.BaseName) in namespace $namespace"
-                $output = & "$ExePath\kubectl.exe" apply -f $file -n $namespace 2>&1
+                $output = & "$ExePath\kubectl.exe" apply --server-side --force-conflicts -f $file -n $namespace 2>&1
                 $exitCode = $LASTEXITCODE
 
                 if ($ShowLogs) { Write-Log $output }
