@@ -80,7 +80,7 @@ function Invoke-DeployCniPlugins($windowsNodeArtifactsDirectory) {
         throw "Directory '$cniPluginsArtifactsDirectory' does not exist"
     }
     Write-Log 'Publish cni plugins artifacts'
-    Copy-Item -Path "$cniPluginsArtifactsDirectory\*.*" -Destination "$cniPath" -Force
+    Copy-Item -Path "$cniPluginsArtifactsDirectory\*.exe" -Destination "$cniPath" -Force
 }
 
 function Invoke-DeployCniFlannelArtifacts($windowsNodeArtifactsDirectory) {
