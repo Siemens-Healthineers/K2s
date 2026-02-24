@@ -16,7 +16,7 @@ SPDX-License-Identifier: MIT
         <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/backing-up-restoring-addons/">
       
       
-        <link rel="prev" href="../hook-system/">
+        <link rel="prev" href="../backing-up-restoring-system/">
       
       
         <link rel="next" href="../configuring-httpproxy-service/">
@@ -871,6 +871,8 @@ You're not viewing the latest release version.
       
         
       
+        
+      
     
     
     
@@ -1240,6 +1242,34 @@ You're not viewing the latest release version.
     
   
     Hook System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backing-up-restoring-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backing Up and Restoring the System
   
 
     
@@ -3101,12 +3131,12 @@ SPDX-License-Identifier: MIT
 <td><code>--file</code></td>
 <td><code>-f</code></td>
 <td>Output zip file path</td>
-<td>Auto-generated in <code>C:\Temp\Addons</code></td>
+<td>Auto-generated in <code>C:\Temp\k2s\Addons</code></td>
 </tr>
 </tbody>
 </table>
 <h3 id="default-behavior">Default Behavior</h3>
-<p>When <code>-f</code> is omitted the zip is written to <code>C:\Temp\Addons</code> with the naming pattern:</p>
+<p>When <code>-f</code> is omitted the zip is written to <code>C:\Temp\k2s\Addons</code> with the naming pattern:</p>
 <div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>{addon_name}_backup_{yyyyMMdd_HHmmss}.zip
 </code></pre></div>
 <p>Spaces and slashes in the addon name are replaced with underscores (e.g. <code>ingress nginx</code> → <code>ingress_nginx_backup_20260219_143012.zip</code>).</p>
@@ -3146,11 +3176,11 @@ SPDX-License-Identifier: MIT
 <td><code>--file</code></td>
 <td><code>-f</code></td>
 <td>Input zip file path</td>
-<td>Newest matching zip in <code>C:\Temp\Addons</code></td>
+<td>Newest matching zip in <code>C:\Temp\k2s\Addons</code></td>
 </tr>
 </tbody>
 </table>
-<p>When <code>-f</code> is omitted the <abbr title="Command-Line Interface">CLI</abbr> searches <code>C:\Temp\Addons</code> for files matching <code>{addon_name}_backup_*.zip</code> and picks the most recently modified one.</p>
+<p>When <code>-f</code> is omitted the <abbr title="Command-Line Interface">CLI</abbr> searches <code>C:\Temp\k2s\Addons</code> for files matching <code>{addon_name}_backup_*.zip</code> and picks the most recently modified one.</p>
 <blockquote>
 <p><strong>⚠️ Warning:</strong> The addon <strong>must be disabled</strong> before running restore. If the addon is still enabled the command will fail with: <code>addon '&lt;name&gt;' must be disabled before restore</code>.</p>
 </blockquote>
@@ -3162,7 +3192,7 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="go">k2s addons restore &quot;ingress nginx&quot;</span>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="gp"># </span>Restore<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon<span class="w"> </span>implementation
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="go">k2s addons restore &quot;storage smb&quot; -f C:\Temp\Addons\storage_smb_backup_20260219_143012.zip</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="go">k2s addons restore &quot;storage smb&quot; -f C:\Temp\k2s\Addons\storage_smb_backup_20260219_143012.zip</span>
 </code></pre></div>
 <h2 id="typical-workflow">Typical Workflow</h2>
 <p>A common scenario is backing up addons before a <em>K2s</em> upgrade and restoring them afterwards:</p>
@@ -3424,7 +3454,7 @@ SPDX-License-Identifier: MIT
 </tr>
 <tr>
 <td><code>no backup zip found</code></td>
-<td>No matching zip in <code>C:\Temp\Addons</code></td>
+<td>No matching zip in <code>C:\Temp\k2s\Addons</code></td>
 <td>Provide an explicit path with <code>-f</code></td>
 </tr>
 <tr>
@@ -3493,7 +3523,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../hook-system/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Hook System">
+          <a href="../backing-up-restoring-system/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Backing Up and Restoring the System">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3503,7 +3533,7 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Hook System
+                Backing Up and Restoring the System
               </div>
             </div>
           </a>

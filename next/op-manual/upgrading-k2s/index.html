@@ -871,6 +871,8 @@ You're not viewing the latest release version.
       
         
       
+        
+      
     
     
     
@@ -1503,6 +1505,34 @@ You're not viewing the latest release version.
     
   
     Hook System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backing-up-restoring-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backing Up and Restoring the System
   
 
     
@@ -2873,6 +2903,19 @@ SPDX-License-Identifier: MIT
 </code></pre></div></p>
 <h3 id="configuration-override">Configuration Override</h3>
 <p>If you omit <code>-c</code>, the previous cluster's effective settings (memory, <abbr title="Central Processing Unit">CPU</abbr>, storage paths) are reused. To change them during an upgrade, provide a config file as described in <a href="../installing-k2s/#installing-using-config-files">Installing Using Config Files</a>.</p>
+<div class="admonition info">
+<p class="admonition-title">Memory Configuration Preservation</p>
+<p>During upgrade, <strong>all memory settings are automatically preserved</strong>, including:</p>
+<ul>
+<li><strong>Static memory</strong>: <abbr title="Virtual Machine">VM</abbr> memory allocation remains unchanged</li>
+<li><strong>Dynamic memory</strong>: Startup, minimum, and maximum values are preserved</li>
+</ul>
+<p>Example:
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Before Upgrade: 4GB dynamic memory (min: 2GB, max: 8GB)
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>After Upgrade:  4GB dynamic memory (min: 2GB, max: 8GB) ✓ Preserved
+</code></pre></div></p>
+<p>To change memory configuration during upgrade (e.g., from static to dynamic memory), provide a config file with <code>-c</code>. See <a href="../installing-k2s/#installing-using-config-files">Installing Using Config Files</a> for dynamic memory configuration details.</p>
+</div>
 <h3 id="what-the-command-does">What the Command Does</h3>
 <p>Internally the following high‑level steps are performed:
 1. Export all existing workloads (cluster‑scoped resources and namespaced resources).
@@ -2894,7 +2937,7 @@ SPDX-License-Identifier: MIT
 - Custom configuration files and secrets (outside of version-controlled items).</p>
 <h4 id="system-backup">System Backup</h4>
 <p>Use the built-in backup command to capture cluster resources, persistent volumes, and container images:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s system backup --file C:\backups\pre-upgrade-backup.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s system backup --file C:\backups\pre-upgrade-backup.zip</span>
 </code></pre></div>
 <p>Optional flags:</p>
 <table>
@@ -2922,8 +2965,8 @@ SPDX-License-Identifier: MIT
 <p>The default backup path (when <code>--file</code> is omitted) is <code>C:\Temp\k2s\backups</code>.</p>
 <h4 id="per-addon-backup">Per-Addon Backup</h4>
 <p>Back up individual addon data before upgrade:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons backup registry -f C:\backups\registry.zip</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="go">k2s addons backup monitoring -f C:\backups\monitoring.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons backup registry -f C:\backups\registry.zip</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">k2s addons backup monitoring -f C:\backups\monitoring.zip</span>
 </code></pre></div>
 <h4 id="backup-exclusions">Backup Exclusions</h4>
 <p>The backup system automatically excludes certain resources based on <code>cfg\config.json</code>:</p>
@@ -2939,10 +2982,10 @@ SPDX-License-Identifier: MIT
 <ol>
 <li>Reinstall the previous <em>K2s</em> version</li>
 <li>Restore the system backup:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s system restore --file C:\backups\pre-upgrade-backup.zip</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s system restore --file C:\backups\pre-upgrade-backup.zip</span>
 </code></pre></div></li>
 <li>Restore addon data:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s addons restore registry -f C:\backups\registry.zip</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s addons restore registry -f C:\backups\registry.zip</span>
 </code></pre></div></li>
 </ol>
 <h3 id="proxy-usage">Proxy Usage</h3>
@@ -2984,31 +3027,31 @@ SPDX-License-Identifier: MIT
 </tbody>
 </table>
 <p><strong>Example Hook Script:</strong>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c"># MyResource.Backup.ps1</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">param</span><span class="p">(</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="no">[string]</span><span class="nv">$BackupDir</span><span class="p">,</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="no">[switch]</span><span class="nv">$ShowLogs</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">)</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c"># Backup custom resource</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="nv">$backupPath</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$BackupDir</span> <span class="s2">&quot;my-resource&quot;</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="nb">New-Item</span> <span class="n">-ItemType</span> <span class="n">Directory</span> <span class="n">-Path</span> <span class="nv">$backupPath</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Out-Null</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c"># ... backup logic here</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c"># MyResource.Backup.ps1</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">param</span><span class="p">(</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="no">[string]</span><span class="nv">$BackupDir</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="no">[switch]</span><span class="nv">$ShowLogs</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">)</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c"># Backup custom resource</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="nv">$backupPath</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$BackupDir</span> <span class="s2">&quot;my-resource&quot;</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="nb">New-Item</span> <span class="n">-ItemType</span> <span class="n">Directory</span> <span class="n">-Path</span> <span class="nv">$backupPath</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c"># ... backup logic here</span>
 </code></pre></div></p>
 <p><strong>Usage:</strong>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="gp"># </span>Use<span class="w"> </span>additional<span class="w"> </span>hooks<span class="w"> </span>directory
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">k2s system upgrade --additional-hooks-dir &quot;C:\MyHooks&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="gp"># </span>Use<span class="w"> </span>additional<span class="w"> </span>hooks<span class="w"> </span>directory
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">k2s system upgrade --additional-hooks-dir &quot;C:\MyHooks&quot;</span>
 </code></pre></div></p>
 <h3 id="after-upgrade">After Upgrade</h3>
 <p>Validate cluster:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">kubectl get nodes</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">kubectl get pods -A</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">kubectl get nodes</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">kubectl get pods -A</span>
 </code></pre></div></p>
 <p>Check addon status (addons are automatically re-enabled during upgrade):
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s addons status</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons status</span>
 </code></pre></div></p>
 <p>If you exported addon data before upgrade, restore it now:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons import</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s addons import</span>
 </code></pre></div></p>
 <p>If any workload fails readiness, inspect its namespace events and logs before proceeding with further changes.</p>
 <h2 id="delta-updates">Delta Updates</h2>
@@ -3080,11 +3123,11 @@ SPDX-License-Identifier: MIT
 <ol>
 <li>Verify your current version matches the delta's source version</li>
 <li>Extract the delta package:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta</span>
 </code></pre></div></li>
 <li>Navigate to the extracted directory and run the upgrade:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">cd .\delta</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">.\k2s.exe system upgrade</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">cd .\delta</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="go">.\k2s.exe system upgrade</span>
 </code></pre></div></li>
 <li>Validate the cluster as described above</li>
 </ol>
