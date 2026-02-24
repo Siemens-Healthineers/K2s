@@ -6,6 +6,8 @@ package cmd
 import (
 	"context"
 	"log/slog"
+	"os"
+	"strings"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons"
 	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -49,6 +51,7 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 			}
 			logger.SetHandlers(logHandlers...).SetGlobally()
 
+			slog.Info("CLI invocation", "cmd", strings.Join(os.Args, " "))
 			slog.Debug("log level set", "level", verbosity)
 
 			// TODO: always load setup config and determine PS version?
