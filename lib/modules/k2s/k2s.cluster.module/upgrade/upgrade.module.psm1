@@ -312,11 +312,22 @@ function Import-NotNamespacedResources {
                         ($output -match "Error from server")
 
             if ($hasError) {
-                $msg = "Failed to apply cluster resource file $resourceType.yaml"
-                Write-Log $msg
-                Write-Log $output
-                $errors += $msg
-                if ($ErrorOnFailure) { throw $msg }
+                # Treat 'Error from server (Invalid)' as warning — e.g. addon CRDs with encoding issues
+                # that will be properly recreated when the addon is re-enabled
+                $isInvalidError = $output -match "Error from server \(Invalid\)"
+                if ($isInvalidError) {
+                    $msg = "[Restore] Warning: Some resources in $resourceType.yaml were invalid and skipped (will be recreated by addons)"
+                    Write-Log $msg -Console
+                    Write-Log $output
+                    $warnings += $msg
+                }
+                else {
+                    $msg = "Failed to apply cluster resource file $resourceType.yaml"
+                    Write-Log $msg
+                    Write-Log $output
+                    $errors += $msg
+                    if ($ErrorOnFailure) { throw $msg }
+                }
             }
         }
     }
@@ -338,11 +349,20 @@ function Import-NotNamespacedResources {
                         ($output -match "resource mapping not found")
 
             if ($hasError) {
-                $msg = "Failed to apply cluster resource file $($_.Name)"
-                Write-Log $msg
-                Write-Log $output
-                $errors += $msg
-                if ($ErrorOnFailure) { throw $msg }
+                $isInvalidError = $output -match "Error from server \(Invalid\)"
+                if ($isInvalidError) {
+                    $msg = "[Restore] Warning: Some resources in $($_.Name) were invalid and skipped (will be recreated by addons)"
+                    Write-Log $msg -Console
+                    Write-Log $output
+                    $warnings += $msg
+                }
+                else {
+                    $msg = "Failed to apply cluster resource file $($_.Name)"
+                    Write-Log $msg
+                    Write-Log $output
+                    $errors += $msg
+                    if ($ErrorOnFailure) { throw $msg }
+                }
             }
         }
     }
