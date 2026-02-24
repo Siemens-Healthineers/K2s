@@ -470,11 +470,12 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     $controlPlaneUserName = Get-DefaultUserNameControlPlane
     $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
     $installedDistributionOnControlPlane = Get-InstalledDistribution -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
-    # $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
-       // $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
     Write-Log "Installed distribution in the control plane: $installedDistributionOnControlPlane"
     Write-Log "Installed distribution in the machine with IP '$IpAddress': $InstalledDistribution"
+   
+   #$binPath\linuxnode\packages
     $baseDirectoryOfKubenodeDebPackagesOnWindowsHost = Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost
+       #$binPath\linuxnode\packages\debian12
     $windowsHostDebPackagesSourcePath = "$baseDirectoryOfKubenodeDebPackagesOnWindowsHost\$InstalledDistribution"
 
     #bin\LinuxNodeArtifacts.zip
@@ -508,9 +509,9 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
             Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane"
         }        
     }
-
+    #'' /home/$UserName/$apt-offline-k2s"\kubernetes
     $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
-    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath
+    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath -InstalledDistribution $InstalledDistribution
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
 
     $buildahDebPackagesTargetPath = Get-BuildahDebPackagesPath -UserName $UserName
