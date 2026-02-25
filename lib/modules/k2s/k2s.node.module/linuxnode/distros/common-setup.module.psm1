@@ -1858,8 +1858,8 @@ function Get-LinuxScriptPath {
     $installationPath = Get-KubePath
     # Map OS to script filename
     $osScriptMap = @{
-        'debian12'   = "$installationPath\cfg\nodeextension\debian-12\scripts"
-        'debian13'   = "$installationPath\cfg\nodeextension\debian-13\scripts"
+        'debian12'   = "$installationPath\cfg\nodeextension\debian12\scripts"
+        'debian13'   = "$installationPath\cfg\nodeextension\debian13\scripts"
     }
     # Get base script name from OS
     $scriptPath = $osScriptMap[$InstalledDistribution]
