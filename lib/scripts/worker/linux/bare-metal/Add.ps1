@@ -56,9 +56,13 @@ if ([string]::IsNullOrWhiteSpace($localPublicKey)) {
     throw "Precondition not met: the file '$localPublicKeyFilePath' is not empty."
 }
 $authorizedKeysFilePath = '~/.ssh/authorized_keys'
-$authorizedKeys = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "[ -f $authorizedKeysFilePath ] && cat $authorizedKeysFilePath || echo 'File $authorizedKeysFilePath not available'" -UserName $UserName -IpAddress $IpAddress).Output
-if (!($authorizedKeys.Contains($localPublicKey))) {
-    throw "Precondition not met: the local public key from the file '$localPublicKeyFilePath' is present in the file '$authorizedKeysFilePath' of the computer with IP '$IpAddress'."
+$authorizedKeysRaw = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "[ -f $authorizedKeysFilePath ] && cat $authorizedKeysFilePath || echo 'File $authorizedKeysFilePath not available'" -UserName $UserName -IpAddress $IpAddress).Output
+# Output may be a string or array (multiple lines); join and normalize CR to handle both cases
+$authorizedKeys = if ($authorizedKeysRaw -is [array]) { $authorizedKeysRaw -join "`n" } else { [string]$authorizedKeysRaw }
+$authorizedKeys = $authorizedKeys.Replace("`r", '')
+$normalizedLocalPublicKey = $localPublicKey.Replace("`r", '')
+if (!($authorizedKeys.Contains($normalizedLocalPublicKey))) {
+    throw "Precondition not met: the local public key from the file '$localPublicKeyFilePath' is NOT present in the file '$authorizedKeysFilePath' of the computer with IP '$IpAddress'. Please add the public key to the authorized_keys file on the remote machine."
 }
 
 $actualHostname = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo $(hostname)' -UserName $UserName -IpAddress $IpAddress).Output
@@ -123,7 +127,7 @@ $workerNodeParams = @{
     WindowsHostIpAddress = $WindowsHostIpAddress
     Proxy = $Proxy
     AdditionalHooksDir = $AdditionalHooksDir
-    installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer.os
+    installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer
 }
 Add-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
 
