@@ -4,15 +4,6 @@
 # SPDX-License-Identifier: MIT
 #
 # install-k8s-packages.sh
-#
-# Installs Kubernetes artifacts (kubelet, kubeadm, kubectl, cri-o) from
-# pre-downloaded .deb packages and configures the node for Kubernetes.
-#
-# Arguments:
-#   $1 - K8s deb packages path on the remote machine (e.g. /home/sk/apt-offline-k2s/kubernetes)
-#   $2 - Proxy URL (empty string if not set)
-#   $3 - Registry token for shsk2s.azurecr.io (base64 encoded auth)
-#   $4 - WSL flag: 'true' if running inside WSL, otherwise 'false'
 
 set -euo pipefail
 

@@ -473,14 +473,10 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     Write-Log "Installed distribution in the control plane: $installedDistributionOnControlPlane"
     Write-Log "Installed distribution in the machine with IP '$IpAddress': $installedDistributionOnRemoteComputer"
    
-   #$binPath\linuxnode\packages
     $baseDirectoryOfKubenodeDebPackagesOnWindowsHost = Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost
-       #$binPath\linuxnode\packages\debian12
     $windowsHostDebPackagesSourcePath = "$baseDirectoryOfKubenodeDebPackagesOnWindowsHost\$installedDistributionOnRemoteComputer"
 
-    #bin\LinuxNodeArtifacts.zip
     $linuxNodeArtifactsPackagePath = Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost
-    #$bin\linuxnode
     $linuxNodeArtifactsPath = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
 
     $packagePathExists = $(Test-Path -Path $linuxNodeArtifactsPackagePath)
@@ -490,31 +486,28 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     Write-Log "Folder '$linuxNodeArtifactsPath' with Linux node artifacts exists?: $linuxNodeArtifactsPathExists"
 
     if (!($linuxNodeArtifactsPathExists) -and ($packagePathExists)) {
-        #$bin\linuxnode
         Write-Log "Create folder '$linuxNodeArtifactsPath'"
         New-Item -Path $linuxNodeArtifactsPath -ItemType Directory -Force | Out-Null
         Write-Log "Extracting content of file '$linuxNodeArtifactsPackagePath' into '$linuxNodeArtifactsPath'"
         Expand-Archive -LiteralPath $linuxNodeArtifactsPackagePath -DestinationPath $linuxNodeArtifactsPath
     } 
 
-    # $distributionDebPackagesSourcePathExists = $(Test-Path -Path $windowsHostDebPackagesSourcePath)
-    # Write-Log "Folder with deb packages '$windowsHostDebPackagesSourcePath' exists?: $distributionDebPackagesSourcePathExists"
-    # if ($distributionDebPackagesSourcePathExists) {
-    #     Write-Log "The content of the folder '$windowsHostDebPackagesSourcePath' will be used"
-    # } else {
-    #     if ($installedDistributionOnRemoteComputer -eq $installedDistributionOnControlPlane) {
-    #         Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is equal to the control plane's distribution --> its deb packages will be copied into '$windowsHostDebPackagesSourcePath'"
-    #         Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath "$windowsHostDebPackagesSourcePath"
-    #     } else {
-    #         Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane"
-    #     }        
-    # }
-    #'' /home/$UserName/$apt-offline-k2s"\kubernetes
+    $distributionDebPackagesSourcePathExists = $(Test-Path -Path $windowsHostDebPackagesSourcePath)
+    Write-Log "Folder with deb packages '$windowsHostDebPackagesSourcePath' exists?: $distributionDebPackagesSourcePathExists"
+    if ($distributionDebPackagesSourcePathExists) {
+        Write-Log "The content of the folder '$windowsHostDebPackagesSourcePath' will be used"
+    } else {
+        if ($installedDistributionOnRemoteComputer -eq $installedDistributionOnControlPlane) {
+            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is equal to the control plane's distribution --> its deb packages will be copied into '$windowsHostDebPackagesSourcePath'"
+            Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath "$windowsHostDebPackagesSourcePath"
+        } else {
+            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane"
+        }        
+    }
     $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
     Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
 
-        #'' /home/$UserName/$apt-offline-k2s"\buildah
     $buildahDebPackagesTargetPath = Get-BuildahDebPackagesPath -UserName $UserName
     Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $buildahDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
     Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
