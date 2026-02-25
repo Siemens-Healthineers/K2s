@@ -51,35 +51,24 @@ fi
 
 download_packages() {
     local package_name="$1"
-    # Strip version for apt-cache query (e.g., "kubelet=1.35.0-1.1" -> "kubelet")
     local pkg_base="${package_name%%=*}"
-    
-    log_info "Downloading: $package_name"
-    # Download the main package directly (--allow-unauthenticated needed when GPG key setup failed)
-    cd "$TARGET_PATH" && sudo apt-get download --allow-unauthenticated "$package_name" 2>/dev/null || true
-    
-    # Get direct dependencies from repository metadata (works regardless of install state)
-    # Use pkg_base (without version) because apt-cache depends doesn't support =version syntax
-    # Filter out Debian base system packages that are always present in the VM
-    apt-cache depends --no-recommends "$pkg_base" 2>/dev/null | \
-        grep -E "^\s+(Depends|PreDepends):" | \
-        sed 's/^[[:space:]]*[^:]*:[[:space:]]*//' | \
-        grep -v '^$' | sort -u | while read dep; do
-            # Skip packages already in Debian 12 base image
-            case "$dep" in
-                apt|systemd|systemd-sysv|libc6|util-linux|mount|iptables|openssl| \
-                libbz2-1.0|libgcrypt20|libgpg-error0|libreadline8|libsqlite3-0|zlib1g| \
-                debconf|cdebconf|curl|init-system-helpers|adduser|libip*|libnetfilter*| \
-                libnfnetlink*|libnftables*|nftables|libxtables*|libmnl*|libcap2*)
-                    continue
-                    ;;
-            esac
-            if ! ls "${TARGET_PATH}/${dep}"_*.deb >/dev/null 2>&1; then
-                log_info "  Downloading dependency: $dep"
-                cd "$TARGET_PATH" && sudo apt-get download --allow-unauthenticated "$dep" 2>/dev/null || true
-            fi
-        done
 
+    log_info "Downloading: $package_name"
+
+    # Step 1: Download the main .deb (matches original PowerShell Command 1)
+    cd "$TARGET_PATH" && sudo apt-get download --allow-unauthenticated "$package_name" 2>/dev/null || true
+
+    local deb_pattern="${pkg_base}*.deb"
+    if ls "$TARGET_PATH"/${deb_pattern} >/dev/null 2>&1; then
+        cd "$TARGET_PATH" && sudo DEBIAN_FRONTEND=noninteractive \
+            apt-get --reinstall install -y \
+            --no-install-recommends --no-install-suggests \
+            --simulate ./${deb_pattern} 2>/dev/null \
+            | grep 'Inst ' \
+            | cut -d ' ' -f 2 \
+            | sort -u \
+            | xargs -r sudo apt-get download --allow-unauthenticated 2>/dev/null || true
+    fi
 }
 
 log_info "=== Downloading Base Tools ==="
@@ -191,14 +180,12 @@ log_info "=== Downloading CRI-O ==="
 download_packages 'cri-o'
 
 log_info "=== Downloading Kubernetes Tools ==="
-# Normalize version: strip 'v' prefix, then append '.0-1.1' only if patch is missing
-# e.g. v1.35 -> 1.35.0-1.1, v1.35.0 -> 1.35.0-1.1 (both produce same result)
 VERSION_NO_V="${K8S_VERSION#v}"
 DOT_COUNT=$(echo "$VERSION_NO_V" | tr -cd '.' | wc -c)
 if [ "$DOT_COUNT" -ge 2 ]; then
-    SHORT_K8S_VERSION="${VERSION_NO_V}-1.1"   # already has patch: 1.35.0 -> 1.35.0-1.1
+    SHORT_K8S_VERSION="${VERSION_NO_V}-1.1"  
 else
-    SHORT_K8S_VERSION="${VERSION_NO_V}.0-1.1" # minor only: 1.35 -> 1.35.0-1.1
+    SHORT_K8S_VERSION="${VERSION_NO_V}.0-1.1" 
 fi
 log_info "Target Kubernetes version: $SHORT_K8S_VERSION"
 

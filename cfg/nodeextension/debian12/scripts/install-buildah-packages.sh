@@ -2,13 +2,6 @@
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
-#
-# install-buildah-packages.sh
-#
-# Installs buildah and its dependencies from pre-downloaded .deb packages.
-#
-# Arguments:
-#   $1 - Buildah deb packages path on the remote machine (e.g. /home/sk/apt-offline-k2s/buildah)
 
 set -euo pipefail
 
