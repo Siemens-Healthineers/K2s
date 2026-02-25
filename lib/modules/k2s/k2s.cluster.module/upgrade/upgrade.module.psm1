@@ -103,9 +103,6 @@ function Get-YamlToolPath {
 	throw "$ToolName not found at '$primaryPath' or '$fallbackPath'"
 }
 
-$jqExe = Get-YamlToolPath -ToolName 'jq.exe'
-$yqExe = Get-YamlToolPath -ToolName 'yq.exe'
-
 function Invoke-Cmd {
 	param (
 		[parameter(Mandatory = $true, HelpMessage = 'Executable to run')]
@@ -137,6 +134,9 @@ function Export-NotNamespacedResources {
 		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
 		[string] $ExePath
 	)
+	$jqExe = Get-YamlToolPath -ToolName 'jq.exe'
+	$yqExe = Get-YamlToolPath -ToolName 'yq.exe'
+
 	# get all the resources
 	Write-Log "Export global (not namespaced) resources from existing cluster" -Console
 	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=false 2>$null
@@ -204,6 +204,9 @@ function Export-NamespacedResources {
 		[Parameter(Mandatory = $true, HelpMessage = 'Directory where current cluster is installed')]
 		[string] $ExePath
 	)
+	$jqExe = Get-YamlToolPath -ToolName 'jq.exe'
+	$yqExe = Get-YamlToolPath -ToolName 'yq.exe'
+
 	# get all the resources
 	Write-Log "Export namespaced resources from existing cluster" -Console
 	$resources = &$ExePath\kubectl.exe api-resources --verbs=list --namespaced=true 2>$null
