@@ -75,6 +75,10 @@ var _ = Describe("system proxy", func() {
 		var savedProxy string
 
 		BeforeAll(func(ctx context.Context) {
+			if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+				Skip("Linux-only setup, proxy round-trip tests not supported")
+			}
+
 			output := suite.K2sCli().MustExec(ctx, "system", "proxy", "get")
 			savedProxy = strings.TrimSpace(output)
 			GinkgoWriter.Println("Saved original proxy config:", savedProxy)
