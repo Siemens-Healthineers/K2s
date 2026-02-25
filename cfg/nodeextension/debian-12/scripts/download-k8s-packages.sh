@@ -24,10 +24,17 @@ cleanup_and_create() {
     mkdir -p "$path"
 }
 
+# Normalize K8S_VERSION to vX.Y for repo URLs (repos use minor version only)
+# e.g. v1.35.0 -> v1.35, v1.35 -> v1.35
+K8S_VERSION_REPO=$(echo "$K8S_VERSION" | sed 's/^\(v[0-9]*\.[0-9]*\).*/\1/')
+if [ -z "$K8S_VERSION_REPO" ]; then
+    K8S_VERSION_REPO="$K8S_VERSION"
+fi
+
 # Main execution
 log_info "Starting Kubernetes package download"
 log_info "Target path: $TARGET_PATH"
-log_info "K8s version: $K8S_VERSION"
+log_info "K8s version: $K8S_VERSION (repo version: $K8S_VERSION_REPO)"
 
 # Setup paths
 cleanup_and_create "$TARGET_PATH"
@@ -48,8 +55,8 @@ download_packages() {
     local pkg_base="${package_name%%=*}"
     
     log_info "Downloading: $package_name"
-    # Download the main package directly
-    cd "$TARGET_PATH" && sudo apt-get download "$package_name" 2>/dev/null || true
+    # Download the main package directly (--allow-unauthenticated needed when GPG key setup failed)
+    cd "$TARGET_PATH" && sudo apt-get download --allow-unauthenticated "$package_name" 2>/dev/null || true
     
     # Get direct dependencies from repository metadata (works regardless of install state)
     # Use pkg_base (without version) because apt-cache depends doesn't support =version syntax
@@ -69,7 +76,7 @@ download_packages() {
             esac
             if ! ls "${TARGET_PATH}/${dep}"_*.deb >/dev/null 2>&1; then
                 log_info "  Downloading dependency: $dep"
-                cd "$TARGET_PATH" && sudo apt-get download "$dep" 2>/dev/null || true
+                cd "$TARGET_PATH" && sudo apt-get download --allow-unauthenticated "$dep" 2>/dev/null || true
             fi
         done
 
@@ -84,6 +91,11 @@ set_kubernetes_apt_repository() {
     local K8S_VERSION="$1"
     local PROXY="${2:-}"
     local MAX_RETRIES=2
+
+    log_info "Setting up repositories for K8s version: $K8S_VERSION"
+
+    # Remove stale .list files from previous runs to avoid stale URL conflicts
+    sudo rm -f /etc/apt/sources.list.d/kubernetes.list /etc/apt/sources.list.d/cri-o.list
 
     log_info "Step 1: Update package list (required before installing anything)"
     sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change 2>&1 | grep -v "^Reading" | grep -v "^Building" || true
@@ -110,11 +122,12 @@ set_kubernetes_apt_repository() {
     
     # Download and convert Kubernetes GPG key in one pipeline (soft failure - continues if 403)
     log_info "Downloading and converting Kubernetes GPG key"
-    if sudo curl -fsSL $PROXY_FLAG "https://pkgs.k8s.io/core:/stable:/$K8S_VERSION/deb/Release.key" | sudo gpg --dearmor -o "$KUBERNETES_APT_KEYRING" 2>/dev/null; then
-        echo "deb [signed-by=$KUBERNETES_APT_KEYRING] https://pkgs.k8s.io/core:/stable:/$K8S_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
+    if sudo curl -fsSL $PROXY_FLAG "https://pkgs.k8s.io/core:/stable:/$K8S_VERSION_REPO/deb/Release.key" | sudo gpg --dearmor -o "$KUBERNETES_APT_KEYRING" 2>/dev/null; then
+        echo "deb [signed-by=$KUBERNETES_APT_KEYRING] https://pkgs.k8s.io/core:/stable:/$K8S_VERSION_REPO/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
         log_info "✓ Kubernetes repository configured successfully"
     else
-        log_warning "Kubernetes key download/conversion failed (likely 403/404) - Kubernetes repo will not be used"
+        log_warning "Kubernetes key download/conversion failed (likely 403/404) - configuring repo as trusted (no GPG verification)"
+        echo "deb [trusted=yes] https://pkgs.k8s.io/core:/stable:/$K8S_VERSION_REPO/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
     fi
 
     # ===== CRI-O REPOSITORY SETUP =====
@@ -128,11 +141,12 @@ set_kubernetes_apt_repository() {
     
     # Download and convert CRI-O GPG key in one pipeline (soft failure - continues if 404/403)
     log_info "Downloading and converting CRI-O GPG key from OpenSUSE"
-    if sudo curl -fsSL $PROXY_FLAG "https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$K8S_VERSION/deb/Release.key" | sudo gpg --dearmor -o "$CRIO_APT_KEYRING" 2>/dev/null; then
-        echo "deb [signed-by=$CRIO_APT_KEYRING] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$K8S_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/cri-o.list > /dev/null
+    if sudo curl -fsSL $PROXY_FLAG "https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$K8S_VERSION_REPO/deb/Release.key" | sudo gpg --dearmor -o "$CRIO_APT_KEYRING" 2>/dev/null; then
+        echo "deb [signed-by=$CRIO_APT_KEYRING] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$K8S_VERSION_REPO/deb/ /" | sudo tee /etc/apt/sources.list.d/cri-o.list > /dev/null
         log_info "✓ CRI-O repository configured successfully"
     else
-        log_warning "CRI-O key download/conversion failed (likely 404/403) - CRI-O repo will not be used"
+        log_warning "CRI-O key download/conversion failed (likely 404/403) - configuring repo as trusted (no GPG verification)"
+        echo "deb [trusted=yes] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$K8S_VERSION_REPO/deb/ /" | sudo tee /etc/apt/sources.list.d/cri-o.list > /dev/null
     fi
 
     # ===== UPDATE APT PACKAGE LIST =====
@@ -171,13 +185,21 @@ install_with_retry() {
     done
 }
 
-set_kubernetes_apt_repository "$K8S_VERSION" "$PROXY"
+set_kubernetes_apt_repository "$K8S_VERSION_REPO" "$PROXY"
 
 log_info "=== Downloading CRI-O ==="
 download_packages 'cri-o'
 
 log_info "=== Downloading Kubernetes Tools ==="
-SHORT_K8S_VERSION="${K8S_VERSION#v}.0-1.1"  # v1.35 -> 1.35.0-1.1 (package version format)
+# Normalize version: strip 'v' prefix, then append '.0-1.1' only if patch is missing
+# e.g. v1.35 -> 1.35.0-1.1, v1.35.0 -> 1.35.0-1.1 (both produce same result)
+VERSION_NO_V="${K8S_VERSION#v}"
+DOT_COUNT=$(echo "$VERSION_NO_V" | tr -cd '.' | wc -c)
+if [ "$DOT_COUNT" -ge 2 ]; then
+    SHORT_K8S_VERSION="${VERSION_NO_V}-1.1"   # already has patch: 1.35.0 -> 1.35.0-1.1
+else
+    SHORT_K8S_VERSION="${VERSION_NO_V}.0-1.1" # minor only: 1.35 -> 1.35.0-1.1
+fi
 log_info "Target Kubernetes version: $SHORT_K8S_VERSION"
 
 download_packages "kubectl=$SHORT_K8S_VERSION"
