@@ -14,7 +14,7 @@ webhooks:
   - name: clusterip.k2s.io
     admissionReviewVersions: ["v1"]
     sideEffects: None
-    failurePolicy: Fail
+    failurePolicy: Ignore
     reinvocationPolicy: IfNeeded
     timeoutSeconds: 5
     rules:

@@ -1174,7 +1174,7 @@ Function Deploy-ClusterIPWebhook {
         [ScriptBlock]$ExecuteRemoteCommand = $(throw 'Argument missing: ExecuteRemoteCommand')
     )
 
-    $manifestDir = "$PSScriptRoot\..\..\..\..\manifests\clusterip-webhook"
+    $manifestDir = (Resolve-Path "$PSScriptRoot\..\..\..\..\..\manifests\clusterip-webhook").Path
     $remoteDir = '/tmp/clusterip-webhook'
     $remoteUserPwd = $UserPwd
 
@@ -1187,7 +1187,8 @@ Function Deploy-ClusterIPWebhook {
         'rbac.yaml',
         'webhook-config.yaml',
         'deployment.yaml',
-        'certgen-jobs.yaml'
+        'certgen-create-job.yaml',
+        'certgen-patch-job.yaml'
     )
 
     foreach ($file in $manifestFiles) {
@@ -1201,21 +1202,27 @@ Function Deploy-ClusterIPWebhook {
         }
     }
 
+    Write-Log '[ClusterIP-Webhook] Waiting for node to be ready before deploying webhook'
+    &$ExecuteRemoteCommand 'kubectl wait --for=condition=Ready node --all --timeout=120s' -Retries 3
+
     Write-Log '[ClusterIP-Webhook] Applying namespace and RBAC'
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/namespace.yaml" -Retries 3
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/rbac.yaml" -Retries 3
 
-    Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
-    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
-
     Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/deployment.yaml" -Retries 3
 
-    Write-Log '[ClusterIP-Webhook] Running TLS certificate generation jobs'
-    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-jobs.yaml" -Retries 3
+    Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Running TLS certificate create job'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Retries 3
 
     Write-Log '[ClusterIP-Webhook] Waiting for cert-create job to complete'
     &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-clusterip-webhook --timeout=120s' -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Running TLS certificate patch job'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-patch-job.yaml" -Retries 3
 
     Write-Log '[ClusterIP-Webhook] Waiting for cert-patch job to complete'
     &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-clusterip-webhook --timeout=120s' -Retries 3

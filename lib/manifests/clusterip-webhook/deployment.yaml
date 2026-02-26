@@ -25,6 +25,10 @@ spec:
       serviceAccountName: clusterip-webhook
       nodeSelector:
         kubernetes.io/os: linux
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
       containers:
         - name: webhook
           image: shsk2s.azurecr.io/clusterip-webhook:v1.0.0

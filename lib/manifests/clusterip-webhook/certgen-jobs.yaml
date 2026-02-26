@@ -41,6 +41,10 @@ spec:
       serviceAccountName: clusterip-webhook-certgen
       nodeSelector:
         kubernetes.io/os: linux
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
       securityContext:
         runAsGroup: 2000
         runAsNonRoot: true
@@ -86,6 +90,10 @@ spec:
       serviceAccountName: clusterip-webhook-certgen
       nodeSelector:
         kubernetes.io/os: linux
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
       securityContext:
         runAsGroup: 2000
         runAsNonRoot: true

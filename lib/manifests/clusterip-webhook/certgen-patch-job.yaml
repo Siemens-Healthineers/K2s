@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Job: Patch the MutatingWebhookConfiguration's caBundle with the generated CA
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clusterip-webhook-certgen-patch
+  namespace: k2s-clusterip-webhook
+  labels:
+    app.kubernetes.io/name: clusterip-webhook
+    app.kubernetes.io/component: certgen
+    app.kubernetes.io/part-of: k2s
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: clusterip-webhook
+        app.kubernetes.io/component: certgen
+    spec:
+      containers:
+        - name: patch
+          image: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.7
+          imagePullPolicy: IfNotPresent
+          args:
+            - patch
+            - --webhook-name=k2s-clusterip-webhook
+            - --namespace=k2s-clusterip-webhook
+            - --secret-name=clusterip-webhook-tls
+            - --patch-mutating=true
+            - --patch-validating=false
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources: {}
+      restartPolicy: OnFailure
+      serviceAccountName: clusterip-webhook-certgen
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        runAsGroup: 2000
+        runAsNonRoot: true
+        runAsUser: 2000
