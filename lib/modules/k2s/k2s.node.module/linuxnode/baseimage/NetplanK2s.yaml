@@ -6,7 +6,7 @@ network:
     __NETWORK_INTERFACE_NAME__:
       addresses: [__NETWORK_ADDRESSES__]
       dhcp4: false
-      mtu: 1400
+      mtu: 1500
       routes:
       - to: default
         via: __IP_GATEWAY__

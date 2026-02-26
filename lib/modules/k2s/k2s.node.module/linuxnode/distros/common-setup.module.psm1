@@ -1202,6 +1202,14 @@ networking:
   podSubnet: "$ClusterCIDR"
 kubernetesVersion: "$K8sVersion"
 clusterName: "$ClusterName"
+controllerManager:
+  extraArgs:
+    leader-elect-lease-duration: "30s"
+    leader-elect-renew-deadline: "20s"
+scheduler:
+  extraArgs:
+    leader-elect-lease-duration: "30s"
+    leader-elect-renew-deadline: "20s"
 ---
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
