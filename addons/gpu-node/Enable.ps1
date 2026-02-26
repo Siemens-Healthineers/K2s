@@ -197,14 +197,40 @@ else {
 
 # Install Nvidia container toolkit
 Write-Log 'Installing Nvidia Container Toolkit' -Console
+
+# Remove any previously corrupted source list from a failed run
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list').Output | Write-Log
+# Remove stale package directories that have no .deb files (left over from a failed run)
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'find .gpu-node -maxdepth 1 -mindepth 1 -type d -exec sh -c ''ls "$1"/*.deb >/dev/null 2>&1 || rm -rf "$1"'' _ {} \; 2>/dev/null' -IgnoreErrors).Output | Write-Log
+
 if (!(Get-DebianPackageAvailableOffline -addon 'gpu-node' -package 'nvidia-container-toolkit')) {
     $httpProxy = "$(Get-ConfiguredKubeSwitchIP):8181"
-    $command = "distribution=`$(. /etc/os-release;echo `$ID`$VERSION_ID) && curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -x $httpProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/`$distribution/libnvidia-container.list -x $httpProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $command).Output | Write-Log
+    $command = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -x $httpProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list -x $httpProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $command).Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get update').Output | Write-Log
 }
 Install-DebianPackages -addon 'gpu-node' -packages 'libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-runtime', 'nvidia-container-toolkit'
+
+# Verify NVIDIA container toolkit was installed successfully
+$verifyResult = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'dpkg -l nvidia-container-toolkit 2>/dev/null | grep -q "^ii"')
+if (!$verifyResult.Success) {
+    $errMsg = "NVIDIA container toolkit packages could not be installed. " `
+        + "If the host is in a restricted environment without internet access, use the offline workflow:`n" `
+        + "  1. On a machine with internet access: k2s addons export gpu-node -d <export-dir>`n" `
+        + "  2. Transfer the exported .oci.tar file to the restricted host`n" `
+        + "  3. On the restricted host: k2s addons import gpu-node -f <path-to-oci-tar>`n" `
+        + "  4. Then run: k2s addons enable gpu-node"
+
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 # Create hook oci-nvidia-hook.json
 $hook = @'
@@ -249,18 +275,29 @@ if (!$kubectlCmd.Success) {
 
 Write-Log 'Installing DCGM-Exporter' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout', '300s')
+$dcgmTimeout = if ($WSL) { '300s' } else { '60s' }
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout', $dcgmTimeout)
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
-    $errMsg = 'DCGM-Exporter could not be started!'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
+    if ($WSL) {
+        # In WSL mode, NVML should work since NVIDIA drivers are mounted directly.
+        # DCGM failure here is a real problem.
+        $errMsg = 'DCGM-Exporter could not be started!'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
 
-    Write-Log $errMsg -Error
-    exit 1
+        Write-Log $errMsg -Error
+        exit 1
+    }
+    else {
+        # DCGM-Exporter requires NVML which is not available with GPU paravirtualization (Hyper-V GPU-PV).
+        # In GPU-PV mode the GPU is shared via DirectX/dxcore, so NVML-based monitoring cannot detect the GPU.
+        # This is expected and non-fatal — CUDA workloads will still function correctly via the device plugin.
+        Write-Log '[GPU] DCGM-Exporter could not be started. This is expected when using GPU paravirtualization (Hyper-V GPU-PV) as NVML cannot access paravirtualized GPUs. GPU workloads will still function correctly.' -Console
+    }
 }
 
 Write-Log 'KubeMaster configured successfully as GPU node' -Console
