@@ -81,6 +81,11 @@ spec:
         - name: tls-certs
           secret:
             secretName: clusterip-webhook-tls
+            items:
+              - key: cert
+                path: tls.crt
+              - key: key
+                path: tls.key
 ---
 apiVersion: v1
 kind: Service
