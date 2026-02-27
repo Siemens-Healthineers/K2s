@@ -118,6 +118,24 @@ func extractImageRepository(image string) string {
 	return image
 }
 
+// FilterOutK8sImages filters out images whose repository matches a known
+// Kubernetes base image recorded in kubernetes_images.json. This mirrors
+// the filtering done by GetNonK8sImagesFromNodes so that expected and
+// actual image lists are comparable (e.g. images already present in the
+// base cluster setup are excluded from both sides).
+func (k2s *K2s) FilterOutK8sImages(images []string) []string {
+	k8sImageRepos := k2s.getK8sImageRepositories()
+
+	var filtered []string
+	for _, image := range images {
+		imageRepo := extractImageRepository(image)
+		if !slices.Contains(k8sImageRepos, imageRepo) {
+			filtered = append(filtered, image)
+		}
+	}
+	return filtered
+}
+
 func (k2s *K2s) getK8sImages() (images []string) {
 	configFilePath := filepath.Join(k2s.suite.SetupInfo().Config.Host().K2sSetupConfigDir(), k8sImagesConfigFileName)
 
