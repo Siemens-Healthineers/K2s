@@ -91,6 +91,7 @@ nav:
       - Hosting Variants: user-guide/hosting-variants.md
       - k2s CLI: user-guide/k2s-cli.md
       - CLI Shortcuts: user-guide/cli-shortcuts.md
+      - Addons: user-guide/addons.md
       - Assignment of Cluster IP Addresses for Services: user-guide/cluster-ip-addresses.md
       - Adding a Container Registry: user-guide/adding-container-registry.md
       - Building a Container Image: user-guide/building-container-image.md
@@ -100,12 +101,15 @@ nav:
       - Creating Offline Package: op-manual/creating-offline-package.md
       - Delta Packages: op-manual/delta-packages.md
       - Installing K2s: op-manual/installing-k2s.md
+      - Configuration Reference: op-manual/configuration-reference.md
       - Starting K2s: op-manual/starting-k2s.md
       - Checking K2s Status: op-manual/checking-k2s-status.md
       - Adding K2s Users: op-manual/adding-k2s-users.md
       - Stopping K2s: op-manual/stopping-k2s.md
       - Upgrading K2s: op-manual/upgrading-k2s.md
-      - Configuring HTTPProxy Service: op-manual/configuring-httpproxy-service.md
+      - Hook System: op-manual/hook-system.md
+      - Backing Up and Restoring the System: op-manual/backing-up-restoring-system.md
+      - Backing Up and Restoring Addons: op-manual/backing-up-restoring-addons.md
       - External DNS: op-manual/external-dns.md
       - Extending K2s cluster: op-manual/extending-k2s-cluster.md
       - Secure Host Access: op-manual/secure-host-access.md
@@ -113,6 +117,7 @@ nav:
       - Running Native Windows Apps (HostProcess & Compartments): op-manual/running-apps-as-hostprocess.md
       - Uninstalling K2s: op-manual/uninstalling-k2s.md
       - Sign K2s package: op-manual/signcatalog-k2s.md
+      - Code Signing: op-manual/code-signing.md
   - Developer Guide:
       - Contributing:
           - dev-guide/contributing/index.md
@@ -126,7 +131,11 @@ nav:
           - Updating Documentation: dev-guide/contributing/updating-documentation.md
           - Submitting Changes: dev-guide/contributing/submitting-changes.md
       - Hosting Variants Features Matrix: dev-guide/hosting-variants-features-matrix.md
+      - Architecture & Tools: dev-guide/architecture.md
+      - Linux Development: dev-guide/contributing/linux-development/linux-development.md
       - Training: dev-guide/training.md
+  - Security:
+      - Security Features: security/security-features.md
   - Troubleshooting:
       - Diagnostics: troubleshooting/diagnostics.md
       - Known Issues: troubleshooting/known-issues.md

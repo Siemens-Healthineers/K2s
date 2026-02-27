@@ -61,7 +61,7 @@ func NewCommand() *cobra.Command {
 		RunE:    runRestore,
 	}
 
-	cmd.Flags().StringP(fileFlagName, fileFlagShorthand, "", "Input zip file path (default: newest matching zip in C:\\Temp\\Addons)")
+	cmd.Flags().StringP(fileFlagName, fileFlagShorthand, "", "Input zip file path (default: newest matching zip in C:\\Temp\\k2s\\Addons)")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -124,14 +124,26 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	enableScriptPath := filepath.Join(impl.Directory, "EnableForRestore.ps1")
-	if !k2sos.PathExists(enableScriptPath) {
+	useEnableForRestore := k2sos.PathExists(enableScriptPath)
+	if !useEnableForRestore {
 		enableScriptPath = filepath.Join(impl.Directory, "Enable.ps1")
 	}
 	if !k2sos.PathExists(enableScriptPath) {
 		return fmt.Errorf("Enable.ps1 not found for addon '%s'", impl.AddonsCmdName)
 	}
-	if err := executeScript(enableScriptPath, outputFlag); err != nil {
-		return err
+	// Pass the staging directory to EnableForRestore scripts so they can read
+	// backup.json for addon-specific enable parameters (e.g. security addon
+	// flags like --type, --ingress, --omitKeycloak). Only EnableForRestore.ps1
+	// scripts accept -BackupDir; plain Enable.ps1 scripts do not.
+	if useEnableForRestore {
+		enableParams := []string{fmt.Sprintf(" -BackupDir %s", utils.EscapeWithSingleQuotes(stagingDir))}
+		if err := executeScript(enableScriptPath, outputFlag, enableParams...); err != nil {
+			return err
+		}
+	} else {
+		if err := executeScript(enableScriptPath, outputFlag); err != nil {
+			return err
+		}
 	}
 
 	restoreParams := []string{fmt.Sprintf(" -BackupDir %s", utils.EscapeWithSingleQuotes(stagingDir))}
@@ -200,9 +212,9 @@ func findLatestBackupZip(addonsCmdName string) (string, error) {
 
 func defaultAddonsBackupDir() string {
 	if runtime.GOOS == "windows" {
-		return `C:\\Temp\\Addons`
+		return `C:\Temp\k2s\Addons`
 	}
-	return filepath.Join(os.TempDir(), "Addons")
+	return filepath.Join(os.TempDir(), "k2s", "Addons")
 }
 
 func loadAddonAndImpl(args []string) (allAddons addons.Addons, addon addons.Addon, impl addons.Implementation, err error) {

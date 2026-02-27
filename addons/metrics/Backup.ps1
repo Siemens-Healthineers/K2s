@@ -43,7 +43,7 @@ function Fail([string]$errMsg) {
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code 'addon-backup-failed' -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
-        return
+        exit 1
     }
 
     Write-Log $errMsg -Error
@@ -177,7 +177,7 @@ $manifest = [pscustomobject]@{
 $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
-Write-Log "[MetricsBackup] Wrote $($files.Count) file(s) to '$BackupDir'" -Console
+Write-Log "[MetricsBackup] Backup artifacts prepared ($($files.Count) file(s))" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ Error = $null }

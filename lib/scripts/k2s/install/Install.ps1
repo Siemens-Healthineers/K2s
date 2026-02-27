@@ -8,6 +8,12 @@ Param(
     # Main parameters
     [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of Control Plane VM (Linux)')]
     [long] $MasterVMMemory = 8GB,
+    [parameter(Mandatory = $false, HelpMessage = 'Minimum Memory Size for Control Plane VM when Dynamic Memory is enabled')]
+    [long] $MasterVMMemoryMin = 0,
+    [parameter(Mandatory = $false, HelpMessage = 'Maximum Memory Size for Control Plane VM when Dynamic Memory is enabled')]
+    [long] $MasterVMMemoryMax = 0,
+    [parameter(Mandatory = $false, HelpMessage = 'Enable Dynamic Memory for Control Plane VM (Hyper-V only)')]
+    [switch] $EnableDynamicMemory = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for Control Plane VM (Linux)')]
     [long] $MasterVMProcessorCount = 6,
     [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of Control Plane VM (Linux)')]
@@ -64,6 +70,8 @@ $script:SetupType = 'k2s'
 Set-ConfigSetupType -Value $script:SetupType
 
 # Initialize the proxy settings before starting installation.
+Test-ProxyEnvVarsConfiguration
+
 New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
@@ -80,6 +88,9 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
 
 $controlPlaneNodeParams = @{
     MasterVMMemory = $MasterVMMemory
+    MasterVMMemoryMin = $MasterVMMemoryMin
+    MasterVMMemoryMax = $MasterVMMemoryMax
+    EnableDynamicMemory = $EnableDynamicMemory
     MasterVMProcessorCount = $MasterVMProcessorCount
     MasterDiskSize = $MasterDiskSize
     Proxy = $Proxy

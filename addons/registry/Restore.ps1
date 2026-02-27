@@ -70,7 +70,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[RegistryRestore] Restoring addon 'registry' from '$BackupDir'" -Console
+Write-Log "[RegistryRestore] Restoring addon 'registry'" -Console
 
 if (-not $manifest.files -or $manifest.files.Count -eq 0) {
     Write-Log "[RegistryRestore] backup.json contains no files; nothing to restore" -Console

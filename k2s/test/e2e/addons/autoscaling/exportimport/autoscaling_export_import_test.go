@@ -114,7 +114,7 @@ var _ = Describe("autoscaling addon export and import", Ordered, func() {
 
 		It("all resources have been exported", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all resources have been exported")
-			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			extractedArtifactsDir := exportPath
 			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
 			exportimport.VerifyExportedImages(suite, extractedArtifactsDir, impl)
@@ -124,7 +124,7 @@ var _ = Describe("autoscaling addon export and import", Ordered, func() {
 		It("oci-manifest.json contains proper OCI structure", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: index.json contains proper OCI structure")
 			expectedDirName := exportimport.GetExpectedDirName("autoscaling", "autoscaling")
-			extractedArtifactsDir := filepath.Join(exportPath, "artifacts")
+			extractedArtifactsDir := exportPath
 			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
 			exportimport.VerifyOciManifest(extractedArtifactsDir, expectedDirName)
@@ -169,6 +169,93 @@ var _ = Describe("autoscaling addon export and import", Ordered, func() {
 		It("windows curl packages available after import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
+		})
+
+		It("all addon files present at correct paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
+			autoscalingImplDir := filepath.Join(suite.RootDir(), "addons", "autoscaling")
+			GinkgoWriter.Printf("[Test] Autoscaling implementation directory: %s\n", autoscalingImplDir)
+
+			expectedFiles := []string{
+				"Enable.ps1",
+				"EnableForRestore.ps1",
+				"Disable.ps1",
+				"Get-Status.ps1",
+				"Backup.ps1",
+				"Restore.ps1",
+				"Update.ps1",
+				"README.md",
+			}
+			exportimport.VerifyImportedAddonFiles(autoscalingImplDir, expectedFiles)
+		})
+	})
+
+	Describe("export and import with relative paths", func() {
+		var (
+			relExportDir    string
+			absRelExportDir string
+			relOciFile      string
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			GinkgoWriter.Println("=== RELATIVE PATH EXPORT/IMPORT TEST - BeforeAll START ===")
+			absRelExportDir = filepath.Join(suite.RootDir(), "tmp", "autoscaling-relpath-test")
+			os.MkdirAll(absRelExportDir, 0o755)
+
+			var err error
+			relExportDir, err = filepath.Rel(suite.RootDir(), absRelExportDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			GinkgoWriter.Printf("[Setup] Working directory: %s\n", suite.RootDir())
+			GinkgoWriter.Printf("[Setup] Relative export dir: %s\n", relExportDir)
+			GinkgoWriter.Printf("[Setup] Absolute export dir: %s\n", absRelExportDir)
+			GinkgoWriter.Println("=== RELATIVE PATH EXPORT/IMPORT TEST - BeforeAll END ===")
+		})
+
+		AfterAll(func(ctx context.Context) {
+			exportimport.CleanupExportedFiles(absRelExportDir, relOciFile)
+		})
+
+		It("exports addon using a relative directory path", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: exports addon using a relative directory path")
+			relOciFile = exportimport.ExportAddonRelativePath(ctx, suite, "autoscaling", "autoscaling", suite.RootDir(), relExportDir)
+
+			info, err := os.Stat(relOciFile)
+			Expect(err).ToNot(HaveOccurred(), "OCI tar file should exist")
+			Expect(info.Size()).To(BeNumerically(">", 0), "OCI tar file should not be empty")
+			GinkgoWriter.Printf("[Test] Exported OCI file: %s (%d bytes)\n", relOciFile, info.Size())
+		})
+
+		It("imports addon using a relative file path", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: imports addon using a relative file path")
+			Expect(relOciFile).NotTo(BeEmpty(), "relOciFile should be set by the export test")
+
+			relFilePath, err := filepath.Rel(suite.RootDir(), relOciFile)
+			Expect(err).ToNot(HaveOccurred())
+			GinkgoWriter.Printf("[Test] Relative import path: %s (working dir: %s)\n", relFilePath, suite.RootDir())
+
+			exportimport.ImportAddonRelativePath(ctx, suite, suite.RootDir(), relFilePath)
+			GinkgoWriter.Println("[Test] Import with relative path succeeded")
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
+		})
+
+		It("imports addon using a parent-relative file path", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: imports addon using a parent-relative file path")
+
+			files, err := filepath.Glob(filepath.Join(absRelExportDir, "*.oci.tar"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(files)).To(BeNumerically(">=", 1), "Should have at least one OCI tar file")
+			ociFile := files[0]
+
+			subDir := filepath.Join(absRelExportDir, "subdir")
+			os.MkdirAll(subDir, 0o755)
+
+			parentRelPath := ".." + string(filepath.Separator) + filepath.Base(ociFile)
+			GinkgoWriter.Printf("[Test] Parent-relative path: %s (working dir: %s)\n", parentRelPath, subDir)
+
+			exportimport.ImportAddonRelativePath(ctx, suite, subDir, parentRelPath)
+			GinkgoWriter.Println("[Test] Import with parent-relative path succeeded")
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
 		})
 	})
 })

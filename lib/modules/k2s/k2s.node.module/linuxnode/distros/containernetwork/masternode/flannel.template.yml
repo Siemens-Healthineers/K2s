@@ -174,7 +174,7 @@ spec:
         - /opt/cni/bin/flannel
         command:
         - cp
-        image: docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2
+        image: docker.io/flannel/flannel-cni-plugin:v1.9.0-flannel1
         name: install-cni-plugin
         volumeMounts:
         - mountPath: /opt/cni/bin

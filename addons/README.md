@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -50,19 +50,31 @@ k2s addons disable ingress nginx                      - disables the ingress ngi
 ```
 Exporting addons for the offline usage afterwards:
 ```
-k2s addons export -d d:\                              - exports all addons to a specfic location 
-k2s addons export "ingress nginx" -d d:\              - exports implementation 'nginx' of addon 'ingress' to a specfic location 
-k2s addons export ingress -d d:\                      - exports all implementations of addon 'ingress' to a specfic location 
+k2s addons export -d d:\                              - exports all addons to a specific location 
+k2s addons export "ingress nginx" -d d:\              - exports implementation 'nginx' of addon 'ingress' to a specific location 
+k2s addons export ingress -d d:\                      - exports all implementations of addon 'ingress' to a specific location 
 ```
 Importing all addons from an previously exported file:
 ```
-k2s addons import -z d:\addons.zip                    - imports all addons for offline usage 
-k2s addons import "ingress nginx" -z d:\addons.zip    - imports implementation 'nginx' of addon 'ingress' from zip 
-k2s addons import ingress -z d:\addons.zip            - imports all implementations of addon 'ingress' from zip 
+k2s addons import -f d:\addons.oci.tar                    - imports all addons from a specific archive
+k2s addons import "ingress nginx" -f d:\addons.oci.tar    - imports implementation 'nginx' of addon 'ingress' from a specific archive
+k2s addons import ingress -f d:\addons.oci.tar            - imports all implementations of addon 'ingress' from a specific archive
+```
+Backing up addon data:
+```
+k2s addons backup registry -f d:\registry-backup.zip           - creates a backup zip for addon 'registry'
+k2s addons backup "ingress nginx" -f d:\ingress-nginx.zip      - creates a backup zip for implementation 'nginx' of addon 'ingress'
+k2s addons backup "ingress nginx"                              - creates a backup in the default backup folder
+```
+Restoring addon data from backup:
+```
+k2s addons restore registry -f d:\registry-backup.zip          - restores addon 'registry' from backup zip
+k2s addons restore "ingress nginx" -f d:\ingress-nginx.zip     - restores implementation 'nginx' of addon 'ingress' from backup zip
+k2s addons restore "ingress nginx"                             - restores from latest matching backup in default backup folder
 ```
 Showing status of single addons:
 ```
-k2s addons status ingress nginx                       - shows the status of the implementation 'ngnix' of addon 'ingress'
+k2s addons status ingress nginx                       - shows the status of the implementation 'nginx' of addon 'ingress'
 ```
 
 ## Contributing
