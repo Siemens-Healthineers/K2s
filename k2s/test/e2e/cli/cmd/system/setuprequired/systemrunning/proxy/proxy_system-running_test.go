@@ -5,6 +5,7 @@ package proxy_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -71,8 +72,26 @@ var _ = Describe("system proxy", func() {
 	})
 
 	Describe("round-trip", Ordered, Label("cli", "system", "proxy", "acceptance", "setup-required", "system-running", "invasive"), func() {
+		var savedProxy string
+
+		BeforeAll(func(ctx context.Context) {
+			if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+				Skip("Linux-only setup, proxy round-trip tests not supported")
+			}
+
+			output := suite.K2sCli().MustExec(ctx, "system", "proxy", "get")
+			savedProxy = strings.TrimSpace(output)
+			GinkgoWriter.Println("Saved original proxy config:", savedProxy)
+		})
+
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "system", "proxy", "reset")
+			if savedProxy != "" {
+				GinkgoWriter.Println("Restoring original proxy config:", savedProxy)
+				suite.K2sCli().MustExec(ctx, "system", "proxy", "set", savedProxy)
+			} else {
+				GinkgoWriter.Println("No proxy was configured before test, resetting")
+				suite.K2sCli().MustExec(ctx, "system", "proxy", "reset")
+			}
 		})
 
 		It("set configures the proxy", func(ctx context.Context) {
