@@ -846,7 +846,6 @@ function Invoke-ClusterInstall {
 
 	# Handle dynamic memory configuration
 	if ( $EnableDynamicMemory ) {
-		$argsCall += " --master-dynamic-memory"
 		if ( -not [string]::IsNullOrEmpty($MasterVMMemoryMin) ) {
 			$argsCall += " --master-memory-min $MasterVMMemoryMin"
 		}
