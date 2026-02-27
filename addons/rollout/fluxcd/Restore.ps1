@@ -73,7 +73,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'rollout fluxcd' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'rollout fluxcd'" -Console
 
 # Sanity-check the backup metadata (best-effort warnings only).
 $expectedAddon = 'rollout'
@@ -158,6 +158,10 @@ try {
         }
         if ($file -eq 'fluxcd-ingress-traefik.json' -and $activeIngress -ne 'traefik') {
             Write-Log "[AddonRestore] Skipping traefik ingress from backup (active: $activeIngress)" -Console
+            continue
+        }
+        if ($file -match '^fluxcd-ingress-nginx-gw-' -and $activeIngress -ne 'nginx-gw') {
+            Write-Log "[AddonRestore] Skipping nginx-gw resource from backup (active: $activeIngress)" -Console
             continue
         }
 

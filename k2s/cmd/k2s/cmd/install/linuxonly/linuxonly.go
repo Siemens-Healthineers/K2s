@@ -32,6 +32,16 @@ func BuildCmd(config *ic.InstallConfig) (cmd string, err error) {
 		controlPlaneNode.Resources.Memory,
 		controlPlaneNode.Resources.Disk)
 
+	if controlPlaneNode.Resources.DynamicMemory {
+		cmd += " -EnableDynamicMemory"
+		if controlPlaneNode.Resources.MemoryMin != "" {
+			cmd += " -MasterVMMemoryMin " + controlPlaneNode.Resources.MemoryMin
+		}
+		if controlPlaneNode.Resources.MemoryMax != "" {
+			cmd += " -MasterVMMemoryMax " + controlPlaneNode.Resources.MemoryMax
+		}
+	}
+
 	if config.Env.Proxy != "" {
 		cmd += fmt.Sprintf(" -Proxy %s", config.Env.Proxy)
 	}

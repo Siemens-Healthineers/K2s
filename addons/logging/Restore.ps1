@@ -47,7 +47,7 @@ function Fail([string]$errMsg) {
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code 'addon-restore-failed' -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
-        return
+        exit 1
     }
 
     Write-Log $errMsg -Error
@@ -115,7 +115,7 @@ function Try-RolloutStatus {
     }
 }
 
-Write-Log "[LoggingRestore] Restoring addon 'logging' from '$BackupDir'" -Console
+Write-Log "[LoggingRestore] Restoring addon 'logging'" -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {

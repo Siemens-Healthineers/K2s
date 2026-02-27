@@ -48,7 +48,7 @@ function Fail([string]$errMsg, [string]$code = 'addon-backup-failed') {
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code $code -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
-        return
+        exit 1
     }
 
     Write-Log $errMsg -Error
@@ -120,7 +120,7 @@ $manifest = [pscustomobject]@{
 $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
-Write-Log "[DashboardBackup] Wrote metadata-only backup to '$BackupDir' (ingress=$ingress, enableMetrics=$metricsEnabled)" -Console
+Write-Log "[DashboardBackup] Metadata-only backup prepared (ingress=$ingress, enableMetrics=$metricsEnabled)" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ Error = $null }
