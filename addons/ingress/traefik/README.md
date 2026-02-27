@@ -23,14 +23,14 @@ k2s addons enable ingress traefik
 
 ## Backup and restore
 
-Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+Create a backup zip (defaults to `C:\Temp\k2s\Addons` on Windows):
 ```cmd
 k2s addons backup ingress traefik
 ```
 
 Restore from a backup zip:
 ```cmd
-k2s addons restore ingress traefik -f C:\Temp\Addons\ingress_traefik_backup_YYYYMMDD_HHMMSS.zip
+k2s addons restore ingress traefik -f C:\Temp\k2s\Addons\ingress_traefik_backup_YYYYMMDD_HHMMSS.zip
 ```
 
 The backup includes:

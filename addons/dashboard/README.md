@@ -116,7 +116,7 @@ Backup stores restore-relevant settings (currently metadata-only):
 
 ```console
 k2s addons backup dashboard
-k2s addons restore dashboard -f C:\Temp\Addons\dashboard_backup_YYYYMMDD_HHMMSS.zip
+k2s addons restore dashboard -f C:\Temp\k2s\Addons\dashboard_backup_YYYYMMDD_HHMMSS.zip
 ```
 
 ## Further Reading

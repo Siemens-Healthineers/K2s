@@ -56,6 +56,19 @@ if ($systemError) {
 
 Write-Log "[RegistryBackup] Backing up addon 'registry'" -Console
 
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{ Name = 'registry' })) -ne $true) {
+    $errMsg = "Addon 'registry' is not enabled. Enable it before running backup."
+
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'addon-not-enabled' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
 
 $files = @()
@@ -83,7 +96,7 @@ try {
         throw "Failed to create archive on control plane: $($tarResult.Output)"
     }
 
-    Write-Log "[RegistryBackup] Copying archive to '$BackupDir'" -Console
+    Write-Log "[RegistryBackup] Copying archive from control plane" -Console
     Copy-FromControlPlaneViaSSHKey -Source $remoteTarPath -Target $BackupDir
 
     if (-not (Test-Path -LiteralPath $localTarPath)) {
@@ -154,7 +167,7 @@ $manifest = [pscustomobject]@{
 $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
-Write-Log "[RegistryBackup] Wrote $($files.Count) file(s) to '$BackupDir'" -Console
+Write-Log "[RegistryBackup] Backup artifacts prepared ($($files.Count) file(s))" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ Error = $null }

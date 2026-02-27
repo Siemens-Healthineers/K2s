@@ -11,7 +11,7 @@ Backs up rollout argocd configuration/resources.
 .DESCRIPTION
 Creates a config-only backup scoped to the rollout namespace:
 - Exports ArgoCD state via `argocd admin export -n rollout`
-- Optionally exports ingress resources for dashboard exposure (nginx/traefik)
+- Optionally exports ingress resources for dashboard exposure (nginx/traefik/nginx-gw)
 - Optionally exports Traefik Middleware (secure mode) if present
 
 The ArgoCD export contains credentials (e.g., repository credentials). Handle backups accordingly.
@@ -301,6 +301,16 @@ try {
         $files += (Split-Path -Leaf $traefikIngressPath)
     }
 
+    $nginxGwHttpPath = Join-Path $BackupDir 'argocd-ingress-nginx-gw-httproute-http.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'rollout-nginx-gw-http' -Namespace 'rollout' -OutFile $nginxGwHttpPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpPath)
+    }
+
+    $nginxGwHttpsPath = Join-Path $BackupDir 'argocd-ingress-nginx-gw-httproute-https.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'rollout-nginx-gw-https' -Namespace 'rollout' -OutFile $nginxGwHttpsPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpsPath)
+    }
+
     $mwPath = Join-Path $BackupDir 'argocd-traefik-middleware.json'
     if (Export-MinimalK8sObjectIfExists -Kind 'middlewares.traefik.io' -Name 'oauth2-proxy-auth' -Namespace 'rollout' -OutFile $mwPath) {
         $files += (Split-Path -Leaf $mwPath)
@@ -339,7 +349,7 @@ $manifest = [pscustomobject]@{
 $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
-Write-Log "[AddonBackup] Wrote $($files.Count) file(s) to '$BackupDir'" -Console
+Write-Log "[AddonBackup] Backup artifacts prepared ($($files.Count) file(s))" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ Error = $null }

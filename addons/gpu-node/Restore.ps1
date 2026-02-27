@@ -70,7 +70,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'gpu-node' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'gpu-node'" -Console
 
 if ($null -ne $manifest.addon -and ("$($manifest.addon)" -ne 'gpu-node')) {
     Write-Log "[AddonRestore] Warning: backup.json addon is '$($manifest.addon)' (expected 'gpu-node')." -Console

@@ -203,8 +203,6 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 }
 
 func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
-	flags.VisitAll(func(f *pflag.Flag) { slog.Debug("Param", "name", f.Name, "value", f.Value) })
-
 	delta, _ := strconv.ParseBool(flags.Lookup(DeltaPackageFlagName).Value.String())
 
 	// Shared params
