@@ -82,9 +82,9 @@ spec:
           secret:
             secretName: clusterip-webhook-tls
             items:
-              - key: cert
+              - key: tls.crt
                 path: tls.crt
-              - key: key
+              - key: tls.key
                 path: tls.key
 ---
 apiVersion: v1
