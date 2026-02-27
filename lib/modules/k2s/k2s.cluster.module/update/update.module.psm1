@@ -171,6 +171,143 @@ function Restore-CoreDnsEtcdConfiguration {
 	}
 }
 
+<#
+.SYNOPSIS
+	Restores the ClusterIP mutating webhook after kubeadm upgrade.
+.DESCRIPTION
+	kubeadm upgrade apply may regenerate API server certificates and restart
+	kube-apiserver. This can invalidate the webhook's TLS certificate chain
+	(the caBundle in the MutatingWebhookConfiguration no longer matches the
+	webhook's self-signed cert) or leave the webhook pod in a broken state.
+
+	Because the webhook uses failurePolicy: Ignore, a broken webhook is
+	silently skipped and Services get random ClusterIPs from the full /16
+	service CIDR instead of the /24 subnets enforced by the webhook.
+
+	This function:
+	1. Copies webhook manifests from the target installation to the control plane
+	2. Re-applies namespace, RBAC and webhook configuration
+	3. Deletes old certgen Jobs and TLS secret (Jobs are immutable)
+	4. Re-runs certgen create + patch Jobs to generate fresh TLS certs
+	5. Restarts the webhook Deployment
+
+	This mirrors the initial Deploy-ClusterIPWebhook logic from
+	common-setup.module.psm1 but runs via SSH during delta updates.
+.PARAMETER TargetInstallPath
+	Path to the target K2s installation (e.g. C:\k).
+.PARAMETER ShowLogs
+	Show detailed logs to console.
+.OUTPUTS
+	[bool] Success indicator.
+.NOTES
+	Requires Invoke-CmdOnControlPlaneViaSSHKey and Copy-ToControlPlaneViaSSHKey
+	to be available (vm module).
+#>
+function Restore-ClusterIPWebhook {
+	[CmdletBinding()]
+	param(
+		[string]$TargetInstallPath = $(throw 'Argument missing: TargetInstallPath'),
+		[switch]$ShowLogs
+	)
+
+	$consoleSwitch = $ShowLogs
+
+	try {
+		Write-Log '[Webhook] Restoring ClusterIP webhook after update...' -Console:$consoleSwitch
+
+		# Verify SSH helpers are available
+		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
+			$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+			if (Test-Path -LiteralPath $vmModule) {
+				Import-Module $vmModule -ErrorAction SilentlyContinue
+			} else {
+				$vmModule = Join-Path $TargetInstallPath 'lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1'
+				if (Test-Path -LiteralPath $vmModule) {
+					Import-Module $vmModule -ErrorAction SilentlyContinue
+				}
+			}
+		}
+		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
+			Write-Log '[Webhook][Error] SSH helper not available - vm module not found' -Console:$consoleSwitch
+			return $false
+		}
+
+		# Locate webhook manifests in the target installation
+		$manifestDir = Join-Path $TargetInstallPath 'lib\manifests\clusterip-webhook'
+		if (-not (Test-Path -LiteralPath $manifestDir)) {
+			Write-Log "[Webhook][Warn] Webhook manifests not found at $manifestDir - skipping" -Console:$consoleSwitch
+			return $true
+		}
+
+		$remoteDir = '/tmp/clusterip-webhook-update'
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "mkdir -p $remoteDir" -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+
+		# Copy manifest files to control plane
+		$manifestFiles = @(
+			'namespace.yaml',
+			'rbac.yaml',
+			'webhook-config.yaml',
+			'deployment.yaml',
+			'certgen-create-job.yaml',
+			'certgen-patch-job.yaml'
+		)
+
+		foreach ($file in $manifestFiles) {
+			$localPath = Join-Path $manifestDir $file
+			if (Test-Path -LiteralPath $localPath) {
+				Write-Log "[Webhook] Copying $file to control plane" -Console:$consoleSwitch
+				Copy-ToControlPlaneViaSSHKey -Source $localPath -Target "$remoteDir/" -IgnoreErrors:$false
+			} else {
+				Write-Log "[Webhook][Warn] Manifest file not found: $file" -Console:$consoleSwitch
+			}
+		}
+
+		# Step 1: Re-apply namespace, RBAC and webhook configuration
+		Write-Log '[Webhook] Applying namespace, RBAC and webhook configuration...' -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/namespace.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/rbac.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/webhook-config.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+
+		# Step 2: Delete old certgen Jobs and TLS secret (Jobs are immutable - must be recreated)
+		Write-Log '[Webhook] Cleaning old certgen Jobs and TLS secret...' -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete job clusterip-webhook-certgen-create -n k2s-clusterip-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete job clusterip-webhook-certgen-patch -n k2s-clusterip-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete secret clusterip-webhook-tls -n k2s-clusterip-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+
+		# Step 3: Re-apply deployment (may have new image or config)
+		Write-Log '[Webhook] Applying deployment and service...' -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/deployment.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+
+		# Step 4: Run certgen create Job to generate fresh TLS certificate
+		Write-Log '[Webhook] Running TLS certificate create job...' -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+
+		Write-Log '[Webhook] Waiting for cert-create job to complete...' -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-clusterip-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+
+		# Step 5: Run certgen patch Job to inject caBundle into MutatingWebhookConfiguration
+		Write-Log '[Webhook] Running TLS certificate patch job...' -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/certgen-patch-job.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+
+		Write-Log '[Webhook] Waiting for cert-patch job to complete...' -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-clusterip-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+
+		# Step 6: Restart webhook deployment to pick up new certs
+		Write-Log '[Webhook] Restarting webhook deployment...' -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/clusterip-webhook -n k2s-clusterip-webhook' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout status deployment/clusterip-webhook -n k2s-clusterip-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+
+		# Cleanup
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "rm -rf $remoteDir" -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+
+		Write-Log '[Webhook] ClusterIP webhook restored successfully' -Console:$consoleSwitch
+		return $true
+	} catch {
+		Write-Log ("[Webhook][Error] Webhook restoration failed: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		return $false
+	}
+}
+
 function PerformClusterUpdate {
 	<#
 	.SYNOPSIS
@@ -197,7 +334,9 @@ function PerformClusterUpdate {
 		  9. Import container images from image-delta (Windows via nerdctl, Linux via SCP + buildah)
 		  10. Run optional hooks (pre/post) [placeholder]
 		  11. Basic health checks (API server reachable, node Ready) if cluster is running
-		  12. Update VERSION file and setup.json to reflect successful update
+		  12. Restore CoreDNS etcd plugin configuration (kubeadm upgrade may reset customizations)
+		  13. Restore ClusterIP webhook TLS certificates (kubeadm upgrade may invalidate certs)
+		  14. Update VERSION file and setup.json to reflect successful update
 	.PARAMETER ExecuteHooks
 		Execute lifecycle hooks (currently placeholder; no hooks executed yet).
 	.PARAMETER ShowProgress
@@ -836,7 +975,18 @@ Current directory: $deltaRoot
 		Write-Log '[Update] Skipping CoreDNS restoration (cluster not running)' -Console:$consoleSwitch
 	}
 
-	# 12. Update VERSION file to reflect successful delta update
+	# 12. Restore ClusterIP webhook (kubeadm upgrade may invalidate TLS certs/caBundle)
+	_phase 'WebhookRestore'
+	if ($wasRunning) {
+		$webhookResult = Restore-ClusterIPWebhook -TargetInstallPath $targetInstallPath -ShowLogs:$ShowLogs
+		if (-not $webhookResult) {
+			Write-Log '[Update][Warn] ClusterIP webhook restoration may have encountered issues' -Console:$consoleSwitch
+		}
+	} else {
+		Write-Log '[Update] Skipping webhook restoration (cluster not running)' -Console:$consoleSwitch
+	}
+
+	# 13. Update VERSION file to reflect successful delta update
 	_phase 'UpdateVersion'
 	if ($deltaTargetVersion) {
 		try {
@@ -873,6 +1023,7 @@ Current directory: $deltaRoot
 
 Export-ModuleMember -Function PerformClusterUpdate
 Export-ModuleMember -Function Restore-CoreDnsEtcdConfiguration
+Export-ModuleMember -Function Restore-ClusterIPWebhook
 
 # region: VM execution helper (Debian delta application)
 function Invoke-CommandInMasterVM {
