@@ -12,7 +12,7 @@ Backs up viewer configuration/resources.
 Exports selected Kubernetes resources of the viewer addon into a staging folder.
 The backup adapts to the active ingress setup:
 - Always exports ConfigMap and Service
-- Exports ingress-nginx and/or ingress-traefik resources if present
+- Exports ingress-nginx, ingress-traefik and/or nginx-gw HTTPRoute resources if present
 - Exports Traefik Middleware (secure mode) if present
 
 The CLI wraps the staging folder into a zip archive.
@@ -151,6 +151,16 @@ try {
         $files += (Split-Path -Leaf $traefikIngressPath)
     }
 
+    $nginxGwHttpPath = Join-Path $BackupDir 'viewer-ingress-nginx-gw-httproute-http.yaml'
+    if (Export-K8sYamlIfExists -Kind 'httproute' -Name 'viewer-nginx-gw-http' -Namespace 'viewer' -OutFile $nginxGwHttpPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpPath)
+    }
+
+    $nginxGwHttpsPath = Join-Path $BackupDir 'viewer-ingress-nginx-gw-httproute-https.yaml'
+    if (Export-K8sYamlIfExists -Kind 'httproute' -Name 'viewer-nginx-gw-https' -Namespace 'viewer' -OutFile $nginxGwHttpsPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpsPath)
+    }
+
     # Traefik secure mode uses a Middleware in the viewer namespace.
     $mwPath = Join-Path $BackupDir 'viewer-traefik-middleware.yaml'
     if (Export-K8sYamlIfExists -Kind 'middlewares.traefik.io' -Name 'oauth2-proxy-auth' -Namespace 'viewer' -OutFile $mwPath) {
@@ -188,7 +198,7 @@ $manifest = [pscustomobject]@{
 $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
-Write-Log "[AddonBackup] Wrote $($files.Count) files to '$BackupDir'" -Console
+Write-Log "[AddonBackup] Backup artifacts prepared ($($files.Count) file(s))" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ Error = $null }

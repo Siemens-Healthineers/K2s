@@ -85,12 +85,12 @@ k2s addons import -h
 
 Either specify one or more addons to import from the offline package:
 ```console
-k2s addons import registry -z <directory-containing-addons-archive>\addons.zip
+k2s addons import registry -f <directory-containing-addons-archive>\addons.zip
 ```
 
 Or import all addons from the offline package:
 ```console
-k2s addons import -z <directory-containing-addons-archive>\addons.zip
+k2s addons import -f <directory-containing-addons-archive>\addons.zip
 ```
 
 !!! note

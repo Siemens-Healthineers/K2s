@@ -109,9 +109,12 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 	Describe("export all addons", func() {
 		BeforeAll(func(ctx context.Context) {
-			extractedFolder := filepath.Join(exportPath, "artifacts")
-			if _, err := os.Stat(extractedFolder); !os.IsNotExist(err) {
-				os.RemoveAll(extractedFolder)
+			// Clean up any previous OCI layout files in the export directory
+			for _, f := range []string{"oci-layout", "index.json", "blobs"} {
+				p := filepath.Join(exportPath, f)
+				if _, err := os.Stat(p); !os.IsNotExist(err) {
+					os.RemoveAll(p)
+				}
 			}
 
 			GinkgoWriter.Printf("Exporting all addons to %s", exportPath)
@@ -126,9 +129,11 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		})
 
 		AfterAll(func(ctx context.Context) {
-			extractedFolder := filepath.Join(exportPath, "artifacts")
-			if _, err := os.Stat(extractedFolder); !os.IsNotExist(err) {
-				os.RemoveAll(extractedFolder)
+			for _, f := range []string{"oci-layout", "index.json", "blobs"} {
+				p := filepath.Join(exportPath, f)
+				if _, err := os.Stat(p); !os.IsNotExist(err) {
+					os.RemoveAll(p)
+				}
 			}
 		})
 
@@ -141,22 +146,20 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("contains proper OCI structure with all addons referenced in index.json", func(ctx context.Context) {
 			suite.Cli("tar").MustExec(ctx, "-xf", exportedOciFile, "-C", exportPath)
 
-			artifactsPath := filepath.Join(exportPath, "artifacts")
-			_, err := os.Stat(artifactsPath)
-			Expect(os.IsNotExist(err)).To(BeFalse(), "artifacts directory should exist")
+			// OCI layout files are at the tar root (no artifacts/ subdirectory)
 
 			// Verify OCI layout file
-			ociLayoutPath := filepath.Join(artifactsPath, "oci-layout")
-			_, err = os.Stat(ociLayoutPath)
+			ociLayoutPath := filepath.Join(exportPath, "oci-layout")
+			_, err := os.Stat(ociLayoutPath)
 			Expect(os.IsNotExist(err)).To(BeFalse(), "oci-layout file should exist")
 
 			// Verify blobs directory
-			blobsPath := filepath.Join(artifactsPath, "blobs", "sha256")
+			blobsPath := filepath.Join(exportPath, "blobs", "sha256")
 			_, err = os.Stat(blobsPath)
 			Expect(os.IsNotExist(err)).To(BeFalse(), "blobs/sha256 directory should exist")
 
 			// Read and parse index.json
-			indexPath := filepath.Join(artifactsPath, "index.json")
+			indexPath := filepath.Join(exportPath, "index.json")
 			_, err = os.Stat(indexPath)
 			Expect(os.IsNotExist(err)).To(BeFalse(), "index.json OCI index file should exist")
 
@@ -174,7 +177,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 					Annotations  struct {
 						AddonName           string `json:"vnd.k2s.addon.name"`
 						AddonImplementation string `json:"vnd.k2s.addon.implementation"`
-						AddonVersion        string `json:"vnd.k2s.addon.version"`
+						AddonVersion        string `json:"org.opencontainers.image.version"`
 					} `json:"annotations"`
 				} `json:"manifests"`
 			}
@@ -191,9 +194,9 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				for _, i := range a.Spec.Implementations {
 					var expectedName string
 					if i.Name != a.Metadata.Name {
-						expectedName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name+"-"+i.Name, " ", "-")
 					} else {
-						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "-")
 					}
 
 					GinkgoWriter.Printf("Verifying addon: %s (implementation: %s) -> expected name: %s\n",
@@ -228,7 +231,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			GinkgoWriter.Printf("[Test] Checking %d addons\n", len(allAddons))
 
 			// Read index.json to get all addon manifests
-			indexPath := filepath.Join(exportPath, "artifacts", "index.json")
+			indexPath := filepath.Join(exportPath, "index.json")
 			indexData, err := os.ReadFile(indexPath)
 			Expect(err).To(BeNil(), "should be able to read index.json")
 
@@ -244,15 +247,15 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			err = json.Unmarshal(indexData, &ociIndex)
 			Expect(err).To(BeNil(), "should be able to parse index.json")
 
-			blobsPath := filepath.Join(exportPath, "artifacts", "blobs", "sha256")
+			blobsPath := filepath.Join(exportPath, "blobs", "sha256")
 
 			for addonIdx, a := range allAddons {
 				for implIdx, i := range a.Spec.Implementations {
 					var expectedName string
 					if i.Name != a.Metadata.Name {
-						expectedName = strings.ReplaceAll(a.Metadata.Name+"_"+i.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name+"-"+i.Name, " ", "-")
 					} else {
-						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "_")
+						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "-")
 					}
 
 					GinkgoWriter.Printf("[Test] [%d.%d] Addon: %s, Implementation: %s, Expected Name: %s\n",
@@ -351,7 +354,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		})
 
 		It("index.json contains correct OCI structure and K2s annotations", func(ctx context.Context) {
-			indexJsonPath := filepath.Join(exportPath, "artifacts", "index.json")
+			indexJsonPath := filepath.Join(exportPath, "index.json")
 			indexJsonBytes, err := os.ReadFile(indexJsonPath)
 			Expect(err).To(BeNil(), "should be able to read index.json")
 
@@ -371,7 +374,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			// Verify addon-specific annotations in manifests
 			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.name"), "should have addon name annotations")
 			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.implementation"), "should have addon implementation annotations")
-			Expect(indexJsonStr).To(ContainSubstring("vnd.k2s.addon.version"), "should have addon version annotations")
+			Expect(indexJsonStr).To(ContainSubstring("org.opencontainers.image.version"), "should have addon version annotations")
 
 			GinkgoWriter.Println("[Test] All OCI and K2s annotations verified in index.json")
 		})
@@ -380,7 +383,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			GinkgoWriter.Println(">>> TEST: OCI manifests in blobs contain proper structure")
 
 			// Read index.json to get all addon manifests
-			indexPath := filepath.Join(exportPath, "artifacts", "index.json")
+			indexPath := filepath.Join(exportPath, "index.json")
 			indexData, err := os.ReadFile(indexPath)
 			Expect(err).To(BeNil(), "should be able to read index.json")
 
@@ -395,7 +398,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			err = json.Unmarshal(indexData, &ociIndex)
 			Expect(err).To(BeNil(), "should be able to parse index.json")
 
-			blobsPath := filepath.Join(exportPath, "artifacts", "blobs", "sha256")
+			blobsPath := filepath.Join(exportPath, "blobs", "sha256")
 			GinkgoWriter.Printf("[Test] Checking %d manifests in blobs\n", len(ociIndex.Manifests))
 
 			for idx, manifest := range ociIndex.Manifests {
@@ -469,7 +472,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		BeforeAll(func(ctx context.Context) {
 			GinkgoWriter.Println("=== IMPORT ALL ADDONS - BeforeAll START ===")
 			GinkgoWriter.Printf("[BeforeAll] Importing from OCI tar file: %s\n", exportedOciFile)
-			suite.K2sCli().MustExec(ctx, "addons", "import", "-z", exportedOciFile)
+			suite.K2sCli().MustExec(ctx, "addons", "import", "-f", exportedOciFile)
 			GinkgoWriter.Println("[BeforeAll] Import completed")
 			GinkgoWriter.Println("=== IMPORT ALL ADDONS - BeforeAll END ===")
 		}, NodeTimeout(time.Minute*30))

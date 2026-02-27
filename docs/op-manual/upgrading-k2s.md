@@ -28,7 +28,7 @@ Upgrade support is available starting from *K2s* `v1.1.0`.
 
 > **ℹ️ Info:** The upgrade process re-installs the cluster binaries, migrates (exports/imports) Kubernetes resources, and re-enables previously enabled addons. It does not also upgrade existing addons, this needs to be done separatly using the `k2s addons ...` commands.
 
-> **⚠️ Warning:** Addon data/persistence is also **not** automatically restored during upgrade. To backup and restore addon data, use `k2s addons export` before upgrade and `k2s addons import` after upgrade.
+> **⚠️ Warning:** Addon data/persistence is also **not** automatically restored during upgrade. To backup and restore addon data, use `k2s addons backup` before upgrade and `k2s addons restore` after upgrade.
 
 1. Extract the new *K2s* release package into a directory (e.g. `C:\k2s\v1.5.0`).
 2. Open an elevated (Administrator) PowerShell or command prompt in that directory.
@@ -61,6 +61,20 @@ k2s system upgrade --force
 ### Configuration Override
 If you omit `-c`, the previous cluster's effective settings (memory, CPU, storage paths) are reused. To change them during an upgrade, provide a config file as described in [Installing Using Config Files](installing-k2s.md#installing-using-config-files).
 
+!!! info "Memory Configuration Preservation"
+    During upgrade, **all memory settings are automatically preserved**, including:
+    
+    - **Static memory**: VM memory allocation remains unchanged
+    - **Dynamic memory**: Startup, minimum, and maximum values are preserved
+    
+    Example:
+    ```
+    Before Upgrade: 4GB dynamic memory (min: 2GB, max: 8GB)
+    After Upgrade:  4GB dynamic memory (min: 2GB, max: 8GB) ✓ Preserved
+    ```
+    
+    To change memory configuration during upgrade (e.g., from static to dynamic memory), provide a config file with `-c`. See [Installing Using Config Files](installing-k2s.md#installing-using-config-files) for dynamic memory configuration details.
+
 ### What the Command Does
 Internally the following high‑level steps are performed:
 1. Export all existing workloads (cluster‑scoped resources and namespaced resources).
@@ -83,6 +97,58 @@ Before upgrading across more than one minor version, back up:
 - Application persistent volumes (if external, ensure snapshots exist).
 - Custom configuration files and secrets (outside of version-controlled items).
 
+#### System Backup
+
+Use the built-in backup command to capture cluster resources, persistent volumes, and container images:
+
+```console
+k2s system backup --file C:\backups\pre-upgrade-backup.zip
+```
+
+Optional flags:
+
+| Flag | Purpose |
+|------|---------|
+| `--skip-images` | Skip backing up container images (faster, smaller backup) |
+| `--skip-pvs` | Skip backing up persistent volumes |
+| `--additional-hooks-dir` | Directory with custom backup hook scripts |
+
+The default backup path (when `--file` is omitted) is `C:\Temp\k2s\backups`.
+
+#### Per-Addon Backup
+
+Back up individual addon data before upgrade:
+
+```console
+k2s addons backup registry -f C:\backups\registry.zip
+k2s addons backup monitoring -f C:\backups\monitoring.zip
+```
+
+#### Backup Exclusions
+
+The backup system automatically excludes certain resources based on `cfg\config.json`:
+
+- **Namespaces**: system and addon namespaces (kube-system, kube-flannel, etc.)
+- **Namespaced resources**: transient resources like endpoints and endpointslices
+- **Cluster resources**: node objects, API services, storage classes, etc.
+- **Addon PVs**: addon-managed persistent volumes (registry-pv, opensearch-cluster-master-pv, etc.)
+
+See [Configuration Reference](configuration-reference.md) for the full exclusion lists.
+
+#### Restoring After a Failed Upgrade
+
+If an upgrade fails and you need to restore from backup:
+
+1. Reinstall the previous *K2s* version
+2. Restore the system backup:
+   ```console
+   k2s system restore --file C:\backups\pre-upgrade-backup.zip
+   ```
+3. Restore addon data:
+   ```console
+   k2s addons restore registry -f C:\backups\registry.zip
+   ```
+
 ### Proxy Usage
 If your environment requires HTTP(S) proxy access, specify it with `-p`. Ensure the proxy allows access to any required artifact repositories; otherwise offline packages should include all needed assets.
 
@@ -90,6 +156,8 @@ If your environment requires HTTP(S) proxy access, specify it with `-p`. Ensure 
 The full upgrade process supports custom backup and restore hooks for cluster resources that need special handling during upgrade (e.g., SMB shares, external configurations).
 
 > **ℹ️ Note:** Hooks are only executed during **full upgrades**. Delta updates preserve cluster state in place and do not execute hooks.
+
+For a complete description of the hook system (naming conventions, execution order, all available hook points), see the [Hook System](hook-system.md) page.
 
 **Hook Locations:**
 

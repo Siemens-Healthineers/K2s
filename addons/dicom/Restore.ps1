@@ -70,7 +70,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'dicom' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'dicom'" -Console
 
 try {
     if ($null -ne $manifest.addon -and ("$($manifest.addon)" -ne 'dicom')) {
@@ -162,6 +162,11 @@ try {
 
         if ($file -match '^dicom-traefik-middleware' -and $activeIngress -ne 'traefik') {
             Write-Log "[AddonRestore] Skipping traefik middleware from backup (active: $activeIngress)" -Console
+            continue
+        }
+
+        if ($file -match '^dicom-ingress-nginx-gw-' -and $activeIngress -ne 'nginx-gw') {
+            Write-Log "[AddonRestore] Skipping nginx-gw resource from backup (active: $activeIngress)" -Console
             continue
         }
 

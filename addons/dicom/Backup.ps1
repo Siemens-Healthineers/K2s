@@ -11,7 +11,7 @@ Backs up dicom configuration/resources.
 .DESCRIPTION
 Creates a config-only backup scoped to the dicom namespace:
 - Exports Orthanc configuration ConfigMap (json-configmap)
-- Optionally exports ingress resources (nginx / traefik) and Traefik Middleware resources, if present
+- Optionally exports ingress resources (nginx / traefik / nginx-gw) and Traefik Middleware resources, if present
 
 The CLI wraps the staging folder into a zip archive.
 
@@ -184,6 +184,16 @@ try {
         $files += (Split-Path -Leaf $traefikIngressPath)
     }
 
+    $nginxGwHttpsPath = Join-Path $BackupDir 'dicom-ingress-nginx-gw-httproute-https.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'dicom-nginx-gw-cluster-local-https' -Namespace 'dicom' -OutFile $nginxGwHttpsPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpsPath)
+    }
+
+    $nginxGwHttpPath = Join-Path $BackupDir 'dicom-ingress-nginx-gw-httproute-http.json'
+    if (Export-MinimalK8sObjectIfExists -Kind 'httproute' -Name 'dicom-nginx-gw-cluster-local-http' -Namespace 'dicom' -OutFile $nginxGwHttpPath) {
+        $files += (Split-Path -Leaf $nginxGwHttpPath)
+    }
+
     $traefikIngressCorrect1Path = Join-Path $BackupDir 'dicom-ingress-traefik-correct1.json'
     if (Export-MinimalK8sObjectIfExists -Kind 'ingress' -Name 'dicom-traefik-cluster-local-correct1' -Namespace 'dicom' -OutFile $traefikIngressCorrect1Path) {
         $files += (Split-Path -Leaf $traefikIngressCorrect1Path)
@@ -254,7 +264,7 @@ $manifest = [pscustomobject]@{
 $manifestPath = Join-Path $BackupDir 'backup.json'
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
-Write-Log "[AddonBackup] Wrote $($files.Count) file(s) to '$BackupDir'" -Console
+Write-Log "[AddonBackup] Backup artifacts prepared ($($files.Count) file(s))" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{ Error = $null }

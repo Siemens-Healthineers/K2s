@@ -194,7 +194,7 @@ function PerformClusterUpdate {
 		  6. Stop cluster automatically (if it was running)
 		  7. Apply updated Windows artifacts (add/update files, remove obsolete files) from delta to target installation
 		  8. Restart cluster automatically (if it was running before)
-		  9. Load / import container images from delta if included
+		  9. Import container images from image-delta (Windows via nerdctl, Linux via SCP + buildah)
 		  10. Run optional hooks (pre/post) [placeholder]
 		  11. Basic health checks (API server reachable, node Ready) if cluster is running
 		  12. Update VERSION file and setup.json to reflect successful update
@@ -412,6 +412,38 @@ Current directory: $deltaRoot
 	# Wholesale directories contain binaries that must be completely replaced, not merged
 	$wholesaleDirs = @($manifest.WholeDirectories) | Where-Object { $_ -and ($_ -ne '') }
 	if ($wholesaleDirs.Count -gt 0) {
+		# Stop Windows services whose executables reside inside wholesale directories.
+		# Even when the cluster is not running (flanneld/kubelet/kubeproxy are down),
+		# containerd or other services may still be active and lock their binaries,
+		# causing sporadic "Access is denied" / "being used by another process" errors.
+		$servicesToDirMap = @{
+			'containerd' = 'bin/containerd'
+			'docker'     = 'bin/docker'
+		}
+		$stoppedServices = @()
+		foreach ($svcName in $servicesToDirMap.Keys) {
+			$svcDir = $servicesToDirMap[$svcName] -replace '/', '\'
+			$matchesWholesale = $wholesaleDirs | Where-Object { ($_ -replace '/', '\') -ieq $svcDir }
+			if (-not $matchesWholesale) { continue }
+
+			$svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+			if ($svc -and $svc.Status -ne 'Stopped') {
+				Write-Log ("[Update] Stopping service '{0}' (status: {1}) to unlock files in wholesale directory '{2}'" -f $svcName, $svc.Status, $svcDir) -Console:$consoleSwitch
+				try {
+					Stop-Service -Name $svcName -Force -ErrorAction Stop
+					# Wait briefly for the process to fully release file handles
+					Start-Sleep -Seconds 2
+					$stoppedServices += $svcName
+					Write-Log ("[Update] Service '{0}' stopped successfully" -f $svcName) -Console:$consoleSwitch
+				} catch {
+					Write-Log ("[Update][Warn] Could not stop service '{0}': {1}" -f $svcName, $_.Exception.Message) -Console:$consoleSwitch
+				}
+			}
+		}
+		# Also stop any leftover containerd-shim processes that may hold handles
+		Stop-Process -Name 'containerd-shim-runhcs-v1' -Force -ErrorAction SilentlyContinue
+		Stop-Process -Name 'containerd' -Force -ErrorAction SilentlyContinue
+
 		Write-Log ("[Update] Applying {0} wholesale directories" -f $wholesaleDirs.Count) -Console:$consoleSwitch
 		foreach ($wd in $wholesaleDirs) {
 			$srcDir = Join-Path $deltaRoot $wd
@@ -421,13 +453,30 @@ Current directory: $deltaRoot
 			}
 			$dstDir = Join-Path $targetInstallPath $wd
 			
-			# Remove existing directory completely for clean replacement
+			# Remove existing directory completely for clean replacement.
+			# Retry with back-off in case file handles are still being released.
 			if (Test-Path -LiteralPath $dstDir) {
 				Write-Log ("[Update] Removing existing directory for replacement: {0}" -f $wd) -Console:$consoleSwitch
-				try {
-					Remove-Item -LiteralPath $dstDir -Recurse -Force
-				} catch {
-					Write-Log ("[Update][Warn] Failed to remove existing directory '{0}': {1}" -f $wd, $_.Exception.Message) -Console:$consoleSwitch
+				$maxRetries = 5
+				$retryDelay = 2
+				$removed = $false
+				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+					try {
+						Remove-Item -LiteralPath $dstDir -Recurse -Force -ErrorAction Stop
+						$removed = $true
+						break
+					} catch {
+						if ($attempt -lt $maxRetries) {
+							Write-Log ("[Update][Warn] Attempt {0}/{1} to remove '{2}' failed: {3} - retrying in {4}s" -f $attempt, $maxRetries, $wd, $_.Exception.Message, $retryDelay) -Console:$consoleSwitch
+							Start-Sleep -Seconds $retryDelay
+							$retryDelay = [Math]::Min($retryDelay * 2, 10)
+						} else {
+							Write-Log ("[Update][Error] Failed to remove directory '{0}' after {1} attempts: {2}" -f $wd, $maxRetries, $_.Exception.Message) -Console
+						}
+					}
+				}
+				if (-not $removed) {
+					Write-Log ("[Update][Warn] Continuing despite failure to fully remove '{0}' - copy will attempt force-overwrite" -f $wd) -Console:$consoleSwitch
 				}
 			}
 			
@@ -512,7 +561,48 @@ Current directory: $deltaRoot
 	}
 	Write-Log ("[Update] Applied {0} Windows artifacts (skipped {1} protected cluster config files)" -f $appliedCount, $skippedCount) -Console:$consoleSwitch
 
-	# 6b. Remove obsolete files (Removed) from target installation
+	# 6b. Regenerate containerd config.toml from updated template if the template changed.
+	# The live config.toml is generated at install time from config.toml.template by replacing
+	# %BEST-DRIVE%, %INSTALLATION_DIRECTORY%, and %CONTAINERD_TOKEN% placeholders.
+	# The template is diffed and staged in the delta package, but the generated config.toml
+	# does not exist in packages, so it must be regenerated after the template is updated.
+	# Without this, containerd keeps using the old sandbox_image (pause-win) version.
+	$containerdTemplatePath = 'cfg/containerd/config.toml.template'
+	$templateWasUpdated = $filesToApply | Where-Object { ($_ -replace '\\', '/') -ieq $containerdTemplatePath }
+	if ($templateWasUpdated) {
+		Write-Log '[Update] Containerd config.toml.template was updated - regenerating config.toml...' -Console:$consoleSwitch
+		$containerdTomlPath = Join-Path $targetInstallPath 'cfg\containerd\config.toml'
+		try {
+			# Import the containerd module from the target installation so that Get-KubePath
+			# (resolved via PSScriptRoot) points to the correct install directory and all
+			# dependent modules (system, config, path) are loaded from the same tree.
+			$containerdModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
+			if (-not (Test-Path -LiteralPath $containerdModule)) {
+				throw "Containerd module not found at $containerdModule"
+			}
+			Import-Module $containerdModule -Force
+
+			# 1. Generate config.toml from template (replaces %BEST-DRIVE%)
+			Set-RootPathForImagesInConfig $containerdTomlPath
+			# 2. Replace %INSTALLATION_DIRECTORY% with escaped kubePath
+			Set-InstallationDirectory $containerdTomlPath
+			# 3. Replace %CONTAINERD_TOKEN% with registry auth token
+			Set-UserTokenForRegistryInConfig $containerdTomlPath
+
+			if (Test-Path -LiteralPath $containerdTomlPath) {
+				Write-Log "[Update] Containerd config.toml regenerated successfully at $containerdTomlPath" -Console:$consoleSwitch
+			} else {
+				throw "config.toml was not created at $containerdTomlPath after template substitution"
+			}
+		} catch {
+			Write-Log ("[Update][Error] Failed to regenerate containerd config.toml: {0}" -f $_.Exception.Message) -Console
+			throw
+		}
+	} else {
+		Write-Log '[Update] Containerd config.toml.template not changed - skipping config.toml regeneration' -Console:$consoleSwitch
+	}
+
+	# 6c. Remove obsolete files (Removed) from target installation
 	$removedFiles = @($manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
 	if ($removedFiles.Count -gt 0) {
 		Write-Log ("[Update] Removing {0} obsolete files from target installation" -f $removedFiles.Count) -Console:$consoleSwitch
@@ -536,7 +626,7 @@ Current directory: $deltaRoot
 		Write-Log '[Update] No files to remove' -Console:$consoleSwitch
 	}
 
-	# 6c. Clean deprecated kubelet flags from Windows kubeadm-flags.env
+	# 6d. Clean deprecated kubelet flags from Windows kubeadm-flags.env
 	# The --pod-infra-container-image flag was deprecated in K8s 1.27 and removed in 1.34
 	# This matches the Linux fix in apply-debian-delta.sh
 	_phase 'CleanKubeletFlags'
@@ -596,33 +686,119 @@ Current directory: $deltaRoot
 		Write-Log '[Update] Cluster was not running before update; not restarting.' -Console:$consoleSwitch
 	}
 
-	# 8. Container images (if any .tar/.gz under delta/images)
+	# 8. Import container images from delta package.
+	#    Delta packaging stages images into image-delta/windows/images/*.tar and image-delta/linux/images/*.tar.
+	#    Linux images may already have been imported by Phase 4 (Invoke-CommandInMasterVM → apply-debian-delta.sh
+	#    → buildah pull). Phase 8 re-imports them as a safety net and also covers the case where
+	#    Phase 4 was skipped because the cluster was not running at the time.
+	#    Windows images use nerdctl to load into the containerd k8s.io namespace — the same pattern used by
+	#    Invoke-DeployWindowsImages in downloader.module.psm1 and ImportImage.ps1.
 	_phase 'ContainerImages'
-	$imagesRoot = Join-Path $deltaRoot 'images'
-	if (Test-Path -LiteralPath $imagesRoot) {
-		$imageFiles = Get-ChildItem -LiteralPath $imagesRoot -Recurse -File -Include '*.tar','*.tar.gz','*.tgz' -ErrorAction SilentlyContinue
-		if ($imageFiles.Count -gt 0) {
-			Write-Log ("[Update] Loading {0} container image archives" -f $imageFiles.Count) -Console:$consoleSwitch
-			$imageLoadedCount = 0
-			foreach ($img in $imageFiles) {
-				Write-Log ("[Update] Loading image: {0}" -f $img.Name) -Console:$consoleSwitch
-				try {
-					if (Get-Command -Name Import-K2sImageArchive -ErrorAction SilentlyContinue) {
-						Import-K2sImageArchive -ArchivePath $img.FullName -ShowLogs:$ShowLogs
-						Write-Log ("[Update] Image loaded successfully: {0}" -f $img.Name) -Console:$consoleSwitch
-						$imageLoadedCount++
-					} elseif (Get-Command -Name Load-K2sImage -ErrorAction SilentlyContinue) {
-						Load-K2sImage -Path $img.FullName -ShowLogs:$ShowLogs
-						Write-Log ("[Update] Image loaded successfully: {0}" -f $img.Name) -Console:$consoleSwitch
-						$imageLoadedCount++
-					} else {
-						Write-Log ("[Update][Warn] No image import function available for {0}" -f $img.Name) -Console:$consoleSwitch
-					}
-				} catch { Write-Log ("[Update][Warn] Image load failed {0}: {1}" -f $img.Name, $_.Exception.Message) -Console:$consoleSwitch }
+
+	# --- 8a. Windows images ---
+	# Collect Windows image tar files: primary path from delta packaging, then fallback
+	$windowsImagesDirs = @(
+		(Join-Path $deltaRoot 'image-delta\windows\images'),
+		(Join-Path $deltaRoot 'images')
+	)
+	$winImageFiles = @()
+	foreach ($winImgDir in $windowsImagesDirs) {
+		if ((Test-Path -LiteralPath $winImgDir) -and $winImageFiles.Count -eq 0) {
+			$found = Get-ChildItem -LiteralPath $winImgDir -File -Filter '*.tar' -ErrorAction SilentlyContinue
+			if ($found -and $found.Count -gt 0) {
+				$winImageFiles = @($found)
+				Write-Log ("[Update] Found {0} Windows image archives in {1}" -f $winImageFiles.Count, $winImgDir) -Console:$consoleSwitch
 			}
-			Write-Log ("[Update] Loaded {0} of {1} container images" -f $imageLoadedCount, $imageFiles.Count) -Console:$consoleSwitch
-		} else { Write-Log '[Update] No image archives found.' -Console:$consoleSwitch }
-	} else { Write-Log '[Update] images/ directory absent; skipping image load' -Console:$consoleSwitch }
+		}
+	}
+	if ($winImageFiles.Count -gt 0) {
+		# Resolve nerdctl from the target installation (containerd must be running after Phase 7 restart)
+		$nerdctlExe = Join-Path (Get-KubeBinPath) 'nerdctl.exe'
+		if (-not (Test-Path -LiteralPath $nerdctlExe)) {
+			Write-Log ("[Update][Warn] nerdctl.exe not found at {0}; cannot import Windows images" -f $nerdctlExe) -Console:$consoleSwitch
+		} else {
+			Write-Log ("[Update] Loading {0} Windows container image archives via nerdctl" -f $winImageFiles.Count) -Console:$consoleSwitch
+			$imageLoadedCount = 0
+			foreach ($img in $winImageFiles) {
+				Write-Log ("[Update] Loading Windows image: {0}" -f $img.Name) -Console:$consoleSwitch
+				$maxRetries = 3
+				$retryDelay = 2
+				$success = $false
+				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+					try {
+						& $nerdctlExe -n k8s.io load -i "$($img.FullName)" 2>&1 | Out-Null
+						if ($LASTEXITCODE -eq 0) {
+							$success = $true
+							break
+						}
+						if ($attempt -lt $maxRetries) {
+							Write-Log ("[Update]   Attempt {0} failed (exit code {1}), retrying after {2}s..." -f $attempt, $LASTEXITCODE, $retryDelay) -Console:$consoleSwitch
+							Start-Sleep -Seconds $retryDelay
+						}
+					} catch {
+						if ($attempt -lt $maxRetries) {
+							Write-Log ("[Update]   Attempt {0} error: {1}, retrying after {2}s..." -f $attempt, $_.Exception.Message, $retryDelay) -Console:$consoleSwitch
+							Start-Sleep -Seconds $retryDelay
+						}
+					}
+				}
+				if ($success) {
+					$imageLoadedCount++
+					Write-Log ("[Update] Image loaded successfully: {0}" -f $img.Name) -Console:$consoleSwitch
+				} else {
+					Write-Log ("[Update][Warn] Failed to load image after {0} attempts: {1}" -f $maxRetries, $img.Name) -Console:$consoleSwitch
+				}
+			}
+			Write-Log ("[Update] Loaded {0} of {1} Windows container images" -f $imageLoadedCount, $winImageFiles.Count) -Console:$consoleSwitch
+		}
+	} else {
+		Write-Log '[Update] No Windows image archives found in delta package; skipping Windows image load' -Console:$consoleSwitch
+	}
+
+	# --- 8b. Linux images ---
+	# Import Linux images into the control-plane VM via SCP + buildah.
+	# Phase 4 (DebianPackages) imports these as part of apply-debian-delta.sh when the cluster was running.
+	# This step acts as a safety net and also covers the scenario where the cluster was not running during Phase 4.
+	$linuxImagesDir = Join-Path $deltaRoot 'image-delta\linux\images'
+	if (Test-Path -LiteralPath $linuxImagesDir) {
+		$linuxTarFiles = Get-ChildItem -LiteralPath $linuxImagesDir -File -Filter '*.tar' -ErrorAction SilentlyContinue
+		if ($linuxTarFiles -and $linuxTarFiles.Count -gt 0) {
+			if ($wasRunning) {
+				# Cluster is running (restarted in Phase 7) — VM is reachable via SSH
+				if (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue) {
+					Write-Log ("[Update] Importing {0} Linux container images into control-plane VM" -f $linuxTarFiles.Count) -Console:$consoleSwitch
+					try {
+						$remoteImgDir = '/tmp/k2s-delta-images'
+						(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteImgDir && sudo chown `$(whoami) $remoteImgDir" -Retries 2 -Timeout 2).Output | Out-Null
+						Copy-ToControlPlaneViaSSHKey -Source $linuxImagesDir -Target $remoteImgDir -IgnoreErrors:$false
+						$linuxLoadedCount = 0
+						foreach ($ltar in $linuxTarFiles) {
+							$remoteTar = "$remoteImgDir/images/$($ltar.Name)"
+							Write-Log ("[Update] Loading Linux image: {0}" -f $ltar.Name) -Console:$consoleSwitch
+							$importResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah pull oci-archive:$remoteTar 2>&1" -Retries 2 -Timeout 120
+							if ($importResult.Output -notmatch 'error') {
+								$linuxLoadedCount++
+								Write-Log ("[Update] Linux image loaded successfully: {0}" -f $ltar.Name) -Console:$consoleSwitch
+							} else {
+								Write-Log ("[Update][Warn] Linux image import may have failed for {0}: {1}" -f $ltar.Name, $importResult.Output) -Console:$consoleSwitch
+							}
+						}
+						# Clean up temporary images directory
+						(Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf $remoteImgDir" -Retries 1 -Timeout 2 -IgnoreErrors:$true).Output | Out-Null
+						Write-Log ("[Update] Loaded {0} of {1} Linux container images" -f $linuxLoadedCount, $linuxTarFiles.Count) -Console:$consoleSwitch
+					} catch {
+						Write-Log ("[Update][Warn] Failed to import Linux images: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+					}
+				} else {
+					Write-Log '[Update][Warn] SSH helper not available; cannot import Linux images into VM' -Console:$consoleSwitch
+				}
+			} else {
+				Write-Log ("[Update][Warn] Cluster not running; {0} Linux images in delta package will need to be imported after cluster start" -f $linuxTarFiles.Count) -Console:$consoleSwitch
+			}
+		}
+	} else {
+		Write-Log '[Update] No Linux image archives found in delta package; skipping Linux image load' -Console:$consoleSwitch
+	}
 
 	# 9. Hooks placeholder
 	_phase 'Hooks'

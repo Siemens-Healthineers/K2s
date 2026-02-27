@@ -67,7 +67,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'autoscaling' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'autoscaling'" -Console
 
 if (-not $manifest.files -or $manifest.files.Count -eq 0) {
     Write-Log "[AddonRestore] backup.json contains no files; nothing to apply. Autoscaling restore is reinstall/repair-only (handled by the CLI enable step)." -Console

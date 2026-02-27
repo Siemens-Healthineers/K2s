@@ -28,14 +28,14 @@ k2s addons enable monitoring
 
 ## Backup and restore
 
-Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+Create a backup zip (defaults to `C:\Temp\k2s\Addons` on Windows):
 ```
 k2s addons backup monitoring
 ```
 
 Restore from a backup zip:
 ```
-k2s addons restore monitoring -f C:\Temp\Addons\monitoring_backup_YYYYMMDD_HHMMSS.zip
+k2s addons restore monitoring -f C:\Temp\k2s\Addons\monitoring_backup_YYYYMMDD_HHMMSS.zip
 ```
 
 Notes:

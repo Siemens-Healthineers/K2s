@@ -48,7 +48,7 @@ function Fail([string]$errMsg, [string]$code = 'addon-restore-failed') {
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code $code -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
-        return
+        exit 1
     }
 
     Write-Log $errMsg -Error
@@ -58,18 +58,28 @@ function Fail([string]$errMsg, [string]$code = 'addon-restore-failed') {
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     Fail $systemError.Message 'system-not-available'
-    return
 }
 
 $manifestPath = Join-Path $BackupDir 'backup.json'
 if (-not (Test-Path -LiteralPath $manifestPath)) {
     Fail "backup.json not found in '$BackupDir'" 'addon-restore-failed'
-    return
 }
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[MonitoringRestore] Restoring addon 'monitoring' from '$BackupDir'" -Console
+Write-Log "[MonitoringRestore] Restoring addon 'monitoring'" -Console
+
+$activeIngress = 'none'
+if (Test-NginxIngressControllerAvailability) {
+    $activeIngress = 'nginx'
+}
+elseif (Test-TraefikIngressControllerAvailability) {
+    $activeIngress = 'traefik'
+}
+elseif (Test-NginxGatewayAvailability) {
+    $activeIngress = 'nginx-gw'
+}
+Write-Log "[MonitoringRestore] Detected active ingress mode: $activeIngress" -Console
 
 if (-not $manifest.files -or $manifest.files.Count -eq 0) {
     Write-Log "[MonitoringRestore] backup.json contains no files; nothing to apply. Monitoring restore is reinstall/repair-only (handled by the CLI enable step)." -Console
@@ -224,12 +234,29 @@ try {
             continue
         }
 
+        # Skip ingress resources that don't match the currently active ingress controller.
+        if ($file -match '^ingress_' -and $activeIngress -ne 'nginx') {
+            Write-Log "[MonitoringRestore] Skipping nginx ingress manifest '$file' (active: $activeIngress)" -Console
+            continue
+        }
+        if ($file -match '^httproute_' -and $activeIngress -ne 'nginx-gw') {
+            Write-Log "[MonitoringRestore] Skipping nginx-gw httproute manifest '$file' (active: $activeIngress)" -Console
+            continue
+        }
+        if ($file -match '^ingressroute_' -and $activeIngress -ne 'traefik') {
+            Write-Log "[MonitoringRestore] Skipping traefik ingressroute manifest '$file' (active: $activeIngress)" -Console
+            continue
+        }
+        if ($file -match '^middleware_' -and $activeIngress -ne 'traefik') {
+            Write-Log "[MonitoringRestore] Skipping traefik middleware manifest '$file' (active: $activeIngress)" -Console
+            continue
+        }
+
         Invoke-ApplyWithConflictFallback -FilePath $filePath
     }
 }
 catch {
     Fail "Restore of addon 'monitoring' failed: $($_.Exception.Message)" 'addon-restore-failed'
-    return
 }
 
 # Best-effort rollouts
