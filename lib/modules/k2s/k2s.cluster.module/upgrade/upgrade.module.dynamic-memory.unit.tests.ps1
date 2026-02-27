@@ -39,7 +39,8 @@ Describe 'Invoke-ClusterInstall - Dynamic Memory Support' -Tag 'unit', 'ci', 'up
 
                 Should -Invoke Invoke-Cmd -ParameterFilter {
                     $Arguments -match '--master-memory 6GB' -and
-                    $Arguments -notmatch '--master-dynamic-memory'
+                    $Arguments -notmatch '--master-memory-min' -and
+                    $Arguments -notmatch '--master-memory-max'
                 }
             }
         }
@@ -49,7 +50,6 @@ Describe 'Invoke-ClusterInstall - Dynamic Memory Support' -Tag 'unit', 'ci', 'up
                 Invoke-ClusterInstall -MasterVMMemory '4GB'
 
                 Should -Invoke Invoke-Cmd -ParameterFilter {
-                    $Arguments -notmatch '--master-dynamic-memory' -and
                     $Arguments -notmatch '--master-memory-min' -and
                     $Arguments -notmatch '--master-memory-max'
                 }
@@ -59,50 +59,49 @@ Describe 'Invoke-ClusterInstall - Dynamic Memory Support' -Tag 'unit', 'ci', 'up
 
     Context 'Dynamic Memory Configuration (Future Upgrade Scenario)' {
 
-        It 'generates correct command with all dynamic memory flags' {
+        It 'generates correct command with all dynamic memory flags (auto-enables via min/max)' {
             InModuleScope -ModuleName $moduleName {
                 Invoke-ClusterInstall -MasterVMMemory '4GB' -EnableDynamicMemory -MasterVMMemoryMin '2GB' -MasterVMMemoryMax '8GB'
 
                 Should -Invoke Invoke-Cmd -ParameterFilter {
                     $Arguments -match '--master-memory 4GB' -and
-                    $Arguments -match '--master-dynamic-memory' -and
+                    $Arguments -match '--master-memory-min 2GB' -and
+                    $Arguments -match '--master-memory-max 8GB' -and
+                    $Arguments -notmatch '--master-dynamic-memory'
+                }
+            }
+        }
+
+        It 'includes min/max flags without explicit dynamic-memory flag (auto-enabled)' {
+            InModuleScope -ModuleName $moduleName {
+                Invoke-ClusterInstall -MasterVMMemory '4GB' -EnableDynamicMemory -MasterVMMemoryMin '2GB' -MasterVMMemoryMax '8GB'
+
+                Should -Invoke Invoke-Cmd -ParameterFilter {
+                    $Arguments -match '--master-memory 4GB' -and
                     $Arguments -match '--master-memory-min 2GB' -and
                     $Arguments -match '--master-memory-max 8GB'
                 }
             }
         }
 
-        It 'includes dynamic-memory flag even without min/max specified' {
-            InModuleScope -ModuleName $moduleName {
-                Invoke-ClusterInstall -MasterVMMemory '4GB' -EnableDynamicMemory
-
-                Should -Invoke Invoke-Cmd -ParameterFilter {
-                    $Arguments -match '--master-memory 4GB' -and
-                    $Arguments -match '--master-dynamic-memory'
-                }
-            }
-        }
-
-        It 'includes only minimum when maximum is not specified' {
+        It 'includes only minimum when maximum is not specified (auto-enables via min)' {
             InModuleScope -ModuleName $moduleName {
                 Invoke-ClusterInstall -MasterVMMemory '4GB' -EnableDynamicMemory -MasterVMMemoryMin '2GB'
 
                 Should -Invoke Invoke-Cmd -ParameterFilter {
                     $Arguments -match '--master-memory 4GB' -and
-                    $Arguments -match '--master-dynamic-memory' -and
                     $Arguments -match '--master-memory-min 2GB' -and
                     $Arguments -notmatch '--master-memory-max'
                 }
             }
         }
 
-        It 'includes only maximum when minimum is not specified' {
+        It 'includes only maximum when minimum is not specified (auto-enables via max)' {
             InModuleScope -ModuleName $moduleName {
                 Invoke-ClusterInstall -MasterVMMemory '4GB' -EnableDynamicMemory -MasterVMMemoryMax '8GB'
 
                 Should -Invoke Invoke-Cmd -ParameterFilter {
                     $Arguments -match '--master-memory 4GB' -and
-                    $Arguments -match '--master-dynamic-memory' -and
                     $Arguments -notmatch '--master-memory-min' -and
                     $Arguments -match '--master-memory-max 8GB'
                 }
@@ -115,7 +114,6 @@ Describe 'Invoke-ClusterInstall - Dynamic Memory Support' -Tag 'unit', 'ci', 'up
 
                 Should -Invoke Invoke-Cmd -ParameterFilter {
                     $Arguments -match '--master-memory 4GB' -and
-                    $Arguments -notmatch '--master-dynamic-memory' -and
                     $Arguments -notmatch '--master-memory-min' -and
                     $Arguments -notmatch '--master-memory-max'
                 }
@@ -151,7 +149,6 @@ Describe 'Invoke-ClusterInstall - Dynamic Memory Support' -Tag 'unit', 'ci', 'up
 
                 Should -Invoke Invoke-Cmd -ParameterFilter {
                     $Arguments -match '--master-memory 4GB' -and
-                    $Arguments -match '--master-dynamic-memory' -and
                     $Arguments -notmatch '--master-memory-min [0-9]' -and
                     $Arguments -notmatch '--master-memory-max [0-9]'
                 }
@@ -171,7 +168,7 @@ Describe 'Invoke-ClusterInstall - Dynamic Memory Support' -Tag 'unit', 'ci', 'up
             }
         }
 
-        It 'constructs valid command string with all parameters' {
+        It 'constructs valid command string with all parameters (dynamic memory auto-enabled via min/max)' {
             InModuleScope -ModuleName $moduleName {
                 Invoke-ClusterInstall `
                     -MasterVMMemory '4GB' `
@@ -189,11 +186,11 @@ Describe 'Invoke-ClusterInstall - Dynamic Memory Support' -Tag 'unit', 'ci', 'up
                     $Arguments -match '--proxy http://proxy.local:8080' -and
                     $Arguments -match '--master-cpus 4' -and
                     $Arguments -match '--master-memory 4GB' -and
-                    $Arguments -match '--master-dynamic-memory' -and
                     $Arguments -match '--master-memory-min 2GB' -and
                     $Arguments -match '--master-memory-max 8GB' -and
                     $Arguments -match '--master-disk 100GB' -and
-                    $Arguments -match '--append-log'
+                    $Arguments -match '--append-log' -and
+                    $Arguments -notmatch '--master-dynamic-memory'
                 }
             }
         }

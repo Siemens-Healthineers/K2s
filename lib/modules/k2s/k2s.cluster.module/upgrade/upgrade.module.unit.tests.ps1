@@ -325,7 +325,10 @@ Describe "PerformClusterUpgrade" {
 
 	It "should perform cluster upgrade with execute hooks successfully" {
 		InModuleScope $moduleName {
-			$memoryVM = [ref]"4GB"
+			$memoryVM = @{
+				Startup = "4GB"
+				DynamicMemoryEnabled = $false
+			}
 			$coresVM = [ref]"2"
 			$storageVM = [ref]"100GB"
 			$enabledAddonsList = [System.Collections.ArrayList]@([pscustomobject]@{ Name = 'dashboard' })
@@ -350,7 +353,10 @@ Describe "PerformClusterUpgrade" {
 	
 	It "should perform cluster upgrade without execute hooks successfully" {
 		InModuleScope $moduleName {
-			$memoryVM = [ref]"4GB"
+			$memoryVM = @{
+				Startup = "4GB"
+				DynamicMemoryEnabled = $false
+			}
 			$coresVM = [ref]"2"
 			$storageVM = [ref]"100GB"
 			$enabledAddonsList = [System.Collections.ArrayList]@()
@@ -376,7 +382,10 @@ Describe "PerformClusterUpgrade" {
 		InModuleScope $moduleName {
 			Mock Invoke-ClusterUninstall -MockWith { throw "Uninstall failed" }
 	
-			$memoryVM = [ref]"4GB"
+			$memoryVM = @{
+				Startup = "4GB"
+				DynamicMemoryEnabled = $false
+			}
 			$coresVM = [ref]"2"
 			$storageVM = [ref]"100GB"
 			$enabledAddonsList = [System.Collections.ArrayList]@()
@@ -393,8 +402,13 @@ Describe "PrepareClusterUpgrade" {
 		# Mock the dependencies
 		Mock -ModuleName $moduleName Get-SetupInfo -MockWith { return @{ Name = "k2s" } }
 		Mock -ModuleName $moduleName Get-LinuxVMCores -MockWith { return 4 }
-		Mock -ModuleName $moduleName Get-LinuxVMMemory -MockWith { return 16 }
-		Mock -ModuleName $moduleName Get-LinuxVMStorageSize -MockWith { return 100 }
+		Mock -ModuleName $moduleName Get-LinuxVMMemory -MockWith {
+			return @{
+				Startup = "16GB"
+				DynamicMemoryEnabled = $false
+			}
+		}
+		Mock -ModuleName $moduleName Get-LinuxVMStorageSize -MockWith { return "100GB" }
 		Mock -ModuleName $moduleName Assert-UpgradeOperation -MockWith { return $true }
 		Mock -ModuleName $moduleName Enable-ClusterIsRunning
 		Mock -ModuleName $moduleName Get-EnabledAddons -MockWith { return [System.Collections.ArrayList]@() }
@@ -404,6 +418,8 @@ Describe "PrepareClusterUpgrade" {
 		Mock -ModuleName $moduleName Export-ClusterResources
 		Mock -ModuleName $moduleName Invoke-UpgradeBackupRestoreHooks
 		Mock -ModuleName $moduleName Backup-LogFile
+		Mock -ModuleName $moduleName Backup-AllPersistentVolumes -MockWith { return @{} }
+		Mock -ModuleName $moduleName Get-K2sImageList -MockWith { return @() }
 		Mock -ModuleName $moduleName Write-Log
 		Mock -ModuleName $moduleName Write-Progress
 	}
@@ -416,8 +432,10 @@ Describe "PrepareClusterUpgrade" {
 			$enabledAddonsList = [ref]$null
 			$hooksBackupPath = [ref]""
 			$logFilePathBeforeUninstall = [ref]""
+			$pvBackupPath = [ref]""
+			$imagesBackupPath = [ref]""
 
-			$result = PrepareClusterUpgrade -ShowProgress -SkipResources -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+			$result = PrepareClusterUpgrade -ShowProgress -SkipResources -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall -pvBackupPath $pvBackupPath -imagesBackupPath $imagesBackupPath
 
 			# Assert that the mocked functions were called
 			Should -Invoke Get-SetupInfo -Exactly 1 -Scope It

@@ -219,8 +219,28 @@ function New-VmFromIso {
     # Configure dynamic memory if enabled
     if ($EnableDynamicMemory) {
         Write-Log 'Configuring Hyper-V Dynamic Memory'
-        $minMemory = if ($MemoryMinimumBytes -gt 0) { $MemoryMinimumBytes } else { $MemoryStartupBytes }
-        $maxMemory = if ($MemoryMaximumBytes -gt 0) { $MemoryMaximumBytes } else { $MemoryStartupBytes }
+
+        $minMemory = if ($MemoryMinimumBytes -gt 0) {
+            $MemoryMinimumBytes
+        } else {
+            $calculatedMin = [Math]::Floor($MemoryStartupBytes * 0.3)
+            [Math]::Max(2GB, $calculatedMin)
+        }
+
+        $maxMemory = if ($MemoryMaximumBytes -gt 0) {
+            $MemoryMaximumBytes
+        } else {
+            $hostTotalRAM = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory
+            $calculatedMax = [Math]::Floor($hostTotalRAM * 0.5)
+            $maxMemory = [Math]::Max(8GB, [Math]::Min($calculatedMax, 32GB))
+
+            Write-Log "Auto-calculated maximum memory (50% of host RAM): $([Math]::Round($maxMemory/1GB, 2))GB"
+            $maxMemory
+        }
+
+        if ($MemoryMinimumBytes -eq 0) {
+            Write-Log "Auto-calculated minimum memory (30% of startup): $([Math]::Round($minMemory/1GB, 2))GB"
+        }
 
         # Validate memory range
         if ($minMemory -gt $MemoryStartupBytes) {
@@ -235,7 +255,8 @@ function New-VmFromIso {
         $vm | Set-VMMemory -DynamicMemoryEnabled $true -MinimumBytes $minMemory -MaximumBytes $maxMemory -StartupBytes $MemoryStartupBytes
         Write-Log "Dynamic Memory configured: Startup=$MemoryStartupBytes, Min=$minMemory, Max=$maxMemory"
     } else {
-        $vm | Set-VMMemory -DynamicMemoryEnabled $false
+        $vm | Set-VMMemory -DynamicMemoryEnabled $false -StartupBytes $MemoryStartupBytes
+        Write-Log "Static Memory configured: $MemoryStartupBytes"
     }
 
     # Sets Secure Boot Template.
