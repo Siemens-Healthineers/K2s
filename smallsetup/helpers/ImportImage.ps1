@@ -72,8 +72,10 @@ if ($Windows) {
         exit 1
     }
 
+    $ctrExe = "$global:BinPath\containerd\ctr.exe"
+
     foreach ($image in $images) {
-        &$global:NerdctlExe -n k8s.io load -i $image
+        &$ctrExe -n k8s.io images import $image
         if ($?) {
             Write-Log "$image imported successfully" -Console
         }

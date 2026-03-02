@@ -125,7 +125,7 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
         }
 
         Write-Log "Export image '$sandboxImageName' to '$tarFilePath'"
-        &$nerdctlExe -n="k8s.io" save -o `"$tarFilePath`" "$sandboxImageName" --all-platforms
+        &$ctrExe -n k8s.io images export --all-platforms "$tarFilePath" "$sandboxImageName"
         if (!$?) {
             throw "The image '$sandboxImageName' could not be exported"
         }
@@ -144,7 +144,7 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
         throw "Directory '$windowsImagesArtifactsDirectory' does not exist"
     }
 
-    $nerdctlExe = "$kubeBinPath\nerdctl.exe"
+    $ctrExe = Get-CtrExePath
     $fileSearchPattern = "$windowsImagesArtifactsDirectory\*.tar"
     $files = Get-ChildItem -Path "$fileSearchPattern"
     $amountOfFiles = $files.Count
@@ -161,7 +161,7 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
         $success = $false
         
         for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
-            &$nerdctlExe -n k8s.io load -i `"$file`" 2>&1 | Out-Null
+            &$ctrExe -n k8s.io images import "$file" 2>&1 | Out-Null
             if ($LASTEXITCODE -eq 0) {
                 $success = $true
                 break

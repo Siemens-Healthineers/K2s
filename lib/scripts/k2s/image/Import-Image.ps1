@@ -84,10 +84,10 @@ elseif ($ImageDir -ne '') {
 
 if ($Windows) {
     $binPath = Get-KubeBinPath
-    $nerdctlExe = "$binPath\nerdctl.exe"
+    $ctrExe = "$binPath\containerd\ctr.exe"
 
     foreach ($image in $images) {
-        &$nerdctlExe -n k8s.io load -i $image
+        &$ctrExe -n k8s.io images import $image
         if ($?) {
             Write-Log "$image imported successfully"
         }
