@@ -60,8 +60,9 @@ log_info "=== Downloading buildah and dependencies ==="
 
 download_packages 'buildah'
 
-log_info "Downloading crun (explicit Recommends)"
-cd "$BUILDAH_DEB_PACKAGES_PATH" && sudo apt-get download crun 2>/dev/null || true
+# NOTE: crun is only a Recommends (optional) dependency of buildah and its
+# post-install script fails on some VM kernel configurations. We intentionally
+# skip downloading it; buildah works correctly without it.
 
 log_info "Downloaded packages:"
 ls -1 "$BUILDAH_DEB_PACKAGES_PATH"
