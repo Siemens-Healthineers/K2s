@@ -1279,8 +1279,8 @@ Function New-KubernetesNode {
 
     Write-Log "Start provisioning the computer $IpAddress"
     $debPackagesPath = Get-KubernetesDebPackagesPath -UserName $controlPlaneUserName
-    Get-KubernetesArtifactsFromInternet -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion -TargetPath $debPackagesPath
-    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -SourcePath $debPackagesPath
+    Get-KubernetesArtifactsFromInternet -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion -TargetPath $debPackagesPath -InstalledDistribution 'debian12'
+    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -SourcePath $debPackagesPath -InstalledDistribution 'debian12'
 
     Write-Log "Finalize preparation of the computer $IpAddress after provisioning"
     Set-UpComputerWithSpecificOsAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
