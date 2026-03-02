@@ -1930,6 +1930,10 @@ function Invoke-RemoteScript {
         }
     }
     
+    # Strip Windows CRLF line endings (\r) before executing - scripts copied from Windows
+    # may have \r\n endings which cause bash to fail finding the interpreter in the shebang line.
+    &$executeRemoteCommand "sed -i 's/\r//' $RemoteScriptPath" | Out-Null
+
     $result = &$executeRemoteCommand "chmod +x $RemoteScriptPath && $RemoteScriptPath $argumentString"
     
     Write-Log "Script output: $result"
