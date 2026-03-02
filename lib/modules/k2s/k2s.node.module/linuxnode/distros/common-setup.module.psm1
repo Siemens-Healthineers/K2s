@@ -1901,8 +1901,13 @@ function Invoke-RemoteScript {
     
     Write-Log "Copying script to remote: $RemoteScriptPath"
     
-    # Copy script to remote (always use SSH key for file transfer)
-    Copy-ToRemoteComputerViaSshKey -Source $LocalScriptPath -Target $RemoteScriptPath -UserName $UserName -IpAddress $IpAddress
+    # Copy script to remote - use password auth if available (e.g. fresh VM not yet having the SSH key),
+    # otherwise fall back to SSH key (e.g. control-plane or already-provisioned node).
+    if (![string]::IsNullOrWhiteSpace($UserPwd)) {
+        Copy-ToRemoteComputerViaUserAndPwd -Source $LocalScriptPath -Target $RemoteScriptPath -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd
+    } else {
+        Copy-ToRemoteComputerViaSshKey -Source $LocalScriptPath -Target $RemoteScriptPath -UserName $UserName -IpAddress $IpAddress
+    }
     
     # Build command with arguments
     $argumentString = if ($Arguments.Count -gt 0) { 
