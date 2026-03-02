@@ -257,14 +257,14 @@ if ($foundWindowsImages.Count -eq 1) {
         if ($pullExitCode -ne 0) {
             Write-Log "Not able to pull all platform layers for image '$imageFullName' (exit code: $pullExitCode)" -Console
             Write-Log "Exporting image '$imageFullName' only for current platform" -Console
-            &$nerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', $finalExportPath, $imageFullName
         }
         else {
             Write-Log "Exporting image '$imageFullName' for all platforms" -Console
-            &$nerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName --all-platforms
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', '--all-platforms', $finalExportPath, $imageFullName
         }
 
-        if ($?) {
+        if ($exportSuccess) {
             Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
         }
         else {
