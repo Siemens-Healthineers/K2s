@@ -599,8 +599,8 @@ function New-WindowsImage {
     Write-Log '...saved.'
 
     Write-Log "Importing image $imageFullName from $exportedImageFullFileName into containerd..."
-    &$nerdctlExe -n k8s.io load -i "$exportedImageFullFileName"
-    if (!$?) { throw "error while importing built image '$imageFullName' with 'nerdctl.exe load' on Windows. Error code returned was $LastExitCode" }
+    $importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $exportedImageFullFileName
+    if (-not $importSuccess) { throw "error while importing built image '$imageFullName' with 'ctr images import' on Windows." }
     Write-Log '...imported'
 
     Write-Log "Removing temporarily created file $exportedImageFullFileName..."
