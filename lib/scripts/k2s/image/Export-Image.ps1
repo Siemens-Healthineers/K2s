@@ -238,7 +238,6 @@ if ($foundWindowsImages.Count -eq 1) {
 
     $binPath = Get-KubeBinPath
     $nerdctlExe = "$binPath\nerdctl.exe"
-    $ctrExe = "$binPath\containerd\ctr.exe"
 
     # Set up proxy env vars so nerdctl can reach the registry (mirrors addons/Export.ps1 pattern)
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
@@ -258,14 +257,14 @@ if ($foundWindowsImages.Count -eq 1) {
         if ($pullExitCode -ne 0) {
             Write-Log "Not able to pull all platform layers for image '$imageFullName' (exit code: $pullExitCode)" -Console
             Write-Log "Exporting image '$imageFullName' only for current platform" -Console
-            &$ctrExe -n k8s.io images export "$finalExportPath" $imageFullName
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', $finalExportPath, $imageFullName
         }
         else {
             Write-Log "Exporting image '$imageFullName' for all platforms" -Console
-            &$ctrExe -n k8s.io images export --all-platforms "$finalExportPath" $imageFullName
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', '--all-platforms', $finalExportPath, $imageFullName
         }
 
-        if ($?) {
+        if ($exportSuccess) {
             Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
         }
         else {

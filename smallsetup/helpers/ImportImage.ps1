@@ -72,11 +72,9 @@ if ($Windows) {
         exit 1
     }
 
-    $ctrExe = "$global:BinPath\containerd\ctr.exe"
-
     foreach ($image in $images) {
-        &$ctrExe -n k8s.io images import $image
-        if ($?) {
+        $importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $image
+        if ($importSuccess) {
             Write-Log "$image imported successfully" -Console
         }
     }

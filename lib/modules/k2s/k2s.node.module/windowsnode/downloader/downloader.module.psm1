@@ -125,8 +125,8 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
         }
 
         Write-Log "Export image '$sandboxImageName' to '$tarFilePath'"
-        &$ctrExe -n k8s.io images export --all-platforms "$tarFilePath" "$sandboxImageName"
-        if (!$?) {
+        $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', '--all-platforms', $tarFilePath, $sandboxImageName
+        if (-not $exportSuccess) {
             throw "The image '$sandboxImageName' could not be exported"
         }
         Write-Log "Image '$sandboxImageName' available as '$tarFilePath'"
@@ -144,7 +144,6 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
         throw "Directory '$windowsImagesArtifactsDirectory' does not exist"
     }
 
-    $ctrExe = Get-CtrExePath
     $fileSearchPattern = "$windowsImagesArtifactsDirectory\*.tar"
     $files = Get-ChildItem -Path "$fileSearchPattern"
     $amountOfFiles = $files.Count
@@ -161,8 +160,8 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
         $success = $false
         
         for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
-            &$ctrExe -n k8s.io images import "$file" 2>&1 | Out-Null
-            if ($LASTEXITCODE -eq 0) {
+            $importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', "$file"
+            if ($importSuccess) {
                 $success = $true
                 break
             }

@@ -726,8 +726,8 @@ Current directory: $deltaRoot
 				$success = $false
 				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
 					try {
-						& $ctrExe -n k8s.io images import "$($img.FullName)" 2>&1 | Out-Null
-						if ($LASTEXITCODE -eq 0) {
+						$importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $img.FullName
+						if ($importSuccess) {
 							$success = $true
 							break
 						}
