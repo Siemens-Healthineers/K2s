@@ -118,22 +118,15 @@ ensure_hv_balloon_persistent() {
     fi
 }
 
-###############################################################################
-# Memory Hotplug Configuration
-###############################################################################
-
 enable_auto_online_blocks() {
     log_info "Configuring automatic memory hotplug..."
 
-    # Check if auto_online_blocks is available
     if [[ ! -f "${AUTO_ONLINE_PATH}" ]]; then
         log_warn "auto_online_blocks not available (kernel may be too old)"
         log_warn "Dynamic memory hotplug will require manual intervention"
-        # Don't fail - some kernels may not support this
         return 0
     fi
 
-    # Check current value
     local current_value
     current_value=$(cat "${AUTO_ONLINE_PATH}" 2>/dev/null || echo "unknown")
 
@@ -144,7 +137,6 @@ enable_auto_online_blocks() {
 
     log_info "Setting auto_online_blocks to 'online' (was: ${current_value})..."
 
-    # Enable automatic onlining
     if echo "online" > "${AUTO_ONLINE_PATH}"; then
         log_success "auto_online_blocks enabled successfully"
     else
@@ -153,14 +145,9 @@ enable_auto_online_blocks() {
     fi
 }
 
-###############################################################################
-# Systemd Service Management
-###############################################################################
-
 create_systemd_service() {
     log_info "Creating systemd service for persistent configuration..."
 
-    # Create service file
     cat > "${SYSTEMD_SERVICE_PATH}" <<'EOF'
 [Unit]
 Description=Hyper-V Dynamic Memory Auto-Online Configuration
@@ -192,13 +179,11 @@ EOF
 enable_systemd_service() {
     log_info "Enabling and starting systemd service..."
 
-    # Reload systemd daemon
     if ! systemctl daemon-reload 2>&1; then
         log_error "Failed to reload systemd daemon"
         return 1
     fi
 
-    # Enable service for boot
     if systemctl enable "${SYSTEMD_SERVICE_NAME}" 2>&1; then
         log_success "Service enabled for boot"
     else
@@ -206,7 +191,6 @@ enable_systemd_service() {
         return 1
     fi
 
-    # Start service now
     if systemctl start "${SYSTEMD_SERVICE_NAME}" 2>&1; then
         log_success "Service started successfully"
     else
@@ -214,23 +198,17 @@ enable_systemd_service() {
     fi
 }
 
-###############################################################################
-# Verification
-###############################################################################
-
 verify_configuration() {
     log_info "Verifying configuration..."
 
     local all_ok=true
 
-    # Check hyperv-daemons (optional if hv_balloon is built-in)
     if dpkg -l 2>/dev/null | grep -q "^ii.*hyperv-daemons"; then
         log_success "✓ hyperv-daemons package installed"
     else
         log_info "ℹ hyperv-daemons package not installed (may not be needed)"
     fi
 
-    # Check hv_balloon module or built-in functionality
     if lsmod | grep -q "^hv_balloon"; then
         log_success "✓ hv_balloon module loaded"
     elif [[ -d /sys/bus/vmbus/drivers/hv_balloon ]] || [[ -f /sys/bus/vmbus/drivers/hv_balloon/bind ]]; then
@@ -239,12 +217,11 @@ verify_configuration() {
         log_warn "⚠ hv_balloon not detected (may affect dynamic memory)"
     fi
 
-    # Check auto_online_blocks (CRITICAL for dynamic memory)
     if [[ -f "${AUTO_ONLINE_PATH}" ]]; then
         local value
         value=$(cat "${AUTO_ONLINE_PATH}" 2>/dev/null || echo "unknown")
         if [[ "${value}" == "online" ]]; then
-            log_success "✓ auto_online_blocks = online (CRITICAL - working)"
+            log_success "✓ auto_online_blocks = online"
         else
             log_warn "✗ auto_online_blocks = ${value} (expected: online)"
             all_ok=false
@@ -254,7 +231,6 @@ verify_configuration() {
         all_ok=false
     fi
 
-    # Check systemd service
     if systemctl is-enabled "${SYSTEMD_SERVICE_NAME}" &>/dev/null; then
         log_success "✓ systemd service enabled"
     else
@@ -270,129 +246,43 @@ verify_configuration() {
 
     if [[ "${all_ok}" == true ]]; then
         log_success "All critical checks passed"
-        log_info "Dynamic memory should work even without hyperv-daemons package"
         return 0
     else
         log_warn "Some checks failed - review warnings above"
-        log_warn "Dynamic memory may still work if hv_balloon is built into kernel"
-        return 0  # Don't fail - warnings are informational
+        return 0
     fi
 }
 
-display_validation_commands() {
-    cat <<'EOF'
-
-═══════════════════════════════════════════════════════════════════════════
-Manual Verification Commands
-═══════════════════════════════════════════════════════════════════════════
-
-To verify Hyper-V Dynamic Memory configuration on the Linux VM:
-
-1. Check hv_balloon module:
-   lsmod | grep hv_balloon
-   # Should show: hv_balloon
-
-2. Check auto_online_blocks setting:
-   cat /sys/devices/system/memory/auto_online_blocks
-   # Should show: online
-
-3. Check systemd service status:
-   systemctl status auto-online-memory.service
-   # Should show: active (exited)
-
-4. View available memory blocks:
-   ls /sys/devices/system/memory/ | grep -c '^memory[0-9]'
-   # Shows number of memory blocks
-
-5. Check current memory usage:
-   free -h
-   # Shows current memory allocation
-
-6. View memory block states:
-   for i in /sys/devices/system/memory/memory*/state; do echo "$i: $(cat $i)"; done | grep -c online
-   # Shows count of online memory blocks
-
-═══════════════════════════════════════════════════════════════════════════
-Testing Dynamic Memory from Hyper-V Host (PowerShell)
-═══════════════════════════════════════════════════════════════════════════
-
-# Get current memory configuration:
-Get-VMMemory -VMName KubeMaster | Format-List
-
-# Expected output should show:
-#   DynamicMemoryEnabled    : True
-#   Minimum                 : <configured min>
-#   Startup                 : <configured startup>
-#   Maximum                 : <configured max>
-
-# Monitor memory usage over time:
-while ($true) {
-    Get-VMMemory -VMName KubeMaster | Select VMName, @{N='AssignedGB';E={[math]::Round($_.AssignedMemory/1GB,2)}}
-    Start-Sleep -Seconds 5
-}
-
-# Test memory pressure (inside VM):
-# stress-ng --vm 1 --vm-bytes 2G --timeout 60s
-
-═══════════════════════════════════════════════════════════════════════════
-EOF
-}
-
-###############################################################################
-# Main Execution
-###############################################################################
-
 main() {
     log_info "Starting Hyper-V Dynamic Memory configuration for K2s"
-    log_info "Script: ${SCRIPT_NAME}"
-    log_info "Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
     echo ""
 
-    # Pre-flight checks
-    log_info "=== Phase 1: Pre-flight Checks ==="
     check_root
     check_hyperv_platform
     echo ""
 
-    # Package installation
-    log_info "=== Phase 2: Package Installation ==="
     install_hyperv_daemons
     echo ""
 
-    # Kernel module configuration
-    log_info "=== Phase 3: Kernel Module Configuration ==="
     load_hv_balloon_module
     ensure_hv_balloon_persistent
     echo ""
 
-    # Memory hotplug configuration
-    log_info "=== Phase 4: Memory Hotplug Configuration ==="
     enable_auto_online_blocks
     echo ""
 
-    # Systemd service setup
-    log_info "=== Phase 5: Systemd Service Setup ==="
     create_systemd_service
     enable_systemd_service
     echo ""
 
-    # Verification
-    log_info "=== Phase 6: Verification ==="
     verify_configuration
     echo ""
 
-    # Display validation commands
-    display_validation_commands
-
-    log_success "═══════════════════════════════════════════════════════════════"
     log_success "Hyper-V Dynamic Memory configuration completed successfully"
     log_success "Configuration is persistent across reboots"
-    log_success "No reboot required - changes are active immediately"
-    log_success "═══════════════════════════════════════════════════════════════"
 
     return 0
 }
 
-# Execute main function
 main "$@"
 
