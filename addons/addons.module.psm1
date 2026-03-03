@@ -1542,6 +1542,7 @@ function Install-CertManagerControllers {
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+		exit 1
     }
     throw $errMsg
 }
@@ -1578,6 +1579,7 @@ function Initialize-CACertificateIssuer {
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+			exit 1
         }
         throw $errMsg
     }

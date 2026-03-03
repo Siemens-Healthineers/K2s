@@ -62,6 +62,10 @@ if (-not (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Imple
 
 Write-Log 'Uninstalling Flux addon' -Console
 
+# Clean up addon-sync infrastructure (if deployed)
+Write-Log 'Cleaning up addon-sync infrastructure' -Console
+(Invoke-Kubectl -Params 'delete', 'namespace', 'k2s-addon-sync', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+
 # Remove optional ingress manifests (silently skips if not present)
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })

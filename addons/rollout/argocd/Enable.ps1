@@ -28,6 +28,8 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
     [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
+    [parameter(Mandatory = $false, HelpMessage = 'Deploy addon-sync infrastructure for GitOps addon delivery')]
+    [switch] $AddonSync = $true,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -140,6 +142,67 @@ if ($Ingress -ne 'none') {
 Write-Log 'Installation of rollout addon finished.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })
+
+# Deploy addon-sync infrastructure for GitOps addon delivery (ArgoCD variant)
+if ($AddonSync) {
+    Write-Log 'Deploying addon-sync infrastructure for ArgoCD GitOps delivery' -Console
+    $addonSyncArgocdPath = Join-Path $PSScriptRoot '..\..\common\manifests\addon-sync\argocd'
+    $addonSyncArgocdPath = [System.IO.Path]::GetFullPath($addonSyncArgocdPath)
+
+    if (Test-Path $addonSyncArgocdPath) {
+        $kubectlCmd = Invoke-Kubectl -Params 'apply', '-k', $addonSyncArgocdPath
+        $kubectlCmd.Output | Write-Log
+        if (-not $kubectlCmd.Success) {
+            $errMsg = "Failed to deploy addon-sync ArgoCD manifests from $addonSyncArgocdPath"
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+
+            Write-Log $errMsg -Error
+            exit 1
+        }
+
+        # Patch K2S_INSTALL_DIR to the actual installation path using Get-KubePath.
+        # Writes a temp YAML patch file — single-quoted YAML strings treat backslashes literally,
+        # so Windows paths like C:\ws are safe without any escaping.
+        $kubePath = Get-KubePath
+        $patchFile = Join-Path ([System.IO.Path]::GetTempPath()) 'addon-sync-installdir-patch.yaml'
+        $patchContent = "data:`n  K2S_INSTALL_DIR: '$kubePath'"
+        Set-Content -Path $patchFile -Value $patchContent -Encoding UTF8
+        $kubectlCmd = Invoke-Kubectl -Params 'patch', 'configmap', 'addon-sync-config', '-n', 'k2s-addon-sync', '--type', 'merge', "--patch-file=$patchFile"
+        $kubectlCmd.Output | Write-Log
+        Remove-Item $patchFile -Force -ErrorAction SilentlyContinue
+        if (-not $kubectlCmd.Success) {
+            $errMsg = 'Failed to patch addon-sync-config with K2S_INSTALL_DIR'
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+
+            Write-Log $errMsg -Error
+            exit 1
+        }
+        Write-Log "K2S_INSTALL_DIR set to $kubePath" -Console
+
+        # addon-sync uses OCI Distribution API polling (via Sync-Addons.ps1 -CheckDigest true) —
+        # no registry configuration changes are required. The addon-sync-poller CronJob (deployed
+        # above) runs as a Windows HostProcess every 5 minutes, using oras to discover repos and
+        # compare manifest digests against per-addon files on the host filesystem.
+        # Works with any OCI-compliant registry: ZOT, Harbor, GHCR, ECR, etc.
+        Write-Log 'addon-sync-poller CronJob deployed — it will poll the registry every 5 minutes for new addon artifacts.' -Console
+
+        Write-Log 'Infrastructure deployed successfully' -Console
+        Write-Log 'Push an addon OCI artifact to the registry; the poller will detect it within 5 minutes and sync it to the K2s addons directory.' -Console
+        Write-Log 'After the sync Job completes, run: k2s addons enable <name>' -Console
+    } else {
+        Write-Log "Warning: addon-sync ArgoCD manifests not found at $addonSyncArgocdPath" -Console
+    }
+} else {
+    Write-Log 'Skipping addon-sync infrastructure deployment (--addon-sync=false)' -Console
+}
 
 Write-UsageForUser
 
