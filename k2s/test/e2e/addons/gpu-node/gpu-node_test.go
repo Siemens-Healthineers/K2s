@@ -107,7 +107,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("Running 'enable' for 'gpu-node' addon"),
-				MatchRegexp("'addons enable gpu-node' completed"),
+				MatchRegexp("'k2s addons enable gpu-node' completed"),
 			))
 		})
 
@@ -124,7 +124,6 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 				MatchRegexp("ADDON STATUS"),
 				MatchRegexp(`Addon .+gpu-node.+ is .+enabled.+`),
 				MatchRegexp("The gpu node is working"),
-				MatchRegexp("The DCGM exporter is working"),
 			))
 
 			output = suite.K2sCli().MustExec(ctx, "addons", "status", "gpu-node", "-o", "json")
@@ -146,13 +145,13 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 					HaveField("Message", gstruct.PointTo(ContainSubstring("The gpu node is working")))),
 				SatisfyAll(
 					HaveField("Name", "IsDCGMExporterRunning"),
-					HaveField("Value", true),
-					HaveField("Okay", gstruct.PointTo(BeTrue())),
-					HaveField("Message", gstruct.PointTo(MatchRegexp("The DCGM exporter is working")))),
+					HaveField("Okay", gstruct.PointTo(BeTrue()))),
+					// DCGM requires NVML which is unavailable via dxcore (WSL2 + Hyper-V GPU-PV) — non-fatal, Value may be false
 			))
 		})
 
 		It("runs CUDA workloads", func(ctx context.Context) {
+			suite.Kubectl().MustExec(ctx, "delete", "pod", podName, "-n", namespace, "--ignore-not-found")
 			suite.Kubectl().MustExec(ctx, "apply", "-k", workloadsPath)
 
 			suite.Cluster().ExpectPodToBeCompleted(podName, namespace)
