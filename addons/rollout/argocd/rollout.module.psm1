@@ -125,11 +125,3 @@ function Write-UsageForUser {
  In this case, the rollout dashboard will be accessible on the following URL: https://localhost:8080/rollout
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
-
-# Note: addon-sync trigger is polling-based (OCI Distribution API).
-# No registry configuration changes are needed — the addon-sync-poller CronJob
-# polls GET /v2/_catalog and HEAD /v2/<repo>/manifests/<tag> on every OCI-compliant
-# registry (ZOT, Harbor, GHCR, ECR, etc.) without any vendor webhook support.
-# The previous Add-RegistryWebhookNotification / Remove-RegistryWebhookNotification
-# functions that patched the Docker Distribution registry-config ConfigMap have
-# been removed; they were incompatible with ZOT and other OCI-only registries.

@@ -65,8 +65,6 @@ Write-Log 'Uninstalling rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
 
 # Clean up addon-sync infrastructure (if deployed)
-# Note: no registry configuration cleanup needed — the polling approach does not
-# modify any registry configuration on enable, so nothing to undo here.
 Write-Log 'Cleaning up addon-sync infrastructure' -Console
 (Invoke-Kubectl -Params 'delete', 'namespace', 'k2s-addon-sync', '--ignore-not-found', '--timeout=60s').Output | Write-Log
 

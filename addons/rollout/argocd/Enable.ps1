@@ -165,8 +165,6 @@ if ($AddonSync) {
         }
 
         # Patch K2S_INSTALL_DIR to the actual installation path using Get-KubePath.
-        # Writes a temp YAML patch file — single-quoted YAML strings treat backslashes literally,
-        # so Windows paths like C:\ws are safe without any escaping.
         $kubePath = Get-KubePath
         $patchFile = Join-Path ([System.IO.Path]::GetTempPath()) 'addon-sync-installdir-patch.yaml'
         $patchContent = "data:`n  K2S_INSTALL_DIR: '$kubePath'"
@@ -186,14 +184,7 @@ if ($AddonSync) {
             exit 1
         }
         Write-Log "K2S_INSTALL_DIR set to $kubePath" -Console
-
-        # addon-sync uses OCI Distribution API polling (via Sync-Addons.ps1 -CheckDigest true) —
-        # no registry configuration changes are required. The addon-sync-poller CronJob (deployed
-        # above) runs as a Windows HostProcess every 5 minutes, using oras to discover repos and
-        # compare manifest digests against per-addon files on the host filesystem.
-        # Works with any OCI-compliant registry: ZOT, Harbor, GHCR, ECR, etc.
         Write-Log 'addon-sync-poller CronJob deployed — it will poll the registry every 5 minutes for new addon artifacts.' -Console
-
         Write-Log 'Infrastructure deployed successfully' -Console
         Write-Log 'Push an addon OCI artifact to the registry; the poller will detect it within 5 minutes and sync it to the K2s addons directory.' -Console
         Write-Log 'After the sync Job completes, run: k2s addons enable <name>' -Console

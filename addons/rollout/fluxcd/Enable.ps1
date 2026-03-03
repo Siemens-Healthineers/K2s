@@ -106,7 +106,7 @@ Write-Log 'Installation of rollout addon with Flux finished.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 
-# Deploy addon-sync infrastructure for GitOps addon delivery (FluxCD variant)
+# Deploy addon-sync infrastructure for GitOps addon delivery
 if ($AddonSync) {
     Write-Log 'Deploying addon-sync infrastructure for FluxCD GitOps delivery' -Console
     $addonSyncFluxcdPath = Join-Path $PSScriptRoot '..\..\common\manifests\addon-sync\fluxcd'
@@ -128,8 +128,6 @@ if ($AddonSync) {
         }
 
         # Patch K2S_INSTALL_DIR to the actual installation path using Get-KubePath.
-        # Writes a temp YAML patch file — single-quoted YAML strings treat backslashes literally,
-        # so Windows paths like C:\ws are safe without any escaping.
         $kubePath = Get-KubePath
         $patchFile = Join-Path ([System.IO.Path]::GetTempPath()) 'addon-sync-installdir-patch.yaml'
         $patchContent = "data:`n  K2S_INSTALL_DIR: '$kubePath'"

@@ -192,7 +192,7 @@ try {
                  Write-Log "No manifests directory found at $sourceManifestsDir"
              }
 
-             # Inject gitops-sync/ Job template into manifests layer for FluxCD GitOps delivery.
+             # Inject gitops-sync/ Job template into manifests layer for GitOps delivery.
              $gitopsSyncSource = Join-Path $PSScriptRoot 'common\manifests\addon-sync\gitops-sync'
              Write-Log "Checking for gitops-sync source at: $gitopsSyncSource"
              

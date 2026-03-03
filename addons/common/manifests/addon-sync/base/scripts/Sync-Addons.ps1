@@ -28,26 +28,6 @@ This script replicates the layer-processing logic of Import.ps1 but operates:
 - Without a .oci.tar file (pulls directly from registry via oras)
 - Without image/package import (layers 4-6 skipped)
 - Inside a HostProcess container (direct Windows host filesystem access)
-
-.PARAMETER RegistryUrl
-Base OCI registry URL (registry host only, e.g. oci://k2s.registry.local:30500).
-Sync-Addons.ps1 discovers per-addon repos by running:
-  oras repo ls <registryBase> | filter addons/*
-Each matching repo is synced independently: addons/<name>:<version>.
-
-.PARAMETER Tag
-The tag of the artifact to pull (default: latest)
-
-.PARAMETER K2sInstallDir
-The K2s installation directory on the Windows host. In a HostProcess container, this
-is relative to the CONTAINER_SANDBOX_MOUNT_POINT (typically C:\).
-
-.PARAMETER OrasExe
-Path to the oras executable. Defaults to 'oras' (expects it on PATH or in the container image).
-
-.EXAMPLE
-Sync-Addons.ps1 -RegistryUrl "oci://k2s.registry.local:30500" -K2sInstallDir "C:\k"
-# Discovers addons/* repos, e.g. addons/monitoring:1.0.0, and syncs changed ones.
 #>
 
 Param(
