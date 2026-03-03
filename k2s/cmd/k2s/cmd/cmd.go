@@ -49,6 +49,7 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 
 			// Log CLI invocation to file only (before adding CLI handler)
 			logger.SetHandlers(fileHandler).SetGlobally()
+			slog.Info(" ")
 			slog.Info("CLI invocation", "cmd", strings.Join(os.Args, " "))
 			slog.Debug("log level set", "level", verbosity)
 
