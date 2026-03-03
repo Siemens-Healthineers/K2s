@@ -77,7 +77,7 @@ if [ -n "$PROXY" ]; then
         echo "Environment='HTTPS_PROXY=$PROXY'"
         echo "Environment='http_proxy=$PROXY'"
         echo "Environment='https_proxy=$PROXY'"
-        echo "Environment='no_proxy=.local'"
+        echo "Environment='no_proxy=localhost,127.0.0.1,::1,172.19.1.100,172.20.0.0/16,172.21.0.0/16,.cluster.local,.local'"
     } | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf
 fi
 
