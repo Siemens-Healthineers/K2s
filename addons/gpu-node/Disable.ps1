@@ -57,6 +57,14 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gpu-node', '--ignore-
     exit 1
 }
 
+# Remove OCI hook left by Enable.ps1
+Write-Log '[GPU] Removing OCI prestart hook' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
+
+# Remove nvidia-container-toolkit packages
+Write-Log '[GPU] Removing nvidia-container-toolkit packages' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get remove -y nvidia-container-toolkit libnvidia-container1 libnvidia-container-tools nvidia-container-runtime 2>/dev/null || true' -IgnoreErrors).Output | Write-Log
+
 Write-Log 'Uninstalling GPU node' -Console
 (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
