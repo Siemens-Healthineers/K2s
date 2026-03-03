@@ -83,12 +83,9 @@ elseif ($ImageDir -ne '') {
 }
 
 if ($Windows) {
-    $binPath = Get-KubeBinPath
-    $nerdctlExe = "$binPath\nerdctl.exe"
-
     foreach ($image in $images) {
-        &$nerdctlExe -n k8s.io load -i $image
-        if ($?) {
+        $importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $image
+        if ($importSuccess) {
             Write-Log "$image imported successfully"
         }
     }
