@@ -1504,6 +1504,91 @@ function Install-HelmAndYqOnKubeMaster
     
     Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
 }
+
+function Configure-HypervDynamicMemory
+{
+    <#
+    .SYNOPSIS
+    Configures Hyper-V Dynamic Memory support on the KubeMaster VM.
+
+    .DESCRIPTION
+    This function copies and executes a bash script on the Linux control-plane node
+    to enable Hyper-V Dynamic Memory support. The script:
+    - Installs hyperv-daemons if missing
+    - Loads hv_balloon kernel module
+    - Enables automatic memory hotplug (auto_online_blocks = online)
+    - Creates a persistent systemd service for boot-time configuration
+
+    This allows the VM to dynamically grow (hot-add) and shrink (balloon) memory
+    based on workload demands, improving host memory utilization.
+
+    NOTE: This function should be called AFTER SSH keys are set up, as it uses
+    SSH key-based authentication rather than password authentication.
+
+    .PARAMETER UserName
+    The username for SSH connection to the VM.
+
+    .PARAMETER UserPwd
+    (Optional/Unused) Kept for backward compatibility. Function uses SSH keys.
+
+    .PARAMETER IpAddress
+    The IP address of the control-plane node.
+
+    .PARAMETER EnableDynamicMemory
+    Whether dynamic memory is enabled (controls whether this function runs).
+
+    .EXAMPLE
+    Configure-HypervDynamicMemory -UserName "remote" -IpAddress "172.19.1.100" -EnableDynamicMemory $true
+    #>
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$UserName,
+        [Parameter(Mandatory = $false)]
+        [string]$UserPwd = "",
+        [Parameter(Mandatory = $true)]
+        [string]$IpAddress,
+        [Parameter(Mandatory = $false)]
+        [bool]$EnableDynamicMemory = $false
+    )
+
+    # Only configure if dynamic memory is enabled
+    if (-not $EnableDynamicMemory) {
+        Write-Log "Dynamic memory not enabled, skipping Hyper-V dynamic memory configuration"
+        return
+    }
+
+    Write-Log "Configuring Hyper-V Dynamic Memory support on control-plane node..." -Console
+
+    $localScriptPath = "$PSScriptRoot\..\..\..\..\..\scripts\k2s\system\configure-hyperv-dynamic-memory.sh"
+    $remoteScriptPath = "/home/$UserName/configure-hyperv-dynamic-memory.sh"
+
+    if (-not (Test-Path $localScriptPath)) {
+        Write-Log "Warning: Hyper-V dynamic memory configuration script not found at: $localScriptPath"
+        Write-Log "Skipping dynamic memory configuration"
+        return
+    }
+
+    try {
+        # Copy script to VM (use SSH key since keys are already set up)
+        Copy-ToRemoteComputerViaSshKey -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -IpAddress $IpAddress
+
+        # Make executable and fix line endings (use SSH key)
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo chmod +x $remoteScriptPath" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sed -i 's/\r$//' $remoteScriptPath" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        # Execute script with extended timeout (package installation can take time)
+        Write-Log "Executing Hyper-V dynamic memory configuration script on VM..."
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo $remoteScriptPath" -UserName $UserName -IpAddress $IpAddress -Timeout 180).Output | Write-Log
+
+        Write-Log "Hyper-V dynamic memory configuration completed successfully" -Console
+    }
+    catch {
+        Write-Log "Warning: Failed to configure Hyper-V dynamic memory: $_"
+        Write-Log "VM will continue with static memory configuration"
+        # Don't fail the installation - dynamic memory is optional
+    }
+}
+
 function New-VmImageForKubernetesNode {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
@@ -2060,4 +2145,6 @@ Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
 Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
 Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
 Update-CoreDNSConfigurationviaSSH,
-Set-UpMasterNode
+Set-UpMasterNode,
+Configure-HypervDynamicMemory
+
