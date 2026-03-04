@@ -377,7 +377,7 @@ function Sync-AddonFromOciLayout {
                                 $existingManifest | ConvertTo-Json -Depth 100 | Set-Content -Path $tempJson.FullName -Encoding UTF8
                                 $yamlOutput = & $yqExe eval -P '.' $tempJson.FullName
                                 $yamlContent = if ($yamlOutput -is [array]) { $yamlOutput -join "`n" } else { $yamlOutput.ToString() }
-                                Set-Content -Path $destManifestPath -Value (($headerLines -join "`n") + "`n" + $yamlContent) -Encoding UTF8
+                                [System.IO.File]::WriteAllText($destManifestPath, (($headerLines -join "`n") + "`n" + $yamlContent), [System.Text.UTF8Encoding]::new($false))
                                 Write-SyncLog "    Merged manifest saved"
                             } finally { Remove-Item -Path $tempJson -Force -ErrorAction SilentlyContinue }
                         } else {

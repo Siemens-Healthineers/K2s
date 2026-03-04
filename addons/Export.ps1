@@ -208,10 +208,10 @@ try {
                  $exportTimestamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
                  $syncJobPath = Join-Path $gitopsSyncDest 'sync-job.yaml'
                  if (Test-Path $syncJobPath) {
-                     $content = Get-Content -Path $syncJobPath -Raw
+                     $content = [System.IO.File]::ReadAllText($syncJobPath, [System.Text.Encoding]::UTF8)
                      $content = $content -replace 'EXPORT_TIMESTAMP_PLACEHOLDER', $exportTimestamp
                      $content = $content -replace 'ADDON_NAME_PLACEHOLDER', $addonFolderName
-                     Set-Content -Path $syncJobPath -Value $content -Encoding UTF8
+                     [System.IO.File]::WriteAllText($syncJobPath, $content, [System.Text.UTF8Encoding]::new($false))
                      Write-Log "Injected gitops-sync Job template with timestamp $exportTimestamp and addon name $addonFolderName" -Console
                  } else {
                      Write-Log "Warning: sync-job.yaml not found at $syncJobPath" -Console
