@@ -1535,13 +1535,18 @@ function Configure-HypervDynamicMemory
     }
 
     try {
-        Copy-ToRemoteComputerViaSshKey -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -IpAddress $IpAddress
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            Copy-ToRemoteComputerViaSshKey -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -IpAddress $IpAddress
+        }
+        else {
+            Copy-ToRemoteComputerViaUserAndPwd -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+        }
 
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo chmod +x $remoteScriptPath" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sed -i 's/\r$//' $remoteScriptPath" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo sed -i 's/\r$//' $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
 
         Write-Log "Executing Hyper-V dynamic memory configuration script on VM..."
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo $remoteScriptPath" -UserName $UserName -IpAddress $IpAddress -Timeout 180).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd -Timeout 180).Output | Write-Log
 
         Write-Log "Hyper-V dynamic memory configuration completed successfully" -Console
     }
@@ -1621,6 +1626,8 @@ function New-VmImageForControlPlaneNode {
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
         [uint64]$VMDiskSize,
         [string]$Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Enable Dynamic Memory')]
+        [bool]$EnableDynamicMemory = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [Boolean] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Forces the installation online')]
@@ -1665,14 +1672,15 @@ function New-VmImageForControlPlaneNode {
         Edit-SupportForWSL @supportForWSLParams
         Install-HelmAndYqOnKubeMaster -UserName $vmUserName -UserPwd $vmUserPwd -IpAddress $IpAddress
 
-        # Configure Hyper-V Dynamic Memory support on control-plane node
-        $dynamicMemoryParams = @{
-            UserName              = $vmUserName
-            UserPwd               = $vmUserPwd
-            IpAddress             = $IpAddress
-            EnableDynamicMemory   = $true
+        if ($EnableDynamicMemory) {
+            $dynamicMemoryParams = @{
+                UserName              = $vmUserName
+                UserPwd               = $vmUserPwd
+                IpAddress             = $IpAddress
+                EnableDynamicMemory   = $EnableDynamicMemory
+            }
+            Configure-HypervDynamicMemory @dynamicMemoryParams
         }
-        Configure-HypervDynamicMemory @dynamicMemoryParams
     }
 
     $kubemasterCreationParams = @{
