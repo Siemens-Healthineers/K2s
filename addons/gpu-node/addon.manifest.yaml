@@ -23,9 +23,9 @@ spec:
           curl: []
           additionalImages:
             - shsk2s.azurecr.io/microsoft-standard-wsl2:6.1.21.2
-            - nvcr.io/nvidia/k8s-device-plugin:v0.18.2-ubi8
+            - nvcr.io/nvidia/k8s-device-plugin:v0.18.2
             - nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9
-            - nvcr.io/nvidia/cuda:12.3.0-base-ubuntu22.04
+            - nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda11.7.1
         windows:
           curl: []
       commands:

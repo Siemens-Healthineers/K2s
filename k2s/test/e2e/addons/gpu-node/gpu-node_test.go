@@ -160,10 +160,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 		It("checks CUDA results", func(ctx context.Context) {
 			output := suite.Kubectl().MustExec(ctx, "logs", podName, "-n", namespace)
 
-			Expect(output).To(SatisfyAll(
-				ContainSubstring("Test PASSED"),
-				ContainSubstring("Done"),
-			))
+			Expect(output).To(ContainSubstring("Test PASSED"))
 		})
 	})
 })

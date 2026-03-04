@@ -23,7 +23,7 @@ k2s addons enable gpu-node
 
 ## Deploy a sample CUDA workload
 
-The following example schedules a GPU-requesting pod that verifies `nvidia.com/gpu` allocation:
+The following example schedules a CUDA workload using the NVIDIA vectorAdd sample to verify GPU allocation and compute access:
 
 ```yaml
 apiVersion: v1
@@ -31,17 +31,24 @@ kind: Pod
 metadata:
   name: gpu-test
 spec:
-  restartPolicy: OnFailure
+  restartPolicy: Never
   containers:
   - name: gpu-test
-    image: nvcr.io/nvidia/cuda:12.3.0-base-ubuntu22.04
-    command: ["sh", "-c", "echo 'Test PASSED'; echo 'Done'"]
+    image: nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda11.7.1
+    imagePullPolicy: IfNotPresent
     resources:
       limits:
         nvidia.com/gpu: 1
 ```
 
-The pod requests one GPU; if it completes the GPU was successfully allocated. This works on both Hyper-V GPU-PV and WSL2 (dxcore) setups.
+```console
+kubectl apply -f gpu-test.yaml
+kubectl wait pod gpu-test --for=condition=Completed --timeout=120s
+kubectl logs gpu-test
+kubectl delete pod gpu-test
+```
+
+Expected output includes `Test PASSED`. Works on both Hyper-V GPU-PV and WSL2 setups.
 
 
 ## Backup and restore

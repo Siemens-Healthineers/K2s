@@ -325,71 +325,23 @@ try {
         return
     }
 
-    # Write the CRI-O nvidia runtime handler drop-in.
-    # nvidia-container-runtime (1.18.x) cannot be used as runtime_path because it is incompatible with
-    # CRI-O 1.35 / OCI spec 1.3.0 — it fails with "unknown version specified" on every container create.
-    # Workaround: use crun as the backing OCI runtime for the nvidia handler. crun handles container
-    # creation normally; the OCI prestart hook (written below) handles GPU injection.
-    # This delivers standard K8s RuntimeClass semantics while keeping existing GPU access working.
-    # Phase 1.1 will convert the global OCI hook to a targeted one.
-    # Phase 2 (CDI) will replace both the hook and this workaround entirely.
-    #
-    # We use base64 to transfer the file because PowerShell+SSH escaping mangles quoted TOML values.
-    Write-Log '[gpu-node] Writing CRI-O nvidia runtime handler drop-in (crun-backed, hook handles GPU)' -Console
-    $dropInLines = @(
-        '[crio.runtime.runtimes.nvidia]',
-        '  runtime_path = "/usr/libexec/crio/crun"',
-        '  runtime_type = "oci"',
-        '  monitor_path = "/usr/libexec/crio/conmon"'
-    )
-    $dropInB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(($dropInLines -join "`n")))
-    $crioDropIn = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute `
-        "sudo mkdir -p /etc/crio/crio.conf.d && echo '$dropInB64' | base64 -d | sudo tee /etc/crio/crio.conf.d/99-nvidia.toml > /dev/null && echo ok" `
-        -IgnoreErrors)
-    $crioDropIn.Output | Write-Log
-    if (!$crioDropIn.Success) {
-        $errMsg = 'Failed to write CRI-O nvidia runtime handler drop-in to /etc/crio/crio.conf.d/99-nvidia.toml.'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            $installFailed = $true
-            return
-        }
-        Write-Log $errMsg -Error
-        $installFailed = $true
-        return
-    }
-
-    Write-Log '[gpu-node] Restarting CRI-O to pick up runtime handler configuration' -Console
-    $crioRestart = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo systemctl restart crio 2>&1' -IgnoreErrors)
-    $crioRestart.Output | Write-Log
-    if (!$crioRestart.Success) {
-        $errMsg = 'CRI-O restart failed after configuring the NVIDIA runtime handler. RuntimeClass-based GPU pods may not start.'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            $installFailed = $true
-            return
-        }
-        Write-Log $errMsg -Error
-        $installFailed = $true
-        return
-    }
-
     # Pre-pull images via buildah while the SSH tunnel is active (WSL2 only).
     # nvcr.io (NGC) requires authentication even for public images - no anonymous pull path.
-    # We pull from public mirrors (GHCR for device plugin, Docker Hub for dcgm-exporter)
-    # and retag to the canonical nvcr.io names that the manifests expect.
-    # buildah shares /var/lib/containers/storage with CRI-O so pre-pulled images are immediately
-    # available to the container runtime without a network pull during pod scheduling.
+    # The SSH tunnel proxies requests through Windows httpproxy which handles the NGC
+    # anonymous token exchange. buildah shares /var/lib/containers/storage with CRI-O so
+    # pre-pulled images are immediately available to the container runtime without a
+    # network pull during pod scheduling.
     if ($WSL -and $null -ne $tunnelProc -and !$tunnelProc.HasExited) {
         Write-Log '[gpu-node] Pre-pulling images via SSH tunnel (buildah)' -Console
 
-        # Maps: public mirror source -> canonical nvcr.io name expected by manifests
-        # ghcr.io tag fb1242ad is the commit SHA for v0.18.2 (released 2026-01-23)
+        # Maps: images to pre-pull via the SSH tunnel proxy.
+        # Pulls directly from nvcr.io — the proxy (127.0.0.1:8181 → Windows httpproxy)
+        # handles the NGC anonymous token exchange fine. GHCR mirror is not needed.
+        # Previously used ghcr.io/nvidia/k8s-device-plugin:fb1242ad as a workaround when
+        # v0.18.2-ubi8 appeared to fail on nvcr.io; root cause was that tag never existed.
         $imagePullMap = @{
-            'ghcr.io/nvidia/k8s-device-plugin:fb1242ad'               = 'nvcr.io/nvidia/k8s-device-plugin:v0.18.2-ubi8'
-            'docker.io/nvidia/dcgm-exporter:4.5.2-4.8.1-ubi9'          = 'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
+            'nvcr.io/nvidia/k8s-device-plugin:v0.18.2'               = 'nvcr.io/nvidia/k8s-device-plugin:v0.18.2'
+            'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'      = 'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
         }
         foreach ($entry in $imagePullMap.GetEnumerator()) {
             $srcImg = $entry.Key
@@ -458,7 +410,6 @@ if ($installFailed) { exit 1 }
 # patch needed after apply.
 Write-Log 'Installing Nvidia Device Plugin' -Console
 Wait-ForAPIServer
-(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-runtime-class.yaml").Output | Write-Log
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'nvidia-device-plugin', '-n', 'gpu-node', '--timeout', '180s')
 Write-Log $kubectlCmd.Output
