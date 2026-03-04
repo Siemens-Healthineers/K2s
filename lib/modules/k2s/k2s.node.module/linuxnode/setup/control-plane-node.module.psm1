@@ -110,14 +110,6 @@ function New-ControlPlaneNodeOnNewVM {
     Copy-LocalPublicSshKeyToRemoteComputer -UserName $controlPlaneUserName -UserPwd $controlPlaneUserPwd -IpAddress $controlPlaneIpAddress
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
-    # Configure Hyper-V Dynamic Memory if enabled
-    if ($EnableDynamicMemory) {
-        Configure-HypervDynamicMemory `
-            -UserName $controlPlaneUserName `
-            -UserPwd $controlPlaneUserPwd `
-            -IpAddress $controlPlaneIpAddress `
-            -EnableDynamicMemory $([bool]$EnableDynamicMemory)
-    }
 
     Remove-ControlPlaneAccessViaUserAndPwd
 
