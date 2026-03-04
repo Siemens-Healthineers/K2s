@@ -515,6 +515,46 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     Copy-KubernetesImagesFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
 }
 
+function Test-SupportedWorkerOS {
+    <#
+    .SYNOPSIS
+        Validates that the given OS key is listed in supportedWorkerOS in cfg/config.json.
+    .PARAMETER OS
+        The combined OS+version key to validate (e.g. 'debian12', 'debian13').
+    .PARAMETER InstallationPath
+        The K2s installation root. Defaults to Get-KubePath when not specified.
+    #>
+    param(
+        [string] $OS = $(throw 'Argument missing: OS'),
+        [string] $InstallationPath = ''
+    )
+
+    if ($InstallationPath -eq '') {
+        $InstallationPath = Get-KubePath
+    }
+
+    $configPath = Join-Path $InstallationPath 'cfg\config.json'
+    if (!(Test-Path $configPath)) {
+        throw "Configuration file not found: $configPath"
+    }
+
+    $config = Get-Content $configPath -Raw | ConvertFrom-Json
+    $supportedOS = $config.supportedWorkerOS
+    if (!$supportedOS) {
+        throw 'No supported OS configurations found in cfg/config.json'
+    }
+
+    foreach ($supported in $supportedOS) {
+        if ($supported.os -eq $OS) {
+            Write-Log "[WorkerOS] OS '$OS' is supported" -Console
+            return
+        }
+    }
+
+    $supportedList = ($supportedOS | ForEach-Object { $_.os }) -join ', '
+    throw "OS '$OS' is not supported. Supported: $supportedList"
+}
+
 Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM,
 Start-LinuxWorkerNodeOnNewVM,
 Stop-LinuxWorkerNodeOnNewVM,
@@ -526,4 +566,5 @@ Remove-LinuxWorkerNodeOnExistingUbuntuVM,
 Add-LinuxWorkerNodeOnUbuntuBareMetal,
 Remove-LinuxWorkerNodeOnUbuntuBareMetal,
 Start-LinuxWorkerNodeOnUbuntuBareMetal,
-Stop-LinuxWorkerNodeOnUbuntuBareMetal
+Stop-LinuxWorkerNodeOnUbuntuBareMetal,
+Test-SupportedWorkerOS
