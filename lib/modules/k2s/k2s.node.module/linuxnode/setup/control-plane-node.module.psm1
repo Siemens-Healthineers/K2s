@@ -110,7 +110,6 @@ function New-ControlPlaneNodeOnNewVM {
     Copy-LocalPublicSshKeyToRemoteComputer -UserName $controlPlaneUserName -UserPwd $controlPlaneUserPwd -IpAddress $controlPlaneIpAddress
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
-
     Remove-ControlPlaneAccessViaUserAndPwd
 
     $addToControlPlane = {
