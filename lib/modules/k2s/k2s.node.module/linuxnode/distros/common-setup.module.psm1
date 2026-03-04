@@ -1523,7 +1523,7 @@ function Configure-HypervDynamicMemory
         return
     }
 
-    Write-Log "Configuring Hyper-V Dynamic Memory support on control-plane node..." -Console
+    Write-Log "Configuring Hyper-V Dynamic Memory support on control-plane node..."
 
     $localScriptPath = "$PSScriptRoot\..\..\..\..\..\scripts\k2s\system\configure-hyperv-dynamic-memory.sh"
     $remoteScriptPath = "/home/$UserName/configure-hyperv-dynamic-memory.sh"
@@ -1548,7 +1548,7 @@ function Configure-HypervDynamicMemory
         Write-Log "Executing Hyper-V dynamic memory configuration script on VM..."
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd -Timeout 180).Output | Write-Log
 
-        Write-Log "Hyper-V dynamic memory configuration completed successfully" -Console
+        Write-Log "Hyper-V dynamic memory configuration completed successfully"
     }
     catch {
         Write-Log "Warning: Failed to configure Hyper-V dynamic memory: $_"
