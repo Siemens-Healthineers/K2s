@@ -51,9 +51,6 @@ function Add-WindowsWorkerNodeOnWindowsHost {
     Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
 
     Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -PodSubnetworkNumber $PodSubnetworkNumber -JoinCommand $JoinCommand
-
-    Write-Log 'Adding K2s bin directories to system PATH'
-    Set-EnvVars
 }
 
 function Start-WindowsWorkerNodeOnWindowsHost {

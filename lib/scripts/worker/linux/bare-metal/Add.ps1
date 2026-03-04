@@ -28,17 +28,6 @@ $ErrorActionPreference = 'Stop'
 $installationPath = Get-KubePath
 Set-Location $installationPath
 
-# Load config.json
-$configPath = "$installationPath\cfg\config.json"
-if (!(Test-Path $configPath)) {
-    throw "Configuration file not found: $configPath"
-}
-$config = Get-Content $configPath -Raw | ConvertFrom-Json
-$supportedOS = $config.supportedWorkerOS
-if (!$supportedOS) {
-    throw "No supported OS configurations found in config.json"
-}
-
 Write-Log "Performing pre-requisites check" -Console
 
 $connectionCheck = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which ls' -UserName $UserName -IpAddress $IpAddress)
@@ -78,18 +67,17 @@ $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $Us
 
 Write-Log "Detected OS on remote computer: $($installedDistributionOnRemoteComputer)" -Console
 
-$isSupported = $false
-foreach ($supported in $supportedOS) {
-    if ($supported.os -eq $installedDistributionOnRemoteComputer) {
-        $isSupported = $true
-        Write-Log "OS version validated: $($installedDistributionOnRemoteComputer) is supported" -Console
-        break
-    }
+# Remap legacy/unsupported distro versions to a supported equivalent
+$osAliasMap = @{
+    'debian11' = 'debian12'
 }
-if (!$isSupported) {
-    $supportedList = ($supportedOS | ForEach-Object { "$($_.os) $($_.version) ($($_.codename))" }) -join ', '
-    throw "OS version not supported: $($installedDistributionOnRemoteComputer). Supported versions: $supportedList"
+if ($osAliasMap.ContainsKey($installedDistributionOnRemoteComputer)) {
+    $remappedDistribution = $osAliasMap[$installedDistributionOnRemoteComputer]
+    Write-Log "OS '$installedDistributionOnRemoteComputer' is not directly supported. Remapping to '$remappedDistribution'." -Console
+    $installedDistributionOnRemoteComputer = $remappedDistribution
 }
+
+Test-SupportedWorkerOS -OS $installedDistributionOnRemoteComputer
 
 $NodeName = $actualHostname
 
