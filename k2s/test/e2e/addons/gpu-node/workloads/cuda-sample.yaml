@@ -8,6 +8,7 @@ metadata:
   name: cuda-vector-add
 spec:
   restartPolicy: OnFailure
+  runtimeClassName: nvidia
   containers:
     - name: cuda-vector-add
       image: "nvcr.io/nvidia/cuda:12.3.0-base-ubuntu22.04"
