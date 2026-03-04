@@ -67,16 +67,6 @@ $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $Us
 
 Write-Log "Detected OS on remote computer: $($installedDistributionOnRemoteComputer)" -Console
 
-# Remap legacy/unsupported distro versions to a supported equivalent
-$osAliasMap = @{
-    'debian11' = 'debian12'
-}
-if ($osAliasMap.ContainsKey($installedDistributionOnRemoteComputer)) {
-    $remappedDistribution = $osAliasMap[$installedDistributionOnRemoteComputer]
-    Write-Log "OS '$installedDistributionOnRemoteComputer' is not directly supported. Remapping to '$remappedDistribution'." -Console
-    $installedDistributionOnRemoteComputer = $remappedDistribution
-}
-
 Test-SupportedWorkerOS -OS $installedDistributionOnRemoteComputer
 
 $NodeName = $actualHostname
