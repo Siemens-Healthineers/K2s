@@ -104,6 +104,15 @@ For private repositories, add credentials: `argocd repo add <url> --username <us
 
 Addon-sync lets you deliver K2s addons — their definition files (manifests, scripts, Helm charts, config) — from an OCI registry to the Windows host filesystem. After sync, the addon appears in `k2s addons ls` and can be enabled normally.
 
+### Placeholder conventions used below
+
+- `<REGISTRY_HOST>`: OCI registry host (example only: `k2s.registry.local:30500`)
+- `<REGISTRY_URL>`: `oci://<REGISTRY_HOST>`
+- `<ADDON_NAME>`: addon repository name under `addons/` (for example `monitoring`)
+- `<TAG>`: version tag (for example `v1.2.3`)
+
+The built-in local registry addon is optional and mainly useful for development/testing.
+
 > **Sync vs. enable:** Addon-sync only copies the addon definition files (layers 0–3) to the local addon catalog. It does **not** start any Kubernetes workloads. Run `k2s addons enable <addon>` to deploy workloads after sync.
 
 ### How ArgoCD addon-sync works
@@ -112,7 +121,7 @@ ArgoCD has no native OCI registry watcher for raw artifact layers. Instead, a Wi
 
 ```
 Consumer pushes versioned OCI artifact
-  e.g. oras copy ... k2s.registry.local:30500/addons/monitoring:v1.2.3
+  e.g. oras copy ... <REGISTRY_HOST>/addons/<ADDON_NAME>:<TAG>
 
   ↓  addon-sync-poller CronJob runs every 5 minutes (Windows HostProcess)
   ↓  oras repo ls → discovers addons/monitoring, addons/security, ...
@@ -133,7 +142,7 @@ k2s addons enable monitoring  →  workloads start
 | Step | When | Command / Action |
 |------|------|-----------------|
 | 1. Enable rollout argocd | **Once per cluster** | `k2s addons enable rollout argocd` |
-| 2. Enable registry | **Once per cluster** | `k2s addons enable registry` |
+| 2. Ensure reachable OCI registry | **Once per cluster** | External registry, or optional local setup: `k2s addons enable registry` |
 | 3. Export addon as OCI artifact | **Each release** | `k2s addons export <name> -d C:\exports --omit-images --omit-packages` |
 | 4. Push versioned tag to registry | **Each release** | `oras copy --from-oci-layout ...` |
 | 5. Poller auto-detects and syncs | **Automatic** | Within next 5-minute poll cycle |
@@ -145,11 +154,16 @@ Steps 1–2 are one-time. Steps 3–5 are the repeating release workflow. Step 6
 
 ### Step 1 — One-time cluster setup
 
-Run once on a new cluster:
+Run once on a new cluster (ensure your chosen OCI registry is reachable from the cluster/host):
+
+```console
+k2s addons enable rollout argocd
+```
+
+Optional local dev/test setup:
 
 ```console
 k2s addons enable registry
-k2s addons enable rollout argocd
 ```
 
 `Enable.ps1` deploys the addon-sync infrastructure into the `k2s-addon-sync` namespace:
@@ -206,8 +220,10 @@ Write-Host "Tag: $tag"   # e.g. v1.2.3
 ```powershell
 $k2sInstallDir = 'C:\k'   # or read from: kubectl get configmap addon-sync-config -n k2s-addon-sync -o jsonpath='{.data.K2S_INSTALL_DIR}'
 $orasExe = Join-Path $k2sInstallDir 'bin\oras.exe'
+$registryHost = '<REGISTRY_HOST>'
+$addonName = 'monitoring'
 
-& $orasExe copy --from-oci-layout "${tar}:${tag}" --to-plain-http k2s.registry.local:30500/addons/monitoring:$tag
+& $orasExe copy --from-oci-layout "${tar}:${tag}" --to-plain-http "${registryHost}/addons/${addonName}:${tag}"
 ```
 
 > **Use `oras copy --from-oci-layout`, not `oras push`.** `--from-oci-layout` preserves the full multi-layer OCI artifact structure that `Sync-Addons.ps1` depends on. `oras push` uploads blobs without the layer media types and manifest annotations needed for extraction.
@@ -241,7 +257,7 @@ The ArgoCD poller automatically handles any number of addons from a single share
 #### Push multiple addons independently
 
 ```powershell
-$registry  = 'k2s.registry.local:30500'
+$registryHost = '<REGISTRY_HOST>'
 $orasExe   = 'C:\k\bin\oras.exe'
 $exportDir = 'C:\exports'
 
@@ -255,12 +271,12 @@ foreach ($addonName in @('monitoring', 'security', 'registry')) {
     # Get tag
     $tmpDir = Join-Path $env:TEMP "oci-$addonName"
     New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
-    tar -xf $tar -C $tempDir oci-layout index.json
+    tar -xf $tar -C $tmpDir oci-layout index.json
     $tag = (Get-Content "$tmpDir\index.json" | ConvertFrom-Json).manifests[0].annotations.'org.opencontainers.image.ref.name'
     Remove-Item $tmpDir -Recurse -Force
 
     # Push
-    & $orasExe copy --from-oci-layout "${tar}:${tag}" --to-plain-http "${registry}/addons/${addonName}:${tag}"
+    & $orasExe copy --from-oci-layout "${tar}:${tag}" --to-plain-http "${registryHost}/addons/${addonName}:${tag}"
     Write-Host "Pushed $addonName $tag"
 }
 ```
@@ -312,9 +328,11 @@ kubectl edit configmap addon-sync-config -n k2s-addon-sync
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `REGISTRY_URL` | `oci://k2s.registry.local:30500` | Registry host (no path/tag) — poller appends `/addons/<name>` |
+| `REGISTRY_URL` | `<REGISTRY_URL>` (example: `oci://k2s.registry.local:30500`) | Registry host (no path/tag) — poller appends `/addons/<name>` |
 | `K2S_INSTALL_DIR` | `C:\k` | K2s root directory on the Windows host |
-| `INSECURE` | `true` | Allow HTTP connections to registry (required for the K2s built-in registry) |
+| `INSECURE` | `true` | Controls plain HTTP vs HTTPS behavior for your registry endpoint |
+
+For TLS and authentication, configure the registry and ORAS/runtime credentials according to your chosen registry product.
 
 #### Change the polling interval
 

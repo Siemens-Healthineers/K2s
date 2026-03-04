@@ -113,6 +113,15 @@ spec:
 
 Addon-sync lets you deliver K2s addons (their definition files — manifests, scripts, Helm charts, config) from an OCI registry to the Windows host filesystem without copying files manually. After sync, the addon appears in `k2s addons ls` and can be enabled normally.
 
+### Placeholders and conventions used below
+
+- `<REGISTRY_HOST>`: OCI registry host (and optional port), for example `k2s.registry.local:30500`
+- `<REGISTRY_URL>`: Registry URL in Flux format, `oci://<REGISTRY_HOST>`
+- `<ADDON_NAME>`: Addon folder/repository name, for example `monitoring`
+- `<TAG>`: Version tag, typically semver such as `v1.2.3`
+
+The built-in local K2s registry is optional and useful for development/test setups. Any reachable OCI registry can be used.
+
 > **Sync vs. enable:** Addon-sync only copies the addon definition files to the local catalog. It does **not** start any Kubernetes workloads. You must explicitly run `k2s addons enable <addon>` after sync completes.
 
 ### How FluxCD addon-sync works
@@ -121,7 +130,7 @@ Each addon in the registry has its own per-addon `OCIRepository` resource that F
 
 ```
 Consumer pushes versioned OCI artifact
-  e.g. oras copy ... k2s.registry.local:30500/addons/monitoring:v1.2.3
+  e.g. oras copy ... <REGISTRY_HOST>/addons/<ADDON_NAME>:<TAG>
 
   ↓  per-addon OCIRepository polls addons/monitoring every 1 minute
   ↓  Flux selects highest semver tag (ref.semver ">=0.0.0-0")
@@ -140,7 +149,7 @@ k2s addons enable monitoring  →  workloads start
 | Step | When | Command / Action |
 |------|------|-----------------|
 | 1. Enable rollout fluxcd | **Once per cluster** | `k2s addons enable rollout fluxcd` |
-| 2. Enable registry | **Once per cluster** | `k2s addons enable registry` |
+| 2. Ensure reachable OCI registry | **Once per cluster** | Use your external registry, or optionally `k2s addons enable registry` for local setup |
 | 3. Register each addon for FluxCD sync | **Once per addon** | Apply per-addon templates (see below) |
 | 4. Export addon as OCI artifact | **Each release** | `k2s addons export <name> -d C:\exports --omit-images --omit-packages` |
 | 5. Push versioned tag to registry | **Each release** | `oras copy --from-oci-layout ...` |
@@ -156,8 +165,13 @@ Steps 1–3 are one-time setup. Steps 4–6 are your repeating release workflow.
 Run once when setting up a new K2s cluster:
 
 ```console
-k2s addons enable registry
 k2s addons enable rollout fluxcd
+```
+
+Ensure the cluster can reach your OCI registry. For local development/test setups, you can optionally enable the built-in registry:
+
+```console
+k2s addons enable registry
 ```
 
 `Enable.ps1` automatically deploys the addon-sync infrastructure into the `k2s-addon-sync` namespace:
@@ -197,7 +211,7 @@ Use this script to fill placeholders and apply in one step:
 ```powershell
 $k2sInstallDir = (kubectl get configmap addon-sync-config -n k2s-addon-sync -o jsonpath='{.data.K2S_INSTALL_DIR}').Trim()
 $addonName     = 'monitoring'                        # <-- change to your addon folder name
-$registryHost  = 'k2s.registry.local:30500'          # <-- change to your registry host:port
+$registryHost  = '<REGISTRY_HOST>'                   # <-- e.g. k2s.registry.local:30500
 $insecure      = 'true'                              # <-- set to 'false' for TLS registries
 
 $templateDir = Join-Path $k2sInstallDir 'addons\common\manifests\addon-sync\fluxcd\per-addon'
@@ -294,7 +308,7 @@ Write-Host "Tag: $tag"   # e.g. v1.2.3
 $k2sInstallDir = 'C:\k'   # or read from addon-sync-config
 $orasExe = Join-Path $k2sInstallDir 'bin\oras.exe'
 
-& $orasExe copy --from-oci-layout "${tar}:${tag}" --to-plain-http k2s.registry.local:30500/addons/monitoring:$tag
+& $orasExe copy --from-oci-layout "${tar}:${tag}" --to-plain-http <REGISTRY_HOST>/addons/<ADDON_NAME>:$tag
 ```
 
 > **Use `oras copy --from-oci-layout`, not `oras push`.** The `--from-oci-layout` flag preserves the full multi-layer OCI artifact structure (layer media types, manifest annotations) that Flux's `layerSelector` and `Sync-Addons.ps1` depend on. `oras push` uploads blobs without structure.
@@ -334,7 +348,7 @@ You can export and push multiple addons in a single batch, or push them independ
 #### Push multiple addons independently
 
 ```powershell
-$registry  = 'k2s.registry.local:30500'
+$registry  = '<REGISTRY_HOST>'
 $orasExe   = 'C:\k\bin\oras.exe'
 $exportDir = 'C:\exports'
 
@@ -405,9 +419,9 @@ kubectl edit configmap addon-sync-config -n k2s-addon-sync
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `REGISTRY_URL` | `oci://k2s.registry.local:30500` | Registry host (no path/tag) |
+| `REGISTRY_URL` | `oci://<REGISTRY_HOST>` | Registry URL for your selected OCI registry (host only, no path/tag) |
 | `K2S_INSTALL_DIR` | `C:\k` | K2s installation directory on the Windows host |
-| `INSECURE` | `true` | Allow HTTP connections to registry |
+| `INSECURE` | `true` | Allow HTTP connections to registry (set according to your registry TLS/auth requirements) |
 
 #### Change the polling interval for a specific addon
 
