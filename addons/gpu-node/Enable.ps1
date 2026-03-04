@@ -29,6 +29,8 @@ $linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnod
 
 Import-Module $clusterModule, $infraModule, $addonsModule, $linuxNodeModule
 
+Initialize-Logging -ShowLogs:$ShowLogs
+
 Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured
@@ -323,25 +325,102 @@ try {
         return
     }
 
+    # Write the CRI-O nvidia runtime handler drop-in.
+    # nvidia-container-runtime (1.18.x) cannot be used as runtime_path because it is incompatible with
+    # CRI-O 1.35 / OCI spec 1.3.0 — it fails with "unknown version specified" on every container create.
+    # Workaround: use crun as the backing OCI runtime for the nvidia handler. crun handles container
+    # creation normally; the OCI prestart hook (written below) handles GPU injection.
+    # This delivers standard K8s RuntimeClass semantics while keeping existing GPU access working.
+    # Phase 1.1 will convert the global OCI hook to a targeted one.
+    # Phase 2 (CDI) will replace both the hook and this workaround entirely.
+    #
+    # We use base64 to transfer the file because PowerShell+SSH escaping mangles quoted TOML values.
+    Write-Log '[gpu-node] Writing CRI-O nvidia runtime handler drop-in (crun-backed, hook handles GPU)' -Console
+    $dropInLines = @(
+        '[crio.runtime.runtimes.nvidia]',
+        '  runtime_path = "/usr/libexec/crio/crun"',
+        '  runtime_type = "oci"',
+        '  monitor_path = "/usr/libexec/crio/conmon"'
+    )
+    $dropInB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(($dropInLines -join "`n")))
+    $crioDropIn = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute `
+        "sudo mkdir -p /etc/crio/crio.conf.d && echo '$dropInB64' | base64 -d | sudo tee /etc/crio/crio.conf.d/99-nvidia.toml > /dev/null && echo ok" `
+        -IgnoreErrors)
+    $crioDropIn.Output | Write-Log
+    if (!$crioDropIn.Success) {
+        $errMsg = 'Failed to write CRI-O nvidia runtime handler drop-in to /etc/crio/crio.conf.d/99-nvidia.toml.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            $installFailed = $true
+            return
+        }
+        Write-Log $errMsg -Error
+        $installFailed = $true
+        return
+    }
+
+    Write-Log '[gpu-node] Restarting CRI-O to pick up runtime handler configuration' -Console
+    $crioRestart = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo systemctl restart crio 2>&1' -IgnoreErrors)
+    $crioRestart.Output | Write-Log
+    if (!$crioRestart.Success) {
+        $errMsg = 'CRI-O restart failed after configuring the NVIDIA runtime handler. RuntimeClass-based GPU pods may not start.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            $installFailed = $true
+            return
+        }
+        Write-Log $errMsg -Error
+        $installFailed = $true
+        return
+    }
+
     # Pre-pull images via buildah while the SSH tunnel is active (WSL2 only).
-    # buildah obeys HTTPS_PROXY directly; images land in /var/lib/containers/storage shared with CRI-O.
+    # nvcr.io (NGC) requires authentication even for public images - no anonymous pull path.
+    # We pull from public mirrors (GHCR for device plugin, Docker Hub for dcgm-exporter)
+    # and retag to the canonical nvcr.io names that the manifests expect.
+    # buildah shares /var/lib/containers/storage with CRI-O so pre-pulled images are immediately
+    # available to the container runtime without a network pull during pod scheduling.
     if ($WSL -and $null -ne $tunnelProc -and !$tunnelProc.HasExited) {
         Write-Log '[gpu-node] Pre-pulling images via SSH tunnel (buildah)' -Console
 
-        $imagesToPrePull = @(
-            'nvcr.io/nvidia/k8s-device-plugin:v0.15.0-ubi8',
-            'nvcr.io/nvidia/k8s/dcgm-exporter:3.1.8-3.1.5-ubuntu20.04'
-        )
-        foreach ($img in $imagesToPrePull) {
-            Write-Log "[gpu-node] Pre-pulling image via SSH tunnel: $img" -Console
-            $prePullResult = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute `
-                "sudo HTTPS_PROXY=http://127.0.0.1:8181 HTTP_PROXY=http://127.0.0.1:8181 buildah pull '$img' 2>&1" `
+        # Maps: public mirror source -> canonical nvcr.io name expected by manifests
+        # ghcr.io tag fb1242ad is the commit SHA for v0.18.2 (released 2026-01-23)
+        $imagePullMap = @{
+            'ghcr.io/nvidia/k8s-device-plugin:fb1242ad'               = 'nvcr.io/nvidia/k8s-device-plugin:v0.18.2-ubi8'
+            'docker.io/nvidia/dcgm-exporter:4.5.2-4.8.1-ubi9'          = 'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
+        }
+        foreach ($entry in $imagePullMap.GetEnumerator()) {
+            $srcImg = $entry.Key
+            $dstImg = $entry.Value
+            Write-Log "[gpu-node] Pre-pulling image via SSH tunnel: $srcImg -> $dstImg" -Console
+
+            # Skip if canonical tag is already present in CRI-O image store
+            $alreadyPresent = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 5 -CmdToExecute `
+                "sudo crictl inspecti '$dstImg' >/dev/null 2>&1 && echo present || echo missing" `
+                -IgnoreErrors).Output
+            if ($alreadyPresent -match 'present') {
+                Write-Log "[gpu-node] Image already present, skipping pre-pull: $dstImg"
+                continue
+            }
+
+            $prePullResult = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 600 -CmdToExecute `
+                "sudo HTTPS_PROXY=http://127.0.0.1:8181 HTTP_PROXY=http://127.0.0.1:8181 buildah pull '$srcImg' 2>&1" `
                 -IgnoreErrors)
             $prePullResult.Output | Write-Log
             if (!$prePullResult.Success) {
-                Write-Log "[gpu-node] WARNING: Pre-pull of $img failed - deployment may stall waiting for image" -Console
+                Write-Log "[gpu-node] WARNING: Pre-pull of $srcImg failed - deployment may stall waiting for image" -Console
             } else {
-                Write-Log "[gpu-node] Pre-pull succeeded: $img"
+                Write-Log "[gpu-node] Pre-pull succeeded: $srcImg"
+                # Retag to canonical nvcr.io name so CRI-O can resolve the manifest reference
+                $tagResult = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute `
+                    "sudo buildah tag '$srcImg' '$dstImg' 2>&1 && echo 'tag ok'" `
+                    -IgnoreErrors)
+                $tagResult.Output | Write-Log
+                if ($tagResult.Output -notmatch 'tag ok') {
+                    Write-Log "[gpu-node] WARNING: Failed to tag $srcImg as $dstImg" -Console
+                }
             }
         }
     }
@@ -364,58 +443,24 @@ try {
 }
 if ($installFailed) { exit 1 }
 
-# Create hook oci-nvidia-hook.json
-$hook = @'
-{
-\"version\": \"1.0.0\",
-\"hook\": {
-\"path\": \"/usr/bin/nvidia-container-toolkit\",
-\"args\": [\"nvidia-container-toolkit\", \"prestart\"]
-},
-\"when\": {
-\"always\": true,
-\"commands\": [\".*\"]
-},
-\"stages\": [\"prestart\"]
-}
-'@
-
-if ($PSVersionTable.PSVersion.Major -gt 5) {
-    $hook = $hook.Replace('\', '')
-}
-
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "echo -e '$hook' | sudo tee -a /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json").Output | Write-Log
+# Phase 2 (CDI): OCI hook removed.
+# GPU injection is now handled by the device plugin's cdi-annotations strategy.
+# The device plugin writes a CDI spec to /var/run/cdi/ at startup; a postStart
+# lifecycle hook patches in per-GPU UUID device entries so CRI-O can resolve
+# them. The nvidia-container-toolkit packages remain installed because
+# nvidia-ctk hook binaries (create-symlinks, update-ldcache) are called by
+# CRI-O when applying the CDI spec's container edits.
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
 
 # Apply Nvidia device plugin
+# The YAML includes LD_LIBRARY_PATH, wsl-libs mount, /var/run/cdi mount,
+# privileged:true, and the cdi-annotations DEVICE_LIST_STRATEGY — no kubectl
+# patch needed after apply.
 Write-Log 'Installing Nvidia Device Plugin' -Console
 Wait-ForAPIServer
+(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-runtime-class.yaml").Output | Write-Log
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
-
-# Patch: mount /usr/lib/wsl/lib + set LD_LIBRARY_PATH so NVML stub is found (dxcore path, both WSL2 and Hyper-V GPU-PV).
-# privileged:true is required because /dev/dxg is blocked inside unprivileged containers.
-Write-Log '[GPU] Patching device plugin to resolve NVML via WSL2 lib path (/usr/lib/wsl/lib)' -Console
-$wslLibPatchJson = '[{"op":"add","path":"/spec/template/spec/containers/0/env/-","value":{"name":"LD_LIBRARY_PATH","value":"/usr/lib/wsl/lib"}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"wsl-libs","mountPath":"/usr/lib/wsl/lib"}},{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"wsl-libs","hostPath":{"path":"/usr/lib/wsl/lib"}}},{"op":"replace","path":"/spec/template/spec/containers/0/securityContext","value":{"privileged":true}}]'
-# Use a temp file — passing JSON inline via PowerShell loses double quotes
-$patchTmpFile = [System.IO.Path]::GetTempFileName() + '.json'
-try {
-    $wslLibPatchJson | Set-Content $patchTmpFile -Encoding UTF8
-    $patchResult = (Invoke-Kubectl -Params 'patch', 'deployment', 'nvidia-device-plugin', '-n', 'gpu-node', '--type=json', "--patch-file=$patchTmpFile")
-    $patchResult.Output | Write-Log
-    if (!$patchResult.Success) {
-        Write-Log '[GPU] WARNING: Failed to patch device plugin with WSL2 lib path — nvidia.com/gpu may not be registered' -Console
-    }
-} finally {
-    Remove-Item $patchTmpFile -Force -ErrorAction SilentlyContinue
-}
-
-if ($WSL) {
-    # WSL2 only: delete existing pods so the patched spec (LD_LIBRARY_PATH + wsl-libs) is
-    # picked up immediately and any ImagePullBackOff from a previous failed run is cleared.
-    # On Hyper-V the Kubernetes rolling update handles spec changes natively.
-    (Invoke-Kubectl -Params 'delete', 'pod', '-n', 'gpu-node', '--all', '--ignore-not-found').Output | Write-Log
-}
-$kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Available', '-n', 'gpu-node', 'deployment/nvidia-device-plugin')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'nvidia-device-plugin', '-n', 'gpu-node', '--timeout', '180s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'Nvidia device plugin could not be started!'

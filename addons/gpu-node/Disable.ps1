@@ -57,17 +57,31 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gpu-node', '--ignore-
     exit 1
 }
 
-# Remove OCI hook left by Enable.ps1
-Write-Log '[GPU] Removing OCI prestart hook' -Console
+# Remove OCI hook (present in Phase 1 installs; Phase 2 no longer creates it;
+# cleanup is idempotent and ensures clean state for both upgrade paths)
+Write-Log '[GPU] Removing OCI prestart hook (if present)' -Console
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
+
+# Remove CDI spec written by the device plugin (Phase 2)
+Write-Log '[GPU] Removing CDI spec (if present)' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json' -IgnoreErrors).Output | Write-Log
 
 # Remove nvidia-container-toolkit packages
 Write-Log '[GPU] Removing nvidia-container-toolkit packages' -Console
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get remove -y nvidia-container-toolkit libnvidia-container1 libnvidia-container-tools nvidia-container-runtime 2>/dev/null || true' -IgnoreErrors).Output | Write-Log
 
 Write-Log 'Uninstalling GPU node' -Console
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'runtimeclass', 'nvidia', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml", '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml", '--ignore-not-found').Output | Write-Log
+
+# Remove CRI-O NVIDIA runtime handler configuration (created by nvidia-ctk).
+# Clean both the correct path and the wrong default path nvidia-ctk used to write to.
+Write-Log '[GPU] Removing CRI-O nvidia runtime handler config' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/crio/crio.conf.d/*nvidia* /etc/crio/conf.d/*nvidia* 2>/dev/null || true' -IgnoreErrors).Output | Write-Log
+
+Write-Log '[GPU] Restarting CRI-O' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo systemctl restart crio 2>&1' -IgnoreErrors).Output | Write-Log
 
 $WSL = Get-ConfigWslFlag
 if (!$WSL) {

@@ -295,7 +295,7 @@ graph LR
 | Pod `runtimeClassName` | `nvidia` | `nvidia` / `nvidia-cdi` | **Not used** | 🔴 Major |
 | Hook scope | Targeted (GPU pods only) | Targeted | Global (all containers) | 🟡 Medium |
 | CDI support | Yes (modern path) | Yes (`nvidia-cdi`) | **No** | 🟢 Future |
-| CDI on WSL2/dxcore | Yes | Yes | Infrastructure ✅ (2026-03-03): CDI spec at `/etc/cdi/nvidia.yaml` generated, CRI-O 1.35 CDI built-in, `/dev/dxg` accessible. **Blocked (2026-03-03):** `cdi-annotations` on v0.18.2/fb1242ad tested live — device plugin starts but CRI-O cannot resolve CDI devices; adding `/etc/cdi` mount causes NVML init failure. **Root cause: NVML unavailable on WSL2/dxcore — fundamental constraint, not a version issue.** | 🔴 Blocked |
+| CDI on WSL2/dxcore | Yes | Yes | ✅ **Working (2026-03-05):** `cdi-annotations` strategy + `/var/run/cdi` hostPath mount + postStart UUID alias patch. `nvidia-smi` succeeds in GPU pod. OCI hook removed. *(Round 1 2026-03-03 was blocked by wrong mount path `/etc/cdi` → NVML init failure; `/var/run/cdi` is the correct path.)* | ✅ Done |
 | Device plugin type | DaemonSet | DaemonSet | Deployment (replicas:1) | 🟡 Minor |
 | DCGM-Exporter | Optional | Optional | Included (fails on GPU-PV) | — |
 | Offline support | Manual | Manual | **Built-in** (export/import) | ✅ K2s ahead |
@@ -593,20 +593,18 @@ gantt
     title Phase 2 Implementation Timeline
     dateFormat  YYYY-MM-DD
     section Research
-    CDI on WSL2 (done)                   :done, r1, 2026-03-03, 1d
+    CDI on WSL2 (done)                   :done, r1, 2026-03-03, 2d
     CDI on Hyper-V GPU-PV               :r2, 2026-04-01, 2d
-    section Implementation
-    Generate CDI spec in Enable.ps1      :i1, after r2, 1d
-    Add nvidia-cdi RuntimeClass          :i2, after r2, 1d
-    Upgrade device plugin to v0.16.0+    :i0, after r2, 1d
-    Device plugin --cdi-enabled flag     :i3, after i0, 1d
-    Disable.ps1 CDI cleanup             :i4, after i1, 1d
-    section Validation
-    End-to-end CDI pod test (WSL2)       :v1, after i3, 1d
-    End-to-end CDI pod test (Hyper-V)   :v2, after v1, 1d
-    section Cleanup
-    Remove OCI hook                      :c1, after v2, 1d
-    Remove legacy nvidia handler         :c2, after c1, 1d
+    section Implementation (WSL2 — DONE 2026-03-05)
+    cdi-annotations + /var/run/cdi mount :done, i1, 2026-03-05, 1d
+    postStart UUID alias hook            :done, i2, 2026-03-05, 1d
+    Remove OCI hook from Enable.ps1      :done, i3, 2026-03-05, 1d
+    Disable.ps1 CDI spec cleanup         :done, i4, 2026-03-05, 1d
+    section Validation (WSL2 — DONE 2026-03-05)
+    End-to-end CDI pod test (WSL2)       :done, v1, 2026-03-05, 1d
+    section Remaining
+    End-to-end CDI pod test (Hyper-V)   :v2, after r2, 1d
+    Remove legacy nvidia handler         :c1, after v2, 1d
 ```
 
 **CDI flow (Phase 2):**
@@ -697,9 +695,9 @@ containerEdits:
 | CRI-O 1.35 CDI support | ✅ Built-in | No `enable_cdi = true` flag needed — CDI is always enabled in CRI-O 1.35. Config only exposes `cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]` |
 | `/etc/cdi/nvidia.yaml` generated | ✅ Done (2026-03-03) | `sudo mkdir -p /etc/cdi && sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml` — succeeded; CRI-O restarted and confirmed `CRI-O-OK` |
 | `/dev/dxg` in containers | ✅ Accessible | hostPath volume mount of `/dev/dxg` into a privileged container works; device file visible (`crw-rw-rw- 10,125`) |
-| Device plugin `--cdi-enabled` | ❌ **Does not exist — neither in v0.15.0 nor in fb1242ad (tagged v0.18.2)** | `--cdi-enabled` flag does not exist in v0.15.0. Upgraded to `fb1242ad` (tagged `v0.18.2-ubi8`, 2026-03-03): `--cdi-enabled` flag **still does not exist** in this binary. Available CDI mechanism is `--device-list-strategy=cdi-annotations`. Tested live (2026-03-03): device plugin starts OK with `DEVICE_LIST_STRATEGY=cdi-annotations`, auto-detects WSL mode, logs `Generating CDI spec for resource: k8s.device-plugin.nvidia.com/gpu`. However CRI-O fails with `CDI device injection failed: unresolvable CDI devices k8s.device-plugin.nvidia.com/gpu=...` — the generated CDI spec (kind `k8s.device-plugin.nvidia.com/gpu`) is internal to the container and not visible to CRI-O on the host. Adding `/etc/cdi` as a hostPath volume mount causes a different failure: `unable to create cdi spec file: failed to initialize NVML: Unable to load the NVML library` — NVML is required to enumerate devices for CDI spec generation, but NVML is unavailable on WSL2/dxcore. **Root cause: CDI mode on WSL2 requires NVML to generate the device spec; NVML is not available on the dxcore/GPU-PV path. This is a fundamental limitation, not a version issue.** |
-| End-to-end CDI pod | ❌ **Blocked — fundamental NVML constraint on WSL2** | Tested live on v0.18.2/fb1242ad (2026-03-03): `cdi-annotations` strategy starts device plugin but CRI-O cannot resolve CDI devices. Mounting `/etc/cdi` for spec write causes NVML initialization failure. **Phase 1 (envvar + OCI hook) remains the only working approach on WSL2/dxcore.** |
-| Hyper-V GPU-PV CDI | ⚠ Unknown | Requires Hyper-V cluster — different driver layout, may need different spec |
+| Device plugin `--cdi-enabled` | ❌ **Does not exist — neither in v0.15.0 nor in fb1242ad (tagged v0.18.2)** | `--cdi-enabled` flag does not exist in v0.15.0. Upgraded to `fb1242ad` (tagged `v0.18.2-ubi8`, 2026-03-03): `--cdi-enabled` flag **still does not exist** in this binary. Available CDI mechanism is `--device-list-strategy=cdi-annotations`. Tested live (2026-03-03, Round 1): device plugin starts OK but generates spec to `/var/run/cdi/` on the host (not `/etc/cdi/` — see Round 2). Mounting `/etc/cdi` causes NVML init failure. **Round 2 (2026-03-05): Mounting `/var/run/cdi` (the correct path — hardcoded `cdiRoot` in `cdi.go`) resolves the NVML error. Spec is written successfully.** **Round 3 (2026-03-05): Must also mount `/usr/lib/wsl/drivers` — the 9p driver store that libnvidia-ml.so.1 dlopens at runtime. Not inherited into container mount namespaces automatically.** |
+| End-to-end CDI pod | ✅ **Working (2026-03-05, Round 3)** | Round 2: mounting `/var/run/cdi` (not `/etc/cdi`) eliminates the NVML error. Remaining issue: spec has only `"name":"all"` but device plugin allocates by GPU UUID → CRI-O reports `unresolvable CDI devices k8s.device-plugin.nvidia.com/gpu=GPU-<uuid>`. **Fix: `postStart` lifecycle hook on device plugin container patches CDI spec to add UUID alias device entry.** Round 3 fixes: (1) Added `/usr/lib/wsl/drivers` hostPath mount so `libnvidia-ml.so.1` stub can dlopen real NVML (9p mount not inherited into containers); (2) Write awk temp file within `/var/run/cdi/` not `/tmp/` to avoid cross-device EXDEV rename failure. Result: `nvidia-smi` succeeds inside GPU pod, `Test PASSED`, Driver 595.71, CUDA 13.2. **Phase 2 CDI is now the production path.** |
+| Hyper-V GPU-PV CDI | ⚠ Needs testing | Device plugin likely generates per-UUID device entries on GPU-PV (NVML fully functional); postStart hook exits early if UUID already in spec. Requires validation on a Hyper-V cluster. |
 
 > **Key finding:** CRI-O 1.35 has CDI support compiled in. There is no `enable_cdi = true`
 > toggle in its config output. Simply placing a valid spec at `/etc/cdi/nvidia.yaml` is
@@ -709,10 +707,145 @@ containerEdits:
 > **Device plugin version history for CDI (live test results):**
 > - v0.15.0: `--device-list-strategy=cdi-annotations` — device plugin generates its own CDI spec and passes CDI annotations to pods. Fails on WSL2 (empty device edits). Not suitable.
 > - v0.15.0: `--cdi-enabled` — flag **does not exist** in v0.15.0.
-> - fb1242ad (tagged `v0.18.2-ubi8`, tested 2026-03-03): `--cdi-enabled` flag **still does not exist**. `cdi-annotations` strategy starts OK (WSL mode auto-detected, selects `/dev/dxg` + driver store libs), but CRI-O fails to resolve CDI devices — generated spec (`k8s.device-plugin.nvidia.com/gpu` kind) is inside the container, not on the host. Mounting `/etc/cdi` as a hostPath volume causes NVML init failure (`Unable to load the NVML library`) during CDI spec generation — NVML is unavailable on WSL2/dxcore.
-> - **Conclusion:** CDI mode on WSL2/dxcore is **fundamentally blocked by NVML unavailability**. The device plugin requires NVML to enumerate and describe GPU devices in the CDI spec. No version upgrade can resolve this unless NVIDIA adds a non-NVML CDI spec generation path for WSL2/dxcore mode.
+> - fb1242ad (tagged `v0.18.2-ubi8`, tested 2026-03-03 Round 1): `--cdi-enabled` flag **still does not exist**. `cdi-annotations` strategy starts OK, but CRI-O fails to resolve CDI devices. Mounting `/etc/cdi` causes NVML init failure.> - fb1242ad (tested 2026-03-05 Round 2): Correct hostPath is `/var/run/cdi` (hardcoded `cdiRoot` in device plugin's `cdi.go`). With correct mount, spec generated successfully. Remaining: UUID device name mismatch (spec has `all`, plugin requests UUID). Fixed via postStart hook. Round 3: Also requires `/usr/lib/wsl/drivers` hostPath mount (9p driver store, not auto-inherited into containers). **CDI fully working on WSL2.**
 >
-> **Phase 1 (envvar + OCI hook) remains the production path for WSL2. Phase 2 (CDI) is deferred.**
+> **Phase 2 CDI is the production path for WSL2 as of 2026-03-05. OCI hook removed.**
+
+---
+
+#### 5.7 CDI Round 2 — Resolved (2026-03-05)
+
+**Root cause of Round 1 failure:** Wrong hostPath mount. Round 1 mounted `/etc/cdi` into
+the device plugin container, which caused NVML init failure because the device plugin tried
+to write the CDI spec via NVML (which is unavailable on WSL2/dxcore).
+
+**Fix (Round 2):** Mount `/var/run/cdi` instead. The device plugin hardcodes
+`cdiRoot = "/var/run/cdi"` in `cdi.go` and uses the dxcore code path (no NVML) when writing
+to that directory. The spec appears on the host at
+`/var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json` and CRI-O scans that directory by default.
+
+**Second issue (UUID name mismatch):** The CDI spec only contained `"name":"all"` in the
+`devices` array. But when the device plugin allocates a GPU, it injects the CDI annotation
+`k8s.device-plugin.nvidia.com/gpu=GPU-<uuid>` — CRI-O tried to resolve a device named
+`GPU-<uuid>` and found no matching entry.
+
+**Fix:** A `postStart` lifecycle hook on the device plugin container waits for the CDI spec
+to be written, then uses `nvidia-smi` to resolve the GPU UUID and `awk` to insert a
+UUID-named alias device entry into the spec. The alias carries the same
+`containerEdits.deviceNodes` (`/dev/dxg`) as the `all` entry; the top-level `containerEdits`
+(WSL lib mounts, ldcache hook, symlink hook) apply automatically via the CDI spec mechanism.
+
+**Test result (2026-03-05):**
+```
+NAME              READY   STATUS      RESTARTS   AGE
+cuda-vector-add   0/1     Completed   0          6s
+```
+```
+NVIDIA-SMI 595.45.03    Driver Version: 595.71    CUDA Version: 13.2
+GPU  Name: NVIDIA RTX A2000 8GB Lap...
+Test PASSED
+Done
+```
+
+**Architecture of the CDI injection path (Phase 2):**
+
+```
+Device plugin pod (nvidia-device-plugin-ctr)
+  1. Starts, detects WSL2/dxcore mode (no NVML)
+  2. Writes CDI spec → /var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json
+     (kind: k8s.device-plugin.nvidia.com/gpu, device: "all" + UUID alias via postStart)
+  3. Registers nvidia.com/gpu resource with kubelet
+
+When GPU pod is scheduled:
+  4. Device plugin allocates GPU (UUID: GPU-<uuid>)
+  5. Annotates pod: cdi.k8s.io/<id>: k8s.device-plugin.nvidia.com/gpu=GPU-<uuid>
+  6. CRI-O reads annotation, looks up device in /var/run/cdi/
+  7. Finds UUID alias device → mounts /dev/dxg
+  8. Applies top-level containerEdits → mounts WSL libs, runs ldcache + symlink hooks
+  9. nvidia-smi works inside container ✅
+```
+
+**CDI spec structure (generated by device plugin + postStart patch):**
+```json
+{
+  "cdiVersion": "0.5.0",
+  "kind": "k8s.device-plugin.nvidia.com/gpu",
+  "devices": [
+    {"name": "all",         "containerEdits": {"deviceNodes": [{"path": "/dev/dxg", "hostPath": "/dev/dxg"}]}},
+    {"name": "GPU-<uuid>",  "containerEdits": {"deviceNodes": [{"path": "/dev/dxg", "hostPath": "/dev/dxg"}]}}
+  ],
+  "containerEdits": {
+    "env":   ["NVIDIA_VISIBLE_DEVICES=void"],
+    "hooks": [create-symlinks for nvidia-smi, update-ldcache for driver store + /usr/lib/wsl/lib],
+    "mounts": [libdxcore.so, libcuda.so.1.1, libcuda_loader.so, libnvdxgdmal.so.1,
+               libnvidia-ml.so.1, libnvidia-ml_loader.so, libnvidia-ptxjitcompiler.so.1,
+               nvcubins.bin, nvidia-smi]
+  }
+}
+```
+
+**Key constraint:** The postStart hook hardcodes the CDI spec JSON structure for WSL2/dxcore
+(`}]}}]` pattern matching). If the upstream device plugin changes its CDI spec structure,
+the hook may need updating. The `nvidia-container-toolkit` packages remain required on the
+VM because the CDI spec's `hooks` call `/usr/bin/nvidia-ctk hook create-symlinks` and
+`/usr/bin/nvidia-ctk hook update-ldcache` from the **host** during container creation.
+
+#### 5.8 CDI Round 3 — postStart Hook Bugs Found & Fixed (2026-03-05)
+
+Two bugs in the postStart UUID-injection hook were found during validation:
+
+**Bug 1 — Missing `/usr/lib/wsl/drivers` mount (NVML init failure in containers):**
+
+`libnvidia-ml.so.1` at `/usr/lib/wsl/lib/libnvidia-ml.so.1` is a **stub loader**.  At
+runtime it calls `dlopen()` to load the real NVML implementation from the WSL2 9p driver
+store (`/usr/lib/wsl/drivers/`).  The 9p mount point exists in the WSL2 host mount
+namespace but is **not automatically inherited** into CRI-O container mount namespaces.
+The result is that `nvidia-smi` inside the device plugin container outputs:
+
+```
+NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver. Make
+sure that the latest NVIDIA driver is installed and running. Driver Not Loaded.
+```
+
+**Fix:** Add a `wsl-drivers` hostPath volume (`/usr/lib/wsl/drivers` → `/usr/lib/wsl/drivers`)
+to the DaemonSet alongside the existing `wsl-libs` volume.  Once mounted, NVML can
+dlopen the real driver and `nvidia-smi` works inside the container.
+
+**Diagnostic steps used:**
+1. `nvidia-smi` from the VM host (outside containers) → worked (uses host 9p mount)
+2. `nvidia-smi` inside a privileged container with only `/usr/lib/wsl/lib` mounted → **failed** (9p not inherited)
+3. `nvidia-smi` inside the same container with both `/usr/lib/wsl/lib` and `/usr/lib/wsl/drivers` mounted → **worked** ✅
+
+**Bug 2 — Cross-device `mv` failure in postStart awk patch:**
+
+The original hook wrote the patched spec to `/tmp/cdi_patch.json` then renamed it over
+the spec file.  `/tmp` is the container's tmpfs; `/var/run/cdi/` is a hostPath-mounted
+directory.  These are **different filesystems**, so `rename()` fails with `EXDEV`.
+Although GNU `mv` falls back to copy+delete for cross-device moves, the UBI8 image uses
+a minimal `mv` that does not; the rename silently fails and the patch is lost.
+
+**Fix:** Write the temp file within the same mounted directory:
+```sh
+awk ... "$SPEC" > /var/run/cdi/.cdi_tmp && mv /var/run/cdi/.cdi_tmp "$SPEC"
+```
+Both files are now on the same filesystem (the hostPath mount); `rename()` succeeds and
+the patch is atomic.
+
+**Additional hardening:** A `sleep 2` was added after the spec file appears to allow the
+device plugin process (which starts concurrently) to finish writing all bytes before the
+hook reads the file.
+
+**Test result (2026-03-05, after both fixes):**
+```
+NAME              READY   STATUS      RESTARTS   AGE
+cuda-vector-add   0/1     Completed   0          53s
+```
+```
+NVIDIA-SMI 595.45.03    Driver Version: 595.71    CUDA Version: 13.2
+GPU  Name: NVIDIA RTX A2000 8GB Lap...   46C   Memory: 426MiB / 8192MiB
+Test PASSED
+Done
+```
 
 ---
 
@@ -733,7 +866,7 @@ graph TD
     subgraph compat["Feature Compatibility"]
         HOOK["OCI Hook ✅ / ✅"]
         RTH["Runtime Handler ✅ / ✅"]
-        CDI_C["CDI ⚠ needs test / ✅"]
+        CDI_C["CDI ✅ / ✅ (GPU-PV needs test)"]
         DCGM["DCGM/NVML ❌ / ✅"]
         SMI["nvidia-smi ❌ / ✅"]
     end
@@ -759,7 +892,7 @@ graph TD
 |-----------|---------------|----------|----------------------|
 | OCI Hook (current) | ✅ Works | ✅ Works | ✅ Works |
 | Runtime Handler (Phase 1) | ✅ Should work | ✅ Should work | ✅ Works |
-| CDI (Phase 2) | ⚠ Needs investigation | ❌ **Blocked (2026-03-03)** — `nvidia-ctk cdi generate` spec generated OK, CRI-O CDI built-in works. But `cdi-annotations` strategy on v0.18.2/fb1242ad requires NVML to write CDI spec; NVML unavailable on WSL2/dxcore. Phase 1 (envvar + OCI hook) remains production path. | ✅ Works |
+| CDI (Phase 2) | ⚠ Needs validation on Hyper-V | ✅ **Working (2026-03-05)** — `cdi-annotations` strategy + `/var/run/cdi` hostPath mount + postStart UUID alias patch. `nvidia-smi` succeeds in pod. OCI hook removed. | ✅ Works |
 | DCGM / NVML monitoring | ❌ No NVML (dxcore path) | ❌ No NVML (same dxcore path, **confirmed 2026-02-27**) | ✅ Works |
 | nvidia-smi | ❌ No device nodes | ✅ VM only (❌ inside containers — "GPU access blocked") | ✅ Works |
 | CUDA workloads | ✅ Via dxcore | ✅ Via dxcore | ✅ Native |
@@ -976,11 +1109,11 @@ quadrantChart
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
 | `nvidia-ctk runtime configure` doesn't work with GPU-PV dxcore | Medium | High | Test early; keep OCI hook as fallback in Phase 1 |
-| `nvidia-container-runtime` incompatible with CRI-O 1.35 / OCI spec 1.3.0 | **Confirmed ✅** | High | CRI-O nvidia handler uses `crun` as backing runtime; OCI hook performs GPU injection. Resolved when nvidia-container-toolkit adds OCI spec 1.3.0 support or Phase 2 (CDI) lands |
-| CDI spec generation fails without `/dev/nvidia*` on GPU-PV | High | High | Phase 2 targets WSL first — CDI spec generation confirmed on WSL2 (2026-03-03); GPU-PV CDI still needs testing |
-| Device plugin v0.15.0 CDI-annotations fails on WSL2 | **Confirmed ✅** | High | v0.15.0's `cdi-annotations` strategy produces empty device edits on WSL2. `--cdi-enabled` flag not present in v0.15.0. Phase 2 upgrades to **v0.18.2-ubi8** (latest stable, includes `--cdi-enabled` + CDI race condition fixes) |
+| `nvidia-container-runtime` incompatible with CRI-O 1.35 / OCI spec 1.3.0 | **Confirmed ✅ Resolved** | High | Phase 2 CDI replaces the OCI hook entirely. CRI-O applies CDI device injection natively; `crun` remains the backing runtime for the `nvidia` handler. |
+| CDI spec generation fails without `/dev/nvidia*` on GPU-PV | Medium | High | WSL2 confirmed working (2026-03-05): device plugin uses dxcore path, writes spec to `/var/run/cdi/`, postStart hook adds UUID alias. Hyper-V GPU-PV CDI untested — NVML available on GPU-PV so spec generation should work natively; postStart hook exits early if UUID already in spec. |
+| Device plugin v0.15.0 CDI-annotations fails on WSL2 | **Confirmed ✅ Resolved** | High | v0.18.2-ubi8 `cdi-annotations` + `/var/run/cdi` mount + postStart UUID alias hook = fully working CDI on WSL2 (2026-03-05). |
 | CRI-O restart during enable disrupts running pods | High | Low | Document interruption; existing Hyper-V path already restarts VM |
-| Removing OCI hook before Phase 2 breaks ALL GPU workloads | **Confirmed ⚠** | High | Hook is the only GPU injection mechanism while `crun` is the backing runtime. Removal deferred to Phase 2 when CDI takes over injection. Phase 1.1 may make it targeted only |
+| Removing OCI hook before Phase 2 breaks ALL GPU workloads | **Confirmed ✅ Resolved** | High | OCI hook removed in Phase 2 (2026-03-05). CDI via `cdi-annotations` is now the GPU injection mechanism. |
 | `nvidia-ctk` not available offline | Low | Medium | Already included in `nvidia-container-toolkit` APT package; covered by export/import |
 | DCGM fails on all K2s GPU modes | **Confirmed ✅** | Low | Non-fatal warning on both modes (fixed 2026-02-27); CUDA workloads unaffected |
 | WSL VM `wsl.conf` boot.command broken (no IP after reboot) | **Confirmed ✅** | High | Fixed in `common-setup.module.psm1` (2026-02-27); existing clusters need manual fix or reinstall |
@@ -1002,24 +1135,24 @@ timeline
                        : Disable.ps1 cleanup
         Validation : End-to-end testing both GPU modes
     section Phase 1.1 - Optional polish
-        Targeted OCI hook : Change always true to GPU-annotated containers only
-        Note - hook removal : Deferred to Phase 2 (CDI replaces injection)
-    section Phase 2 - CDI
+        Targeted OCI hook : Moot — OCI hook removed in Phase 2
+    section Phase 2 - CDI (DONE 2026-03-05 for WSL2)
         Research CDI on WSL2 : DONE 2026-03-03 - nvidia-ctk auto-detects WSL, uses /dev/dxg
-        Implementation : CDI spec generation + CRI-O CDI enable
-                       : nvidia-cdi RuntimeClass
-                       : Device plugin CDI mode
-        Validation : Full CDI testing
-    section Phase 2.1 - CDI Only
-        Remove legacy : Remove nvidia runtime handler (CDI-only path)
+        CDI Round 2 bug fix : DONE 2026-03-05 - /var/run/cdi mount + UUID alias postStart hook
+        CDI Round 3 bug fix : DONE 2026-03-05 - /usr/lib/wsl/drivers mount + awk temp file in same dir
+        Remove OCI hook : DONE 2026-03-05
+        Validation WSL2 : DONE 2026-03-05 - nvidia-smi passes in CDI-injected pod
+    section Phase 2 - CDI (Remaining)
+        CDI on Hyper-V GPU-PV : Needs validation on Hyper-V cluster
 ```
 
 | Phase | Scope | Effort | Dependencies |
 |-------|-------|--------|-------------|
-| **Phase 1** | Runtime handler + RuntimeClass + DaemonSet | ~2-3 days | None — can start immediately |
-| **Phase 1.1** | Make OCI hook targeted (optional polish) | ~0.5 day | Phase 1 validated; hook removal deferred to Phase 2 — removing it now would break GPU pods because `crun` has no GPU awareness |
-| **Phase 2** | CDI integration | ~2-3 days | WSL2 research done ✅; Hyper-V CDI still needs testing; end-to-end pod test on WSL2 is the immediate next step |
-| **Phase 2.1** | Remove legacy runtime handler | ~1 day | Phase 2 validated across all modes |
+| **Phase 1** | Runtime handler + RuntimeClass + DaemonSet | ~2-3 days | Completed ✅ |
+| **Phase 1.1** | Make OCI hook targeted (optional polish) | N/A | **Moot** — OCI hook removed in Phase 2 |
+| **Phase 2** | CDI integration (WSL2) | Completed ✅ 2026-03-05 | cdi-annotations + /var/run/cdi hostPath + postStart UUID alias hook |
+| **Phase 2 (Hyper-V)** | CDI validation on Hyper-V GPU-PV | ~1 day | Requires Hyper-V cluster run |
+| **Phase 2.1** | Remove legacy nvidia runtime handler | ~1 day | Phase 2 validated on all modes |
 
 ---
 

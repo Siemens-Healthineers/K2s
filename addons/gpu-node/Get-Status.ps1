@@ -7,7 +7,7 @@
 Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'gpu-node', 'deployment/nvidia-device-plugin').Success
+$success = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'nvidia-device-plugin', '-n', 'gpu-node', '--timeout=5s').Success
 
 $isDevicePluginRunningProp = @{Name = 'IsDevicePluginRunning'; Value = $success; Okay = $success }
 if ($isDevicePluginRunningProp.Value -eq $true) {
