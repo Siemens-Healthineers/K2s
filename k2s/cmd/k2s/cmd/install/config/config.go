@@ -146,7 +146,6 @@ const (
 
 	RestartFlagUsage = "Number of times to restart cluster post installation."
 
-	// Memory validation bounds
 	minMemoryBytes int64 = 2 * 1024 * 1024 * 1024
 	maxMemoryBytes int64 = 128 * 1024 * 1024 * 1024
 )
@@ -417,10 +416,6 @@ func validateMemoryBounds(memoryBytes int64, parameterName string, parameterValu
 func validateDynamicMemoryConfiguration(config *InstallConfig) error {
 	for i := range config.Nodes {
 		node := &config.Nodes[i]
-
-		if !node.Resources.DynamicMemory && node.Resources.Memory != "" {
-			continue
-		}
 
 		if !node.Resources.DynamicMemory {
 			continue
