@@ -84,9 +84,6 @@
     },
     "clusterName": "k2s-cluster",
     "supportedWorkerOS": [
-         {
-            "os": "debian11"
-        },
         {
             "os": "debian12"
         },
