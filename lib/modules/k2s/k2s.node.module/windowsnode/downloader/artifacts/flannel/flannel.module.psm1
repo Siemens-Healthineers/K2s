@@ -134,6 +134,9 @@ function Install-WinFlannel {
     &$kubeBinPath\nssm set flanneld AppRotateBytes 500000 | Out-Null
     &$kubeBinPath\nssm set flanneld Start SERVICE_AUTO_START | Out-Null
     &$kubeBinPath\nssm set flanneld DependOnService httpproxy | Out-Null
+    # Delay restart by 10s after crash/exit to give HNS time to settle and prevent
+    # flannel from recreating cbr0 L2Bridge when the existing one is transiently unavailable.
+    &$kubeBinPath\nssm set flanneld AppRestartDelay 10000 | Out-Null
 }
 
 

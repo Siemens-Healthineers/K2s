@@ -148,13 +148,20 @@ try {
                 $adapterName = Get-L2BridgeName
                 $PodSubnetworkNumber = '1'
                 
-                # Stop flanneld and wait for it to fully stop to prevent race condition with L2 bridge
-                Write-Log "[$logUseCase] Stopping flanneld service..."
+                # Stop k8s networking services to prevent race condition with L2 bridge recreation.
+                # All NSSM-managed services auto-started after unclean reboot and may have programmed
+                # HNS policies against a transient cbr0 that flannel created before Start-System ran.
+                # We must stop and restart them so they reprogram policies against the proper cbr0.
+                Write-Log "[$logUseCase] Stopping kubeproxy, kubelet and flanneld services..."
+                Stop-Service -Name 'kubeproxy' -Force -ErrorAction SilentlyContinue
+                Stop-Service -Name 'kubelet' -Force -ErrorAction SilentlyContinue
                 Stop-Service -Name 'flanneld' -Force -ErrorAction SilentlyContinue
                 $stopped = Wait-ForServiceStopped -ServiceName 'flanneld' -MaxRetries 10 -SleepSeconds 1
                 if (-not $stopped) {
                     Write-Log "[$logUseCase] WARNING: flanneld service did not stop cleanly, continuing anyway"
                 }
+                Wait-ForServiceStopped -ServiceName 'kubelet' -MaxRetries 10 -SleepSeconds 1
+                Wait-ForServiceStopped -ServiceName 'kubeproxy' -MaxRetries 10 -SleepSeconds 1
                 
                 # Additional delay to ensure flanneld releases all L2 bridge resources
                 Start-Sleep -Seconds 2
@@ -168,12 +175,15 @@ try {
                     Remove-ExternalSwitch
                     New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
                     Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
-                    Write-Log "[$logUseCase] External switch recreated successfully, restart flanneld service"
+                    Write-Log "[$logUseCase] External switch recreated successfully, restart networking services"
                     Confirm-LoopbackAdapterIP
                     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
                     Write-Log "[$logUseCase] Waiting for k8s L2 bridge network to be ready"
                     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
-                    Write-Log "[$logUseCase] L2 bridge network is ready, attempt to repair kubeswitch"
+                    Write-Log "[$logUseCase] L2 bridge network is ready, restarting kubelet and kubeproxy"
+                    Start-Service -Name 'kubelet' -ErrorAction SilentlyContinue
+                    Start-Service -Name 'kubeproxy' -ErrorAction SilentlyContinue
+                    Write-Log "[$logUseCase] Attempt to repair kubeswitch"
                     Repair-KubeSwitch
                     # Set-PrivateNetworkProfileForLoopbackAdapter
                 }
