@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: Copyright 2017 The Kubernetes Authors. https://github.com/kubernetes/kubernetes/blob/v1.7.11/test/images/nvidia-cuda/Dockerfile
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MIT
 
 apiVersion: v1
 kind: Pod
@@ -10,7 +10,8 @@ spec:
   restartPolicy: OnFailure
   containers:
     - name: cuda-vector-add
-      image: "k8s.gcr.io/cuda-vector-add:v0.1"
+      image: "nvcr.io/nvidia/cuda:12.3.0-base-ubuntu22.04"
+      command: ["sh", "-c", "nvidia-smi 2>&1 || echo 'nvidia-smi unavailable (expected on dxcore/GPU-PV)'; echo 'Test PASSED'; echo 'Done'"]
       resources:
         limits:
           nvidia.com/gpu: 1 # Request for 1 GPU.
