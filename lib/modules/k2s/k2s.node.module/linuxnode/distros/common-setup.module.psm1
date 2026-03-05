@@ -1079,7 +1079,7 @@ Function Add-SupportForWSL {
 
     &$executeRemoteCommand "echo [boot] | sudo tee -a $wslConfigurationFilePath"
     &$executeRemoteCommand "echo systemd = true | sudo tee -a $wslConfigurationFilePath"
-    &$executeRemoteCommand "echo 'command = ""sudo ifconfig __INTERFACE_NAME__ __IP_ADDRESS__ && sudo ifconfig __INTERFACE_NAME__ netmask __NETWORK_MASK__"" && sudo route add default gw __GATEWAY_IP_ADDRESS__' | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo 'command = sudo ifconfig __INTERFACE_NAME__ __IP_ADDRESS__ && sudo ifconfig __INTERFACE_NAME__ netmask __NETWORK_MASK__ && sudo route add default gw __GATEWAY_IP_ADDRESS__' | sudo tee -a $wslConfigurationFilePath"
 }
 
 function Edit-SupportForWSL {
