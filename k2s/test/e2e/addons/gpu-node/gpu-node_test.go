@@ -151,6 +151,8 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 		})
 
 		It("runs CUDA workloads", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "image", "pull", "nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda11.7.1", "-o")
+
 			suite.Kubectl().MustExec(ctx, "delete", "pod", podName, "-n", namespace, "--ignore-not-found")
 			suite.Kubectl().MustExec(ctx, "apply", "-k", workloadsPath)
 

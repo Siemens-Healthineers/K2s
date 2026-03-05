@@ -16,7 +16,7 @@ declaratively. As of 2026-03-04, K2s has completed the full migration:
 - Both modes validate with `[Vector addition of 50000 elements] … Test PASSED`
 - The legacy OCI hook, CRI-O drop-in, and RuntimeClass have all been removed
 
-One item remains: updating the E2E Go test suite to the Phase 2 CDI path.
+All phases are complete. The E2E Go test suite has been updated to the Phase 2 CDI path.
 
 ---
 
@@ -262,14 +262,12 @@ gantt
     axisFormat %b %d
 
     section Done ✅
-    Phase 0 · WSL2 online + Disable fixes (Feb 25"“27)    :done, p0, 2026-02-25, 2026-02-27
+    Phase 0 · WSL2 online + Disable fixes (Feb 25-27)     :done, p0, 2026-02-25, 2026-02-27
     Phase 1 · CDI infra, DaemonSet, RuntimeClass          :done, p1, 2026-02-27, 2026-03-03
-    Phase 2 · CDI end-to-end WSL2 (Mar 3"“4)              :done, p2, 2026-03-03, 2026-03-04
+    Phase 2 · CDI end-to-end WSL2 (Mar 3-4)               :done, p2, 2026-03-03, 2026-03-04
     Phase 2 · Hyper-V CDI validated (Mar 4)               :done, p2hv, 2026-03-04, 2026-03-04
     Phase 2.1 · Remove legacy nvidia handler (Mar 4)      :done, p21, 2026-03-04, 2026-03-04
-
-    section Pending ⏳
-    E2E Go test suite update                              :active, e2e, 2026-03-04, 2026-03-05
+    E2E Go test suite update (Mar 5)                      :done, e2e, 2026-03-05, 2026-03-05
 ```
 
 ### Phase Summary Table
@@ -281,7 +279,7 @@ gantt
 | **Phase 2 (WSL2)** | ✅ 2026-03-04 | CDI via `cdi-annotations` + `/var/run/cdi` hostPath. postStart UUID alias hook. OCI hook removed. Hardware-validated. |
 | **Phase 2 (Hyper-V)** | ✅ 2026-03-04 | Device plugin `1/1 Running`. Image tag bug fixed (`v0.18.2-ubi8` → `v0.18.2`). NVML confirmed unavailable (same dxcore stack). CUDA: `Test PASSED`. |
 | **Phase 2.1** | ✅ 2026-03-04 | Removed CRI-O `99-nvidia.toml` drop-in and RuntimeClass `nvidia`. CDI annotations require no runtime handler. Deleted `nvidia-runtime-class.yaml`. |
-| **E2E test update** | ⏳ pending | Update `k2s/test/e2e/addons/gpu-node/` to Phase 2 CDI path. ~half day. |
+| **E2E test update** | ✅ 2026-03-05 | Updated `k2s/test/e2e/addons/gpu-node/` to Phase 2 CDI path. Real `vectoradd-cuda11.7.1` image, `ContainSubstring("Test PASSED")`, DCGM comment (NVML unavailable on dxcore). |
 
 ---
 
