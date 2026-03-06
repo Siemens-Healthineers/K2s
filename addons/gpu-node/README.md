@@ -43,7 +43,7 @@ spec:
 
 ```console
 kubectl apply -f gpu-test.yaml
-kubectl wait pod gpu-test --for=condition=Completed --timeout=120s
+kubectl wait pod gpu-test --for=jsonpath='{.status.phase}'=Succeeded --timeout=120s
 kubectl logs gpu-test
 kubectl delete pod gpu-test
 ```
