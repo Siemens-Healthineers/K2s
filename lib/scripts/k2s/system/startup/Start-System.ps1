@@ -17,9 +17,8 @@ Param(
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 
-Import-Module $infraModule, $nodeModule, $clusterModule
+Import-Module $infraModule, $nodeModule
 Initialize-Logging
 
 $logUseCase = 'Start-System'
@@ -191,15 +190,34 @@ try {
                     # After an unclean reboot the API server restarts with potentially new signing
                     # keys, making existing projected tokens in kube-proxy and flannel pods invalid
                     # (results in Unauthorized errors in their logs).
-                    Write-Log "[$logUseCase] Waiting for API server before restarting system DaemonSets..."
+                    # Must use explicit --kubeconfig because this script runs as LOCAL SYSTEM
+                    # (via httpproxy NSSM service), which has no user-level KUBECONFIG env var.
+                    $kubeBinPath = Get-KubeToolsPath
+                    $kubeConfigPath = "$(Get-KubePath)\config"
+                    $controlPlaneHostname = Get-ConfigControlPlaneNodeHostname
+                    Write-Log "[$logUseCase] Waiting for API server before restarting system DaemonSets (kubeconfig: $kubeConfigPath)..."
                     try {
-                        Wait-ForAPIServer
-                        $kubePath = Get-KubeToolsPath
-                        Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
-                        &"$kubePath\kubectl.exe" rollout restart daemonset/kube-proxy -n kube-system 2>&1 | Write-Log
-                        &"$kubePath\kubectl.exe" rollout restart daemonset/kube-flannel-ds -n kube-flannel 2>&1 | Write-Log
-                        &"$kubePath\kubectl.exe" rollout restart deployment/coredns -n kube-system 2>&1 | Write-Log
-                        Write-Log "[$logUseCase] Linux-side system DaemonSet restart completed"
+                        $apiReady = $false
+                        for ($attempt = 1; $attempt -le 15; $attempt++) {
+                            $ErrorActionPreference = 'Continue'
+                            $waitResult = &"$kubeBinPath\kubectl.exe" --kubeconfig="$kubeConfigPath" wait --timeout=30s --for=condition=Ready -n kube-system "pod/kube-apiserver-$($controlPlaneHostname.ToLower())" 2>&1
+                            $ErrorActionPreference = 'Stop'
+                            if ($waitResult -match 'condition met') {
+                                $apiReady = $true
+                                break
+                            }
+                            Write-Log "[$logUseCase] API server not ready yet (attempt $attempt/15): $waitResult"
+                            Start-Sleep -Seconds 2
+                        }
+                        if ($apiReady) {
+                            Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
+                            &"$kubeBinPath\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart daemonset/kube-proxy -n kube-system 2>&1 | Write-Log
+                            &"$kubeBinPath\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart daemonset/kube-flannel-ds -n kube-flannel 2>&1 | Write-Log
+                            &"$kubeBinPath\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart deployment/coredns -n kube-system 2>&1 | Write-Log
+                            Write-Log "[$logUseCase] Linux-side system DaemonSet restart completed"
+                        } else {
+                            Write-Log "[$logUseCase] WARNING: API server not ready after 15 attempts, skipping DaemonSet restart"
+                        }
                     } catch {
                         Write-Log "[$logUseCase] WARNING: Failed to restart Linux-side DaemonSets: $_"
                     }
