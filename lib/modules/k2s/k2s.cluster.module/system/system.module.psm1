@@ -38,6 +38,10 @@ function Invoke-TimeSync {
 
         #Set timezone in kubemaster
         (Invoke-CmdOnControlPlaneViaSSHKey "sudo timedatectl set-timezone $timezoneLinux 2>&1").Output | Write-Log
+
+        # Force clock synchronization with the Hyper-V host to prevent certificate validation failures and etcd client errors due to clock skew
+        Write-Log '[TimeSync] Synchronizing clock with Hyper-V host'
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo hwclock --hctosys 2>&1').Output | Write-Log
     }
 }
 
