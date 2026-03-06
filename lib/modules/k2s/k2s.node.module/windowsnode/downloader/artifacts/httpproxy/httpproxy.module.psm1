@@ -52,7 +52,9 @@ function Start-WinHttpProxy {
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
     if ($OnlyProxy) { return }
     Confirm-LoopbackAdapterIP
-    Start-ServiceAndSetToAutoStart -Name 'flanneld'
+    # Flanneld must remain SERVICE_DEMAND_START to prevent cbr0 L2Bridge race condition.
+    Start-Service 'flanneld' -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+    Write-Log "Service 'flanneld' started"
 }
 
 function Stop-WinHttpProxy {

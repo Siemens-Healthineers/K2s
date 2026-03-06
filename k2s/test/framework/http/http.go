@@ -111,7 +111,7 @@ func buildRetryPolicy(requestTimeout time.Duration) retrypolicy.RetryPolicy[*htt
 	return retrypolicy.NewBuilder[*http.Response]().
 		WithBackoff(time.Second, time.Minute).
 		WithJitterFactor(.25).
-		WithMaxRetries(5).
+		WithMaxRetries(-1).
 		WithMaxDuration(requestTimeout).
 		OnRetry(func(e failsafe.ExecutionEvent[*http.Response]) {
 			GinkgoWriter.Println("Last attempt failed with error: ", e.LastError())
