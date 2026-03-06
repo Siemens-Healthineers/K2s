@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -38,23 +38,36 @@ spec:
       - image: nvcr.io/nvidia/k8s-device-plugin:v0.18.2
         imagePullPolicy: IfNotPresent
         name: nvidia-device-plugin-ctr
+        args:
+          - --config-file=/etc/nvidia/config.yaml
         env:
           - name: FAIL_ON_INIT_ERROR
             value: "false"
           - name: DP_DISABLE_HEALTHCHECKS
             value: "xids"
-          # WSL2/dxcore: libnvidia-ml.so.1 stub + libdxcore.so from WSL2 lib path;
-          # /usr/lib/wsl/drivers is also mounted (see volumes) so the stub can
-          # dlopen the real NVML implementation from the 9p driver store.
+          # WSL2/dxcore: needs libs from /usr/lib/wsl/lib and driver store from /usr/lib/wsl/drivers
           - name: LD_LIBRARY_PATH
             value: "/usr/lib/wsl/lib"
-          # Phase 2 CDI: device plugin annotates pods with CDI device IDs;
-          # CRI-O injects the device via the spec written to /var/run/cdi/
+          # CDI: device plugin annotates pods with CDI device IDs
           - name: DEVICE_LIST_STRATEGY
             value: "cdi-annotations"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
         securityContext:
           # privileged required: /dev/dxg is blocked inside unprivileged containers
           privileged: true
+        livenessProbe:
+          exec:
+            command:
+              - /usr/lib/wsl/lib/nvidia-smi
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 3
         lifecycle:
           postStart:
             exec:
@@ -68,24 +81,16 @@ spec:
                   while [ $i -lt 30 ] && [ ! -f "$SPEC" ]; do sleep 1; i=$((i+1)); done
                   [ -f "$SPEC" ] || exit 0
                   # Resolve GPU UUID so CRI-O can look up the CDI device by name.
-                  # On WSL2/dxcore the spec only contains "name":"all"; the device
-                  # plugin allocates by UUID, so we must add a UUID alias entry.
-                  # nvidia-smi is at /usr/lib/wsl/lib/nvidia-smi (the /usr/bin
-                  # symlink is only created by the CDI ldcache hook for workload containers)
-                  # Sleep 2s to let the plugin finish writing the spec (it starts
-                  # concurrently with this hook; the file may appear before the
-                  # plugin has flushed all bytes).
+                  # On WSL2/dxcore the CDI spec only has "name":"all" but the plugin
+                  # allocates by UUID, so we add a UUID alias entry.
                   sleep 2
                   UUID=$(/usr/lib/wsl/lib/nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | tr -d '[:space:]')
                   [ -z "$UUID" ] && exit 0
                   grep -q "\"$UUID\"" "$SPEC" && exit 0
                   # Build the UUID device entry (same deviceNode as "all")
                   NEW_DEV=',{"name":"'"$UUID"'","containerEdits":{"deviceNodes":[{"path":"/dev/dxg","hostPath":"/dev/dxg"}]}}'
-                  # Insert the UUID device after the "all" device (before devices-array close ']').
-                  # Pattern: }]}}] = close-devnode } + close-deviceNodes ] + close-containerEdits }
-                  #           + close-allDevice } + close-devicesArray ]
-                  # Write temp file within the same mounted directory so mv is an
-                  # atomic rename (avoids cross-device EXDEV errors vs /tmp).
+                  # Insert UUID device after "all" device (before devices-array close ']').
+                  # Temp file in same directory for atomic mv (avoids EXDEV).
                   awk -v new_dev="$NEW_DEV" '{
                     pos=index($0,"}]}}]")
                     if(pos>0){print substr($0,1,pos+3) new_dev substr($0,pos+4)}
@@ -100,6 +105,9 @@ spec:
           mountPath: /usr/lib/wsl/drivers
         - name: cdi-run
           mountPath: /var/run/cdi
+        - name: time-slicing-config
+          mountPath: /etc/nvidia/config.yaml
+          subPath: config.yaml
       volumes:
       - name: device-plugin
         hostPath:
@@ -108,15 +116,15 @@ spec:
         hostPath:
           path: /usr/lib/wsl/lib
       - name: wsl-drivers
-        # libnvidia-ml.so.1 is a stub that dlopens the real NVML implementation
-        # from the WSL2 9p driver store at runtime. The driver store mount is
-        # NOT inherited into container mount namespaces automatically; mounting
-        # it explicitly makes NVML functional inside the device plugin container.
+        # Must be mounted explicitly for NVML to work inside the container.
         hostPath:
           path: /usr/lib/wsl/drivers
       - name: cdi-run
         hostPath:
           path: /var/run/cdi
           type: DirectoryOrCreate
+      - name: time-slicing-config
+        configMap:
+          name: time-slicing-config
       nodeSelector:
         "kubernetes.io/os": linux

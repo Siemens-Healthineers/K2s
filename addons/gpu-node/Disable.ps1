@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -57,12 +57,10 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gpu-node', '--ignore-
     exit 1
 }
 
-# Remove OCI hook (present in Phase 1 installs; Phase 2 no longer creates it;
-# cleanup is idempotent and ensures clean state for both upgrade paths)
+# Remove OCI hook (legacy; cleanup is idempotent)
 Write-Log '[GPU] Removing OCI prestart hook (if present)' -Console
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
 
-# Remove CDI spec written by the device plugin (Phase 2)
 Write-Log '[GPU] Removing CDI spec (if present)' -Console
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json' -IgnoreErrors).Output | Write-Log
 
@@ -86,9 +84,16 @@ if (!$WSL) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i `"s/GRUB_DEFAULT=.*/GRUB_DEFAULT=\'${prefix}\>${kernel}\'/g`" /etc/default/grub").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1' -IgnoreErrors).Output | Write-Log
 
+    # Remove driver files copied into VM during enable (must happen while VM is running/SSH is up)
+    Write-Log '[gpu-node] Removing NVIDIA driver files from VM' -Console
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/profile.d/wsl.sh' -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/ld.so.conf.d/ld.wsl.conf' -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /usr/lib/wsl' -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo ldconfig 2>&1' -IgnoreErrors).Output | Write-Log
+
     $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
 
-    # Restart KubeMaster
+    # Stop VM before modifying Hyper-V GPU partition settings
     Write-Log "Stopping VM $controlPlaneNodeName"
     Stop-VM -Name $controlPlaneNodeName -Force -WarningAction SilentlyContinue
     $state = (Get-VM -Name $controlPlaneNodeName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
@@ -96,11 +101,26 @@ if (!$WSL) {
         Write-Log 'Still waiting for stop...'
         Start-Sleep -s 1
     }
+
+    # Revert Hyper-V GPU partition adapter and memory-mapped IO settings added during enable
+    Write-Log '[gpu-node] Removing GPU partition adapter from VM' -Console
+    if (Get-VMGpuPartitionAdapter -VMName $controlPlaneNodeName -ErrorAction SilentlyContinue) {
+        Remove-VMGpuPartitionAdapter -VMName $controlPlaneNodeName
+    }
+    Set-VM -VMName $controlPlaneNodeName -GuestControlledCacheTypes $false -LowMemoryMappedIoSpace 128MB -HighMemoryMappedIoSpace 512MB
+
     Write-Log "Start VM $controlPlaneNodeName"
     Start-VM -Name $controlPlaneNodeName
     # for the next steps we need ssh access, so let's wait for ssh
     Wait-ForSSHConnectionToLinuxVMViaSshKey
     Wait-ForAPIServer
+}
+
+# Remove GPU node labels added during enable.
+$nodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role.kubernetes.io/control-plane', '-o', 'jsonpath={.items[0].metadata.name}').Output
+if (![string]::IsNullOrWhiteSpace($nodeName)) {
+    Write-Log "[gpu-node] Removing gpu and accelerator labels from node '$nodeName'" -Console
+    (Invoke-Kubectl -Params 'label', 'node', $nodeName, 'gpu-', 'accelerator-').Output | Write-Log
 }
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node' })

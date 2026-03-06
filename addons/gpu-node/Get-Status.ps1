@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -19,9 +19,7 @@ else {
 
 $success = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout=5s').Success
 
-# Both WSL2 and Hyper-V GPU-PV access the GPU via dxcore/D3D12, not NVML.
-# DCGM requires NVML to discover the GPU, so it cannot work on either path.
-# DCGM failure is therefore non-fatal on both modes — GPU workloads are unaffected.
+# DCGM requires NVML which is unavailable via dxcore — failure is non-fatal.
 $isDCGMExporterRunningProp = @{Name = 'IsDCGMExporterRunning'; Value = $success; Okay = $true }
 if ($success) {
     $isDCGMExporterRunningProp.Message = 'The DCGM exporter is working'
@@ -30,4 +28,45 @@ else {
     $isDCGMExporterRunningProp.Message = 'The DCGM exporter is not running. This is expected as NVML cannot access the GPU through the dxcore driver path (WSL2 and Hyper-V GPU-PV). GPU workloads are not affected.'
 } 
 
-return $isDevicePluginRunningProp, $isDCGMExporterRunningProp
+$controlPlaneNodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role.kubernetes.io/control-plane', '-o', 'jsonpath={.items[0].metadata.name}').Output
+
+$nodeLabelsRaw = (Invoke-Kubectl -Params 'get', 'node', $controlPlaneNodeName, '-o', 'jsonpath={.metadata.labels}').Output
+$hasGpuLabel = $nodeLabelsRaw -match '"gpu":"true"'
+$hasAcceleratorLabel = $nodeLabelsRaw -match '"accelerator":"nvidia"'
+$labelsOkay = $hasGpuLabel -and $hasAcceleratorLabel
+$nodeLabelsMessage = if ($labelsOkay) {
+    "Node '$controlPlaneNodeName' has gpu=true and accelerator=nvidia labels"
+} elseif (!$hasGpuLabel -and !$hasAcceleratorLabel) {
+    'Node is missing gpu=true and accelerator=nvidia labels - re-enable the addon to apply them'
+} elseif (!$hasGpuLabel) {
+    'Node is missing gpu=true label - re-enable the addon to apply it'
+} else {
+    'Node is missing accelerator=nvidia label - re-enable the addon to apply it'
+}
+$nodeGpuLabelsProp = @{Name = 'NodeGpuLabels'; Value = $labelsOkay; Okay = $labelsOkay; Message = $nodeLabelsMessage}
+
+$gpuAllocatable = 0
+$gpuAllocatableRaw = (Invoke-Kubectl -Params 'get', 'node', $controlPlaneNodeName, '-o', "jsonpath={.status.allocatable['nvidia\.com/gpu']}").Output
+if (![string]::IsNullOrWhiteSpace($gpuAllocatableRaw) -and $gpuAllocatableRaw -match '^\d+$') {
+    $gpuAllocatable = [int]$gpuAllocatableRaw
+}
+$slotLabel = if ($gpuAllocatable -eq 1) { 'slot' } else { 'slots' }
+$gpuAllocatableProp = @{Name = 'GpuAllocatable'; Value = $gpuAllocatable -gt 0; Okay = $gpuAllocatable -gt 0 }
+if ($gpuAllocatable -gt 0) {
+    $gpuAllocatableProp.Message = "$gpuAllocatable GPU $slotLabel available"
+}
+else {
+    $gpuAllocatableProp.Message = 'No GPU slots available — device plugin may not be ready yet'
+}
+
+$gpuInUse = 0
+# Use field selector to limit to Running pods only — Pending/Succeeded/Failed pods do not hold GPU slots.
+$gpuInUseRaw = (Invoke-Kubectl -Params 'get', 'pods', '--all-namespaces', '--field-selector=status.phase=Running', '-o', "jsonpath={range .items[*]}{range .spec.containers[*]}{.resources.limits['nvidia\.com/gpu']}{' '}{end}{end}").Output
+$gpuInUseRaw -split '\s+' | ForEach-Object {
+    if ($_ -match '^\d+$') { $gpuInUse += [int]$_ }
+}
+$inUseLabel = if ($gpuInUse -eq 1) { 'slot' } else { 'slots' }
+$gpuInUseProp = @{Name = 'GpuInUse'; Value = $true; Okay = $true }
+$gpuInUseProp.Message = "$gpuInUse of $gpuAllocatable GPU $inUseLabel in use"
+
+return $isDevicePluginRunningProp, $isDCGMExporterRunningProp, $nodeGpuLabelsProp, $gpuAllocatableProp, $gpuInUseProp

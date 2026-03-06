@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -17,6 +17,9 @@ Param(
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
+    [parameter(Mandatory = $false, HelpMessage = 'Number of time-slicing replicas per GPU (1 = exclusive access, >1 = shared GPU)')]
+    [ValidateRange(1, 16)]
+    [int] $TimeSlices = 1,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -115,9 +118,7 @@ if ($WSL) {
         exit 1
     }
 
-    # In WSL2 mode the vEthernet (WSL*) adapter IP can be reset between 'k2s start' and addon enable.
-    # Re-ensure the k2s gateway IP is assigned so the HTTP proxy is reachable for package downloads.
-    # (Mirrors the Hyper-V else-block which refreshes networking by stopping/starting the VM.)
+    # Re-ensure the k2s gateway IP is assigned so the HTTP proxy is reachable.
     $wslAdapter = Get-NetAdapter -Name 'vEthernet (WSL*)' -ErrorAction SilentlyContinue -IncludeHidden
     if ($wslAdapter) {
         $existingAddresses = (Get-NetIPAddress -InterfaceIndex $wslAdapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
@@ -137,25 +138,22 @@ if ($WSL) {
         Write-Log '[gpu-node] WARNING: vEthernet (WSL*) adapter not found - proxy-based download may fail' -Console
     }
 
-    # SSH reverse tunnel: Windows SSH client forwards Linux:127.0.0.1:8181 → Windows:${kubeSwitchIp}:8181
-    # so the Linux VM can reach httpproxy for apt/buildah. Kill any stale sshd listener first.
+    # SSH reverse tunnel so the Linux VM can reach httpproxy for apt/buildah.
     Write-Log '[gpu-node] Releasing port 8181 in Linux VM if held by a stale sshd tunnel'
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute `
         'pid=$(sudo ss -tlnp | grep '':8181'' | grep -o ''pid=[0-9][0-9]*'' | head -1 | cut -d= -f2); if [ -n "$pid" ] && [ "$(cat /proc/$pid/comm 2>/dev/null)" = "sshd" ]; then sudo kill "$pid" 2>/dev/null; fi; true' `
         -IgnoreErrors).Output | Write-Log
-    Start-Sleep -Seconds 1  # allow OS to release the port before we re-bind it
+    Start-Sleep -Seconds 1
 
-    # Diagnostic: log what (if anything) is still on port 8181 after the kill attempt
     $portCheck = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'ss -tlnp | grep '':8181'' || echo ''[gpu-node] port 8181 is free''' -IgnoreErrors).Output
     Write-Log "[gpu-node] port 8181 status after cleanup: $portCheck"
 
-    Write-Log "[gpu-node] Establishing SSH reverse proxy tunnel (Linux:127.0.0.1:8181 -> Windows:${kubeSwitchIp}:8181)" -Console
+    Write-Log '[gpu-node] Establishing SSH reverse proxy tunnel' -Console
     $sshKey = Get-SSHKeyControlPlane
     $ipControlPlane = Get-ConfiguredIPControlPlane
     $tunnelArgs = '-N', '-o', 'StrictHostKeyChecking=no', '-o', 'ExitOnForwardFailure=yes', `
         '-o', 'ServerAliveInterval=10', '-i', $sshKey, `
         '-R', "8181:${kubeSwitchIp}:8181", "remote@${ipControlPlane}"
-    # Redirect SSH stderr to a temp file so we can log the reason if the tunnel exits prematurely.
     $sshErrFile = [System.IO.Path]::GetTempFileName()
     $tunnelProc = Start-Process -FilePath 'ssh.exe' -ArgumentList $tunnelArgs -PassThru -WindowStyle Hidden `
         -RedirectStandardError $sshErrFile
@@ -325,60 +323,41 @@ try {
         return
     }
 
-    # Pre-pull images via buildah while the SSH tunnel is active (WSL2 only).
-    # nvcr.io (NGC) requires authentication even for public images - no anonymous pull path.
-    # The SSH tunnel proxies requests through Windows httpproxy which handles the NGC
-    # anonymous token exchange. buildah shares /var/lib/containers/storage with CRI-O so
-    # pre-pulled images are immediately available to the container runtime without a
-    # network pull during pod scheduling.
+    # Pre-pull images via buildah while the SSH tunnel is active.
+    # buildah shares /var/lib/containers/storage with CRI-O, so images are immediately available.
     if ($WSL -and $null -ne $tunnelProc -and !$tunnelProc.HasExited) {
         Write-Log '[gpu-node] Pre-pulling images via SSH tunnel (buildah)' -Console
 
-        # Maps: images to pre-pull via the SSH tunnel proxy.
-        # Pulls directly from nvcr.io — the proxy (127.0.0.1:8181 → Windows httpproxy)
-        # handles the NGC anonymous token exchange fine. GHCR mirror is not needed.
-        # Previously used ghcr.io/nvidia/k8s-device-plugin:fb1242ad as a workaround when
-        # v0.18.2-ubi8 appeared to fail on nvcr.io; root cause was that tag never existed.
-        $imagePullMap = @{
-            'nvcr.io/nvidia/k8s-device-plugin:v0.18.2'               = 'nvcr.io/nvidia/k8s-device-plugin:v0.18.2'
-            'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'      = 'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
-        }
-        foreach ($entry in $imagePullMap.GetEnumerator()) {
-            $srcImg = $entry.Key
-            $dstImg = $entry.Value
-            Write-Log "[gpu-node] Pre-pulling image via SSH tunnel: $srcImg -> $dstImg" -Console
+        $images = @(
+            'nvcr.io/nvidia/k8s-device-plugin:v0.18.2'
+            'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
+        )
+        foreach ($image in $images) {
+            Write-Log "[gpu-node] Pre-pulling image via SSH tunnel: $image" -Console
 
-            # Skip if canonical tag is already present in CRI-O image store
+            # Skip if already present in CRI-O image store
             $alreadyPresent = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 5 -CmdToExecute `
-                "sudo crictl inspecti '$dstImg' >/dev/null 2>&1 && echo present || echo missing" `
+                "sudo crictl inspecti '$image' >/dev/null 2>&1 && echo present || echo missing" `
                 -IgnoreErrors).Output
             if ($alreadyPresent -match 'present') {
-                Write-Log "[gpu-node] Image already present, skipping pre-pull: $dstImg"
+                Write-Log "[gpu-node] Image already present, skipping pre-pull: $image"
                 continue
             }
 
             $prePullResult = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 600 -CmdToExecute `
-                "sudo HTTPS_PROXY=http://127.0.0.1:8181 HTTP_PROXY=http://127.0.0.1:8181 buildah pull '$srcImg' 2>&1" `
+                "sudo HTTPS_PROXY=http://127.0.0.1:8181 HTTP_PROXY=http://127.0.0.1:8181 buildah pull '$image' 2>&1" `
                 -IgnoreErrors)
             $prePullResult.Output | Write-Log
             if (!$prePullResult.Success) {
-                Write-Log "[gpu-node] WARNING: Pre-pull of $srcImg failed - deployment may stall waiting for image" -Console
+                Write-Log "[gpu-node] WARNING: Pre-pull of $image failed - deployment may stall waiting for image" -Console
             } else {
-                Write-Log "[gpu-node] Pre-pull succeeded: $srcImg"
-                # Retag to canonical nvcr.io name so CRI-O can resolve the manifest reference
-                $tagResult = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute `
-                    "sudo buildah tag '$srcImg' '$dstImg' 2>&1 && echo 'tag ok'" `
-                    -IgnoreErrors)
-                $tagResult.Output | Write-Log
-                if ($tagResult.Output -notmatch 'tag ok') {
-                    Write-Log "[gpu-node] WARNING: Failed to tag $srcImg as $dstImg" -Console
-                }
+                Write-Log "[gpu-node] Pre-pull succeeded: $image"
             }
         }
     }
 } finally {
     if ($null -ne $tunnelProc) {
-        # Always restore apt proxy — it was redirected when the tunnel started, regardless of whether the tunnel is still alive.
+        # Always restore apt proxy — it was redirected when the tunnel started.
         Write-Log "[gpu-node] Restoring apt proxy config to ${kubeSwitchIp}:8181"
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute `
             "sudo sed -i 's|127.0.0.1:8181|${kubeSwitchIp}:8181|g' /etc/apt/apt.conf.d/proxy.conf 2>/dev/null; true" `
@@ -395,22 +374,30 @@ try {
 }
 if ($installFailed) { exit 1 }
 
-# Phase 2 (CDI): OCI hook removed.
-# GPU injection is now handled by the device plugin's cdi-annotations strategy.
-# The device plugin writes a CDI spec to /var/run/cdi/ at startup; a postStart
-# lifecycle hook patches in per-GPU UUID device entries so CRI-O can resolve
-# them. The nvidia-container-toolkit packages remain installed because
-# nvidia-ctk hook binaries (create-symlinks, update-ldcache) are called by
-# CRI-O when applying the CDI spec's container edits.
+# Remove legacy OCI hook — GPU injection now uses CDI (cdi-annotations strategy).
+# nvidia-container-toolkit packages are still needed for CRI-O CDI container edits.
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
 
-# Apply Nvidia device plugin
-# The YAML includes LD_LIBRARY_PATH, wsl-libs mount, /var/run/cdi mount,
-# privileged:true, and the cdi-annotations DEVICE_LIST_STRATEGY — no kubectl
-# patch needed after apply.
+if ($TimeSlices -gt 1) {
+    # Apply time-slicing ConfigMap (replicas >= 2) before the DaemonSet so the pod can mount it immediately.
+    Write-Log "[gpu-node] Configuring GPU time-slicing (replicas: $TimeSlices)" -Console
+    $timeSlicingTemplate = Get-Content -Path "$PSScriptRoot\manifests\time-slicing-config.yaml" -Raw
+    $timeSlicingResolved = $timeSlicingTemplate -replace '__TIME_SLICES__', $TimeSlices
+    $tmpConfigMap = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), [System.Guid]::NewGuid().ToString() + '.yaml')
+    $timeSlicingResolved | Set-Content -Path $tmpConfigMap -Encoding UTF8
+    (Invoke-Kubectl -Params 'apply', '-f', $tmpConfigMap).Output | Write-Log
+    Remove-Item $tmpConfigMap -Force -ErrorAction SilentlyContinue
+} else {
+    # Apply default ConfigMap (no sharing section — exclusive GPU access per pod).
+    Write-Log '[gpu-node] Configuring GPU for exclusive access (no time-slicing)' -Console
+    (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\time-slicing-config-default.yaml").Output | Write-Log
+}
+
+# Apply Nvidia device plugin — ConfigMap content determines time-slicing behavior.
 Write-Log 'Installing Nvidia Device Plugin' -Console
 Wait-ForAPIServer
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
+
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'nvidia-device-plugin', '-n', 'gpu-node', '--timeout', '180s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
@@ -425,16 +412,48 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
+# Wait for the device plugin to register nvidia.com/gpu with kubelet (takes a few seconds after pod start).
+Write-Log '[gpu-node] Waiting for nvidia.com/gpu to be registered with kubelet...'
+$gpuRegistered = $false
+$gpuCheckNode = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
+for ($i = 0; $i -lt 30; $i++) {
+    $gpuCount = (Invoke-Kubectl -Params 'get', 'node', $gpuCheckNode, '-o', "jsonpath={.status.allocatable['nvidia\.com/gpu']}").Output
+    if (![string]::IsNullOrWhiteSpace($gpuCount) -and $gpuCount -match '^\d+$' -and [int]$gpuCount -gt 0) {
+        $gpuRegistered = $true
+        Write-Log "[gpu-node] nvidia.com/gpu registered: $gpuCount slot(s) allocatable" -Console
+        break
+    }
+    Start-Sleep -Seconds 2
+}
+if (!$gpuRegistered) {
+    $errMsg = 'Nvidia device plugin started but nvidia.com/gpu was not registered with kubelet within 60s. The GPU may not be accessible from the VM.'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 Write-Log 'Installing DCGM-Exporter' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout', '30s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
-    # DCGM-Exporter requires NVML, which is unavailable via dxcore (both WSL2 and Hyper-V GPU-PV). Non-fatal.
+    # DCGM requires NVML which is unavailable via dxcore — non-fatal.
     Write-Log '[GPU] DCGM-Exporter could not be started. This is expected: NVML cannot access the GPU via the dxcore/D3D12 path (WSL2 and Hyper-V GPU-PV). GPU workloads will still function correctly.' -Console
 }
 
+if ($TimeSlices -gt 1) {
+    Write-Log "[gpu-node] GPU time-slicing enabled: $TimeSlices virtual GPU slots available (pods share 1 physical GPU)" -Console
+}
 Write-Log 'KubeMaster configured successfully as GPU node' -Console
+
+# Label the node so workloads can use nodeSelector: gpu=true.
+$labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
+Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true and accelerator=nvidia" -Console
+(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node' })
 
