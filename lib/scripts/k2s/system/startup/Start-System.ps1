@@ -17,8 +17,9 @@ Param(
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 
-Import-Module $infraModule, $nodeModule
+Import-Module $infraModule, $nodeModule, $clusterModule
 Initialize-Logging
 
 $logUseCase = 'Start-System'
@@ -185,6 +186,20 @@ try {
                     Start-Service -Name 'kubeproxy' -ErrorAction SilentlyContinue
                     Write-Log "[$logUseCase] Attempt to repair kubeswitch"
                     Repair-KubeSwitch
+
+                    # Restart Linux-side system pods to refresh projected service account tokens.
+                    # After an unclean reboot the API server restarts with potentially new signing
+                    # keys, making existing projected tokens in kube-proxy and flannel pods invalid
+                    # (results in Unauthorized errors in their logs).
+                    Write-Log "[$logUseCase] Waiting for SSH connection to Linux VM..."
+                    Wait-ForSSHConnectionToLinuxVMViaSshKey
+                    Write-Log "[$logUseCase] Waiting for API server to be ready..."
+                    Wait-ForAPIServer
+                    Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
+                    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout restart daemonset/kube-proxy -n kube-system 2>&1 || true').Output | Write-Log
+                    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout restart daemonset/kube-flannel-ds -n kube-flannel 2>&1 || true').Output | Write-Log
+                    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout restart deployment/coredns -n kube-system 2>&1 || true').Output | Write-Log
+                    Write-Log "[$logUseCase] Linux-side system DaemonSet restart initiated"
                     # Set-PrivateNetworkProfileForLoopbackAdapter
                 }
                 else {
