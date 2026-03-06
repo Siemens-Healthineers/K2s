@@ -57,14 +57,15 @@ spec:
             - -NoProfile
             - -Command
             - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -label-timeout 120s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
-          # Probes target the dedicated health port (8081) which runs in the HOST
-          # network compartment.  For hostNetwork:true HostProcess pods the kubelet
-          # connects to the pod IP == node IP, so no Service DNS / kube-proxy hop is
-          # needed.  This avoids the unreliable cluster-DNS resolution from the
-          # Windows host that caused sporadic CrashLoopBackOff.
+          # Probes use the static Service ClusterIP to reach the health endpoints.
+          # The albumswin process listens in the anchor pod's network compartment,
+          # NOT the host compartment, so kubelet cannot probe via podIP or localhost.
+          # Using the ClusterIP avoids DNS resolution of .cluster.local which the
+          # Windows host DNS resolver cannot perform.
           readinessProbe:
             httpGet:
-              port: 8081
+              host: 172.21.1.211          # static ClusterIP of albums-win-hp-app-hostprocess Service
+              port: 8080
               path: /health/readiness
               scheme: HTTP
             initialDelaySeconds: 30
@@ -74,7 +75,8 @@ spec:
             timeoutSeconds: 6
           livenessProbe:
             httpGet:
-              port: 8081
+              host: 172.21.1.211
+              port: 8080
               path: /health/liveness
               scheme: HTTP
             initialDelaySeconds: 30
@@ -84,12 +86,13 @@ spec:
             successThreshold: 1
           startupProbe:
             httpGet:
-              port: 8081
+              host: 172.21.1.211
+              port: 8080
               path: /health/startup
               scheme: HTTP
-            initialDelaySeconds: 10       # health server starts quickly in the host compartment
+            initialDelaySeconds: 15       # allow cplauncher to resolve anchor pod first
             periodSeconds: 10             # check every 10s during startup
-            failureThreshold: 18          # 10 + 18*10 = 190s budget; covers cplauncher label-timeout (120s)
+            failureThreshold: 18          # 15 + 18*10 = 195s budget; covers cplauncher label-timeout (120s)
             successThreshold: 1
             timeoutSeconds: 5
           volumeMounts:
