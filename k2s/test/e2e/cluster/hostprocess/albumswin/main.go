@@ -246,7 +246,7 @@ func main() {
 		}
 	}
 
-	// dump the network interfaces
+	// After switching compartment, dump the network interfaces for diagnostics.
 	DumpNetworkInterfaces()
 
 	// create the full address string
