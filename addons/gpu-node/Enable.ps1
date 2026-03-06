@@ -401,6 +401,8 @@ if ($installFailed) { exit 1 }
 # nvidia-container-toolkit packages are still needed for CRI-O CDI container edits.
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
 
+Wait-ForAPIServer
+
 if ($TimeSlices -gt 1) {
     # Apply time-slicing ConfigMap (replicas >= 2) before the DaemonSet so the pod can mount it immediately.
     Write-Log "[gpu-node] Configuring GPU time-slicing (replicas: $TimeSlices)" -Console
@@ -417,7 +419,6 @@ if ($TimeSlices -gt 1) {
 
 # Apply Nvidia device plugin — ConfigMap content determines time-slicing behavior.
 Write-Log 'Installing Nvidia Device Plugin' -Console
-Wait-ForAPIServer
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
 
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'nvidia-device-plugin', '-n', 'gpu-node', '--timeout', '180s')
