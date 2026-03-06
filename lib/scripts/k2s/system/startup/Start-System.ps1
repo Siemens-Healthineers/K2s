@@ -191,15 +191,18 @@ try {
                     # After an unclean reboot the API server restarts with potentially new signing
                     # keys, making existing projected tokens in kube-proxy and flannel pods invalid
                     # (results in Unauthorized errors in their logs).
-                    Write-Log "[$logUseCase] Waiting for SSH connection to Linux VM..."
-                    Wait-ForSSHConnectionToLinuxVMViaSshKey
-                    Write-Log "[$logUseCase] Waiting for API server to be ready..."
-                    Wait-ForAPIServer
-                    Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
-                    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout restart daemonset/kube-proxy -n kube-system 2>&1 || true').Output | Write-Log
-                    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout restart daemonset/kube-flannel-ds -n kube-flannel 2>&1 || true').Output | Write-Log
-                    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf rollout restart deployment/coredns -n kube-system 2>&1 || true').Output | Write-Log
-                    Write-Log "[$logUseCase] Linux-side system DaemonSet restart initiated"
+                    Write-Log "[$logUseCase] Waiting for API server before restarting system DaemonSets..."
+                    try {
+                        Wait-ForAPIServer
+                        $kubePath = Get-KubeToolsPath
+                        Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
+                        &"$kubePath\kubectl.exe" rollout restart daemonset/kube-proxy -n kube-system 2>&1 | Write-Log
+                        &"$kubePath\kubectl.exe" rollout restart daemonset/kube-flannel-ds -n kube-flannel 2>&1 | Write-Log
+                        &"$kubePath\kubectl.exe" rollout restart deployment/coredns -n kube-system 2>&1 | Write-Log
+                        Write-Log "[$logUseCase] Linux-side system DaemonSet restart completed"
+                    } catch {
+                        Write-Log "[$logUseCase] WARNING: Failed to restart Linux-side DaemonSets: $_"
+                    }
                     # Set-PrivateNetworkProfileForLoopbackAdapter
                 }
                 else {
