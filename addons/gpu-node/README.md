@@ -17,9 +17,21 @@ In order to configure the GPU node you need to install the latest Nvidia drivers
 **NOTE:** A reboot may be necessary.
 
 The gpu-node addon can be enabled using the k2s CLI by running the following command:
-```
+```console
 k2s addons enable gpu-node
 ```
+
+### GPU time-slicing (optional)
+
+By default each pod gets exclusive access to the physical GPU. To share the GPU across multiple pods simultaneously, use the `--time-slices` flag:
+
+```console
+k2s addons enable gpu-node --time-slices 4
+```
+
+This configures the NVIDIA device plugin to advertise `4` virtual GPU slots backed by one physical GPU. Any integer between `2` and `16` is accepted. Pods schedule onto the GPU concurrently; CUDA time-slicing handles multiplexing transparently.
+
+> **Note:** Time-slicing shares compute time but **does not** partition GPU memory. All pods on the same physical GPU share the same memory pool. Use exclusive mode (`--time-slices 1`, the default) for workloads with large memory requirements.
 
 ## Deploy a sample CUDA workload
 

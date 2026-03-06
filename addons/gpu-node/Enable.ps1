@@ -217,6 +217,19 @@ else {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chmod +x /etc/profile.d/wsl.sh').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf .nvidiadrivers').Output | Write-Log
 
+    # Verify nvidia-smi is accessible at the expected path used by the device plugin liveness probe
+    $smiCheck = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'ls /usr/lib/wsl/lib/nvidia-smi')
+    if (!$smiCheck.Success) {
+        $errMsg = 'nvidia-smi verification failed: File not found at /usr/lib/wsl/lib/nvidia-smi. Ensure NVIDIA drivers are correctly installed on the Windows host before enabling this addon.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+
     # Apply WSL2 Kernel
     Write-Log 'Changing linux kernel' -Console
     $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.1.21.2'
@@ -241,6 +254,16 @@ else {
     # change linux kernel
     $prefix = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux-advanced.*\' /boot/grub/grub.cfg | tr -d `"\'`"").Output
     $kernel = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux.*microsoft-standard-WSL2.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"").Output
+    if ([string]::IsNullOrWhiteSpace($kernel)) {
+        $errMsg = 'Could not locate microsoft-standard-WSL2 kernel entry in /boot/grub/grub.cfg. The kernel package was installed but GRUB did not register it as expected. Re-run the enable or inspect grub.cfg manually on the VM.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i `"s/GRUB_DEFAULT=.*/GRUB_DEFAULT=\'${prefix}\>${kernel}\'/g`" /etc/default/grub").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1' -IgnoreErrors).Output | Write-Log
@@ -389,7 +412,6 @@ if ($TimeSlices -gt 1) {
     Remove-Item $tmpConfigMap -Force -ErrorAction SilentlyContinue
 } else {
     # Apply default ConfigMap (no sharing section — exclusive GPU access per pod).
-    Write-Log '[gpu-node] Configuring GPU for exclusive access (no time-slicing)' -Console
     (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\time-slicing-config-default.yaml").Output | Write-Log
 }
 
@@ -438,7 +460,7 @@ if (!$gpuRegistered) {
 
 Write-Log 'Installing DCGM-Exporter' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout', '30s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout', '10s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     # DCGM requires NVML which is unavailable via dxcore — non-fatal.
