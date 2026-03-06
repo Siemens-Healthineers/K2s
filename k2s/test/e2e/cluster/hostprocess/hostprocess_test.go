@@ -95,7 +95,21 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	// Create/update ConfigMap with dynamic base paths before applying manifests
 	ensureLauncherConfigMap(ctx)
 
-	// Apply all manifests in the workload directory
+	// Deploy the anchor pod first and wait for it to be Ready before applying the
+	// HostProcess deployment.  This eliminates a scheduling race: cplauncher in the
+	// HostProcess pod resolves the anchor pod by label to obtain its network
+	// compartment.  If the anchor pod is not yet Ready (no IP, no endpoint in the
+	// Service), the startup/readiness probes that route through the Service DNS will
+	// fail, leading to CrashLoopBackOff on slower CI machines.
+	anchorManifest := filepath.Join(manifestDir, "windows-albums-cp.yaml")
+	GinkgoWriter.Println("Applying anchor pod from", anchorManifest)
+	suite.Kubectl().MustExec(ctx, "apply", "-f", anchorManifest, "-n", namespace)
+
+	GinkgoWriter.Println("Waiting for anchor pod to be Ready before deploying HostProcess workloads ..")
+	suite.Cluster().ExpectPodToBeReady(anchorPodName, namespace, "")
+	GinkgoWriter.Println("Anchor pod is Ready")
+
+	// Now apply the full kustomization (anchor pod is idempotent, rest is new)
 	suite.Kubectl().MustExec(ctx, "apply", "-k", manifestDir)
 
 	GinkgoWriter.Println("Waiting for hostprocess deployments (if any) to be ready in namespace <", namespace, "> ..")
@@ -104,7 +118,24 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	for _, dep := range hostProcessDeploymentNames {
 		_, code := suite.Kubectl().Exec(ctx, "get", "deployment", dep, "-n", namespace)
 		if code == 0 {
-			suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", dep, "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+			output, rolloutCode := suite.Kubectl().Exec(ctx, "rollout", "status", "deployment", dep, "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+			if rolloutCode != 0 {
+				// Collect diagnostics before failing so sporadic failures are actionable
+				GinkgoWriter.Printf("Rollout failed for deployment %s (exit code %d). Collecting diagnostics..\n", dep, rolloutCode)
+				descOut, _ := suite.Kubectl().Exec(ctx, "describe", "deployment", dep, "-n", namespace)
+				GinkgoWriter.Printf("=== kubectl describe deployment %s ===\n%s\n", dep, descOut)
+				podsOut, _ := suite.Kubectl().Exec(ctx, "get", "pods", "-n", namespace, "-l", "app="+dep, "-o", "wide")
+				GinkgoWriter.Printf("=== pods for %s ===\n%s\n", dep, podsOut)
+				logsOut, _ := suite.Kubectl().Exec(ctx, "logs", "deployment/"+dep, "-n", namespace, "--tail=80")
+				GinkgoWriter.Printf("=== logs (current) %s ===\n%s\n", dep, logsOut)
+				prevLogsOut, _ := suite.Kubectl().Exec(ctx, "logs", "deployment/"+dep, "-n", namespace, "--previous", "--tail=80")
+				GinkgoWriter.Printf("=== logs (previous) %s ===\n%s\n", dep, prevLogsOut)
+				eventsOut, _ := suite.Kubectl().Exec(ctx, "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
+				GinkgoWriter.Printf("=== events in namespace %s ===\n%s\n", namespace, eventsOut)
+				epOut, _ := suite.Kubectl().Exec(ctx, "get", "endpoints", dep, "-n", namespace, "-o", "yaml")
+				GinkgoWriter.Printf("=== endpoints %s ===\n%s\n", dep, epOut)
+				Fail(fmt.Sprintf("Rollout timed out for deployment %s: %s", dep, output))
+			}
 		}
 	}
 })

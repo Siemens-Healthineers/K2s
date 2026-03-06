@@ -38,9 +38,9 @@ var albums = []album{
 
 // Health state tracking
 var (
-	startedAt                = time.Now()
-	readinessFlag    int32   // 0 = not ready, 1 = ready
-	livenessFailures int32   // increment on simulated failures (for future extension)
+	startedAt         time.Time // set in main() to capture actual process resume time
+	readinessFlag    int32     // 0 = not ready, 1 = ready
+	livenessFailures int32     // increment on simulated failures (for future extension)
 )
 
 // Mark application ready when main finishes initial setup.
@@ -174,6 +174,11 @@ func DumpNetworkInterfaces() {
 }
 
 func main() {
+	// Capture actual process start time here (not at package init) because
+	// cplauncher creates this process suspended — package-level time.Now()
+	// fires while still suspended, making the startup grace period a no-op.
+	startedAt = time.Now()
+
 	resource, found := os.LookupEnv("RESOURCE")
 	if !found {
 		resource = "albums-win"

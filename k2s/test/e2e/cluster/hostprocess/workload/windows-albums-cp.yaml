@@ -78,7 +78,7 @@ spec:
             - -NoLogo
             - -NoProfile
             - -Command
-            - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -label-timeout 30s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
+            - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -label-timeout 120s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
           readinessProbe:
             httpGet:
               host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local   # Service DNS name (same namespace)
@@ -99,7 +99,7 @@ spec:
             initialDelaySeconds: 30   # allow full startup & readiness first
             periodSeconds: 30         # low frequency keeps overhead small
             timeoutSeconds: 6
-            failureThreshold: 2       
+            failureThreshold: 5       
             successThreshold: 1
           startupProbe:
             httpGet:
@@ -108,8 +108,8 @@ spec:
               path: /health/startup
               scheme: HTTP
             initialDelaySeconds: 30       # small delay before first check
-            periodSeconds: 10             # check every 5s during startup
-            failureThreshold: 2         
+            periodSeconds: 10             # check every 10s during startup
+            failureThreshold: 18          # 30 + 18*10 = 210s budget; anchor pod + service endpoint chain can be slow
             successThreshold: 1          # one successful connect is enough
             timeoutSeconds: 5            # short timeout for TCP connect
           volumeMounts:
