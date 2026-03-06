@@ -96,12 +96,11 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	ensureLauncherConfigMap(ctx)
 
 	// Deploy the anchor pod first and wait for it to be Ready before applying the
-	// HostProcess deployment.  This eliminates a scheduling race: cplauncher in the
-	// HostProcess pod resolves the anchor pod by label to obtain its network
-	// compartment.  If the anchor pod is not yet Ready (no IP, no endpoint in the
-	// Service), the startup/readiness probes that route through the Service DNS will
-	// fail, leading to CrashLoopBackOff on slower CI machines.
-	anchorManifest := filepath.Join(manifestDir, "windows-albums-cp.yaml")
+	// HostProcess deployment.  cplauncher in the HostProcess pod resolves the
+	// anchor pod by label to obtain its network compartment.  If the anchor pod
+	// is not yet scheduled (no IP), cplauncher retries for up to label-timeout
+	// but deploying sequentially avoids unnecessary restarts.
+	anchorManifest := filepath.Join(manifestDir, "anchor-pod.yaml")
 	GinkgoWriter.Println("Applying anchor pod from", anchorManifest)
 	suite.Kubectl().MustExec(ctx, "apply", "-f", anchorManifest, "-n", namespace)
 

@@ -302,21 +302,14 @@ func main() {
 	healthRouter.GET("/health/liveness", livenessHealth)
 
 	// Launch health server concurrently.
+	// The health server intentionally stays in the DEFAULT (host) network
+	// compartment so that kubelet probes can reach it directly via the node IP
+	// without routing through Service DNS / kube-proxy.  The health handlers
+	// only check in-process state (startedAt, readinessFlag) so they do not
+	// need to be in the anchor pod's compartment.
 	go func() {
-		// Set default values if environment variables are not set
-		if compartmentId != "" {
-			num, err := strconv.Atoi(compartmentId)
-			if err == nil {
-				fmt.Println("Using compartment id: ", compartmentId)
-				err := SetCurrentThreadCompartmentId(uint32(num))
-				if err != nil {
-					fmt.Println("Failed to set compartment ID: %v", err)
-				}
-			}
-		}
-
 		healthAddr := fmt.Sprintf("%s:%s", healthBindAddress, healthPort)
-		log.Printf("[health] listening on %s", healthAddr)
+		log.Printf("[health] listening on %s (host compartment)", healthAddr)
 		if err := healthRouter.Run(healthAddr); err != nil {
 			log.Printf("[health] server error: %v", err)
 		}

@@ -1,31 +1,9 @@
 # SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-# 1. Anchor Pod (non-HostProcess): simple pause container to own the compartment/network.
-apiVersion: v1
-kind: Pod
-metadata:
-  name: albums-compartment-anchor
-  labels:
-    app: cp-albums-win # <== label selector used by cplauncher in part 2
-  annotations:
-    linkerd.io/inject: enabled
-spec:
-  nodeSelector:
-    kubernetes.io/os: windows
-  tolerations: # (optional) tolerate Windows specific taint
-    - key: 'OS'
-      operator: 'Equal'
-      value: 'Windows'
-      effect: 'NoSchedule'
-  containers:
-    - name: pause
-      image: shsk2s.azurecr.io/pause-win:v1.7.0
-      imagePullPolicy: IfNotPresent
-      # No custom command required: pause.exe in image keeps container alive.
-  restartPolicy: Always
----
-# 2. HostProcess Deployment launching cplauncher from the host (single replica)
+# HostProcess Deployment launching cplauncher from the host (single replica)
+# NOTE: The anchor pod (albums-compartment-anchor) is in anchor-pod.yaml and must
+#       be deployed and Ready BEFORE this deployment so cplauncher can resolve it.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -79,39 +57,41 @@ spec:
             - -NoProfile
             - -Command
             - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -label-timeout 120s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
+          # Probes target the dedicated health port (8081) which runs in the HOST
+          # network compartment.  For hostNetwork:true HostProcess pods the kubelet
+          # connects to the pod IP == node IP, so no Service DNS / kube-proxy hop is
+          # needed.  This avoids the unreliable cluster-DNS resolution from the
+          # Windows host that caused sporadic CrashLoopBackOff.
           readinessProbe:
             httpGet:
-              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local   # Service DNS name (same namespace)
-              port: 8080
-              path: /health/readiness     
+              port: 8081
+              path: /health/readiness
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 5
             successThreshold: 1
             timeoutSeconds: 6
-          livenessProbe:  # lightweight: slower period to reduce probe load
+          livenessProbe:
             httpGet:
-              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
-              port: 8080
+              port: 8081
               path: /health/liveness
               scheme: HTTP
-            initialDelaySeconds: 30   # allow full startup & readiness first
-            periodSeconds: 30         # low frequency keeps overhead small
+            initialDelaySeconds: 30
+            periodSeconds: 30
             timeoutSeconds: 6
-            failureThreshold: 5       
+            failureThreshold: 5
             successThreshold: 1
           startupProbe:
             httpGet:
-              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
-              port: 8080
+              port: 8081
               path: /health/startup
               scheme: HTTP
-            initialDelaySeconds: 30       # small delay before first check
+            initialDelaySeconds: 10       # health server starts quickly in the host compartment
             periodSeconds: 10             # check every 10s during startup
-            failureThreshold: 18          # 30 + 18*10 = 210s budget; anchor pod + service endpoint chain can be slow
-            successThreshold: 1          # one successful connect is enough
-            timeoutSeconds: 5            # short timeout for TCP connect
+            failureThreshold: 18          # 10 + 18*10 = 190s budget; covers cplauncher label-timeout (120s)
+            successThreshold: 1
+            timeoutSeconds: 5
           volumeMounts:
             - name: host-var-log
               mountPath: C:/var/log
