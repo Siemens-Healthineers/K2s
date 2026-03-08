@@ -1329,12 +1329,14 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
         Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $true }
         Mock -ModuleName $moduleName Update-CertificateResources { }
+        Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
     }
 
-    It 'applies issuer manifest and waits for root cert' {
+    It 'clears cache and applies issuer manifest and waits for root cert' {
         InModuleScope -ModuleName $moduleName {
             Initialize-CACertificateIssuer
 
+            Should -Invoke Clear-KubectlDiscoveryCache -Times 1 -Scope It
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
                 $Params -contains 'apply' -and $Params -contains '--server-side' -and $Params -contains '-f' -and $Params -contains 'ca-issuer.yaml'
             }
@@ -1399,17 +1401,23 @@ Describe 'Install-GatewayApiCrds' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Get-GatewayApiCrdsConfig { return 'gateway-api.yaml' }
-        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok'; Success = $true } }
         Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
     }
 
-    It 'applies the CRDs manifest with server-side apply and clears discovery cache' {
+    It 'applies CRDs, waits for Established, clears cache, and probes discovery' {
         InModuleScope -ModuleName $moduleName {
             Install-GatewayApiCrds
-            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+            Should -Invoke Invoke-Kubectl -Scope It -ParameterFilter {
                 $Params -contains 'apply' -and $Params -contains '--server-side' -and $Params -contains '-f' -and $Params -contains 'gateway-api.yaml'
             }
+            Should -Invoke Invoke-Kubectl -Scope It -ParameterFilter {
+                $Params -contains 'wait' -and $Params -contains '--for=condition=Established' -and $Params -contains 'crd/gateways.gateway.networking.k8s.io'
+            }
             Should -Invoke Clear-KubectlDiscoveryCache -Times 1 -Scope It
+            Should -Invoke Invoke-Kubectl -Scope It -ParameterFilter {
+                $Params -contains 'get' -and $Params -contains 'gateways.gateway.networking.k8s.io'
+            }
         }
     }
 }

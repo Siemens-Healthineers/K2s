@@ -1539,18 +1539,17 @@ function Install-CertManagerControllers {
     }
     Write-Log '[CertManager] cert-manager CRDs are established' -Console
 
-    # kubectl caches API discovery locally with a long TTL; even after CRDs are
-    # Established the on-disk cache will lack cert-manager.io/v1. Delete it to
-    # force kubectl to re-fetch from the API server on the next command.
-    Clear-KubectlDiscoveryCache
-
-    # Verify that kubectl can now see the cert-manager CRDs
-    Write-Log '[CertManager] Waiting for kubectl discovery cache to include cert-manager CRDs' -Console
+    # kubectl caches API discovery and HTTP responses locally. Even after CRDs
+    # are Established, the cache will lack cert-manager.io/v1. Clear cache before
+    # EACH probe because if the API server discovery hasn't updated yet when kubectl
+    # re-fetches, the fresh-but-incomplete response gets cached again.
+    Write-Log '[CertManager] Waiting for kubectl to recognize cert-manager CRDs' -Console
     $discoveryReady = $false
     for ($d = 1; $d -le 30; $d++) {
+        Clear-KubectlDiscoveryCache
         $probe = Invoke-Kubectl -Params 'get', 'clusterissuers', '--no-headers', '--ignore-not-found'
         if ($probe.Success -eq $true) {
-            Write-Log '[CertManager] kubectl discovery cache is up-to-date' -Console
+            Write-Log '[CertManager] kubectl can see cert-manager CRDs' -Console
             $discoveryReady = $true
             break
         }
@@ -1558,7 +1557,7 @@ function Install-CertManagerControllers {
         Start-Sleep -Seconds 2
     }
     if (-not $discoveryReady) {
-        Write-Log '[CertManager] WARNING: kubectl discovery cache did not refresh within 60s; downstream apply will use --server-side' -Console
+        Write-Log '[CertManager] WARNING: kubectl could not discover cert-manager CRDs within 60s' -Console
     }
 }
 
@@ -1581,9 +1580,9 @@ function Initialize-CACertificateIssuer {
     $applied = $false
     for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
         Write-Log "[CertManager] Applying CA issuer manifest (attempt $attempt/$maxRetries)" -Console
-        # Use --server-side to bypass kubectl's client-side discovery cache which
-        # may not yet include the cert-manager.io/v1 API group even though the CRDs
-        # are Established on the server.
+        # Clear kubectl cache before each attempt so stale cached discovery
+        # responses don't prevent recognition of cert-manager CRD types
+        Clear-KubectlDiscoveryCache
         $result = Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $caIssuerConfig
         Write-Log "[CertManager] kubectl apply output: $($result.Output)"
         if ($result.Success -eq $true) {
@@ -1814,9 +1813,9 @@ function Clear-KubectlDiscoveryCache {
     [CmdletBinding()]
     param()
 
-    $kubeCacheDir = Join-Path (Join-Path (Join-Path $env:USERPROFILE '.kube') 'cache') 'discovery'
+    $kubeCacheDir = Join-Path (Join-Path $env:USERPROFILE '.kube') 'cache'
     if (Test-Path $kubeCacheDir) {
-        Write-Log '[kubectl] Clearing discovery cache to pick up newly registered CRDs' -Console
+        Write-Log '[kubectl] Clearing kubectl cache to pick up newly registered CRDs' -Console
         Remove-Item -Recurse -Force $kubeCacheDir -ErrorAction SilentlyContinue
     }
 }
@@ -1849,8 +1848,31 @@ function Install-GatewayApiCrds {
     # Use --server-side to avoid oversized last-applied annotations on large CRDs
     (Invoke-Kubectl -Params 'apply', '--server-side', '-f', $gatewayApiCrds).Output | Write-Log
 
-    # Clear kubectl discovery cache so downstream commands can resolve Gateway API resource types
+    # Wait for Gateway CRD to be fully established before clearing cache
+    Write-Log '[GatewayAPI] Waiting for Gateway API CRDs to be fully established' -Console
+    $gwCrdWait = Invoke-Kubectl -Params 'wait', '--for=condition=Established', 'crd/gateways.gateway.networking.k8s.io', '--timeout=120s'
+    if ($gwCrdWait.Success -ne $true) {
+        Write-Log "[GatewayAPI] CRD wait output: $($gwCrdWait.Output)" -Console
+        Write-Log '[GatewayAPI] WARNING: Gateway API CRDs may not be fully established' -Console
+    }
+
+    # Clear stale kubectl discovery cache and verify Gateway type is visible
     Clear-KubectlDiscoveryCache
+    Write-Log '[GatewayAPI] Waiting for kubectl discovery cache to include Gateway API CRDs' -Console
+    $gwDiscoveryReady = $false
+    for ($d = 1; $d -le 15; $d++) {
+        $probe = Invoke-Kubectl -Params 'get', 'gateways.gateway.networking.k8s.io', '--no-headers', '--ignore-not-found', '-A'
+        if ($probe.Success -eq $true) {
+            Write-Log '[GatewayAPI] kubectl discovery cache is up-to-date' -Console
+            $gwDiscoveryReady = $true
+            break
+        }
+        Write-Log "[GatewayAPI] Discovery probe attempt $d/15 failed, retrying in 2s..." -Console
+        Start-Sleep -Seconds 2
+    }
+    if (-not $gwDiscoveryReady) {
+        Write-Log '[GatewayAPI] WARNING: kubectl discovery cache did not refresh within 30s' -Console
+    }
 }
 
 <#
