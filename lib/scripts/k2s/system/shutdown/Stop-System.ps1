@@ -44,6 +44,16 @@ try {
         Write-Log "[$logUseCase] removing *cbr0* networks failed: $($_.Exception.Message) - $($_.ScriptStackTrace)"
     }
     Write-Log "[$logUseCase] cbr0 network removed"
+
+    # Ensure flanneld does not auto-start on next boot. After an unclean reboot
+    # (crash, power loss), NSSM would otherwise auto-start flanneld before
+    # Start-System.ps1 can create the proper cbr0, causing a race condition.
+    Write-Log "[$logUseCase] Setting flanneld to manual start to prevent auto-start on next boot"
+    $kubeBinPath = Get-KubeBinPath
+    if (Test-Path "$kubeBinPath\nssm.exe") {
+        &"$kubeBinPath\nssm.exe" set flanneld Start SERVICE_DEMAND_START 2>&1 | Out-Null
+    }
+
     # show the still existing HNS networks
     $hns = Get-HNSNetwork
     $hnsNames = $hns | Select-Object -ExpandProperty Name
