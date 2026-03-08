@@ -1538,6 +1538,25 @@ function Install-CertManagerControllers {
         throw "cert-manager CRDs did not become Established within 120s. CRD status: $crdStatus"
     }
     Write-Log '[CertManager] cert-manager CRDs are established' -Console
+
+    # kubectl caches API discovery locally; even after CRDs are Established the
+    # cache may still lack cert-manager.io/v1. Poll 'kubectl get clusterissuers'
+    # to force the discovery cache to refresh before downstream apply calls.
+    Write-Log '[CertManager] Waiting for kubectl discovery cache to include cert-manager CRDs' -Console
+    $discoveryReady = $false
+    for ($d = 1; $d -le 30; $d++) {
+        $probe = Invoke-Kubectl -Params 'get', 'clusterissuers', '--no-headers', '--ignore-not-found'
+        if ($probe.Success -eq $true) {
+            Write-Log '[CertManager] kubectl discovery cache is up-to-date' -Console
+            $discoveryReady = $true
+            break
+        }
+        Write-Log "[CertManager] Discovery probe attempt $d/30 failed, retrying in 2s..." -Console
+        Start-Sleep -Seconds 2
+    }
+    if (-not $discoveryReady) {
+        Write-Log '[CertManager] WARNING: kubectl discovery cache did not refresh within 60s; downstream apply will use --server-side' -Console
+    }
 }
 
 <#
@@ -1559,7 +1578,10 @@ function Initialize-CACertificateIssuer {
     $applied = $false
     for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
         Write-Log "[CertManager] Applying CA issuer manifest (attempt $attempt/$maxRetries)" -Console
-        $result = Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig
+        # Use --server-side to bypass kubectl's client-side discovery cache which
+        # may not yet include the cert-manager.io/v1 API group even though the CRDs
+        # are Established on the server.
+        $result = Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $caIssuerConfig
         Write-Log "[CertManager] kubectl apply output: $($result.Output)"
         if ($result.Success -eq $true) {
             $applied = $true

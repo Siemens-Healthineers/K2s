@@ -1334,7 +1334,7 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
             Initialize-CACertificateIssuer
 
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                $Params -contains 'apply' -and $Params -contains '-f' -and $Params -contains 'ca-issuer.yaml'
+                $Params -contains 'apply' -and $Params -contains '--server-side' -and $Params -contains '-f' -and $Params -contains 'ca-issuer.yaml'
             }
             Should -Invoke Wait-ForCARootCertificate -Times 1 -Scope It
         }
