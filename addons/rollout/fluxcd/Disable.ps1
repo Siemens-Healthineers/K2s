@@ -83,6 +83,7 @@ Write-Log 'Deleting rollout namespace...' -Console
 Remove-FluxCli
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
+
 Write-Log 'Uninstallation of rollout addon with Flux finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
