@@ -287,10 +287,10 @@ try {
 		Write-Log 'Generate kubeconfig for CNI plugin based on service account' -Console
 		Initialize-ConfigFileForCNI
 
-		# install trust manager
+		# install trust manager (includes Bundle CRD)
 		Write-Log 'Install trust manager' -Console
 		$linkerdYamlTrustManager = Get-LinkerdConfigTrustManager
-		(Invoke-Kubectl -Params 'apply', '-f', $linkerdYamlTrustManager).Output | Write-Log
+		(Invoke-Kubectl -Params 'apply', '--server-side', '-f', $linkerdYamlTrustManager).Output | Write-Log
 		Write-Log 'Waiting for trust manager pods to be available' -Console
 		$trustManagerPodStatus = Wait-ForTrustManagerAvailable
 		if ($trustManagerPodStatus -ne $true) {
@@ -322,8 +322,9 @@ try {
 
 		# install cert-manager addons
 		Write-Log 'Install trust manager and cert-manager resources, creating bundle' -Console
+		Clear-KubectlDiscoveryCache
 		$linkerdYamlCertManager = Get-LinkerdConfigCertManager
-		(Invoke-Kubectl -Params 'apply', '-f', $linkerdYamlCertManager).Output | Write-Log
+		(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $linkerdYamlCertManager).Output | Write-Log
 
 		# wait for secret linkerd-trust-anchor to be available
 		Write-Log 'Waiting for secret linkerd-trust-anchor to be available' -Console
