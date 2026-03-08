@@ -1511,21 +1511,12 @@ function Install-CmctlCli {
 .SYNOPSIS
 Installs cert-manager controllers in the cluster.
 .DESCRIPTION
-Applies cert-manager YAML manifest and waits for API readiness.
-Throws error if cert-manager fails to become ready.
-.PARAMETER EncodeStructuredOutput
-Whether to encode error output for CLI consumption.
-.PARAMETER MessageType
-Message type for structured CLI output.
+Applies cert-manager YAML manifest, waits for API readiness, and ensures
+CRDs are fully established before returning. Throws on failure.
 #>
 function Install-CertManagerControllers {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $false)]
-        [switch] $EncodeStructuredOutput,
-        [Parameter(Mandatory = $false)]
-        [string] $MessageType
-    )
+    param()
 
     Write-Log 'Installing cert-manager' -Console
     $certManagerConfig = Get-CertManagerConfig
@@ -1534,52 +1525,61 @@ function Install-CertManagerControllers {
     Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
     $certManagerStatus = Wait-ForCertManagerAvailable
     
-    if ($certManagerStatus -eq $true) {
-        return
+    if ($certManagerStatus -ne $true) {
+        throw "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'cert-manager' failed."
     }
-    
-    $errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'cert-manager' failed."
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+
+    Write-Log '[CertManager] Waiting for cert-manager CRDs to be fully established' -Console
+    $crdWaitResult = Invoke-Kubectl -Params 'wait', '--for=condition=Established', 'crd/clusterissuers.cert-manager.io', 'crd/certificates.cert-manager.io', '--timeout=120s'
+    if ($crdWaitResult.Success -ne $true) {
+        Write-Log "[CertManager] CRD wait output: $($crdWaitResult.Output)" -Console
+        $crdStatus = (Invoke-Kubectl -Params 'get', 'crd', 'clusterissuers.cert-manager.io', 'certificates.cert-manager.io', '-o=wide').Output
+        Write-Log "[CertManager] CRD status: $crdStatus" -Console
+        throw "cert-manager CRDs did not become Established within 120s. CRD status: $crdStatus"
     }
-    throw $errMsg
+    Write-Log '[CertManager] cert-manager CRDs are established' -Console
 }
 
 <#
 .SYNOPSIS
 Initializes CA ClusterIssuer for cert-manager.
 .DESCRIPTION
-Applies CA ClusterIssuer manifest, waits for root certificate creation,
+Applies CA ClusterIssuer manifest with retry logic, waits for root certificate creation,
 and renews all existing certificates using the new CA.
-.PARAMETER EncodeStructuredOutput
-Whether to encode error output for CLI consumption.
-.PARAMETER MessageType
-Message type for structured CLI output.
 #>
 function Initialize-CACertificateIssuer {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $false)]
-        [switch] $EncodeStructuredOutput,
-        [Parameter(Mandatory = $false)]
-        [string] $MessageType
-    )
+    param()
 
     Write-Log 'Configuring CA ClusterIssuer' -Console
     $caIssuerConfig = Get-CAIssuerConfig
-    (Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
+
+    $maxRetries = 5
+    $retryDelay = 10
+    $applied = $false
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        Write-Log "[CertManager] Applying CA issuer manifest (attempt $attempt/$maxRetries)" -Console
+        $result = Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig
+        Write-Log "[CertManager] kubectl apply output: $($result.Output)"
+        if ($result.Success -eq $true) {
+            $applied = $true
+            break
+        }
+        Write-Log "[CertManager] kubectl apply failed (attempt $attempt/$maxRetries): $($result.Output)" -Console
+        if ($attempt -lt $maxRetries) {
+            Start-Sleep -Seconds $retryDelay
+        }
+    }
+
+    if (-not $applied) {
+        throw "Failed to apply CA issuer manifest after $maxRetries attempts. Last output: $($result.Output)"
+    }
 
     Write-Log 'Waiting for CA root certificate to be created' -Console
     $caCreated = Wait-ForCARootCertificate
     
     if ($caCreated -ne $true) {
-        $errMsg = "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'cert-manager' failed."
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        }
-        throw $errMsg
+        throw "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'cert-manager' failed."
     }
 
     # Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
@@ -1622,6 +1622,18 @@ function Wait-ForCARootCertificate(
         Write-Log "Retry {$i}: 'ca-issuer-root-secret' not yet created. Will retry after $SleepDurationInSeconds Seconds" -Console
         Start-Sleep -Seconds $SleepDurationInSeconds
     }
+
+    # Dump diagnostics on failure
+    Write-Log '[CertManager] ca-issuer-root-secret was not created. Collecting diagnostics...' -Console
+    $certStatus = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'certificates', 'k2s-self-signed-ca', '-o=yaml', '--ignore-not-found').Output
+    Write-Log "[CertManager] Certificate resource status: $certStatus" -Console
+    $issuerStatus = (Invoke-Kubectl -Params 'get', 'clusterissuers', 'k2s-boot-strapper-issuer', '-o=yaml', '--ignore-not-found').Output
+    Write-Log "[CertManager] ClusterIssuer status: $issuerStatus" -Console
+    $cmPods = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'pods', '-o=wide').Output
+    Write-Log "[CertManager] cert-manager pods: $cmPods" -Console
+    $cmEvents = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'events', '--sort-by=.lastTimestamp').Output
+    Write-Log "[CertManager] cert-manager events: $cmEvents" -Console
+
     return $false
 }
 
@@ -1700,9 +1712,9 @@ function Enable-CertManager {
         $k2sRoot = "$PSScriptRoot\.."
         
         Install-CmctlCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
-        Install-CertManagerControllers -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
+        Install-CertManagerControllers
         
-        Initialize-CACertificateIssuer -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
+        Initialize-CACertificateIssuer
         
         Import-CACertificateToWindowsStore
 

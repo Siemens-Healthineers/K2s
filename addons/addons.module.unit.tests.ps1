@@ -1289,11 +1289,11 @@ Describe 'Install-CertManagerControllers' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
-        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
         Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
     }
 
-    It 'applies the manifest and waits for API' {
+    It 'applies the manifest, waits for API, and waits for CRDs' {
         InModuleScope -ModuleName $moduleName {
             Install-CertManagerControllers
 
@@ -1301,36 +1301,20 @@ Describe 'Install-CertManagerControllers' -Tag 'unit', 'ci', 'addon' {
                 $Params -contains 'apply' -and $Params -contains '-f' -and $Params -contains 'cert-manager.yaml'
             }
             Should -Invoke Wait-ForCertManagerAvailable -Times 1 -Scope It
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                $Params -contains 'wait' -and $Params -contains '--for=condition=Established'
+            }
         }
     }
 
     Context 'cert-manager never becomes ready' {
         BeforeAll {
             Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $false }
-
-            InModuleScope -ModuleName $moduleName {
-                if (-not (Get-Command -Name New-Error -ErrorAction SilentlyContinue)) {
-                    function New-Error {
-                        param(
-                            [string]$Code,
-                            [string]$Message,
-                            [string]$Severity
-                        )
-                        return [pscustomobject]@{ Code = $Code; Message = $Message; Severity = $Severity }
-                    }
-                }
-            }
-
-            Mock -ModuleName $moduleName Send-ToCli { }
         }
 
-        It 'sends structured error and throws' {
+        It 'throws when cert-manager is not ready' {
             InModuleScope -ModuleName $moduleName {
-                { Install-CertManagerControllers -EncodeStructuredOutput -MessageType 'test' } | Should -Throw
-            }
-
-            InModuleScope -ModuleName $moduleName {
-                Should -Invoke Send-ToCli -Times 1 -Scope Context
+                { Install-CertManagerControllers } | Should -Throw
             }
         }
     }
@@ -1340,7 +1324,7 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Get-CAIssuerConfig { return 'ca-issuer.yaml' }
-        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
         Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $true }
         Mock -ModuleName $moduleName Update-CertificateResources { }
     }
@@ -1359,30 +1343,11 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
     Context 'CA root certificate is never created' {
         BeforeAll {
             Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $false }
-
-            InModuleScope -ModuleName $moduleName {
-                if (-not (Get-Command -Name New-Error -ErrorAction SilentlyContinue)) {
-                    function New-Error {
-                        param(
-                            [string]$Code,
-                            [string]$Message,
-                            [string]$Severity
-                        )
-                        return [pscustomobject]@{ Code = $Code; Message = $Message; Severity = $Severity }
-                    }
-                }
-            }
-
-            Mock -ModuleName $moduleName Send-ToCli { }
         }
 
-        It 'sends structured error and throws' {
+        It 'throws when CA root certificate is not created' {
             InModuleScope -ModuleName $moduleName {
-                { Initialize-CACertificateIssuer -EncodeStructuredOutput -MessageType 'test' } | Should -Throw
-            }
-
-            InModuleScope -ModuleName $moduleName {
-                Should -Invoke Send-ToCli -Times 1 -Scope Context
+                { Initialize-CACertificateIssuer } | Should -Throw
             }
         }
     }
