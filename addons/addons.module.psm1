@@ -1814,7 +1814,7 @@ function Clear-KubectlDiscoveryCache {
     [CmdletBinding()]
     param()
 
-    $kubeCacheDir = Join-Path $env:USERPROFILE '.kube' 'cache' 'discovery'
+    $kubeCacheDir = Join-Path (Join-Path (Join-Path $env:USERPROFILE '.kube') 'cache') 'discovery'
     if (Test-Path $kubeCacheDir) {
         Write-Log '[kubectl] Clearing discovery cache to pick up newly registered CRDs' -Console
         Remove-Item -Recurse -Force $kubeCacheDir -ErrorAction SilentlyContinue
