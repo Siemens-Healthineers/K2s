@@ -1291,9 +1291,10 @@ Describe 'Install-CertManagerControllers' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
         Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
+        Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
     }
 
-    It 'applies the manifest, waits for API, and waits for CRDs' {
+    It 'applies the manifest, waits for API, waits for CRDs, and clears discovery cache' {
         InModuleScope -ModuleName $moduleName {
             Install-CertManagerControllers
 
@@ -1304,6 +1305,7 @@ Describe 'Install-CertManagerControllers' -Tag 'unit', 'ci', 'addon' {
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
                 $Params -contains 'wait' -and $Params -contains '--for=condition=Established'
             }
+            Should -Invoke Clear-KubectlDiscoveryCache -Times 1 -Scope It
         }
     }
 
@@ -1398,14 +1400,16 @@ Describe 'Install-GatewayApiCrds' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Get-GatewayApiCrdsConfig { return 'gateway-api.yaml' }
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+        Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
     }
 
-    It 'applies the CRDs manifest' {
+    It 'applies the CRDs manifest with server-side apply and clears discovery cache' {
         InModuleScope -ModuleName $moduleName {
             Install-GatewayApiCrds
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                $Params -contains 'apply' -and $Params -contains '-f' -and $Params -contains 'gateway-api.yaml'
+                $Params -contains 'apply' -and $Params -contains '--server-side' -and $Params -contains '-f' -and $Params -contains 'gateway-api.yaml'
             }
+            Should -Invoke Clear-KubectlDiscoveryCache -Times 1 -Scope It
         }
     }
 }

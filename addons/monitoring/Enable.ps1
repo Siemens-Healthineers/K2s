@@ -77,8 +77,14 @@ $manifestsPath = "$PSScriptRoot\manifests\monitoring"
 
 Write-Log 'Installing Kube Prometheus Stack' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'create', '-f', "$manifestsPath\crds").Output | Write-Log
-(Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
+# Use --server-side for CRDs to avoid oversized last-applied annotations on large CRDs
+(Invoke-Kubectl -Params 'apply', '--server-side', '-f', "$manifestsPath\crds").Output | Write-Log
+
+# Clear kubectl discovery cache so the kustomization below can resolve Prometheus Operator
+# CRD types (ServiceMonitor, Prometheus, Alertmanager, PrometheusRule, etc.)
+Clear-KubectlDiscoveryCache
+
+(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-k', $manifestsPath).Output | Write-Log
 
 Write-Log 'Deploying Windows Exporter for Windows node metrics' -Console
 $windowsExporterPath = "$PSScriptRoot\..\common\manifests\windows-exporter"

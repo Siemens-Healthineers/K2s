@@ -158,6 +158,9 @@ $ingressNginxGatewayNamespace = 'nginx-gw'
 $CrdsDirectory = Get-NginxGatewayCrdsDir
 (Invoke-Kubectl -Params 'apply', '--server-side', '-f', $CrdsDirectory).Output | Write-Log
 
+# Clear kubectl discovery cache so NginxProxy and Gateway resource types can be resolved below
+Clear-KubectlDiscoveryCache
+
 (Invoke-Kubectl -Params 'apply' , '-k', $kustomizationDir).Output | Write-Log
 
 # # delete the temporary directory
@@ -171,7 +174,7 @@ $controlPlaneIp = Get-ConfiguredIPControlPlane
 Write-Log "Preparing NginxProxy resource and nginx-gw-controller service with external IP $controlPlaneIp" -Console
 $nginxProxyTemplate = Get-Content "$PSScriptRoot\manifests\nginxproxy.yaml" -Raw
 $nginxProxyYaml = $nginxProxyTemplate.Replace('__CONTROL_PLANE_IP__', $controlPlaneIp)
-$nginxProxyYaml | & kubectl apply -f -
+$nginxProxyYaml | & kubectl apply --server-side --force-conflicts -f -
 
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'nginx-gw' -TimeoutSeconds 300)
 
@@ -201,9 +204,10 @@ $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io
     }
 
 # Now create the Gateway resource which will use the patched NginxProxy configuration
+# Use --server-side to bypass kubectl discovery cache which may not yet include Gateway API CRDs
 Write-Log 'Creating Gateway resource' -Console
 $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-nginx-gw.yaml"
-(Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $clusterIngressConfig).Output | Write-Log
 
 # Wait for controller to reconcile and create data plane service with external IP
 Write-Log 'Waiting for data plane service to be created with external IP...' -Console

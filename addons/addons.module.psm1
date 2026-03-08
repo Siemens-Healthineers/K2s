@@ -1539,9 +1539,12 @@ function Install-CertManagerControllers {
     }
     Write-Log '[CertManager] cert-manager CRDs are established' -Console
 
-    # kubectl caches API discovery locally; even after CRDs are Established the
-    # cache may still lack cert-manager.io/v1. Poll 'kubectl get clusterissuers'
-    # to force the discovery cache to refresh before downstream apply calls.
+    # kubectl caches API discovery locally with a long TTL; even after CRDs are
+    # Established the on-disk cache will lack cert-manager.io/v1. Delete it to
+    # force kubectl to re-fetch from the API server on the next command.
+    Clear-KubectlDiscoveryCache
+
+    # Verify that kubectl can now see the cert-manager CRDs
     Write-Log '[CertManager] Waiting for kubectl discovery cache to include cert-manager CRDs' -Console
     $discoveryReady = $false
     for ($d = 1; $d -le 30; $d++) {
@@ -1796,6 +1799,30 @@ function New-AddonStatusProperty {
 
 <#
 .SYNOPSIS
+Clears the kubectl API discovery cache from disk.
+.DESCRIPTION
+Deletes the kubectl discovery cache directory (~/.kube/cache/discovery/) so that
+subsequent kubectl commands re-fetch the API server's discovery document.
+This is required after installing new CRDs because kubectl's cached discovery
+has a long TTL and will not pick up newly registered API groups/versions
+automatically. Without this, commands like 'kubectl apply' and 'kubectl get'
+fail with 'no matches for kind' errors for CRD-based resources.
+.EXAMPLE
+Clear-KubectlDiscoveryCache
+#>
+function Clear-KubectlDiscoveryCache {
+    [CmdletBinding()]
+    param()
+
+    $kubeCacheDir = Join-Path $env:USERPROFILE '.kube' 'cache' 'discovery'
+    if (Test-Path $kubeCacheDir) {
+        Write-Log '[kubectl] Clearing discovery cache to pick up newly registered CRDs' -Console
+        Remove-Item -Recurse -Force $kubeCacheDir -ErrorAction SilentlyContinue
+    }
+}
+
+<#
+.SYNOPSIS
 Gets the path to Gateway API CRDs manifest file.
 .DESCRIPTION
 Returns the absolute path to the Gateway API v1.4.1 CRDs YAML manifest in the common addon folder.
@@ -1819,7 +1846,11 @@ function Install-GatewayApiCrds {
 
     Write-Log 'Installing Gateway API CRDs' -Console
     $gatewayApiCrds = Get-GatewayApiCrdsConfig
-    (Invoke-Kubectl -Params 'apply', '-f', $gatewayApiCrds).Output | Write-Log
+    # Use --server-side to avoid oversized last-applied annotations on large CRDs
+    (Invoke-Kubectl -Params 'apply', '--server-side', '-f', $gatewayApiCrds).Output | Write-Log
+
+    # Clear kubectl discovery cache so downstream commands can resolve Gateway API resource types
+    Clear-KubectlDiscoveryCache
 }
 
 <#

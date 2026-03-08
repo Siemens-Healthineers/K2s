@@ -211,7 +211,9 @@ if (!(Test-Path "$binPath\virtctl.exe")) {
 # enable config
 (Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Ready', '-n', 'kube-system', "pod/kube-apiserver-$controlPlaneNodeName").Output | Write-Log
 (Invoke-Kubectl -Params 'wait', '--timeout=30s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-operator').Output | Write-Log
-(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-cr.yaml").Output | Write-Log
+# Clear kubectl discovery cache so KubeVirt CR kind is resolvable after operator CRD installation
+Clear-KubectlDiscoveryCache
+(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', "$PSScriptRoot\manifests\kubevirt-cr.yaml").Output | Write-Log
 
 # for small setup restart VM
 if ( $K8sSetup -eq 'SmallSetup' ) {

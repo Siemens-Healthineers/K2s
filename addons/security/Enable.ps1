@@ -355,8 +355,11 @@ try {
 		Start-Sleep -Seconds 10
 
 		# install linkerd
+		# Clear kubectl discovery cache before applying Linkerd kustomization
+		# which bundles CRDs and CRD instances together
+		Clear-KubectlDiscoveryCache
 		$linkerdYamlCRDs = Get-LinkerdConfigDirectory
-		(Invoke-Kubectl -Params 'apply', '-k', $linkerdYamlCRDs).Output | Write-Log
+		(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-k', $linkerdYamlCRDs).Output | Write-Log
 		Write-Log 'Waiting for linkerd pods to be available' -Console
 		$linkerdPodStatus = Wait-ForLinkerdAvailable
 		if ($linkerdPodStatus -ne $true) {
