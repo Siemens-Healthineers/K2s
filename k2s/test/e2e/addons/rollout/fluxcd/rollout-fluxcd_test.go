@@ -7,6 +7,8 @@ package rolloutfluxcd
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +62,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
 
 			k2s.VerifyAddonIsDisabled("rollout", "fluxcd")
+			expectFluxCliToBeRemoved()
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/part-of", "flux", "rollout")
 		})
@@ -104,6 +107,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
 
 			k2s.VerifyAddonIsEnabled("rollout", "fluxcd")
+			expectFluxCliToExist()
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
@@ -142,6 +146,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 			k2s.VerifyAddonIsDisabled("rollout", "fluxcd")
+			expectFluxCliToBeRemoved()
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/part-of", "flux", "rollout")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
@@ -151,6 +156,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "--ingress", "nginx", "-o")
 
 			k2s.VerifyAddonIsEnabled("rollout", "fluxcd")
+			expectFluxCliToExist()
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
@@ -212,6 +218,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 			k2s.VerifyAddonIsDisabled("rollout", "fluxcd")
+			expectFluxCliToBeRemoved()
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/part-of", "flux", "rollout")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
@@ -221,6 +228,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "--ingress", "traefik", "-o")
 
 			k2s.VerifyAddonIsEnabled("rollout", "fluxcd")
+			expectFluxCliToExist()
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
@@ -311,4 +319,22 @@ func expectStatusToBePrinted(ctx context.Context) {
 	Expect(status.Error).To(BeNil())
 	Expect(status.Enabled).NotTo(BeNil())
 	Expect(*status.Enabled).To(BeTrue())
+}
+
+func fluxCliPath() string {
+	return filepath.Join(suite.RootDir(), "bin", "flux.exe")
+}
+
+func expectFluxCliToExist() {
+	Eventually(func() bool {
+		_, err := os.Stat(fluxCliPath())
+		return err == nil
+	}, "30s", "1s").Should(BeTrue(), "flux CLI should exist at %s after enabling rollout fluxcd", fluxCliPath())
+}
+
+func expectFluxCliToBeRemoved() {
+	Eventually(func() bool {
+		_, err := os.Stat(fluxCliPath())
+		return os.IsNotExist(err)
+	}, "30s", "1s").Should(BeTrue(), "flux CLI should be removed from %s after disabling rollout fluxcd", fluxCliPath())
 }

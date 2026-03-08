@@ -233,7 +233,11 @@ The following table shows at a glance what each addon's backup contains.
 
 **Backup:** Exports all Flux custom resources in the `rollout` namespace (GitRepository, Kustomization, HelmRelease, HelmRepository, OCIRepository, Bucket, ImageRepository, ImagePolicy, ImageUpdateAutomation, Provider, Alert, Receiver), plus referenced Secrets (discovered via recursive `secretRef` scanning), plus webhook ingress resources. Secrets are written first in the manifest's file list.
 
+The host Flux CLI (`bin\\flux.exe`) is not part of backup data. It is managed by addon lifecycle: installed when `k2s addons enable rollout fluxcd` runs, and removed when `k2s addons disable rollout fluxcd` runs.
+
 **Restore:** Waits for Flux controller deployments. Applies resources with ingress-aware filtering. Runs `Update.ps1`.
+
+During restore, the addon re-enable step ensures `bin\\flux.exe` is present again on the host.
 
 ### security
 

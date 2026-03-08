@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -47,6 +47,13 @@ if ($systemError) {
     exit 1
 }
 
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'rollout' can only be disabled for 'k2s' setup type."
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+}
+
 if (-not (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd'}))) {
     $errMsg = 'Addon rollout with Flux implementation is already disabled, nothing to do.'
 
@@ -72,6 +79,8 @@ $kustomizationDir = Get-FluxConfig
 
 Write-Log 'Deleting rollout namespace...' -Console
 (Invoke-Kubectl -Params 'delete', 'namespace', 'rollout','--timeout', '60s').Output | Write-Log
+
+Remove-FluxCli
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 Write-Log 'Uninstallation of rollout addon with Flux finished' -Console

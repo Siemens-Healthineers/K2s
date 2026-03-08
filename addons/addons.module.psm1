@@ -1509,6 +1509,64 @@ function Install-CmctlCli {
 
 <#
 .SYNOPSIS
+Downloads windows curl packages declared in an addon manifest for a given implementation.
+.DESCRIPTION
+Reads the offline_usage.windows.curl list for the named implementation from the addon manifest
+and downloads each package using Invoke-DownloadFile. 
+Skips packages whose destination already exists.
+.PARAMETER ManifestPath
+Path to the addon manifest YAML file.
+.PARAMETER ImplementationName
+Name of the implementation inside spec.implementations whose windows curl packages to download.
+.PARAMETER K2sRoot
+Root directory of the K2s installation; relative destinations are resolved against it.
+.PARAMETER Proxy
+Optional proxy server to use for downloads.
+#>
+function Install-AddonWindowsCurlPackages {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ManifestPath,
+
+        [Parameter(Mandatory = $true)]
+        [string] $ImplementationName,
+
+        [Parameter(Mandatory = $true)]
+        [string] $K2sRoot,
+
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy
+    )
+
+    Write-Log "Downloading windows curl packages for implementation '$ImplementationName'" -Console
+
+    $manifest = Get-FromYamlFile -Path $ManifestPath
+    if (-not $manifest) { return }
+
+    $impl = $manifest.spec.implementations | Where-Object { $_.name -eq $ImplementationName } | Select-Object -First 1
+    if (-not $impl) { return }
+
+    $windowsCurlPackages = $impl.offline_usage.windows.curl
+    if (!$windowsCurlPackages) { return }
+
+    foreach ($package in $windowsCurlPackages) {
+        $destination = $package.destination
+        $destination = "$K2sRoot\$destination"
+        $destination = [System.IO.Path]::GetFullPath($destination)
+
+        if (Test-Path $destination) {
+            Write-Log "File $destination already exists. Skipping download." -Console
+            continue
+        }
+
+        $url = $package.url
+        Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
+    }
+}
+
+<#
+.SYNOPSIS
 Installs cert-manager controllers in the cluster.
 .DESCRIPTION
 Applies cert-manager YAML manifest and waits for API readiness.
@@ -1962,5 +2020,5 @@ Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik,
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
-Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
+Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-AddonWindowsCurlPackages, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
 Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret, New-BackendCACertConfigMap

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -44,6 +44,7 @@ $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
 Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured
@@ -56,6 +57,16 @@ if ($systemError) {
     Write-Log $systemError.Message -Error
     exit 1
 }
+
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'rollout' can only be enabled for 'k2s' setup type."
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+}
+
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$Proxy = "http://$($windowsHostIpAddress):8181"
 
 Write-Log 'Check if Flux is already enabled'
 if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd'})) -eq $true) {
@@ -83,6 +94,8 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementa
     Write-Log $errMsg -Error
     exit 1
 }
+
+Install-FluxCli -Proxy $Proxy -AllowOnlineDownload
 
 Write-Log 'Creating rollout namespace' -Console
 (Invoke-Kubectl -Params 'create', 'namespace', 'rollout').Output | Write-Log
