@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 )
 
@@ -27,6 +28,15 @@ func DecodeMessages(messages []string, targetType string) ([]byte, error) {
 		return nil, fmt.Errorf("no messages to decode (targetType: %s)", targetType)
 	}
 
+	slog.Debug("Decoding structured messages", "count", len(messages), "targetType", targetType)
+
+	// Group messages by independent payloads vs. chunked payloads.
+	// Each Send-ToCli invocation produces one or more chunks that together form
+	// a single complete base64+gzip payload. When a script erroneously calls
+	// Send-ToCli multiple times, the decoder receives chunks from multiple
+	// independent payloads concatenated. Detect this by trying the full
+	// concatenation first; on failure, fall back to decoding only the last
+	// contiguous group of messages (the final Send-ToCli result).
 	var buffer bytes.Buffer
 	for _, message := range messages {
 		payload, err := extractPayload(message, targetType)
@@ -40,24 +50,40 @@ func DecodeMessages(messages []string, targetType string) ([]byte, error) {
 		}
 	}
 
-	decodedBytes, err := decodeBase64(buffer.Bytes())
-	if err != nil {
-		return nil, err
+	result, err := decodeAndUncompress(buffer.Bytes())
+	if err == nil {
+		return result, nil
 	}
 
-	uncompressedBytes, err := uncompress(decodedBytes)
-	if err != nil {
-		return nil, err
+	// Full concatenation failed — try fallback to last message only
+	if len(messages) > 1 {
+		slog.Warn("Decoding all messages failed, attempting fallback to last message",
+			"error", err, "totalMessages", len(messages))
+
+		lastPayload, extractErr := extractPayload(messages[len(messages)-1], targetType)
+		if extractErr == nil {
+			result, fallbackErr := decodeAndUncompress(lastPayload)
+			if fallbackErr == nil {
+				slog.Warn("Fallback to last message succeeded; earlier messages were discarded",
+					"discardedCount", len(messages)-1)
+				return result, nil
+			}
+			slog.Debug("Fallback to last message also failed", "error", fallbackErr)
+		}
 	}
 
-	return uncompressedBytes, nil
+	return nil, fmt.Errorf("failed to decode messages: %w", err)
 }
 
 func extractPayload(message string, targetType string) ([]byte, error) {
 	segments := strings.Split(message, separator)
 
 	if len(segments) != segmentsCount {
-		return nil, fmt.Errorf("message malformed: fount '%d' segments instead of '%d'", len(segments), segmentsCount)
+		truncated := message
+		if len(truncated) > 100 {
+			truncated = truncated[:100] + "..."
+		}
+		return nil, fmt.Errorf("message malformed: found '%d' segments instead of '%d' in message: %s", len(segments), segmentsCount, truncated)
 	}
 
 	actualType := segments[2]
@@ -67,6 +93,15 @@ func extractPayload(message string, targetType string) ([]byte, error) {
 	}
 
 	return []byte(segments[3]), nil
+}
+
+func decodeAndUncompress(data []byte) ([]byte, error) {
+	decodedBytes, err := decodeBase64(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return uncompress(decodedBytes)
 }
 
 func decodeBase64(data []byte) ([]byte, error) {

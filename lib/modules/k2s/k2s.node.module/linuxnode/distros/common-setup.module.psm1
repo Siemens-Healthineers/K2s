@@ -119,9 +119,8 @@ Function Set-UpComputerAfterProvisioning {
     CopyDotFile -SourcePath "$PSScriptRoot\..\common\dotfiles\" -DotFile '.bash_docker' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd
     CopyDotFile -SourcePath "$PSScriptRoot\..\common\dotfiles\" -DotFile '.bash_aliases' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd
 
-    Write-Log 'Set local time zone in VM...'
-    $timezoneForVm = 'Europe/Berlin'
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo timedatectl set-timezone $timezoneForVm" -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd).Output | Write-Log
+    Write-Log 'Set time zone in VM to UTC (will be updated to host timezone on first start)...'
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo timedatectl set-timezone UTC' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd).Output | Write-Log
 
     Write-Log 'Enable hushlogin...'
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'touch ~/.hushlogin' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd).Output | Write-Log
