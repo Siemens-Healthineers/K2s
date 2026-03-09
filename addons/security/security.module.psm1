@@ -376,8 +376,17 @@ spec:
         for ($i = 1; $i -le $MaxRetries; $i++) {
             Write-Log "Webhook readiness check attempt $i of $MaxRetries"
             
-            # Try to create the test bundle
-            $result = Invoke-Kubectl -Params 'apply', '-f', $tempFile
+            # Clear kubectl cache before each attempt so newly registered
+            # trust-manager CRDs (Bundle) are discoverable
+            $kubeCacheDir = Join-Path (Join-Path $env:USERPROFILE '.kube') 'cache'
+            if (Test-Path $kubeCacheDir) {
+                Write-Log '[kubectl] Clearing kubectl cache to pick up newly registered CRDs'
+                Remove-Item -Recurse -Force $kubeCacheDir -ErrorAction SilentlyContinue
+            }
+
+            # Try to create the test bundle using --server-side to bypass
+            # any remaining client-side discovery issues
+            $result = Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $tempFile
             
             if ($result.Success) {
                 Write-Log "Trust-manager webhook is ready" -Console
@@ -386,9 +395,9 @@ spec:
                 return $true
             }
             
-            # Check if error is webhook-related
-            if ($result.Output -match 'failed calling webhook.*trust\.cert-manager\.io|connection refused|timeout') {
-                Write-Log "Webhook not ready yet (attempt $i): connection issue detected. Waiting ${RetryDelaySeconds}s..."
+            # Check if error is webhook-related or discovery-related (CRDs not yet visible)
+            if ($result.Output -match 'failed calling webhook.*trust\.cert-manager\.io|connection refused|timeout|no matches for kind') {
+                Write-Log "Webhook/discovery not ready yet (attempt $i/$MaxRetries): $($result.Output). Waiting ${RetryDelaySeconds}s..."
                 if ($i -lt $MaxRetries) {
                     Start-Sleep -Seconds $RetryDelaySeconds
                     continue
