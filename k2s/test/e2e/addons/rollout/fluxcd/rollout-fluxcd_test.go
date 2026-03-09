@@ -108,6 +108,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 
 			k2s.VerifyAddonIsEnabled("rollout", "fluxcd")
 			expectFluxCliToExist()
+			expectFluxCliToBeRunnable(ctx)
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
@@ -157,6 +158,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 
 			k2s.VerifyAddonIsEnabled("rollout", "fluxcd")
 			expectFluxCliToExist()
+			expectFluxCliToBeRunnable(ctx)
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
@@ -229,6 +231,7 @@ var _ = Describe("'rollout fluxcd' addon", Ordered, func() {
 
 			k2s.VerifyAddonIsEnabled("rollout", "fluxcd")
 			expectFluxCliToExist()
+			expectFluxCliToBeRunnable(ctx)
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
@@ -330,4 +333,10 @@ func expectFluxCliToExist() {
 		_, err := os.Stat(fluxCliPath())
 		return err == nil
 	}, "30s", "1s").Should(BeTrue(), "flux CLI should exist at %s", fluxCliPath())
+}
+
+func expectFluxCliToBeRunnable(ctx context.Context) {
+	output := suite.Cli(fluxCliPath()).MustExec(ctx, "version", "--client")
+
+	Expect(output).To(ContainSubstring("flux:"), "flux CLI should report its version")
 }
