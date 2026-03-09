@@ -86,6 +86,12 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
     }
 }
 
+# Auto-enable dynamic memory if min or max are specified
+if ($MasterVMMemoryMin -gt 0 -or $MasterVMMemoryMax -gt 0) {
+    $EnableDynamicMemory = $true
+    Write-Log "Dynamic memory auto-enabled (min or max specified)"
+}
+
 $controlPlaneNodeParams = @{
     MasterVMMemory = $MasterVMMemory
     MasterVMMemoryMin = $MasterVMMemoryMin
