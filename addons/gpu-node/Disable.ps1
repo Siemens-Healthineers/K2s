@@ -9,7 +9,7 @@
 Disables GPU support for KubeMaster node.
 
 .DESCRIPTION
-The "gpu-node" addons enables the KubeMaster node to get direct access to the host's GPU.
+The "gpu-node" addon disables and removes GPU support from the KubeMaster node.
 #>
 
 Param(
@@ -81,8 +81,16 @@ if (!$WSL) {
     Write-Log 'Changing linux kernel' -Console
     $prefix = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux-advanced.*\' /boot/grub/grub.cfg | tr -d `"\'`"").Output
     $kernel = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux.*cloud-amd64.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"").Output
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i `"s/GRUB_DEFAULT=.*/GRUB_DEFAULT=\'${prefix}\>${kernel}\'/g`" /etc/default/grub").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1' -IgnoreErrors).Output | Write-Log
+    if ([string]::IsNullOrWhiteSpace($kernel)) {
+        Write-Log '[gpu-node] WARNING: cloud-amd64 kernel entry not found in /boot/grub/grub.cfg - skipping GRUB default revert to avoid corrupting boot config. The VM will continue with its current boot entry.' -Console
+    } else {
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i `"s/GRUB_DEFAULT=.*/GRUB_DEFAULT=\'${prefix}\>${kernel}\'/g`" /etc/default/grub").Output | Write-Log
+        $updateGrubResult = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1' -IgnoreErrors)
+        $updateGrubResult.Output | Write-Log
+        if (!$updateGrubResult.Success) {
+            Write-Log '[gpu-node] WARNING: update-grub reported an error - boot configuration may not have been updated correctly. Verify /boot/grub/grub.cfg on the VM.' -Console
+        }
+    }
 
     # Remove driver files copied into VM during enable (must happen while VM is running/SSH is up)
     Write-Log '[gpu-node] Removing NVIDIA driver files from VM' -Console
