@@ -112,8 +112,6 @@ spec:
 k2s addons disable rollout fluxcd
 ```
 
-Disabling `rollout fluxcd` also removes the host Flux CLI binary (`bin\\flux.exe`).
-
 ## Backup and restore
 
 Backup/restore is **scoped to the `rollout` namespace only**.
@@ -130,7 +128,7 @@ Backup/restore is **scoped to the `rollout` namespace only**.
 
 - Flux controllers/CRDs (they are re-installed during restore via `k2s addons enable rollout fluxcd`)
 - Resources outside of the `rollout` namespace
-- Host binary `bin\\flux.exe` (managed by addon lifecycle: installed on `enable`, removed on `disable`; in offline environments it is carried by `k2s addons export` / `k2s addons import`)
+- Host binary `bin\\flux.exe` (installed on `enable`; in offline environments it is carried by `k2s addons export` / `k2s addons import`)
 
 ### Commands
 
