@@ -13,7 +13,8 @@ metadata:
     app.kubernetes.io/name: clusterip-webhook
     app.kubernetes.io/part-of: k2s
 ---
-# The webhook needs to list Services across all namespaces to discover used IPs.
+# The webhook needs to list Services to discover used IPs, and inspect
+# workloads, pods, and nodes to detect the target OS for each Service.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -25,6 +26,15 @@ rules:
   - apiGroups: [""]
     resources: ["services"]
     verbs: ["list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

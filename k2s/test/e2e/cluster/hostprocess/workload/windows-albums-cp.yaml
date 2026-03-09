@@ -129,7 +129,6 @@ metadata:
   name: albums-win-hp-app-hostprocess
   labels:
     app: albums-win-hp-app-hostprocess
-    k2s.io/os: windows
 spec:
   selector:
     app: cp-albums-win # <== label selector used by cplauncher

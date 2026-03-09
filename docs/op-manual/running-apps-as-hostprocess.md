@@ -159,8 +159,6 @@ kind: Service
 metadata:
   name: myapp
   namespace: apps
-  labels:
-    k2s.io/os: windows
 spec:
   selector:
     app: myapp   # target the HostProcess deployment label

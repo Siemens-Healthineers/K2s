@@ -16,8 +16,9 @@ This script deploys the clusterip-webhook components:
   6. TLS cert patch Job (injects caBundle into webhook config)
 
 The webhook automatically assigns ClusterIPs from the correct subnet
-(Linux 172.21.0.x or Windows 172.21.1.x) based on the k2s.io/os label
-on Services.
+(Linux 172.21.0.x or Windows 172.21.1.x) by detecting the target OS from
+the workloads (Deployments, StatefulSets, DaemonSets) that the Service
+selects.
 
 .PARAMETER IpAddress
 The IP address of the Linux master node.

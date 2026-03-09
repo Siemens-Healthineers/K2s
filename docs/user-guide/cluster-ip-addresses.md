@@ -30,7 +30,7 @@ Linux is the default. Simply create a Service without any special label — the 
     ```
 
 ## *Windows*-based workloads
-Add the label `k2s.io/os: windows` to the Service metadata. The webhook then assigns a `172.21.1.x` Cluster IP automatically.
+No special label is needed. The webhook automatically detects that the Service targets a Windows workload by inspecting the `nodeSelector` of matching Deployments, StatefulSets, or DaemonSets. If the workload has `kubernetes.io/os: windows` in its `nodeSelector`, the Service receives a `172.21.1.x` Cluster IP.
 
 !!! example
     ```yaml linenums="1" title="example-service-manifest.yaml"
@@ -38,8 +38,6 @@ Add the label `k2s.io/os: windows` to the Service metadata. The webhook then ass
     kind: Service
     metadata:
       name: windows-example
-      labels:
-        k2s.io/os: windows
     spec:
       selector:
         app: windows-example
@@ -54,10 +52,12 @@ Add the label `k2s.io/os: windows` to the Service metadata. The webhook then ass
 The `clusterip-webhook` runs as a Deployment in the `k2s-clusterip-webhook` namespace. On every `Service` CREATE request, it:
 
 1. Checks if the Service already has an explicit `clusterIP` (or is headless / ExternalName) — if so, it does nothing.
-2. Reads the `k2s.io/os` label — `windows` routes to the Windows subnet, anything else (or absent) routes to Linux.
-3. Lists existing Services to find which IPs are already in use.
-4. Picks the first free IP in the target subnet range (`.50` – `.254`).
-5. Returns a JSON Patch that sets `spec.clusterIP` on the Service.
+2. Looks up Deployments, StatefulSets, and DaemonSets in the same namespace whose pod template labels match the Service selector. If the workload has `kubernetes.io/os: windows` in its `nodeSelector`, the Windows subnet is used.
+3. If no matching workload is found, checks running Pods and their Node's `kubernetes.io/os` label as a fallback.
+4. Defaults to the Linux subnet if no OS can be determined.
+5. Lists existing Services to find which IPs are already in use.
+6. Picks the first free IP in the target subnet range (`.50` – `.254`).
+7. Returns a JSON Patch that sets `spec.clusterIP` on the Service.
 
 TLS certificates for the webhook are generated automatically via init Jobs during cluster setup.
 

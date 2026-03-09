@@ -279,10 +279,6 @@ kind: Service
 metadata:
   name: {{ .AppName }}
   namespace: k2s
-  {{ if eq .OS "windows" -}}
-  labels:
-    k2s.io/os: windows
-  {{- end }}
 spec:
   selector:
     app: {{ .AppName }}

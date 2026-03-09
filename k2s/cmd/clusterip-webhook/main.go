@@ -23,8 +23,10 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
@@ -34,7 +36,7 @@ import (
 const (
 	cliName = "clusterip-webhook"
 
-	labelOS = "k2s.io/os"
+	nodeOSKey = "kubernetes.io/os"
 
 	defaultLinuxSubnet   = "172.21.0.0/24"
 	defaultWindowsSubnet = "172.21.1.0/24"
@@ -231,11 +233,9 @@ func (h *WebhookHandler) mutateService(request *admissionv1.AdmissionRequest) *a
 		return &admissionv1.AdmissionResponse{Allowed: true}
 	}
 
-	// Determine target OS from label
-	targetOS := "linux"
-	if osLabel, ok := service.Labels[labelOS]; ok {
-		targetOS = strings.ToLower(osLabel)
-	}
+	// Determine target OS by inspecting workloads that match the Service selector
+	targetOS := h.detectTargetOS(service.Namespace, service.Spec.Selector)
+	slog.Info("Detected target OS", "os", targetOS, "name", service.Name, "namespace", service.Namespace)
 
 	// Get all existing service IPs to avoid conflicts
 	usedIPs, err := h.getUsedClusterIPs()
@@ -294,6 +294,136 @@ func (h *WebhookHandler) getUsedClusterIPs() (map[string]bool, error) {
 	}
 
 	return used, nil
+}
+
+// detectTargetOS discovers the OS for a Service by inspecting workloads and pods
+// that match the Service's selector. It checks in order:
+//  1. Deployments, StatefulSets, DaemonSets with a kubernetes.io/os nodeSelector
+//  2. Running Pods → their Node's kubernetes.io/os label
+//  3. Defaults to "linux"
+func (h *WebhookHandler) detectTargetOS(namespace string, selector map[string]string) string {
+	if len(selector) == 0 {
+		slog.Info("Service has no selector, defaulting to linux", "namespace", namespace)
+		return "linux"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Strategy 1: Check workload nodeSelectors
+	if os := h.detectOSFromWorkloads(ctx, namespace, selector); os != "" {
+		return os
+	}
+
+	// Strategy 2: Check running pods → node labels
+	if os := h.detectOSFromPods(ctx, namespace, selector); os != "" {
+		return os
+	}
+
+	slog.Info("No OS detected from workloads or pods, defaulting to linux", "namespace", namespace)
+	return "linux"
+}
+
+// detectOSFromWorkloads checks Deployments, StatefulSets, and DaemonSets in the
+// namespace for a pod template whose labels are a superset of the Service selector
+// and whose nodeSelector contains kubernetes.io/os.
+func (h *WebhookHandler) detectOSFromWorkloads(ctx context.Context, namespace string, selector map[string]string) string {
+	selectorSet := labels.Set(selector)
+
+	// Check Deployments
+	deployments, err := h.clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Warn("Failed to list Deployments", "error", err, "namespace", namespace)
+	} else {
+		if os := osFromPodSpecs(deployments.Items, selectorSet); os != "" {
+			return os
+		}
+	}
+
+	// Check StatefulSets
+	statefulSets, err := h.clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Warn("Failed to list StatefulSets", "error", err, "namespace", namespace)
+	} else {
+		if os := osFromPodSpecs(statefulSets.Items, selectorSet); os != "" {
+			return os
+		}
+	}
+
+	// Check DaemonSets
+	daemonSets, err := h.clientset.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Warn("Failed to list DaemonSets", "error", err, "namespace", namespace)
+	} else {
+		if os := osFromPodSpecs(daemonSets.Items, selectorSet); os != "" {
+			return os
+		}
+	}
+
+	return ""
+}
+
+// workload is satisfied by Deployment, StatefulSet, and DaemonSet.
+type workload interface {
+	appsv1.Deployment | appsv1.StatefulSet | appsv1.DaemonSet
+}
+
+func osFromPodSpecs[T workload](items []T, selectorSet labels.Set) string {
+	for i := range items {
+		var podLabels map[string]string
+		var nodeSelector map[string]string
+		switch w := any(&items[i]).(type) {
+		case *appsv1.Deployment:
+			podLabels = w.Spec.Template.Labels
+			nodeSelector = w.Spec.Template.Spec.NodeSelector
+		case *appsv1.StatefulSet:
+			podLabels = w.Spec.Template.Labels
+			nodeSelector = w.Spec.Template.Spec.NodeSelector
+		case *appsv1.DaemonSet:
+			podLabels = w.Spec.Template.Labels
+			nodeSelector = w.Spec.Template.Spec.NodeSelector
+		}
+		// Service selector must be a subset of the pod template labels
+		if !selectorSet.AsSelector().Matches(labels.Set(podLabels)) {
+			continue
+		}
+		if os, ok := nodeSelector[nodeOSKey]; ok {
+			return strings.ToLower(os)
+		}
+	}
+	return ""
+}
+
+// detectOSFromPods finds pods matching the selector, then checks their node's
+// kubernetes.io/os label.
+func (h *WebhookHandler) detectOSFromPods(ctx context.Context, namespace string, selector map[string]string) string {
+	labelParts := make([]string, 0, len(selector))
+	for k, v := range selector {
+		labelParts = append(labelParts, k+"="+v)
+	}
+	labelSelector := strings.Join(labelParts, ",")
+
+	pods, err := h.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		slog.Warn("Failed to list Pods", "error", err, "namespace", namespace)
+		return ""
+	}
+
+	for _, pod := range pods.Items {
+		if pod.Spec.NodeName == "" {
+			continue
+		}
+		node, err := h.clientset.CoreV1().Nodes().Get(ctx, pod.Spec.NodeName, metav1.GetOptions{})
+		if err != nil {
+			slog.Warn("Failed to get Node", "error", err, "node", pod.Spec.NodeName)
+			continue
+		}
+		if os, ok := node.Labels[nodeOSKey]; ok {
+			return strings.ToLower(os)
+		}
+	}
+
+	return ""
 }
 
 // IPAllocator manages IP allocation from Linux and Windows subnets.

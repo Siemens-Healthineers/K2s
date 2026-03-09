@@ -7,6 +7,12 @@ package main
 import (
 	"fmt"
 	"testing"
+
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestNewIPAllocator(t *testing.T) {
@@ -205,4 +211,225 @@ func TestIncAndDecIP(t *testing.T) {
 // itoa is a simple int-to-string for test use
 func itoa(i int) string {
 	return fmt.Sprintf("%d", i)
+}
+
+func TestDetectTargetOS_ExplicitLabel(t *testing.T) {
+	// When the Service has no selector at all, should default to linux
+	h := &WebhookHandler{clientset: fake.NewSimpleClientset()}
+	result := h.detectTargetOS("default", nil)
+	if result != "linux" {
+		t.Errorf("got %s, want linux for nil selector", result)
+	}
+}
+
+func TestDetectTargetOS_EmptySelector(t *testing.T) {
+	h := &WebhookHandler{clientset: fake.NewSimpleClientset()}
+	result := h.detectTargetOS("default", map[string]string{})
+	if result != "linux" {
+		t.Errorf("got %s, want linux for empty selector", result)
+	}
+}
+
+func TestDetectTargetOS_FromDeployment_Windows(t *testing.T) {
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "win-app", Namespace: "default"},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "win-app"}},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "win-app"}},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "windows"},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(deploy)
+	h := &WebhookHandler{clientset: client}
+
+	result := h.detectTargetOS("default", map[string]string{"app": "win-app"})
+	if result != "windows" {
+		t.Errorf("got %s, want windows", result)
+	}
+}
+
+func TestDetectTargetOS_FromDeployment_Linux(t *testing.T) {
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "linux-app", Namespace: "default"},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "linux-app"}},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "linux-app"}},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "linux"},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(deploy)
+	h := &WebhookHandler{clientset: client}
+
+	result := h.detectTargetOS("default", map[string]string{"app": "linux-app"})
+	if result != "linux" {
+		t.Errorf("got %s, want linux", result)
+	}
+}
+
+func TestDetectTargetOS_FromStatefulSet(t *testing.T) {
+	ss := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "win-db", Namespace: "data"},
+		Spec: appsv1.StatefulSetSpec{
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "win-db"}},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "win-db"}},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "windows"},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(ss)
+	h := &WebhookHandler{clientset: client}
+
+	result := h.detectTargetOS("data", map[string]string{"app": "win-db"})
+	if result != "windows" {
+		t.Errorf("got %s, want windows", result)
+	}
+}
+
+func TestDetectTargetOS_FromDaemonSet(t *testing.T) {
+	ds := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "win-agent", Namespace: "system"},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "win-agent"}},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "win-agent"}},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "windows"},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(ds)
+	h := &WebhookHandler{clientset: client}
+
+	result := h.detectTargetOS("system", map[string]string{"app": "win-agent"})
+	if result != "windows" {
+		t.Errorf("got %s, want windows", result)
+	}
+}
+
+func TestDetectTargetOS_FallbackToPodNode(t *testing.T) {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "win-node",
+			Labels: map[string]string{"kubernetes.io/os": "windows"},
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-pod",
+			Namespace: "default",
+			Labels:    map[string]string{"app": "legacy"},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "win-node",
+		},
+	}
+	client := fake.NewSimpleClientset(node, pod)
+	h := &WebhookHandler{clientset: client}
+
+	result := h.detectTargetOS("default", map[string]string{"app": "legacy"})
+	if result != "windows" {
+		t.Errorf("got %s, want windows", result)
+	}
+}
+
+func TestDetectTargetOS_NoWorkloadsNoPods_DefaultsLinux(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	h := &WebhookHandler{clientset: client}
+
+	result := h.detectTargetOS("default", map[string]string{"app": "missing"})
+	if result != "linux" {
+		t.Errorf("got %s, want linux (default)", result)
+	}
+}
+
+func TestDetectTargetOS_DeploymentNoNodeSelector_DefaultsLinux(t *testing.T) {
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "plain-app", Namespace: "default"},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "plain-app"}},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "plain-app"}},
+				Spec:       corev1.PodSpec{},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(deploy)
+	h := &WebhookHandler{clientset: client}
+
+	result := h.detectTargetOS("default", map[string]string{"app": "plain-app"})
+	if result != "linux" {
+		t.Errorf("got %s, want linux (no nodeSelector)", result)
+	}
+}
+
+func TestDetectTargetOS_WrongNamespace_DefaultsLinux(t *testing.T) {
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "win-app", Namespace: "other"},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "win-app"}},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "win-app"}},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "windows"},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(deploy)
+	h := &WebhookHandler{clientset: client}
+
+	// Service in "default", Deployment in "other" — should not match
+	result := h.detectTargetOS("default", map[string]string{"app": "win-app"})
+	if result != "linux" {
+		t.Errorf("got %s, want linux (wrong namespace)", result)
+	}
+}
+
+func TestOsFromPodSpecs_PartialSelectorMatch(t *testing.T) {
+	// Service selector is subset of pod labels — should match
+	items := []appsv1.Deployment{{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "myapp", "version": "v1"}},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "windows"},
+				},
+			},
+		},
+	}}
+	selectorSet := labels.Set(map[string]string{"app": "myapp"})
+	result := osFromPodSpecs(items, selectorSet)
+	if result != "windows" {
+		t.Errorf("got %s, want windows (partial selector match)", result)
+	}
+}
+
+func TestOsFromPodSpecs_NoMatch(t *testing.T) {
+	items := []appsv1.Deployment{{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "other"}},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "windows"},
+				},
+			},
+		},
+	}}
+	selectorSet := labels.Set(map[string]string{"app": "myapp"})
+	result := osFromPodSpecs(items, selectorSet)
+	if result != "" {
+		t.Errorf("got %s, want empty (no match)", result)
+	}
 }
