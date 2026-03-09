@@ -38,6 +38,15 @@ function Invoke-TimeSync {
 
         #Set timezone in kubemaster
         (Invoke-CmdOnControlPlaneViaSSHKey "sudo timedatectl set-timezone $timezoneLinux 2>&1").Output | Write-Log
+
+        # Directly set the VM system clock from the Windows host UTC time.
+        # This is more reliable than 'hwclock --hctosys' in offline environments
+        # where NTP is unreachable and the Hyper-V emulated RTC may have drifted
+        # or be misinterpreted (e.g. UTC vs local time offset).
+        $utcTime = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')
+        Write-Log "[TimeSync] Setting VM clock to host UTC time: $utcTime"
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo date -u -s '$utcTime' 2>&1").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo hwclock -w 2>&1').Output | Write-Log
     }
 }
 
