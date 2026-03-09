@@ -49,18 +49,8 @@ if ($systemError) {
     Write-Log $systemError.Message -Error
     exit 1
 }
-if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
-    $errMsg = "Addon 'security' is already disabled, nothing to do."
 
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-    
-    Write-Log $errMsg -Error
-    exit 1
-}
+$addonEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })
 
 Write-Log 'Checking if cert-manager can be uninstalled' -Console
 $hasNginxIngress = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
@@ -166,7 +156,9 @@ if ($clusterRole) {
     }
 }
 
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
+if ($addonEnabled) {
+    Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
+}
 
 # if security addon is enabled, than adapt other addons
 # Important is that update is called at the end because addons check state of security addon
