@@ -1511,21 +1511,12 @@ function Install-CmctlCli {
 .SYNOPSIS
 Installs cert-manager controllers in the cluster.
 .DESCRIPTION
-Applies cert-manager YAML manifest and waits for API readiness.
-Throws error if cert-manager fails to become ready.
-.PARAMETER EncodeStructuredOutput
-Whether to encode error output for CLI consumption.
-.PARAMETER MessageType
-Message type for structured CLI output.
+Applies cert-manager YAML manifest, waits for API readiness, and ensures
+CRDs are fully established before returning. Throws on failure.
 #>
 function Install-CertManagerControllers {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $false)]
-        [switch] $EncodeStructuredOutput,
-        [Parameter(Mandatory = $false)]
-        [string] $MessageType
-    )
+    param()
 
     Write-Log 'Installing cert-manager' -Console
     $certManagerConfig = Get-CertManagerConfig
@@ -1534,52 +1525,85 @@ function Install-CertManagerControllers {
     Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
     $certManagerStatus = Wait-ForCertManagerAvailable
     
-    if ($certManagerStatus -eq $true) {
-        return
+    if ($certManagerStatus -ne $true) {
+        throw "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'cert-manager' failed."
     }
-    
-    $errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'cert-manager' failed."
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+
+    Write-Log '[CertManager] Waiting for cert-manager CRDs to be fully established' -Console
+    $crdWaitResult = Invoke-Kubectl -Params 'wait', '--for=condition=Established', 'crd/clusterissuers.cert-manager.io', 'crd/certificates.cert-manager.io', '--timeout=120s'
+    if ($crdWaitResult.Success -ne $true) {
+        Write-Log "[CertManager] CRD wait output: $($crdWaitResult.Output)" -Console
+        $crdStatus = (Invoke-Kubectl -Params 'get', 'crd', 'clusterissuers.cert-manager.io', 'certificates.cert-manager.io', '-o=wide').Output
+        Write-Log "[CertManager] CRD status: $crdStatus" -Console
+        throw "cert-manager CRDs did not become Established within 120s. CRD status: $crdStatus"
     }
-    throw $errMsg
+    Write-Log '[CertManager] cert-manager CRDs are established' -Console
+
+    # kubectl caches API discovery and HTTP responses locally. Even after CRDs
+    # are Established, the cache will lack cert-manager.io/v1. Clear cache before
+    # EACH probe because if the API server discovery hasn't updated yet when kubectl
+    # re-fetches, the fresh-but-incomplete response gets cached again.
+    Write-Log '[CertManager] Waiting for kubectl to recognize cert-manager CRDs' -Console
+    $discoveryReady = $false
+    for ($d = 1; $d -le 30; $d++) {
+        Clear-KubectlDiscoveryCache
+        $probe = Invoke-Kubectl -Params 'get', 'clusterissuers', '--no-headers', '--ignore-not-found'
+        if ($probe.Success -eq $true) {
+            Write-Log '[CertManager] kubectl can see cert-manager CRDs' -Console
+            $discoveryReady = $true
+            break
+        }
+        Write-Log "[CertManager] Discovery probe attempt $d/30 failed, retrying in 2s..." -Console
+        Start-Sleep -Seconds 2
+    }
+    if (-not $discoveryReady) {
+        Write-Log '[CertManager] WARNING: kubectl could not discover cert-manager CRDs within 60s' -Console
+    }
 }
 
 <#
 .SYNOPSIS
 Initializes CA ClusterIssuer for cert-manager.
 .DESCRIPTION
-Applies CA ClusterIssuer manifest, waits for root certificate creation,
+Applies CA ClusterIssuer manifest with retry logic, waits for root certificate creation,
 and renews all existing certificates using the new CA.
-.PARAMETER EncodeStructuredOutput
-Whether to encode error output for CLI consumption.
-.PARAMETER MessageType
-Message type for structured CLI output.
 #>
 function Initialize-CACertificateIssuer {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $false)]
-        [switch] $EncodeStructuredOutput,
-        [Parameter(Mandatory = $false)]
-        [string] $MessageType
-    )
+    param()
 
     Write-Log 'Configuring CA ClusterIssuer' -Console
     $caIssuerConfig = Get-CAIssuerConfig
-    (Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
+
+    $maxRetries = 5
+    $retryDelay = 10
+    $applied = $false
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        Write-Log "[CertManager] Applying CA issuer manifest (attempt $attempt/$maxRetries)" -Console
+        # Clear kubectl cache before each attempt so stale cached discovery
+        # responses don't prevent recognition of cert-manager CRD types
+        Clear-KubectlDiscoveryCache
+        $result = Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $caIssuerConfig
+        Write-Log "[CertManager] kubectl apply output: $($result.Output)"
+        if ($result.Success -eq $true) {
+            $applied = $true
+            break
+        }
+        Write-Log "[CertManager] kubectl apply failed (attempt $attempt/$maxRetries): $($result.Output)" -Console
+        if ($attempt -lt $maxRetries) {
+            Start-Sleep -Seconds $retryDelay
+        }
+    }
+
+    if (-not $applied) {
+        throw "Failed to apply CA issuer manifest after $maxRetries attempts. Last output: $($result.Output)"
+    }
 
     Write-Log 'Waiting for CA root certificate to be created' -Console
     $caCreated = Wait-ForCARootCertificate
     
     if ($caCreated -ne $true) {
-        $errMsg = "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'cert-manager' failed."
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        }
-        throw $errMsg
+        throw "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'cert-manager' failed."
     }
 
     # Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
@@ -1622,6 +1646,18 @@ function Wait-ForCARootCertificate(
         Write-Log "Retry {$i}: 'ca-issuer-root-secret' not yet created. Will retry after $SleepDurationInSeconds Seconds" -Console
         Start-Sleep -Seconds $SleepDurationInSeconds
     }
+
+    # Dump diagnostics on failure
+    Write-Log '[CertManager] ca-issuer-root-secret was not created. Collecting diagnostics...' -Console
+    $certStatus = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'certificates', 'k2s-self-signed-ca', '-o=yaml', '--ignore-not-found').Output
+    Write-Log "[CertManager] Certificate resource status: $certStatus" -Console
+    $issuerStatus = (Invoke-Kubectl -Params 'get', 'clusterissuers', 'k2s-boot-strapper-issuer', '-o=yaml', '--ignore-not-found').Output
+    Write-Log "[CertManager] ClusterIssuer status: $issuerStatus" -Console
+    $cmPods = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'pods', '-o=wide').Output
+    Write-Log "[CertManager] cert-manager pods: $cmPods" -Console
+    $cmEvents = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'events', '--sort-by=.lastTimestamp').Output
+    Write-Log "[CertManager] cert-manager events: $cmEvents" -Console
+
     return $false
 }
 
@@ -1700,9 +1736,9 @@ function Enable-CertManager {
         $k2sRoot = "$PSScriptRoot\.."
         
         Install-CmctlCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
-        Install-CertManagerControllers -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
+        Install-CertManagerControllers
         
-        Initialize-CACertificateIssuer -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
+        Initialize-CACertificateIssuer
         
         Import-CACertificateToWindowsStore
 
@@ -1762,6 +1798,30 @@ function New-AddonStatusProperty {
 
 <#
 .SYNOPSIS
+Clears the kubectl API discovery cache from disk.
+.DESCRIPTION
+Deletes the kubectl discovery cache directory (~/.kube/cache/discovery/) so that
+subsequent kubectl commands re-fetch the API server's discovery document.
+This is required after installing new CRDs because kubectl's cached discovery
+has a long TTL and will not pick up newly registered API groups/versions
+automatically. Without this, commands like 'kubectl apply' and 'kubectl get'
+fail with 'no matches for kind' errors for CRD-based resources.
+.EXAMPLE
+Clear-KubectlDiscoveryCache
+#>
+function Clear-KubectlDiscoveryCache {
+    [CmdletBinding()]
+    param()
+
+    $kubeCacheDir = Join-Path (Join-Path $env:USERPROFILE '.kube') 'cache'
+    if (Test-Path $kubeCacheDir) {
+        Write-Log '[kubectl] Clearing kubectl cache to pick up newly registered CRDs' -Console
+        Remove-Item -Recurse -Force $kubeCacheDir -ErrorAction SilentlyContinue
+    }
+}
+
+<#
+.SYNOPSIS
 Gets the path to Gateway API CRDs manifest file.
 .DESCRIPTION
 Returns the absolute path to the Gateway API v1.4.1 CRDs YAML manifest in the common addon folder.
@@ -1785,7 +1845,34 @@ function Install-GatewayApiCrds {
 
     Write-Log 'Installing Gateway API CRDs' -Console
     $gatewayApiCrds = Get-GatewayApiCrdsConfig
-    (Invoke-Kubectl -Params 'apply', '-f', $gatewayApiCrds).Output | Write-Log
+    # Use --server-side to avoid oversized last-applied annotations on large CRDs
+    (Invoke-Kubectl -Params 'apply', '--server-side', '-f', $gatewayApiCrds).Output | Write-Log
+
+    # Wait for Gateway CRD to be fully established before clearing cache
+    Write-Log '[GatewayAPI] Waiting for Gateway API CRDs to be fully established' -Console
+    $gwCrdWait = Invoke-Kubectl -Params 'wait', '--for=condition=Established', 'crd/gateways.gateway.networking.k8s.io', '--timeout=120s'
+    if ($gwCrdWait.Success -ne $true) {
+        Write-Log "[GatewayAPI] CRD wait output: $($gwCrdWait.Output)" -Console
+        Write-Log '[GatewayAPI] WARNING: Gateway API CRDs may not be fully established' -Console
+    }
+
+    # Clear stale kubectl discovery cache and verify Gateway type is visible
+    Clear-KubectlDiscoveryCache
+    Write-Log '[GatewayAPI] Waiting for kubectl discovery cache to include Gateway API CRDs' -Console
+    $gwDiscoveryReady = $false
+    for ($d = 1; $d -le 15; $d++) {
+        $probe = Invoke-Kubectl -Params 'get', 'gateways.gateway.networking.k8s.io', '--no-headers', '--ignore-not-found', '-A'
+        if ($probe.Success -eq $true) {
+            Write-Log '[GatewayAPI] kubectl discovery cache is up-to-date' -Console
+            $gwDiscoveryReady = $true
+            break
+        }
+        Write-Log "[GatewayAPI] Discovery probe attempt $d/15 failed, retrying in 2s..." -Console
+        Start-Sleep -Seconds 2
+    }
+    if (-not $gwDiscoveryReady) {
+        Write-Log '[GatewayAPI] WARNING: kubectl discovery cache did not refresh within 30s' -Console
+    }
 }
 
 <#
@@ -1963,4 +2050,5 @@ Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
 Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
-Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret, New-BackendCACertConfigMap
+Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret, New-BackendCACertConfigMap,
+Clear-KubectlDiscoveryCache
