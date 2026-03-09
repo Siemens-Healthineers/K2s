@@ -378,7 +378,11 @@ spec:
             
             # Clear kubectl cache before each attempt so newly registered
             # trust-manager CRDs (Bundle) are discoverable
-            Clear-KubectlDiscoveryCache
+            $kubeCacheDir = Join-Path (Join-Path $env:USERPROFILE '.kube') 'cache'
+            if (Test-Path $kubeCacheDir) {
+                Write-Log '[kubectl] Clearing kubectl cache to pick up newly registered CRDs'
+                Remove-Item -Recurse -Force $kubeCacheDir -ErrorAction SilentlyContinue
+            }
 
             # Try to create the test bundle using --server-side to bypass
             # any remaining client-side discovery issues
