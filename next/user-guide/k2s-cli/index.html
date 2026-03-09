@@ -26,7 +26,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -3531,6 +3531,16 @@ SPDX-License-Identifier: MIT
 <td><abbr title="Random-Access Memory">RAM</abbr> for master <abbr title="Virtual Machine">VM</abbr> (minimum 2 GB)</td>
 </tr>
 <tr>
+<td><code>--master-memory-min</code></td>
+<td></td>
+<td>Minimum <abbr title="Random-Access Memory">RAM</abbr> for dynamic memory (enables dynamic memory)</td>
+</tr>
+<tr>
+<td><code>--master-memory-max</code></td>
+<td></td>
+<td>Maximum <abbr title="Random-Access Memory">RAM</abbr> for dynamic memory (enables dynamic memory)</td>
+</tr>
+<tr>
 <td><code>--master-disk</code></td>
 <td></td>
 <td>Disk size for master <abbr title="Virtual Machine">VM</abbr> (minimum 10 GB)</td>
@@ -3592,15 +3602,48 @@ SPDX-License-Identifier: MIT
 </tr>
 </tbody>
 </table>
+<p><strong>Dynamic Memory Examples:</strong></p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp"># </span>Static<span class="w"> </span>memory<span class="w"> </span><span class="o">(</span>default<span class="w"> </span>behavior<span class="o">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">k2s install --master-memory 4GB</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="gp"># </span>Dynamic<span class="w"> </span>memory<span class="w"> </span>-<span class="w"> </span>starts<span class="w"> </span>with<span class="w"> </span>2GB,<span class="w"> </span>can<span class="w"> </span>grow<span class="w"> </span>based<span class="w"> </span>on<span class="w"> </span>host<span class="w"> </span>capacity
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">k2s install --master-memory-min 2GB</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="gp"># </span>Max<span class="w"> </span>auto-calculated:<span class="w"> </span><span class="m">50</span>%<span class="w"> </span>of<span class="w"> </span>host<span class="w"> </span>RAM<span class="w"> </span><span class="o">(</span>e.g.,<span class="w"> </span>16GB<span class="w"> </span>on<span class="w"> </span>32GB<span class="w"> </span>host<span class="o">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="gp"># </span>Dynamic<span class="w"> </span>memory<span class="w"> </span>-<span class="w"> </span>starts<span class="w"> </span>with<span class="w"> </span>6GB<span class="w"> </span><span class="o">(</span>default<span class="o">)</span>,<span class="w"> </span>can<span class="w"> </span>shrink<span class="w"> </span>to<span class="w"> </span>2GB<span class="w"> </span>when<span class="w"> </span>idle,<span class="w"> </span>grow<span class="w"> </span>to<span class="w"> </span>8GB
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="go">k2s install --master-memory-max 8GB</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="gp"># </span>Min<span class="w"> </span>auto-calculated:<span class="w"> </span><span class="m">30</span>%<span class="w"> </span>of<span class="w"> </span>startup<span class="w"> </span><span class="o">(</span>2GB,<span class="w"> </span>with<span class="w"> </span>2GB<span class="w"> </span>floor<span class="o">)</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="gp"># </span>Dynamic<span class="w"> </span>memory<span class="w"> </span>with<span class="w"> </span>min<span class="w"> </span>and<span class="w"> </span>max<span class="w"> </span>-<span class="w"> </span>starts<span class="w"> </span>with<span class="w"> </span>2GB,<span class="w"> </span>can<span class="w"> </span>grow<span class="w"> </span>up<span class="w"> </span>to<span class="w"> </span>8GB
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="go">k2s install --master-memory-min 2GB --master-memory-max 8GB</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="gp"># </span>Dynamic<span class="w"> </span>memory<span class="w"> </span>with<span class="w"> </span>explicit<span class="w"> </span>startup<span class="w"> </span>-<span class="w"> </span>starts<span class="w"> </span>with<span class="w"> </span>4GB,<span class="w"> </span>scales<span class="w"> </span>between<span class="w"> </span>2GB-8GB
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="go">k2s install --master-memory 4GB --master-memory-min 2GB --master-memory-max 8GB</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Dynamic Memory with Intelligent Defaults</p>
+<ul>
+<li>Specifying <code>--master-memory-min</code> or <code>--master-memory-max</code> <strong>automatically enables</strong> Hyper-V dynamic memory</li>
+</ul>
+<p><strong>Intelligent Defaults:</strong>
+- <strong>Min not specified:</strong> Defaults to 30% of startup (floor: 2GB) - allows <abbr title="Virtual Machine">VM</abbr> to shrink significantly when idle
+- <strong>Max not specified:</strong> Defaults to 50% of host <abbr title="Random-Access Memory">RAM</abbr> (floor: 8GB, ceiling: 32GB) - allows <abbr title="Virtual Machine">VM</abbr> to grow as needed
+- <strong>Startup not specified with min:</strong> <abbr title="Virtual Machine">VM</abbr> starts with minimum memory for optimal resource efficiency</p>
+<p><strong>Validation Rules:</strong>
+- Minimum memory must be ≤ maximum memory
+- Minimum memory must be ≤ startup memory (if specified)
+- Maximum memory must be ≥ startup memory (if specified)
+- Dynamic memory is <strong>not supported with WSL2</strong> (<code>--wsl</code> flag uses static memory only)</p>
+</div>
 <h3 id="install-buildonly">install buildonly</h3>
 <p>Installs a minimal <em>buildonly</em> setup (Linux <abbr title="Virtual Machine">VM</abbr> without Windows worker node, intended for container image building only).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s install buildonly [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s install buildonly [flags]</span>
 </code></pre></div>
 <p>Accepts the same <abbr title="Virtual Machine">VM</abbr>-resource, proxy, and config flags as <code>install</code>.</p>
 <hr />
 <h2 id="uninstall">uninstall</h2>
 <p>Removes the <em>K2s</em> cluster from the host machine.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s uninstall [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s uninstall [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3631,7 +3674,7 @@ SPDX-License-Identifier: MIT
 <hr />
 <h2 id="start">start</h2>
 <p>Starts a previously installed <em>K2s</em> cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s start [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s start [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3662,7 +3705,7 @@ SPDX-License-Identifier: MIT
 <hr />
 <h2 id="stop">stop</h2>
 <p>Stops the running <em>K2s</em> cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s stop [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s stop [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3688,7 +3731,7 @@ SPDX-License-Identifier: MIT
 <hr />
 <h2 id="status">status</h2>
 <p>Prints status information about the <em>K2s</em> cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s status [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s status [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3709,14 +3752,14 @@ SPDX-License-Identifier: MIT
 <hr />
 <h2 id="version">version</h2>
 <p>Prints the installed <em>K2s</em> version.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s version</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s version</span>
 </code></pre></div>
 <hr />
 <h2 id="image">image</h2>
 <p>Manage container images on the cluster nodes.</p>
 <h3 id="image-ls">image ls</h3>
 <p>List images on all nodes.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s image ls [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s image ls [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3741,7 +3784,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-build">image build</h3>
 <p>Build a container image.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s image build [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s image build [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3791,7 +3834,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-pull">image pull</h3>
 <p>Pull an image onto a Kubernetes node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s image pull &lt;image&gt; [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s image pull &lt;image&gt; [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3811,7 +3854,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-push">image push</h3>
 <p>Push an image into a registry.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s image push [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s image push [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3836,7 +3879,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-tag">image tag</h3>
 <p>Tag an existing image with a new name.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s image tag [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s image tag [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3866,7 +3909,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-export">image export</h3>
 <p>Export an image to a tar archive.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s image export [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s image export [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3901,7 +3944,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-import">image import</h3>
 <p>Import an image from a tar archive.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s image import [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s image import [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3936,7 +3979,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-rm">image rm</h3>
 <p>Remove a container image.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s image rm [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s image rm [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -3971,11 +4014,11 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-clean">image clean</h3>
 <p>Remove all non-system container images from every node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s image clean</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s image clean</span>
 </code></pre></div>
 <h3 id="image-reset-win-storage">image reset-win-storage</h3>
 <p>Reset the containerd and Docker image storage on Windows nodes.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s image reset-win-storage [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s image reset-win-storage [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4016,7 +4059,7 @@ SPDX-License-Identifier: MIT
 <h3 id="image-registry">image registry</h3>
 <p>Manage configured container registries.</p>
 <h4 id="image-registry-add">image registry add</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s image registry add &lt;registry-url&gt; [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">k2s image registry add &lt;registry-url&gt; [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4050,17 +4093,17 @@ SPDX-License-Identifier: MIT
 </tbody>
 </table>
 <h4 id="image-registry-rm">image registry rm</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">k2s image registry rm &lt;registry-url&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">k2s image registry rm &lt;registry-url&gt;</span>
 </code></pre></div>
 <h4 id="image-registry-ls">image registry ls</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">k2s image registry ls</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s image registry ls</span>
 </code></pre></div>
 <hr />
 <h2 id="addons">addons</h2>
 <p>Manage optional cluster addons. See the <a href="../addons/">Addons</a> page for a full overview.</p>
 <h3 id="addons-ls">addons ls</h3>
 <p>List all available addons and their status.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s addons ls [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons ls [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4080,19 +4123,19 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="addons-enable-disable">addons enable / disable</h3>
 <p>Enable or disable a specific addon. The subcommands and their flags are defined dynamically from each addon's <code>addon.manifest.yaml</code>.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons enable &lt;addon&gt; [flags]</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="go">k2s addons disable &lt;addon&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">k2s addons enable &lt;addon&gt; [flags]</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="go">k2s addons disable &lt;addon&gt;</span>
 </code></pre></div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">k2s addons enable ingress</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="go">k2s addons enable registry</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="go">k2s addons disable dashboard</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="go">k2s addons enable ingress</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="go">k2s addons enable registry</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="go">k2s addons disable dashboard</span>
 </code></pre></div>
 </div>
 <h3 id="addons-status">addons status</h3>
 <p>Print the status of a specific addon.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="go">k2s addons status &lt;addon&gt; [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="go">k2s addons status &lt;addon&gt; [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4112,7 +4155,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="addons-export">addons export</h3>
 <p>Export an addon and its container images as an OCI artifact.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="go">k2s addons export &lt;addon&gt; [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="go">k2s addons export &lt;addon&gt; [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4132,7 +4175,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="addons-import">addons import</h3>
 <p>Import a previously exported addon from an OCI artifact.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="go">k2s addons import &lt;addon&gt; [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="go">k2s addons import &lt;addon&gt; [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4152,7 +4195,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="addons-backup">addons backup</h3>
 <p>Back up addon data (persistent volumes, configuration).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="go">k2s addons backup &lt;addon&gt; [implementation] [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="go">k2s addons backup &lt;addon&gt; [implementation] [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4172,7 +4215,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="addons-restore">addons restore</h3>
 <p>Restore addon data from a backup.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="go">k2s addons restore &lt;addon&gt; [implementation] [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="go">k2s addons restore &lt;addon&gt; [implementation] [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4195,7 +4238,7 @@ SPDX-License-Identifier: MIT
 <p>Perform system-level tasks — upgrading, packaging, backup/restore, diagnostics, certificates, proxy, users, and network reset.</p>
 <h3 id="system-upgrade">system upgrade</h3>
 <p>Upgrade the installed <em>K2s</em> cluster to the version of the package (full upgrade or in-place delta update).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="go">k2s system upgrade [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="go">k2s system upgrade [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4250,7 +4293,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-package">system package</h3>
 <p>Build a <em>K2s</em> zip package (optionally offline, delta, or code-signed).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="go">k2s system package [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="go">k2s system package [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4340,7 +4383,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-backup">system backup</h3>
 <p>Back up the cluster (resources, persistent volumes, user images).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="go">k2s system backup [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="go">k2s system backup [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4375,7 +4418,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-restore">system restore</h3>
 <p>Restore a <em>K2s</em> cluster from a backup.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="go">k2s system restore [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="go">k2s system restore [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4405,7 +4448,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-dump">system dump</h3>
 <p>Dump full system status to a folder for diagnostics.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="go">k2s system dump [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="go">k2s system dump [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4425,7 +4468,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-certificate-renew">system certificate renew</h3>
 <p>Renew Kubernetes certificates.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="go">k2s system certificate renew [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="go">k2s system certificate renew [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4445,20 +4488,20 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-proxy">system proxy</h3>
 <p>Manage <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy settings for the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="go">k2s system proxy set &lt;proxy-uri&gt;</span>
-<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="go">k2s system proxy get</span>
-<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="go">k2s system proxy show</span>
-<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a><span class="go">k2s system proxy reset</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="go">k2s system proxy set &lt;proxy-uri&gt;</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="go">k2s system proxy get</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="go">k2s system proxy show</span>
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="go">k2s system proxy reset</span>
 </code></pre></div>
 <h4 id="system-proxy-override">system proxy override</h4>
 <p>Manage no-proxy overrides.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="go">k2s system proxy override add &lt;hosts...&gt;</span>
-<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="go">k2s system proxy override delete &lt;hosts...&gt;</span>
-<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="go">k2s system proxy override ls</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="go">k2s system proxy override add &lt;hosts...&gt;</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="go">k2s system proxy override delete &lt;hosts...&gt;</span>
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a><span class="go">k2s system proxy override ls</span>
 </code></pre></div>
 <h3 id="system-users-add">system users add</h3>
 <p>Grant a Windows user access to the <em>K2s</em> cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="go">k2s system users add [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="go">k2s system users add [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4483,7 +4526,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-reset-network">system reset network</h3>
 <p>Reset the host network configuration (requires reboot).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="go">k2s system reset network [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="go">k2s system reset network [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4510,7 +4553,7 @@ SPDX-License-Identifier: MIT
 <p>Manage additional cluster nodes (physical machines or VMs).</p>
 <h3 id="node-add">node add</h3>
 <p>Add a node to the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="go">k2s node add [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="go">k2s node add [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4545,7 +4588,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-remove">node remove</h3>
 <p>Remove a node from the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="go">k2s node remove [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="go">k2s node remove [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4565,7 +4608,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-copy">node copy</h3>
 <p>Copy files or folders between host and node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="go">k2s node copy [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="go">k2s node copy [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4615,7 +4658,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-exec">node exec</h3>
 <p>Execute a command on a remote node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="go">k2s node exec [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="go">k2s node exec [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4660,7 +4703,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-connect">node connect</h3>
 <p>Open an interactive <abbr title="Secure Shell">SSH</abbr> session to a remote node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="go">k2s node connect [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="go">k2s node connect [flags]</span>
 </code></pre></div>
 <table>
 <thead>
