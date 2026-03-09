@@ -5,11 +5,37 @@
 apiVersion: v1
 kind: AddonManifest
 metadata:
-  description: Automating the deployment/updating of applications using GitOps
   name: rollout
+  description: Automating the deployment/updating of applications using GitOps
 spec:
   implementations:
-    - commands:
+    - name: argocd
+      description: Automating the deployment/updating of applications using ArgoCD
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: ingress
+                shorthand: i
+                default: none
+                description: Ingress controller to use for exposing the ArgoCD dashboard
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - none
+                    - nginx
+                    - nginx-gw
+                    - traefik
+            examples:
+              - cmd: k2s addons enable rollout argocd
+                comment: Enable rollout with ArgoCD in k2s
+              - cmd: k2s addons enable rollout argocd --ingress traefik
+                comment: Enable rollout with ArgoCD in k2s with traefik ingress
+          script:
+            subPath: argocd/Enable.ps1
+            parameterMappings:
+              - cliFlagName: ingress
+                scriptParameterName: Ingress
         disable:
           cli:
             examples:
@@ -17,33 +43,43 @@ spec:
                 comment: Disable rollout ArgoCD addon in k2s
           script:
             subPath: argocd/Disable.ps1
+    - name: fluxcd
+      description: Automating the deployment/updating of applications using Flux CD
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages: []
+        windows:
+          curl:
+            - url: https://github.com/fluxcd/flux2/releases/download/v2.8.1/flux_2.8.1_windows_amd64.zip
+              destination: bin\flux.exe
+      commands:
         enable:
           cli:
-            examples:
-              - cmd: k2s addons enable rollout argocd
-                comment: Enable rollout with ArgoCD in k2s
-              - cmd: k2s addons enable rollout argocd --ingress traefik
-                comment: Enable rollout with ArgoCD in k2s with traefik ingress
             flags:
-              - constraints:
+              - name: ingress
+                shorthand: i
+                default: none
+                description: Ingress controller for webhook receiver (Git push notifications)
+                constraints:
                   kind: validation-set
                   validationSet:
                     - none
                     - nginx
                     - nginx-gw
                     - traefik
-                default: none
-                description: Ingress controller to use for exposing the ArgoCD dashboard
-                name: ingress
-                shorthand: i
+            examples:
+              - cmd: k2s addons enable rollout fluxcd
+                comment: Enable rollout with Flux CD in k2s
+              - cmd: k2s addons enable rollout fluxcd --ingress nginx
+                comment: Enable rollout with Flux CD and webhook ingress in k2s
           script:
+            subPath: fluxcd/Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
-            subPath: argocd/Enable.ps1
-      description: Automating the deployment/updating of applications using ArgoCD
-      name: argocd
-    - commands:
         disable:
           cli:
             examples:
@@ -51,39 +87,3 @@ spec:
                 comment: Disable rollout Flux CD addon in k2s
           script:
             subPath: fluxcd/Disable.ps1
-        enable:
-          cli:
-            examples:
-              - cmd: k2s addons enable rollout fluxcd
-                comment: Enable rollout with Flux CD in k2s
-              - cmd: k2s addons enable rollout fluxcd --ingress nginx
-                comment: Enable rollout with Flux CD and webhook ingress in k2s
-            flags:
-              - constraints:
-                  kind: validation-set
-                  validationSet:
-                    - none
-                    - nginx
-                    - nginx-gw
-                    - traefik
-                default: none
-                description: Ingress controller for webhook receiver (Git push notifications)
-                name: ingress
-                shorthand: i
-          script:
-            parameterMappings:
-              - cliFlagName: ingress
-                scriptParameterName: Ingress
-            subPath: fluxcd/Enable.ps1
-      description: Automating the deployment/updating of applications using Flux CD
-      name: fluxcd
-      offline_usage:
-        linux:
-          additionalImages: []
-          curl: []
-          deb: []
-          repos: []
-        windows:
-          curl:
-            - destination: bin\flux.exe
-              url: https://github.com/fluxcd/flux2/releases/download/v2.8.1/flux_2.8.1_windows_amd64.zip
