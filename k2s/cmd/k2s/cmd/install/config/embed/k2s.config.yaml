@@ -8,10 +8,9 @@ nodes:
   - role: control-plane # required
     resources:
       cpu: 6 # default
-      memory: 6GB # default startup memory
-      memoryMin: # optional, minimum RAM for dynamic memory (when dynamicMemory is true)
-      memoryMax: # optional, maximum RAM for dynamic memory (when dynamicMemory is true)
-      dynamicMemory: false # default, set to true to enable Hyper-V dynamic memory management
+      memory: 6GB # default startup memory (set to memoryMin if only memoryMin/memoryMax specified, otherwise 6GB)
+      memoryMin: # optional, minimum RAM for dynamic memory (auto-enables dynamic memory)
+      memoryMax: # optional, maximum RAM for dynamic memory (auto-enables dynamic memory)
       disk: 50GB # default
 env:
   httpProxy: # default

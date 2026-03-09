@@ -247,10 +247,10 @@ var _ = Describe("'security' addon", Ordered, func() {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+	It("preserves cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(BeNil())
 	})
 
 	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
@@ -477,10 +477,10 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+	It("preserves cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(BeNil())
 	})
 
 	It("uninstalls linkerd", func(ctx context.Context) {
