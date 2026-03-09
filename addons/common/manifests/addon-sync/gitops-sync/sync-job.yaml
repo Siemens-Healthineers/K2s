@@ -19,6 +19,10 @@
 # References two ConfigMaps from the one-time cluster setup:
 #   addon-sync-config  → registry base URL, K2s install dir, insecure flag
 #   addon-sync-script  → Sync-Addons.ps1 processor script
+#
+## exclude-from-export
+# The mcr.microsoft.com/windows/servercore image used here is a base Windows OS image
+# available on every Windows node and must not be packaged as part of addon exports.
 apiVersion: batch/v1
 kind: Job
 metadata:

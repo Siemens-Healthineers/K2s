@@ -961,10 +961,10 @@ Write-Log "  Layer 2: charts.tar.gz       (application/vnd.cncf.helm.chart.conte
 Write-Log "  Layer 3: scripts.tar.gz      (application/vnd.k2s.addon.scripts.v1.tar+gzip)" -Console
 if ($OmitImages) {
     Write-Log "  Layer 4: images-linux.tar    (application/vnd.oci.image.layer.v1.tar) [SKIPPED]" -Console
-    Write-Log "  Layer 5: images-windows.tar  (application/vnd.oci.image.layer.v1.tar+windows) [SKIPPED]" -Console
+    Write-Log "  Layer 5: images-windows.tar  (application/vnd.k2s.addon.images-windows.v1.tar) [SKIPPED]" -Console
 } else {
     Write-Log "  Layer 4: images-linux.tar    (application/vnd.oci.image.layer.v1.tar)" -Console
-    Write-Log "  Layer 5: images-windows.tar  (application/vnd.oci.image.layer.v1.tar+windows)" -Console
+    Write-Log "  Layer 5: images-windows.tar  (application/vnd.k2s.addon.images-windows.v1.tar)" -Console
 }
 if ($OmitPackages) {
     Write-Log "  Layer 6: packages.tar.gz     (application/vnd.k2s.addon.packages.v1.tar+gzip) [SKIPPED]" -Console
