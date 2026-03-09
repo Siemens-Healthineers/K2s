@@ -569,6 +569,202 @@ var _ = Describe("config", func() {
 		})
 	})
 
+	Describe("autoEnableDynamicMemory", func() {
+		When("memoryMin is specified", func() {
+			It("automatically enables dynamic memory", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+								MemoryMin:     "2GB",
+							},
+						},
+					},
+				}
+
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeTrue())
+			})
+		})
+
+		When("memoryMax is specified", func() {
+			It("automatically enables dynamic memory", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+								MemoryMax:     "8GB",
+							},
+						},
+					},
+				}
+
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeTrue())
+			})
+		})
+
+		When("both memoryMin and memoryMax are specified", func() {
+			It("automatically enables dynamic memory", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+								MemoryMin:     "2GB",
+								MemoryMax:     "8GB",
+							},
+						},
+					},
+				}
+
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeTrue())
+			})
+		})
+
+		When("neither memoryMin nor memoryMax is specified", func() {
+			It("does not enable dynamic memory", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+								Memory:        "4GB",
+							},
+						},
+					},
+				}
+
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeFalse())
+			})
+		})
+
+		When("dynamic memory is already enabled", func() {
+			It("keeps it enabled", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: true,
+								MemoryMin:     "2GB",
+								MemoryMax:     "8GB",
+							},
+						},
+					},
+				}
+
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeTrue())
+			})
+		})
+
+		When("memoryMin and memoryMax are empty strings", func() {
+			It("does not enable dynamic memory", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+								MemoryMin:     "",
+								MemoryMax:     "",
+							},
+						},
+					},
+				}
+
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeFalse())
+			})
+		})
+
+		When("memoryMin is specified", func() {
+			It("enables dynamic memory", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:    "6GB",
+								MemoryMin: "2GB",
+								MemoryMax: "8GB",
+							},
+						},
+					},
+				}
+
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeTrue())
+				// Note: startup memory is set to minimum by overwrite function, not here
+			})
+		})
+
+		When("memoryMax is specified", func() {
+			It("enables dynamic memory", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:    "6GB",
+								MemoryMax: "8GB",
+							},
+						},
+					},
+				}
+
+			autoEnableDynamicMemory(config)
+			Expect(config.Nodes[0].Resources.DynamicMemory).To(BeTrue())
+		})
+	})
+
+	When("only memory (no min/max) is specified - static memory", func() {
+		It("does not enable dynamic memory", func() {
+			config := &InstallConfig{
+				Nodes: []NodeConfig{
+					{
+						Role: ControlPlaneRoleName,
+						Resources: ResourceConfig{
+							DynamicMemory: false,
+							Memory:        "4GB",
+						},
+					},
+				},
+			}
+
+			autoEnableDynamicMemory(config)
+			Expect(config.Nodes[0].Resources.DynamicMemory).To(BeFalse())
+		})
+	})
+
+	When("no memory configuration specified - defaults", func() {
+		It("does not enable dynamic memory", func() {
+			config := &InstallConfig{
+				Nodes: []NodeConfig{
+					{
+						Role: ControlPlaneRoleName,
+						Resources: ResourceConfig{
+							DynamicMemory: false,
+						},
+					},
+				},
+			}
+
+			autoEnableDynamicMemory(config)
+			Expect(config.Nodes[0].Resources.DynamicMemory).To(BeFalse())
+		})
+	})
+})
+
 	Describe("validateDynamicMemoryConfiguration", func() {
 		When("dynamic memory is disabled", func() {
 			It("does not validate", func() {
@@ -587,6 +783,28 @@ var _ = Describe("config", func() {
 
 				err := validateDynamicMemoryConfiguration(config)
 				Expect(err).To(BeNil())
+			})
+		})
+
+		When("dynamic memory is enabled but no min/max specified", func() {
+			It("returns an error", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: true,
+								Memory:        "4GB",
+								MemoryMin:     "",
+								MemoryMax:     "",
+							},
+						},
+					},
+				}
+
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("at least one of --master-memory-min or --master-memory-max must be specified"))
 			})
 		})
 
@@ -799,17 +1017,17 @@ var _ = Describe("config", func() {
 				Expect(err).To(BeNil())
 				Expect(result).To(Equal(expectedBytes))
 			},
-			Entry("GB suffix", "4GB", int64(4*1000*1000*1000)),
-			Entry("MB suffix", "512MB", int64(512*1000*1000)),
-			Entry("KB suffix", "1024KB", int64(1024*1000)),
+			Entry("GB suffix", "4GB", int64(4*1024*1024*1024)),
+			Entry("MB suffix", "512MB", int64(512*1024*1024)),
+			Entry("KB suffix", "1024KB", int64(1024*1024)),
 			Entry("G suffix (binary)", "4G", int64(4*1024*1024*1024)),
 			Entry("M suffix (binary)", "512M", int64(512*1024*1024)),
-			Entry("lowercase gb", "4gb", int64(4*1000*1000*1000)),
-			Entry("with spaces", " 4GB ", int64(4*1000*1000*1000)),
+			Entry("lowercase gb", "4gb", int64(4*1024*1024*1024)),
+			Entry("with spaces", " 4GB ", int64(4*1024*1024*1024)),
 			Entry("plain number", "1073741824", int64(1073741824)),
-			Entry("8GB should not match B", "8GB", int64(8*1000*1000*1000)),
-			Entry("6GB should not match B", "6GB", int64(6*1000*1000*1000)),
-			Entry("2GB should not match B", "2GB", int64(2*1000*1000*1000)),
+			Entry("8GB should not match B", "8GB", int64(8*1024*1024*1024)),
+			Entry("6GB should not match B", "6GB", int64(6*1024*1024*1024)),
+			Entry("2GB should not match B", "2GB", int64(2*1024*1024*1024)),
 		)
 
 		When("input is empty", func() {
@@ -840,9 +1058,431 @@ var _ = Describe("config", func() {
 				// Verify ordering: 4GB < 6GB < 8GB
 				Expect(val4).To(BeNumerically("<", val6))
 				Expect(val6).To(BeNumerically("<", val8))
-				Expect(val4).To(Equal(int64(4 * 1000 * 1000 * 1000)))
-				Expect(val6).To(Equal(int64(6 * 1000 * 1000 * 1000)))
-				Expect(val8).To(Equal(int64(8 * 1000 * 1000 * 1000)))
+				Expect(val4).To(Equal(int64(4 * 1024 * 1024 * 1024)))
+				Expect(val6).To(Equal(int64(6 * 1024 * 1024 * 1024)))
+				Expect(val8).To(Equal(int64(8 * 1024 * 1024 * 1024)))
+			})
+		})
+	})
+
+	Describe("validateMemoryBounds", func() {
+		Context("when validating lower bounds (2GB minimum)", func() {
+			It("rejects 0GB for dynamic memory", func() {
+				err := validateMemoryBounds(0, "minimum memory", "0GB")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("must be at least 2GB"))
+				Expect(err.Error()).To(ContainSubstring("memory configuration error"))
+			})
+
+			It("rejects 1GB for dynamic memory", func() {
+				err := validateMemoryBounds(1*1024*1024*1024, "minimum memory", "1GB")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("must be at least 2GB"))
+			})
+
+			It("rejects 0GB for static memory", func() {
+				err := validateMemoryBounds(0, "startup memory", "0GB")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("must be at least 2GB"))
+				Expect(err.Error()).To(ContainSubstring("memory configuration error"))
+			})
+
+			It("rejects 1GB for static memory", func() {
+				err := validateMemoryBounds(1*1024*1024*1024, "startup memory", "1GB")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("must be at least 2GB"))
+			})
+
+			It("accepts 2GB (minimum boundary)", func() {
+				err := validateMemoryBounds(2*1024*1024*1024, "minimum memory", "2GB")
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when validating upper bounds (128GB maximum)", func() {
+			It("rejects 200GB for dynamic memory", func() {
+				err := validateMemoryBounds(200*1024*1024*1024, "maximum memory", "200GB")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("exceeds maximum allowed (128GB)"))
+				Expect(err.Error()).To(ContainSubstring("memory configuration error"))
+			})
+
+			It("rejects 1TB for dynamic memory", func() {
+				err := validateMemoryBounds(1024*1024*1024*1024, "maximum memory", "1TB")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("exceeds maximum allowed (128GB)"))
+			})
+
+			It("rejects 200GB for static memory", func() {
+				err := validateMemoryBounds(200*1024*1024*1024, "startup memory", "200GB")
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("exceeds maximum allowed (128GB)"))
+				Expect(err.Error()).To(ContainSubstring("memory configuration error"))
+			})
+
+			It("accepts 128GB (maximum boundary)", func() {
+				err := validateMemoryBounds(128*1024*1024*1024, "maximum memory", "128GB")
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when validating valid memory ranges", func() {
+			It("accepts 4GB", func() {
+				err := validateMemoryBounds(4*1024*1024*1024, "memory", "4GB")
+				Expect(err).To(BeNil())
+			})
+
+			It("accepts 8GB", func() {
+				err := validateMemoryBounds(8*1024*1024*1024, "memory", "8GB")
+				Expect(err).To(BeNil())
+			})
+
+			It("accepts 64GB", func() {
+				err := validateMemoryBounds(64*1024*1024*1024, "memory", "64GB")
+				Expect(err).To(BeNil())
+			})
+		})
+	})
+
+	Describe("validateDynamicMemoryConfiguration", func() {
+		Context("when validating static memory", func() {
+			It("accepts valid static memory (4GB)", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "4GB",
+								DynamicMemory: false,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).To(BeNil())
+			})
+
+			It("accepts static memory below 2GB (no validation for static memory)", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "1GB",
+								DynamicMemory: false,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				// Static memory is not validated by validateDynamicMemoryConfiguration
+				Expect(err).To(BeNil())
+			})
+
+			It("accepts static memory above 128GB (no validation for static memory)", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "200GB",
+								DynamicMemory: false,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				// Static memory is not validated by validateDynamicMemoryConfiguration
+				Expect(err).To(BeNil())
+			})
+
+			It("accepts boundary values (2GB and 128GB)", func() {
+				config2GB := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "2GB",
+								DynamicMemory: false,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config2GB)
+				Expect(err).To(BeNil())
+
+				config128GB := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "128GB",
+								DynamicMemory: false,
+							},
+						},
+					},
+				}
+				err = validateDynamicMemoryConfiguration(config128GB)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when validating dynamic memory bounds", func() {
+			It("rejects minimum memory below 2GB", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								MemoryMin:     "1GB",
+								MemoryMax:     "8GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("minimum memory"))
+				Expect(err.Error()).To(ContainSubstring("must be at least 2GB"))
+			})
+
+			It("rejects maximum memory above 128GB", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								MemoryMin:     "4GB",
+								MemoryMax:     "200GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("maximum memory"))
+				Expect(err.Error()).To(ContainSubstring("exceeds maximum allowed (128GB)"))
+			})
+
+			It("accepts valid dynamic memory range (2GB-8GB)", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								MemoryMin:     "2GB",
+								MemoryMax:     "8GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when validating dynamic memory range relationships", func() {
+			It("rejects min > max", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								MemoryMin:     "8GB",
+								MemoryMax:     "4GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("minimum memory"))
+				Expect(err.Error()).To(ContainSubstring("cannot be greater than maximum memory"))
+			})
+
+			It("rejects min > startup", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "4GB",
+								MemoryMin:     "6GB",
+								MemoryMax:     "8GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("minimum memory"))
+				Expect(err.Error()).To(ContainSubstring("cannot be greater than startup memory"))
+			})
+
+			It("rejects max < startup", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "6GB",
+								MemoryMin:     "2GB",
+								MemoryMax:     "4GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("maximum memory"))
+				Expect(err.Error()).To(ContainSubstring("cannot be less than startup memory"))
+			})
+
+			It("accepts min = max (boundary case)", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								MemoryMin:     "4GB",
+								MemoryMax:     "4GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).To(BeNil())
+			})
+
+			It("accepts valid range with startup (2GB <= 4GB <= 8GB)", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "4GB",
+								MemoryMin:     "2GB",
+								MemoryMax:     "8GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when validating dynamic memory requirements", func() {
+			It("rejects dynamic memory without min or max", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "4GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("at least one of --master-memory-min or --master-memory-max must be specified"))
+			})
+
+			It("accepts dynamic memory with only min", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								MemoryMin:     "4GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).To(BeNil())
+			})
+
+			It("accepts dynamic memory with only max", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								MemoryMax:     "8GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		Context("when validating invalid memory formats", func() {
+			It("accepts invalid static memory format (no validation for static memory)", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								Memory:        "INVALID",
+								DynamicMemory: false,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				// Static memory is not validated by validateDynamicMemoryConfiguration
+				Expect(err).To(BeNil())
+			})
+
+			It("rejects invalid minimum memory format", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								MemoryMin:     "INVALID",
+								MemoryMax:     "8GB",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("invalid memory minimum value"))
+			})
+
+			It("rejects invalid maximum memory format", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								MemoryMin:     "2GB",
+								MemoryMax:     "INVALID",
+								DynamicMemory: true,
+							},
+						},
+					},
+				}
+				err := validateDynamicMemoryConfiguration(config)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("invalid memory maximum value"))
 			})
 		})
 	})
