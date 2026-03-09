@@ -1458,12 +1458,12 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
     }
 
-    It 'deletes manifests, removes cmctl, and removes CA cert from trusted root when security addon is disabled' {
+    It 'deletes manifests, preserves cmctl, and removes CA cert from trusted root when security addon is disabled' {
         InModuleScope -ModuleName $moduleName {
             Uninstall-CertManager
 
             Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' -and $Params -contains '-f' }
-            Should -Invoke Remove-Cmctl -Times 1 -Scope It
+            Should -Invoke Remove-Cmctl -Times 0 -Scope It
             Should -Invoke Remove-Item -Times 1 -Scope It
         }
     }
@@ -1476,7 +1476,7 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
 
             # Implementation always uninstalls regardless of security addon
             Should -Invoke Invoke-Kubectl -Times 2 -Scope It
-            Should -Invoke Remove-Cmctl -Times 1 -Scope It
+            Should -Invoke Remove-Cmctl -Times 0 -Scope It
             Should -Invoke Remove-Item -Times 1 -Scope It
         }
     }

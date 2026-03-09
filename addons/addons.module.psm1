@@ -1951,8 +1951,6 @@ function Uninstall-CertManager {
     (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $caIssuerConfig).Output | Write-Log
     (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $certManagerConfig).Output | Write-Log
 
-    Remove-Cmctl
-
     Write-Log 'Removing CA issuer certificate from trusted root' -Console
     $caIssuerName = Get-CAIssuerName
     $trustedRootStoreLocation = Get-TrustedRootStoreLocation

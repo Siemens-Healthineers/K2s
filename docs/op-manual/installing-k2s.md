@@ -117,12 +117,31 @@ Instead of assembling many command-line parameters/flags to customize the instal
       - role: control-plane
         resources:
           cpu: 6
-          memory: 4GB           # Startup memory
-          memoryMin: 2GB        # Minimum memory
-          memoryMax: 8GB        # Maximum memory
-          dynamicMemory: true   # Enable dynamic memory
+          memory: 4GB           # Startup memory (optional - see defaults below)
+          memoryMin: 2GB        # Minimum memory (automatically enables dynamic memory)
+          memoryMax: 8GB        # Maximum memory (automatically enables dynamic memory)
           disk: 50GB
     ```
+
+!!! note "Dynamic Memory with Intelligent Defaults"
+    - Specifying `memoryMin` or `memoryMax` automatically enables Hyper-V dynamic memory management
+    
+    **When only `memoryMin` is specified:**
+    - VM starts with minimum memory for optimal resource efficiency
+    - Maximum auto-calculated as 50% of host RAM (floor: 8GB, ceiling: 32GB)
+    - Example: On 32GB host, VM can grow from 2GB → 16GB
+    
+    **When only `memoryMax` is specified:**
+    - VM starts with default 6GB
+    - Minimum auto-calculated as 30% of startup (floor: 2GB)
+    - Example: 6GB startup can shrink to 2GB when idle (saves 4GB!)
+    
+    **When both `memoryMin` and `memoryMax` are specified:**
+    - VM starts with minimum memory
+    - Full dynamic range between min and max available
+    
+    **To override auto-calculation:**
+    - Set `memory` explicitly to control startup value (must be between min and max)
 
 To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/Siemens-Healthineers/K2s/tree/main/k2s/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
 
