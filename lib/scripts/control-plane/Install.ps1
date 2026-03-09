@@ -86,13 +86,15 @@ $controlPlaneNodeParams = @{
     WSL = $WSL
     DnsServers = $DnsAddresses
 }
-New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
-
-# add transparent proxy to Windows host
+# Install transparent proxy on Windows host before VM setup so that
+# kubeadm init inside the VM can pull images through it.
 $proxyConfig = Get-ProxyConfig
 $proxyOverrides = if ($proxyConfig.NoProxy.Count -gt 0) { $proxyConfig.NoProxy } else { @() }
-
 Install-WinHttpProxy -Proxy $Proxy -ProxyOverrides $proxyOverrides
+
+New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
+
+# Refresh proxy settings on control plane node (ensures final state is correct)
 $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
 $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 $transparentProxy = "http://$($windowsHostIpAddress):8181"
