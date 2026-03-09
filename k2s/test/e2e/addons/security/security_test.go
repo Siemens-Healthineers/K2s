@@ -138,10 +138,8 @@ func DeleteWorkloads(ctx context.Context) {
 }
 
 var _ = Describe("'security' addon", Ordered, func() {
-	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
-
-		Expect(output).To(ContainSubstring("already disabled"))
+	It("completes successfully when addon is already disabled", func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("enables the addon", func(ctx context.Context) {
