@@ -216,7 +216,11 @@ function Start-WindowsWorkerNode {
     Start-ServiceAndSetToAutoStart -Name 'containerd'
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
     Confirm-LoopbackAdapterIP
-    Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
+    # Flanneld must remain SERVICE_DEMAND_START. It creates cbr0 L2Bridge when it
+    # doesn't find one, which races with Start-System.ps1 after unclean reboots.
+    # Start it explicitly here (after cbr0 is created) without changing the start type.
+    Start-Service 'flanneld' -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+    Write-Log "Service 'flanneld' started"
     Start-ServiceAndSetToAutoStart -Name 'kubelet'
     Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
 

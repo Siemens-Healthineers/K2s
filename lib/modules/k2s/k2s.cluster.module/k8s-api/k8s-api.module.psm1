@@ -22,7 +22,7 @@ class Pod {
 $supportedApiVersion = 'v1'
 
 function Get-Now {
-    return [datetime]::Now
+    return [datetime]::UtcNow
 }
 
 function Confirm-ApiVersionIsValid {
@@ -51,7 +51,7 @@ function Get-Age {
     Write-Log "Converting '$Timestamp' to age.."
 
     [datetime]$now = Get-Now
-    [datetime]$then = [datetime]::Parse($Timestamp)
+    [datetime]$then = ([System.DateTimeOffset]::Parse($Timestamp)).UtcDateTime
 
     if ($then -gt $now) {
         throw "timestamp cannot be in the future: '$Timestamp'"

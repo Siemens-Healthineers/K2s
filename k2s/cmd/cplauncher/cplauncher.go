@@ -655,6 +655,18 @@ func main() {
 		}
 		compartment = uint(resolvedComp)
 		slog.Info("resolved compartment from pod label", "label", labelSelector, "compartment", compartment, "podIP", podIP, "pod", podName, "namespace", ns, "timeout", labelTimeout)
+
+		// Verify the pod IP is actually reachable inside the resolved compartment
+		// before launching the child process.  The compartment ID can be resolved
+		// (via ipconfig /allcompartments) before the interface inside that compartment
+		// has a fully bound IP — launching the child too early causes it to listen
+		// on an interface with no address, making it unreachable.
+		if err := waitForIPInCompartment(podIP, labelTimeout); err != nil {
+			slog.Error("compartment IP not reachable", "podIP", podIP, "compartment", compartment, "error", err)
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			dumpRecentErrorLines(logFilePath, 20)
+			os.Exit(1)
+		}
 	}
 
 	exe := target[0]
@@ -1094,3 +1106,56 @@ func cleanupOldLogs(dir, current string, keep int, maxAgeStr string) error {
 }
 
 func min(a,b int) int { if a<b { return a }; return b }
+
+// waitForIPInCompartment polls `ipconfig /allcompartments` until the given IP
+// is actually listed under an interface in the output AND the IP responds to a
+// TCP connect on a well-known port, or until timeout.  This ensures the
+// network interface is fully configured before the child process starts.
+func waitForIPInCompartment(ip string, timeout time.Duration) error {
+	if ip == "" {
+		return fmt.Errorf("empty IP")
+	}
+	poll := 1 * time.Second
+	deadline := time.Now().Add(timeout)
+	slog.Info("waiting for IP to be bound in compartment", "ip", ip, "timeout", timeout)
+	for time.Now().Before(deadline) {
+		if isIPBoundViaIpconfig(ip) {
+			slog.Info("IP confirmed bound in compartment", "ip", ip, "elapsed", time.Since(deadline.Add(-timeout)))
+			return nil
+		}
+		time.Sleep(poll)
+	}
+	return fmt.Errorf("IP %s not bound in compartment after %v", ip, timeout)
+}
+
+// isIPBoundViaIpconfig checks whether the specified IP appears in the ipconfig
+// output with a valid subnet mask (indicating the interface is fully configured,
+// not just the compartment header).
+func isIPBoundViaIpconfig(ip string) bool {
+	cmd := exec.Command("ipconfig", "/allcompartments")
+	out, err := cmd.Output()
+	if err != nil {
+		slog.Debug("ipconfig check failed", "error", err)
+		return false
+	}
+	lines := strings.Split(string(out), "\n")
+	ipRe := regexp.MustCompile(`\b` + regexp.QuoteMeta(ip) + `\b`)
+	for i, raw := range lines {
+		line := strings.TrimSpace(strings.ReplaceAll(raw, "\r", ""))
+		if ipRe.MatchString(line) {
+			// Verify the next non-empty line contains a subnet mask — this
+			// distinguishes a fully bound interface from a partial state.
+			for j := i + 1; j < len(lines) && j <= i+3; j++ {
+				next := strings.TrimSpace(strings.ReplaceAll(lines[j], "\r", ""))
+				if next == "" {
+					continue
+				}
+				if strings.Contains(strings.ToLower(next), "mask") || strings.Contains(strings.ToLower(next), "subnet") {
+					return true
+				}
+				break
+			}
+		}
+	}
+	return false
+}

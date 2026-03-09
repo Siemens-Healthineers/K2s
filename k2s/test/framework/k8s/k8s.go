@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -558,6 +559,25 @@ func (c *Cluster) ExpectPodsInReadyState(ctx context.Context, labelName string, 
 			namespace, "to become ready...")
 		return false
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
+}
+
+func (c *Cluster) ExpectDNSToBeResolvableFromHost(ctx context.Context, serviceName string, namespace string) {
+	fqdn := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, namespace)
+
+	GinkgoWriter.Println("Waiting for DNS resolution of <", fqdn, "> from host..")
+
+	Eventually(func() error {
+		addrs, err := net.LookupHost(fqdn)
+		if err != nil {
+			GinkgoWriter.Println("DNS lookup failed for <", fqdn, ">:", err)
+			return err
+		}
+		if len(addrs) == 0 {
+			return fmt.Errorf("no addresses resolved for %s", fqdn)
+		}
+		GinkgoWriter.Println("Resolved <", fqdn, "> to", addrs)
+		return nil
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(Succeed(), "DNS resolution of <"+fqdn+"> should succeed")
 }
 
 func (c *Cluster) ExpectNodeToBeReady(name string, ctx context.Context) {

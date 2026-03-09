@@ -5,6 +5,9 @@ package exec
 
 import (
 	"context"
+	"math"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -119,6 +122,28 @@ var _ = Describe("node exec", Ordered, func() {
 
 				Expect(output).To(MatchRegexp("not recognized"))
 			})
+		})
+	})
+
+	When("checking time synchronization", Label("time-sync"), func() {
+		It("control plane VM clock is within 30 seconds of the Windows host clock", func(ctx context.Context) {
+			nodeIpAddress := suite.SetupInfo().Config.ControlPlane().IpAddress()
+
+			// Get the VM's current UTC epoch seconds
+			output := suite.K2sCli().MustExec(ctx, "node", "exec", "-i", nodeIpAddress, "-u", "remote", "-c", "date -u +%s", "-r", "-o")
+			vmEpochStr := strings.TrimSpace(output)
+
+			vmEpoch, err := strconv.ParseInt(vmEpochStr, 10, 64)
+			Expect(err).ToNot(HaveOccurred(), "failed to parse VM epoch time: %s", vmEpochStr)
+
+			// Get the host's current UTC epoch seconds
+			hostEpoch := time.Now().UTC().Unix()
+
+			drift := math.Abs(float64(hostEpoch - vmEpoch))
+
+			GinkgoWriter.Printf("Host UTC epoch: %d, VM UTC epoch: %d, drift: %.0f seconds\n", hostEpoch, vmEpoch, drift)
+
+			Expect(drift).To(BeNumerically("<=", 30), "VM clock drift from host should be at most 30 seconds, but was %.0f seconds", drift)
 		})
 	})
 })
