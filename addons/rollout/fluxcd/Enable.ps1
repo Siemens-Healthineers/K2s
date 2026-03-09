@@ -95,7 +95,9 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementa
     exit 1
 }
 
-Install-FluxCli -Proxy $Proxy -AllowOnlineDownload
+$manifestPath = "$PSScriptRoot\..\addon.manifest.yaml"
+$k2sRoot = "$PSScriptRoot\..\..\.."
+Install-FluxCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
 
 Write-Log 'Creating rollout namespace' -Console
 (Invoke-Kubectl -Params 'create', 'namespace', 'rollout').Output | Write-Log
