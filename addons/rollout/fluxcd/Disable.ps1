@@ -80,8 +80,6 @@ $kustomizationDir = Get-FluxConfig
 Write-Log 'Deleting rollout namespace...' -Console
 (Invoke-Kubectl -Params 'delete', 'namespace', 'rollout','--timeout', '60s').Output | Write-Log
 
-Remove-FluxCli
-
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 
 Write-Log 'Uninstallation of rollout addon with Flux finished' -Console
