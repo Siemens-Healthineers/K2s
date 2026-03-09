@@ -1515,6 +1515,58 @@ function Install-HelmAndYqOnKubeMaster
     
     Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
 }
+
+function Configure-HypervDynamicMemory
+{
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$UserName,
+        [Parameter(Mandatory = $false)]
+        [string]$UserPwd = "",
+        [Parameter(Mandatory = $true)]
+        [string]$IpAddress,
+        [Parameter(Mandatory = $false)]
+        [bool]$EnableDynamicMemory = $false
+    )
+
+    if (-not $EnableDynamicMemory) {
+        Write-Log "Dynamic memory not enabled, skipping Hyper-V dynamic memory configuration"
+        return
+    }
+
+    Write-Log "Configuring Hyper-V Dynamic Memory support on control-plane node..."
+
+    $localScriptPath = "$PSScriptRoot\..\..\..\..\..\scripts\k2s\system\configure-hyperv-dynamic-memory.sh"
+    $remoteScriptPath = "/home/$UserName/configure-hyperv-dynamic-memory.sh"
+
+    if (-not (Test-Path $localScriptPath)) {
+        Write-Log "Warning: Hyper-V dynamic memory configuration script not found at: $localScriptPath"
+        Write-Log "Skipping dynamic memory configuration"
+        return
+    }
+
+    try {
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            Copy-ToRemoteComputerViaSshKey -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -IpAddress $IpAddress
+        }
+        else {
+            Copy-ToRemoteComputerViaUserAndPwd -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+        }
+
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo sed -i 's/\r$//' $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
+
+        Write-Log "Executing Hyper-V dynamic memory configuration script on VM..."
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd -Timeout 180).Output | Write-Log
+
+        Write-Log "Hyper-V dynamic memory configuration completed successfully"
+    }
+    catch {
+        Write-Log "Warning: Failed to configure Hyper-V dynamic memory: $_"
+        Write-Log "VM will continue with static memory configuration"
+    }
+}
+
 function New-VmImageForKubernetesNode {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
@@ -1585,6 +1637,8 @@ function New-VmImageForControlPlaneNode {
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
         [uint64]$VMDiskSize,
         [string]$Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Enable Dynamic Memory')]
+        [bool]$EnableDynamicMemory = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [Boolean] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Forces the installation online')]
@@ -1628,6 +1682,16 @@ function New-VmImageForControlPlaneNode {
         }
         Edit-SupportForWSL @supportForWSLParams
         Install-HelmAndYqOnKubeMaster -UserName $vmUserName -UserPwd $vmUserPwd -IpAddress $IpAddress
+
+        if ($EnableDynamicMemory) {
+            $dynamicMemoryParams = @{
+                UserName              = $vmUserName
+                UserPwd               = $vmUserPwd
+                IpAddress             = $IpAddress
+                EnableDynamicMemory   = $EnableDynamicMemory
+            }
+            Configure-HypervDynamicMemory @dynamicMemoryParams
+        }
     }
 
     $kubemasterCreationParams = @{
@@ -2071,4 +2135,6 @@ Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
 Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
 Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
 Update-CoreDNSConfigurationviaSSH,
-Set-UpMasterNode
+Set-UpMasterNode,
+Configure-HypervDynamicMemory
+
