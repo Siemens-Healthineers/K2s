@@ -863,6 +863,7 @@ Current directory: $deltaRoot
 	}
 
 	Write-Log '[Update] Delta update complete.' -Console:$consoleSwitch
+	Write-Log ("Upgraded successfully to K2s version: {0} (delta update from {1})" -f $deltaTargetVersion, $deltaRoot) -Console:$consoleSwitch
 	Write-Log ("[Update] Delta artifacts remain in: {0}" -f $deltaRoot) -Console:$consoleSwitch
 	Write-Log '[Update] You may safely delete the extracted delta package directory after verifying the update.' -Console:$consoleSwitch
 
