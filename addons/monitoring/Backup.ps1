@@ -333,11 +333,11 @@ if ($script:files.Count -eq 0) {
         Write-Log "[MonitoringBackup] No files exported; namespace '$namespace' contains no resources. This usually means the addon is not deployed (enable may have failed) or kubectl points to a different cluster context." -Console
     }
     else {
-        Write-Log "[MonitoringBackup] No files exported; created metadata-only backup in '$BackupDir'" -Console
+        Write-Log "[MonitoringBackup] No files exported; created metadata-only backup" -Console
     }
 }
 else {
-    Write-Log "[MonitoringBackup] Wrote $($script:files.Count) file(s) to '$BackupDir'" -Console
+    Write-Log "[MonitoringBackup] Backup artifacts prepared ($($script:files.Count) file(s))" -Console
 }
 
 if ($EncodeStructuredOutput -eq $true) {

@@ -29,11 +29,11 @@ Creates a zip archive containing the addon's backed-up resources and a `backup.j
 
 | Flag | Short | Description | Default |
 |------|-------|-------------|---------|
-| `--file` | `-f` | Output zip file path | Auto-generated in `C:\Temp\Addons` |
+| `--file` | `-f` | Output zip file path | Auto-generated in `C:\Temp\k2s\Addons` |
 
 ### Default Behavior
 
-When `-f` is omitted the zip is written to `C:\Temp\Addons` with the naming pattern:
+When `-f` is omitted the zip is written to `C:\Temp\k2s\Addons` with the naming pattern:
 
 ```
 {addon_name}_backup_{yyyyMMdd_HHmmss}.zip
@@ -72,9 +72,9 @@ Restores an addon from a previously created backup zip. The restore flow is:
 
 | Flag | Short | Description | Default |
 |------|-------|-------------|---------|
-| `--file` | `-f` | Input zip file path | Newest matching zip in `C:\Temp\Addons` |
+| `--file` | `-f` | Input zip file path | Newest matching zip in `C:\Temp\k2s\Addons` |
 
-When `-f` is omitted the CLI searches `C:\Temp\Addons` for files matching `{addon_name}_backup_*.zip` and picks the most recently modified one.
+When `-f` is omitted the CLI searches `C:\Temp\k2s\Addons` for files matching `{addon_name}_backup_*.zip` and picks the most recently modified one.
 
 > **⚠️ Warning:** The addon **must be disabled** before running restore. If the addon is still enabled the command will fail with: `addon '<name>' must be disabled before restore`.
 
@@ -88,7 +88,7 @@ k2s addons restore registry -f D:\backups\registry-backup.zip
 k2s addons restore "ingress nginx"
 
 # Restore a specific addon implementation
-k2s addons restore "storage smb" -f C:\Temp\Addons\storage_smb_backup_20260219_143012.zip
+k2s addons restore "storage smb" -f C:\Temp\k2s\Addons\storage_smb_backup_20260219_143012.zip
 ```
 
 ## Typical Workflow
@@ -282,7 +282,7 @@ Some addons add extra fields (e.g. `ingress`, `enableParams`, `scope`, `storageU
 | Problem | Cause | Solution |
 |---------|-------|----------|
 | `addon '<name>' must be disabled before restore` | The addon is still enabled | Run `k2s addons disable <name>` first |
-| `no backup zip found` | No matching zip in `C:\Temp\Addons` | Provide an explicit path with `-f` |
+| `no backup zip found` | No matching zip in `C:\Temp\k2s\Addons` | Provide an explicit path with `-f` |
 | Manifest addon/implementation mismatch | The zip was created for a different addon | Use the correct zip file for the target addon |
 | `No Backup.ps1 found` | Addon does not support backup | Nothing to back up — the addon is fully recreated on enable |
 | Restore fails during re-enable | Cluster resources unavailable | Check cluster health with `k2s system status` and retry |

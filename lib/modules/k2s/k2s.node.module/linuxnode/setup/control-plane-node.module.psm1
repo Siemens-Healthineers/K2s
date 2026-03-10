@@ -116,6 +116,14 @@ function New-ControlPlaneNodeOnNewVM {
         Write-Host ''
     }
 
+    # Configure transparent proxy on control plane VM before kubeadm init
+    # so that CRI-O can pull images through the Windows host proxy.
+    # This also clears any stale proxy settings baked into the base VHDX.
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $transparentProxy = "http://$($windowsHostIpAddress):8181"
+    Write-Log "[Proxy] Configuring transparent proxy ($transparentProxy) on control plane before kubeadm init" -Console
+    Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
+
     $clusterName = Get-ClusterName
     Set-InstalledClusterName -Value $clusterName
 
@@ -127,7 +135,7 @@ function New-ControlPlaneNodeOnNewVM {
         ClusterCIDR          = $(Get-ConfiguredClusterCIDR)
         ClusterCIDR_Services = $(Get-ConfiguredClusterCIDRServices)
         KubeDnsServiceIP     = $(Get-ConfiguredKubeDnsServiceIP)
-        IP_NextHop           = $(Get-ConfiguredKubeSwitchIP)
+        IP_NextHop           = $windowsHostIpAddress
         NetworkInterfaceName = $(Get-NetworkInterfaceName)
         Hook                 = $addToControlPlane
         ClusterName          = $clusterName

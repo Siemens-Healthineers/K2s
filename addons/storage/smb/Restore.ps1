@@ -57,7 +57,7 @@ if ($systemError) {
     exit 1
 }
 
-Write-Log "[StorageSmbRestore] Restoring addon 'storage smb' from '$BackupDir'" -Console
+Write-Log "[StorageSmbRestore] Restoring addon 'storage smb'" -Console
 
 if (-not (Test-Path -LiteralPath $BackupDir)) {
     $errMsg = "Restore failed: BackupDir not found: $BackupDir"

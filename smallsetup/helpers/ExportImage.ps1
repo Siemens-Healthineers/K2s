@@ -184,20 +184,47 @@ if ($foundWindowsImages.Count -eq 1) {
         $finalExportPath = $path + '\' + $newFileName
     }
 
-    Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
-    $pullOutput = &$global:NerdctlExe -n 'k8s.io' pull $imageFullName --all-platforms 2>&1 | Out-String
-    if ($pullOutput.Contains('failed to do request')) {
-        Write-Log "Not able to pull all platform layers for image '$imageFullName'" -Console
-        Write-Log "Exporting image '$imageFullName' only for current platform" -Console
-        &$global:NerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName
-    }
-    else {
-        Write-Log "Exporting image '$imageFullName' for all platforms" -Console
-        &$global:NerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName --all-platforms
-    }
+    # Set up proxy env vars so nerdctl can reach the registry (mirrors addons/Export.ps1 pattern)
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $proxyUrl = "http://$($windowsHostIpAddress):8181"
+    $previousHttpProxy = $env:http_proxy
+    $previousHttpsProxy = $env:https_proxy
 
-    if ($?) {
-        Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}." -Console
+    try {
+        $env:http_proxy = $proxyUrl
+        $env:https_proxy = $proxyUrl
+        Write-Log "[ImageExport] Proxy configured for nerdctl: $proxyUrl"
+
+        Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
+        $pullOutput = &$global:NerdctlExe -n 'k8s.io' pull $imageFullName --all-platforms 2>&1 | Out-String
+        $pullExitCode = $LASTEXITCODE
+
+        if ($pullExitCode -ne 0) {
+            Write-Log "Not able to pull all platform layers for image '$imageFullName' (exit code: $pullExitCode)" -Console
+            Write-Log "Exporting image '$imageFullName' only for current platform" -Console
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', $finalExportPath, $imageFullName
+        }
+        else {
+            Write-Log "Exporting image '$imageFullName' for all platforms" -Console
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', '--all-platforms', $finalExportPath, $imageFullName
+        }
+
+        if ($exportSuccess) {
+            Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}." -Console
+        }
+        else {
+            $errMsg = "Failed to export image '${imageFullName}'"
+            Write-Log $errMsg -Error
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Severity Warning -Code 'image-export-failed' -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+        }
+    }
+    finally {
+        $env:http_proxy = $previousHttpProxy
+        $env:https_proxy = $previousHttpsProxy
     }
 }
 

@@ -146,14 +146,14 @@ function New-ImageProcessingLog {
     if ($Result.Images.Count -gt 0) {
         Write-Log "${LogType}d Images:" -Console
         foreach ($img in $Result.Images) {
-            Write-Log "✅ $($img.Repository):$($img.Tag) (ID: $($img.ImageId))" -Console
+            Write-Log "[OK] $($img.Repository):$($img.Tag) (ID: $($img.ImageId))" -Console
         }
     }
 
     if ($Result.FailedImages.Count -gt 0) {
         Write-Log "Failed Images:" -Console
         foreach ($img in $Result.FailedImages) {
-            Write-Log "❌ $($img.Repository):$($img.Tag) (ID: $($img.ImageId)) - Error: $($img.Error)" -Console
+            Write-Log "[FAIL] $($img.Repository):$($img.Tag) (ID: $($img.ImageId)) - Error: $($img.Error)" -Console
         }
     }
     
@@ -471,7 +471,11 @@ function Backup-K2sImages {
         
         $imagesDir = Join-Path $BackupDirectory "images"
         
-        $k2sExe = "$(Get-ClusterInstalledFolder)\k2s.exe"
+        # Use Get-K2sExePath (resolves to the package we are upgrading FROM) instead of
+        # Get-ClusterInstalledFolder so that the NEW k2s.exe and its scripts are used.
+        # The old installation's k2s.exe would invoke old Export-Image.ps1 which still
+        # uses nerdctl save – broken in air-gapped environments with nerdctl 2.x.
+        $k2sExe = Get-K2sExePath
         $backupManifest = @{
             BackupTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             BackupDirectory = $BackupDirectory
@@ -778,11 +782,11 @@ function Test-BackupDiskSpace {
         Write-Log "Disk space check: Available: ${freeSpaceGB}GB, Required: ${requiredSpace}GB" -Console
         
         if ($freeSpaceGB -ge $requiredSpace) {
-            Write-Log "✅ Sufficient disk space available for backup" -Console
+            Write-Log "[OK] Sufficient disk space available for backup" -Console
             return $true
         } else {
             $shortfall = $requiredSpace - $freeSpaceGB
-            Write-Log "❌ Insufficient disk space for image backup. Available: ${freeSpaceGB}GB, Required: ${requiredSpace}GB (Shortfall: ${shortfall}GB)" -Console
+            Write-Log "[FAIL] Insufficient disk space for image backup. Available: ${freeSpaceGB}GB, Required: ${requiredSpace}GB (Shortfall: ${shortfall}GB)" -Console
             return $false
         }
     }
