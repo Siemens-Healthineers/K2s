@@ -24,8 +24,13 @@ spec:
         app.kubernetes.io/version: "3.1.5"
       name: "dcgm-exporter"
     spec:
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
       containers:
         - image: "nvcr.io/nvidia/k8s/dcgm-exporter:3.1.8-3.1.5-ubuntu20.04"
+          imagePullPolicy: IfNotPresent
           env:
             - name: "DCGM_EXPORTER_LISTEN"
               value: ":9400"

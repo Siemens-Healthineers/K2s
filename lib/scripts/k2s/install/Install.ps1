@@ -70,6 +70,8 @@ $script:SetupType = 'k2s'
 Set-ConfigSetupType -Value $script:SetupType
 
 # Initialize the proxy settings before starting installation.
+Test-ProxyEnvVarsConfiguration
+
 New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
@@ -82,6 +84,12 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
     if ([string]::IsNullOrWhiteSpace($dnsServers)) {
         $dnsServers = '8.8.8.8,8.8.4.4'
     }
+}
+
+# Auto-enable dynamic memory if min or max are specified
+if ($MasterVMMemoryMin -gt 0 -or $MasterVMMemoryMax -gt 0) {
+    $EnableDynamicMemory = $true
+    Write-Log "Dynamic memory auto-enabled (min or max specified)"
 }
 
 $controlPlaneNodeParams = @{

@@ -58,6 +58,9 @@ $installationType = 'Build-only'
 Write-Log "Installing $installationType setup"
 
 # Initialize the proxy settings before starting installation.
+Test-ProxyEnvVarsConfiguration
+
+# Initialize the proxy settings before starting installation.
 New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
@@ -67,6 +70,12 @@ $loopbackAdapter = Get-L2BridgeName
 $dnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
 if ([string]::IsNullOrWhiteSpace($dnsServers)) {
     $dnsServers = '8.8.8.8,8.8.4.4'
+}
+
+# Auto-enable dynamic memory if min or max are specified
+if ($MasterVMMemoryMin -gt 0 -or $MasterVMMemoryMax -gt 0) {
+    $EnableDynamicMemory = $true
+    Write-Log "Dynamic memory auto-enabled (min or max specified)"
 }
 
 $controlPlaneNodeParams = @{

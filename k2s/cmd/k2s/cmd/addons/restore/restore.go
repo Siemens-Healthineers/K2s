@@ -61,7 +61,7 @@ func NewCommand() *cobra.Command {
 		RunE:    runRestore,
 	}
 
-	cmd.Flags().StringP(fileFlagName, fileFlagShorthand, "", "Input zip file path (default: newest matching zip in C:\\Temp\\Addons)")
+	cmd.Flags().StringP(fileFlagName, fileFlagShorthand, "", "Input zip file path (default: newest matching zip in C:\\Temp\\k2s\\Addons)")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -212,9 +212,9 @@ func findLatestBackupZip(addonsCmdName string) (string, error) {
 
 func defaultAddonsBackupDir() string {
 	if runtime.GOOS == "windows" {
-		return `C:\\Temp\\Addons`
+		return `C:\Temp\k2s\Addons`
 	}
-	return filepath.Join(os.TempDir(), "Addons")
+	return filepath.Join(os.TempDir(), "k2s", "Addons")
 }
 
 func loadAddonAndImpl(args []string) (allAddons addons.Addons, addon addons.Addon, impl addons.Implementation, err error) {

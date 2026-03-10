@@ -70,7 +70,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'rollout argocd' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'rollout argocd'" -Console
 
 # Sanity-check the backup metadata (best-effort warnings only).
 $expectedAddon = 'rollout'
