@@ -240,7 +240,7 @@ function Confirm-LoopbackAdapterIP {
     if ($null -ne $currentAddresses) {
         foreach ($addr in $currentAddresses) {
             if ($addr.IPAddress -like "169.254.*") {
-                Write-Log "[LoopbackAdapter] WARNING: APIPA address detected: $($addr.IPAddress)" -Warning
+                Write-Log "[LoopbackAdapter] WARNING: APIPA address detected: $($addr.IPAddress)" -Console
             } else {
                 Write-Log "[LoopbackAdapter] Current IP address: $($addr.IPAddress)"
             }
