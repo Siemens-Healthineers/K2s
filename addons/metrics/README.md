@@ -24,14 +24,14 @@ k2s addons enable metrics
 
 ## Backup and restore
 
-Create a backup zip (defaults to `C:\Temp\Addons` on Windows):
+Create a backup zip (defaults to `C:\Temp\k2s\Addons` on Windows):
 ```
 k2s addons backup metrics
 ```
 
 Restore from a backup zip:
 ```
-k2s addons restore metrics -f C:\Temp\Addons\metrics_backup_YYYYMMDD_HHMMSS.zip
+k2s addons restore metrics -f C:\Temp\k2s\Addons\metrics_backup_YYYYMMDD_HHMMSS.zip
 ```
 
 What is backed up:

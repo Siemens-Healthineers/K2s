@@ -70,7 +70,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'dicom' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'dicom'" -Console
 
 try {
     if ($null -ne $manifest.addon -and ("$($manifest.addon)" -ne 'dicom')) {

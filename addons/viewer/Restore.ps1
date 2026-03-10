@@ -68,7 +68,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'viewer' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'viewer'" -Console
 
 $activeIngress = 'none'
 if (Test-NginxIngressControllerAvailability) {
