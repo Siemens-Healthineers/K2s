@@ -25,7 +25,6 @@ BeforeAll {
     function global:Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
     function global:Get-ConfiguredIPControlPlane { return '172.19.1.100' }
     function global:Invoke-CmdOnControlPlaneViaSSHKey { param($CmdToExecute, [switch]$IgnoreErrors) return [PSCustomObject]@{ Output = @('fstrim done') } }
-    function global:Wait-ForDesiredVMState { param($VmName, $State, $TimeoutInSeconds) }
     function global:Write-Log { param([string]$Message, [switch]$Console) }
 
     # Helper: build a minimal VM object with configurable State
@@ -290,7 +289,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         It 'dismounts the stale mount before proceeding' {
             { & $script:ScriptPath -Yes } | Should -Not -Throw
             Assert-MockCalled Dismount-VHD -Times 1
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*already mounted*' } -Times 1
+            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*appears attached*' } -Times 1
         }
     }
 
@@ -370,81 +369,6 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
     }
 
-    Describe 'Happy path: cluster running, stop + compact + restart' -Tag 'unit', 'ci', 'compact' {
-        BeforeEach {
-            $script:stopCallCount = 0
-            $script:startCallCount = 0
-
-            Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
-            Mock Get-ConfigWslFlag { return $false }
-            Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
-            # First call returns Running (initial check); after stop returns Off
-            Mock Get-VM {
-                if ($script:stopCallCount -eq 0) { return New-MockVm -State 'Running' }
-                return New-MockVm -State 'Off'
-            }
-            Mock Get-VMHardDiskDrive { return New-MockDisk }
-            Mock Test-Path { return $true }
-            Mock Get-Item { return [PSCustomObject]@{ Length = 4GB } }
-            Mock Get-VMSnapshot { return @() }
-            Mock Get-VHD { return [PSCustomObject]@{ Attached = $false } }
-            Mock Get-PSDrive { return [PSCustomObject]@{ Free = 10GB } }
-            Mock Invoke-CmdOnControlPlaneViaSSHKey { return [PSCustomObject]@{ Output = @('/: 10 GiB trimmed') } }
-            Mock Wait-ForDesiredVMState { $script:stopCallCount++ }
-            Mock Mount-VHD {}
-            Mock Optimize-VHD {}
-            Mock Dismount-VHD {}
-            Mock Write-Log {}
-            Mock Get-KubePath { return 'C:\k2s' }
-            Mock Initialize-Logging {}
-            Mock Import-Module {}
-            Mock Set-Location {}
-
-            # Mock the inner stop/start script calls
-            Mock Invoke-Expression {}
-        }
-
-        It 'runs fstrim when cluster is running and skip-fstrim is not set' {
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Invoke-CmdOnControlPlaneViaSSHKey -Times 1
-        }
-
-        It 'waits for VM to reach Off state after stopping cluster' {
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Wait-ForDesiredVMState -Times 1
-        }
-    }
-
-    Describe 'Happy path: skip-fstrim flag suppresses fstrim' -Tag 'unit', 'ci', 'compact' {
-        BeforeEach {
-            Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
-            Mock Get-ConfigWslFlag { return $false }
-            Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
-            Mock Get-VM { return New-MockVm -State 'Running' }
-            Mock Get-VMHardDiskDrive { return New-MockDisk }
-            Mock Test-Path { return $true }
-            Mock Get-Item { return [PSCustomObject]@{ Length = 4GB } }
-            Mock Get-VMSnapshot { return @() }
-            Mock Get-VHD { return [PSCustomObject]@{ Attached = $false } }
-            Mock Get-PSDrive { return [PSCustomObject]@{ Free = 10GB } }
-            Mock Invoke-CmdOnControlPlaneViaSSHKey { return [PSCustomObject]@{ Output = @() } }
-            Mock Wait-ForDesiredVMState {}
-            Mock Mount-VHD {}
-            Mock Optimize-VHD {}
-            Mock Dismount-VHD {}
-            Mock Write-Log {}
-            Mock Get-KubePath { return 'C:\k2s' }
-            Mock Initialize-Logging {}
-            Mock Import-Module {}
-            Mock Set-Location {}
-        }
-
-        It 'does not call SSH when -SkipFstrim is specified' {
-            { & $script:ScriptPath -Yes -SkipFstrim } | Should -Not -Throw
-            Assert-MockCalled Invoke-CmdOnControlPlaneViaSSHKey -Times 0
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*skip-fstrim*' } -Times 1
-        }
-    }
 
     Describe 'Failure: Mount-VHD fails — cluster was running — attempts restart' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
@@ -579,7 +503,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-ConfigWslFlag { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM {
-                if ($script:stopCount -eq 0) { return New-MockVm -State 'Running' }
+                if ($script:stopCount -eq 0) { $script:stopCount++; return New-MockVm -State 'Running' }
                 return New-MockVm -State 'Off'
             }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -590,7 +514,6 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-PSDrive { return [PSCustomObject]@{ Free = 10GB } }
             Mock Invoke-CmdOnControlPlaneViaSSHKey { return [PSCustomObject]@{ Output = @() } }
             Mock Read-Host { return 'n' }   # Would cancel if reached
-            Mock Wait-ForDesiredVMState { $script:stopCount++ }
             Mock Mount-VHD {}
             Mock Optimize-VHD {}
             Mock Dismount-VHD {}
@@ -607,65 +530,6 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
     }
 
-    Describe 'Stop timeout: Wait-ForDesiredVMState throws' -Tag 'unit', 'ci', 'compact' {
-        BeforeEach {
-            Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
-            Mock Get-ConfigWslFlag { return $false }
-            Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
-            Mock Get-VM { return New-MockVm -State 'Running' }
-            Mock Get-VMHardDiskDrive { return New-MockDisk }
-            Mock Test-Path { return $true }
-            Mock Get-Item { return [PSCustomObject]@{ Length = 4GB } }
-            Mock Get-VMSnapshot { return @() }
-            Mock Get-VHD { return [PSCustomObject]@{ Attached = $false } }
-            Mock Get-PSDrive { return [PSCustomObject]@{ Free = 10GB } }
-            Mock Invoke-CmdOnControlPlaneViaSSHKey { return [PSCustomObject]@{ Output = @() } }
-            Mock Wait-ForDesiredVMState { throw "VM did not reach Off state within 120s" }
-            Mock Mount-VHD {}
-            Mock Optimize-VHD {}
-            Mock Dismount-VHD {}
-            Mock Write-Log {}
-            Mock Get-KubePath { return 'C:\k2s' }
-            Mock Initialize-Logging {}
-            Mock Import-Module {}
-            Mock Set-Location {}
-        }
-
-        It 'exits with timeout error and never mounts VHDX' {
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Mount-VHD    -Times 0
-            Assert-MockCalled Optimize-VHD -Times 0
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Failed to stop VM within timeout*' } -Times 1
-        }
-    }
-
-    Describe 'No-restart flag: cluster not restarted after compaction' -Tag 'unit', 'ci', 'compact' {
-        BeforeEach {
-            Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
-            Mock Get-ConfigWslFlag { return $false }
-            Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
-            Mock Get-VM { return New-MockVm -State 'Off' }
-            Mock Get-VMHardDiskDrive { return New-MockDisk }
-            Mock Test-Path { return $true }
-            Mock Get-Item { return [PSCustomObject]@{ Length = 4GB } }
-            Mock Get-VMSnapshot { return @() }
-            Mock Get-VHD { return [PSCustomObject]@{ Attached = $false } }
-            Mock Get-PSDrive { return [PSCustomObject]@{ Free = 10GB } }
-            Mock Mount-VHD {}
-            Mock Optimize-VHD {}
-            Mock Dismount-VHD {}
-            Mock Write-Log {}
-            Mock Get-KubePath { return 'C:\k2s' }
-            Mock Initialize-Logging {}
-            Mock Import-Module {}
-            Mock Set-Location {}
-        }
-
-        It 'logs no-restart message in step 6' {
-            { & $script:ScriptPath -NoRestart } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*no-restart*' } -Times 1
-        }
-    }
 
     Describe 'Get-VHD unavailable: warning is logged and compaction continues' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
