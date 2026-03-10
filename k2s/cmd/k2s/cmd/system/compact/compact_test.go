@@ -22,7 +22,6 @@ func TestCompact(t *testing.T) {
 // resetCompactFlags resets all package-level flag variables and the OutputFlag between tests.
 func resetCompactFlags() {
 	noRestartFlag = false
-	skipFstrimFlag = false
 	yesFlag = false
 	CompactCmd.Flags().Set(common.OutputFlagName, "false")
 }
@@ -82,19 +81,6 @@ var _ = Describe("compact", func() {
 			})
 		})
 
-		When("skip-fstrim flag is set", func() {
-			It("appends -SkipFstrim to the command", func() {
-				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
-				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPart) + " -SkipFstrim"
-
-				skipFstrimFlag = true
-				actual, err := buildCompactCmd(false)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(Equal(expected))
-			})
-		})
-
 		When("yes flag is set", func() {
 			It("appends -Yes to the command", func() {
 				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
@@ -112,10 +98,9 @@ var _ = Describe("compact", func() {
 			It("appends all parameters in the correct order", func() {
 				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
 				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPart) +
-					" -NoRestart -SkipFstrim -Yes -ShowLogs"
+					" -NoRestart -Yes -ShowLogs"
 
 				noRestartFlag = true
-				skipFstrimFlag = true
 				yesFlag = true
 				actual, err := buildCompactCmd(true)
 
@@ -133,20 +118,6 @@ var _ = Describe("compact", func() {
 				noRestartFlag = true
 				actual, err := buildCompactCmd(true)
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(Equal(expected))
-			})
-		})
-
-		When("skip-fstrim and yes flags are set without show-logs", func() {
-			It("appends -SkipFstrim and -Yes only", func() {
-				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
-				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPart) +
-					" -SkipFstrim -Yes"
-
-				skipFstrimFlag = true
-				yesFlag = true
-				actual, err := buildCompactCmd(false)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).To(Equal(expected))

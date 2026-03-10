@@ -15,10 +15,8 @@ This resolves the "High Water Mark" issue where VHDX files grow when writing dat
 but don't shrink when files are deleted.
 
 .PARAMETER NoRestart
-Do not restart the cluster after compaction. Use this for maintenance windows.
-
-.PARAMETER SkipFstrim
-Skip running fstrim inside the VM. Only use if you've manually run fstrim already.
+Keep the cluster stopped after compaction. The cluster is always stopped during compaction;
+this flag only controls whether it is restarted afterwards.
 
 .PARAMETER Yes
 Skip confirmation prompts. Useful for automation.
@@ -43,10 +41,8 @@ This operation may take 5-10 minutes depending on VHDX size and disk speed.
 #>
 
 Param(
-    [parameter(Mandatory = $false, HelpMessage = 'Do not restart cluster after compaction')]
+    [parameter(Mandatory = $false, HelpMessage = 'Keep cluster stopped after compaction (stop always happens, this skips the restart)')]
     [switch] $NoRestart = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Skip running fstrim inside VM')]
-    [switch] $SkipFstrim = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Skip confirmation prompts')]
     [switch] $Yes = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -57,9 +53,10 @@ $infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra
 $nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 
-Import-Module $infraModule, $nodeModule, $clusterModule
+Import-Module $infraModule, $nodeModule, $clusterModule -WarningAction SilentlyContinue
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
 
 # Ensure we're in the right place
 $installationPath = Get-KubePath
@@ -164,12 +161,21 @@ catch {
 }
 
 # --- Edge case: VHDX already mounted from a previous interrupted run ---
+# Note: a VHDX attached to a running VM also reports Attached=$true via Get-VHD,
+# but Dismount-VHD cannot dismount it (it is owned by the VM, not mounted as a host disk).
+# We only attempt dismount if Get-VHD confirms it is attached, and swallow the error
+# if Dismount-VHD fails because the VHDX is VM-owned rather than host-mounted.
 try {
     $vhdInfo = Get-VHD -Path $vhdxPath -ErrorAction Stop
     if ($vhdInfo.Attached) {
-        Write-Log "[Compact] VHDX is already mounted (possibly from a previous interrupted run). Dismounting..." -Console
-        Dismount-VHD -Path $vhdxPath -ErrorAction Stop
-        Write-Log '[Compact] Existing mount removed.' -Console
+        Write-Log "[Compact] VHDX appears attached. Attempting to dismount any stale host mount..." -Console
+        try {
+            Dismount-VHD -Path $vhdxPath -ErrorAction Stop
+            Write-Log '[Compact] Stale host mount removed.' -Console
+        }
+        catch {
+            Write-Log "[Compact] Note: VHDX is attached to the VM (not a stale host mount). Continuing..." -Console
+        }
     }
 }
 catch {
@@ -180,7 +186,7 @@ catch {
 $wasRunning = $vm.State -eq 'Running'
 
 # Step 1: Run fstrim if VM is running
-if ($wasRunning -and -not $SkipFstrim) {
+if ($wasRunning) {
     Write-Log '[Step 1/6] Running fstrim inside VM to mark freed blocks...' -Console
 
     try {
@@ -203,11 +209,8 @@ if ($wasRunning -and -not $SkipFstrim) {
         Write-Log '[Step 1/6] Continuing with compaction...' -Console
     }
 }
-elseif (-not $wasRunning) {
-    Write-Log '[Step 1/6] VM is not running. Skipping fstrim.' -Console
-}
 else {
-    Write-Log '[Step 1/6] Skipping fstrim (--skip-fstrim specified)' -Console
+    Write-Log '[Step 1/6] VM is not running. Skipping fstrim.' -Console
 }
 
 # Step 2: Confirm stop if running
@@ -225,17 +228,13 @@ if ($wasRunning) {
     Write-Log 'Stopping cluster...' -Console
     & "$PSScriptRoot\..\..\stop\Stop.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay
 
-    # Wait for VM to fully stop using the module helper (handles timeout + proper state polling)
-    try {
-        Wait-ForDesiredVMState -VmName $vmName -State 'Off' -TimeoutInSeconds 120
-    }
-    catch {
-        Write-Log "[Compact] Error: Failed to stop VM within timeout: $_" -Console
+    # Verify VM reached Off state after Stop.ps1 returned
+    $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+    if ($vm -and $vm.State -ne 'Off') {
+        Write-Log "[Compact] Error: VM '$vmName' is still in state '$($vm.State)' after stop. Cannot proceed." -Console
         exit 1
     }
 
-    # Refresh VM object after stop
-    $vm = Get-VM -Name $vmName
     Write-Log 'Cluster stopped successfully' -Console
 }
 else {
@@ -269,8 +268,13 @@ try {
     Optimize-VHD -Path $vhdxPath -Mode Full -ErrorAction Stop
     $stopwatch.Stop()
 
-    $minutes = [math]::Round($stopwatch.Elapsed.TotalMinutes, 1)
-    Write-Log "Optimization completed in $minutes minutes" -Console
+    $elapsed = $stopwatch.Elapsed
+    $duration = if ($elapsed.TotalMinutes -ge 1) {
+        "$([math]::Round($elapsed.TotalMinutes, 1)) minutes"
+    } else {
+        "$([math]::Round($elapsed.TotalSeconds, 1)) seconds"
+    }
+    Write-Log "Optimization completed in $duration" -Console
 }
 catch {
     $stopwatch.Stop()

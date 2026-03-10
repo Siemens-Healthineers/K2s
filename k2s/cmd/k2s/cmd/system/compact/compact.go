@@ -21,9 +21,8 @@ import (
 )
 
 var (
-	noRestartFlag  bool
-	skipFstrimFlag bool
-	yesFlag        bool
+	noRestartFlag bool
+	yesFlag       bool
 )
 
 var CompactCmd = &cobra.Command{
@@ -33,7 +32,7 @@ var CompactCmd = &cobra.Command{
 
 This command performs the following steps:
 1. Runs fstrim inside the VM to notify Hyper-V of freed blocks (if cluster is running)
-2. Stops the cluster
+2. Stops the cluster (always required for VHDX optimization)
 3. Optimizes the VHDX file to reclaim space
 4. Restarts the cluster (unless --no-restart is specified)
 
@@ -41,7 +40,7 @@ Note: This operation may take several minutes depending on the VHDX size.`,
 	Example: `  # Compact VHDX with automatic cluster restart
   k2s system compact
 
-  # Compact without restarting cluster
+  # Compact and keep cluster stopped afterwards (stop still happens)
   k2s system compact --no-restart
 
   # Skip confirmation prompts
@@ -50,8 +49,7 @@ Note: This operation may take several minutes depending on the VHDX size.`,
 }
 
 func init() {
-	CompactCmd.Flags().BoolVar(&noRestartFlag, "no-restart", false, "Do not restart cluster after compaction")
-	CompactCmd.Flags().BoolVar(&skipFstrimFlag, "skip-fstrim", false, "Skip running fstrim inside VM (advanced use only)")
+	CompactCmd.Flags().BoolVar(&noRestartFlag, "no-restart", false, "Keep cluster stopped after compaction (cluster is always stopped during compaction)")
 	CompactCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts")
 	CompactCmd.Flags().SortFlags = false
 	CompactCmd.Flags().PrintDefaults()
@@ -114,9 +112,6 @@ func buildCompactCmd(outputFlag bool) (string, error) {
 	params := ""
 	if noRestartFlag {
 		params += " -NoRestart"
-	}
-	if skipFstrimFlag {
-		params += " -SkipFstrim"
 	}
 	if yesFlag {
 		params += " -Yes"
