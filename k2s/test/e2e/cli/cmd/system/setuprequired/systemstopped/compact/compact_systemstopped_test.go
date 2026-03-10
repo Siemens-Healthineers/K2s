@@ -1,0 +1,102 @@
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-License-Identifier: MIT
+
+package compact
+
+import (
+	"context"
+	"os"
+	"testing"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/siemens-healthineers/k2s/test/framework"
+)
+
+var suite *framework.K2sTestSuite
+
+func TestCompactSystemStopped(t *testing.T) {
+	// Optimize-VHD can take several minutes; allow up to 20 minutes.
+	os.Setenv("SYSTEM_TEST_TIMEOUT", "20m")
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "system compact Acceptance Tests (system stopped)",
+		Label("cli", "system", "compact", "acceptance", "setup-required", "system-stopped"))
+}
+
+var _ = BeforeSuite(func(ctx context.Context) {
+	suite = framework.Setup(ctx,
+		framework.SystemMustBeStopped,
+		framework.ClusterTestStepPollInterval(500*time.Millisecond),
+		framework.ClusterTestStepTimeout(20*time.Minute),
+	)
+})
+
+var _ = AfterSuite(func(ctx context.Context) {
+	suite.TearDown(ctx)
+})
+
+var _ = Describe("system compact", Ordered, func() {
+
+	// -----------------------------------------------------------------------
+	// compact when cluster is already stopped
+	// -----------------------------------------------------------------------
+	Describe("when system is already stopped", Ordered, func() {
+
+		It("skips fstrim, skips cluster stop, compacts VHDX and does not restart", func(ctx context.Context) {
+			output := suite.K2sCli().MustExec(ctx, "system", "compact", "--yes")
+
+			Expect(output).To(SatisfyAll(
+				ContainSubstring("VM is not running. Skipping fstrim"),
+				ContainSubstring("Cluster is already stopped"),
+				ContainSubstring("Optimizing VHDX"),
+				ContainSubstring("Optimization completed"),
+				ContainSubstring("VHDX compaction completed successfully"),
+			))
+		})
+
+		It("does not attempt to stop or restart the cluster when already stopped", func(ctx context.Context) {
+			output := suite.K2sCli().MustExec(ctx, "system", "compact", "--yes")
+
+			Expect(output).NotTo(ContainSubstring("Stopping cluster"))
+			Expect(output).NotTo(ContainSubstring("Restarting cluster"))
+			Expect(output).To(ContainSubstring("Cluster was not running. Not restarting"))
+		})
+
+		It("reports before/after size and space saved", func(ctx context.Context) {
+			output := suite.K2sCli().MustExec(ctx, "system", "compact", "--yes")
+
+			Expect(output).To(SatisfyAll(
+				ContainSubstring("Before:"),
+				ContainSubstring("After:"),
+				ContainSubstring("Saved:"),
+				ContainSubstring("Compaction Results"),
+			))
+		})
+
+		It("leaves the cluster in a stopped state after compaction", func(ctx context.Context) {
+			isRunning := suite.StatusChecker().IsK2sRunning(ctx)
+
+			Expect(isRunning).To(BeFalse(), "cluster should remain stopped after compact when it was already stopped")
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// compact --no-restart when cluster is already stopped (flag is a no-op)
+	// -----------------------------------------------------------------------
+	Describe("when system is stopped and --no-restart is specified", Ordered, func() {
+
+		It("completes successfully — --no-restart has no additional effect when cluster is already stopped", func(ctx context.Context) {
+			output := suite.K2sCli().MustExec(ctx, "system", "compact", "--yes", "--no-restart")
+
+			Expect(output).To(SatisfyAll(
+				ContainSubstring("VM is not running. Skipping fstrim"),
+				ContainSubstring("Cluster is already stopped"),
+				ContainSubstring("Optimizing VHDX"),
+				ContainSubstring("VHDX compaction completed successfully"),
+			))
+		})
+	})
+})
+

@@ -36,7 +36,7 @@ sudo fstrim -v /
 With the freed blocks marked by `fstrim`, Windows can now physically shrink the VHDX file using `Optimize-VHD -Mode Full`. This operation compacts the file to remove the "holes" left by deleted data.
 
 ### 3. **Cluster Restart** (Optional)
-By default, the cluster is automatically restarted after compaction. You can skip this with `--no-restart` if you're performing maintenance.
+The cluster is **always stopped** during compaction — `Optimize-VHD` requires exclusive access to the VHDX. By default the cluster is automatically restarted afterwards. Use `--no-restart` to keep it stopped, for example when you need to perform further maintenance before bringing it back up.
 
 ---
 
@@ -107,7 +107,7 @@ k2s system compact --yes
 
 ### Keep Cluster Stopped
 
-For maintenance windows where you need to perform other operations:
+The cluster is **always stopped** during compaction (required for VHDX optimization). By default it is restarted automatically when done. Use `--no-restart` to keep it stopped afterwards — useful for maintenance windows where you need to perform other operations before bringing the cluster back up:
 
 ```console
 k2s system compact --no-restart
@@ -119,13 +119,6 @@ After maintenance, manually restart:
 k2s start
 ```
 
-### Skip fstrim (Advanced)
-
-If you've already run `fstrim` manually inside the VM:
-
-```console
-k2s system compact --skip-fstrim
-```
 
 ---
 
@@ -196,7 +189,7 @@ Manually stop the cluster first:
 
 ```console
 k2s stop
-k2s system compact --skip-fstrim
+k2s system compact
 ```
 
 ---
@@ -241,9 +234,9 @@ Warning: fstrim failed: connection timeout
   sudo fstrim -v /
   exit
   ```
-- Re-run compact with `--skip-fstrim`:
+- Re-run compact:
   ```console
-  k2s system compact --skip-fstrim
+  k2s system compact
   ```
 
 ---
