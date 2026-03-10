@@ -691,7 +691,7 @@ Current directory: $deltaRoot
 	#    Linux images may already have been imported by Phase 4 (Invoke-CommandInMasterVM → apply-debian-delta.sh
 	#    → buildah pull). Phase 8 re-imports them as a safety net and also covers the case where
 	#    Phase 4 was skipped because the cluster was not running at the time.
-	#    Windows images use nerdctl to load into the containerd k8s.io namespace — the same pattern used by
+	#    Windows images use ctr to import into the containerd k8s.io namespace — the same pattern used by
 	#    Invoke-DeployWindowsImages in downloader.module.psm1 and ImportImage.ps1.
 	_phase 'ContainerImages'
 
@@ -712,12 +712,12 @@ Current directory: $deltaRoot
 		}
 	}
 	if ($winImageFiles.Count -gt 0) {
-		# Resolve nerdctl from the target installation (containerd must be running after Phase 7 restart)
-		$nerdctlExe = Join-Path (Get-KubeBinPath) 'nerdctl.exe'
-		if (-not (Test-Path -LiteralPath $nerdctlExe)) {
-			Write-Log ("[Update][Warn] nerdctl.exe not found at {0}; cannot import Windows images" -f $nerdctlExe) -Console:$consoleSwitch
+		# Resolve ctr from the target installation (containerd must be running after Phase 7 restart)
+		$ctrExe = Join-Path (Get-KubeBinPath) 'containerd\ctr.exe'
+		if (-not (Test-Path -LiteralPath $ctrExe)) {
+			Write-Log ("[Update][Warn] ctr.exe not found at {0}; cannot import Windows images" -f $ctrExe) -Console:$consoleSwitch
 		} else {
-			Write-Log ("[Update] Loading {0} Windows container image archives via nerdctl" -f $winImageFiles.Count) -Console:$consoleSwitch
+			Write-Log ("[Update] Loading {0} Windows container image archives via ctr" -f $winImageFiles.Count) -Console:$consoleSwitch
 			$imageLoadedCount = 0
 			foreach ($img in $winImageFiles) {
 				Write-Log ("[Update] Loading Windows image: {0}" -f $img.Name) -Console:$consoleSwitch
@@ -726,8 +726,8 @@ Current directory: $deltaRoot
 				$success = $false
 				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
 					try {
-						& $nerdctlExe -n k8s.io load -i "$($img.FullName)" 2>&1 | Out-Null
-						if ($LASTEXITCODE -eq 0) {
+						$importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $img.FullName
+						if ($importSuccess) {
 							$success = $true
 							break
 						}

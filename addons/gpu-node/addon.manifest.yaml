@@ -23,6 +23,9 @@ spec:
           curl: []
           additionalImages:
             - shsk2s.azurecr.io/microsoft-standard-wsl2:6.1.21.2
+            - nvcr.io/nvidia/k8s-device-plugin:v0.15.0-ubi8
+            - nvcr.io/nvidia/k8s/dcgm-exporter:3.1.8-3.1.5-ubuntu20.04
+            - nvcr.io/nvidia/cuda:12.3.0-base-ubuntu22.04
         windows:
           curl: []
       commands:

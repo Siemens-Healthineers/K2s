@@ -115,7 +115,7 @@ function Try-RolloutStatus {
     }
 }
 
-Write-Log "[LoggingRestore] Restoring addon 'logging' from '$BackupDir'" -Console
+Write-Log "[LoggingRestore] Restoring addon 'logging'" -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {

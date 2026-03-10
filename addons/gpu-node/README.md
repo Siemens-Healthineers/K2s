@@ -23,22 +23,25 @@ k2s addons enable gpu-node
 
 ## Deploy a sample CUDA workload
 
-The following example shows how to schedule a sample CUDA workload on the GPU node:
+The following example schedules a GPU-requesting pod that verifies `nvidia.com/gpu` allocation:
 
 ```yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: vectorAdd
+  name: gpu-test
 spec:
   restartPolicy: OnFailure
   containers:
-  - name: vectorAdd
-    image: k8s.gcr.io/cuda-vector-add:v0.1
+  - name: gpu-test
+    image: nvcr.io/nvidia/cuda:12.3.0-base-ubuntu22.04
+    command: ["sh", "-c", "echo 'Test PASSED'; echo 'Done'"]
     resources:
       limits:
         nvidia.com/gpu: 1
 ```
+
+The pod requests one GPU; if it completes the GPU was successfully allocated. This works on both Hyper-V GPU-PV and WSL2 (dxcore) setups.
 
 
 ## Backup and restore
@@ -62,7 +65,7 @@ Because gpu-node is a **pure infrastructure addon** (Hyper-V GPU passthrough, NV
 
 ```console
 k2s addons backup gpu-node
-k2s addons restore gpu-node -f C:\Temp\Addons\gpu-node_backup_YYYYMMDD_HHMMSS.zip
+k2s addons restore gpu-node -f C:\Temp\k2s\Addons\gpu-node_backup_YYYYMMDD_HHMMSS.zip
 ```
 
 ## Further Reading

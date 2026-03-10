@@ -47,8 +47,11 @@ var (
 	# install K2s setup overwriting control-plane memory
 	k2s install --master-memory 8GB
 
-	# install K2s setup with dynamic memory management
-	k2s install --master-dynamic-memory --master-memory-min 2GB --master-memory-max 10GB
+	# install K2s setup with dynamic memory management (min/max auto-enables dynamic memory)
+	k2s install --master-memory-min 2GB --master-memory-max 10GB
+
+	# install K2s setup with dynamic memory and startup memory
+	k2s install --master-memory 4GB --master-memory-min 2GB --master-memory-max 10GB
 
 	# install without Windows worker node
 	k2s install --linux-only
@@ -116,7 +119,6 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneMemoryMinFlagName, "", ic.ControlPlaneMemoryMinFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneMemoryMaxFlagName, "", ic.ControlPlaneMemoryMaxFlagUsage)
-	cmd.Flags().Bool(ic.ControlPlaneDynamicMemoryFlagName, false, ic.ControlPlaneDynamicMemoryFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
 	cmd.Flags().StringSlice(ic.NoProxyFlagName, []string{}, ic.NoProxyFlagUsage)

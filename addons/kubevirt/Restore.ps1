@@ -70,7 +70,7 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-Write-Log "[AddonRestore] Restoring addon 'kubevirt' from '$BackupDir'" -Console
+Write-Log "[AddonRestore] Restoring addon 'kubevirt'" -Console
 
 if ($null -ne $manifest.addon -and ("$($manifest.addon)" -ne 'kubevirt')) {
     Write-Log "[AddonRestore] Warning: backup.json addon is '$($manifest.addon)' (expected 'kubevirt')." -Console

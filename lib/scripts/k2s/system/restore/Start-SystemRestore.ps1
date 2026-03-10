@@ -12,6 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Modules
+Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\upgrade\upgrade.module.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\runningstate\runningstate.module.psm1") -Force
@@ -38,7 +39,7 @@ Write-Log "Using temp restore directory" -Console
 try
 {
     Write-Log "Extracting backup file: $BackupFile"
-    Expand-Archive -Path $BackupFile -DestinationPath $restoreRoot -Force
+    Expand-ZipWithProgress -ZipPath $BackupFile -Destination $restoreRoot -Label 'backup' -Show:$ShowLogs
 } catch {
     Write-Log "[Restore] Failed to extract backup file: $_" -Console
     throw "Invalid or corrupt backup file. Failed to extract: $_"
