@@ -514,7 +514,7 @@ function New-ProvisionedBaseImage {
         ProvisioningDirectory = $provisioningTargetDirectory
     }
 
-    New-DebianCloudBasedVirtualMachine -VirtualMachineParams $VirtualMachineParams -NetworkParams $NetworkParams -IsoFileParams $IsoFileParams -WorkingDirectoriesParams $WorkingDirectoriesParams
+    New-LinuxCloudBasedVirtualMachine -VirtualMachineParams $VirtualMachineParams -NetworkParams $NetworkParams -IsoFileParams $IsoFileParams -WorkingDirectoriesParams $WorkingDirectoriesParams
 
     Write-Log "Start the VM $vmName"
     Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
@@ -841,7 +841,10 @@ Export-ModuleMember Clear-ProvisioningArtifacts,
 Get-NetworkInterfaceName, 
 Get-DefaultUserNameKubeNode, 
 Get-DefaultUserPwdKubeNode, 
-Get-VmIpForProvisioningKubeNode, 
+Get-VmIpForProvisioningKubeNode,
+Get-HostIpForProvisioningKubeNode,
+Get-NatIpForProvisioningKubeNode,
+Get-NetworkPrefixLengthForProvisioningKubeNode,
 Remove-KubeNodeBaseImage,
 New-KubenodeBaseImage, 
 New-KubemasterBaseImage, 

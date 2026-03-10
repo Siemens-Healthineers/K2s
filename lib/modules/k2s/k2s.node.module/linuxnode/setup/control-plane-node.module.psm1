@@ -472,10 +472,10 @@ function Remove-ControlPlaneNodeOnNewVM {
         if (Test-Path $kubenodeBaseFilePath) {
             Remove-Item $kubenodeBaseFilePath -Force
         }
-        $debianImageFilePath = Get-DebianImageFilePath
-        Write-Log "Delete file '$debianImageFilePath' if existing"
-        if (Test-Path $debianImageFilePath) {
-            Remove-Item $debianImageFilePath -Force
+        $linuxImageFilePath = Get-LinuxImageFilePath
+        Write-Log "Delete file '$linuxImageFilePath' if existing"
+        if (Test-Path $linuxImageFilePath) {
+            Remove-Item $linuxImageFilePath -Force
         }
     }
 

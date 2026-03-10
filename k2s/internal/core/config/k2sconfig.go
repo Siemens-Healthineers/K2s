@@ -13,8 +13,14 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
+type cloudImageConfig struct {
+	UrlRoot string `json:"urlRoot"`
+	UrlFile string `json:"urlFile"`
+}
+
 type supportedWorkerOSEntry struct {
-	OS string `json:"os"`
+	OS         string           `json:"os"`
+	CloudImage cloudImageConfig `json:"cloudImage"`
 }
 
 type configJson struct {
