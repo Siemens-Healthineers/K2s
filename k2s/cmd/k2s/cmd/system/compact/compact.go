@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -74,14 +75,28 @@ func compactVhdx(cmd *cobra.Command, args []string) error {
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if !errors.Is(err, cconfig.ErrSystemInCorruptedState) && !errors.Is(err, cconfig.ErrSystemNotInstalled) {
-			return err
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
+		return err
 	}
 
-	if runtimeConfig != nil && runtimeConfig.InstallConfig().LinuxOnly() {
+	if runtimeConfig.InstallConfig().LinuxOnly() {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
+
+	tzConfigHandle, err := tz.NewTimezoneConfigWorkspace(context.Config().Host().KubeConfig())
+	if err != nil {
+		return err
+	}
+	handle, err := tzConfigHandle.CreateHandle()
+	if err != nil {
+		return err
+	}
+	defer handle.Release()
 
 	err = powershell.ExecutePs(compactCommand, common.NewPtermWriter())
 	if err != nil {
