@@ -1,4 +1,7 @@
-# gpu-slice-test.yaml
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
 apiVersion: v1
 kind: Pod
 metadata:
