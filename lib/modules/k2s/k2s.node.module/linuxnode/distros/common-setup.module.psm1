@@ -1545,7 +1545,7 @@ function Install-HelmAndYqOnKubeMaster
     Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
 }
 
-function Configure-HypervDynamicMemory
+function Set-HypervDynamicMemory
 {
     param (
         [Parameter(Mandatory = $true)]
@@ -1719,7 +1719,7 @@ function New-VmImageForControlPlaneNode {
                 IpAddress             = $IpAddress
                 EnableDynamicMemory   = $EnableDynamicMemory
             }
-            Configure-HypervDynamicMemory @dynamicMemoryParams
+            Set-HypervDynamicMemory @dynamicMemoryParams
         }
     }
 
@@ -2165,5 +2165,5 @@ Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
 Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
 Update-CoreDNSConfigurationviaSSH,
 Set-UpMasterNode,
-Configure-HypervDynamicMemory
+Set-HypervDynamicMemory
 
