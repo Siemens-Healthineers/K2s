@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -8,14 +8,15 @@ metadata:
   name: gpu-node
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   labels:
     k8s-app: nvidia-device-plugin
   name: nvidia-device-plugin
   namespace: gpu-node
 spec:
-  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       k8s-app: nvidia-device-plugin
@@ -34,25 +35,96 @@ spec:
       # See https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
       priorityClassName: "system-node-critical"
       containers:
-      - image: nvcr.io/nvidia/k8s-device-plugin:v0.15.0-ubi8
+      - image: nvcr.io/nvidia/k8s-device-plugin:v0.18.2
         imagePullPolicy: IfNotPresent
-        #https://github.com/NVIDIA/k8s-device-plugin/issues/332
         name: nvidia-device-plugin-ctr
+        args:
+          - --config-file=/etc/nvidia/config.yaml
         env:
           - name: FAIL_ON_INIT_ERROR
             value: "false"
           - name: DP_DISABLE_HEALTHCHECKS
             value: "xids"
+          # WSL2/dxcore: needs libs from /usr/lib/wsl/lib and driver store from /usr/lib/wsl/drivers
+          - name: LD_LIBRARY_PATH
+            value: "/usr/lib/wsl/lib"
+          # CDI: device plugin annotates pods with CDI device IDs
+          - name: DEVICE_LIST_STRATEGY
+            value: "cdi-annotations"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop: ["ALL"]
+          # privileged required: /dev/dxg is blocked inside unprivileged containers
+          privileged: true
+        livenessProbe:
+          exec:
+            command:
+              - /usr/lib/wsl/lib/nvidia-smi
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 3
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  # Wait up to 30 s for the device plugin to write the CDI spec
+                  SPEC=/var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json
+                  i=0
+                  while [ $i -lt 30 ] && [ ! -f "$SPEC" ]; do sleep 1; i=$((i+1)); done
+                  [ -f "$SPEC" ] || exit 0
+                  # Resolve GPU UUID so CRI-O can look up the CDI device by name.
+                  # On WSL2/dxcore the CDI spec only has "name":"all" but the plugin
+                  # allocates by UUID, so we add a UUID alias entry.
+                  sleep 2
+                  UUID=$(/usr/lib/wsl/lib/nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | tr -d '[:space:]')
+                  [ -z "$UUID" ] && exit 0
+                  grep -q "\"$UUID\"" "$SPEC" && exit 0
+                  # Build the UUID device entry (same deviceNode as "all")
+                  NEW_DEV=',{"name":"'"$UUID"'","containerEdits":{"deviceNodes":[{"path":"/dev/dxg","hostPath":"/dev/dxg"}]}}'
+                  # Insert UUID device after "all" device (before devices-array close ']').
+                  # Temp file in same directory for atomic mv (avoids EXDEV).
+                  awk -v new_dev="$NEW_DEV" '{
+                    pos=index($0,"}]}}]")
+                    if(pos>0){print substr($0,1,pos+3) new_dev substr($0,pos+4)}
+                    else{print}
+                  }' "$SPEC" > /var/run/cdi/.cdi_tmp && mv /var/run/cdi/.cdi_tmp "$SPEC"
         volumeMounts:
         - name: device-plugin
           mountPath: /var/lib/kubelet/device-plugins
+        - name: wsl-libs
+          mountPath: /usr/lib/wsl/lib
+        - name: wsl-drivers
+          mountPath: /usr/lib/wsl/drivers
+        - name: cdi-run
+          mountPath: /var/run/cdi
+        - name: time-slicing-config
+          mountPath: /etc/nvidia/config.yaml
+          subPath: config.yaml
       volumes:
       - name: device-plugin
         hostPath:
           path: /var/lib/kubelet/device-plugins
+      - name: wsl-libs
+        hostPath:
+          path: /usr/lib/wsl/lib
+      - name: wsl-drivers
+        # Must be mounted explicitly for NVML to work inside the container.
+        hostPath:
+          path: /usr/lib/wsl/drivers
+      - name: cdi-run
+        hostPath:
+          path: /var/run/cdi
+          type: DirectoryOrCreate
+      - name: time-slicing-config
+        configMap:
+          name: time-slicing-config
       nodeSelector:
         "kubernetes.io/os": linux
