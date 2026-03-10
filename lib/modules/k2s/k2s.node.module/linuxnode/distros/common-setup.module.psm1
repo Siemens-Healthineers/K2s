@@ -204,8 +204,8 @@ Function Get-KubernetesArtifactsFromInternet {
     }
 
     # Copy and execute the shell script
-    Write-Log "Downloading Kubernetes artifacts for Debian 12"
-    $scriptSourcePath ="$(Get-LinuxScriptPath)\download-k8s-packages.sh"
+    Write-Log "Downloading Kubernetes artifacts for $InstalledDistribution"
+    $scriptSourcePath ="$(Get-LinuxScriptPath -InstalledDistribution $InstalledDistribution)\download-k8s-packages.sh"
     
     Invoke-RemoteScript -LocalScriptPath $scriptSourcePath `
                         -UserName $UserName `
@@ -1973,6 +1973,8 @@ function Get-BuildahPackageCachePath {
 
 Export-ModuleMember -Function New-VmImageForControlPlaneNode,
 New-LinuxVmImageForWorkerNode,
+Get-KubernetesArtifactsFromInternet,
+Get-BuildahDebPackagesFromInternet,
 Remove-VmImageForControlPlaneNode,
 Import-SpecificDistroSettingsModule,
 New-WslRootfsForControlPlaneNode,

@@ -60,9 +60,21 @@ log_info "=== Downloading buildah and dependencies ==="
 
 download_packages 'buildah'
 
-# NOTE: crun is only a Recommends (optional) dependency of buildah and its
-# post-install script fails on some VM kernel configurations. We intentionally
-# skip downloading it; buildah works correctly without it.
+# Explicitly download the recommended package crun (with retry + repair)
+log_info "Downloading recommended package: crun"
+for attempt in 1 2; do
+    if (cd "$BUILDAH_DEB_PACKAGES_PATH" && sudo apt-get download crun 2>/dev/null); then
+        break
+    fi
+
+    log_info "crun download attempt $attempt failed; running repair"
+    sudo dpkg --configure -a >/dev/null 2>&1 || true
+    sudo apt --fix-broken install -y >/dev/null 2>&1 || true
+
+    if [ "$attempt" -eq 2 ]; then
+        log_info "WARNING: failed to download crun after 2 attempts"
+    fi
+done
 
 log_info "Downloaded packages:"
 ls -1 "$BUILDAH_DEB_PACKAGES_PATH"
