@@ -19,7 +19,7 @@ SPDX-License-Identifier: MIT
         <link rel="prev" href="../cli-shortcuts/">
       
       
-        <link rel="next" href="../cluster-ip-addresses/">
+        <link rel="next" href="../gpu-node/">
       
       
         
@@ -557,6 +557,8 @@ You're not viewing the latest release version.
   
     
     
+      
+        
       
         
       
@@ -1215,6 +1217,34 @@ You're not viewing the latest release version.
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gpu-node/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Node
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3812,36 +3842,59 @@ SPDX-License-Identifier: MIT
 <li><code>UploadImage.ps1</code> — upload disk images to a running KubeVirt instance</li>
 </ul>
 <h3 id="gpu-node">gpu-node</h3>
-<p>No <abbr title="Command-Line Interface">CLI</abbr> flags. Configures the Linux control-plane node to use NVIDIA GPUs.</p>
-<p>Installs the NVIDIA container toolkit on the Linux <abbr title="Virtual Machine">VM</abbr>. For <abbr title="Windows Subsystem for Linux">WSL</abbr> 2 setups, a custom kernel image (<code>microsoft-standard-wsl2</code>) is used to enable GPU passthrough.</p>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Short</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--time-slices</code></td>
+<td><code>-t</code></td>
+<td>integer</td>
+<td><code>1</code></td>
+<td>Number of virtual GPU slots per physical GPU. <code>1</code> = exclusive access. Set <code>&gt;1</code> to share the GPU across multiple pods simultaneously via CUDA time-slicing (max <code>16</code>).</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s addons enable gpu-node</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">k2s addons enable gpu-node --time-slices 4</span>
+</code></pre></div>
+<p>Installs the NVIDIA Container Toolkit on the Linux <abbr title="Virtual Machine">VM</abbr> and deploys the NVIDIA Device Plugin DaemonSet. For Hyper-V setups, also configures GPU-PV passthrough and installs the WSL2 kernel. For WSL2 setups, the GPU libraries are already available via the shared dxcore stack.</p>
+<p>See <a href="../gpu-node/">GPU Node</a> for full usage details including how to write GPU pod specs, time-slicing, offline workflow, and known limitations.</p>
 <h3 id="autoscaling">autoscaling</h3>
 <p>No <abbr title="Command-Line Interface">CLI</abbr> flags. Installs <a href="https://keda.sh" target="_blank" rel="noopener">KEDA</a> (Kubernetes Event-Driven Autoscaling) for horizontally scaling workloads based on external events or triggers.</p>
 <h3 id="metrics">metrics</h3>
 <p>No <abbr title="Command-Line Interface">CLI</abbr> flags. Installs the Kubernetes <strong>metrics server</strong>, enabling <code>kubectl top nodes</code>, <code>kubectl top pods</code>, and Horizontal Pod Autoscaler (HPA) support.</p>
 <h2 id="managing-addons">Managing Addons</h2>
 <h3 id="listing-addons">Listing Addons</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s addons ls</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s addons ls</span>
 </code></pre></div>
 <h3 id="enabling-an-addon">Enabling an Addon</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="gp"># </span>Enable<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span><span class="o">(</span>single<span class="w"> </span>implementation<span class="o">)</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">k2s addons enable dashboard</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="gp"># </span>Enable<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>with<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="go">k2s addons enable ingress nginx</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="gp"># </span>Enable<span class="w"> </span>with<span class="w"> </span>flags
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="go">k2s addons enable dashboard --ingress</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="gp"># </span>Enable<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span><span class="o">(</span>single<span class="w"> </span>implementation<span class="o">)</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">k2s addons enable dashboard</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="gp"># </span>Enable<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>with<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="go">k2s addons enable ingress nginx</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="gp"># </span>Enable<span class="w"> </span>with<span class="w"> </span>flags
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="go">k2s addons enable dashboard --ingress</span>
 </code></pre></div>
 <h3 id="disabling-an-addon">Disabling an Addon</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s addons disable dashboard</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">k2s addons disable ingress nginx</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons disable dashboard</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="go">k2s addons disable ingress nginx</span>
 </code></pre></div>
 <h3 id="checking-addon-status">Checking Addon Status</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons status dashboard</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="go">k2s addons status ingress nginx</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="gp"># </span>JSON<span class="w"> </span>output
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="go">k2s addons status registry -o json</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s addons status dashboard</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="go">k2s addons status ingress nginx</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gp"># </span>JSON<span class="w"> </span>output
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">k2s addons status registry -o json</span>
 </code></pre></div>
 <h2 id="offline-usage-oci-export-import">Offline Usage: OCI Export &amp; Import</h2>
 <p>One of the most powerful addon features is the ability to <strong>export addons as OCI-compliant artifacts</strong> and <strong>import them on air-gapped systems</strong>. This enables fully offline addon deployment without any network access.</p>
@@ -3856,56 +3909,56 @@ SPDX-License-Identifier: MIT
 </ul>
 <p>The resulting <code>.oci.tar</code> file follows the <a href="https://github.com/opencontainers/image-spec/blob/main/image-layout.md" target="_blank" rel="noopener">OCI Image Layout Specification</a>, making it compatible with standard container tooling.</p>
 <h3 id="exporting-addons">Exporting Addons</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gp"># </span>Export<span class="w"> </span>all<span class="w"> </span>addons
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="go">k2s addons export -d C:\export</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gp"># </span>Export<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">k2s addons export registry -d C:\export</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="gp"># </span>Export<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="go">k2s addons export &quot;ingress nginx&quot; -d C:\export</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="gp"># </span>Export<span class="w"> </span>all<span class="w"> </span>addons
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">k2s addons export -d C:\export</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="gp"># </span>Export<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="go">k2s addons export registry -d C:\export</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="gp"># </span>Export<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="go">k2s addons export &quot;ingress nginx&quot; -d C:\export</span>
 </code></pre></div>
 <p>The export produces a file like <code>addons.oci.tar</code> containing all requested addon artifacts.</p>
 <h3 id="importing-addons">Importing Addons</h3>
 <p>On the target system (which may be offline), import the previously exported archive:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="gp"># </span>Import<span class="w"> </span>all<span class="w"> </span>addons<span class="w"> </span>from<span class="w"> </span>archive
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">k2s addons import -z C:\transfer\addons.oci.tar</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="gp"># </span>Import<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="go">k2s addons import registry -z C:\transfer\addons.oci.tar</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="gp"># </span>Import<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="go">k2s addons import &quot;ingress nginx&quot; -z C:\transfer\addons.oci.tar</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="gp"># </span>Import<span class="w"> </span>all<span class="w"> </span>addons<span class="w"> </span>from<span class="w"> </span>archive
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="go">k2s addons import -z C:\transfer\addons.oci.tar</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="gp"># </span>Import<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="go">k2s addons import registry -z C:\transfer\addons.oci.tar</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="gp"># </span>Import<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="go">k2s addons import &quot;ingress nginx&quot; -z C:\transfer\addons.oci.tar</span>
 </code></pre></div>
 <p>After import, the addon images are loaded into the cluster's container runtime and the addon can be enabled normally.</p>
 <h3 id="typical-offline-workflow">Typical Offline Workflow</h3>
 <ol>
 <li><strong>On an online machine</strong> with K2s installed, export the addons you need:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s addons export &quot;ingress nginx&quot; registry monitoring -d C:\export</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s addons export &quot;ingress nginx&quot; registry monitoring -d C:\export</span>
 </code></pre></div></li>
 <li><strong>Transfer</strong> the <code>addons.oci.tar</code> file to the air-gapped environment (USB drive, secure file transfer, etc.)</li>
 <li><strong>On the offline machine</strong>, import and enable:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s addons import -z D:\transfer\addons.oci.tar</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="go">k2s addons enable ingress nginx</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="go">k2s addons enable registry</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="go">k2s addons enable monitoring</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s addons import -z D:\transfer\addons.oci.tar</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="go">k2s addons enable ingress nginx</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="go">k2s addons enable registry</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="go">k2s addons enable monitoring</span>
 </code></pre></div></li>
 </ol>
 <h2 id="backup-restore">Backup &amp; Restore</h2>
 <p>Addons support data backup and restore for disaster recovery or migration scenarios.</p>
 <h3 id="backing-up-addon-data">Backing Up Addon Data</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="go">k2s addons backup registry -f C:\backups\registry-backup.zip</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>default<span class="w"> </span>location<span class="w"> </span><span class="o">(</span>C:<span class="se">\T</span>emp<span class="se">\k</span>2s<span class="se">\A</span>ddons<span class="o">)</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="go">k2s addons backup registry</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="go">k2s addons backup registry -f C:\backups\registry-backup.zip</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>default<span class="w"> </span>location<span class="w"> </span><span class="o">(</span>C:<span class="se">\T</span>emp<span class="se">\k</span>2s<span class="se">\A</span>ddons<span class="o">)</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="go">k2s addons backup registry</span>
 </code></pre></div>
 <h3 id="restoring-addon-data">Restoring Addon Data</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="go">k2s addons restore registry -f C:\backups\registry-backup.zip</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="gp"># </span>Restore<span class="w"> </span>newest<span class="w"> </span>backup<span class="w"> </span>from<span class="w"> </span>default<span class="w"> </span>location
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="go">k2s addons restore registry</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="go">k2s addons restore registry -f C:\backups\registry-backup.zip</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="gp"># </span>Restore<span class="w"> </span>newest<span class="w"> </span>backup<span class="w"> </span>from<span class="w"> </span>default<span class="w"> </span>location
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="go">k2s addons restore registry</span>
 </code></pre></div>
 <h2 id="gitops-with-the-rollout-addon">GitOps with the Rollout Addon</h2>
 <p>The <strong>rollout</strong> addon provides GitOps-based continuous deployment using either <strong>ArgoCD</strong> or <strong>Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr></strong>. This is especially powerful when combined with addon OCI export/import for offline environments.</p>
@@ -3917,7 +3970,7 @@ SPDX-License-Identifier: MIT
 <li><strong>Reproducible environments</strong> — same Git repo produces identical deployments</li>
 </ul>
 <h3 id="argocd-implementation">ArgoCD Implementation</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s addons enable rollout argocd</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s addons enable rollout argocd</span>
 </code></pre></div>
 <p>ArgoCD provides a web dashboard at <code>https://k2s.cluster.local/rollout</code> (when ingress is configured) for visual deployment management. It supports:</p>
 <ul>
@@ -3927,10 +3980,10 @@ SPDX-License-Identifier: MIT
 <li>Multi-application management</li>
 </ul>
 <p>Optional ingress integration:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
 </code></pre></div></p>
 <h3 id="flux-cd-implementation">Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> Implementation</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">k2s addons enable rollout fluxcd</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">k2s addons enable rollout fluxcd</span>
 </code></pre></div>
 <p>Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> provides a <abbr title="Command-Line Interface">CLI</abbr>/<abbr title="Yet Another Markup Language">YAML</abbr>-only GitOps experience with:</p>
 <ul>
@@ -3939,17 +3992,17 @@ SPDX-License-Identifier: MIT
 <li>Optional webhook ingress for push-based notifications</li>
 </ul>
 <p>Optional ingress integration:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">k2s addons enable rollout fluxcd --ingress traefik</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s addons enable rollout fluxcd --ingress traefik</span>
 </code></pre></div></p>
 <h3 id="offline-gitops-workflow">Offline GitOps Workflow</h3>
 <p>Combining OCI export/import with the rollout addon enables GitOps in air-gapped environments:</p>
 <ol>
 <li><strong>Export</strong> the rollout addon (and any other addons your applications depend on):
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s addons export rollout &quot;ingress nginx&quot; registry -d C:\export</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons export rollout &quot;ingress nginx&quot; registry -d C:\export</span>
 </code></pre></div></li>
 <li><strong>Transfer</strong> and <strong>import</strong> on the offline cluster:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons import -z D:\transfer\addons.oci.tar</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">k2s addons import -z D:\transfer\addons.oci.tar</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
 </code></pre></div></li>
 <li><strong>Configure ArgoCD/Flux</strong> to point to a local Git server (also deployed in the cluster or available on the local network) containing your application manifests.</li>
 </ol>
@@ -4018,13 +4071,13 @@ SPDX-License-Identifier: MIT
         
         
           
-          <a href="../cluster-ip-addresses/" class="md-footer__link md-footer__link--next" aria-label="Next: Assignment of Cluster IP Addresses for Services">
+          <a href="../gpu-node/" class="md-footer__link md-footer__link--next" aria-label="Next: GPU Node">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Assignment of Cluster IP Addresses for Services
+                GPU Node
               </div>
             </div>
             <div class="md-footer__button md-icon">
