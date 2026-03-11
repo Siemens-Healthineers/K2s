@@ -317,8 +317,8 @@ function Export-PersistentVolume {
         $checkCmd = "sudo test -d '$volumePath' && echo 'exists' || echo 'missing'"
         $checkResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $checkCmd -NoLog
         
-        if ($checkResult -notmatch 'exists') {
-            Write-Log "[PVBackup] Volume path not found at $volumePath on VM" -Console -Error
+        if ($checkResult.Output -notmatch 'exists') {
+            Write-Log "[PVBackup] Volume path not found at $volumePath on VM (check output: '$($checkResult.Output)')" -Console -Error
             return $false
         }
         
