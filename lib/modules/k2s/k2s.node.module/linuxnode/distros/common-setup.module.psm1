@@ -1219,9 +1219,38 @@ kind: KubeletConfiguration
 failCgroupV1: false
 "@
 
+    # Pre-pull Kubernetes images with retries to isolate network issues from kubeadm init
+    Write-Log "[KubeInit] Pre-pulling Kubernetes images for version $K8sVersion" -Console
+    if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+        $prePullResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -UserName $UserName -IpAddress $IpAddress -Retries 3 -Timeout 30
+    }
+    else {
+        $prePullResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries 3 -Timeout 30
+    }
+    $prePullResult.Output | Write-Log
+    if (-not $prePullResult.Success) {
+        Write-Log '[KubeInit] WARNING: Pre-pulling images failed, kubeadm init will attempt to pull them' -Console
+    }
+
     &$executeRemoteCommand 'mkdir -p ~/tmp/kubeadm-init'
     &$executeRemoteCommand "echo '$initConfig' | sudo tee ~/tmp/kubeadm-init/kubeadm-init.yaml"    
-    &$executeRemoteCommand 'sudo kubeadm init --config ~/tmp/kubeadm-init/kubeadm-init.yaml --ignore-preflight-errors=SystemVerification'
+
+    # Run kubeadm init with retry (kubeadm reset between attempts to clean up partial state)
+    $initCmd = 'sudo kubeadm init --config ~/tmp/kubeadm-init/kubeadm-init.yaml --ignore-preflight-errors=SystemVerification'
+    $resetCmd = 'sudo kubeadm reset --force'
+    Write-Log '[KubeInit] Initializing Kubernetes control plane' -Console
+    if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+        $initResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $initCmd -UserName $UserName -IpAddress $IpAddress -Retries 1 -Timeout 30 -RepairCmd $resetCmd
+    }
+    else {
+        $initResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $initCmd -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries 1 -Timeout 30
+    }
+    $initResult.Output | Write-Log
+    if (-not $initResult.Success) {
+        &$executeRemoteCommand 'rm -rf ~/tmp/kubeadm-init' -IgnoreErrors
+        throw "[KubeInit] kubeadm init failed after retries. Check proxy settings and network connectivity to container registry (registry.k8s.io)."
+    }
+
     &$executeRemoteCommand 'rm -rf ~/tmp/kubeadm-init'
 
     Write-Log 'Copy K8s config file to user profile'
@@ -1516,7 +1545,7 @@ function Install-HelmAndYqOnKubeMaster
     Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
 }
 
-function Configure-HypervDynamicMemory
+function Set-HypervDynamicMemory
 {
     param (
         [Parameter(Mandatory = $true)]
@@ -1690,7 +1719,7 @@ function New-VmImageForControlPlaneNode {
                 IpAddress             = $IpAddress
                 EnableDynamicMemory   = $EnableDynamicMemory
             }
-            Configure-HypervDynamicMemory @dynamicMemoryParams
+            Set-HypervDynamicMemory @dynamicMemoryParams
         }
     }
 
@@ -2136,5 +2165,5 @@ Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
 Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
 Update-CoreDNSConfigurationviaSSH,
 Set-UpMasterNode,
-Configure-HypervDynamicMemory
+Set-HypervDynamicMemory
 

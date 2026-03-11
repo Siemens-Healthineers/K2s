@@ -227,9 +227,18 @@ Additional helper scripts:
 
 ### gpu-node
 
-No CLI flags. Configures the Linux control-plane node to use NVIDIA GPUs.
+| Enable Flag | Short | Type | Default | Description |
+|-------------|-------|------|---------|-------------|
+| `--time-slices` | `-t` | integer | `1` | Number of virtual GPU slots per physical GPU. `1` = exclusive access. Set `>1` to share the GPU across multiple pods simultaneously via CUDA time-slicing (max `16`). |
 
-Installs the NVIDIA container toolkit on the Linux VM. For WSL 2 setups, a custom kernel image (`microsoft-standard-wsl2`) is used to enable GPU passthrough.
+```console
+k2s addons enable gpu-node
+k2s addons enable gpu-node --time-slices 4
+```
+
+Installs the NVIDIA Container Toolkit on the Linux VM and deploys the NVIDIA Device Plugin DaemonSet. For Hyper-V setups, also configures GPU-PV passthrough and installs the WSL2 kernel. For WSL2 setups, the GPU libraries are already available via the shared dxcore stack.
+
+See [GPU Node](gpu-node.md) for full usage details including how to write GPU pod specs, time-slicing, offline workflow, and known limitations.
 
 ### autoscaling
 
