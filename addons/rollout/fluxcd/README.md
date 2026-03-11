@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -16,7 +16,9 @@ Flux CD is a GitOps operator that continuously reconciles cluster state with sou
 k2s addons enable rollout fluxcd
 ```
 
-### Optional: Enable ingress (for Git webhook notifications)
+Enabling `rollout fluxcd` also installs the Flux CLI on the Windows host at `bin\\flux.exe`.
+
+### Optional: Enable Webhooks (for Git push notifications)
 
 ```console
 k2s addons enable rollout fluxcd --ingress nginx
@@ -73,8 +75,11 @@ spec:
   targetNamespace: default
 ```
 
+### 3. Apply
+
 ```console
-kubectl apply -f gitrepository.yaml -f kustomization.yaml
+kubectl apply -f gitrepository.yaml
+kubectl apply -f kustomization.yaml
 ```
 
 ### Helm chart deployment
@@ -466,7 +471,7 @@ Backup/restore is scoped to the `rollout` namespace only.
 
 - Flux controllers and CRDs (re-installed by `k2s addons enable rollout fluxcd` during restore)
 - Resources outside of the `rollout` namespace
-- `k2s-addon-sync` namespace resources — re-register per-addon FluxCD resources after restore
+- Host binary `bin\\flux.exe` (installed on `enable`; in offline environments it is carried by `k2s addons export` / `k2s addons import`)
 
 ### Commands
 

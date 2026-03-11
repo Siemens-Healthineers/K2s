@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -52,6 +52,16 @@ spec:
             subPath: argocd/Disable.ps1
     - name: fluxcd
       description: Automating the deployment/updating of applications using Flux CD
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages: []
+        windows:
+          curl:
+            - url: https://github.com/fluxcd/flux2/releases/download/v2.8.1/flux_2.8.1_windows_amd64.zip
+              destination: bin\flux.exe
       commands:
         enable:
           cli:
