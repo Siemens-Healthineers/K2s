@@ -24,6 +24,28 @@ cleanup_and_create() {
     mkdir -p "$path"
 }
 
+refresh_apt_cache() {
+    local max_retries=2
+    local attempt=1
+
+    while [ $attempt -le $max_retries ]; do
+        if sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change; then
+            return 0
+        fi
+
+        log_warning "apt-get update failed (attempt $attempt/$max_retries)"
+        if [ $attempt -lt $max_retries ]; then
+            log_info "Repairing apt/dpkg state before retry"
+            sudo dpkg --configure -a >/dev/null 2>&1 || true
+            sudo apt --fix-broken install -y >/dev/null 2>&1 || true
+        fi
+        attempt=$((attempt + 1))
+    done
+
+    log_warning "apt-get update failed after $max_retries attempts"
+    return 1
+}
+
 # Normalize K8S_VERSION to vX.Y for repo URLs (repos use minor version only)
 # e.g. v1.35.0 -> v1.35, v1.35 -> v1.35
 K8S_VERSION_REPO=$(echo "$K8S_VERSION" | sed 's/^\(v[0-9]*\.[0-9]*\).*/\1/')
@@ -52,13 +74,52 @@ fi
 download_packages() {
     local package_name="$1"
     local pkg_base="${package_name%%=*}"
+    local pkg_version=""
+    local max_retries=2
+    local attempt=1
+    local downloaded_main_package=0
 
     log_info "Downloading: $package_name"
 
     # Step 1: Download the main .deb (matches original PowerShell Command 1)
-    cd "$TARGET_PATH" && sudo apt-get download --allow-unauthenticated "$package_name" 2>/dev/null || true
+    while [ $attempt -le $max_retries ]; do
+        local download_error_file
+        download_error_file=$(mktemp)
+
+        if cd "$TARGET_PATH" && sudo apt-get download --allow-unauthenticated "$package_name" 2>"$download_error_file"; then
+            downloaded_main_package=1
+            rm -f "$download_error_file"
+            break
+        fi
+
+        local download_error
+        download_error=$(tr '\n' ' ' < "$download_error_file" | sed 's/[[:space:]]\+/ /g' | sed 's/^ //;s/ $//')
+        rm -f "$download_error_file"
+
+        log_warning "Download failed for '$package_name' (attempt $attempt/$max_retries)"
+        if [ -n "$download_error" ]; then
+            log_warning "apt-get download error: $download_error"
+        fi
+
+        if [ $attempt -lt $max_retries ]; then
+            log_info "Running repair before retry: dpkg --configure -a && apt --fix-broken install && apt-get update"
+            sudo dpkg --configure -a >/dev/null 2>&1 || true
+            sudo apt --fix-broken install -y >/dev/null 2>&1 || true
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change >/dev/null 2>&1 || true
+        fi
+
+        attempt=$((attempt + 1))
+    done
+
+    if [[ "$package_name" == *"="* ]]; then
+        pkg_version="${package_name#*=}"
+    fi
 
     local deb_pattern="${pkg_base}*.deb"
+    if [ -n "$pkg_version" ]; then
+        deb_pattern="${pkg_base}_${pkg_version}_*.deb"
+    fi
+
     if ls "$TARGET_PATH"/${deb_pattern} >/dev/null 2>&1; then
         cd "$TARGET_PATH" && sudo DEBIAN_FRONTEND=noninteractive \
             apt-get --reinstall install -y \
@@ -67,12 +128,28 @@ download_packages() {
             | grep 'Inst ' \
             | cut -d ' ' -f 2 \
             | sort -u \
+            | grep -v "^${pkg_base}$" \
             | xargs -r sudo apt-get download --allow-unauthenticated 2>/dev/null || true
+
+        return 0
     fi
+
+    if [ "$downloaded_main_package" -eq 1 ]; then
+        return 0
+    fi
+
+    log_warning "Package was not downloaded: $package_name"
+    return 1
 }
 
 log_info "=== Downloading Base Tools ==="
-download_packages 'gpg'
+log_info "Refreshing apt package cache before base tools download"
+refresh_apt_cache || true
+
+if ! download_packages 'gpg' || ! ls "$TARGET_PATH"/gpg*.deb >/dev/null 2>&1; then
+    log_warning "gpg download failed; cannot continue"
+    exit 1
+fi
 download_packages 'apt-transport-https'
 download_packages 'ca-certificates'
 
@@ -180,13 +257,7 @@ log_info "=== Downloading CRI-O ==="
 download_packages 'cri-o'
 
 log_info "=== Downloading Kubernetes Tools ==="
-VERSION_NO_V="${K8S_VERSION#v}"
-DOT_COUNT=$(echo "$VERSION_NO_V" | tr -cd '.' | wc -c)
-if [ "$DOT_COUNT" -ge 2 ]; then
-    SHORT_K8S_VERSION="${VERSION_NO_V}-1.1"  
-else
-    SHORT_K8S_VERSION="${VERSION_NO_V}.0-1.1" 
-fi
+SHORT_K8S_VERSION="${K8S_VERSION#v}-1.1"
 log_info "Target Kubernetes version: $SHORT_K8S_VERSION"
 
 download_packages "kubectl=$SHORT_K8S_VERSION"
