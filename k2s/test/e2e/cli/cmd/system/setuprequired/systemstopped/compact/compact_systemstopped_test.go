@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/test/framework"
 )
 
@@ -21,7 +22,7 @@ func TestCompactSystemStopped(t *testing.T) {
 	os.Setenv("SYSTEM_TEST_TIMEOUT", "20m")
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "system compact Acceptance Tests (system stopped)",
-		Label("cli", "system", "compact", "acceptance", "setup-required", "system-stopped"))
+		Label("system", "compact", "system-stopped"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -36,9 +37,26 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
+func skipIfUnsupportedSetup() {
+	ic := suite.SetupInfo().RuntimeConfig.InstallConfig()
+	if ic.LinuxOnly() {
+		Skip("skipped: compact is not available for linux-only setup")
+	}
+	if ic.WslEnabled() {
+		Skip("skipped: compact is not available for WSL-based setup")
+	}
+	if ic.SetupName() == definitions.SetupNameBuildOnlyEnv {
+		Skip("skipped: compact is not available for build-only setup")
+	}
+}
+
 var _ = Describe("system compact", Ordered, func() {
 
 	Describe("when system is already stopped", Ordered, func() {
+
+		BeforeEach(func() {
+			skipIfUnsupportedSetup()
+		})
 
 		It("skips fstrim, skips cluster stop, compacts VHDX and does not restart", func(ctx context.Context) {
 			output := suite.K2sCli().MustExec(ctx, "system", "compact", "--yes")
@@ -77,6 +95,10 @@ var _ = Describe("system compact", Ordered, func() {
 	})
 
 	Describe("when system is stopped and --no-restart is specified", Ordered, func() {
+
+		BeforeEach(func() {
+			skipIfUnsupportedSetup()
+		})
 
 		It("completes successfully", func(ctx context.Context) {
 			output := suite.K2sCli().MustExec(ctx, "system", "compact", "--yes", "--no-restart")

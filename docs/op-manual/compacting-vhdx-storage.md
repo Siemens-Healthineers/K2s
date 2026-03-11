@@ -48,7 +48,7 @@ k2s node connect -i 172.19.1.100 -u remote
 df -h /
 ```
 
-**WSL installations:** `k2s system compact` is only available for Hyper-V installations.
+**Linux-only, build-only, or WSL installs:** `k2s system compact` is only available for standard Hyper-V installations — Linux-only, build-only, and WSL-based setups have no Hyper-V VHDX to compact.
 
 ## Related Commands
 
