@@ -16,7 +16,7 @@ import (
 
 func TestCompact(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "compact Unit Tests", Label("unit", "ci", "compact"))
+	RunSpecs(t, "compact Unit Tests", Label("unit", "ci"))
 }
 
 func resetCompactFlags() {

@@ -13,6 +13,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -73,8 +74,24 @@ func compactVhdx(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if runtimeConfig.InstallConfig().SetupName() == definitions.SetupNameBuildOnlyEnv {
+		return &common.CmdFailure{
+			Severity: common.SeverityWarning,
+			Code:     "functionality-not-available-for-build-only",
+			Message:  "VHDX compaction is not available in build-only setup (no VM/VHDX present).",
+		}
+	}
+
 	if runtimeConfig.InstallConfig().LinuxOnly() {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
+	}
+
+	if runtimeConfig.InstallConfig().WslEnabled() {
+		return &common.CmdFailure{
+			Severity: common.SeverityWarning,
+			Code:     "functionality-not-available-for-wsl",
+			Message:  "VHDX compaction is not available for WSL-based installations.",
+		}
 	}
 
 	tzConfigHandle, err := tz.NewTimezoneConfigWorkspace(context.Config().Host().KubeConfig())
