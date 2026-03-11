@@ -26,30 +26,21 @@ var (
 )
 
 var CompactCmd = &cobra.Command{
-	Use:   "compact",
-	Short: "Compact VHDX disk to reclaim unused space",
-	Long: `Compacts the Kubemaster VHDX file to reclaim disk space freed by deleted images and files.
+	Use:     "compact",
+	Short:   "Compact VHDX disk to reclaim unused space",
+	Example: `      # Compact VHDX with automatic cluster restart
+      k2s system compact
 
-This command performs the following steps:
-1. Runs fstrim inside the VM to notify Hyper-V of freed blocks (if cluster is running)
-2. Stops the cluster (always required for VHDX optimization)
-3. Optimizes the VHDX file to reclaim space
-4. Restarts the cluster (unless --no-restart is specified)
+      # Compact and keep cluster stopped afterwards (stop still happens)
+      k2s system compact --no-restart
 
-Note: This operation may take several minutes depending on the VHDX size.`,
-	Example: `  # Compact VHDX with automatic cluster restart
-  k2s system compact
-
-  # Compact and keep cluster stopped afterwards (stop still happens)
-  k2s system compact --no-restart
-
-  # Skip confirmation prompts
-  k2s system compact --yes`,
-	RunE: compactVhdx,
+      # Skip confirmation prompts
+      k2s system compact --yes`,
+	RunE:    compactVhdx,
 }
 
 func init() {
-	CompactCmd.Flags().BoolVar(&noRestartFlag, "no-restart", false, "Keep cluster stopped after compaction (cluster is always stopped during compaction)")
+	CompactCmd.Flags().BoolVar(&noRestartFlag, "no-restart", false, "Keep cluster stopped after compaction")
 	CompactCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Skip confirmation prompts")
 	CompactCmd.Flags().SortFlags = false
 	CompactCmd.Flags().PrintDefaults()
@@ -122,4 +113,3 @@ func buildCompactCmd(outputFlag bool) (string, error) {
 
 	return scriptPath + params, nil
 }
-

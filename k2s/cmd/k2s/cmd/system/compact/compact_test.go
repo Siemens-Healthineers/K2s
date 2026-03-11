@@ -19,35 +19,21 @@ func TestCompact(t *testing.T) {
 	RunSpecs(t, "compact Unit Tests", Label("unit", "ci", "compact"))
 }
 
-// resetCompactFlags resets all package-level flag variables and the OutputFlag between tests.
 func resetCompactFlags() {
 	noRestartFlag = false
 	yesFlag = false
 	CompactCmd.Flags().Set(common.OutputFlagName, "false")
 }
 
-var _ = BeforeSuite(func() {
-	// Register the output flag once so all tests can manipulate it.
-	CompactCmd.Flags().BoolP(
-		common.OutputFlagName,
-		common.OutputFlagShorthand,
-		false,
-		common.OutputFlagUsage,
-	)
-})
-
 var _ = Describe("compact", func() {
-
 	Describe("buildCompactCmd", func() {
-
 		BeforeEach(func() {
 			resetCompactFlags()
 		})
 
 		When("no optional flags are set", func() {
 			It("returns a command containing only the script path", func() {
-				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
-				expected := utils.FormatScriptFilePath(utils.InstallDir() + staticPart)
+				expected := utils.FormatScriptFilePath(utils.InstallDir() + `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`)
 
 				actual, err := buildCompactCmd(false)
 
@@ -58,8 +44,7 @@ var _ = Describe("compact", func() {
 
 		When("show-logs (output) flag is set", func() {
 			It("appends -ShowLogs to the command", func() {
-				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
-				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPart) + " -ShowLogs"
+				expected := utils.FormatScriptFilePath(utils.InstallDir()+`\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`) + " -ShowLogs"
 
 				actual, err := buildCompactCmd(true)
 
@@ -70,8 +55,7 @@ var _ = Describe("compact", func() {
 
 		When("no-restart flag is set", func() {
 			It("appends -NoRestart to the command", func() {
-				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
-				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPart) + " -NoRestart"
+				expected := utils.FormatScriptFilePath(utils.InstallDir()+`\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`) + " -NoRestart"
 
 				noRestartFlag = true
 				actual, err := buildCompactCmd(false)
@@ -83,8 +67,7 @@ var _ = Describe("compact", func() {
 
 		When("yes flag is set", func() {
 			It("appends -Yes to the command", func() {
-				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
-				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPart) + " -Yes"
+				expected := utils.FormatScriptFilePath(utils.InstallDir()+`\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`) + " -Yes"
 
 				yesFlag = true
 				actual, err := buildCompactCmd(false)
@@ -96,9 +79,7 @@ var _ = Describe("compact", func() {
 
 		When("all flags are set", func() {
 			It("appends all parameters in the correct order", func() {
-				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
-				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPart) +
-					" -NoRestart -Yes -ShowLogs"
+				expected := utils.FormatScriptFilePath(utils.InstallDir()+`\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`) + " -NoRestart -Yes -ShowLogs"
 
 				noRestartFlag = true
 				yesFlag = true
@@ -111,13 +92,10 @@ var _ = Describe("compact", func() {
 
 		When("no-restart and show-logs flags are set", func() {
 			It("appends both parameters", func() {
-				const staticPart = `\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`
-				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPart) +
-					" -NoRestart -ShowLogs"
+				expected := utils.FormatScriptFilePath(utils.InstallDir()+`\lib\scripts\k2s\system\compact\Invoke-VhdxCompaction.ps1`) + " -NoRestart -ShowLogs"
 
 				noRestartFlag = true
 				actual, err := buildCompactCmd(true)
-
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).To(Equal(expected))
@@ -132,4 +110,3 @@ var _ = Describe("compact", func() {
 		})
 	})
 })
-
