@@ -20,7 +20,7 @@ var suite *framework.K2sTestSuite
 func TestCompactNoSetup(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "system compact Acceptance Tests (no setup)",
-		Label("cli", "system", "compact", "acceptance", "no-setup"))
+		Label("system", "compact", "no-setup"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
