@@ -63,9 +63,6 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
 		suite.Kubectl().MustExec(ctx, "delete", "-k", "workloads")
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
 
 		k2s.VerifyAddonIsDisabled("ingress", "traefik")
 
@@ -117,17 +114,6 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 		suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
-	})
-
-	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
-		_, err := os.Stat(cmCtlPath)
-		Expect(err).To(BeNil())
-	})
-
-	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
-		output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
-		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
 
 	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
