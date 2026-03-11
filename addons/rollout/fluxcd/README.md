@@ -12,7 +12,7 @@ Flux CD is a GitOps operator that continuously reconciles cluster state with sou
 
 ## Enable Flux
 
-```console
+```cmd
 k2s addons enable rollout fluxcd
 ```
 
@@ -20,7 +20,7 @@ Enabling `rollout fluxcd` also installs the Flux CLI on the Windows host at `bin
 
 ### Optional: Enable Webhooks (for Git push notifications)
 
-```console
+```cmd
 k2s addons enable rollout fluxcd --ingress nginx
 ```
 
@@ -30,13 +30,13 @@ Most users don't need this — Flux polls its sources by default.
 
 By default, enabling Flux also deploys the **addon-sync** infrastructure that lets you deliver K2s addons from an OCI registry. To skip it:
 
-```console
+```cmd
 k2s addons enable rollout fluxcd --addon-sync=false
 ```
 
 ## Check Status
 
-```console
+```cmd
 k2s addons status rollout fluxcd
 ```
 
@@ -77,7 +77,7 @@ spec:
 
 ### 3. Apply
 
-```console
+```cmd
 kubectl apply -f gitrepository.yaml
 kubectl apply -f kustomization.yaml
 ```
@@ -169,13 +169,13 @@ Steps 1–3 are one-time setup. Steps 4–6 are your repeating release workflow.
 
 Run once when setting up a new K2s cluster:
 
-```console
+```cmd
 k2s addons enable rollout fluxcd
 ```
 
 Ensure the cluster can reach your OCI registry. For local development/test setups, you can optionally enable the built-in registry:
 
-```console
+```cmd
 k2s addons enable registry
 ```
 
@@ -190,7 +190,7 @@ k2s addons enable registry
 
 Verify the infrastructure is ready:
 
-```console
+```cmd
 kubectl get all -n k2s-addon-sync
 ```
 
@@ -237,7 +237,7 @@ Remove-Item $tmpDir -Recurse -Force
 
 Verify the resources are ready:
 
-```console
+```cmd
 kubectl get ocirepository addon-sync-monitoring -n k2s-addon-sync
 kubectl get kustomization addon-sync-monitoring -n k2s-addon-sync
 ```
@@ -273,7 +273,7 @@ foreach ($addon in @('monitoring', 'security', 'registry')) {
 
 Check all registered addons:
 
-```console
+```cmd
 kubectl get ocirepository,kustomization -n k2s-addon-sync
 ```
 
@@ -285,7 +285,7 @@ Every time you want to publish a new or updated addon version:
 
 #### 3a. Export the addon
 
-```console
+```cmd
 k2s addons export monitoring -d C:\exports --omit-images --omit-packages
 ```
 
@@ -330,7 +330,7 @@ Within one polling cycle (≤1 minute by default), FluxCD detects the new highes
 
 Monitor the sync:
 
-```console
+```cmd
 kubectl get kustomization addon-sync-monitoring -n k2s-addon-sync -w
 kubectl logs -n k2s-addon-sync -l app.kubernetes.io/component=processor --tail=50
 ```
@@ -339,7 +339,7 @@ kubectl logs -n k2s-addon-sync -l app.kubernetes.io/component=processor --tail=5
 
 Once sync completes:
 
-```console
+```cmd
 k2s addons ls             # monitoring should appear
 k2s addons enable monitoring
 ```
@@ -385,13 +385,13 @@ Each addon triggers its own independent sync cycle — Flux reconciles `addon-sy
 
 Check all FluxCD addon-sync resources at once:
 
-```console
+```cmd
 kubectl get ocirepository,kustomization -n k2s-addon-sync
 ```
 
 Check a specific addon's sync state:
 
-```console
+```cmd
 kubectl get ocirepository addon-sync-monitoring -n k2s-addon-sync -o yaml
 kubectl get kustomization addon-sync-monitoring -n k2s-addon-sync -o yaml
 ```
@@ -400,7 +400,7 @@ Look for `status.conditions` with `Ready: True`. The `status.artifact.revision` 
 
 Check sync Job logs:
 
-```console
+```cmd
 kubectl logs -n k2s-addon-sync -l app.kubernetes.io/name=addon-sync --tail=100
 ```
 
@@ -418,7 +418,7 @@ Log prefixes to look for:
 
 #### Change the registry URL
 
-```console
+```cmd
 kubectl edit configmap addon-sync-config -n k2s-addon-sync
 ```
 
@@ -430,7 +430,7 @@ kubectl edit configmap addon-sync-config -n k2s-addon-sync
 
 #### Change the polling interval for a specific addon
 
-```console
+```cmd
 kubectl edit ocirepository addon-sync-monitoring -n k2s-addon-sync
 ```
 
@@ -449,7 +449,7 @@ Per-addon FluxCD registration is inherently compatible with restricted registrie
 
 ## Disable Flux
 
-```console
+```cmd
 k2s addons disable rollout fluxcd
 ```
 
@@ -475,7 +475,7 @@ Backup/restore is scoped to the `rollout` namespace only.
 
 ### Commands
 
-```console
+```cmd
 k2s addons backup rollout fluxcd
 k2s addons restore rollout fluxcd <path-to-backup-zip>
 ```
