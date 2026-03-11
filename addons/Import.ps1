@@ -786,10 +786,27 @@ foreach ($addon in $addonsToImport) {
                             $filename = ([uri]$package.url).Segments[-1]
                             $destination = $package.destination
                             $sourcePath = Join-Path $windowsPkgDir $filename
-                            $destinationFolder = Split-Path -Path "$PSScriptRoot\..\$destination"
+                            $destPath = "$PSScriptRoot\..\$destination"
+                            $destinationFolder = Split-Path -Path $destPath
                             if (Test-Path $sourcePath) {
                                 mkdir -Force $destinationFolder | Out-Null
-                                Copy-Item -Path $sourcePath -Destination "$PSScriptRoot\..\$destination" -Force
+                                # If the downloaded package is a zip archive but the destination is not,
+                                # extract the matching file from the archive instead of copying the zip as-is.
+                                if ($sourcePath -like '*.zip' -and $destPath -notlike '*.zip') {
+                                    $destFileName = [IO.Path]::GetFileName($destPath)
+                                    $tempExtractDir = Join-Path ([IO.Path]::GetTempPath()) ("k2s-pkg-{0}" -f [guid]::NewGuid().ToString('N'))
+                                    try {
+                                        Expand-Archive -LiteralPath $sourcePath -DestinationPath $tempExtractDir -Force
+                                        $extractedFile = Get-ChildItem -Path $tempExtractDir -Filter $destFileName -Recurse -File | Select-Object -First 1
+                                        if (-not $extractedFile) { throw "Expected file '$destFileName' not found in archive '$sourcePath'." }
+                                        Copy-Item -LiteralPath $extractedFile.FullName -Destination $destPath -Force
+                                        Write-Log "[Import] Extracted '$destFileName' from archive to '$destPath'." -Console
+                                    } finally {
+                                        Remove-Item -LiteralPath $tempExtractDir -Force -Recurse -ErrorAction SilentlyContinue
+                                    }
+                                } else {
+                                    Copy-Item -Path $sourcePath -Destination $destPath -Force
+                                }
                             }
                         }
                     }
