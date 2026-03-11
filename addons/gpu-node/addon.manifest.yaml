@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -23,19 +23,28 @@ spec:
           curl: []
           additionalImages:
             - shsk2s.azurecr.io/microsoft-standard-wsl2:6.1.21.2
-            - nvcr.io/nvidia/k8s-device-plugin:v0.15.0-ubi8
-            - nvcr.io/nvidia/k8s/dcgm-exporter:3.1.8-3.1.5-ubuntu20.04
-            - nvcr.io/nvidia/cuda:12.3.0-base-ubuntu22.04
+            - nvcr.io/nvidia/k8s-device-plugin:v0.18.2
+            - nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9
         windows:
           curl: []
       commands:
         enable:
           cli:
+            flags:
+              - name: time-slices
+                shorthand: t
+                default: "1"
+                description: "Number of time-slicing replicas per GPU. 1 = exclusive access (default). Set >1 to share the GPU across multiple pods simultaneously (e.g. 4 = up to 4 pods share one physical GPU via CUDA time-slicing)."
             examples:
               - cmd: k2s addons enable gpu-node
-                comment: Enable gpu-node in k2s
+                comment: Enable gpu-node in k2s (exclusive GPU access per pod)
+              - cmd: k2s addons enable gpu-node --time-slices 4
+                comment: Enable gpu-node with 4-way GPU time-slicing (up to 4 pods share the GPU simultaneously)
           script:
             subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: time-slices
+                scriptParameterName: TimeSlices
         disable:
           cli:
             examples:
