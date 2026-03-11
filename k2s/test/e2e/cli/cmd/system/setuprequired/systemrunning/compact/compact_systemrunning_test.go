@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/test/framework"
 )
 
@@ -21,7 +22,7 @@ func TestCompactSystemRunning(t *testing.T) {
 	os.Setenv("SYSTEM_TEST_TIMEOUT", "30m")
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "system compact Acceptance Tests (system running)",
-		Label("cli", "system", "compact", "acceptance", "setup-required", "system-running"))
+		Label("system", "compact", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -36,9 +37,26 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
+func skipIfUnsupportedSetup() {
+	ic := suite.SetupInfo().RuntimeConfig.InstallConfig()
+	if ic.LinuxOnly() {
+		Skip("skipped: compact is not available for linux-only setup")
+	}
+	if ic.WslEnabled() {
+		Skip("skipped: compact is not available for WSL-based setup")
+	}
+	if ic.SetupName() == definitions.SetupNameBuildOnlyEnv {
+		Skip("skipped: compact is not available for build-only setup")
+	}
+}
+
 var _ = Describe("system compact", Ordered, func() {
 
 	Describe("when system is running", Ordered, func() {
+
+		BeforeEach(func() {
+			skipIfUnsupportedSetup()
+		})
 
 		It("runs fstrim, stops cluster, compacts VHDX and restarts cluster", func(ctx context.Context) {
 			output := suite.K2sCli().MustExec(ctx, "system", "compact", "--yes")
@@ -71,6 +89,8 @@ var _ = Describe("system compact", Ordered, func() {
 		var noRestartOutput string
 
 		BeforeAll(func(ctx context.Context) {
+			skipIfUnsupportedSetup()
+
 			if !suite.StatusChecker().IsK2sRunning(ctx) {
 				GinkgoWriter.Println("Cluster not running before --no-restart test; starting...")
 				suite.K2sCli().MustExec(ctx, "start")
@@ -80,6 +100,10 @@ var _ = Describe("system compact", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			ic := suite.SetupInfo().RuntimeConfig.InstallConfig()
+			if ic.LinuxOnly() || ic.WslEnabled() || ic.SetupName() == definitions.SetupNameBuildOnlyEnv {
+				return
+			}
 			GinkgoWriter.Println("Restarting cluster after --no-restart compact test...")
 			suite.K2sCli().MustExec(ctx, "start")
 		})
@@ -96,7 +120,7 @@ var _ = Describe("system compact", Ordered, func() {
 		})
 
 		It("does NOT restart the cluster when --no-restart is specified", func() {
-			Expect(noRestartOutput).To(ContainSubstring("no-restart"))
+			Expect(noRestartOutput).To(ContainSubstring("Not restarting"))
 			Expect(noRestartOutput).NotTo(ContainSubstring("Restarting cluster"))
 			Expect(noRestartOutput).NotTo(ContainSubstring("Cluster restarted successfully"))
 		})
