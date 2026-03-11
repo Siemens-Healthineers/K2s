@@ -21,15 +21,6 @@ function Invoke-TimeSync {
     $timezoneStandardNameOnHost = (Get-TimeZone).Id
     $kubeConfigDir = Get-ConfiguredKubeConfigDir
     $windowsTimezoneConfig = "$kubeConfigDir\windowsZones.xml"
-
-    # Check if timezone config file exists
-    if (-not (Test-Path $windowsTimezoneConfig)) {
-        Write-Log "Timezone configuration file not found: $windowsTimezoneConfig" -Console
-        Write-Log "No equivalent Linux time zone for Windows time zone $timezoneStandardNameOnHost was found. Cannot perform time synchronization" -Console
-        Write-Log 'Please perform time synchronization manually.' -Console
-        return
-    }
-
     [XML]$timezoneConfigXml = (Get-Content -Path $windowsTimezoneConfig)
     $timezonesLinux = ($timezoneConfigXml.supplementalData.windowsZones.mapTimezones.mapZone | Where-Object { $_.other -eq "$timezoneStandardNameOnHost" }).type
     $canPerformTimeSync = $false
