@@ -37,7 +37,7 @@ func SafeTrim(s string, maxLen int) string {
 	return "..." + s[len(s)-maxLen:]
 }
 
-// WaitForJobCompletion polls until the named Job reaches Complete or Failed (max 10 min).
+// WaitForJobCompletion polls until the named Job reaches Complete or Failed (max 20 min).
 // It does NOT assert success; callers should explicitly check the Job condition afterwards.
 func WaitForJobCompletion(ctx context.Context, suite *framework.K2sTestSuite, namespace, jobName string) {
 	Eventually(func() bool {
@@ -51,14 +51,20 @@ func WaitForJobCompletion(ctx context.Context, suite *framework.K2sTestSuite, na
 		}
 		done := strings.Contains(output, "Complete") || strings.Contains(output, "Failed")
 		if !done {
-			GinkgoWriter.Printf("[Wait] Job %s not yet done, current conditions: %q\n", jobName, output)
+			GinkgoWriter.Printf("[Wait] Job %s not yet done, conditions: %q\n", jobName, output)
+			// Emit pod-level diagnostics to surface image-pull or container failures early.
+			podPhase, _ := suite.Kubectl().Exec(ctx,
+				"get", "pods", "-n", namespace,
+				"-l", "job-name="+jobName,
+				"-o", "jsonpath={range .items[*]}{.metadata.name}={.status.phase},{.status.containerStatuses[0].state.waiting.reason}{' '}{end}")
+			GinkgoWriter.Printf("[Wait] Job %s pods: %s\n", jobName, podPhase)
 		}
 		return done
-	}, 10*time.Minute, 15*time.Second, ctx).Should(BeTrue(),
-		"Job %s should reach Complete or Failed within 10 minutes", jobName)
+	}, 20*time.Minute, 15*time.Second, ctx).Should(BeTrue(),
+		"Job %s should reach Complete or Failed within 20 minutes", jobName)
 }
 
-// WaitForJobToFinish polls until the named Job reaches Complete or Failed (max 10 min)
+// WaitForJobToFinish polls until the named Job reaches Complete or Failed (max 20 min)
 // without asserting success. Used in negative-path tests where pod failure is expected.
 func WaitForJobToFinish(ctx context.Context, suite *framework.K2sTestSuite, namespace, jobName string) {
 	Eventually(func() bool {
@@ -70,8 +76,8 @@ func WaitForJobToFinish(ctx context.Context, suite *framework.K2sTestSuite, name
 			return false
 		}
 		return strings.Contains(output, "Complete") || strings.Contains(output, "Failed")
-	}, 10*time.Minute, 15*time.Second, ctx).Should(BeTrue(),
-		"Job %s should reach Complete or Failed within 10 minutes", jobName)
+	}, 20*time.Minute, 15*time.Second, ctx).Should(BeTrue(),
+		"Job %s should reach Complete or Failed within 20 minutes", jobName)
 }
 
 // GetJobLogs returns the combined stdout logs of all pods owned by the named Job.

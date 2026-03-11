@@ -37,7 +37,7 @@ metadata:
     k2s.io/export-timestamp: "EXPORT_TIMESTAMP_PLACEHOLDER"
 spec:
   ttlSecondsAfterFinished: 300
-  activeDeadlineSeconds: 600
+  activeDeadlineSeconds: 900
   backoffLimit: 3
   template:
     metadata:

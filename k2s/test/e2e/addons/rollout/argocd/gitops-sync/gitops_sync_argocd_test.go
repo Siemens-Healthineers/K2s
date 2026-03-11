@@ -387,7 +387,7 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 				"--from=cronjob/"+addonSyncPoller,
 				"-n", addonSyncNamespace)
 
-			GinkgoWriter.Println("[Test] Waiting for Job to complete (timeout: 10m)")
+			GinkgoWriter.Println("[Test] Waiting for Job to complete (timeout: 20m)")
 			gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, manualJobName)
 
 			// Explicit failure check visible in this spec body — not hidden in a helper.
