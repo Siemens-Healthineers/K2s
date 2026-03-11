@@ -133,8 +133,6 @@ if (Test-Path $zipTarget) {
     return
 }
 
-
-
 # ---------------------------------------------------------------------------
 # Resolve paths and versions
 # ---------------------------------------------------------------------------
@@ -142,6 +140,25 @@ $k8sVersion  = Get-DefaultK8sVersion
 
 $cloudInitTemplatePath = Join-Path $kubePath 'lib\modules\k2s\k2s.node.module\linuxnode\baseimage\cloud-init-templates'
 $isoBuilderTool        = Join-Path $kubeBinPath 'cloudinitisobuilder.exe'
+
+function Assert-PackagesDownloaded {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$K8sPath,
+        [Parameter(Mandatory = $true)]
+        [string]$BuildahPath
+    )
+
+    $k8sDebCount = @(Get-ChildItem -Path $K8sPath -Filter '*.deb' -File -ErrorAction SilentlyContinue).Count
+    $buildahDebCount = @(Get-ChildItem -Path $BuildahPath -Filter '*.deb' -File -ErrorAction SilentlyContinue).Count
+    $totalDebCount = $k8sDebCount + $buildahDebCount
+
+    Write-Log "[NodePkg] Local package counts: kubernetes=$k8sDebCount, buildah=$buildahDebCount, total=$totalDebCount" -Console
+
+    if ($totalDebCount -eq 0) {
+        throw "[NodePkg] No .deb packages were copied from the VM. Check remote download script output and remote package paths."
+    }
+}
 
 try {
 
@@ -260,6 +277,12 @@ try {
         -IpAddress             $guestIp `
         -TargetPath            $remoteBuildahPkgDir `
         -InstalledDistribution $distributionKey
+
+    $remoteUser = "$sshUser@$guestIp"
+    $remoteK8sDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $remoteK8sPkgDir/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
+    $remoteBuildahDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $remoteBuildahPkgDir/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
+    Write-Log "[NodePkg] Remote package counts before copy: kubernetes=$($remoteK8sDebCount.Trim()), buildah=$($remoteBuildahDebCount.Trim())" -Console
+
     # -----------------------------------------------------------------------
     # Phase 6 - Copy packages from VM back to Windows host
     # -----------------------------------------------------------------------
@@ -277,6 +300,8 @@ try {
         -IpAddress $guestIp `
         -UserName  $sshUser `
         -UserPwd   $sshPwd
+
+    Assert-PackagesDownloaded -K8sPath $k8sPkgDir -BuildahPath $buildahPkgDir
 
     # -----------------------------------------------------------------------
     # Phase 7 - Create output zip
@@ -300,25 +325,31 @@ catch {
     throw
 }
 finally {
-    if ($vmProvisioningStarted) {
-        Write-Log '[NodePkg] Cleaning up VM and network...' -Console
-        try { Stop-VirtualMachineForBaseImageProvisioning -Name $vmName }
-        catch { Write-Log "[NodePkg] Warning during VM stop: $($_.Exception.Message)" -Console }
 
-        try { Remove-VirtualMachineForBaseImageProvisioning -VmName $vmName -VhdxFilePath $inProvisioningVhdxPath }
-        catch { Write-Log "[NodePkg] Warning during VM removal: $($_.Exception.Message)" -Console }
+    if($vmProvisioningStarted)
+    {
+        Write-Log '[NodePkg] Cleaning up VM and network...' -Console
+
+        $vmExists = $null -ne (Get-VM -Name $vmName -ErrorAction SilentlyContinue)
+        if ($vmExists) {
+            try { Stop-VirtualMachineForBaseImageProvisioning -Name $vmName }
+            catch { Write-Log "[NodePkg] Warning during VM stop: $($_.Exception.Message)" -Console }
+
+            try { Remove-VirtualMachineForBaseImageProvisioning -VmName $vmName -VhdxFilePath $inProvisioningVhdxPath }
+            catch { Write-Log "[NodePkg] Warning during VM removal: $($_.Exception.Message)" -Console }
+        }
+        else {
+            Write-Log "[NodePkg] No VM '$vmName' found for cleanup." -Console
+        }
 
         try { Remove-NetworkForProvisioning -SwitchName $switchName -NatName $natName }
         catch { Write-Log "[NodePkg] Warning during network cleanup: $($_.Exception.Message)" -Console }
-    }
-    else {
-        Write-Log '[NodePkg] Fast path used; skipping VM/network cleanup.' -Console
-    }
 
-    if (Test-Path $stagingDir) {
-        Remove-Item -Path $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Log '[NodePkg] Staging directory cleaned up.' -Console
-    }
+        if (Test-Path $stagingDir) {
+            Remove-Item -Path $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Log '[NodePkg] Staging directory cleaned up.' -Console
+        }
+        }
 }
 
 if ($EncodeStructuredOutput -eq $true) {
