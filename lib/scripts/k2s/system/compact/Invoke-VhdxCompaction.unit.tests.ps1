@@ -3,21 +3,9 @@
 
 #Requires -Version 5.1
 
-<#
-.SYNOPSIS
-Unit tests for Invoke-VhdxCompaction.ps1
-
-.DESCRIPTION
-Tests all branches and edge cases of the VHDX compaction script using
-Pester mocks. No actual Hyper-V, VM, or cluster interaction takes place.
-#>
-
 BeforeAll {
-    # Dot-source the script so its functions and variables are in scope.
-    # We capture the script's exit calls by mocking the relevant commands.
     $script:ScriptPath = "$PSScriptRoot\Invoke-VhdxCompaction.ps1"
 
-    # Provide stub modules so Import-Module does not fail in a test environment.
     function global:Initialize-Logging { param([switch]$ShowLogs) }
     function global:Get-KubePath { return 'C:\k2s' }
     function global:Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
@@ -27,54 +15,18 @@ BeforeAll {
     function global:Invoke-CmdOnControlPlaneViaSSHKey { param($CmdToExecute, [switch]$IgnoreErrors) return [PSCustomObject]@{ Output = @('fstrim done') } }
     function global:Write-Log { param([string]$Message, [switch]$Console) }
 
-    # Helper: build a minimal VM object with configurable State
     function New-MockVm {
-        param(
-            [string]$Name = 'kubemaster',
-            [string]$State = 'Off'
-        )
-        $vm = [PSCustomObject]@{
-            Name  = $Name
-            State = $State
-        }
-        return $vm
+        param([string]$Name = 'kubemaster', [string]$State = 'Off')
+        return [PSCustomObject]@{ Name = $Name; State = $State }
     }
 
-    # Helper: build a minimal VMHardDiskDrive object
     function New-MockDisk {
-        param(
-            [string]$Path = 'C:\VMs\KubeMaster.vhdx',
-            [int]$ControllerNumber   = 0,
-            [int]$ControllerLocation = 0
-        )
-        return [PSCustomObject]@{
-            Path               = $Path
-            ControllerNumber   = $ControllerNumber
-            ControllerLocation = $ControllerLocation
-        }
+        param([string]$Path = 'C:\VMs\KubeMaster.vhdx', [int]$ControllerNumber = 0, [int]$ControllerLocation = 0)
+        return [PSCustomObject]@{ Path = $Path; ControllerNumber = $ControllerNumber; ControllerLocation = $ControllerLocation }
     }
 }
 
-# ---------------------------------------------------------------------------
-# Helper: invoke the script with a given set of parameters, capturing the
-# exit code from the process (exit calls inside the script become the process
-# exit code when run in a child process, but here we use a workaround via
-# mocked 'exit' by wrapping in a scriptblock executed with &).
-# ---------------------------------------------------------------------------
-
-# Because the script calls `exit N` directly, we test it by executing in a
-# restricted scope.  We use InModuleScope-style mocking at the script level
-# via Pester's -ScriptBlock parameter.
-
-# ---------------------------------------------------------------------------
-# Test suite
-# ---------------------------------------------------------------------------
-
 Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
-
-    # ------------------------------------------------------------------
-    # Pre-condition guards
-    # ------------------------------------------------------------------
 
     Describe 'Pre-condition: K2s not installed' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
@@ -245,7 +197,6 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
             Mock Test-Path { return $true }
-            # 4 GB VHDX, only 1 GB free → should fail
             Mock Get-Item { return [PSCustomObject]@{ Length = 4GB } }
             Mock Get-VMSnapshot { return @() }
             Mock Get-VHD { return [PSCustomObject]@{ Attached = $false } }
@@ -273,7 +224,6 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Test-Path { return $true }
             Mock Get-Item { return [PSCustomObject]@{ Length = 4GB } }
             Mock Get-VMSnapshot { return @() }
-            # VHDX is already attached
             Mock Get-VHD { return [PSCustomObject]@{ Attached = $true } }
             Mock Dismount-VHD {}
             Mock Get-PSDrive { return [PSCustomObject]@{ Free = 10GB } }
@@ -299,7 +249,6 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-ConfigWslFlag { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
-            # Two disks; controller 0/location 0 is the OS disk
             Mock Get-VMHardDiskDrive {
                 return @(
                     (New-MockDisk -Path 'C:\VMs\Data.vhdx'  -ControllerNumber 0 -ControllerLocation 1),
@@ -324,7 +273,6 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         It 'logs that multiple disks exist and picks the lowest-indexed one' {
             { & $script:ScriptPath -Yes } | Should -Not -Throw
             Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*2 disks*' } -Times 1
-            # The primary disk path (ControllerLocation 0) should appear in a log message
             Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*KubeMaster.vhdx*' } -Times 1
         }
     }
@@ -369,10 +317,8 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
     }
 
-
-    Describe 'Failure: Mount-VHD fails — cluster was running — attempts restart' -Tag 'unit', 'ci', 'compact' {
+    Describe 'Failure: Mount-VHD fails' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
-            $script:restartAttempted = $false
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
@@ -398,7 +344,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
     }
 
-    Describe 'Failure: Optimize-VHD fails — VHDX is dismounted before exit' -Tag 'unit', 'ci', 'compact' {
+    Describe 'Failure: Optimize-VHD fails' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
@@ -513,7 +459,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-VHD { return [PSCustomObject]@{ Attached = $false } }
             Mock Get-PSDrive { return [PSCustomObject]@{ Free = 10GB } }
             Mock Invoke-CmdOnControlPlaneViaSSHKey { return [PSCustomObject]@{ Output = @() } }
-            Mock Read-Host { return 'n' }   # Would cancel if reached
+            Mock Read-Host { return 'n' }
             Mock Mount-VHD {}
             Mock Optimize-VHD {}
             Mock Dismount-VHD {}
@@ -530,8 +476,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
     }
 
-
-    Describe 'Get-VHD unavailable: warning is logged and compaction continues' -Tag 'unit', 'ci', 'compact' {
+    Describe 'Get-VHD unavailable: warning logged and compaction continues' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
@@ -561,7 +506,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
     }
 
-    Describe 'Get-PSDrive unavailable: warning is logged and compaction continues' -Tag 'unit', 'ci', 'compact' {
+    Describe 'Get-PSDrive unavailable: warning logged and compaction continues' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }

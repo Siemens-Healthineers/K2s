@@ -18,7 +18,6 @@ import (
 var suite *framework.K2sTestSuite
 
 func TestCompactSystemStopped(t *testing.T) {
-	// Optimize-VHD can take several minutes; allow up to 20 minutes.
 	os.Setenv("SYSTEM_TEST_TIMEOUT", "20m")
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "system compact Acceptance Tests (system stopped)",
@@ -39,9 +38,6 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("system compact", Ordered, func() {
 
-	// -----------------------------------------------------------------------
-	// compact when cluster is already stopped
-	// -----------------------------------------------------------------------
 	Describe("when system is already stopped", Ordered, func() {
 
 		It("skips fstrim, skips cluster stop, compacts VHDX and does not restart", func(ctx context.Context) {
@@ -76,18 +72,13 @@ var _ = Describe("system compact", Ordered, func() {
 		})
 
 		It("leaves the cluster in a stopped state after compaction", func(ctx context.Context) {
-			isRunning := suite.StatusChecker().IsK2sRunning(ctx)
-
-			Expect(isRunning).To(BeFalse(), "cluster should remain stopped after compact when it was already stopped")
+			Expect(suite.StatusChecker().IsK2sRunning(ctx)).To(BeFalse())
 		})
 	})
 
-	// -----------------------------------------------------------------------
-	// compact --no-restart when cluster is already stopped (flag is a no-op)
-	// -----------------------------------------------------------------------
 	Describe("when system is stopped and --no-restart is specified", Ordered, func() {
 
-		It("completes successfully — --no-restart has no additional effect when cluster is already stopped", func(ctx context.Context) {
+		It("completes successfully", func(ctx context.Context) {
 			output := suite.K2sCli().MustExec(ctx, "system", "compact", "--yes", "--no-restart")
 
 			Expect(output).To(SatisfyAll(
