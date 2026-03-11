@@ -62,6 +62,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	Expect(impl).NotTo(BeNil(), "fluxcd implementation should exist")
 	GinkgoWriter.Printf("[Setup] Found implementation: %s\n", impl.Name)
 	GinkgoWriter.Printf("[Setup] Export directory name: %s\n", impl.ExportDirectoryName)
+	GinkgoWriter.Printf("[Setup] Windows curl package count in rollout/fluxcd metadata: %d\n", len(impl.OfflineUsage.WindowsResources.CurlPackages))
+	Expect(impl.OfflineUsage.WindowsResources.CurlPackages).To(HaveLen(1), "rollout/fluxcd should have exactly one windows curl package (flux.exe binary) for offline export")
 
 	k2s = dsl.NewK2s(suite)
 
@@ -164,8 +166,9 @@ var _ = Describe("rollout fluxcd addon export and import", Ordered, func() {
 			exportimport.VerifyImportedLinuxCurlPackages(ctx, suite, impl, controlPlaneIpAddress)
 		})
 
-		It("windows curl packages available after import", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
+		It("windows curl packages (flux cli binary) available after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: windows curl packages (flux cli binary) available after import")
+			_ = ctx
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
 		})
 
