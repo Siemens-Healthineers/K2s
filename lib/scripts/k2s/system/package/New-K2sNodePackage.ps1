@@ -326,30 +326,30 @@ catch {
 }
 finally {
 
-    if($vmProvisioningStarted)
-    {
-        Write-Log '[NodePkg] Cleaning up VM and network...' -Console
+    # if($vmProvisioningStarted)
+    # {
+    #     Write-Log '[NodePkg] Cleaning up VM and network...' -Console
 
-        $vmExists = $null -ne (Get-VM -Name $vmName -ErrorAction SilentlyContinue)
-        if ($vmExists) {
-            try { Stop-VirtualMachineForBaseImageProvisioning -Name $vmName }
-            catch { Write-Log "[NodePkg] Warning during VM stop: $($_.Exception.Message)" -Console }
+    #     $vmExists = $null -ne (Get-VM -Name $vmName -ErrorAction SilentlyContinue)
+    #     if ($vmExists) {
+    #         try { Stop-VirtualMachineForBaseImageProvisioning -Name $vmName }
+    #         catch { Write-Log "[NodePkg] Warning during VM stop: $($_.Exception.Message)" -Console }
 
-            try { Remove-VirtualMachineForBaseImageProvisioning -VmName $vmName -VhdxFilePath $inProvisioningVhdxPath }
-            catch { Write-Log "[NodePkg] Warning during VM removal: $($_.Exception.Message)" -Console }
-        }
-        else {
-            Write-Log "[NodePkg] No VM '$vmName' found for cleanup." -Console
-        }
+    #         try { Remove-VirtualMachineForBaseImageProvisioning -VmName $vmName -VhdxFilePath $inProvisioningVhdxPath }
+    #         catch { Write-Log "[NodePkg] Warning during VM removal: $($_.Exception.Message)" -Console }
+    #     }
+    #     else {
+    #         Write-Log "[NodePkg] No VM '$vmName' found for cleanup." -Console
+    #     }
 
-        try { Remove-NetworkForProvisioning -SwitchName $switchName -NatName $natName }
-        catch { Write-Log "[NodePkg] Warning during network cleanup: $($_.Exception.Message)" -Console }
+    #     try { Remove-NetworkForProvisioning -SwitchName $switchName -NatName $natName }
+    #     catch { Write-Log "[NodePkg] Warning during network cleanup: $($_.Exception.Message)" -Console }
 
-        if (Test-Path $stagingDir) {
-            Remove-Item -Path $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Log '[NodePkg] Staging directory cleaned up.' -Console
-        }
-        }
+    #     if (Test-Path $stagingDir) {
+    #         Remove-Item -Path $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
+    #         Write-Log '[NodePkg] Staging directory cleaned up.' -Console
+    #     }
+    #     }
 }
 
 if ($EncodeStructuredOutput -eq $true) {
