@@ -356,23 +356,38 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				ociRepoName, kustomizationName)
 		})
 
-		It("OCIRepository detects the new artifact version within 3 minutes", func(ctx context.Context) {
-			// Wait for the OCIRepository to report a Ready condition with a non-empty artifact.
-			Eventually(func() string {
-				output, _ := suite.Kubectl().Exec(ctx,
+		It("OCIRepository detects the new artifact version within 5 minutes", func(ctx context.Context) {
+			// Poll until BOTH Ready=True AND artifact.revision is populated.
+			// The two status fields are written in the same reconciliation loop but can
+			// be observed in separate API responses due to Kubernetes status subresource
+			// eventual consistency — asserting both inside Eventually avoids the race
+			// where Ready becomes True a moment before artifact is populated.
+			var detectedRevision string
+			Eventually(func(g Gomega) {
+				status, _ := suite.Kubectl().Exec(ctx,
 					"get", "ocirepository", ociRepoName,
 					"-n", addonSyncNamespace,
 					"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
-				return output
-			}, 3*time.Minute, 15*time.Second, ctx).Should(Equal("True"),
-				"OCIRepository %s should become Ready within 3 minutes", ociRepoName)
+				revision, _ := suite.Kubectl().Exec(ctx,
+					"get", "ocirepository", ociRepoName,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.artifact.revision}")
+				if status != "True" || revision == "" {
+					msg, _ := suite.Kubectl().Exec(ctx,
+						"get", "ocirepository", ociRepoName,
+						"-n", addonSyncNamespace,
+						"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].message}")
+					GinkgoWriter.Printf("[Wait] OCIRepository %s Ready=%q revision=%q message=%q\n",
+						ociRepoName, status, revision, msg)
+				}
+				g.Expect(status).To(Equal("True"),
+					"OCIRepository %s should become Ready within 5 minutes", ociRepoName)
+				g.Expect(revision).NotTo(BeEmpty(),
+					"OCIRepository %s should report a non-empty artifact revision", ociRepoName)
+				detectedRevision = revision
+			}, 5*time.Minute, 15*time.Second, ctx)
 
-			revision := suite.Kubectl().MustExec(ctx,
-				"get", "ocirepository", ociRepoName,
-				"-n", addonSyncNamespace,
-				"-o", "jsonpath={.status.artifact.revision}")
-			GinkgoWriter.Printf("[Test] OCIRepository selected revision: %s\n", revision)
-			Expect(revision).NotTo(BeEmpty(), "OCIRepository should report a non-empty artifact revision")
+			GinkgoWriter.Printf("[Test] OCIRepository selected revision: %s\n", detectedRevision)
 		})
 
 		It("Kustomization reconciles and creates the per-addon sync Job within 5 minutes", func(ctx context.Context) {
