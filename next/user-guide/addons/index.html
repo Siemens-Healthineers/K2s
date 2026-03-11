@@ -26,7 +26,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -3687,6 +3687,7 @@ SPDX-License-Identifier: MIT
 </tr>
 </tbody>
 </table>
+<p>When you enable <code>rollout fluxcd</code>, <em>K2s</em> installs the host Flux <abbr title="Command-Line Interface">CLI</abbr> at <code>bin\\flux.exe</code>. In offline environments the <abbr title="Command-Line Interface">CLI</abbr> zip is bundled in the addon export and extracted on import.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="go">k2s addons enable rollout fluxcd --ingress traefik</span>
 </code></pre></div>
