@@ -34,7 +34,7 @@ var (
 
 func TestGpuNodeTimeSlicing(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "gpu-node Addon Time-Slicing Acceptance Tests", Label("addon", "addon-diverse", "acceptance", "setup-required", "invasive", "gpu-node", "system-running", "nvidia"))
+	RunSpecs(t, "gpu-node Addon Time-Slicing Acceptance Tests", Label("addon", "addon-diverse", "acceptance", "setup-required", "invasive", "gpu-node-timeslicing", "system-running", "nvidia"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
