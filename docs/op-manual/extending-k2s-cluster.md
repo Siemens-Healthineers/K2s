@@ -25,7 +25,7 @@ This guide explains how to extend a K2s cluster by adding physical hosts or virt
 ## Known Limitations
 
 - Adding a new node works only if there is an internet connection on the new node. *(Offline support is in progress.)*
-- Adding a new physical host is currently supported only on **Debian** and **Ubuntu** Linux distributions.
+- Adding a new physical host is currently supported only on *Debian**  Linux distributions.
 
 ---
 
