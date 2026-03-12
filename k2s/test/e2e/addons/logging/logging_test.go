@@ -7,8 +7,10 @@ package logging
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -159,7 +161,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local/logging", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/logging"
-				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--retry-all-errors")
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 				// we expect a re-direct to /logging/app/home
 				Expect(httpStatus).To(ContainSubstring("302"))
 				Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
@@ -168,6 +170,8 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 		Describe("nginx as ingress controller", func() {
 			BeforeAll(func(ctx context.Context) {
+				waitForNamespaceTermination(ctx, "cert-manager")
+
 				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			})
@@ -179,7 +183,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local/logging", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/logging"
-				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--retry-all-errors")
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 				// we expect a re-direct to /logging/app/home
 				Expect(httpStatus).To(ContainSubstring("302"))
 				Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
@@ -188,6 +192,8 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 		Describe("nginx-gw as ingress controller", func() {
 			BeforeAll(func(ctx context.Context) {
+				waitForNamespaceTermination(ctx, "cert-manager")
+
 				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("nginx-cluster-local-nginx-gw", "nginx-gw")
 			})
@@ -199,7 +205,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 			It("is reachable through k2s.cluster.local/logging", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/logging"
-				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
+				httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 				// we expect a re-direct to /logging/app/home
 				Expect(httpStatus).To(ContainSubstring("302"))
 				Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
@@ -207,6 +213,47 @@ var _ = Describe("'logging' addon", Ordered, func() {
 		})
 	})
 })
+
+// waitForNamespaceTermination polls until the given namespace no longer exists.
+// If the namespace is stuck in Terminating state (e.g. because cert-manager CRD
+// controllers were deleted before their resources' finalizers could be processed),
+// it forcefully removes finalizers to unblock the deletion.
+func waitForNamespaceTermination(ctx context.Context, ns string) {
+	_, exitCode := suite.Kubectl().Exec(ctx, "get", "namespace", ns)
+	if exitCode != 0 {
+		return // already gone
+	}
+
+	Eventually(func() bool {
+		phase, code := suite.Kubectl().Exec(ctx, "get", "namespace", ns,
+			"-o", "jsonpath={.status.phase}")
+		if code != 0 {
+			return true // namespace gone
+		}
+		if strings.TrimSpace(phase) == "Terminating" {
+			forceCleanTerminatingNamespace(ctx, ns)
+		}
+		return false
+	}).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(BeTrue(),
+		fmt.Sprintf("namespace %q should be fully terminated before proceeding", ns))
+}
+
+func forceCleanTerminatingNamespace(ctx context.Context, ns string) {
+	GinkgoWriter.Printf("Namespace %q stuck in Terminating state \u2013 forcing cleanup\n", ns)
+
+	apiResources, exitCode := suite.Kubectl().Exec(ctx, "api-resources",
+		"--namespaced", "--verbs=list", "-o", "name")
+	if exitCode == 0 {
+		for _, rt := range strings.Split(apiResources, "\n") {
+			rt = strings.TrimSpace(rt)
+			if rt == "" || rt == "events" || rt == "events.events.k8s.io" {
+				continue
+			}
+			suite.Kubectl().Exec(ctx, "patch", rt, "--all", "-n", ns,
+				"--type=merge", "-p", `{"metadata":{"finalizers":null}}`)
+		}
+	}
+}
 
 func expectLoggingPodsReady(ctx context.Context) {
 	suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
