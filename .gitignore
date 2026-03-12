@@ -178,3 +178,6 @@ bin/debian-12-genericcloud-amd64.qcow2
 **/debianpackages/**/*.deb
 **/linuxpackages/**
 **/windowspackages/**
+
+# AI assistant context
+claude.md
