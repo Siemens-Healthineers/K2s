@@ -395,8 +395,15 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 				"get", "job", manualJobName,
 				"-n", addonSyncNamespace,
 				"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].status}")
+			failureReason, _ := suite.Kubectl().Exec(ctx,
+				"get", "job", manualJobName,
+				"-n", addonSyncNamespace,
+				"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].reason}")
+			if failedStatus == "True" {
+				GinkgoWriter.Printf("[Test] Job %s FAILED — reason: %q\n", manualJobName, failureReason)
+			}
 			Expect(failedStatus).NotTo(Equal("True"),
-				"Job %s must not be in Failed state", manualJobName)
+				"Job %s must not be in Failed state (reason: %s)", manualJobName, failureReason)
 
 			GinkgoWriter.Println("[Test] Retrieving Job pod logs")
 			logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, manualJobName)

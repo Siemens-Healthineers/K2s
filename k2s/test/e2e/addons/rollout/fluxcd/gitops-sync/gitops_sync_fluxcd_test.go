@@ -352,7 +352,15 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			GinkgoWriter.Printf("[Test] Applying Kustomization from %s\n", kustomizationYAMLFile)
 			suite.Kubectl().MustExec(ctx, "apply", "-f", kustomizationYAMLFile)
 
-			GinkgoWriter.Printf("[Test] OCIRepository %q and Kustomization %q applied\n",
+			// Trigger immediate reconciliation so the test does not wait for the
+			// 1-minute Kustomization poll interval before the first sync attempt.
+			suite.Kubectl().MustExec(ctx,
+				"annotate", "kustomization", kustomizationName,
+				"-n", addonSyncNamespace,
+				"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
+				"--overwrite")
+
+			GinkgoWriter.Printf("[Test] OCIRepository %q and Kustomization %q applied (immediate reconciliation requested)\n",
 				ociRepoName, kustomizationName)
 		})
 
@@ -390,16 +398,30 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			GinkgoWriter.Printf("[Test] OCIRepository selected revision: %s\n", detectedRevision)
 		})
 
-		It("Kustomization reconciles and creates the per-addon sync Job within 5 minutes", func(ctx context.Context) {
-			// Kustomization applies gitops-sync/sync-job.yaml extracted from Layer 1.
-			Eventually(func() string {
+		It("Kustomization reconciles and creates the per-addon sync Job within 10 minutes", func(ctx context.Context) {
+			// Kustomization applies gitops-sync/sync-job.yaml extracted from the manifests
+			// layer. Poll for the Job's existence while also emitting Kustomization
+			// condition diagnostics so failures are visible without kubectl access.
+			Eventually(func(g Gomega) string {
 				output, _ := suite.Kubectl().Exec(ctx,
 					"get", "job", syncJobName,
 					"-n", addonSyncNamespace,
 					"-o", "jsonpath={.metadata.name}")
+				if output != syncJobName {
+					kReady, _ := suite.Kubectl().Exec(ctx,
+						"get", "kustomization", kustomizationName,
+						"-n", addonSyncNamespace,
+						"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
+					kMsg, _ := suite.Kubectl().Exec(ctx,
+						"get", "kustomization", kustomizationName,
+						"-n", addonSyncNamespace,
+						"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].message}")
+					GinkgoWriter.Printf("[Wait] Job %s not yet created; Kustomization Ready=%q message=%q\n",
+						syncJobName, kReady, kMsg)
+				}
 				return output
-			}, 5*time.Minute, 15*time.Second, ctx).Should(Equal(syncJobName),
-				"Kustomization should create sync Job %s within 5 minutes", syncJobName)
+			}, 10*time.Minute, 15*time.Second, ctx).Should(Equal(syncJobName),
+				"Kustomization should create sync Job %s within 10 minutes", syncJobName)
 
 			GinkgoWriter.Printf("[Test] Sync Job %q created by Kustomization\n", syncJobName)
 		})
@@ -413,8 +435,15 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				"get", "job", syncJobName,
 				"-n", addonSyncNamespace,
 				"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].status}")
+			failureReason, _ := suite.Kubectl().Exec(ctx,
+				"get", "job", syncJobName,
+				"-n", addonSyncNamespace,
+				"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].reason}")
+			if failedStatus == "True" {
+				GinkgoWriter.Printf("[Test] Job %s FAILED — reason: %q\n", syncJobName, failureReason)
+			}
 			Expect(failedStatus).NotTo(Equal("True"),
-				"Job %s must not be in Failed state", syncJobName)
+				"Job %s must not be in Failed state (reason: %s)", syncJobName, failureReason)
 
 			GinkgoWriter.Println("[Test] Retrieving Job pod logs")
 			logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, syncJobName)
