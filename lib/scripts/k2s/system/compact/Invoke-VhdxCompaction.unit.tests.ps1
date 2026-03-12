@@ -10,6 +10,7 @@ BeforeAll {
     function global:Get-KubePath { return 'C:\k2s' }
     function global:Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
     function global:Get-ConfigWslFlag { return $false }
+    function global:Get-ConfigLinuxOnly { return $false }
     function global:Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
     function global:Get-ConfiguredIPControlPlane { return '172.19.1.100' }
     function global:Invoke-CmdOnControlPlaneViaSSHKey { param($CmdToExecute, [switch]$IgnoreErrors) return [PSCustomObject]@{ Output = @('fstrim done') } }
@@ -33,6 +34,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-RootConfigk2s { return $null }
             Mock Write-Log {}
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-KubePath { return 'C:\k2s' }
             Mock Initialize-Logging {}
@@ -50,6 +52,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $true }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Write-Log {}
             Mock Get-KubePath { return 'C:\k2s' }
             Mock Initialize-Logging {}
@@ -67,6 +70,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return $null }
             Mock Write-Log {}
@@ -86,6 +90,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Write-Log {}
             Mock Get-KubePath { return 'C:\k2s' }
@@ -129,6 +134,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return $null }
@@ -149,6 +155,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk -Path 'C:\VMs\Missing.vhdx' }
@@ -170,6 +177,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -193,6 +201,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -218,6 +227,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -247,6 +257,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive {
@@ -281,6 +292,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -321,6 +333,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -348,6 +361,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -386,6 +400,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -414,6 +429,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Running' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -447,6 +463,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             $script:stopCount = 0
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM {
                 if ($script:stopCount -eq 0) { $script:stopCount++; return New-MockVm -State 'Running' }
@@ -480,6 +497,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -510,6 +528,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk }
@@ -535,5 +554,50 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Assert-MockCalled Optimize-VHD -Times 1
         }
     }
-}
 
+    Describe 'Linux-only: cluster already stopped' -Tag 'unit', 'ci', 'compact' {
+        BeforeEach {
+            $script:stopCount = 0
+
+            Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
+            Mock Get-ConfigWslFlag { return $false }
+            Mock Get-ConfigLinuxOnly { return $true }
+            Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
+            Mock Get-VMHardDiskDrive { return New-MockDisk }
+            Mock Test-Path { return $true }
+            Mock Get-Item { return [PSCustomObject]@{ Length = 4GB } }
+            Mock Get-VMSnapshot { return @() }
+            Mock Get-VHD { return [PSCustomObject]@{ Attached = $false } }
+            Mock Get-PSDrive { return [PSCustomObject]@{ Free = 10GB } }
+            Mock Invoke-CmdOnControlPlaneViaSSHKey { return [PSCustomObject]@{ Output = @('fstrim done') } }
+            Mock Mount-VHD {}
+            Mock Optimize-VHD {}
+            Mock Dismount-VHD {}
+            Mock Write-Log {}
+            Mock Get-KubePath { return 'C:\k2s' }
+            Mock Initialize-Logging {}
+            Mock Import-Module {}
+            Mock Set-Location {}
+        }
+
+        It 'mounts, optimizes, and dismounts VHDX for linux-only stopped cluster' {
+            Mock Get-VM { return New-MockVm -State 'Off' }
+            { & $script:ScriptPath -Yes } | Should -Not -Throw
+            Assert-MockCalled Mount-VHD    -Times 1
+            Assert-MockCalled Optimize-VHD -Times 1
+            Assert-MockCalled Dismount-VHD -Times 1
+        }
+
+        It 'logs compaction completed successfully for linux-only stopped cluster' {
+            Mock Get-VM { return New-MockVm -State 'Off' }
+            { & $script:ScriptPath -Yes } | Should -Not -Throw
+            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*compaction completed successfully*' } -Times 1
+        }
+
+        It 'logs cluster-was-not-running when linux-only cluster is already stopped' {
+            Mock Get-VM { return New-MockVm -State 'Off' }
+            { & $script:ScriptPath -Yes } | Should -Not -Throw
+            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Cluster was not running*' } -Times 1
+        }
+    }
+}
