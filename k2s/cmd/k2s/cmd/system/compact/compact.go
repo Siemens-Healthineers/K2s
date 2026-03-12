@@ -27,8 +27,12 @@ var (
 )
 
 var CompactCmd = &cobra.Command{
-	Use:     "compact",
-	Short:   "Compact VHDX disk to reclaim unused space",
+	Use:   "compact",
+	Short: "Compact VHDX disk to reclaim unused space",
+	Long: `Compacts the Kubemaster VHDX file to reclaim disk space freed by deleted images and files.
+
+Supported setups: k2s (standard) and Linux-only.
+Not supported: WSL-based and build-only setups (no Hyper-V VHDX present).`,
 	Example: `      # Compact VHDX with automatic cluster restart
       k2s system compact
 
@@ -37,7 +41,7 @@ var CompactCmd = &cobra.Command{
 
       # Skip confirmation prompts
       k2s system compact --yes`,
-	RunE:    compactVhdx,
+	RunE: compactVhdx,
 }
 
 func init() {
@@ -80,10 +84,6 @@ func compactVhdx(cmd *cobra.Command, args []string) error {
 			Code:     "functionality-not-available-for-build-only",
 			Message:  "VHDX compaction is not available in build-only setup (no VM/VHDX present).",
 		}
-	}
-
-	if runtimeConfig.InstallConfig().LinuxOnly() {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
 	if runtimeConfig.InstallConfig().WslEnabled() {

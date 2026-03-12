@@ -39,9 +39,6 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 func skipIfUnsupportedSetup() {
 	ic := suite.SetupInfo().RuntimeConfig.InstallConfig()
-	if ic.LinuxOnly() {
-		Skip("skipped: compact is not available for linux-only setup")
-	}
 	if ic.WslEnabled() {
 		Skip("skipped: compact is not available for WSL-based setup")
 	}
