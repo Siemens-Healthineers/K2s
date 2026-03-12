@@ -159,6 +159,8 @@ Two mutually exclusive GitOps implementations:
 |-------------|-------|------|---------|-------------|
 | `--ingress` | `-i` | string | `none` | Ingress controller for the webhook receiver (`none`, `nginx`, `nginx-gw`, `traefik`) |
 
+When you enable `rollout fluxcd`, *K2s* installs the host Flux CLI at `bin\\flux.exe`. In offline environments the CLI zip is bundled in the addon export and extracted on import.
+
 ```console
 k2s addons enable rollout argocd --ingress nginx
 k2s addons enable rollout fluxcd --ingress traefik
