@@ -163,6 +163,7 @@ function New-GinkgoTestCmd {
     $ginkgoCmd += " --timeout=$Timeout"
     $ginkgoCmd += " --junit-report=GoTest-$((Get-Date -Format 'yyyy-MM-dd-HH-mm-ss').ToString()).xml"
     $ginkgoCmd += " --output-dir=$OutDir"
+    $ginkgoCmd += ' --vet=off' # disable go vet during test compilation to avoid sporadic Windows I/O errors (vet should run as a separate lint step)
 
     if ($null -eq $Tags -and $null -eq $ExcludeTags) {
         return $ginkgoCmd
