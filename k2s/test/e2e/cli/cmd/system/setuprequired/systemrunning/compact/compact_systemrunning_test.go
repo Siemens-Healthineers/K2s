@@ -39,9 +39,6 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 func skipIfUnsupportedSetup() {
 	ic := suite.SetupInfo().RuntimeConfig.InstallConfig()
-	if ic.LinuxOnly() {
-		Skip("skipped: compact is not available for linux-only setup")
-	}
 	if ic.WslEnabled() {
 		Skip("skipped: compact is not available for WSL-based setup")
 	}
@@ -101,7 +98,7 @@ var _ = Describe("system compact", Ordered, func() {
 
 		AfterAll(func(ctx context.Context) {
 			ic := suite.SetupInfo().RuntimeConfig.InstallConfig()
-			if ic.LinuxOnly() || ic.WslEnabled() || ic.SetupName() == definitions.SetupNameBuildOnlyEnv {
+			if ic.WslEnabled() || ic.SetupName() == definitions.SetupNameBuildOnlyEnv {
 				return
 			}
 			GinkgoWriter.Println("Restarting cluster after --no-restart compact test...")
@@ -120,7 +117,7 @@ var _ = Describe("system compact", Ordered, func() {
 		})
 
 		It("does NOT restart the cluster when --no-restart is specified", func() {
-			Expect(noRestartOutput).To(ContainSubstring("Not restarting"))
+			Expect(noRestartOutput).To(ContainSubstring("Cluster not restarted (--no-restart specified)"))
 			Expect(noRestartOutput).NotTo(ContainSubstring("Restarting cluster"))
 			Expect(noRestartOutput).NotTo(ContainSubstring("Cluster restarted successfully"))
 		})
