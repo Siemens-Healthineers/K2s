@@ -58,6 +58,8 @@ if ($WSL) {
     exit 1
 }
 
+$linuxOnly = Get-ConfigLinuxOnly
+
 $vmName = Get-ConfigControlPlaneNodeHostname
 if (-not $vmName) {
     $vmName = 'kubemaster'
@@ -183,7 +185,11 @@ if ($wasRunning) {
     }
 
     Write-Log 'Stopping cluster...' -Console
-    & "$PSScriptRoot\..\..\stop\Stop.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay
+    if ($linuxOnly) {
+        & "$PSScriptRoot\..\..\..\linuxonly\stop\Stop.ps1" -ShowLogs:$ShowLogs -HideHeaders
+    } else {
+        & "$PSScriptRoot\..\..\stop\Stop.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay
+    }
 
     $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
     if ($vm -and $vm.State -ne 'Off') {
@@ -206,7 +212,11 @@ catch {
     Write-Log "[Compact] Error: Failed to mount VHDX: $_" -Console
     if ($wasRunning -and -not $NoRestart) {
         Write-Log '[Compact] Attempting to restart cluster...' -Console
-        & "$PSScriptRoot\..\..\start\Start.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay
+        if ($linuxOnly) {
+            & "$PSScriptRoot\..\..\..\linuxonly\start\Start.ps1" -ShowLogs:$ShowLogs -HideHeaders
+        } else {
+            & "$PSScriptRoot\..\..\start\Start.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay
+        }
     }
     exit 1
 }
@@ -236,7 +246,11 @@ catch {
     }
     if ($wasRunning -and -not $NoRestart) {
         Write-Log '[Compact] Attempting to restart cluster...' -Console
-        & "$PSScriptRoot\..\..\start\Start.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay
+        if ($linuxOnly) {
+            & "$PSScriptRoot\..\..\..\linuxonly\start\Start.ps1" -ShowLogs:$ShowLogs -HideHeaders
+        } else {
+            & "$PSScriptRoot\..\..\start\Start.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay
+        }
     }
     exit 1
 }
@@ -266,7 +280,11 @@ Write-Log '=====================================' -Console
 if ($wasRunning -and -not $NoRestart) {
     Write-Log '[Step 6/6] Restarting cluster...' -Console
     try {
-        & "$PSScriptRoot\..\..\start\Start.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay
+        if ($linuxOnly) {
+            & "$PSScriptRoot\..\..\..\linuxonly\start\Start.ps1" -ShowLogs:$ShowLogs -HideHeaders
+        } else {
+            & "$PSScriptRoot\..\..\start\Start.ps1" -ShowLogs:$ShowLogs -SkipHeaderDisplay
+        }
         Write-Log 'Cluster restarted successfully' -Console
     }
     catch {

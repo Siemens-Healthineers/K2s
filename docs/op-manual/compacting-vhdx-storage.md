@@ -8,11 +8,16 @@ SPDX-License-Identifier: MIT
 
 The Kubemaster VM uses a dynamically expanding VHDX. It grows when data is written but **does not shrink** when data is deleted (the "High Water Mark" issue). Use `k2s system compact` to reclaim wasted space after operations like importing/deleting container images or downloading large files.
 
+!!! note "Supported setups"
+    `k2s system compact` works with **standard k2s** and **Linux-only** setups.
+    It is **not available** for WSL-based or build-only installations (no Hyper-V VHDX present).
+
 ## How It Works
 
-1. **fstrim** – Runs inside the VM to notify Hyper-V which blocks are free.
-2. **Optimize-VHD** – Physically shrinks the VHDX file on the Windows host.
-3. **Restart** – Cluster is stopped for compaction and restarted by default.
+1. **fstrim** – Runs inside the VM (if running) to notify Hyper-V which blocks are free.
+2. **Stop** – Cluster is stopped for compaction.
+3. **Optimize-VHD** – Physically shrinks the VHDX file on the Windows host.
+4. **Restart** – Cluster is restarted by default (skip with `--no-restart`).
 
 ## Usage
 
@@ -30,7 +35,7 @@ Compact but keep cluster stopped afterwards:
 
 ```console
 k2s system compact --no-restart
-k2s start  # restart manually when ready
+k2s start
 ```
 
 ## Troubleshooting
@@ -48,7 +53,13 @@ k2s node connect -i 172.19.1.100 -u remote
 df -h /
 ```
 
-**Linux-only, build-only, or WSL installs:** `k2s system compact` is only available for standard Hyper-V installations — Linux-only, build-only, and WSL-based setups have no Hyper-V VHDX to compact.
+**VM has snapshots:** Remove all Hyper-V checkpoints before compacting:
+
+```powershell
+Get-VMSnapshot -VMName kubemaster | Remove-VMSnapshot
+```
+
+**WSL or build-only install:** Compaction is not available — these setups have no Hyper-V VHDX.
 
 ## Related Commands
 
