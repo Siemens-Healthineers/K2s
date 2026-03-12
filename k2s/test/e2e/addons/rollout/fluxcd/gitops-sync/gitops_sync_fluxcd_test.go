@@ -170,6 +170,32 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
 		})
 
+		It("cluster-reconciler ClusterRoleBinding references rollout namespace in all subjects", func(ctx context.Context) {
+			output := suite.Kubectl().MustExec(ctx,
+				"get", "clusterrolebinding", "cluster-reconciler",
+				"-o", "jsonpath={range .subjects[*]}{.namespace}{' '}{end}")
+
+			GinkgoWriter.Printf("[Test] cluster-reconciler CRB subject namespaces: %q\n", output)
+
+			Expect(output).NotTo(ContainSubstring("flux-system"),
+				"cluster-reconciler CRB must not reference flux-system; subjects should be in rollout namespace")
+
+			for _, ns := range strings.Fields(strings.TrimSpace(output)) {
+				Expect(ns).To(Equal("rollout"),
+					"All subjects in cluster-reconciler CRB must reference rollout namespace, got: %q", ns)
+			}
+		})
+
+		It("kustomize-controller-edit RoleBinding grants edit access in k2s-addon-sync", func(ctx context.Context) {
+			rbName := suite.Kubectl().MustExec(ctx,
+				"get", "rolebinding", "kustomize-controller-edit",
+				"-n", addonSyncNamespace,
+				"-o", "jsonpath={.metadata.name}")
+
+			Expect(rbName).To(Equal("kustomize-controller-edit"),
+				"kustomize-controller-edit RoleBinding must exist in %s", addonSyncNamespace)
+		})
+
 		It("per-addon OCIRepository template file is present on the host filesystem", func(ctx context.Context) {
 			templatePath := filepath.Join(suite.RootDir(), perAddonTemplateSubDir, "ocirepository-template.yaml")
 
@@ -225,10 +251,11 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 	})
 
 	// -----------------------------------------------------------------------
-	// End-to-end sync test — requires the registry addon.
-	// Labels: registry
+	// End-to-end sync test — requires the registry addon and internet access
+	// for image pulls on first run.
+	// Labels: registry, internet-required
 	// -----------------------------------------------------------------------
-	When("registry addon is enabled", Label("registry"), Ordered, func() {
+	When("registry addon is enabled", Label("registry", "internet-required"), Ordered, func() {
 		var exportDir string
 		var exportedOciFile string
 		var ociRepoYAMLFile string
@@ -399,25 +426,28 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 		})
 
 		It("Kustomization reconciles and creates the per-addon sync Job within 10 minutes", func(ctx context.Context) {
-			// Kustomization applies gitops-sync/sync-job.yaml extracted from the manifests
-			// layer. Poll for the Job's existence while also emitting Kustomization
-			// condition diagnostics so failures are visible without kubectl access.
 			Eventually(func(g Gomega) string {
 				output, _ := suite.Kubectl().Exec(ctx,
 					"get", "job", syncJobName,
 					"-n", addonSyncNamespace,
 					"-o", "jsonpath={.metadata.name}")
 				if output != syncJobName {
-					kReady, _ := suite.Kubectl().Exec(ctx,
+					// Emit all Kustomization conditions so failures are visible in CI logs.
+					kConditions, _ := suite.Kubectl().Exec(ctx,
 						"get", "kustomization", kustomizationName,
 						"-n", addonSyncNamespace,
-						"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
-					kMsg, _ := suite.Kubectl().Exec(ctx,
-						"get", "kustomization", kustomizationName,
-						"-n", addonSyncNamespace,
-						"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].message}")
-					GinkgoWriter.Printf("[Wait] Job %s not yet created; Kustomization Ready=%q message=%q\n",
-						syncJobName, kReady, kMsg)
+						"-o", `jsonpath={range .status.conditions[*]}{.type}={.status}: {.message}{"\n"}{end}`)
+					GinkgoWriter.Printf("[Wait] Job %s not yet created; Kustomization conditions:\n%s",
+						syncJobName, kConditions)
+
+					kEvents, _ := suite.Kubectl().Exec(ctx,
+						"get", "events", "-n", addonSyncNamespace,
+						"--field-selector=involvedObject.name="+kustomizationName,
+						"--sort-by=.lastTimestamp",
+						"-o", `jsonpath={range .items[*]}{.type}: {.reason} -- {.message}{"\n"}{end}`)
+					if kEvents != "" {
+						GinkgoWriter.Printf("[Wait] Kustomization events:\n%s", kEvents)
+					}
 				}
 				return output
 			}, 10*time.Minute, 15*time.Second, ctx).Should(Equal(syncJobName),
@@ -469,7 +499,7 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 	// Run with: --label-filter="registry && negative"
 	// -----------------------------------------------------------------------
 	When("an OCIRepository is applied for an artifact with wrong layer media type",
-		Label("registry", "negative"), Ordered, func() {
+		Label("registry", "internet-required", "negative"), Ordered, func() {
 
 			const (
 				badAddonName         = "bad-sync-test"
