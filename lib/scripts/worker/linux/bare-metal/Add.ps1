@@ -88,7 +88,7 @@ Write-Log "Disable swap"
 
 if ($WindowsHostIpAddress -eq '') {
     $loopbackAdapter = Get-L2BridgeName
-    $WindowsHostIpAddress = Get-HostPhysicalIp -ExcludeNetworkInterfaceName $loopbackAdapter
+    $WindowsHostIpAddress = Get-HostIpAddressForRemoteIp -RemoteIpAddress $IpAddress -ExcludeNetworkInterfaceName $loopbackAdapter
 }
 Write-Log "Windows Host IP address: $WindowsHostIpAddress"
 
