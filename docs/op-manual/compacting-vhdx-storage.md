@@ -46,22 +46,4 @@ k2s start
 Dismount-VHD -Path "C:\ProgramData\Microsoft\Windows\Virtual Hard Disks\KubeMaster.vhdx"
 ```
 
-**No space saved:** The VHDX may already be compacted or contain mostly active data. Check disk usage inside the VM:
-
-```console
-k2s node connect -i 172.19.1.100 -u remote
-df -h /
-```
-
-**VM has snapshots:** Remove all Hyper-V checkpoints before compacting:
-
-```powershell
-Get-VMSnapshot -VMName kubemaster | Remove-VMSnapshot
-```
-
-**WSL or build-only install:** Compaction is not available — these setups have no Hyper-V VHDX.
-
-## Related Commands
-
-- `k2s stop` / `k2s start` – Stop or start the cluster
-- `k2s status` – Check cluster status
+**No space saved:** The VHDX may already be compacted or contain mostly active data.
