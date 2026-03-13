@@ -485,7 +485,7 @@ Function Copy-KubernetesImagesFromControlPlaneToRemoteComputer {
 
     $imagesPath = $directoryOfKubenodeImagesOnWindowsHost
 
-    Write-Log 'Copy container images from the control plane node to the Windows host'
+    Write-Log 'Copy container images from the control plane node to the Windows host' 
     Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost -TargetPath $imagesPath
 
     if (Test-Path -Path $imagesPath) {
