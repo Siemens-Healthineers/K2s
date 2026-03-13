@@ -369,15 +369,7 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			GinkgoWriter.Printf("[Test] Applying Kustomization from %s\n", kustomizationYAMLFile)
 			suite.Kubectl().MustExec(ctx, "apply", "-f", kustomizationYAMLFile)
 
-			// Trigger immediate reconciliation so the test does not wait for the
-			// 1-minute Kustomization poll interval before the first sync attempt.
-			suite.Kubectl().MustExec(ctx,
-				"annotate", "kustomization", kustomizationName,
-				"-n", addonSyncNamespace,
-				"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
-				"--overwrite")
-
-			GinkgoWriter.Printf("[Test] OCIRepository %q and Kustomization %q applied (immediate reconciliation requested)\n",
+			GinkgoWriter.Printf("[Test] OCIRepository %q and Kustomization %q applied\n",
 				ociRepoName, kustomizationName)
 		})
 
@@ -416,6 +408,16 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 		})
 
 		It("Kustomization reconciles and creates the per-addon sync Job within 10 minutes", func(ctx context.Context) {
+			// OCIRepository is confirmed Ready (previous It passed). Trigger an immediate
+			// Kustomization reconciliation now so the Job is created without waiting for
+			// the 1-minute auto-interval.
+			suite.Kubectl().MustExec(ctx,
+				"annotate", "kustomization", kustomizationName,
+				"-n", addonSyncNamespace,
+				"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
+				"--overwrite")
+			GinkgoWriter.Printf("[Test] Immediate reconciliation requested for Kustomization %q\n", kustomizationName)
+
 			Eventually(func(g Gomega) string {
 				output, _ := suite.Kubectl().Exec(ctx,
 					"get", "job", syncJobName,
