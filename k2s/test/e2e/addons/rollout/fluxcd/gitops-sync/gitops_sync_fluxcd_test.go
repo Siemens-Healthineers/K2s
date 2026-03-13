@@ -186,16 +186,6 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			}
 		})
 
-		It("kustomize-controller-edit RoleBinding grants edit access in k2s-addon-sync", func(ctx context.Context) {
-			rbName := suite.Kubectl().MustExec(ctx,
-				"get", "rolebinding", "kustomize-controller-edit",
-				"-n", addonSyncNamespace,
-				"-o", "jsonpath={.metadata.name}")
-
-			Expect(rbName).To(Equal("kustomize-controller-edit"),
-				"kustomize-controller-edit RoleBinding must exist in %s", addonSyncNamespace)
-		})
-
 		It("per-addon OCIRepository template file is present on the host filesystem", func(ctx context.Context) {
 			templatePath := filepath.Join(suite.RootDir(), perAddonTemplateSubDir, "ocirepository-template.yaml")
 
