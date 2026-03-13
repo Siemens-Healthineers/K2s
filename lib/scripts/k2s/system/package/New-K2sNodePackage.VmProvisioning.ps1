@@ -40,6 +40,17 @@ function Start-NodePackageVmProvisioning {
 	$guestIp = "192.168.$randomSubnet.10"
 	$prefixLen = 24
 	$natIp = "192.168.$randomSubnet.0"
+	$hostDns = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+		ForEach-Object { @($_.ServerAddresses) } |
+		Where-Object { $_ -and $_ -ne '0.0.0.0' -and $_ -notlike '127.*' } |
+		Select-Object -First 1
+	if ([string]::IsNullOrWhiteSpace($hostDns)) {
+		$hostDns = '8.8.8.8'
+		Write-Log "[NodePkg] No host DNS detected. Falling back to '$hostDns'." -Console
+	}
+	else {
+		Write-Log "[NodePkg] Using host DNS '$hostDns' for VM provisioning." -Console
+	}
 
 	$tempPath = [System.IO.Path]::GetTempPath()
 	$workingRoot = Join-Path $tempPath "k2s-node-pkg-$([guid]::NewGuid().ToString().Substring(0, 8))"
@@ -65,7 +76,7 @@ function Start-NodePackageVmProvisioning {
 		HostIpPrefixLength = $prefixLen
 		NatName            = $natName
 		NatIpAddress       = $natIp
-		DnsIpAddresses     = '8.8.8.8'
+		DnsIpAddresses     = $hostDns
 	}
 	$isoParams = @{
 		IsoFileCreatorToolPath = Join-Path $kubeBinPath 'cloudinitisobuilder.exe'
