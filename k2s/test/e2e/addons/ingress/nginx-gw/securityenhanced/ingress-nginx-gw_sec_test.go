@@ -127,12 +127,12 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			GinkgoWriter.Println(">>> TEST: All addons deactivated")
 		})
 
-		It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: Verifying cmctl.exe uninstallation")
+		It("retains cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Verifying cmctl.exe is retained")
 			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 			_, err := os.Stat(cmCtlPath)
-			Expect(os.IsNotExist(err)).To(BeTrue())
-			GinkgoWriter.Println(">>> TEST: cmctl.exe uninstallation verified")
+			Expect(err).To(BeNil())
+			GinkgoWriter.Println(">>> TEST: cmctl.exe retention verified")
 		})
 
 		It("removed the ca-issuer-root-secret", func(ctx context.Context) {
