@@ -10,6 +10,7 @@ Param(
     [string] $NodeName,
     [string] $WindowsHostIpAddress = '',
     [string] $Proxy = '',
+    [string] $NodePackagePath = '',
     [switch] $ShowLogs = $false
 )
 
@@ -98,6 +99,8 @@ if ($Proxy -eq '') {
     $Proxy = $proxyConfig.HttpProxy
 }
 
+
+
 $workerNodeParams = @{
     NodeName = $NodeName
     UserName = $UserName
@@ -106,6 +109,7 @@ $workerNodeParams = @{
     Proxy = $Proxy
     AdditionalHooksDir = $AdditionalHooksDir
     installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer
+    NodePackagePath = $NodePackagePath
 }
 Add-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
 

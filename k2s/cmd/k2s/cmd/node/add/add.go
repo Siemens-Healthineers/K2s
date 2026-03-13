@@ -30,6 +30,8 @@ const (
 	MachineUsernameFlagUsage  = "Username of the machine for remote connection"
 	MachineRole               = "role"
 	MachineRoleFlagUsage      = "Role of the machine as a node"
+	NodePackagePath           = "node-package"
+	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet."
 )
 
 func NewCmd() *cobra.Command {
@@ -43,6 +45,7 @@ func NewCmd() *cobra.Command {
 	cmd.Flags().StringP(MachineUsername, "u", "", MachineUsernameFlagUsage)
 	cmd.Flags().StringP(MachineName, "m", "", MachineNameFlagUsage)
 	cmd.Flags().StringP(MachineRole, "r", "worker", MachineRoleFlagUsage)
+	cmd.Flags().StringP(NodePackagePath, "p", "", NodePackagePathFlagUsage)
 
 	cmd.MarkFlagRequired(MachineIPAddress)
 	cmd.MarkFlagRequired(MachineUsername)
@@ -115,17 +118,22 @@ func buildAddNodeCmd(flags *pflag.FlagSet, setupName string) (string, error) {
 		cmd += " -ShowLogs"
 	}
 
-	// TODO: usage of role
+	// role flag is accepted but only 'worker' is currently implemented
 
 	machineUserName := flags.Lookup(MachineUsername).Value.String()
 	machineIpAddress := flags.Lookup(MachineIPAddress).Value.String()
 	machineName := flags.Lookup(MachineName).Value.String()
+	nodePackagePath := flags.Lookup(NodePackagePath).Value.String()
 
 	cmd += " -UserName " + machineUserName
 	cmd += " -IpAddress " + machineIpAddress
 
 	if machineName != "" {
 		cmd += " -NodeName " + machineName
+	}
+
+	if nodePackagePath != "" {
+		cmd += " -NodePackagePath " + utils.FormatScriptFilePath(nodePackagePath)
 	}
 
 	return cmd, nil

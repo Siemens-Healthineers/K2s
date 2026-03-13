@@ -276,7 +276,8 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         [string] $WindowsHostIpAddress = $(throw 'Argument missing: WindowsHostIpAddress'),
         [string] $Proxy = '',
         [string] $AdditionalHooksDir = '',
-        [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: installedDistributionOnRemoteComputer')
+        [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: installedDistributionOnRemoteComputer'),
+        [string] $NodePackagePath = ''
     )
 
     $nodeParams = @{
@@ -297,7 +298,7 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
 
     Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer
 
-    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer
+    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath
 
     $doBeforeJoining = {
         Write-Log "Configuring networking for adding the node" -Console
@@ -465,8 +466,83 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $Proxy = '',
-        [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: InstalledDistribution')
+        [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: InstalledDistribution'),
+        [string] $NodePackagePath = ''
     )
+
+    # ---------------------------------------------------------------------------
+    # Offline path: node package zip supplied → extract into 'linuxnode' folder
+    # ---------------------------------------------------------------------------
+    if (![string]::IsNullOrWhiteSpace($NodePackagePath)) {
+        if (!(Test-Path $NodePackagePath)) {
+            throw "[NodeAdd] Node package not found: '$NodePackagePath'"
+        }
+
+        Write-Log "[NodeAdd] --node-package supplied: '$NodePackagePath'. Using offline installation." -Console
+
+        # Extract zip to a temp staging area
+        $extractTempPath = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-node-pkg-extract-$([guid]::NewGuid().ToString().Substring(0, 8))"
+        New-Item -Path $extractTempPath -ItemType Directory -Force | Out-Null
+        Write-Log "[NodeAdd] Extracting node package to staging: '$extractTempPath'" -Console
+        Expand-Archive -LiteralPath $NodePackagePath -DestinationPath $extractTempPath -Force
+        Write-Log "[NodeAdd] Node package extracted." -Console
+
+        # Validate expected content
+        $zipPackagesPath = Join-Path $extractTempPath 'packages'
+        $zipPackagesPathWithOs = Join-Path $zipPackagesPath $installedDistributionOnRemoteComputer
+        $zipImagesPath   = Join-Path $extractTempPath 'images'
+        if (!(Test-Path $zipPackagesPath)) {
+            throw "[NodeAdd] Expected 'packages' folder not found in node package: '$zipPackagesPath'"
+        }
+
+        $zipPackagesPathToUse = $zipPackagesPath
+        if (Test-Path $zipPackagesPathWithOs) {
+            $zipPackagesPathToUse = $zipPackagesPathWithOs
+        } else {
+            Write-Log "[NodeAdd] WARNING: OS-specific packages path '$zipPackagesPathWithOs' not found. Falling back to '$zipPackagesPath'." -Console
+        }
+
+        # Prepare the 'linuxnode' artifacts directory: keep folder, overwrite contents
+        $linuxNodeDir = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
+        if (!(Test-Path $linuxNodeDir)) {
+            New-Item -Path $linuxNodeDir -ItemType Directory -Force | Out-Null
+            Write-Log "[NodeAdd] Created 'linuxnode' directory: '$linuxNodeDir'" -Console
+        } else {
+            Write-Log "[NodeAdd] Using existing 'linuxnode' directory: '$linuxNodeDir'" -Console
+        }
+
+        $linuxNodePackagesPath = Join-Path $linuxNodeDir 'packages'
+        $linuxNodePackagesByOsPath = Join-Path $linuxNodePackagesPath $installedDistributionOnRemoteComputer
+        $linuxNodeImagesPath = Join-Path $linuxNodeDir 'images'
+
+        if (Test-Path $linuxNodePackagesByOsPath) {
+            Write-Log "[NodeAdd] Overwriting existing packages content in '$linuxNodePackagesByOsPath'" -Console
+            Remove-Item -Path $linuxNodePackagesByOsPath -Recurse -Force
+        }
+        if (Test-Path $linuxNodeImagesPath) {
+            Write-Log "[NodeAdd] Overwriting existing images content in '$linuxNodeImagesPath'" -Console
+            Remove-Item -Path $linuxNodeImagesPath -Recurse -Force
+        }
+
+        # Copy packages and images from extracted zip into linuxnode
+        New-Item -Path $linuxNodePackagesByOsPath -ItemType Directory -Force | Out-Null
+        Write-Log "[NodeAdd] Copying packages from node package into '$linuxNodePackagesByOsPath'" -Console
+        Copy-Item -Path "$zipPackagesPathToUse\*" -Destination $linuxNodePackagesByOsPath -Recurse -Force
+
+        if (Test-Path $zipImagesPath) {
+            Write-Log "[NodeAdd] Copying images from node package into '$linuxNodeDir\images'" -Console
+            Copy-Item -Path $zipImagesPath -Destination $linuxNodeDir -Recurse -Force
+        } else {
+            Write-Log "[NodeAdd] WARNING: 'images' folder not found in node package. Skipping image copy." -Console
+        }
+
+        # Cleanup temp staging
+        Remove-Item -Path $extractTempPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    # ---------------------------------------------------------------------------
+    # Online path: discover packages from control plane or download from internet
+    # ---------------------------------------------------------------------------
     $controlPlaneUserName = Get-DefaultUserNameControlPlane
     $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
     $installedDistributionOnControlPlane = Get-InstalledDistribution -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
@@ -485,7 +561,7 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     Write-Log "Zip file '$linuxNodeArtifactsPackagePath' with Linux node artifacts exists?: $packagePathExists"
     Write-Log "Folder '$linuxNodeArtifactsPath' with Linux node artifacts exists?: $linuxNodeArtifactsPathExists"
 
-    if (!($linuxNodeArtifactsPathExists) -and ($packagePathExists)) {
+    if (!($linuxNodeArtifactsPathExists) -and ($packagePathExists) -and [string]::IsNullOrWhiteSpace($NodePackagePath)) {
         Write-Log "Create folder '$linuxNodeArtifactsPath'"
         New-Item -Path $linuxNodeArtifactsPath -ItemType Directory -Force | Out-Null
         Write-Log "Extracting content of file '$linuxNodeArtifactsPackagePath' into '$linuxNodeArtifactsPath'"

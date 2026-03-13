@@ -103,16 +103,20 @@ $sshPwd = "admin"
 $provisioningDir = Join-Path $stagingDir "provisioning"
 $downloadsDir = Join-Path $stagingDir "downloads"
 $packagesDir = Join-Path $stagingDir "packages"
-$k8sPkgDir = Join-Path $packagesDir "kubernetes"
-$buildahPkgDir = Join-Path $packagesDir "buildah"
+$packagesByOsDir = Join-Path $packagesDir $distributionKey
+$k8sPkgDir = Join-Path $packagesByOsDir "kubernetes"
+$buildahPkgDir = Join-Path $packagesByOsDir "buildah"
+$imagesDir = Join-Path $stagingDir "images"
 $remoteK8sPkgDir = "/tmp/k2s-k8s-packages"
 $remoteBuildahPkgDir = "/tmp/k2s-buildah-packages"
+$remoteImagesExportDir = "/tmp/k2s-images"
 $vmProvisioningStarted = $false
 
 New-Item -Path $stagingDir -ItemType Directory -Force | Out-Null
 New-Item -Path $provisioningDir -ItemType Directory -Force | Out-Null
 New-Item -Path $downloadsDir -ItemType Directory -Force | Out-Null
 New-Item -Path $packagesDir -ItemType Directory -Force | Out-Null
+New-Item -Path $packagesByOsDir -ItemType Directory -Force | Out-Null
 New-Item -Path $k8sPkgDir -ItemType Directory -Force | Out-Null
 New-Item -Path $buildahPkgDir -ItemType Directory -Force | Out-Null
 
@@ -173,14 +177,20 @@ try {
             Write-Log "[NodePkg] Detected that control plane VM is already running '$distributionKey'. Copying packages from kubemaster..." -Console
 
             # Remove the empty staging dirs so Copy-DebPackagesFromControlPlaneToWindowsHost can populate them
-            Remove-Item $packagesDir -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item $packagesByOsDir -Recurse -Force -ErrorAction SilentlyContinue
 
             # Copy kubernetes and buildah deb packages from kubemaster to the local staging dir
-            Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath $packagesDir
+            Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath $packagesByOsDir
+
+            # Copy container images from kubemaster to the local staging dir
+            if (Test-Path -Path $imagesDir) {
+                Remove-Item -Path $imagesDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost -TargetPath $imagesDir
 
             # Create zip at the requested output location
             New-Item -Path $TargetDirectory -ItemType Directory -Force | Out-Null
-            Compress-Archive -Path $packagesDir -DestinationPath $zipTarget -Force
+            Compress-Archive -Path @($packagesDir, $imagesDir) -DestinationPath $zipTarget -Force
             Write-Log "[NodePkg] Node package zip created from kubemaster: $zipTarget" -Console
             Write-Log "[NodePkg] Package creation for '$distributionKey' completed successfully (fast path via kubemaster)." -Console
 
@@ -278,15 +288,115 @@ try {
         -TargetPath            $remoteBuildahPkgDir `
         -InstalledDistribution $distributionKey
 
+    # -----------------------------------------------------------------------
+    # Phase 6 - Install Kubernetes packages inside the VM
+    # -----------------------------------------------------------------------
+    Write-Log "[NodePkg] === Phase 6: Installing Kubernetes packages inside VM ===" -Console
+    Install-KubernetesArtifacts `
+        -UserName              $sshUser `
+        -UserPwd               $sshPwd `
+        -IpAddress             $guestIp `
+        -Proxy                 $Proxy `
+        -SourcePath            $remoteK8sPkgDir `
+        -InstalledDistribution $distributionKey
+
+    # -----------------------------------------------------------------------
+    # Phase 7 - Install buildah packages inside the VM
+    # -----------------------------------------------------------------------
+    Write-Log "[NodePkg] === Phase 7: Installing buildah packages inside VM ===" -Console
+    Install-BuildahDebPackages `
+        -UserName              $sshUser `
+        -UserPwd               $sshPwd `
+        -IpAddress             $guestIp `
+        -SourcePath            $remoteBuildahPkgDir `
+        -InstalledDistribution $distributionKey
+
+    # -----------------------------------------------------------------------
+    # Phase 8 - Pull and export Kubernetes/flannel images from VM
+    # -----------------------------------------------------------------------
+    Write-Log "[NodePkg] === Phase 8: Pulling and exporting container images inside VM ===" -Console
+
     $remoteUser = "$sshUser@$guestIp"
+    New-Item -Path $imagesDir -ItemType Directory -Force | Out-Null
+
+    # Use existing image pull helpers from k2s.node.module
+    Get-KubernetesImages `
+        -UserName   $sshUser `
+        -UserPwd    $sshPwd `
+        -IpAddress  $guestIp `
+        -K8sVersion $k8sVersion
+
+    Get-FlannelImages `
+        -UserName  $sshUser `
+        -UserPwd   $sshPwd `
+        -IpAddress $guestIp
+
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
+
+    # List images without awk (avoids single-quote mangling via plink/password SSH).
+    # crictl images columns: IMAGE   TAG   IMAGE ID   SIZE
+    $retrieveImagesCmd = 'sudo crictl images | grep -e registry.k8s.io -e docker.io/flannel | grep -v \<none\>'
+    $imagesFound = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $retrieveImagesCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
+
+    if ([string]::IsNullOrWhiteSpace(($imagesFound -join ''))) {
+        throw "[NodePkg] No image matching 'registry.k8s.io or docker.io/flannel' could be found in the VM."
+    }
+
+    Write-Log "[NodePkg] Raw crictl image lines: $($imagesFound -join ' | ')" -Console
+
+    foreach ($imageFound in $imagesFound) {
+        if ([string]::IsNullOrWhiteSpace($imageFound)) {
+            continue
+        }
+
+        # Split on whitespace: [0]=repo [1]=tag [2]=id [3]=size
+        $splitImageFoundInfo = $imageFound -split '\s+'
+        if ($splitImageFoundInfo.Length -lt 3) {
+            Write-Log "[NodePkg] Skipping unparsable image line: '$imageFound'" -Console
+            continue
+        }
+
+        $imageRepo  = $splitImageFoundInfo[0]
+        $imageTag   = $splitImageFoundInfo[1]
+        $imageId    = $splitImageFoundInfo[2]
+
+        # Skip any header or malformed lines
+        if ($imageId -match '^[a-zA-Z]' -and $imageId.Length -lt 10) {
+            Write-Log "[NodePkg] Skipping non-ID token '$imageId' in line: '$imageFound'" -Console
+            continue
+        }
+
+        $imageFullName = "${imageRepo}:${imageTag}"
+        $finalExportPath = Join-Path $imagesDir "$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
+        $targetFilePath = "$remoteImagesExportDir/${imageId}.tar"
+        $buildahPushCmd = 'sudo buildah push {0} oci-archive:{1}:{2} 2>&1' -f $imageId, $targetFilePath, $imageFullName
+
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $buildahPushCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
+
+        Copy-FromRemoteComputerViaUserAndPwd `
+            -Source    $targetFilePath `
+            -Target    $finalExportPath `
+            -IpAddress $guestIp `
+            -UserName  $sshUser `
+            -UserPwd   $sshPwd
+
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo rm -f $targetFilePath" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
+    }
+
+    $localExportCount = @(Get-ChildItem -Path $imagesDir -Filter '*.tar' -File -ErrorAction SilentlyContinue).Count
+    if ($localExportCount -eq 0) {
+        throw '[NodePkg] No container images were exported and copied to staging. Check image listing command output in logs.'
+    }
+    Write-Log "[NodePkg] Exported container images copied to staging: $localExportCount" -Console
+
     $remoteK8sDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $remoteK8sPkgDir/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
     $remoteBuildahDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $remoteBuildahPkgDir/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
     Write-Log "[NodePkg] Remote package counts before copy: kubernetes=$($remoteK8sDebCount.Trim()), buildah=$($remoteBuildahDebCount.Trim())" -Console
 
     # -----------------------------------------------------------------------
-    # Phase 6 - Copy packages from VM back to Windows host
+    # Phase 9 - Copy packages from VM back to Windows host
     # -----------------------------------------------------------------------
-    Write-Log "[NodePkg] === Phase 7: Copying packages from VM to Windows ===" -Console
+    Write-Log "[NodePkg] === Phase 9: Copying packages from VM to Windows ===" -Console
     Copy-FromRemoteComputerViaUserAndPwd `
         -Source    "$remoteK8sPkgDir/*" `
         -Target    $k8sPkgDir `
@@ -304,13 +414,13 @@ try {
     Assert-PackagesDownloaded -K8sPath $k8sPkgDir -BuildahPath $buildahPkgDir
 
     # -----------------------------------------------------------------------
-    # Phase 7 - Create output zip
+    # Phase 10 - Create output zip
     # -----------------------------------------------------------------------
-    Write-Log "[NodePkg] === Phase 8: Creating output zip ===" -Console
+    Write-Log "[NodePkg] === Phase 10: Creating output zip ===" -Console
     New-Item -Path $TargetDirectory -ItemType Directory -Force | Out-Null
     $zipTarget = Join-Path $TargetDirectory $ZipPackageFileName
     if (Test-Path $zipTarget) { Remove-Item $zipTarget -Force }
-    Compress-Archive -Path $packagesDir -DestinationPath $zipTarget -Force
+    Compress-Archive -Path @($packagesDir, $imagesDir) -DestinationPath $zipTarget -Force
     Write-Log "[NodePkg] Node package zip created: $zipTarget" -Console
     Write-Log "[NodePkg] Package creation for '$distributionKey' completed successfully." -Console
 }
@@ -326,30 +436,30 @@ catch {
 }
 finally {
 
-    # if($vmProvisioningStarted)
-    # {
-    #     Write-Log '[NodePkg] Cleaning up VM and network...' -Console
+    if($vmProvisioningStarted)
+    {
+        Write-Log '[NodePkg] Cleaning up VM and network...' -Console
 
-    #     $vmExists = $null -ne (Get-VM -Name $vmName -ErrorAction SilentlyContinue)
-    #     if ($vmExists) {
-    #         try { Stop-VirtualMachineForBaseImageProvisioning -Name $vmName }
-    #         catch { Write-Log "[NodePkg] Warning during VM stop: $($_.Exception.Message)" -Console }
+        $vmExists = $null -ne (Get-VM -Name $vmName -ErrorAction SilentlyContinue)
+        if ($vmExists) {
+            try { Stop-VirtualMachineForBaseImageProvisioning -Name $vmName }
+            catch { Write-Log "[NodePkg] Warning during VM stop: $($_.Exception.Message)" -Console }
 
-    #         try { Remove-VirtualMachineForBaseImageProvisioning -VmName $vmName -VhdxFilePath $inProvisioningVhdxPath }
-    #         catch { Write-Log "[NodePkg] Warning during VM removal: $($_.Exception.Message)" -Console }
-    #     }
-    #     else {
-    #         Write-Log "[NodePkg] No VM '$vmName' found for cleanup." -Console
-    #     }
+            try { Remove-VirtualMachineForBaseImageProvisioning -VmName $vmName -VhdxFilePath $inProvisioningVhdxPath }
+            catch { Write-Log "[NodePkg] Warning during VM removal: $($_.Exception.Message)" -Console }
+        }
+        else {
+            Write-Log "[NodePkg] No VM '$vmName' found for cleanup." -Console
+        }
 
-    #     try { Remove-NetworkForProvisioning -SwitchName $switchName -NatName $natName }
-    #     catch { Write-Log "[NodePkg] Warning during network cleanup: $($_.Exception.Message)" -Console }
+        try { Remove-NetworkForProvisioning -SwitchName $switchName -NatName $natName }
+        catch { Write-Log "[NodePkg] Warning during network cleanup: $($_.Exception.Message)" -Console }
 
-    #     if (Test-Path $stagingDir) {
-    #         Remove-Item -Path $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
-    #         Write-Log '[NodePkg] Staging directory cleaned up.' -Console
-    #     }
-    #     }
+        if (Test-Path $stagingDir) {
+            Remove-Item -Path $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Log '[NodePkg] Staging directory cleaned up.' -Console
+        }
+    }
 }
 
 if ($EncodeStructuredOutput -eq $true) {
