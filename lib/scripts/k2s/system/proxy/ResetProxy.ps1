@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -30,6 +30,17 @@ try {
     $k2sHosts = Get-K2sHosts
     Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverrides $k2sHosts
     Start-WinHttpProxy
+
+    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
+    $controlPlaneUserName = Get-DefaultUserNameControlPlane
+    $controlPlaneReachable = Test-Connection -ComputerName $controlPlaneIpAddress -Count 1 -Quiet -ErrorAction SilentlyContinue
+    if ($controlPlaneReachable) {
+        Remove-ProxySettingsOnKubenode -IpAddress $controlPlaneIpAddress -UserName $controlPlaneUserName
+    }
+    else {
+        Write-Log "[Proxy] Skip Linux proxy cleanup because control plane '$controlPlaneIpAddress' is not reachable"
+    }
+
     if ($EncodeStructuredOutput) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null}
     }

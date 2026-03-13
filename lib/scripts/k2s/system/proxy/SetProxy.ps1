@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -39,6 +39,19 @@ try {
     
     Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverrides $uniqueNoProxyHosts
     Start-WinHttpProxy
+
+    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $transparentProxy = "http://$($windowsHostIpAddress):8181"
+    $controlPlaneUserName = Get-DefaultUserNameControlPlane
+    $controlPlaneReachable = Test-Connection -ComputerName $controlPlaneIpAddress -Count 1 -Quiet -ErrorAction SilentlyContinue
+    if ($controlPlaneReachable) {
+        Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -IpAddress $controlPlaneIpAddress -UserName $controlPlaneUserName
+    }
+    else {
+        Write-Log "[Proxy] Skip Linux proxy update because control plane '$controlPlaneIpAddress' is not reachable"
+    }
+
     if ($EncodeStructuredOutput) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null}
     }
