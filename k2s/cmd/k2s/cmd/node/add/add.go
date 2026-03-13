@@ -133,7 +133,7 @@ func buildAddNodeCmd(flags *pflag.FlagSet, setupName string) (string, error) {
 	}
 
 	if nodePackagePath != "" {
-		cmd += " -NodePackagePath " + utils.FormatScriptFilePath(nodePackagePath)
+		cmd += " -NodePackagePath " + utils.EscapeWithSingleQuotes(nodePackagePath)
 	}
 
 	return cmd, nil
