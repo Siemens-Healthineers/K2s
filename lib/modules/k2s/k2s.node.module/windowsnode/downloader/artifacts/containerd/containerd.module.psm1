@@ -71,14 +71,15 @@ function Invoke-DeployContainerdArtifacts($windowsNodeArtifactsDirectory) {
 
 function Invoke-DownloadCrictlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $crictlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CrictlDirectory"
+    $versionCrictl = '1.35.0'
 
-    $compressedCrictlFile = 'crictl-v1.35.0-windows-amd64.tar.gz'
+    $compressedCrictlFile = "crictl-v$versionCrictl-windows-amd64.tar.gz"
     $compressedFile = "$crictlDownloadsDirectory\$compressedCrictlFile"
 
     Write-Log "Create folder '$crictlDownloadsDirectory'"
     mkdir $crictlDownloadsDirectory | Out-Null
     Write-Log 'Download crictl'
-    Invoke-DownloadFile "$compressedFile" https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.35.0/$compressedCrictlFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/kubernetes-sigs/cri-tools/releases/download/v$versionCrictl/$compressedCrictlFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$crictlDownloadsDirectory`"
