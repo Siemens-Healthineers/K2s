@@ -1,5 +1,5 @@
 
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -2002,6 +2002,9 @@ function Remove-ProxySettingsOnKubenode {
     Set-ProxySettingsForApt -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
     Set-ProxySettingsForContainerRuntime -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
     Set-ProxySettingsForContainers -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
+
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl daemon-reload' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 }
 
 function Set-ProxySettingsForApt {
