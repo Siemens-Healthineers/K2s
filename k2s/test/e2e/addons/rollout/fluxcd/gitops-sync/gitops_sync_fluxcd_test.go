@@ -77,6 +77,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	if testFailed {
+		gitopssync.DumpFluxControllerLogs(ctx, suite, "rollout", 120)
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 	suite.TearDown(ctx)
@@ -296,8 +297,6 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			Expect(exportedOciFile).NotTo(BeEmpty())
 
 			// Verify the top-level OCI Image Layout structure within the outer tar.
-			// The gitops-sync/sync-job.yaml resides inside a compressed blob under
-			// blobs/sha256/ and cannot be inspected without a two-pass extraction.
 			tarOutput, exitCode := suite.Cli(gitopssync.TarExe()).Exec(ctx,
 				"-tf", exportedOciFile)
 
@@ -309,6 +308,25 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				ContainSubstring("oci-layout"),
 				ContainSubstring("blobs/"),
 			), "exported OCI tar should contain a valid OCI Image Layout structure")
+		})
+
+		It("manifests layer contains gitops-sync directory with substituted sync-job.yaml", func(ctx context.Context) {
+			Expect(exportedOciFile).NotTo(BeEmpty())
+
+			verifyLayoutDir, err := os.MkdirTemp("", "k2s-verify-layer-fluxcd-*")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(verifyLayoutDir)
+
+			suite.Cli(gitopssync.TarExe()).MustExec(ctx, "-xf", exportedOciFile, "-C", verifyLayoutDir)
+
+			manifestsMediaType := "application/vnd.k2s.addon.manifests.v1.tar+gzip"
+			filePaths, err := gitopssync.VerifyManifestsLayerContent(verifyLayoutDir, manifestsMediaType, testAddonName)
+			Expect(err).ToNot(HaveOccurred(),
+				"manifests layer should contain valid gitops-sync content for addon %q", testAddonName)
+
+			GinkgoWriter.Printf("[Test] Manifests layer verified: %d files, incl. gitops-sync/sync-job.yaml with name addon-sync-%s\n",
+				len(filePaths), testAddonName)
+			GinkgoWriter.Printf("[Test] Manifests layer paths: %v\n", filePaths)
 		})
 
 		It("pushes the exported OCI artifact to the local registry", func(ctx context.Context) {
@@ -423,24 +441,54 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 					"get", "job", syncJobName,
 					"-n", addonSyncNamespace,
 					"-o", "jsonpath={.metadata.name}")
-				if output != syncJobName {
-					// Emit all Kustomization conditions so failures are visible in CI logs.
-					kConditions, _ := suite.Kubectl().Exec(ctx,
+				if output == syncJobName {
+					return output
+				}
+
+				kReadyStatus, _ := suite.Kubectl().Exec(ctx,
+					"get", "kustomization", kustomizationName,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
+				kReadyMessage, _ := suite.Kubectl().Exec(ctx,
+					"get", "kustomization", kustomizationName,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].message}")
+
+				if kReadyStatus == "False" {
+					GinkgoWriter.Printf("[FAIL-FAST] Kustomization %s Ready=False: %s\n",
+						kustomizationName, kReadyMessage)
+
+					gitopssync.DumpFluxControllerLogs(ctx, suite, "rollout", 80)
+
+					fullStatus, _ := suite.Kubectl().Exec(ctx,
 						"get", "kustomization", kustomizationName,
 						"-n", addonSyncNamespace,
-						"-o", `jsonpath={range .status.conditions[*]}{.type}={.status}: {.message}{"\n"}{end}`)
-					GinkgoWriter.Printf("[Wait] Job %s not yet created; Kustomization conditions:\n%s",
-						syncJobName, kConditions)
+						"-o", "yaml")
+					GinkgoWriter.Printf("[Diag] Full Kustomization YAML:\n%s\n",
+						gitopssync.SafeTrim(fullStatus, 3000))
 
-					kEvents, _ := suite.Kubectl().Exec(ctx,
-						"get", "events", "-n", addonSyncNamespace,
-						"--field-selector=involvedObject.name="+kustomizationName,
-						"--sort-by=.lastTimestamp",
-						"-o", `jsonpath={range .items[*]}{.type}: {.reason} -- {.message}{"\n"}{end}`)
-					if kEvents != "" {
-						GinkgoWriter.Printf("[Wait] Kustomization events:\n%s", kEvents)
-					}
+					artifactInfo, _ := suite.Kubectl().Exec(ctx,
+						"get", "ocirepository", ociRepoName,
+						"-n", addonSyncNamespace,
+						"-o", `jsonpath=url={.status.artifact.url} revision={.status.artifact.revision} digest={.status.artifact.digest}`)
+					GinkgoWriter.Printf("[Diag] OCIRepository artifact: %s\n", artifactInfo)
+
+					g.Expect(kReadyStatus).To(Equal("True"),
+						"Kustomization %s failed reconciliation: %s", kustomizationName, kReadyMessage)
 				}
+
+				GinkgoWriter.Printf("[Wait] Job %s not yet created; Kustomization Ready=%q message=%q\n",
+					syncJobName, kReadyStatus, kReadyMessage)
+
+				kEvents, _ := suite.Kubectl().Exec(ctx,
+					"get", "events", "-n", addonSyncNamespace,
+					"--field-selector=involvedObject.name="+kustomizationName,
+					"--sort-by=.lastTimestamp",
+					"-o", `jsonpath={range .items[*]}{.type}: {.reason} -- {.message}{"\n"}{end}`)
+				if kEvents != "" {
+					GinkgoWriter.Printf("[Wait] Kustomization events:\n%s", kEvents)
+				}
+
 				return output
 			}, 10*time.Minute, 15*time.Second, ctx).Should(Equal(syncJobName),
 				"Kustomization should create sync Job %s within 10 minutes", syncJobName)

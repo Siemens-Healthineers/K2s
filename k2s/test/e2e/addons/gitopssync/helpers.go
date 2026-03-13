@@ -6,11 +6,14 @@
 package gitopssync
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -213,4 +216,186 @@ func CreateDummyOCILayout(tag string) (string, error) {
 		return dir, fmt.Errorf("write oci-layout: %w", err)
 	}
 	return dir, nil
+}
+
+// VerifyManifestsLayerContent extracts the manifests layer from an OCI layout
+// directory (the first layer whose media type matches manifestsMediaType) and
+// verifies that the extracted content contains the expected gitops-sync files
+// with correct placeholder substitution.
+//
+// Returns a list of file paths found inside the manifests layer for diagnostic logging.
+func VerifyManifestsLayerContent(layoutDir, manifestsMediaType, expectedAddonName string) ([]string, error) {
+	indexData, err := os.ReadFile(filepath.Join(layoutDir, "index.json"))
+	if err != nil {
+		return nil, fmt.Errorf("read index.json: %w", err)
+	}
+
+	var index struct {
+		Manifests []struct {
+			Digest string `json:"digest"`
+		} `json:"manifests"`
+	}
+	if err = json.Unmarshal(indexData, &index); err != nil {
+		return nil, fmt.Errorf("parse index.json: %w", err)
+	}
+	if len(index.Manifests) == 0 {
+		return nil, fmt.Errorf("index.json contains no manifests")
+	}
+
+	manifestDigest := index.Manifests[0].Digest
+	manifestBlobPath := filepath.Join(layoutDir, "blobs", strings.Replace(manifestDigest, ":", "/", 1))
+	manifestData, err := os.ReadFile(manifestBlobPath)
+	if err != nil {
+		return nil, fmt.Errorf("read manifest blob %s: %w", manifestDigest, err)
+	}
+
+	var imageManifest struct {
+		Layers []struct {
+			Digest    string `json:"digest"`
+			MediaType string `json:"mediaType"`
+		} `json:"layers"`
+	}
+	if err = json.Unmarshal(manifestData, &imageManifest); err != nil {
+		return nil, fmt.Errorf("parse image manifest: %w", err)
+	}
+
+	var manifestsLayerDigest string
+	for _, layer := range imageManifest.Layers {
+		if layer.MediaType == manifestsMediaType {
+			manifestsLayerDigest = layer.Digest
+			break
+		}
+	}
+	if manifestsLayerDigest == "" {
+		layerTypes := make([]string, 0, len(imageManifest.Layers))
+		for _, l := range imageManifest.Layers {
+			layerTypes = append(layerTypes, l.MediaType)
+		}
+		return nil, fmt.Errorf("no layer with media type %q found; available types: %v",
+			manifestsMediaType, layerTypes)
+	}
+
+	layerBlobPath := filepath.Join(layoutDir, "blobs", strings.Replace(manifestsLayerDigest, ":", "/", 1))
+	layerFile, err := os.Open(layerBlobPath)
+	if err != nil {
+		return nil, fmt.Errorf("open manifests layer blob %s: %w", manifestsLayerDigest, err)
+	}
+	defer layerFile.Close()
+
+	gzReader, err := gzip.NewReader(layerFile)
+	if err != nil {
+		return nil, fmt.Errorf("gzip reader for manifests layer: %w", err)
+	}
+	defer gzReader.Close()
+
+	tarReader := tar.NewReader(gzReader)
+	var filePaths []string
+	var syncJobContent string
+	var kustomizationContent string
+	foundGitopsSync := false
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return filePaths, fmt.Errorf("read tar entry: %w", err)
+		}
+
+		cleanPath := filepath.ToSlash(strings.TrimPrefix(header.Name, "./"))
+		filePaths = append(filePaths, cleanPath)
+
+		if strings.HasPrefix(cleanPath, "gitops-sync/") {
+			foundGitopsSync = true
+		}
+
+		if cleanPath == "gitops-sync/sync-job.yaml" && header.Typeflag == tar.TypeReg {
+			data, readErr := io.ReadAll(tarReader)
+			if readErr != nil {
+				return filePaths, fmt.Errorf("read sync-job.yaml: %w", readErr)
+			}
+			syncJobContent = string(data)
+		}
+		if cleanPath == "gitops-sync/kustomization.yaml" && header.Typeflag == tar.TypeReg {
+			data, readErr := io.ReadAll(tarReader)
+			if readErr != nil {
+				return filePaths, fmt.Errorf("read kustomization.yaml: %w", readErr)
+			}
+			kustomizationContent = string(data)
+		}
+	}
+
+	if !foundGitopsSync {
+		return filePaths, fmt.Errorf("manifests layer does not contain gitops-sync/ directory; found: %v", filePaths)
+	}
+	if syncJobContent == "" {
+		return filePaths, fmt.Errorf("manifests layer does not contain gitops-sync/sync-job.yaml; found: %v", filePaths)
+	}
+	if kustomizationContent == "" {
+		return filePaths, fmt.Errorf("manifests layer does not contain gitops-sync/kustomization.yaml; found: %v", filePaths)
+	}
+
+	expectedJobName := "addon-sync-" + expectedAddonName
+	if !strings.Contains(syncJobContent, "name: "+expectedJobName) {
+		return filePaths, fmt.Errorf("sync-job.yaml does not contain 'name: %s'; ADDON_NAME_PLACEHOLDER may not have been substituted.\nContent (last 500 chars): %s",
+			expectedJobName, SafeTrim(syncJobContent, 500))
+	}
+	if strings.Contains(syncJobContent, "ADDON_NAME_PLACEHOLDER") {
+		return filePaths, fmt.Errorf("sync-job.yaml still contains unsubstituted ADDON_NAME_PLACEHOLDER")
+	}
+	if strings.Contains(syncJobContent, "EXPORT_TIMESTAMP_PLACEHOLDER") {
+		return filePaths, fmt.Errorf("sync-job.yaml still contains unsubstituted EXPORT_TIMESTAMP_PLACEHOLDER")
+	}
+
+	if !strings.Contains(kustomizationContent, "sync-job.yaml") {
+		return filePaths, fmt.Errorf("kustomization.yaml does not reference sync-job.yaml")
+	}
+
+	return filePaths, nil
+}
+
+// DumpFluxControllerLogs captures the last N lines of source-controller and
+// kustomize-controller logs from the Flux deployment namespace (typically "rollout").
+// Useful for diagnosing reconciliation failures in CI.
+func DumpFluxControllerLogs(ctx context.Context, suite *framework.K2sTestSuite, fluxNamespace string, tailLines int) {
+	for _, controller := range []string{"source-controller", "kustomize-controller"} {
+		GinkgoWriter.Printf("[Diag] === %s logs (last %d lines, namespace %s) ===\n",
+			controller, tailLines, fluxNamespace)
+		logs, exitCode := suite.Kubectl().Exec(ctx,
+			"logs", "-n", fluxNamespace,
+			"-l", "app="+controller,
+			"--tail", fmt.Sprintf("%d", tailLines))
+		if exitCode != 0 {
+			GinkgoWriter.Printf("[Diag] Failed to get %s logs (exit %d)\n", controller, exitCode)
+			continue
+		}
+		GinkgoWriter.Printf("%s\n", SafeTrim(logs, 3000))
+	}
+}
+
+// WaitForKustomizationCondition polls the Flux Kustomization until its Ready
+// condition is populated (True or False). Returns the Ready status and message.
+func WaitForKustomizationCondition(ctx context.Context, suite *framework.K2sTestSuite, namespace, name string, timeout time.Duration) (status, message string) {
+	Eventually(func() string {
+		s, _ := suite.Kubectl().Exec(ctx,
+			"get", "kustomization", name,
+			"-n", namespace,
+			"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
+		if s == "" {
+			GinkgoWriter.Printf("[Wait] Kustomization %s has no Ready condition yet\n", name)
+		}
+		return s
+	}, timeout, 10*time.Second, ctx).ShouldNot(BeEmpty(),
+		"Kustomization %s should report a Ready condition within %v", name, timeout)
+
+	status, _ = suite.Kubectl().Exec(ctx,
+		"get", "kustomization", name,
+		"-n", namespace,
+		"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
+	message, _ = suite.Kubectl().Exec(ctx,
+		"get", "kustomization", name,
+		"-n", namespace,
+		"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].message}")
+	return status, message
 }
