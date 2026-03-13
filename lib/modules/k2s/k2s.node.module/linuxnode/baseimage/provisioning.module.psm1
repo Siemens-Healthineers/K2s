@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -527,6 +527,9 @@ function New-ProvisionedBaseImage {
     Write-Log "Run role assignment hook"
     &$InstallationHook
     Write-Log "Role assignment finished"
+
+    Write-Log "[Proxy] Remove proxy settings from base image before sealing"
+    Remove-ProxySettingsOnKubenode -IpAddress $vmIP -UserName $userName
 
     Write-Log "Stop the VM $vmName"
     Stop-VirtualMachineForBaseImageProvisioning -Name $vmName
