@@ -31,7 +31,11 @@ refresh_apt_cache() {
     local attempt=1
 
     while [ $attempt -le $max_retries ]; do
-        if sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change; then
+        if sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
+            -qq --yes --allow-releaseinfo-change \
+            -o Acquire::Retries=2 \
+            -o Acquire::http::Timeout=30 \
+            -o Acquire::https::Timeout=30; then
             return 0
         fi
 
@@ -167,7 +171,11 @@ set_kubernetes_apt_repository() {
     sudo rm -f /etc/apt/sources.list.d/kubernetes.list /etc/apt/sources.list.d/cri-o.list
 
     log_info "Step 1: Update package list (required before installing anything)"
-    sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change 2>&1 | grep -v "^Reading" | grep -v "^Building" || true
+    sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
+        -qq --yes --allow-releaseinfo-change \
+        -o Acquire::Retries=2 \
+        -o Acquire::http::Timeout=30 \
+        -o Acquire::https::Timeout=30 2>&1 | grep -v "^Reading" | grep -v "^Building" || true
     
     log_info "Step 2: Install required tools (gpg and curl)"
     # Install GPG with retry and repair logic
@@ -221,7 +229,13 @@ set_kubernetes_apt_repository() {
     # ===== UPDATE APT PACKAGE LIST =====
     log_info "Step 4: Final update of package list with new repositories"
     # Allow unsigned/unauthenticated repos in case GPG key downloads failed
-    sudo DEBIAN_FRONTEND=noninteractive apt-get update -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowUnauthenticated=true -qq --yes --allow-releaseinfo-change 2>&1 | grep -v "^Reading" | grep -v "^Building" | grep -v "WARNING" || true
+    sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
+        -o Acquire::AllowInsecureRepositories=true \
+        -o Acquire::AllowUnauthenticated=true \
+        -qq --yes --allow-releaseinfo-change \
+        -o Acquire::Retries=2 \
+        -o Acquire::http::Timeout=30 \
+        -o Acquire::https::Timeout=30 2>&1 | grep -v "^Reading" | grep -v "^Building" | grep -v "WARNING" || true
 
 }
 
@@ -234,7 +248,12 @@ install_with_retry() {
         log_info "Installing $package (attempt $attempt/$retries)"
         
         # Try to install - check exit status directly
-        if sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes "$package" >/dev/null 2>&1; then
+        if sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get install \
+            -qq --yes "$package" \
+            -o Acquire::Retries=2 \
+            -o Acquire::http::Timeout=30 \
+            -o Acquire::https::Timeout=30 \
+            -o DPkg::Lock::Timeout=60 >/dev/null 2>&1; then
             log_info "✓ $package ready (installed or already present)"
             return 0
         fi
