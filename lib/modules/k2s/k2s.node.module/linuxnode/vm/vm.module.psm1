@@ -15,7 +15,14 @@ $key = Get-SSHKeyControlPlane
 
 $kubePath = Get-KubePath
 $plinkExe = "$kubePath\bin\plink.exe"
-$scpExe = "$kubePath\bin\pscp.exe"
+$scpExeCandidates = @(
+    "$kubePath\bin\pscp.exe",
+    "$kubePath\bin\windowsnode\puttytools\pscp.exe",
+    'pscp.exe'
+)
+$scpExe = $scpExeCandidates | Where-Object {
+    ($_ -eq 'pscp.exe') -or (Test-Path $_ -ErrorAction SilentlyContinue)
+} | Select-Object -First 1
 
 # TODO Separate Linux distribution module
 $LinuxOsTypeDebianCloud = 'DebianCloud'
