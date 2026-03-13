@@ -64,8 +64,10 @@ param (
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule  = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$vmProvisioningHelper = "$PSScriptRoot\New-K2sNodePackage.VmProvisioning.ps1"
 
 Import-Module $infraModule, $nodeModule
+. $vmProvisioningHelper
 
 if ($EncodeStructuredOutput) {
     Initialize-Logging -ShowLogs:$false
@@ -75,30 +77,35 @@ if ($EncodeStructuredOutput) {
 
 $distributionKey = $OS.ToLower()
 
-$kubePath    = Get-KubePath
-$kubeBinPath = Get-KubeBinPath
-
 Write-Log "[NodePkg] Starting node package creation for OS='$OS'" -Console
 Write-Log "[NodePkg] Distribution key: $distributionKey" -Console
 Write-Log "[NodePkg] Target directory: $TargetDirectory" -Console
 Write-Log "[NodePkg] Output zip: $ZipPackageFileName" -Console
 
+# Clean up stale node-package NATs and switches from previous failed runs.
+# Without this, random subnet selection can collide with a stale NAT/route,
+# causing New-NetIPAddress to silently fail so the host cannot reach the VM (SSH timeout).
+$staleNetworkNamePattern = 'k2s-nodepkg-debian*'
+Write-Log "[NodePkg] Cleaning up stale NATs and switches matching '$staleNetworkNamePattern' from previous runs..." -Console
+Get-NetNat | Where-Object Name -like $staleNetworkNamePattern | ForEach-Object {
+    Write-Log "[NodePkg] Removing stale NAT: $($_.Name) ($($_.InternalIPInterfaceAddressPrefix))" -Console
+    Remove-NetNat -Name $_.Name -Confirm:$false -ErrorAction SilentlyContinue
+}
+Get-VMSwitch | Where-Object Name -like $staleNetworkNamePattern | ForEach-Object {
+    Write-Log "[NodePkg] Removing stale vSwitch: $($_.Name)" -Console
+    Remove-VMSwitch -Name $_.Name -Force -ErrorAction SilentlyContinue
+}
+
 # Initialize variables for VM and network provisioning
 $tempPath = [System.IO.Path]::GetTempPath()
 $stagingDir = Join-Path $tempPath "k2s-node-pkg-$([guid]::NewGuid().ToString().Substring(0, 8))"
 $vmName = "k2s-nodepkg-$distributionKey-$(Get-Random -Maximum 9999)"
-$switchName = "k2s-node-$distributionKey-$(Get-Random -Maximum 9999)"
-$natName = "k2s-node-$distributionKey-$(Get-Random -Maximum 9999)"
-$vhdxName = "$vmName.vhdx"
-$isoName = "$vmName.iso"
-$netIntf = "eth0"
-$randomSubnet = Get-Random -Minimum 100 -Maximum 200
-$hostIp = "192.168.$randomSubnet.1"
-$guestIp = "192.168.$randomSubnet.10"
-$prefixLen = 24
-$natIp = "192.168.$randomSubnet.0"
-$sshUser = "admin"
-$sshPwd = "admin"
+$switchName = ''
+$natName = ''
+$guestIp = ''
+$sshUser = ''
+$sshPwd = ''
+$inProvisioningVhdxPath = ''
 
 $provisioningDir = Join-Path $stagingDir "provisioning"
 $downloadsDir = Join-Path $stagingDir "downloads"
@@ -113,14 +120,10 @@ $remoteImagesExportDir = "/tmp/k2s-images"
 $vmProvisioningStarted = $false
 
 New-Item -Path $stagingDir -ItemType Directory -Force | Out-Null
-New-Item -Path $provisioningDir -ItemType Directory -Force | Out-Null
-New-Item -Path $downloadsDir -ItemType Directory -Force | Out-Null
 New-Item -Path $packagesDir -ItemType Directory -Force | Out-Null
 New-Item -Path $packagesByOsDir -ItemType Directory -Force | Out-Null
 New-Item -Path $k8sPkgDir -ItemType Directory -Force | Out-Null
 New-Item -Path $buildahPkgDir -ItemType Directory -Force | Out-Null
-
-$inProvisioningVhdxPath = Join-Path $provisioningDir $vhdxName
 
 # ---------------------------------------------------------------------------
 # Validate inputs
@@ -141,9 +144,6 @@ if (Test-Path $zipTarget) {
 # Resolve paths and versions
 # ---------------------------------------------------------------------------
 $k8sVersion  = Get-DefaultK8sVersion
-
-$cloudInitTemplatePath = Join-Path $kubePath 'lib\modules\k2s\k2s.node.module\linuxnode\baseimage\cloud-init-templates'
-$isoBuilderTool        = Join-Path $kubeBinPath 'cloudinitisobuilder.exe'
 
 function Assert-PackagesDownloaded {
     param(
@@ -203,66 +203,19 @@ try {
         }
     }
 
-    # -----------------------------------------------------------------------
-    # Phase 1 - Create ephemeral Hyper-V VM with cloud-init
-    # -----------------------------------------------------------------------
-    Write-Log "[NodePkg] === Phase 1: Creating Hyper-V VM for '$distributionKey' ===" -Console
+    $vmContext = Start-NodePackageVmProvisioning `
+        -DistributionKey $distributionKey `
+        -VmName $vmName `
+        -Proxy $Proxy `
+        -ShowLogs:$ShowLogs
 
-    $vmParams = @{
-        VmName               = $vmName
-        VhdxName             = $vhdxName
-        VMMemoryStartupBytes = 2GB
-        VMProcessorCount     = 2
-        VMDiskSize           = 20GB
-    }
-    $netParams = @{
-        Proxy              = $Proxy
-        SwitchName         = $switchName
-        HostIpAddress      = $hostIp
-        HostIpPrefixLength = $prefixLen
-        NatName            = $natName
-        NatIpAddress       = $natIp
-        DnsIpAddresses     = '8.8.8.8'
-    }
-    $isoParams = @{
-        IsoFileCreatorToolPath = $isoBuilderTool
-        IsoFileName            = $isoName
-        SourcePath             = $cloudInitTemplatePath
-        Hostname               = "k2s-nodepkg-$distributionKey"
-        NetworkInterfaceName   = $netIntf
-        IPAddressVM            = $guestIp
-        IPAddressGateway       = $hostIp
-        UserName               = $sshUser
-        UserPwd                = $sshPwd
-    }
-    $dirParams = @{
-        DownloadsDirectory    = $downloadsDir
-        ProvisioningDirectory = $provisioningDir
-    }
-
-    New-LinuxCloudBasedVirtualMachine `
-        -VirtualMachineParams     $vmParams `
-        -NetworkParams            $netParams `
-        -IsoFileParams            $isoParams `
-        -WorkingDirectoriesParams $dirParams `
-        -TargetDistribution    $distributionKey
+    $switchName = $vmContext.SwitchName
+    $natName = $vmContext.NatName
+    $guestIp = $vmContext.GuestIp
+    $sshUser = $vmContext.SshUser
+    $sshPwd = $vmContext.SshPwd
+    $inProvisioningVhdxPath = $vmContext.InProvisioningVhdxPath
     $vmProvisioningStarted = $true
-
-    # -----------------------------------------------------------------------
-    # Phase 2 - Start VM and wait for heartbeat
-    # -----------------------------------------------------------------------
-    Write-Log "[NodePkg] === Phase 2: Starting VM '$vmName' ===" -Console
-    Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
-
-    # -----------------------------------------------------------------------
-    # Phase 3 - Wait for SSH to become available
-    # -----------------------------------------------------------------------
-    Write-Log "[NodePkg] === Phase 3: Waiting for SSH ($sshUser@$guestIp) ===" -Console
-    Wait-ForSshPossible `
-        -User                         "$sshUser@$guestIp" `
-        -UserPwd                      $sshPwd `
-        -SshTestCommand               'which ls' `
-        -ExpectedSshTestCommandResult '/usr/bin/ls'
 
     # -----------------------------------------------------------------------
     # Phase 4 - Download Kubernetes packages inside the VM
@@ -333,43 +286,35 @@ try {
 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
 
-    # List images without awk (avoids single-quote mangling via plink/password SSH).
-    # crictl images columns: IMAGE   TAG   IMAGE ID   SIZE
-    $retrieveImagesCmd = 'sudo crictl images | grep -e registry.k8s.io -e docker.io/flannel | grep -v \<none\>'
-    $imagesFound = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $retrieveImagesCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
+    # Build export list from crictl JSON to avoid fragile text parsing.
+    $imagesJsonOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo crictl images -o json' -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
+    $imagesJsonText = ($imagesJsonOutput -join "`n")
+    $imagesDoc = $imagesJsonText | ConvertFrom-Json
 
-    if ([string]::IsNullOrWhiteSpace(($imagesFound -join ''))) {
-        throw "[NodePkg] No image matching 'registry.k8s.io or docker.io/flannel' could be found in the VM."
+    $imageRefsToExport = @()
+    foreach ($img in @($imagesDoc.images)) {
+        foreach ($repoTag in @($img.repoTags)) {
+            if ([string]::IsNullOrWhiteSpace($repoTag) -or $repoTag -match '<none>') {
+                continue
+            }
+            if ($repoTag -like 'registry.k8s.io/*' -or $repoTag -like 'docker.io/flannel/*') {
+                $imageRefsToExport += $repoTag
+            }
+        }
+    }
+    $imageRefsToExport = $imageRefsToExport | Select-Object -Unique
+
+    if (@($imageRefsToExport).Count -eq 0) {
+        throw "[NodePkg] No image matching 'registry.k8s.io/* or docker.io/flannel/*' found in crictl output."
     }
 
-    Write-Log "[NodePkg] Raw crictl image lines: $($imagesFound -join ' | ')" -Console
+    Write-Log "[NodePkg] Images selected for export: $($imageRefsToExport -join ', ')" -Console
 
-    foreach ($imageFound in $imagesFound) {
-        if ([string]::IsNullOrWhiteSpace($imageFound)) {
-            continue
-        }
-
-        # Split on whitespace: [0]=repo [1]=tag [2]=id [3]=size
-        $splitImageFoundInfo = $imageFound -split '\s+'
-        if ($splitImageFoundInfo.Length -lt 3) {
-            Write-Log "[NodePkg] Skipping unparsable image line: '$imageFound'" -Console
-            continue
-        }
-
-        $imageRepo  = $splitImageFoundInfo[0]
-        $imageTag   = $splitImageFoundInfo[1]
-        $imageId    = $splitImageFoundInfo[2]
-
-        # Skip any header or malformed lines
-        if ($imageId -match '^[a-zA-Z]' -and $imageId.Length -lt 10) {
-            Write-Log "[NodePkg] Skipping non-ID token '$imageId' in line: '$imageFound'" -Console
-            continue
-        }
-
-        $imageFullName = "${imageRepo}:${imageTag}"
-        $finalExportPath = Join-Path $imagesDir "$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
-        $targetFilePath = "$remoteImagesExportDir/${imageId}.tar"
-        $buildahPushCmd = 'sudo buildah push {0} oci-archive:{1}:{2} 2>&1' -f $imageId, $targetFilePath, $imageFullName
+    foreach ($imageFullName in $imageRefsToExport) {
+        $sanitizedName = $imageFullName.Replace('/','_').Replace(':', '__')
+        $finalExportPath = Join-Path $imagesDir "$sanitizedName.tar"
+        $targetFilePath = "$remoteImagesExportDir/${sanitizedName}.tar"
+        $buildahPushCmd = 'sudo buildah push {0} oci-archive:{1}:{0} 2>&1' -f $imageFullName, $targetFilePath
 
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $buildahPushCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
 
