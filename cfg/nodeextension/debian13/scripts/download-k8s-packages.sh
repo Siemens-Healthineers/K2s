@@ -64,11 +64,39 @@ log_info "Starting Kubernetes package download"
 log_info "Target path: $TARGET_PATH"
 log_info "K8s version: $K8S_VERSION (repo version: $K8S_VERSION_REPO)"
 
+# Wait for cloud-init to finish - SSH becomes available before cloud-init completes,
+# so without this wait cloud-init still holds the dpkg lock and apt-get update fails instantly.
+if command -v cloud-init >/dev/null 2>&1; then
+    log_info "Waiting for cloud-init to complete..."
+    sudo cloud-init status --wait >/dev/null 2>&1 || true
+    log_info "cloud-init done"
+fi
+
+# Wait for any residual dpkg/apt locks to be released
+log_info "Waiting for apt/dpkg locks..."
+local_wait=0
+while sudo fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1; do
+    if [ $local_wait -ge 120 ]; then
+        log_warning "Timed out waiting for dpkg locks after 120s - continuing anyway"
+        break
+    fi
+    sleep 5
+    local_wait=$((local_wait + 5))
+done
+log_info "apt/dpkg locks free"
+
 # Setup paths
 cleanup_and_create "$TARGET_PATH"
 
 # # APT sandbox config
 echo "APT::Sandbox::User \"root\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s > /dev/null
+
+# Configure apt proxy if provided - must be set before any apt-get calls
+if [ -n "$PROXY" ]; then
+    log_info "Configuring apt proxy: $PROXY"
+    printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$PROXY" "$PROXY" \
+        | sudo tee /etc/apt/apt.conf.d/90k2s-proxy > /dev/null
+fi
 
 # Copy ZScaler certificate (if exists)
 if [ -f /tmp/ZScalerRootCA.crt ]; then
