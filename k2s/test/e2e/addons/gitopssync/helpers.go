@@ -374,6 +374,30 @@ func DumpFluxControllerLogs(ctx context.Context, suite *framework.K2sTestSuite, 
 	}
 }
 
+// DumpSourceControllerDiagnostics emits source-controller pod status, the
+// OCIRepository full status (artifact URL, conditions), and the source-controller
+// service. Call this when kustomize-controller reports "Source artifact not found".
+func DumpSourceControllerDiagnostics(ctx context.Context, suite *framework.K2sTestSuite, fluxNamespace, ociRepoNamespace, ociRepoName string) {
+	GinkgoWriter.Printf("[Diag] === source-controller pod status (namespace %s) ===\n", fluxNamespace)
+	podStatus, _ := suite.Kubectl().Exec(ctx,
+		"get", "pods", "-n", fluxNamespace,
+		"-l", "app=source-controller",
+		"-o", `jsonpath={range .items[*]}{.metadata.name} phase={.status.phase} ready={.status.containerStatuses[0].ready}{"\n"}{end}`)
+	GinkgoWriter.Printf("%s\n", podStatus)
+
+	GinkgoWriter.Printf("[Diag] === source-controller service (namespace %s) ===\n", fluxNamespace)
+	svcInfo, _ := suite.Kubectl().Exec(ctx,
+		"get", "service", "source-controller", "-n", fluxNamespace,
+		"-o", `jsonpath=ClusterIP={.spec.clusterIP} Port={.spec.ports[0].port}`)
+	GinkgoWriter.Printf("%s\n", svcInfo)
+
+	GinkgoWriter.Printf("[Diag] === OCIRepository %s/%s full status ===\n", ociRepoNamespace, ociRepoName)
+	ociStatus, _ := suite.Kubectl().Exec(ctx,
+		"get", "ocirepository", ociRepoName, "-n", ociRepoNamespace,
+		"-o", `jsonpath=Ready={.status.conditions[?(@.type=='Ready')].status} msg={.status.conditions[?(@.type=='Ready')].message} url={.status.artifact.url} rev={.status.artifact.revision} lastUpdate={.status.artifact.lastUpdateTime}`)
+	GinkgoWriter.Printf("%s\n", ociStatus)
+}
+
 // WaitForKustomizationCondition polls the Flux Kustomization until its Ready
 // condition is populated (True or False). Returns the Ready status and message.
 func WaitForKustomizationCondition(ctx context.Context, suite *framework.K2sTestSuite, namespace, name string, timeout time.Duration) (status, message string) {

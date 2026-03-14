@@ -436,7 +436,10 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				"--overwrite")
 			GinkgoWriter.Printf("[Test] Immediate reconciliation requested for Kustomization %q\n", kustomizationName)
 
+			pollIteration := 0
 			Eventually(func(g Gomega) string {
+				pollIteration++
+
 				output, _ := suite.Kubectl().Exec(ctx,
 					"get", "job", syncJobName,
 					"-n", addonSyncNamespace,
@@ -453,12 +456,35 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 					"get", "kustomization", kustomizationName,
 					"-n", addonSyncNamespace,
 					"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].message}")
+				ociArtifact, _ := suite.Kubectl().Exec(ctx,
+					"get", "ocirepository", ociRepoName,
+					"-n", addonSyncNamespace,
+					"-o", `jsonpath=Ready={.status.conditions[?(@.type=='Ready')].status} url={.status.artifact.url} rev={.status.artifact.revision}`)
+
+				GinkgoWriter.Printf("[Wait] iter=%d Job %s not yet created; Kustomization Ready=%q message=%q | OCIRepo: %s\n",
+					pollIteration, syncJobName, kReadyStatus, kReadyMessage, ociArtifact)
+
+				// After ~2 minutes of polling without progress, dump deep diagnostics and
+				// re-trigger OCIRepository reconciliation to unblock a stalled source-controller.
+				if pollIteration == 8 {
+					GinkgoWriter.Println("[Diag] 2 minutes elapsed without Job creation — dumping diagnostics")
+					gitopssync.DumpFluxControllerLogs(ctx, suite, "rollout", 60)
+					gitopssync.DumpSourceControllerDiagnostics(ctx, suite, "rollout", addonSyncNamespace, ociRepoName)
+
+					suite.Kubectl().Exec(ctx,
+						"annotate", "ocirepository", ociRepoName,
+						"-n", addonSyncNamespace,
+						"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
+						"--overwrite")
+					GinkgoWriter.Printf("[Diag] Re-triggered OCIRepository %q reconciliation\n", ociRepoName)
+				}
 
 				if kReadyStatus == "False" && !strings.Contains(kReadyMessage, "retrying") {
 					GinkgoWriter.Printf("[FAIL-FAST] Kustomization %s Ready=False: %s\n",
 						kustomizationName, kReadyMessage)
 
 					gitopssync.DumpFluxControllerLogs(ctx, suite, "rollout", 80)
+					gitopssync.DumpSourceControllerDiagnostics(ctx, suite, "rollout", addonSyncNamespace, ociRepoName)
 
 					fullStatus, _ := suite.Kubectl().Exec(ctx,
 						"get", "kustomization", kustomizationName,
@@ -467,18 +493,9 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 					GinkgoWriter.Printf("[Diag] Full Kustomization YAML:\n%s\n",
 						gitopssync.SafeTrim(fullStatus, 3000))
 
-					artifactInfo, _ := suite.Kubectl().Exec(ctx,
-						"get", "ocirepository", ociRepoName,
-						"-n", addonSyncNamespace,
-						"-o", `jsonpath=url={.status.artifact.url} revision={.status.artifact.revision} digest={.status.artifact.digest}`)
-					GinkgoWriter.Printf("[Diag] OCIRepository artifact: %s\n", artifactInfo)
-
 					g.Expect(kReadyStatus).To(Equal("True"),
 						"Kustomization %s failed reconciliation: %s", kustomizationName, kReadyMessage)
 				}
-
-				GinkgoWriter.Printf("[Wait] Job %s not yet created; Kustomization Ready=%q message=%q\n",
-					syncJobName, kReadyStatus, kReadyMessage)
 
 				kEvents, _ := suite.Kubectl().Exec(ctx,
 					"get", "events", "-n", addonSyncNamespace,
