@@ -205,3 +205,75 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 		))
 	})
 })
+
+var _ = Describe("'ingress-traefik' addon with --omitCertMgr", Ordered, func() {
+	AfterAll(func(ctx context.Context) {
+		if k2s.IsAddonEnabled("ingress", "traefik") {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+			k2s.VerifyAddonIsDisabled("ingress", "traefik")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
+		}
+	})
+
+	It("enables without cert-manager and pods are running", func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "traefik", "--omitCertMgr", "-o")
+
+		k2s.VerifyAddonIsEnabled("ingress", "traefik")
+
+		suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
+
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
+	})
+
+	It("cert-manager namespace does not exist", func(ctx context.Context) {
+		output, _ := suite.Kubectl().Exec(ctx, "get", "namespace", "cert-manager", "--ignore-not-found")
+		Expect(output).To(BeEmpty())
+	})
+
+	It("ca-issuer-root-secret does not exist", func(ctx context.Context) {
+		output, _ := suite.Kubectl().Exec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret", "--ignore-not-found")
+		Expect(output).To(BeEmpty())
+	})
+
+	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "ingress", "traefik")
+
+		Expect(output).To(ContainSubstring("already enabled"))
+	})
+
+	It("status shows cert-manager as unavailable", func(ctx context.Context) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "ingress", "traefik", "-o", "json")
+
+		var addonStatus status.AddonPrintStatus
+
+		Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
+
+		Expect(addonStatus.Name).To(Equal("ingress"))
+		Expect(addonStatus.Implementation).To(Equal("traefik"))
+		Expect(addonStatus.Enabled).NotTo(BeNil())
+		Expect(*addonStatus.Enabled).To(BeTrue())
+		Expect(addonStatus.Props).NotTo(BeNil())
+		Expect(addonStatus.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "IsTraefikRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "IsCertManagerAvailable"),
+				HaveField("Value", false),
+				HaveField("Okay", gstruct.PointTo(BeFalse()))),
+			SatisfyAll(
+				HaveField("Name", "IsCaRootCertificateAvailable"),
+				HaveField("Value", false),
+				HaveField("Okay", gstruct.PointTo(BeFalse()))),
+		))
+	})
+
+	It("disables cleanly without cert-manager errors", func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+
+		k2s.VerifyAddonIsDisabled("ingress", "traefik")
+
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
+	})
+})
