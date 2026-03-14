@@ -19,8 +19,8 @@ spec:
   commonName: K2s Self-Signed CA
   secretName: ca-issuer-root-secret
   privateKey:
-    algorithm: ECDSA
-    size: 256
+    algorithm: RSA
+    size: 4096
   issuerRef:
     name: k2s-boot-strapper-issuer
     kind: ClusterIssuer
