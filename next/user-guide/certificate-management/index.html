@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/user-guide/adding-container-registry/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/user-guide/certificate-management/">
       
       
-        <link rel="prev" href="../certificate-management/">
+        <link rel="prev" href="../cluster-ip-addresses/">
       
       
-        <link rel="next" href="../building-container-image/">
+        <link rel="next" href="../adding-container-registry/">
       
       
         
@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Adding a Container Registry - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Certificate Management - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#adding-a-container-registry" class="md-skip">
+        <a href="#certificate-management" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Adding a Container Registry
+              Certificate Management
             
           </span>
         </div>
@@ -794,34 +794,6 @@ You're not viewing the latest release version.
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../certificate-management/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Certificate Management
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -841,7 +813,7 @@ You're not viewing the latest release version.
   <span class="md-ellipsis">
     
   
-    Adding a Container Registry
+    Certificate Management
   
 
     
@@ -859,7 +831,7 @@ You're not viewing the latest release version.
   <span class="md-ellipsis">
     
   
-    Adding a Container Registry
+    Certificate Management
   
 
     
@@ -885,10 +857,10 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#registry-options-of-the-k2s-cli" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Registry Options of the k2s CLI
+        Overview
       
     </span>
   </a>
@@ -896,10 +868,182 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#adding-a-registry" class="md-nav__link">
+  <a href="#default-self-signed-ca" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Adding a Registry
+        Default Self-Signed CA
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Default Self-Signed CA">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#securing-your-application" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Securing your application
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-an-external-certificate-authority" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using an External Certificate Authority
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using an External Certificate Authority">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-install-cert-manager" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Install cert-manager
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-create-your-external-issuer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Create your external issuer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-enable-ingress-with-omitcertmgr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Enable ingress with --omitCertMgr
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-annotate-your-ingress-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Annotate your Ingress resources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#providing-tls-for-k2sclusterlocal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Providing TLS for k2s.cluster.local
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#managing-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managing Certificates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Managing Certificates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cmctl-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cmctl CLI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inspecting-certificates-in-the-browser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspecting certificates in the browser
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#windows-certificate-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows certificate store
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision Guide
       
     </span>
   </a>
@@ -907,10 +1051,21 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#listing-configured-registries" class="md-nav__link">
+  <a href="#browser-security-considerations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Listing Configured Registries
+        Browser Security Considerations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
       
     </span>
   </a>
@@ -921,6 +1076,34 @@ You're not viewing the latest release version.
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adding-container-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a Container Registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2469,10 +2652,10 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#registry-options-of-the-k2s-cli" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Registry Options of the k2s CLI
+        Overview
       
     </span>
   </a>
@@ -2480,10 +2663,182 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#adding-a-registry" class="md-nav__link">
+  <a href="#default-self-signed-ca" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Adding a Registry
+        Default Self-Signed CA
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Default Self-Signed CA">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#securing-your-application" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Securing your application
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-an-external-certificate-authority" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using an External Certificate Authority
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using an External Certificate Authority">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-install-cert-manager" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Install cert-manager
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-create-your-external-issuer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Create your external issuer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-enable-ingress-with-omitcertmgr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Enable ingress with --omitCertMgr
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-annotate-your-ingress-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Annotate your Ingress resources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#providing-tls-for-k2sclusterlocal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Providing TLS for k2s.cluster.local
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#managing-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managing Certificates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Managing Certificates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cmctl-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cmctl CLI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inspecting-certificates-in-the-browser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspecting certificates in the browser
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#windows-certificate-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows certificate store
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision Guide
       
     </span>
   </a>
@@ -2491,10 +2846,21 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#listing-configured-registries" class="md-nav__link">
+  <a href="#browser-security-considerations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Listing Configured Registries
+        Browser Security Considerations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
       
     </span>
   </a>
@@ -2518,7 +2884,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/user-guide/adding-container-registry.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/user-guide/certificate-management.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2527,25 +2893,254 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="adding-a-container-registry">Adding a Container Registry</h1>
-<p>This page describes how to add a container registry for pulling and pushing container images.</p>
-<h2 id="registry-options-of-the-k2s-cli">Registry Options of the <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr></h2>
-<p>The <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> provides an option to add a registry. You can find the help for registry options with following command:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s image registry -h</span>
+<h1 id="certificate-management">Certificate Management</h1>
+<p><em>K2s</em> uses <a href="https://cert-manager.io/" target="_blank" rel="noopener">cert-manager</a> to automate TLS certificate lifecycle management within the cluster. This page describes how cert-manager is deployed, how the default self-signed <abbr title="Certificate Authority">CA</abbr> works, and how to integrate an external Certificate Authority for production use.</p>
+<h2 id="overview">Overview</h2>
+<p>When you enable an <strong>ingress addon</strong> (<code>nginx</code>, <code>traefik</code>, or <code>nginx-gw</code>) or the <strong>security addon</strong> (<code>--type basic</code>), cert-manager is automatically installed alongside a default self-signed <abbr title="Certificate Authority">CA</abbr> chain. This provides immediate TLS support without any external infrastructure.</p>
+<p>For production deployments, you should replace the default self-signed <abbr title="Certificate Authority">CA</abbr> with certificates issued by your organization's trusted Certificate Authority. The <code>--omitCertMgr</code> flag on ingress addons enables exactly this workflow.</p>
+<pre class="mermaid"><code>flowchart LR
+    A[Install K2s] --&gt; B{Certificate Strategy}
+    B --&gt;|Quick Start| C[Enable ingress addon]
+    C --&gt; D[Default self-signed CA&lt;br/&gt;created automatically]
+    B --&gt;|Production| E[Install cert-manager&lt;br/&gt;via security addon]
+    E --&gt; F[Configure external issuer]
+    F --&gt; G["Enable ingress addon&lt;br/&gt;with --omitCertMgr"]</code></pre>
+<h2 id="default-self-signed-ca">Default Self-Signed <abbr title="Certificate Authority">CA</abbr></h2>
+<p>By default, K2s creates a certificate chain using cert-manager:</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Kind</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>k2s-boot-strapper-issuer</code></td>
+<td><code>ClusterIssuer</code> (SelfSigned)</td>
+<td>Bootstrap issuer that signs the <abbr title="Certificate Authority">CA</abbr> certificate</td>
+</tr>
+<tr>
+<td><code>k2s-self-signed-ca</code></td>
+<td><code>Certificate</code> (<abbr title="Certificate Authority">CA</abbr>)</td>
+<td>Root <abbr title="Certificate Authority">CA</abbr> certificate (valid for 10 years)</td>
+</tr>
+<tr>
+<td><code>k2s-ca-issuer</code></td>
+<td><code>ClusterIssuer</code> (<abbr title="Certificate Authority">CA</abbr>)</td>
+<td>Issues TLS certificates signed by the root <abbr title="Certificate Authority">CA</abbr></td>
+</tr>
+</tbody>
+</table>
+<p>The root <abbr title="Certificate Authority">CA</abbr> public certificate is also imported into the <strong>Windows Trusted Root Certification Authorities</strong> store, so browsers and tools on the host trust certificates issued by <code>k2s-ca-issuer</code>.</p>
+<h3 id="how-it-works">How it works</h3>
+<ol>
+<li>The <code>k2s-boot-strapper-issuer</code> (a self-signed <code>ClusterIssuer</code>) issues the root <abbr title="Certificate Authority">CA</abbr> certificate <code>k2s-self-signed-ca</code></li>
+<li>The <abbr title="Certificate Authority">CA</abbr> certificate's private key is stored in the Kubernetes secret <code>ca-issuer-root-secret</code></li>
+<li>The <code>k2s-ca-issuer</code> <code>ClusterIssuer</code> uses that secret to sign TLS certificates for your applications</li>
+<li>Ingress resources annotated with <code>cert-manager.io/cluster-issuer: k2s-ca-issuer</code> automatically receive TLS certificates</li>
+</ol>
+<h3 id="securing-your-application">Securing your application</h3>
+<p>Add the following annotations to your Ingress resource to obtain a TLS certificate from the default <abbr title="Certificate Authority">CA</abbr>:</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">cert-manager.io/cluster-issuer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k2s-ca-issuer</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">cert-manager.io/common-name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-app.k2s.cluster.local</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">tls</span><span class="p">:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hosts</span><span class="p">:</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-app.k2s.cluster.local</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">      </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-app-tls</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-app.k2s.cluster.local</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">http</span><span class="p">:</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="nt">paths</span><span class="p">:</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-app</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">                  </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
 </code></pre></div>
-<h2 id="adding-a-registry">Adding a Registry</h2>
-<p>In the following example you can see how to add a registry:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s image registry add shsk2s.azurecr.io</span>
+<p>cert-manager observes the annotation, creates a <code>Certificate</code> resource, obtains a signed certificate from <code>k2s-ca-issuer</code>, and stores it in the secret <code>your-app-tls</code>. The ingress controller then uses it for HTTPS termination.</p>
+<h2 id="using-an-external-certificate-authority">Using an External Certificate Authority</h2>
+<p>For production environments, the default self-signed <abbr title="Certificate Authority">CA</abbr> is not suitable — browsers and clients outside the cluster will not trust it. Instead, you should configure cert-manager with an issuer backed by your organization's <abbr title="Certificate Authority">CA</abbr> or an ACME provider (e.g., Let's Encrypt).</p>
+<h3 id="strategy">Strategy</h3>
+<p>The recommended workflow is:</p>
+<ol>
+<li><strong>Install cert-manager</strong> independently (via the security addon)</li>
+<li><strong>Create your external issuer</strong> (a <code>ClusterIssuer</code> or namespace-scoped <code>Issuer</code>)</li>
+<li><strong>Enable the ingress addon</strong> with <code>--omitCertMgr</code> to skip the default <abbr title="Certificate Authority">CA</abbr> setup</li>
+<li><strong>Annotate your Ingress resources</strong> with your custom issuer name</li>
+</ol>
+<h3 id="step-1-install-cert-manager">Step 1: Install cert-manager</h3>
+<p>Use the security addon in basic mode to install only cert-manager:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s addons enable security --type basic</span>
 </code></pre></div>
-<p>You will be asked for username and password. Container runtimes on <em>Windows</em> and <em>Linux</em> node will be automatically configured to get access to the added registry. Credentials are stored so that you can switch easily between configured registries.</p>
-<h2 id="listing-configured-registries">Listing Configured Registries</h2>
-<p>The following command shows how to display all configured registries:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s image registry ls</span>
+<p>This installs cert-manager controllers and CRDs, the default <code>k2s-ca-issuer</code>, and the <code>cmctl.exe</code> <abbr title="Command-Line Interface">CLI</abbr> tool.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You can also let the ingress addon install cert-manager automatically (without <code>--omitCertMgr</code>), and then create additional issuers alongside the default one.</p>
+</div>
+<h3 id="step-2-create-your-external-issuer">Step 2: Create your external issuer</h3>
+<p>Create a <code>ClusterIssuer</code> that references your organization's <abbr title="Certificate Authority">CA</abbr> or an ACME endpoint. Below are common examples.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Organization <abbr title="Certificate Authority">CA</abbr></label><label for="__tabbed_1_2">ACME (Let's Encrypt)</label><label for="__tabbed_1_3">Venafi / Vault</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>Store your <abbr title="Certificate Authority">CA</abbr> certificate and key in a Kubernetes secret, then reference it:</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Secret</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org-ca-key-pair</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubernetes.io/tls</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nt">data</span><span class="p">:</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">tls.crt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;base64-encoded-ca-cert&gt;</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">tls.key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;base64-encoded-ca-key&gt;</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nn">---</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterIssuer</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org-ca-issuer</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span><span class="nt">ca</span><span class="p">:</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">    </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org-ca-key-pair</span>
 </code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterIssuer</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">letsencrypt-prod</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">acme</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">server</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://acme-v02.api.letsencrypt.org/directory</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">email</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-email@example.com</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">privateKeySecretRef</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">letsencrypt-account-key</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">solvers</span><span class="p">:</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">http01</span><span class="p">:</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">          </span><span class="nt">ingress</span><span class="p">:</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">            </span><span class="nt">class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nginx</span><span class="w">  </span><span class="c1"># or traefik</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>See the cert-manager documentation for configuring <a href="https://cert-manager.io/docs/configuration/venafi/" target="_blank" rel="noopener">Venafi</a> or <a href="https://cert-manager.io/docs/configuration/vault/" target="_blank" rel="noopener">HashiCorp Vault</a> issuers.</p>
+</div>
+</div>
+</div>
+<p>Apply your issuer:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">kubectl apply -f my-cluster-issuer.yaml</span>
+</code></pre></div>
+<h3 id="step-3-enable-ingress-with-omitcertmgr">Step 3: Enable ingress with --omitCertMgr</h3>
+<p>Since cert-manager is already installed, skip its installation when enabling the ingress addon:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s addons enable ingress nginx --omitCertMgr</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">k2s addons enable ingress traefik --omitCertMgr</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="go">k2s addons enable ingress nginx-gw --omitCertMgr</span>
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>When using <code>--omitCertMgr</code>, the default <code>k2s-ca-issuer</code> and its root <abbr title="Certificate Authority">CA</abbr> are <strong>not created</strong>. TLS certificates must be provided by your custom issuer or created manually.</p>
+</div>
+<h3 id="step-4-annotate-your-ingress-resources">Step 4: Annotate your Ingress resources</h3>
+<p>Reference your custom issuer in Ingress annotations:</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">cert-manager.io/cluster-issuer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org-ca-issuer</span><span class="w">  </span><span class="c1"># your issuer name</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">cert-manager.io/common-name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myapp.example.com</span>
+</code></pre></div>
+<h3 id="providing-tls-for-k2sclusterlocal">Providing TLS for k2s.cluster.local</h3>
+<p>When using <code>--omitCertMgr</code>, the default <code>k2s-cluster-local-tls</code> certificate is not created automatically. You need to create a <code>Certificate</code> resource for it manually if you want HTTPS on the K2s dashboard or other addons:</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Certificate</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k2s-cluster-local-tls</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress-nginx</span><span class="w">  </span><span class="c1"># or ingress-traefik, depending on your implementation</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k2s-cluster-local-tls</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2160h</span><span class="w">  </span><span class="c1"># 90 days</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span><span class="nt">renewBefore</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">720h</span><span class="w">  </span><span class="c1"># 30 days</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="nt">commonName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k2s.cluster.local</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span><span class="nt">dnsNames</span><span class="p">:</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k2s.cluster.local</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">  </span><span class="nt">issuerRef</span><span class="p">:</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org-ca-issuer</span><span class="w">  </span><span class="c1"># your issuer name</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterIssuer</span>
+</code></pre></div>
+<h2 id="managing-certificates">Managing Certificates</h2>
+<h3 id="cmctl-cli">cmctl <abbr title="Command-Line Interface">CLI</abbr></h3>
+<p>The <code>cmctl.exe</code> <abbr title="Command-Line Interface">CLI</abbr> is installed in the K2s <code>bin</code> directory when cert-manager is deployed. Use it to inspect and manage certificates:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="gp"># </span>Check<span class="w"> </span>cert-manager<span class="w"> </span>API<span class="w"> </span>readiness
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">cmctl.exe check api</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="gp"># </span>List<span class="w"> </span>certificates
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="go">cmctl.exe status certificate k2s-cluster-local-tls -n ingress-nginx</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="gp"># </span>Manually<span class="w"> </span>trigger<span class="w"> </span>renewal
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="go">cmctl.exe renew k2s-cluster-local-tls -n ingress-nginx</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="gp"># </span>Renew<span class="w"> </span>all<span class="w"> </span>certificates
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="go">cmctl.exe renew --all --all-namespaces</span>
+</code></pre></div>
+<h3 id="inspecting-certificates-in-the-browser">Inspecting certificates in the browser</h3>
+<p>If you have the <strong>dashboard</strong> addon enabled with an ingress, navigate to <a href="https://k2s.cluster.local">https://k2s.cluster.local</a> and click the lock icon to inspect the TLS certificate.</p>
+<h3 id="windows-certificate-store">Windows certificate store</h3>
+<p>The default <abbr title="Certificate Authority">CA</abbr> certificate is imported into <code>Cert:\LocalMachine\Root</code> (Trusted Root Certification Authorities). When the ingress addon is disabled, the certificate is automatically removed from the Windows store.</p>
+<p>If you use an external <abbr title="Certificate Authority">CA</abbr>, you may need to import your organization's root certificate into the Windows trust store separately:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">Import-Certificate</span> <span class="n">-FilePath</span> <span class="s2">&quot;C:\path\to\org-root-ca.crt&quot;</span> <span class="n">-CertStoreLocation</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">Root</span>
+</code></pre></div>
+<h2 id="decision-guide">Decision Guide</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Recommended Approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Development / testing</td>
+<td>Use the default self-signed <abbr title="Certificate Authority">CA</abbr> (no extra configuration needed)</td>
+</tr>
+<tr>
+<td>Internal production (corporate <abbr title="Certificate Authority">CA</abbr>)</td>
+<td>Create a <abbr title="Certificate Authority">CA</abbr> <code>ClusterIssuer</code> with your org's root certificate</td>
+</tr>
+<tr>
+<td>Public-facing services</td>
+<td>Use an ACME issuer (e.g., Let's Encrypt)</td>
+</tr>
+<tr>
+<td>Air-gapped / offline</td>
+<td>Use the default self-signed <abbr title="Certificate Authority">CA</abbr> or pre-provision a <abbr title="Certificate Authority">CA</abbr> <code>ClusterIssuer</code> with an offline root certificate</td>
+</tr>
+<tr>
+<td>Multiple issuers needed</td>
+<td>Install cert-manager first, create multiple <code>ClusterIssuer</code> resources, then enable ingress with <code>--omitCertMgr</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="browser-security-considerations">Browser Security Considerations</h2>
+<p>Browsers track security properties of visited sites (HSTS, certificate pinning). If you switch CAs or re-issue certificates with different properties, the browser may reject the new certificate.</p>
+<p>To <strong>reset HSTS</strong> settings for <code>k2s.cluster.local</code>:</p>
+<ul>
+<li><strong>Chrome/Edge</strong>: Navigate to <code>chrome://net-internals/#hsts</code> and delete the entry for <code>k2s.cluster.local</code></li>
+<li><strong>Firefox</strong>: Clear site data for <code>k2s.cluster.local</code> in Settings → Privacy &amp; Security</li>
+</ul>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="https://cert-manager.io/docs/" target="_blank" rel="noopener">cert-manager documentation</a></li>
+<li><a href="../addons/">Addons</a> — addon <abbr title="Command-Line Interface">CLI</abbr> reference including ingress flags</li>
+<li><a href="../../security/security-features/">Security Features</a> — security addon modes</li>
+</ul>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -2585,7 +3180,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../certificate-management/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Certificate Management">
+          <a href="../cluster-ip-addresses/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Assignment of Cluster IP Addresses for Services">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2595,20 +3190,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Certificate Management
+                Assignment of Cluster IP Addresses for Services
               </div>
             </div>
           </a>
         
         
           
-          <a href="../building-container-image/" class="md-footer__link md-footer__link--next" aria-label="Next: Building a Container Image">
+          <a href="../adding-container-registry/" class="md-footer__link md-footer__link--next" aria-label="Next: Adding a Container Registry">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Building a Container Image
+                Adding a Container Registry
               </div>
             </div>
             <div class="md-footer__button md-icon">

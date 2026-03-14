@@ -574,6 +574,8 @@ You're not viewing the latest release version.
       
         
       
+        
+      
     
     
     
@@ -1265,6 +1267,34 @@ You're not viewing the latest release version.
     
   
     Assignment of Cluster IP Addresses for Services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../certificate-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Certificate Management
   
 
     
@@ -3494,11 +3524,32 @@ SPDX-License-Identifier: MIT
 </tr>
 </tbody>
 </table>
+<table>
+<thead>
+<tr>
+<th>Enable Flag</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--omitCertMgr</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Omit cert-manager installation. Use when you want to provide your own certificate issuer. See <a href="../certificate-management/">Certificate Management</a>.</td>
+</tr>
+</tbody>
+</table>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s addons enable ingress nginx</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">k2s addons enable ingress traefik</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">k2s addons enable ingress nginx-gw</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp"># </span>Without<span class="w"> </span>default<span class="w"> </span>cert-manager<span class="w"> </span><span class="o">(</span>bring<span class="w"> </span>your<span class="w"> </span>own<span class="w"> </span>issuer<span class="o">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">k2s addons enable ingress nginx --omitCertMgr</span>
 </code></pre></div>
-<p>No additional flags. Only one ingress implementation can be active at a time.</p>
+<p>Only one ingress implementation can be active at a time. By default, cert-manager is installed with a self-signed <abbr title="Certificate Authority">CA</abbr>. See <a href="../certificate-management/">Certificate Management</a> for details on using external certificate authorities.</p>
 <h3 id="dashboard">dashboard</h3>
 <table>
 <thead>
