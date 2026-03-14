@@ -197,3 +197,83 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 		))
 	})
 })
+
+var _ = Describe("'ingress nginx-gw' addon with --omitCertMgr", Ordered, func() {
+	AfterAll(func(ctx context.Context) {
+		if k2s.IsAddonEnabled("ingress", nginxGw) {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", nginxGw, "-o")
+			k2s.VerifyAddonIsDisabled("ingress", nginxGw)
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", nginxGw)
+		}
+	})
+
+	It("enables without cert-manager, prints manual cert warning, and pods are running", func(ctx context.Context) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", nginxGw, "--omitCertMgr", "-o")
+
+		Expect(output).To(ContainSubstring("TLS certificates must be provided manually"))
+
+		k2s.VerifyAddonIsEnabled("ingress", nginxGw)
+
+		suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", nginxGw)
+
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", nginxGw, nginxGw)
+	})
+
+	It("cert-manager namespace does not exist", func(ctx context.Context) {
+		output, _ := suite.Kubectl().Exec(ctx, "get", "namespace", "cert-manager", "--ignore-not-found")
+		Expect(output).To(BeEmpty())
+	})
+
+	It("ca-issuer-root-secret does not exist", func(ctx context.Context) {
+		output, _ := suite.Kubectl().Exec(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret", "--ignore-not-found")
+		Expect(output).To(BeEmpty())
+	})
+
+	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "ingress", nginxGw)
+
+		Expect(output).To(ContainSubstring("already enabled"))
+	})
+
+	It("HTTP gateway is reachable without cert-manager, with status NotFound", func(ctx context.Context) {
+		url := "http://k2s.cluster.local/"
+		httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-v", "-I", "-m", "5", "--retry", "10", "--retry-all-errors")
+		Expect(httpStatus).To(ContainSubstring("404"))
+	})
+
+	It("status shows cert-manager as unavailable", func(ctx context.Context) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "ingress", nginxGw, "-o", "json")
+
+		var addonStatus status.AddonPrintStatus
+
+		Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
+
+		Expect(addonStatus.Name).To(Equal("ingress"))
+		Expect(addonStatus.Implementation).To(Equal(nginxGw))
+		Expect(addonStatus.Enabled).NotTo(BeNil())
+		Expect(*addonStatus.Enabled).To(BeTrue())
+		Expect(addonStatus.Props).NotTo(BeNil())
+		Expect(addonStatus.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "IsNginxGatewayRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "IsCertManagerAvailable"),
+				HaveField("Value", false),
+				HaveField("Okay", gstruct.PointTo(BeFalse()))),
+			SatisfyAll(
+				HaveField("Name", "IsCaRootCertificateAvailable"),
+				HaveField("Value", false),
+				HaveField("Okay", gstruct.PointTo(BeFalse()))),
+		))
+	})
+
+	It("disables cleanly without cert-manager errors", func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", nginxGw, "-o")
+
+		k2s.VerifyAddonIsDisabled("ingress", nginxGw)
+
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", nginxGw)
+	})
+})
