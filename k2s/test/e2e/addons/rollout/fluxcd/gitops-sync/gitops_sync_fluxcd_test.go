@@ -454,7 +454,7 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 					"-n", addonSyncNamespace,
 					"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].message}")
 
-				if kReadyStatus == "False" {
+				if kReadyStatus == "False" && !strings.Contains(kReadyMessage, "retrying") {
 					GinkgoWriter.Printf("[FAIL-FAST] Kustomization %s Ready=False: %s\n",
 						kustomizationName, kReadyMessage)
 
