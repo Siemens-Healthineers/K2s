@@ -24,7 +24,9 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Omit cert-manager installation')]
+    [switch] $OmitCertMgr = $false
 )
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -119,8 +121,13 @@ Write-Log 'Installing external-dns' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
 
-Write-Log 'Installing cert-manager' -Console
-Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
+if (-not $OmitCertMgr) {
+    Write-Log 'Installing cert-manager' -Console
+    Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
+}
+else {
+    Write-Log '[ingress traefik] Skipping cert-manager installation (--omitCertMgr)' -Console
+}
 
 # we prepare all patches and apply them in a single kustomization,
 # instead of applying the unpatched manifests and then applying patches one by one
@@ -187,7 +194,9 @@ Write-Log 'All ingress traefik pods are up and ready.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 
-Assert-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
+if (-not $OmitCertMgr) {
+    Assert-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
+}
 
 &"$PSScriptRoot\Update.ps1"
 

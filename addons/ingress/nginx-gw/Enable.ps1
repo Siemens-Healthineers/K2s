@@ -24,7 +24,9 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Omit cert-manager installation (TLS certificates must be provided manually)')]
+    [switch] $OmitCertMgr = $false
 )
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -141,8 +143,13 @@ resources:
 - ../manifests
 "@
 
-Write-Log 'Installing cert-manager' -Console
-Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
+if (-not $OmitCertMgr) {
+    Write-Log 'Installing cert-manager' -Console
+    Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType:$MessageType
+}
+else {
+    Write-Log '[ingress nginx-gw] WARNING: cert-manager omitted. TLS certificates must be provided manually for HTTPS to function.' -Console
+}
 
 #create a temporary directory to store the kustomization file
 $kustomizationDir = "$PSScriptRoot/kustomizationDir"
@@ -213,6 +220,7 @@ $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io
     exit 1
 }
 
+if (-not $OmitCertMgr) {
     Write-Log 'creating self-signed certificate using cert-manager' -Console
     $certCreated = New-TlsCertificateWithCertManager -Namespace $ingressNginxGatewayNamespace -SecretName 'k2s-cluster-local-tls' -DnsName 'k2s.cluster.local'
     
@@ -226,6 +234,7 @@ $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io
         Write-Log $errMsg -Error
         exit 1
     }
+}
 
 # Now create the Gateway resource which will use the patched NginxProxy configuration
 # Use --server-side to bypass kubectl discovery cache which may not yet include Gateway API CRDs
@@ -243,7 +252,9 @@ Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation
 
 &"$PSScriptRoot\Update.ps1"
 
-Assert-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\manifests\k2s-cluster-local-tls-certificate.yaml"
+if (-not $OmitCertMgr) {
+    Assert-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\manifests\k2s-cluster-local-tls-certificate.yaml"
+}
 
 # adapt other addons
 Update-Addons -AddonName $addonName
