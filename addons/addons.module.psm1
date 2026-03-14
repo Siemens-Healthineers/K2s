@@ -1908,23 +1908,59 @@ function Get-CertManagerStatusProperties {
     [CmdletBinding()]
     param()
     
-    $certManagerAvailable = Wait-ForCertManagerAvailable
-    $certManagerProp = @{
-        Name = 'IsCertManagerAvailable'
-        Value = $certManagerAvailable
-        Okay = $certManagerAvailable
-        Message = if ($certManagerAvailable) { 'The cert-manager API is ready' } else { 'The cert-manager API is not ready. Please use cmctl.exe for further diagnostics.' }
+    try {
+        # Check if cert-manager is installed by probing the namespace
+        $certManagerNs = (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output
+        if (-not (Test-Path $cmctlExe) -or [string]::IsNullOrWhiteSpace($certManagerNs)) {
+            $certManagerProp = @{
+                Name = 'IsCertManagerAvailable'
+                Value = $false
+                Okay = $false
+                Message = 'The cert-manager is not installed (omitted during addon enablement).'
+            }
+            $caRootCertificateProp = @{
+                Name = 'IsCaRootCertificateAvailable'
+                Value = $false
+                Okay = $false
+                Message = 'The CA root certificate is not available (cert-manager was omitted).'
+            }
+            return $certManagerProp, $caRootCertificateProp
+        }
+
+        $certManagerAvailable = Wait-ForCertManagerAvailable
+        $certManagerProp = @{
+            Name = 'IsCertManagerAvailable'
+            Value = $certManagerAvailable
+            Okay = $certManagerAvailable
+            Message = if ($certManagerAvailable) { 'The cert-manager API is ready' } else { 'The cert-manager API is not ready. Please use cmctl.exe for further diagnostics.' }
+        }
+        
+        $caRootCertificateAvailable = Wait-ForCARootCertificate
+        $caRootCertificateProp = @{
+            Name = 'IsCaRootCertificateAvailable'
+            Value = $caRootCertificateAvailable
+            Okay = $caRootCertificateAvailable
+            Message = if ($caRootCertificateAvailable) { 'The CA root certificate is available' } else { "The CA root certificate is not available ('ca-issuer-root-secret' not created)." }
+        }
+        
+        return $certManagerProp, $caRootCertificateProp
     }
-    
-    $caRootCertificateAvailable = Wait-ForCARootCertificate
-    $caRootCertificateProp = @{
-        Name = 'IsCaRootCertificateAvailable'
-        Value = $caRootCertificateAvailable
-        Okay = $caRootCertificateAvailable
-        Message = if ($caRootCertificateAvailable) { 'The CA root certificate is available' } else { "The CA root certificate is not available ('ca-issuer-root-secret' not created)." }
+    catch {
+        Write-Log "[CertManager] Error checking cert-manager status: $($_.Exception.Message)" -Console
+        $certManagerProp = @{
+            Name = 'IsCertManagerAvailable'
+            Value = $false
+            Okay = $false
+            Message = 'The cert-manager is not installed (omitted during addon enablement).'
+        }
+        $caRootCertificateProp = @{
+            Name = 'IsCaRootCertificateAvailable'
+            Value = $false
+            Okay = $false
+            Message = 'The CA root certificate is not available (cert-manager was omitted).'
+        }
+        return $certManagerProp, $caRootCertificateProp
     }
-    
-    return $certManagerProp, $caRootCertificateProp
 }
 
 <#
