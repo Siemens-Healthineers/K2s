@@ -5,8 +5,6 @@ package addons
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,9 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
@@ -305,115 +301,12 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 	}
 }
 
-// loadWindowsRootCAs loads certificates from the Windows certificate store and returns a cert pool
-func loadWindowsRootCAs() (*x509.CertPool, error) {
-	// Start with system cert pool
-	pool, err := x509.SystemCertPool()
-	if err != nil {
-		GinkgoWriter.Printf("Warning: Failed to load system cert pool: %v\n", err)
-		pool = x509.NewCertPool()
-	}
-
-	// Load certificates from Windows Root CA store
-	storeNames := []string{"ROOT", "CA"}
-
-	for _, storeName := range storeNames {
-		store, err := openWindowsCertStore(storeName)
-		if err != nil {
-			GinkgoWriter.Printf("Warning: Failed to open Windows cert store %s: %v\n", storeName, err)
-			continue
-		}
-		defer closeCertStore(store)
-
-		// Enumerate all certificates in the store
-		var cert *syscall.CertContext
-		for {
-			cert, err = enumCertificates(store, cert)
-			if err != nil {
-				break
-			}
-			if cert == nil {
-				break
-			}
-
-			// Convert Windows cert to x509 certificate
-			certBytes := (*[1 << 20]byte)(unsafe.Pointer(cert.EncodedCert))[:cert.Length:cert.Length]
-			x509Cert, err := x509.ParseCertificate(certBytes)
-			if err != nil {
-				GinkgoWriter.Printf("Warning: Failed to parse certificate: %v\n", err)
-				continue
-			}
-
-			// Add to pool
-			pool.AddCert(x509Cert)
-		}
-	}
-
-	return pool, nil
-}
-
-// Windows API functions for certificate store access
-var (
-	crypt32                     = syscall.NewLazyDLL("crypt32.dll")
-	certOpenSystemStoreW        = crypt32.NewProc("CertOpenSystemStoreW")
-	certCloseStore              = crypt32.NewProc("CertCloseStore")
-	certEnumCertificatesInStore = crypt32.NewProc("CertEnumCertificatesInStore")
-)
-
-func openWindowsCertStore(storeName string) (syscall.Handle, error) {
-	storeNamePtr, err := syscall.UTF16PtrFromString(storeName)
-	if err != nil {
-		return 0, err
-	}
-
-	store, _, err := certOpenSystemStoreW.Call(0, uintptr(unsafe.Pointer(storeNamePtr)))
-	if store == 0 {
-		return 0, fmt.Errorf("failed to open cert store: %v", err)
-	}
-
-	return syscall.Handle(store), nil
-}
-
-func closeCertStore(store syscall.Handle) error {
-	ret, _, err := certCloseStore.Call(uintptr(store), 0)
-	if ret == 0 {
-		return err
-	}
-	return nil
-}
-
-func enumCertificates(store syscall.Handle, prevContext *syscall.CertContext) (*syscall.CertContext, error) {
-	var prevContextPtr uintptr
-	if prevContext != nil {
-		prevContextPtr = uintptr(unsafe.Pointer(prevContext))
-	}
-
-	context, _, err := certEnumCertificatesInStore.Call(uintptr(store), prevContextPtr)
-	if context == 0 {
-		return nil, err
-	}
-
-	// Safe conversion: context is a pointer returned from Windows API
-	certContext := *(**syscall.CertContext)(unsafe.Pointer(&context))
-	return certContext, nil
-}
-
-// createHTTPClientWithWindowsCerts creates an HTTP client that trusts Windows certificate store
+// createHTTPClientWithWindowsCerts creates an HTTP client that trusts Windows certificate store.
+// With RootCAs unset (nil), Go 1.18+ on Windows delegates TLS certificate verification to
+// Windows CryptoAPI, which natively trusts certs in LocalMachine\Root — where
+// Import-CACertificateToWindowsStore puts the K2s CA cert.
 func createHTTPClientWithWindowsCerts(timeout time.Duration) *http.Client {
-	rootCAs, err := loadWindowsRootCAs()
-	if err != nil {
-		GinkgoWriter.Printf("Warning: Failed to load Windows root CAs: %v. Using system defaults.\n", err)
-		return &http.Client{Timeout: timeout}
-	}
-
-	return &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: rootCAs,
-			},
-		},
-	}
+	return &http.Client{Timeout: timeout}
 }
 
 func waitForKeycloakReady(keycloakServer, realm string) error {
