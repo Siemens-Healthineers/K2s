@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -303,16 +304,53 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 	}
 }
 
-// createHTTPClientWithWindowsCerts creates an HTTP client that trusts the current
-// Windows certificate store. It calls x509.SystemCertPool() on each invocation to
-// get a fresh snapshot of the store, ensuring certs added at runtime (e.g. by
-// Import-CACertificateToWindowsStore during addon enable) are picked up even when
-// GOEXPERIMENT=boringcrypto disables the Windows platform verifier.
-func createHTTPClientWithWindowsCerts(timeout time.Duration) *http.Client {
-	rootCAs, err := x509.SystemCertPool()
+// loadK2sCACertFromCluster fetches the CA certificate directly from the Kubernetes
+// cluster secret, bypassing the Windows cert store entirely. This avoids issues with
+// Go's x509.SystemCertPool() caching and Windows CryptoAPI cert store round-trips.
+func loadK2sCACertFromCluster() *x509.CertPool {
+	rootDir, err := sos.RootDir()
 	if err != nil {
-		GinkgoWriter.Printf("Warning: Failed to load system cert pool: %v. Using default TLS.\n", err)
-		return &http.Client{Timeout: timeout}
+		GinkgoWriter.Printf("Warning: Failed to get root dir for kubectl: %v\n", err)
+		return nil
+	}
+
+	kubectlPath := filepath.Join(rootDir, "bin", "kube", "kubectl.exe")
+	out, err := exec.Command(kubectlPath, "-n", "cert-manager", "get", "secrets",
+		"ca-issuer-root-secret", "-o", "jsonpath={.data.ca\\.crt}").Output()
+	if err != nil {
+		GinkgoWriter.Printf("Warning: Failed to get CA cert from cluster: %v\n", err)
+		return nil
+	}
+
+	caCertPEM, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(out)))
+	if err != nil {
+		GinkgoWriter.Printf("Warning: Failed to decode CA cert: %v\n", err)
+		return nil
+	}
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caCertPEM) {
+		GinkgoWriter.Printf("Warning: Failed to parse CA cert PEM\n")
+		return nil
+	}
+
+	GinkgoWriter.Printf("Successfully loaded K2s CA cert from cluster secret\n")
+	return pool
+}
+
+// createHTTPClientWithWindowsCerts creates an HTTP client that trusts the K2s CA.
+// It fetches the CA cert directly from the Kubernetes cluster secret to avoid
+// Windows cert store read-back issues and Go cert pool caching.
+func createHTTPClientWithWindowsCerts(timeout time.Duration) *http.Client {
+	rootCAs := loadK2sCACertFromCluster()
+	if rootCAs == nil {
+		// Fallback to system cert pool if kubectl is not available
+		var err error
+		rootCAs, err = x509.SystemCertPool()
+		if err != nil {
+			GinkgoWriter.Printf("Warning: Failed to load system cert pool: %v. Using default TLS.\n", err)
+			return &http.Client{Timeout: timeout}
+		}
 	}
 
 	return &http.Client{
