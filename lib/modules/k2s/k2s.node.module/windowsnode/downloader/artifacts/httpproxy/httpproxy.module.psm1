@@ -40,6 +40,14 @@ function Install-WinHttpProxy {
     &$kubeBinPath\nssm set httpproxy AppRotateBytes 500000 | Out-Null
     &$kubeBinPath\nssm set httpproxy Start SERVICE_AUTO_START | Out-Null
 
+    # Give the console control handler enough time to run Stop-System.ps1 during
+    # Windows shutdown. NSSM default is ~1.5s per method which is too short for
+    # HNS cleanup. 30s for the console method covers all shutdown operations;
+    # window and thread methods are skipped (not applicable for a console app).
+    &$kubeBinPath\nssm set httpproxy AppStopMethodConsole 30000 | Out-Null
+    &$kubeBinPath\nssm set httpproxy AppStopMethodWindow 0 | Out-Null
+    &$kubeBinPath\nssm set httpproxy AppStopMethodThreads 0 | Out-Null
+
     New-NetFirewallRule -DisplayName $proxyInboundFirewallRule -Group 'k2s' -Direction Inbound -LocalPort 8181 -Protocol TCP -Action Allow | Out-Null
     Start-Service httpproxy
 }
@@ -49,6 +57,14 @@ function Start-WinHttpProxy {
     [Parameter(Mandatory = $false)]
     [switch]$OnlyProxy = $false
     )
+    # Ensure NSSM stop-method timeouts are configured. This is self-healing for
+    # installations that were created before these settings were added to
+    # Install-WinHttpProxy, so existing systems also get the fix on next start.
+    if (Test-Path "$kubeBinPath\nssm.exe") {
+        &$kubeBinPath\nssm set httpproxy AppStopMethodConsole 30000 2>&1 | Out-Null
+        &$kubeBinPath\nssm set httpproxy AppStopMethodWindow 0 2>&1 | Out-Null
+        &$kubeBinPath\nssm set httpproxy AppStopMethodThreads 0 2>&1 | Out-Null
+    }
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
     if ($OnlyProxy) { return }
     Confirm-LoopbackAdapterIP

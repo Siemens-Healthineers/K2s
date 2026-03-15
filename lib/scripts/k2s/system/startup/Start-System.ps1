@@ -183,6 +183,18 @@ try {
                     Write-Log "[$logUseCase] L2 bridge network is ready, restarting kubelet and kubeproxy"
                     Start-Service -Name 'kubelet' -ErrorAction SilentlyContinue
                     Start-Service -Name 'kubeproxy' -ErrorAction SilentlyContinue
+
+                    # Restore kubelet and kubeproxy to auto-start now that the
+                    # L2 bridge is properly configured. Stop-System.ps1 sets them
+                    # to SERVICE_DEMAND_START during shutdown to prevent them from
+                    # auto-starting into stale network state after an unclean reboot.
+                    $kubeBinPathLocal = Get-KubeBinPath
+                    if (Test-Path "$kubeBinPathLocal\nssm.exe") {
+                        Write-Log "[$logUseCase] Restoring kubelet and kubeproxy to auto-start"
+                        &"$kubeBinPathLocal\nssm.exe" set kubelet Start SERVICE_AUTO_START 2>&1 | Out-Null
+                        &"$kubeBinPathLocal\nssm.exe" set kubeproxy Start SERVICE_AUTO_START 2>&1 | Out-Null
+                    }
+
                     Write-Log "[$logUseCase] Attempt to repair kubeswitch"
                     Repair-KubeSwitch
 
