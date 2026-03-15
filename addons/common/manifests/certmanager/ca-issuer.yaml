@@ -21,8 +21,8 @@ spec:
   duration: 87600h # 10 years
   renewBefore: 8760h # 1 year
   privateKey:
-    algorithm: ECDSA
-    size: 256
+    algorithm: RSA
+    size: 2048
   issuerRef:
     name: k2s-boot-strapper-issuer
     kind: ClusterIssuer
