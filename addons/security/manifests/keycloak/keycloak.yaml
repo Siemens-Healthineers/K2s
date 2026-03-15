@@ -442,7 +442,7 @@ data:
           "userLabel" : "My password",
           "createdDate" : 1713238552955,
           "secretData" : "{\"value\":\"25jOpnlnL+PeSuRxKvojs6fl/zBTvjM12YaNSeJQ4Jsv9O3hiYL7I2Q/n+a0WgieVPbH6l0iZ8MYtx8D8KPVzw==\",\"salt\":\"bo4HBOMFy45xpoT02YJe4w==\",\"additionalParameters\":{}}",
-          "credentialData" : "{\"hashIterations\":2.4.10,\"algorithm\":\"pbkdf2-sha512\",\"additionalParameters\":{}}"
+          "credentialData" : "{\"hashIterations\":210000,\"algorithm\":\"pbkdf2-sha512\",\"additionalParameters\":{}}"
         } ],
         "disableableCredentialTypes" : [ ],
         "requiredActions" : [ ],
@@ -1043,7 +1043,7 @@ data:
           "display.on.consent.screen" : "true"
         }
       }, {
-        "id" : "31af7237-72ce-47ab-92.4.14d5b04a6f00",
+        "id" : "31af7237-72ce-47ab-9240-04d5b04a6f00",
         "name" : "microprofile-jwt",
         "description" : "Microprofile - JWT built-in scope",
         "protocol" : "openid-connect",
