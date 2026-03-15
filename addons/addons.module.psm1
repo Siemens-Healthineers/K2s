@@ -1687,10 +1687,20 @@ function Import-CACertificateToWindowsStore {
     param()
 
     Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
+
+    # Remove any stale CA certificates with the same subject before importing the new one.
+    # This prevents duplicate/stale certs from prior enable/disable cycles or crashed runs
+    # from confusing certificate chain verification (e.g. ECDSA verification failure).
+    $caIssuerName = Get-CAIssuerName
+    $certLocationStore = Get-TrustedRootStoreLocation
+    $staleCerts = Get-ChildItem -Path $certLocationStore | Where-Object { $_.Subject -match $caIssuerName }
+    if ($staleCerts) {
+        Write-Log "[CertManager] Removing $($staleCerts.Count) stale CA certificate(s) from trusted root store" -Console
+        $staleCerts | Remove-Item -Force
+    }
     
     $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
     $tempFile = New-TemporaryFile
-    $certLocationStore = Get-TrustedRootStoreLocation
     
     [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
     

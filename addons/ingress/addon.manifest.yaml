@@ -26,7 +26,7 @@ spec:
             - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
           curl:
-            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.4.1/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
       commands:
         enable:
@@ -69,7 +69,7 @@ spec:
             - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
           curl: 
-            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.4.1/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
       commands:
         enable:
@@ -112,7 +112,7 @@ spec:
           - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
           curl:
-            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.4.1/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
       commands:
         enable:
