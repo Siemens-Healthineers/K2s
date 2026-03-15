@@ -5,6 +5,8 @@ package addons
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -301,12 +303,26 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 	}
 }
 
-// createHTTPClientWithWindowsCerts creates an HTTP client that trusts Windows certificate store.
-// With RootCAs unset (nil), Go 1.18+ on Windows delegates TLS certificate verification to
-// Windows CryptoAPI, which natively trusts certs in LocalMachine\Root — where
-// Import-CACertificateToWindowsStore puts the K2s CA cert.
+// createHTTPClientWithWindowsCerts creates an HTTP client that trusts the current
+// Windows certificate store. It calls x509.SystemCertPool() on each invocation to
+// get a fresh snapshot of the store, ensuring certs added at runtime (e.g. by
+// Import-CACertificateToWindowsStore during addon enable) are picked up even when
+// GOEXPERIMENT=boringcrypto disables the Windows platform verifier.
 func createHTTPClientWithWindowsCerts(timeout time.Duration) *http.Client {
-	return &http.Client{Timeout: timeout}
+	rootCAs, err := x509.SystemCertPool()
+	if err != nil {
+		GinkgoWriter.Printf("Warning: Failed to load system cert pool: %v. Using default TLS.\n", err)
+		return &http.Client{Timeout: timeout}
+	}
+
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: rootCAs,
+			},
+		},
+	}
 }
 
 func waitForKeycloakReady(keycloakServer, realm string) error {
