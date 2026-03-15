@@ -22,7 +22,7 @@ spec:
   renewBefore: 8760h # 1 year
   privateKey:
     algorithm: RSA
-    size: 4096
+    size: 2048
   issuerRef:
     name: k2s-boot-strapper-issuer
     kind: ClusterIssuer
