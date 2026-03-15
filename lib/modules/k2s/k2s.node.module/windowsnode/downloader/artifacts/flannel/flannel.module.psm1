@@ -136,8 +136,10 @@ function Install-WinFlannel {
     # find one, which races with Start-System.ps1 after an unclean reboot. Instead, k2s
     # scripts start flanneld explicitly after creating the proper cbr0.
     &$kubeBinPath\nssm set flanneld Start SERVICE_DEMAND_START | Out-Null
-    # Delay restart by 10s after crash/exit to give HNS time to settle and prevent
-    # flannel from recreating cbr0 L2Bridge when the existing one is transiently unavailable.
+    # Explicitly configure NSSM to restart flanneld on any exit (including clean exit
+    # code 0). The 10s delay gives HNS time to settle and prevents flannel from
+    # recreating cbr0 L2Bridge when the existing one is transiently unavailable.
+    &$kubeBinPath\nssm set flanneld AppExit Default Restart | Out-Null
     &$kubeBinPath\nssm set flanneld AppRestartDelay 10000 | Out-Null
 }
 
