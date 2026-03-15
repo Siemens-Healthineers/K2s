@@ -426,9 +426,43 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 		})
 
 		It("Kustomization reconciles and creates the per-addon sync Job within 10 minutes", func(ctx context.Context) {
-			// OCIRepository is confirmed Ready (previous It passed). Trigger an immediate
-			// Kustomization reconciliation now so the Job is created without waiting for
-			// the 1-minute auto-interval.
+			// Pre-flight: verify that the OCIRepository is still Ready and DNS is healthy
+			// before triggering the Kustomization. Between ordered It blocks the source-controller
+			// may re-reconcile and lose its artifact if cluster DNS degrades.
+			ociReadyPre, _ := suite.Kubectl().Exec(ctx,
+				"get", "ocirepository", ociRepoName,
+				"-n", addonSyncNamespace,
+				"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
+			if ociReadyPre != "True" {
+				GinkgoWriter.Printf("[Pre-flight] OCIRepository %s Ready=%s — checking DNS health\n", ociRepoName, ociReadyPre)
+				gitopssync.DumpCoreDNSDiagnostics(ctx, suite)
+				gitopssync.RestartCoreDNS(ctx, suite)
+
+				suite.Kubectl().Exec(ctx,
+					"annotate", "ocirepository", ociRepoName,
+					"-n", addonSyncNamespace,
+					"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
+					"--overwrite")
+				GinkgoWriter.Printf("[Pre-flight] Re-triggered OCIRepository %q after CoreDNS restart\n", ociRepoName)
+
+				Eventually(func() string {
+					s, _ := suite.Kubectl().Exec(ctx,
+						"get", "ocirepository", ociRepoName,
+						"-n", addonSyncNamespace,
+						"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
+					if s != "True" {
+						msg, _ := suite.Kubectl().Exec(ctx,
+							"get", "ocirepository", ociRepoName,
+							"-n", addonSyncNamespace,
+							"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].message}")
+						GinkgoWriter.Printf("[Pre-flight] OCIRepository Ready=%s message=%q\n", s, msg)
+					}
+					return s
+				}, 3*time.Minute, 15*time.Second, ctx).Should(Equal("True"),
+					"OCIRepository %s must recover to Ready=True after CoreDNS restart", ociRepoName)
+				GinkgoWriter.Println("[Pre-flight] OCIRepository recovered to Ready=True")
+			}
+
 			suite.Kubectl().MustExec(ctx,
 				"annotate", "kustomization", kustomizationName,
 				"-n", addonSyncNamespace,
@@ -437,6 +471,7 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			GinkgoWriter.Printf("[Test] Immediate reconciliation requested for Kustomization %q\n", kustomizationName)
 
 			pollIteration := 0
+			dnsRemediationDone := false
 			Eventually(func(g Gomega) string {
 				pollIteration++
 
@@ -464,19 +499,43 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				GinkgoWriter.Printf("[Wait] iter=%d Job %s not yet created; Kustomization Ready=%q message=%q | OCIRepo: %s\n",
 					pollIteration, syncJobName, kReadyStatus, kReadyMessage, ociArtifact)
 
-				// After ~2 minutes of polling without progress, dump deep diagnostics and
-				// re-trigger OCIRepository reconciliation to unblock a stalled source-controller.
-				if pollIteration == 8 {
-					GinkgoWriter.Println("[Diag] 2 minutes elapsed without Job creation — dumping diagnostics")
-					gitopssync.DumpFluxControllerLogs(ctx, suite, "rollout", 60)
-					gitopssync.DumpSourceControllerDiagnostics(ctx, suite, "rollout", addonSyncNamespace, ociRepoName)
+				kEvents, _ := suite.Kubectl().Exec(ctx,
+					"get", "events", "-n", addonSyncNamespace,
+					"--field-selector=involvedObject.name="+ociRepoName,
+					"--sort-by=.lastTimestamp",
+					"-o", `jsonpath={range .items[*]}{.type}: {.reason} -- {.message}{"\n"}{end}`)
+
+				isDNSError := strings.Contains(kEvents, "server misbehaving") ||
+					strings.Contains(kEvents, "no such host") ||
+					strings.Contains(kReadyMessage, "server misbehaving")
+
+				if isDNSError && !dnsRemediationDone && pollIteration >= 4 {
+					GinkgoWriter.Println("[Diag] DNS resolution failure detected — attempting CoreDNS remediation")
+					gitopssync.DumpCoreDNSDiagnostics(ctx, suite)
+					gitopssync.RestartCoreDNS(ctx, suite)
 
 					suite.Kubectl().Exec(ctx,
 						"annotate", "ocirepository", ociRepoName,
 						"-n", addonSyncNamespace,
 						"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
 						"--overwrite")
-					GinkgoWriter.Printf("[Diag] Re-triggered OCIRepository %q reconciliation\n", ociRepoName)
+					GinkgoWriter.Printf("[Diag] Re-triggered OCIRepository %q after CoreDNS restart\n", ociRepoName)
+					dnsRemediationDone = true
+				}
+
+				if pollIteration == 8 {
+					GinkgoWriter.Println("[Diag] 2 minutes elapsed without Job creation — dumping diagnostics")
+					gitopssync.DumpFluxControllerLogs(ctx, suite, "rollout", 60)
+					gitopssync.DumpSourceControllerDiagnostics(ctx, suite, "rollout", addonSyncNamespace, ociRepoName)
+
+					if !dnsRemediationDone {
+						suite.Kubectl().Exec(ctx,
+							"annotate", "ocirepository", ociRepoName,
+							"-n", addonSyncNamespace,
+							"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
+							"--overwrite")
+						GinkgoWriter.Printf("[Diag] Re-triggered OCIRepository %q reconciliation\n", ociRepoName)
+					}
 				}
 
 				if kReadyStatus == "False" && !strings.Contains(kReadyMessage, "retrying") {
@@ -497,13 +556,8 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 						"Kustomization %s failed reconciliation: %s", kustomizationName, kReadyMessage)
 				}
 
-				kEvents, _ := suite.Kubectl().Exec(ctx,
-					"get", "events", "-n", addonSyncNamespace,
-					"--field-selector=involvedObject.name="+kustomizationName,
-					"--sort-by=.lastTimestamp",
-					"-o", `jsonpath={range .items[*]}{.type}: {.reason} -- {.message}{"\n"}{end}`)
 				if kEvents != "" {
-					GinkgoWriter.Printf("[Wait] Kustomization events:\n%s", kEvents)
+					GinkgoWriter.Printf("[Wait] OCIRepository events:\n%s", kEvents)
 				}
 
 				return output

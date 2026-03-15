@@ -398,6 +398,58 @@ func DumpSourceControllerDiagnostics(ctx context.Context, suite *framework.K2sTe
 	GinkgoWriter.Printf("%s\n", ociStatus)
 }
 
+// DumpCoreDNSDiagnostics captures CoreDNS pod status, endpoint readiness, and
+// recent logs. Call this when OCIRepository events report DNS resolution failures
+// such as "server misbehaving" or "no such host".
+func DumpCoreDNSDiagnostics(ctx context.Context, suite *framework.K2sTestSuite) {
+	GinkgoWriter.Println("[Diag] === CoreDNS pods (kube-system) ===")
+	podStatus, _ := suite.Kubectl().Exec(ctx,
+		"get", "pods", "-n", "kube-system",
+		"-l", "k8s-app=kube-dns",
+		"-o", `jsonpath={range .items[*]}{.metadata.name} phase={.status.phase} ready={.status.containerStatuses[0].ready} restarts={.status.containerStatuses[0].restartCount}{"\n"}{end}`)
+	GinkgoWriter.Printf("%s\n", podStatus)
+
+	GinkgoWriter.Println("[Diag] === CoreDNS endpoints (kube-system/kube-dns) ===")
+	endpoints, _ := suite.Kubectl().Exec(ctx,
+		"get", "endpoints", "kube-dns", "-n", "kube-system",
+		"-o", `jsonpath={range .subsets[*]}{range .addresses[*]}{.ip}{" "}{end}{end}`)
+	GinkgoWriter.Printf("Endpoint IPs: %s\n", endpoints)
+
+	GinkgoWriter.Println("[Diag] === CoreDNS logs (last 40 lines) ===")
+	logs, exitCode := suite.Kubectl().Exec(ctx,
+		"logs", "-n", "kube-system",
+		"-l", "k8s-app=kube-dns",
+		"--tail", "40")
+	if exitCode == 0 {
+		GinkgoWriter.Printf("%s\n", SafeTrim(logs, 2000))
+	} else {
+		GinkgoWriter.Printf("[Diag] Failed to get CoreDNS logs (exit %d)\n", exitCode)
+	}
+}
+
+// RestartCoreDNS performs a rollout restart of the CoreDNS deployment in kube-system
+// and waits up to 90 seconds for the new pods to become ready.
+func RestartCoreDNS(ctx context.Context, suite *framework.K2sTestSuite) {
+	GinkgoWriter.Println("[Diag] Performing CoreDNS rollout restart")
+	output, exitCode := suite.Kubectl().Exec(ctx,
+		"rollout", "restart", "deployment/coredns", "-n", "kube-system")
+	if exitCode != 0 {
+		GinkgoWriter.Printf("[Diag] CoreDNS rollout restart failed (exit %d): %s\n", exitCode, output)
+		return
+	}
+	GinkgoWriter.Printf("[Diag] CoreDNS restart initiated: %s\n", strings.TrimSpace(output))
+
+	statusOutput, statusExit := suite.Kubectl().Exec(ctx,
+		"rollout", "status", "deployment/coredns", "-n", "kube-system",
+		"--timeout=90s")
+	if statusExit == 0 {
+		GinkgoWriter.Printf("[Diag] CoreDNS rollout complete: %s\n", strings.TrimSpace(statusOutput))
+	} else {
+		GinkgoWriter.Printf("[Diag] CoreDNS rollout status check failed (exit %d): %s\n",
+			statusExit, SafeTrim(statusOutput, 500))
+	}
+}
+
 // WaitForKustomizationCondition polls the Flux Kustomization until its Ready
 // condition is populated (True or False). Returns the Ready status and message.
 func WaitForKustomizationCondition(ctx context.Context, suite *framework.K2sTestSuite, namespace, name string, timeout time.Duration) (status, message string) {
