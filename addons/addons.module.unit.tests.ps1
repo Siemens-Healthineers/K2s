@@ -1359,6 +1359,8 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
 
 Describe 'Get-CertManagerStatusProperties' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'cert-manager'; Success = $true } }
+        Mock -ModuleName $moduleName Test-Path { return $true }
         Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
         Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $false }
     }
