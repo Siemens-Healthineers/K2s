@@ -427,6 +427,48 @@ func DumpCoreDNSDiagnostics(ctx context.Context, suite *framework.K2sTestSuite) 
 	}
 }
 
+// DumpRegistryDiagnostics captures the registry pod/service/endpoint health and
+// the DNS resolver config inside the source-controller pod. Call this when
+// an OCIRepository fails to resolve the registry hostname.
+func DumpRegistryDiagnostics(ctx context.Context, suite *framework.K2sTestSuite, fluxNamespace string) {
+	GinkgoWriter.Println("[Diag] === registry pods (namespace registry) ===")
+	pods, _ := suite.Kubectl().Exec(ctx,
+		"get", "pods", "-n", "registry",
+		"-o", `jsonpath={range .items[*]}{.metadata.name} phase={.status.phase} ready={.status.containerStatuses[0].ready} restarts={.status.containerStatuses[0].restartCount}{"\n"}{end}`)
+	GinkgoWriter.Printf("%s\n", pods)
+
+	GinkgoWriter.Println("[Diag] === registry service endpoints (namespace registry) ===")
+	ep, _ := suite.Kubectl().Exec(ctx,
+		"get", "endpoints", "-n", "registry",
+		"-o", `jsonpath={range .items[*]}{.metadata.name}: {range .subsets[*]}{range .addresses[*]}{.ip}:{range ..ports[*]}{.port}{end}{end}{end}{"\n"}{end}`)
+	GinkgoWriter.Printf("%s\n", ep)
+
+	GinkgoWriter.Println("[Diag] === registry service (namespace registry) ===")
+	svc, _ := suite.Kubectl().Exec(ctx,
+		"get", "service", "-n", "registry",
+		"-o", `jsonpath={range .items[*]}{.metadata.name} clusterIP={.spec.clusterIP} ports={range .spec.ports[*]}{.port}/{.protocol}{" "}{end}{"\n"}{end}`)
+	GinkgoWriter.Printf("%s\n", svc)
+
+	// Read /etc/resolv.conf inside source-controller to confirm in-pod DNS nameserver.
+	GinkgoWriter.Printf("[Diag] === source-controller /etc/resolv.conf (namespace %s) ===\n", fluxNamespace)
+	scPodName, _ := suite.Kubectl().Exec(ctx,
+		"get", "pods", "-n", fluxNamespace,
+		"-l", "app=source-controller",
+		"-o", "jsonpath={.items[0].metadata.name}")
+	if scPodName != "" {
+		resolvConf, exitCode := suite.Kubectl().Exec(ctx,
+			"exec", "-n", fluxNamespace, scPodName, "--",
+			"cat", "/etc/resolv.conf")
+		if exitCode == 0 {
+			GinkgoWriter.Printf("%s\n", resolvConf)
+		} else {
+			GinkgoWriter.Printf("[Diag] could not read /etc/resolv.conf from %s (exit %d)\n", scPodName, exitCode)
+		}
+	} else {
+		GinkgoWriter.Printf("[Diag] source-controller pod not found in namespace %s\n", fluxNamespace)
+	}
+}
+
 // RestartCoreDNS performs a rollout restart of the CoreDNS deployment in kube-system
 // and waits up to 90 seconds for the new pods to become ready.
 func RestartCoreDNS(ctx context.Context, suite *framework.K2sTestSuite) {
