@@ -77,7 +77,12 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 var _ = AfterSuite(func(ctx context.Context) {
 	if testFailed {
-		gitopssync.DumpFluxControllerLogs(ctx, suite, "rollout", 120)
+		// NOTE: DumpFluxControllerLogs is intentionally NOT called here.
+		// By the time AfterSuite runs the outer BeforeAll DeferCleanup has already
+		// disabled rollout/fluxcd and deleted the rollout namespace, so kubectl
+		// always returns "No resources found in rollout namespace".
+		// FluxCD controller logs are captured by the AfterAll inside the
+		// When("registry addon is enabled") block, which runs BEFORE the DeferCleanup.
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 	suite.TearDown(ctx)
@@ -271,6 +276,20 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			})
 		})
 
+		// AfterAll runs BEFORE the outer BeforeAll DeferCleanup (which disables rollout/fluxcd
+		// and deletes the rollout namespace). This is the only window where source-controller
+		// and kustomize-controller logs are still collectible. AfterSuite runs too late —
+		// by then the rollout namespace is already gone, producing "No resources found".
+		AfterAll(func(ctx context.Context) {
+			if testFailed {
+				GinkgoWriter.Println("[Diag-AfterAll] Test failure detected — capturing FluxCD controller logs before rollout namespace teardown")
+				gitopssync.DumpFluxControllerLogs(ctx, suite, "rollout", 150)
+				gitopssync.DumpSourceControllerDiagnostics(ctx, suite, "rollout", addonSyncNamespace, ociRepoName)
+				gitopssync.DumpRegistryDiagnostics(ctx, suite, "rollout")
+				gitopssync.DumpCoreDNSDiagnostics(ctx, suite)
+			}
+		})
+
 		It("exports the metrics addon manifests to an OCI tar (images and packages omitted)", func(ctx context.Context) {
 			GinkgoWriter.Println("[Test] Exporting metrics addon (manifests only, --omit-images --omit-packages)")
 			// Only the manifests+scripts layer is needed for the GitOps sync Job.
@@ -434,9 +453,17 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				"-n", addonSyncNamespace,
 				"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].status}")
 			if ociReadyPre != "True" {
-				GinkgoWriter.Printf("[Pre-flight] OCIRepository %s Ready=%s — checking DNS health\n", ociRepoName, ociReadyPre)
+				GinkgoWriter.Printf("[Pre-flight] OCIRepository %s Ready=%s — checking DNS and registry health\n", ociRepoName, ociReadyPre)
 				gitopssync.DumpCoreDNSDiagnostics(ctx, suite)
+				gitopssync.DumpRegistryDiagnostics(ctx, suite, "rollout")
 				gitopssync.RestartCoreDNS(ctx, suite)
+
+				// Allow DNS propagation to settle before triggering reconciliation.
+				// In CI/CD VMs the new CoreDNS pods may report Ready before they
+				// fully serve queries; a short pause avoids a wasted FluxCD attempt
+				// that would trigger exponential backoff.
+				GinkgoWriter.Println("[Pre-flight] Waiting 10s for DNS propagation after CoreDNS restart")
+				time.Sleep(10 * time.Second)
 
 				suite.Kubectl().Exec(ctx,
 					"annotate", "ocirepository", ociRepoName,
@@ -445,7 +472,14 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 					"--overwrite")
 				GinkgoWriter.Printf("[Pre-flight] Re-triggered OCIRepository %q after CoreDNS restart\n", ociRepoName)
 
+				// FluxCD enters exponential backoff after a failed reconciliation.
+				// If the first trigger above hits a still-recovering DNS, the
+				// controller may not retry for 30s–5m. To counteract this, we
+				// periodically re-set the annotation inside the poll loop to force
+				// an immediate retry.
+				preflightPoll := 0
 				Eventually(func() string {
+					preflightPoll++
 					s, _ := suite.Kubectl().Exec(ctx,
 						"get", "ocirepository", ociRepoName,
 						"-n", addonSyncNamespace,
@@ -455,10 +489,31 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 							"get", "ocirepository", ociRepoName,
 							"-n", addonSyncNamespace,
 							"-o", "jsonpath={.status.conditions[?(@.type=='Ready')].message}")
-						GinkgoWriter.Printf("[Pre-flight] OCIRepository Ready=%s message=%q\n", s, msg)
+						GinkgoWriter.Printf("[Pre-flight] iter=%d OCIRepository Ready=%s message=%q\n", preflightPoll, s, msg)
+
+						// Re-trigger reconciliation every ~60s (every 4th poll at 15s interval)
+						// to defeat FluxCD exponential backoff.
+						if preflightPoll%4 == 0 {
+							suite.Kubectl().Exec(ctx,
+								"annotate", "ocirepository", ociRepoName,
+								"-n", addonSyncNamespace,
+								"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
+								"--overwrite")
+							GinkgoWriter.Printf("[Pre-flight] Re-triggered OCIRepository reconciliation (iter=%d)\n", preflightPoll)
+						}
+
+						// At ~2 minutes (iter 8) dump controller logs for visibility in JUnit XML
+						// even if the test is still running. These appear in the spec's system-out
+						// section of the JUnit report at C:\TestReports\GoTest-*.xml.
+						if preflightPoll == 8 {
+							GinkgoWriter.Println("[Pre-flight] 2 minutes elapsed — dumping FluxCD controller state for JUnit capture")
+							gitopssync.DumpFluxControllerLogs(ctx, suite, "rollout", 60)
+							gitopssync.DumpSourceControllerDiagnostics(ctx, suite, "rollout", addonSyncNamespace, ociRepoName)
+							gitopssync.DumpCoreDNSDiagnostics(ctx, suite)
+						}
 					}
 					return s
-				}, 3*time.Minute, 15*time.Second, ctx).Should(Equal("True"),
+				}, 5*time.Minute, 15*time.Second, ctx).Should(Equal("True"),
 					"OCIRepository %s must recover to Ready=True after CoreDNS restart", ociRepoName)
 				GinkgoWriter.Println("[Pre-flight] OCIRepository recovered to Ready=True")
 			}
