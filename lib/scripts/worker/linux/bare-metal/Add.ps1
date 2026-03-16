@@ -115,7 +115,7 @@ $workerNodeParams = @{
     installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer
     NodePackagePath = $NodePackagePath
 }
-Add-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
+Add-LinuxWorkerNodeOnBareMetal @workerNodeParams
 
 if (! $SkipStart) {
     Write-Log 'Starting worker node' -Console

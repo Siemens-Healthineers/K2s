@@ -162,7 +162,7 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
     Write-Log "Prepare the computer $IpAddress for provisioning"
     Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
-    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -268,7 +268,7 @@ function Stop-LinuxWorkerNodeOnExistingVM {
     }
 }
 
-function Add-LinuxWorkerNodeOnUbuntuBareMetal {
+function Add-LinuxWorkerNodeOnBareMetal {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
@@ -298,7 +298,7 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
 
     Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer
 
-    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath
+    Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath
 
     $doBeforeJoining = {
         Write-Log "Configuring networking for adding the node" -Console
@@ -461,7 +461,7 @@ function Remove-RouteToLinuxWorkerNode {
     route delete $ClusterCIDRWorker >$null 2>&1
 }
 
-function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
+function Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer {
     Param(
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
@@ -572,14 +572,8 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     Write-Log "Folder with deb packages '$windowsHostDebPackagesSourcePath' exists?: $distributionDebPackagesSourcePathExists"
     if ($distributionDebPackagesSourcePathExists) {
         Write-Log "The content of the folder '$windowsHostDebPackagesSourcePath' will be used"
-    } else {
-        if ($installedDistributionOnRemoteComputer -eq $installedDistributionOnControlPlane) {
-            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is equal to the control plane's distribution --> its deb packages will be copied into '$windowsHostDebPackagesSourcePath'"
-            Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath "$windowsHostDebPackagesSourcePath"
-        } else {
-            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane"
-        }        
-    }
+    } 
+    
     $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
     Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
@@ -639,7 +633,7 @@ Start-LinuxWorkerNodeOnExistingVM,
 Stop-LinuxWorkerNodeOnExistingVM,
 Add-LinuxWorkerNodeOnExistingUbuntuVM,
 Remove-LinuxWorkerNodeOnExistingUbuntuVM,
-Add-LinuxWorkerNodeOnUbuntuBareMetal,
+Add-LinuxWorkerNodeOnBareMetal,
 Remove-LinuxWorkerNodeOnUbuntuBareMetal,
 Start-LinuxWorkerNodeOnUbuntuBareMetal,
 Stop-LinuxWorkerNodeOnUbuntuBareMetal,

@@ -76,6 +76,20 @@ for attempt in 1 2; do
     fi
 done
 
+# crun's dependencies (e.g. libyajl2) may be pre-installed on the control plane
+# and therefore missed by the simulate-reinstall approach above.
+# Discover them dynamically via a fresh repo simulation and download what is missing.
+log_info "Downloading missing dependencies of crun"
+cd "$BUILDAH_DEB_PACKAGES_PATH" && \
+sudo DEBIAN_FRONTEND=noninteractive \
+    apt-get --simulate install \
+    --no-install-recommends --no-install-suggests \
+    crun 2>/dev/null \
+    | grep '^Inst ' \
+    | cut -d ' ' -f 2 \
+    | sort -u \
+    | xargs -r sudo apt-get download 2>/dev/null || true
+
 log_info "Downloaded packages:"
 ls -1 "$BUILDAH_DEB_PACKAGES_PATH"
 
