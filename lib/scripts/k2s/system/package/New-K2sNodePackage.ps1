@@ -65,9 +65,11 @@ param (
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule  = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $vmProvisioningHelper = "$PSScriptRoot\New-K2sNodePackage.VmProvisioning.ps1"
+$puttyToolsHelper = "$PSScriptRoot\New-K2sPackage.PuttyTools.ps1"
 
 Import-Module $infraModule, $nodeModule
 . $vmProvisioningHelper
+. $puttyToolsHelper
 
 if ($EncodeStructuredOutput) {
     Initialize-Logging -ShowLogs:$false
@@ -139,6 +141,11 @@ if (Test-Path $zipTarget) {
     }
     return
 }
+
+# ---------------------------------------------------------------------------
+# Prerequisite: ensure plink.exe and pscp.exe are available
+# ---------------------------------------------------------------------------
+Assert-PuttyToolsReady -LogPrefix '[NodePkg]' -Proxy $Proxy
 
 # ---------------------------------------------------------------------------
 # Resolve paths and versions

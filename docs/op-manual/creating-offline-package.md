@@ -58,6 +58,39 @@ graph TD
 !!! note
     Omitting the `--for-offline-installation` flag will effectively bundle only repository source files similar to the [*K2s* Releases](https://github.com/Siemens-Healthineers/K2s/releases){target="_blank"}.
 
+## Node Package for Offline Node Add
+
+To add a Linux worker node to an existing cluster without internet access on that node, create a **node package**.
+
+Inspect the available options:
+
+```console
+k2s system package -h
+```
+
+Create an OS-specific node package ZIP:
+
+```console
+k2s system package --node-package --os debian12 --target-dir C:\output --name debian12-node.zip
+```
+
+Example for Debian 13:
+
+```console
+k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip
+```
+
+Then add the node by passing the package to `k2s node add`:
+
+```console
+k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package C:\output\debian13-node.zip
+```
+
+!!! note
+    The node package is intended for extending an existing cluster with a Linux worker node. It is separate from the full offline installation package used for installing *K2s* itself.
+
+See [Extending K2s cluster](extending-k2s-cluster.md) for the complete node onboarding workflow.
+
 ## Addons Offline Package
 To enable addons without an internet connection being available, the required binaries can be exported to an offline package as well.
 
