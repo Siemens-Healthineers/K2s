@@ -114,8 +114,6 @@ const (
 	ControlPlaneMemoryMaxFlagName  = "master-memory-max"
 	ControlPlaneMemoryMaxFlagUsage = "Maximum amount of RAM for dynamic memory (format: <number>[<unit>], where unit = KB, MB or GB)"
 
-	ControlPlaneDynamicMemoryFlagName  = "master-dynamic-memory"
-	ControlPlaneDynamicMemoryFlagUsage = "Enable Hyper-V dynamic memory management for master VM"
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
 	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
@@ -147,6 +145,9 @@ const (
 	SkipStartFlagUsage = "Do not start the K8s cluster automatically after installation"
 
 	RestartFlagUsage = "Number of times to restart cluster post installation."
+
+	minMemoryBytes int64 = 2 * 1024 * 1024 * 1024
+	maxMemoryBytes int64 = 128 * 1024 * 1024 * 1024
 )
 
 var (
@@ -191,7 +192,8 @@ func (i *installConfigAccess) Load(kind Kind, flags *pflag.FlagSet) (*InstallCon
 
 	i.overwriter.overwrite(config, i.config, flags)
 
-	// Validate the final configuration after all overrides
+	autoEnableDynamicMemory(config)
+
 	err = validateDynamicMemoryConfiguration(config)
 	if err != nil {
 		return nil, err
@@ -309,9 +311,34 @@ func (*viperConfigConverter) convert(config *viper.Viper) (*InstallConfig, error
 func (*cliParamsConfigOverwriter) overwrite(iConfig *InstallConfig, vConfig *viper.Viper, flags *pflag.FlagSet) {
 	slog.Debug("Overwriting config with CLI params")
 
+	memoryExplicitlySet := false
+	memoryMinSet := false
+	memoryMaxSet := false
+
 	flags.Visit(func(flag *pflag.Flag) {
+		if flag.Name == ControlPlaneMemoryFlagName {
+			memoryExplicitlySet = true
+		}
+		if flag.Name == ControlPlaneMemoryMinFlagName {
+			memoryMinSet = true
+		}
+		if flag.Name == ControlPlaneMemoryMaxFlagName {
+			memoryMaxSet = true
+		}
 		overwriteConfigWithCliParam(iConfig, vConfig, flag.Name)
 	})
+
+	if (memoryMinSet || memoryMaxSet) && !memoryExplicitlySet {
+		node := iConfig.getNodeByRolePanic(ControlPlaneRoleName)
+
+		if node.Resources.MemoryMin != "" {
+			slog.Debug("Auto-setting startup memory to minimum (Memory flag not explicitly set)", "min", node.Resources.MemoryMin)
+			node.Resources.Memory = node.Resources.MemoryMin
+		} else if memoryMaxSet {
+			slog.Debug("Only max memory set - auto-setting startup to 2GB (Kubernetes minimum)")
+			node.Resources.Memory = "2GB"
+		}
+	}
 }
 
 func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, flagName string) {
@@ -340,8 +367,6 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.MemoryMin = vConfig.GetString(flagName)
 	case ControlPlaneMemoryMaxFlagName:
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.MemoryMax = vConfig.GetString(flagName)
-	case ControlPlaneDynamicMemoryFlagName:
-		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.DynamicMemory = vConfig.GetBool(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
 	case NoProxyFlagName:
@@ -363,17 +388,44 @@ func (*osFileReader) readFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
-// validateDynamicMemoryConfiguration validates dynamic memory settings
+func autoEnableDynamicMemory(config *InstallConfig) {
+	for i := range config.Nodes {
+		node := &config.Nodes[i]
+
+		if node.Resources.MemoryMin != "" || node.Resources.MemoryMax != "" {
+			if !node.Resources.DynamicMemory {
+				slog.Debug("Auto-enabling dynamic memory based on min/max flags", "role", node.Role)
+				node.Resources.DynamicMemory = true
+			}
+		}
+	}
+}
+
+
+func validateMemoryBounds(memoryBytes int64, parameterName string, parameterValue string) error {
+	if memoryBytes < minMemoryBytes {
+		return fmt.Errorf("memory configuration error: %s (%s) must be at least 2GB (Kubernetes requirement)", parameterName, parameterValue)
+	}
+	if memoryBytes > maxMemoryBytes {
+		return fmt.Errorf("memory configuration error: %s (%s) exceeds maximum allowed (128GB). Please use a smaller value", parameterName, parameterValue)
+	}
+	return nil
+}
+
+
 func validateDynamicMemoryConfiguration(config *InstallConfig) error {
 	for i := range config.Nodes {
 		node := &config.Nodes[i]
 
-		// Only validate if dynamic memory is enabled
 		if !node.Resources.DynamicMemory {
 			continue
 		}
 
-		// Parse memory sizes if specified
+		if node.Resources.MemoryMin == "" && node.Resources.MemoryMax == "" {
+			return fmt.Errorf("dynamic memory configuration error: when dynamic memory is enabled, at least one of --master-memory-min or --master-memory-max must be specified")
+		}
+
+		// Parse and validate memory sizes
 		var minBytes, maxBytes, startupBytes int64
 		var err error
 
@@ -382,6 +434,9 @@ func validateDynamicMemoryConfiguration(config *InstallConfig) error {
 			if err != nil {
 				return fmt.Errorf("invalid memory minimum value '%s': %w", node.Resources.MemoryMin, err)
 			}
+			if err := validateMemoryBounds(minBytes, "minimum memory", node.Resources.MemoryMin); err != nil {
+				return err
+			}
 			slog.Debug("Parsed MemoryMin", "input", node.Resources.MemoryMin, "bytes", minBytes, "GB", float64(minBytes)/(1000*1000*1000))
 		}
 
@@ -389,6 +444,9 @@ func validateDynamicMemoryConfiguration(config *InstallConfig) error {
 			maxBytes, err = parseMemorySize(node.Resources.MemoryMax)
 			if err != nil {
 				return fmt.Errorf("invalid memory maximum value '%s': %w", node.Resources.MemoryMax, err)
+			}
+			if err := validateMemoryBounds(maxBytes, "maximum memory", node.Resources.MemoryMax); err != nil {
+				return err
 			}
 			slog.Debug("Parsed MemoryMax", "input", node.Resources.MemoryMax, "bytes", maxBytes, "GB", float64(maxBytes)/(1000*1000*1000))
 		}
@@ -442,7 +500,7 @@ func validateWslCompatibility(config *InstallConfig) error {
 		for i := range config.Nodes {
 			node := &config.Nodes[i]
 			if node.Resources.DynamicMemory {
-				return fmt.Errorf("dynamic memory configuration error: dynamic memory (--master-dynamic-memory) is not supported with WSL2 (--wsl). WSL2 has its own memory management. Please remove either --master-dynamic-memory or --wsl flag")
+				return fmt.Errorf("dynamic memory configuration error: dynamic memory (--master-memory-min / --master-memory-max) is not supported with WSL2 (--wsl). WSL2 has its own memory management. Please remove the memory min/max flags when using --wsl")
 			}
 		}
 	}
@@ -459,16 +517,14 @@ func parseMemorySize(size string) (int64, error) {
 	size = strings.TrimSpace(size)
 	size = strings.ToUpper(size)
 
-	// Define suffixes in order from longest to shortest to avoid partial matches
-	// For example, "GB" should be checked before "B" to avoid "4GB" matching as "4 G B" → "4 * B"
 	suffixes := []struct {
 		suffix     string
 		multiplier int64
 	}{
-		{"TB", 1000 * 1000 * 1000 * 1000},
-		{"GB", 1000 * 1000 * 1000},
-		{"MB", 1000 * 1000},
-		{"KB", 1000},
+		{"TB", 1024 * 1024 * 1024 * 1024},
+		{"GB", 1024 * 1024 * 1024},
+		{"MB", 1024 * 1024},
+		{"KB", 1024},
 		{"T", 1024 * 1024 * 1024 * 1024},
 		{"G", 1024 * 1024 * 1024},
 		{"M", 1024 * 1024},

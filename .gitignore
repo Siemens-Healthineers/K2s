@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: CC0-1.0
 
@@ -16,8 +16,8 @@ bin/argocd.exe
 bin/cmctl.exe
 nssm.exe
 vc_redist.x64.exe
-bin/cmctl.exe
 bin/oras.exe
+bin/flux.exe
 
 #Scripts
 smallsetup/common/StartKubelet.ps1
@@ -178,3 +178,6 @@ bin/debian-12-genericcloud-amd64.qcow2
 **/debianpackages/**/*.deb
 **/linuxpackages/**
 **/windowspackages/**
+
+# AI assistant context
+claude.md

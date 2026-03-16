@@ -73,8 +73,8 @@ if ($Windows) {
     }
 
     foreach ($image in $images) {
-        &$global:NerdctlExe -n k8s.io load -i $image
-        if ($?) {
+        $importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $image
+        if ($importSuccess) {
             Write-Log "$image imported successfully" -Console
         }
     }

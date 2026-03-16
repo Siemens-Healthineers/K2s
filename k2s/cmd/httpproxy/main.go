@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
@@ -104,8 +105,25 @@ func consoleCtrlHandler(ctrlType uint32) uintptr {
 		go func() {
 			defer cleanupWg.Done()
 			slog.Info("Shutdown event received: Attempting cleanup.")
-			systemShutdownCmd()
-			slog.Info("Shutdown event received: Cleanup finished.")
+
+			// Hard timeout slightly below the NSSM AppStopMethodConsole timeout
+			// (30s). If Stop-System.ps1 hangs, we still exit cleanly instead of
+			// being force-killed by NSSM/Windows with no log output.
+			done := make(chan error, 1)
+			go func() {
+				done <- systemShutdownCmd()
+			}()
+
+			select {
+			case err := <-done:
+				if err != nil {
+					slog.Error("Shutdown cmd failed", "error", err)
+				} else {
+					slog.Info("Shutdown event received: Cleanup finished.")
+				}
+			case <-time.After(25 * time.Second):
+				slog.Warn("Shutdown cleanup timed out after 25s, proceeding with exit")
+			}
 		}()
 		cleanupWg.Wait()
 		if listener != nil {

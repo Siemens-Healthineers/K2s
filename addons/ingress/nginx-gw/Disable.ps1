@@ -82,9 +82,14 @@ $externalDnsConfigDir = Get-ExternalDnsConfigDir
 
 # Check if security addon is NOT enabled
 if (-not (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' }))) {
-    Write-Log 'Security addon is not enabled. Proceeding with cert-manager uninstallation.' -Console
-    # proceed with uninstallation logic here
-    Uninstall-CertManager
+    $certManagerNs = (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output
+    if ([string]::IsNullOrWhiteSpace($certManagerNs)) {
+        Write-Log 'cert-manager is not installed, skipping uninstallation.' -Console
+    }
+    else {
+        Write-Log 'Security addon is not enabled. Proceeding with cert-manager uninstallation.' -Console
+        Uninstall-CertManager
+    }
 }
 
 Uninstall-GatewayApiCrds

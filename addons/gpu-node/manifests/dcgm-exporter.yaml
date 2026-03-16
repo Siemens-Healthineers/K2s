@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -9,23 +9,28 @@ metadata:
   namespace: gpu-node
   labels:
     app.kubernetes.io/name: "dcgm-exporter"
-    app.kubernetes.io/version: "3.1.5"
+    app.kubernetes.io/version: "4.8.1"
 spec:
   updateStrategy:
     type: RollingUpdate
   selector:
     matchLabels:
       app.kubernetes.io/name: "dcgm-exporter"
-      app.kubernetes.io/version: "3.1.5"
+      app.kubernetes.io/version: "4.8.1"
   template:
     metadata:
       labels:
         app.kubernetes.io/name: "dcgm-exporter"
-        app.kubernetes.io/version: "3.1.5"
+        app.kubernetes.io/version: "4.8.1"
       name: "dcgm-exporter"
     spec:
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
       containers:
-        - image: "nvcr.io/nvidia/k8s/dcgm-exporter:3.1.8-3.1.5-ubuntu20.04"
+        - image: "nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9"
+          imagePullPolicy: IfNotPresent
           env:
             - name: "DCGM_EXPORTER_LISTEN"
               value: ":9400"
@@ -36,8 +41,16 @@ spec:
             - name: "metrics"
               containerPort: 9400
           securityContext:
+            # DCGM requires root to read /var/lib/kubelet/pod-resources.
             runAsNonRoot: false
             runAsUser: 0
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
           volumeMounts:
             - name: "pod-gpu-resources"
               readOnly: true
@@ -57,12 +70,12 @@ metadata:
   namespace: gpu-node
   labels:
     app.kubernetes.io/name: "dcgm-exporter"
-    app.kubernetes.io/version: "3.1.5"
+    app.kubernetes.io/version: "4.8.1"
 spec:
   type: ClusterIP
   selector:
     app.kubernetes.io/name: "dcgm-exporter"
-    app.kubernetes.io/version: "3.1.5"
+    app.kubernetes.io/version: "4.8.1"
   ports:
     - port: 9400
       targetPort: 9400
@@ -78,7 +91,7 @@ spec:
 #     nginx.ingress.kubernetes.io/rewrite-target: /$2
 #   labels:
 #     app.kubernetes.io/name: "dcgm-exporter"
-#     app.kubernetes.io/version: "3.1.5"
+#     app.kubernetes.io/version: "4.8.1"
 # spec:
 #   ingressClassName: nginx
 #   rules:

@@ -85,7 +85,7 @@ if ($Script.Contains("-ShowLogs")) {
         Write-Information $_ -InformationAction Continue
     } elseif ($_ -match "#pm#") {
         Write-Output $_
-        # Send-ToCli message
+        Write-Log "[ExecScript] Forwarding structured message (length=$($_.Length))"
     } elseif ($_ -match "#ssh#") {
         $message = $_ -replace "#ssh#", ''
         Write-Output $message

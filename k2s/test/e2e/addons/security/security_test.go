@@ -138,10 +138,8 @@ func DeleteWorkloads(ctx context.Context) {
 }
 
 var _ = Describe("'security' addon", Ordered, func() {
-	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "disable", addonName)
-
-		Expect(output).To(ContainSubstring("already disabled"))
+	It("completes successfully when addon is already disabled", func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("enables the addon", func(ctx context.Context) {
@@ -249,10 +247,10 @@ var _ = Describe("'security' addon", Ordered, func() {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+	It("preserves cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(BeNil())
 	})
 
 	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
@@ -479,10 +477,10 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
-	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+	It("preserves cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
-		Expect(os.IsNotExist(err)).To(BeTrue())
+		Expect(err).To(BeNil())
 	})
 
 	It("uninstalls linkerd", func(ctx context.Context) {
