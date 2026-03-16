@@ -233,47 +233,89 @@ if (Test-Path $configSourcePath) {
 # ------------------------------------------------------------
 Write-Log "Creating backup metadata (backup.json)..."
 
-$rootConfig  = Get-RootConfigk2s
-$clusterName = Get-ClusterName
-$productVersion = Get-ProductVersion
+try {
+    $rootConfig  = Get-RootConfigk2s
+    $clusterName = Get-ClusterName
+    $productVersion = Get-ProductVersion
 
-$backupManifest = @{
-    apiVersion = "k2s.backup/v1"
-    kind       = "SystemBackup"
-
-    metadata = @{
-        backupTimestamp     = (Get-Date).ToString("o")
-        backupTool          = "k2s system backup"
-        backupToolVersion   = $productVersion
-        backupFormatVersion = "1"
-    }
-
-    cluster = @{
-        name       = $clusterName
-        k2sVersion = $productVersion
-    }
-
-    content = @{
-        included = @{
-            clusterResources = $true
-            namespaces       = $includedNamespaces
+    # Build excluded lists safely (handle missing backup config section)
+    $excludedNamespaces = @()
+    $excludedNamespacedRes = @()
+    $excludedClusterRes = @()
+    if ($rootConfig.backup) {
+        if ($rootConfig.backup.excludednamespaces) {
+            $excludedNamespaces = ($rootConfig.backup.excludednamespaces -split ",")
         }
-        excluded = @{
-            namespaces          = ($rootConfig.backup.excludednamespaces -split ",")
-            namespacedResources = ($rootConfig.backup.excludednamespacedresources -split ",")
-            clusterResources    = ($rootConfig.backup.excludedclusterresources -split ",")
+        if ($rootConfig.backup.excludednamespacedresources) {
+            $excludedNamespacedRes = ($rootConfig.backup.excludednamespacedresources -split ",")
+        }
+        if ($rootConfig.backup.excludedclusterresources) {
+            $excludedClusterRes = ($rootConfig.backup.excludedclusterresources -split ",")
+        }
+    } else {
+        Write-Log "Warning: No 'backup' section found in root config. Using empty exclusion lists."
+    }
+
+    $backupManifest = @{
+        apiVersion = "k2s.backup/v1"
+        kind       = "SystemBackup"
+
+        metadata = @{
+            backupTimestamp     = (Get-Date).ToString("o")
+            backupTool          = "k2s system backup"
+            backupToolVersion   = $productVersion
+            backupFormatVersion = "1"
+        }
+
+        cluster = @{
+            name       = $clusterName
+            k2sVersion = $productVersion
+        }
+
+        content = @{
+            included = @{
+                clusterResources = $true
+                namespaces       = $includedNamespaces
+            }
+            excluded = @{
+                namespaces          = $excludedNamespaces
+                namespacedResources = $excludedNamespacedRes
+                clusterResources    = $excludedClusterRes
+            }
+        }
+
+        configSnapshot = @{
+            source = "config/config.json"
         }
     }
 
-    configSnapshot = @{
-        source = "config/config.json"
+    $metadataPath = Join-Path $backupRoot "backup.json"
+    $backupManifest |
+            ConvertTo-Json -Depth 10 |
+            Out-File -FilePath $metadataPath -Encoding utf8
+
+    if (-not (Test-Path $metadataPath)) {
+        throw "backup.json was not created at '$metadataPath' despite no write error"
     }
+    Write-Log "backup.json created successfully at: $metadataPath"
+}
+catch {
+    throw "Failed to create backup.json manifest: $_"
 }
 
-$metadataPath = Join-Path $backupRoot "backup.json"
-$backupManifest |
-        ConvertTo-Json -Depth 10 |
-        Out-File -FilePath $metadataPath -Encoding utf8
+# ------------------------------------------------------------
+# Verify staging directory contents before zipping
+# ------------------------------------------------------------
+$stagingFiles = Get-ChildItem -Path $backupRoot -Recurse -File
+Write-Log "Staging directory contains $($stagingFiles.Count) file(s):"
+foreach ($sf in $stagingFiles) {
+    $relPath = $sf.FullName.Substring($backupRoot.Length).TrimStart('\', '/')
+    Write-Log "  $relPath ($($sf.Length) bytes)"
+}
+
+if (-not (Test-Path (Join-Path $backupRoot 'backup.json'))) {
+    throw "Critical: backup.json is missing from staging directory '$backupRoot'. Cannot create backup archive."
+}
 
 # ------------------------------------------------------------
 # Create final ZIP archive

@@ -120,7 +120,7 @@ The **security** addon provides runtime security features for the cluster, with 
 k2s addons enable security
 ```
 
-Installs **cert-manager** for automatic TLS certificate management within the cluster.
+Installs **cert-manager** for automatic TLS certificate management within the cluster. See [Certificate Management](../user-guide/certificate-management.md) for details on the default self-signed CA, using external certificate authorities, and the `--omitCertMgr` flag.
 
 ### Enhanced Mode (Zero Trust)
 

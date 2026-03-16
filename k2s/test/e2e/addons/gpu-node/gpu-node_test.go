@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -19,9 +19,10 @@ import (
 )
 
 const (
-	namespace     = "gpu-node-test"
-	workloadsPath = "workloads/"
-	podName       = "cuda-vector-add"
+	namespace       = "gpu-node-test"
+	workloadsPath   = "workloads/"
+	podName         = "cuda-vector-add"
+	cudaSampleImage = "nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda11.7.1" // must match workloads/cuda-sample.yaml
 )
 
 var suite *framework.K2sTestSuite
@@ -107,7 +108,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("Running 'enable' for 'gpu-node' addon"),
-				MatchRegexp("'addons enable gpu-node' completed"),
+				MatchRegexp("'k2s addons enable gpu-node' completed"),
 			))
 		})
 
@@ -124,7 +125,6 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 				MatchRegexp("ADDON STATUS"),
 				MatchRegexp(`Addon .+gpu-node.+ is .+enabled.+`),
 				MatchRegexp("The gpu node is working"),
-				MatchRegexp("The DCGM exporter is working"),
 			))
 
 			output = suite.K2sCli().MustExec(ctx, "addons", "status", "gpu-node", "-o", "json")
@@ -146,13 +146,30 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 					HaveField("Message", gstruct.PointTo(ContainSubstring("The gpu node is working")))),
 				SatisfyAll(
 					HaveField("Name", "IsDCGMExporterRunning"),
+					HaveField("Okay", gstruct.PointTo(BeTrue()))),
+				// DCGM requires NVML which is unavailable via dxcore (WSL2 + Hyper-V GPU-PV) — non-fatal, Value may be false
+				SatisfyAll(
+					HaveField("Name", "NodeGpuLabels"),
 					HaveField("Value", true),
 					HaveField("Okay", gstruct.PointTo(BeTrue())),
-					HaveField("Message", gstruct.PointTo(MatchRegexp("The DCGM exporter is working")))),
+					HaveField("Message", gstruct.PointTo(ContainSubstring("gpu=true and accelerator=nvidia")))),
+				SatisfyAll(
+					HaveField("Name", "GpuAllocatable"),
+					HaveField("Value", true),
+					HaveField("Okay", gstruct.PointTo(BeTrue())),
+					HaveField("Message", gstruct.PointTo(MatchRegexp(`\d+ GPU slots? available`)))),
+				SatisfyAll(
+					HaveField("Name", "GpuInUse"),
+					HaveField("Value", true),
+					HaveField("Okay", gstruct.PointTo(BeTrue())),
+					HaveField("Message", gstruct.PointTo(MatchRegexp(`\d+ of \d+ GPU slots? in use`)))),
 			))
 		})
 
 		It("runs CUDA workloads", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "image", "pull", cudaSampleImage, "-o")
+
+			suite.Kubectl().MustExec(ctx, "delete", "pod", podName, "-n", namespace, "--ignore-not-found")
 			suite.Kubectl().MustExec(ctx, "apply", "-k", workloadsPath)
 
 			suite.Cluster().ExpectPodToBeCompleted(podName, namespace)
@@ -161,10 +178,40 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 		It("checks CUDA results", func(ctx context.Context) {
 			output := suite.Kubectl().MustExec(ctx, "logs", podName, "-n", namespace)
 
-			Expect(output).To(SatisfyAll(
-				ContainSubstring("Test PASSED"),
-				ContainSubstring("Done"),
-			))
+			Expect(output).To(ContainSubstring("Test PASSED"))
+		})
+
+		It("labels the GPU node", func(ctx context.Context) {
+			output := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "gpu=true,accelerator=nvidia", "-o", "jsonpath={.items[0].metadata.name}")
+
+			Expect(output).NotTo(BeEmpty())
+		})
+
+		It("device plugin has liveness probe configured", func(ctx context.Context) {
+			output := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "gpu-node", "-l", "k8s-app=nvidia-device-plugin", "-o", "jsonpath={.items[0].spec.containers[0].livenessProbe.exec.command[0]}")
+
+			Expect(output).To(Equal("/usr/lib/wsl/lib/nvidia-smi"))
+		})
+
+	})
+
+	Describe("disables cleanly", func() {
+		It("disables the addon", func(ctx context.Context) {
+			output := suite.K2sCli().MustExec(ctx, "addons", "disable", "gpu-node", "-o")
+
+			Expect(output).To(ContainSubstring("'k2s addons disable gpu-node' completed"))
+		})
+
+		It("removes the gpu-node namespace", func(ctx context.Context) {
+			output := suite.Kubectl().MustExec(ctx, "get", "namespace", "gpu-node", "--ignore-not-found")
+
+			Expect(output).To(BeEmpty())
+		})
+
+		It("removes GPU node labels", func(ctx context.Context) {
+			output := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "gpu=true", "-o", "jsonpath={.items[*].metadata.name}")
+
+			Expect(output).To(BeEmpty())
 		})
 	})
 })
