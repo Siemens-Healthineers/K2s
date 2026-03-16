@@ -33,6 +33,8 @@ k2s install [flags]
 |------|-------|-------------|
 | `--master-cpus` | | Number of CPUs allocated to master VM |
 | `--master-memory` | | RAM for master VM (minimum 2 GB) |
+| `--master-memory-min` | | Minimum RAM for dynamic memory (enables dynamic memory) |
+| `--master-memory-max` | | Maximum RAM for dynamic memory (enables dynamic memory) |
 | `--master-disk` | | Disk size for master VM (minimum 10 GB) |
 | `--proxy` | `-p` | HTTP proxy |
 | `--no-proxy` | | No-proxy hosts/domains (comma-separated) |
@@ -45,6 +47,41 @@ k2s install [flags]
 | `--skip-start` | | Do not start the cluster after installation |
 | `--append-log` | | Append to existing log file |
 | `--additional-hooks-dir` | | Directory with additional hook scripts |
+
+**Dynamic Memory Examples:**
+
+```console
+# Static memory (default behavior)
+k2s install --master-memory 4GB
+
+# Dynamic memory - starts with 2GB, can grow based on host capacity
+k2s install --master-memory-min 2GB
+# Max auto-calculated: 50% of host RAM (e.g., 16GB on 32GB host)
+
+# Dynamic memory - starts with 6GB (default), can shrink to 2GB when idle, grow to 8GB
+k2s install --master-memory-max 8GB
+# Min auto-calculated: 30% of startup (2GB, with 2GB floor)
+
+# Dynamic memory with min and max - starts with 2GB, can grow up to 8GB
+k2s install --master-memory-min 2GB --master-memory-max 8GB
+
+# Dynamic memory with explicit startup - starts with 4GB, scales between 2GB-8GB
+k2s install --master-memory 4GB --master-memory-min 2GB --master-memory-max 8GB
+```
+
+!!! note "Dynamic Memory with Intelligent Defaults"
+    - Specifying `--master-memory-min` or `--master-memory-max` **automatically enables** Hyper-V dynamic memory
+    
+    **Intelligent Defaults:**
+    - **Min not specified:** Defaults to 30% of startup (floor: 2GB) - allows VM to shrink significantly when idle
+    - **Max not specified:** Defaults to 50% of host RAM (floor: 8GB, ceiling: 32GB) - allows VM to grow as needed
+    - **Startup not specified with min:** VM starts with minimum memory for optimal resource efficiency
+    
+    **Validation Rules:**
+    - Minimum memory must be ≤ maximum memory
+    - Minimum memory must be ≤ startup memory (if specified)
+    - Maximum memory must be ≥ startup memory (if specified)
+    - Dynamic memory is **not supported with WSL2** (`--wsl` flag uses static memory only)
 
 ### install buildonly
 

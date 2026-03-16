@@ -26,16 +26,25 @@ spec:
             - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
           curl:
-            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.4.1/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
       commands:
         enable:
           cli:
+            flags:
+              - name: omitCertMgr
+                description: Omit cert-manager installation
+                default: false
             examples:
               - cmd: k2s addons enable ingress nginx
                 comment: Enable ingress nginx in k2s
+              - cmd: k2s addons enable ingress nginx --omitCertMgr
+                comment: Enable ingress nginx without installing cert-manager
           script:
             subPath: nginx/Enable.ps1
+            parameterMappings:
+              - cliFlagName: omitCertMgr
+                scriptParameterName: OmitCertMgr
         disable:
           cli:
             examples:
@@ -60,16 +69,25 @@ spec:
             - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
           curl: 
-            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.4.1/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
       commands:
         enable:
           cli:
+            flags:
+              - name: omitCertMgr
+                description: Omit cert-manager installation
+                default: false
             examples:
               - cmd: k2s addons enable ingress traefik
                 comment: Enable ingress traefik in k2s
+              - cmd: k2s addons enable ingress traefik --omitCertMgr
+                comment: Enable ingress traefik without installing cert-manager
           script:
             subPath: traefik/Enable.ps1
+            parameterMappings:
+              - cliFlagName: omitCertMgr
+                scriptParameterName: OmitCertMgr
         disable:
           cli:
             examples:
@@ -94,16 +112,25 @@ spec:
           - ../../common/manifests/certmanager/cert-manager.yaml
         windows:
           curl:
-            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.4.1/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
       commands:
         enable:
           cli:
+            flags:
+              - name: omitCertMgr
+                description: Omit cert-manager installation (TLS certificates must be provided manually)
+                default: false
             examples:
               - cmd: k2s addons enable ingress nginx-gw
                 comment: Enable ingress nginx-gw in k2s
+              - cmd: k2s addons enable ingress nginx-gw --omitCertMgr
+                comment: Enable ingress nginx-gw without installing cert-manager
           script:
             subPath: nginx-gw/Enable.ps1
+            parameterMappings:
+              - cliFlagName: omitCertMgr
+                scriptParameterName: OmitCertMgr
         disable:
           cli:
             examples:
