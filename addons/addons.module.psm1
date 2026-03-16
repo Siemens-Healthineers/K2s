@@ -754,6 +754,92 @@ function Add-HostEntries {
 	}
 }
 
+<#
+.SYNOPSIS
+	Adds a static host entry to the CoreDNS hosts block.
+.DESCRIPTION
+	Inserts "<ControlPlaneIP> Hostname" into the CoreDNS ConfigMap hosts {} block immediately
+	after the k2s.cluster.local anchor line. Uses kubectl patch --type=merge so the update is
+	atomic. Idempotent: no-op when the hostname is already present.
+#>
+function Add-CoreDNSHostEntry {
+	param (
+		[Parameter(Mandatory = $true)]
+		[string] $Hostname
+	)
+	$ipAddress = Get-ConfiguredIPControlPlane
+	Write-Log "[CoreDNS] Adding '$ipAddress $Hostname' to CoreDNS hosts block.." -Console
+
+	$result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
+	if (-not $result.Success) {
+		throw "[CoreDNS] Failed to read CoreDNS ConfigMap: $($result.Output)"
+	}
+
+	$corefile = $result.Output -replace "`r", ''
+	if ($corefile -match [regex]::Escape($Hostname)) {
+		Write-Log "[CoreDNS] '$Hostname' already in CoreDNS hosts block, skipping"
+		return
+	}
+
+	$injected = $false
+	$newLines = foreach ($line in ($corefile -split "`n")) {
+		$line
+		if (-not $injected -and $line -match [regex]::Escape('k2s.cluster.local')) {
+			"    $ipAddress $Hostname"
+			$injected = $true
+		}
+	}
+
+	if (-not $injected) {
+		throw "[CoreDNS] Anchor 'k2s.cluster.local' not found in CoreDNS Corefile; cannot add entry"
+	}
+
+	$newCorefile = $newLines -join "`n"
+	$patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
+	$patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', '-p', $patch
+	if (-not $patchResult.Success) {
+		throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+	}
+	Write-Log "[CoreDNS] '$ipAddress $Hostname' added to CoreDNS hosts block" -Console
+}
+
+<#
+.SYNOPSIS
+	Removes a static host entry from the CoreDNS hosts block.
+.DESCRIPTION
+	Deletes the line containing Hostname from the CoreDNS ConfigMap hosts {} block.
+	Reverse operation of Add-CoreDNSHostEntry; intended to be called on addon disable.
+	Uses kubectl patch --type=merge so the update is atomic. Idempotent: no-op when the
+	hostname is not present.
+#>
+function Remove-CoreDNSHostEntry {
+	param (
+		[Parameter(Mandatory = $true)]
+		[string] $Hostname
+	)
+	Write-Log "[CoreDNS] Removing '$Hostname' from CoreDNS hosts block.." -Console
+
+	$result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
+	if (-not $result.Success) {
+		throw "[CoreDNS] Failed to read CoreDNS ConfigMap: $($result.Output)"
+	}
+
+	$corefile = $result.Output -replace "`r", ''
+	if ($corefile -notmatch [regex]::Escape($Hostname)) {
+		Write-Log "[CoreDNS] '$Hostname' not found in CoreDNS hosts block, skipping"
+		return
+	}
+
+	$newCorefile = ($corefile -split "`n" | Where-Object { $_ -notmatch [regex]::Escape($Hostname) }) -join "`n"
+
+	$patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
+	$patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', '-p', $patch
+	if (-not $patchResult.Success) {
+		throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+	}
+	Write-Log "[CoreDNS] '$Hostname' removed from CoreDNS hosts block" -Console
+}
+
 function Update-Addons {
 	param (
 		[Parameter(Mandatory = $false)]
@@ -2088,7 +2174,7 @@ Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-Ad
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound, Get-ErrCodeInvalidParameter,
-Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
+Add-HostEntries, Add-CoreDNSHostEntry, Remove-CoreDNSHostEntry, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
