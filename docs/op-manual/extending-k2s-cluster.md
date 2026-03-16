@@ -133,7 +133,15 @@ The offline workflow has two phases:
 
 ### 1. Create the node package
 
-Generate an OS-specific node package on the existing *K2s* host:
+Generate an OS-specific node package. This step does **not** require an installed *K2s* cluster on the machine where you run the command.
+
+Example using `k2s.exe` directly from a local directory:
+
+```console
+.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip"
+```
+
+You can also generate the package on an existing *K2s* host:
 
 ```console
 k2s system package --node-package --os debian12 --target-dir C:\output --name debian12-node.zip

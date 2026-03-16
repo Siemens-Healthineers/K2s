@@ -62,10 +62,18 @@ graph TD
 
 To add a Linux worker node to an existing cluster without internet access on that node, create a **node package**.
 
+No installed *K2s* cluster is required to create this node package. You can run the command directly from the extracted *K2s* repository or release directory.
+
 Inspect the available options:
 
 ```console
 k2s system package -h
+```
+
+Example from a local directory using `k2s.exe` directly:
+
+```console
+.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip"
 ```
 
 Create an OS-specific node package ZIP:
@@ -88,6 +96,9 @@ k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnect
 
 !!! note
     The node package is intended for extending an existing cluster with a Linux worker node. It is separate from the full offline installation package used for installing *K2s* itself.
+
+!!! note
+    Creating the node package does not require that *K2s* is already installed on the current machine.
 
 See [Extending K2s cluster](extending-k2s-cluster.md) for the complete node onboarding workflow.
 
