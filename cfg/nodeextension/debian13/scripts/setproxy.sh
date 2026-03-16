@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
 #!/bin/bash
 
 PROXY="$1"
