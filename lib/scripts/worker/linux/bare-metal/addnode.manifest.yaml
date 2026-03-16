@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
 metadata:
   name: add-linux-worker-node-bare-metal
   displayName: Add Linux worker node (bare-metal)
