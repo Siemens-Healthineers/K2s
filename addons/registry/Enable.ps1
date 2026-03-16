@@ -103,6 +103,17 @@ if (!$kubectlCmd.Success) {
 
 Add-HostEntries -Url 'k2s.registry.local'
 
+# Add k2s.registry.local to the CoreDNS hosts block so that in-cluster pods
+# (e.g. FluxCD source-controller) can resolve it directly inside CoreDNS,
+# without routing through dnsproxy → Windows upstream DNS (172.19.1.100:53).
+# The upstream DNS is temporarily unreachable after a VM reboot, causing 20 s
+# i/o timeouts and FluxCD OCIRepository failures during CI runs.
+# The hosts block already exists (created with k2s.cluster.local during setup);
+# we append the registry entry if not already present.
+Write-Log 'Adding k2s.registry.local to CoreDNS hosts block for in-cluster DNS resolution' -Console
+$controlPlaneIp = Get-ConfiguredIPControlPlane
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "kubectl get configmap coredns -n kube-system -o yaml | grep -q 'k2s.registry.local' || (kubectl get configmap coredns -n kube-system -o yaml | sed 's/$controlPlaneIp k2s.cluster.local/$controlPlaneIp k2s.cluster.local\n         $controlPlaneIp k2s.registry.local/' | kubectl apply -f -)").Output | Write-Log
+
 &"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'registry' })

@@ -76,6 +76,10 @@ if ($DeleteImages) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
 }
 
+# Remove k2s.registry.local from the CoreDNS hosts block (reverse of Enable.ps1).
+Write-Log 'Removing k2s.registry.local from CoreDNS hosts block' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "kubectl get configmap coredns -n kube-system -o yaml | sed '/k2s\.registry\.local/d' | kubectl apply -f -").Output | Write-Log
+
 Remove-Registry -Name "k2s.registry.local*"
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
