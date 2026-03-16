@@ -470,6 +470,93 @@ func DumpRegistryDiagnostics(ctx context.Context, suite *framework.K2sTestSuite,
 	}
 }
 
+// DumpDNSProxyDiagnostics captures the Windows dnsproxy service state and its
+// most recent log output. Call this when CoreDNS logs show "i/o timeout" to
+// its upstream (172.20.0.x:53), which means the Windows-side DNS proxy that
+// CoreDNS forwards to is not responding.
+// Architecture: Pod → CoreDNS → 172.20.x.x:53 (dnsproxy.exe on Windows host)
+func DumpDNSProxyDiagnostics(ctx context.Context, suite *framework.K2sTestSuite) {
+	GinkgoWriter.Println("[Diag] === dnsproxy Windows service status ===")
+	svcStatus, _ := suite.Cli("powershell.exe").Exec(ctx,
+		"-Command",
+		"Get-Service dnsproxy -ErrorAction SilentlyContinue | Select-Object Name,Status,StartType | Format-List")
+	GinkgoWriter.Printf("%s\n", strings.TrimSpace(svcStatus))
+
+	GinkgoWriter.Println("[Diag] === dnsproxy stdout log (last 30 lines) ===")
+	stdoutLog, exitCode := suite.Cli("powershell.exe").Exec(ctx,
+		"-Command",
+		`Get-Content 'C:\var\log\dnsproxy\dnsproxy_stdout.log' -Tail 30 -ErrorAction SilentlyContinue`)
+	if exitCode == 0 && strings.TrimSpace(stdoutLog) != "" {
+		GinkgoWriter.Printf("%s\n", SafeTrim(stdoutLog, 1500))
+	} else {
+		GinkgoWriter.Printf("[Diag] dnsproxy stdout log not available (exit %d)\n", exitCode)
+	}
+
+	GinkgoWriter.Println("[Diag] === dnsproxy stderr log (last 20 lines) ===")
+	stderrLog, exitCode := suite.Cli("powershell.exe").Exec(ctx,
+		"-Command",
+		`Get-Content 'C:\var\log\dnsproxy\dnsproxy_stderr.log' -Tail 20 -ErrorAction SilentlyContinue`)
+	if exitCode == 0 && strings.TrimSpace(stderrLog) != "" {
+		GinkgoWriter.Printf("%s\n", SafeTrim(stderrLog, 1000))
+	} else {
+		GinkgoWriter.Printf("[Diag] dnsproxy stderr log not available (exit %d)\n", exitCode)
+	}
+}
+
+// RestartDNSProxy restarts the Windows dnsproxy service only when the service
+// is NOT already in the Running state. Returns true if a restart was performed.
+//
+// Two sub-cases produce "i/o timeout" in CoreDNS logs:
+//  1. dnsproxy service crashed / stopped            → restart, returns true
+//  2. dnsproxy is Running but ITS upstream is slow  → skip restart, returns false
+//     (dnsproxy stdout log shows "exchange failed … i/o timeout" to its upstream
+//     e.g. 172.19.1.100:53 — restarting the service won't fix an upstream outage)
+//
+// In case 2 the caller should wait for the upstream to recover on its own and
+// keep re-triggering FluxCD reconciliation.
+func RestartDNSProxy(ctx context.Context, suite *framework.K2sTestSuite) (restarted bool) {
+	// Check current service state before deciding to restart.
+	currentStatus, _ := suite.Cli("powershell.exe").Exec(ctx,
+		"-Command",
+		"(Get-Service dnsproxy -ErrorAction SilentlyContinue).Status")
+	currentStatus = strings.TrimSpace(currentStatus)
+	GinkgoWriter.Printf("[Diag] dnsproxy current service status: %q\n", currentStatus)
+
+	if strings.EqualFold(currentStatus, "Running") {
+		// Service is healthy — the i/o timeout is between dnsproxy and its upstream
+		// DNS server (e.g. a corporate resolver). Restarting dnsproxy would not help
+		// and could introduce a brief extra outage. Let the upstream recover.
+		GinkgoWriter.Println("[Diag] dnsproxy is Running — upstream DNS is slow; skipping service restart")
+		return false
+	}
+
+	GinkgoWriter.Printf("[Diag] dnsproxy service is %q — restarting\n", currentStatus)
+	output, exitCode := suite.Cli("powershell.exe").Exec(ctx,
+		"-Command",
+		"Restart-Service dnsproxy -Force -ErrorAction Stop; 'dnsproxy restarted'")
+	if exitCode != 0 {
+		GinkgoWriter.Printf("[Diag] dnsproxy restart failed (exit %d): %s\n", exitCode, SafeTrim(output, 300))
+		return false
+	}
+	GinkgoWriter.Printf("[Diag] %s\n", strings.TrimSpace(output))
+
+	// Poll until the service is Running (max 30s).
+	for i := 0; i < 6; i++ {
+		time.Sleep(5 * time.Second)
+		status, _ := suite.Cli("powershell.exe").Exec(ctx,
+			"-Command",
+			"(Get-Service dnsproxy -ErrorAction SilentlyContinue).Status")
+		status = strings.TrimSpace(status)
+		GinkgoWriter.Printf("[Diag] dnsproxy service status: %s\n", status)
+		if strings.EqualFold(status, "Running") {
+			GinkgoWriter.Println("[Diag] dnsproxy is Running")
+			return true
+		}
+	}
+	GinkgoWriter.Println("[Diag] dnsproxy did not reach Running state within 30s")
+	return true
+}
+
 // RestartCoreDNS performs a rollout restart of the CoreDNS deployment in kube-system
 // and waits up to 90 seconds for the new pods to become ready.
 func RestartCoreDNS(ctx context.Context, suite *framework.K2sTestSuite) {

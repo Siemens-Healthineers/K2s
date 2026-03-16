@@ -458,28 +458,55 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				gitopssync.DumpCoreDNSDiagnostics(ctx, suite)
 				gitopssync.DumpRegistryDiagnostics(ctx, suite, "rollout")
 
-				// Check whether CoreDNS currently has ready endpoints.
-				// CI events showed that blindly calling RestartCoreDNS when the OCIRepository
-				// is NotReady can kill an already-recovering healthy CoreDNS pod, causing a
-				// SECOND DNS outage and resetting the backoff window entirely.
-				// Only restart if kube-dns genuinely has no ready endpoints.
-				coreDNSEndpoints, _ := suite.Kubectl().Exec(ctx,
-					"get", "endpoints", "kube-dns", "-n", "kube-system",
-					"-o", "jsonpath={range .subsets[*]}{range .addresses[*]}{.ip}{' '}{end}{end}")
-				coreDNSHasEndpoints := strings.TrimSpace(coreDNSEndpoints) != ""
+				// Read the last CoreDNS log lines to distinguish the two failure modes:
+				//  A) "i/o timeout" to upstream (172.20.x.x:53) → dnsproxy Windows service dead
+				//  B) "no such host" / "SERVFAIL" / no endpoints  → CoreDNS pods down
+				// Treating both the same (restarting CoreDNS) made things worse in CI:
+				// restarting healthy CoreDNS pods caused a second DNS outage.
+				coreDNSLogs, _ := suite.Kubectl().Exec(ctx,
+					"logs", "-n", "kube-system",
+					"-l", "k8s-app=kube-dns",
+					"--tail", "30")
+				upstreamTimeout := strings.Contains(coreDNSLogs, "i/o timeout")
 
-				if !coreDNSHasEndpoints {
-					GinkgoWriter.Println("[Pre-flight] kube-dns has no ready endpoints — performing CoreDNS rollout restart")
-					gitopssync.RestartCoreDNS(ctx, suite)
-					// Wait for DNS propagation to settle before triggering reconciliation.
-					// CoreDNS pods report Ready before they fully serve queries on CI VMs;
-					// a short pause avoids a wasted FluxCD attempt that triggers backoff.
-					GinkgoWriter.Println("[Pre-flight] Waiting 10s for DNS propagation after CoreDNS restart")
-					time.Sleep(10 * time.Second)
+				if upstreamTimeout {
+					// Case A: CoreDNS is healthy but its upstream (dnsproxy) is unreachable.
+					// There are two distinct sub-cases:
+					//  A1. dnsproxy service stopped/crashed → restart it.
+					//  A2. dnsproxy is Running but ITS upstream DNS (e.g. 172.19.1.100:53)
+					//      is slow — dnsproxy stdout shows "exchange failed … i/o timeout".
+					//      Restarting dnsproxy won't fix an upstream DNS outage; wait for
+					//      the upstream to recover and keep re-triggering FluxCD.
+					GinkgoWriter.Println("[Pre-flight] CoreDNS upstream i/o timeout detected — checking dnsproxy service")
+					gitopssync.DumpDNSProxyDiagnostics(ctx, suite)
+					restarted := gitopssync.RestartDNSProxy(ctx, suite)
+					if !restarted {
+						// dnsproxy is Running: its upstream DNS server is the bottleneck.
+						// Give the upstream extra time to recover before the annotation trigger.
+						GinkgoWriter.Println("[Pre-flight] dnsproxy upstream slow — waiting 30s for upstream DNS recovery")
+						time.Sleep(30 * time.Second)
+					}
 				} else {
-					GinkgoWriter.Printf("[Pre-flight] kube-dns has ready endpoints (%s) — CoreDNS is healthy; OCIRepository is in FluxCD backoff\n",
-						strings.TrimSpace(coreDNSEndpoints))
+					// Case B: Check whether kube-dns has ready endpoints.
+					// Only restart CoreDNS if it genuinely has no endpoints; restarting
+					// a healthy pod creates a second outage (observed in CI events).
+					coreDNSEndpoints, _ := suite.Kubectl().Exec(ctx,
+						"get", "endpoints", "kube-dns", "-n", "kube-system",
+						"-o", "jsonpath={range .subsets[*]}{range .addresses[*]}{.ip}{' '}{end}{end}")
+					if strings.TrimSpace(coreDNSEndpoints) == "" {
+						GinkgoWriter.Println("[Pre-flight] kube-dns has no ready endpoints — performing CoreDNS rollout restart")
+						gitopssync.RestartCoreDNS(ctx, suite)
+					} else {
+						GinkgoWriter.Printf("[Pre-flight] kube-dns endpoints OK (%s); OCIRepository is in FluxCD backoff\n",
+							strings.TrimSpace(coreDNSEndpoints))
+					}
 				}
+
+				// Wait for DNS to settle before triggering reconciliation.
+				// CoreDNS/dnsproxy pods report Running before fully serving queries on CI VMs;
+				// a short pause avoids a wasted FluxCD attempt that enters backoff.
+				GinkgoWriter.Println("[Pre-flight] Waiting 10s for DNS to settle")
+				time.Sleep(10 * time.Second)
 
 				// Trigger an immediate OCIRepository reconciliation to break FluxCD backoff.
 				suite.Kubectl().Exec(ctx,
