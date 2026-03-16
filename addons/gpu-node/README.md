@@ -17,28 +17,50 @@ In order to configure the GPU node you need to install the latest Nvidia drivers
 **NOTE:** A reboot may be necessary.
 
 The gpu-node addon can be enabled using the k2s CLI by running the following command:
-```
+```console
 k2s addons enable gpu-node
 ```
 
+### GPU time-slicing (optional)
+
+By default each pod gets exclusive access to the physical GPU. To share the GPU across multiple pods simultaneously, use the `--time-slices` flag:
+
+```console
+k2s addons enable gpu-node --time-slices 4
+```
+
+This configures the NVIDIA device plugin to advertise `4` virtual GPU slots backed by one physical GPU. Any integer between `2` and `16` is accepted. Pods schedule onto the GPU concurrently; CUDA time-slicing handles multiplexing transparently.
+
+> **Note:** Time-slicing shares compute time but **does not** partition GPU memory. All pods on the same physical GPU share the same memory pool. Use exclusive mode (`--time-slices 1`, the default) for workloads with large memory requirements.
+
 ## Deploy a sample CUDA workload
 
-The following example shows how to schedule a sample CUDA workload on the GPU node:
+The following example schedules a CUDA workload using the NVIDIA vectorAdd sample to verify GPU allocation and compute access:
 
 ```yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: vectorAdd
+  name: gpu-test
 spec:
-  restartPolicy: OnFailure
+  restartPolicy: Never
   containers:
-  - name: vectorAdd
-    image: k8s.gcr.io/cuda-vector-add:v0.1
+  - name: gpu-test
+    image: nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda11.7.1
+    imagePullPolicy: IfNotPresent
     resources:
       limits:
         nvidia.com/gpu: 1
 ```
+
+```console
+kubectl apply -f gpu-test.yaml
+kubectl wait pod gpu-test --for=jsonpath='{.status.phase}'=Succeeded --timeout=120s
+kubectl logs gpu-test
+kubectl delete pod gpu-test
+```
+
+Expected output includes `Test PASSED`. Works on both Hyper-V GPU-PV and WSL2 setups.
 
 
 ## Backup and restore

@@ -129,5 +129,23 @@ var _ = Describe("decode pkg", func() {
 				Expect(string(actual)).To(Equal("test-message"))
 			})
 		})
+
+		When("duplicate independent messages passed (fallback)", func() {
+			It("falls back to last message and succeeds", func() {
+				// Simulate two independent Send-ToCli calls producing two complete payloads.
+				// The first is a valid standalone message, the second is another valid standalone message.
+				// Concatenated base64 is invalid, but fallback to last should work.
+				messages := []string{
+					"##test#H4sIAAAAAAAAAytJLS7RzU0tLk5MTwUAWnKJhAwAAAA=",
+					"##test#H4sIAAAAAAAAAytJLS7RzU0tLk5MTwUAWnKJhAwAAAA=",
+				}
+				messageType := "test"
+
+				actual, err := decode.DecodeMessages(messages, messageType)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(string(actual)).To(Equal("test-message"))
+			})
+		})
 	})
 })

@@ -73,7 +73,6 @@ If you omit `-c`, the previous cluster's effective settings (memory, CPU, storag
     After Upgrade:  4GB dynamic memory (min: 2GB, max: 8GB) ✓ Preserved
     ```
     
-    To change memory configuration during upgrade (e.g., from static to dynamic memory), provide a config file with `-c`. See [Installing Using Config Files](installing-k2s.md#installing-using-config-files) for dynamic memory configuration details.
 
 ### What the Command Does
 Internally the following high‑level steps are performed:

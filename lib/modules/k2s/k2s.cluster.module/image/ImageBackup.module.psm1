@@ -471,7 +471,11 @@ function Backup-K2sImages {
         
         $imagesDir = Join-Path $BackupDirectory "images"
         
-        $k2sExe = "$(Get-ClusterInstalledFolder)\k2s.exe"
+        # Use Get-K2sExePath (resolves to the package we are upgrading FROM) instead of
+        # Get-ClusterInstalledFolder so that the NEW k2s.exe and its scripts are used.
+        # The old installation's k2s.exe would invoke old Export-Image.ps1 which still
+        # uses nerdctl save – broken in air-gapped environments with nerdctl 2.x.
+        $k2sExe = Get-K2sExePath
         $backupManifest = @{
             BackupTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             BackupDirectory = $BackupDirectory
