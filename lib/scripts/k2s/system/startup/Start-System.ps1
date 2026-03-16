@@ -105,6 +105,61 @@ function Select-K2sIsRunning {
     }
 }
 
+# Ensures flanneld, kubelet, and kubeproxy are running and refreshes Linux-side
+# DaemonSets. Called both after L2 bridge recreation (unclean reboot with cbr0
+# removed) and when cbr0 survived a reboot but services aren't running.
+function Start-K8sNetworkingServices {
+    Write-Log "[$logUseCase] Ensuring flanneld, kubelet and kubeproxy are running"
+    Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
+    Start-Service -Name 'kubelet' -ErrorAction SilentlyContinue
+    Start-Service -Name 'kubeproxy' -ErrorAction SilentlyContinue
+
+    # Restore kubelet and kubeproxy to auto-start in case Stop-System.ps1
+    # set them to SERVICE_DEMAND_START during a previous shutdown.
+    $kubeBinPathLocal = Get-KubeBinPath
+    if (Test-Path "$kubeBinPathLocal\nssm.exe") {
+        Write-Log "[$logUseCase] Restoring kubelet and kubeproxy to auto-start"
+        &"$kubeBinPathLocal\nssm.exe" set kubelet Start SERVICE_AUTO_START 2>&1 | Out-Null
+        &"$kubeBinPathLocal\nssm.exe" set kubeproxy Start SERVICE_AUTO_START 2>&1 | Out-Null
+    }
+
+    # Restart Linux-side system pods to refresh projected service account tokens.
+    # After a reboot the API server restarts with potentially new signing keys,
+    # making existing projected tokens in kube-proxy and flannel pods invalid
+    # (results in Unauthorized errors in their logs).
+    # Must use explicit --kubeconfig because this script runs as LOCAL SYSTEM
+    # (via httpproxy NSSM service), which has no user-level KUBECONFIG env var.
+    $kubeBinPathTools = Get-KubeToolsPath
+    $kubeConfigPath = "$(Get-KubePath)\config"
+    $controlPlaneHostname = Get-ConfigControlPlaneNodeHostname
+    Write-Log "[$logUseCase] Waiting for API server before restarting system DaemonSets (kubeconfig: $kubeConfigPath)..."
+    try {
+        $apiReady = $false
+        for ($attempt = 1; $attempt -le 15; $attempt++) {
+            $ErrorActionPreference = 'Continue'
+            $waitResult = &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$kubeConfigPath" wait --timeout=30s --for=condition=Ready -n kube-system "pod/kube-apiserver-$($controlPlaneHostname.ToLower())" 2>&1
+            $ErrorActionPreference = 'Stop'
+            if ($waitResult -match 'condition met') {
+                $apiReady = $true
+                break
+            }
+            Write-Log "[$logUseCase] API server not ready yet (attempt $attempt/15): $waitResult"
+            Start-Sleep -Seconds 2
+        }
+        if ($apiReady) {
+            Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
+            &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart daemonset/kube-proxy -n kube-system 2>&1 | Write-Log
+            &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart daemonset/kube-flannel-ds -n kube-flannel 2>&1 | Write-Log
+            &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart deployment/coredns -n kube-system 2>&1 | Write-Log
+            Write-Log "[$logUseCase] Linux-side system DaemonSet restart completed"
+        } else {
+            Write-Log "[$logUseCase] WARNING: API server not ready after 15 attempts, skipping DaemonSet restart"
+        }
+    } catch {
+        Write-Log "[$logUseCase] WARNING: Failed to restart Linux-side DaemonSets: $_"
+    }
+}
+
 try {
     Write-Log "[$logUseCase] started"
     # check if k2s is running
@@ -122,6 +177,22 @@ try {
     } -ArgumentList $l2BridgeSwitchName
     if ($found) {
         Write-Log "[$logUseCase] External switch with l2 bridge network already exists"
+        # cbr0 survived the reboot — Stop-System.ps1 either didn't run or failed
+        # to remove it. Check if flanneld is actually running. Since flanneld is
+        # always SERVICE_DEMAND_START, it won't be running after a reboot unless
+        # something explicitly started it (which only happens via this script or
+        # Start-WinHttpProxy). If it's stopped, we need to start all networking
+        # services. If it's already running, this is just a normal httpproxy
+        # restart (e.g. NSSM auto-restart) and nothing needs to be done.
+        $flanneldSvc = Get-Service -Name 'flanneld' -ErrorAction SilentlyContinue
+        if ($null -ne $flanneldSvc -and $flanneldSvc.Status -ne 'Running') {
+            Write-Log "[$logUseCase] flanneld is not running (status: $($flanneldSvc.Status)) - post-reboot recovery needed"
+            Confirm-LoopbackAdapterIP
+            Start-K8sNetworkingServices
+        }
+        else {
+            Write-Log "[$logUseCase] flanneld is running, no recovery needed"
+        }
     }
     else {
         Write-Log "[$logUseCase] Switch cbr0 with l2 bridge network does not exist, check for Loopback Adapter"
@@ -180,59 +251,12 @@ try {
                     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
                     Write-Log "[$logUseCase] Waiting for k8s L2 bridge network to be ready"
                     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
-                    Write-Log "[$logUseCase] L2 bridge network is ready, restarting kubelet and kubeproxy"
-                    Start-Service -Name 'kubelet' -ErrorAction SilentlyContinue
-                    Start-Service -Name 'kubeproxy' -ErrorAction SilentlyContinue
+                    Write-Log "[$logUseCase] L2 bridge network is ready"
 
-                    # Restore kubelet and kubeproxy to auto-start now that the
-                    # L2 bridge is properly configured. Stop-System.ps1 sets them
-                    # to SERVICE_DEMAND_START during shutdown to prevent them from
-                    # auto-starting into stale network state after an unclean reboot.
-                    $kubeBinPathLocal = Get-KubeBinPath
-                    if (Test-Path "$kubeBinPathLocal\nssm.exe") {
-                        Write-Log "[$logUseCase] Restoring kubelet and kubeproxy to auto-start"
-                        &"$kubeBinPathLocal\nssm.exe" set kubelet Start SERVICE_AUTO_START 2>&1 | Out-Null
-                        &"$kubeBinPathLocal\nssm.exe" set kubeproxy Start SERVICE_AUTO_START 2>&1 | Out-Null
-                    }
+                    Start-K8sNetworkingServices
 
                     Write-Log "[$logUseCase] Attempt to repair kubeswitch"
                     Repair-KubeSwitch
-
-                    # Restart Linux-side system pods to refresh projected service account tokens.
-                    # After an unclean reboot the API server restarts with potentially new signing
-                    # keys, making existing projected tokens in kube-proxy and flannel pods invalid
-                    # (results in Unauthorized errors in their logs).
-                    # Must use explicit --kubeconfig because this script runs as LOCAL SYSTEM
-                    # (via httpproxy NSSM service), which has no user-level KUBECONFIG env var.
-                    $kubeBinPath = Get-KubeToolsPath
-                    $kubeConfigPath = "$(Get-KubePath)\config"
-                    $controlPlaneHostname = Get-ConfigControlPlaneNodeHostname
-                    Write-Log "[$logUseCase] Waiting for API server before restarting system DaemonSets (kubeconfig: $kubeConfigPath)..."
-                    try {
-                        $apiReady = $false
-                        for ($attempt = 1; $attempt -le 15; $attempt++) {
-                            $ErrorActionPreference = 'Continue'
-                            $waitResult = &"$kubeBinPath\kubectl.exe" --kubeconfig="$kubeConfigPath" wait --timeout=30s --for=condition=Ready -n kube-system "pod/kube-apiserver-$($controlPlaneHostname.ToLower())" 2>&1
-                            $ErrorActionPreference = 'Stop'
-                            if ($waitResult -match 'condition met') {
-                                $apiReady = $true
-                                break
-                            }
-                            Write-Log "[$logUseCase] API server not ready yet (attempt $attempt/15): $waitResult"
-                            Start-Sleep -Seconds 2
-                        }
-                        if ($apiReady) {
-                            Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
-                            &"$kubeBinPath\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart daemonset/kube-proxy -n kube-system 2>&1 | Write-Log
-                            &"$kubeBinPath\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart daemonset/kube-flannel-ds -n kube-flannel 2>&1 | Write-Log
-                            &"$kubeBinPath\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart deployment/coredns -n kube-system 2>&1 | Write-Log
-                            Write-Log "[$logUseCase] Linux-side system DaemonSet restart completed"
-                        } else {
-                            Write-Log "[$logUseCase] WARNING: API server not ready after 15 attempts, skipping DaemonSet restart"
-                        }
-                    } catch {
-                        Write-Log "[$logUseCase] WARNING: Failed to restart Linux-side DaemonSets: $_"
-                    }
                     # Set-PrivateNetworkProfileForLoopbackAdapter
                 }
                 else {
