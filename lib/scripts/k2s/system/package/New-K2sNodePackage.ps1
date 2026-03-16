@@ -173,42 +173,6 @@ function Assert-PackagesDownloaded {
 
 try {
 
-	$setupType = Get-ConfigSetupType
-    if ($setupType -eq 'k2s') {
-        # Get the installed OS distro key from the kubemaster VM (e.g. 'debian12', 'debian13')
-        $controlPlaneUserName = Get-DefaultUserNameControlPlane
-        $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
-        $installedDistro = Get-InstalledDistribution -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
-        # $installedDistro is e.g. 'debian12'
-        if ($installedDistro -eq $distributionKey) {
-            Write-Log "[NodePkg] Detected that control plane VM is already running '$distributionKey'. Copying packages from kubemaster..." -Console
-
-            # Remove the empty staging dirs so Copy-DebPackagesFromControlPlaneToWindowsHost can populate them
-            Remove-Item $packagesByOsDir -Recurse -Force -ErrorAction SilentlyContinue
-
-            # Copy kubernetes and buildah deb packages from kubemaster to the local staging dir
-            Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath $packagesByOsDir
-
-            # Copy container images from kubemaster to the local staging dir
-            if (Test-Path -Path $imagesDir) {
-                Remove-Item -Path $imagesDir -Recurse -Force -ErrorAction SilentlyContinue
-            }
-            Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost -TargetPath $imagesDir
-
-            # Create zip at the requested output location
-            New-Item -Path $TargetDirectory -ItemType Directory -Force | Out-Null
-            Compress-Archive -Path @($packagesDir, $imagesDir) -DestinationPath $zipTarget -Force
-            Write-Log "[NodePkg] Node package zip created from kubemaster: $zipTarget" -Console
-            Write-Log "[NodePkg] Package creation for '$distributionKey' completed successfully (fast path via kubemaster)." -Console
-
-            if ($EncodeStructuredOutput -eq $true) {
-                Send-ToCli -MessageType $MessageType -Message @{Error = $null}
-            }
-            return
-        } else {
-            Write-Log "[NodePkg] Control plane VM is running '$installedDistro', which does not match the target distribution '$distributionKey'. Will proceed with provisioning a new VM for package creation." -Console
-        }
-    }
 
     $vmContext = Start-NodePackageVmProvisioning `
         -DistributionKey $distributionKey `

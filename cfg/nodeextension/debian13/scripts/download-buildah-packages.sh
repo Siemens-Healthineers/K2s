@@ -81,6 +81,20 @@ for attempt in 1 2; do
     fi
 done
 
+# crun's dependencies (e.g. libyajl2) may be pre-installed on the control plane
+# and therefore missed by the simulate-reinstall approach above.
+# Discover them dynamically via a fresh repo simulation and download what is missing.
+log_info "Downloading missing dependencies of crun"
+cd "$BUILDAH_DEB_PACKAGES_PATH" && \
+sudo DEBIAN_FRONTEND=noninteractive \
+    apt-get --simulate install \
+    --no-install-recommends --no-install-suggests \
+    crun 2>/dev/null \
+    | grep '^Inst ' \
+    | cut -d ' ' -f 2 \
+    | sort -u \
+    | xargs -r sudo apt-get download 2>/dev/null || true
+
 # Explicitly download Debian 13 networking stack packages for buildah.
 # netavark is the default network backend for buildah 1.35+ (replaces CNI);
 # aardvark-dns provides DNS resolution within buildah-managed networks.
