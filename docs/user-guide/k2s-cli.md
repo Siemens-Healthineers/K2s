@@ -568,6 +568,9 @@ k2s node add [flags]
 | `--username` | `-u` | **Required.** SSH username |
 | `--name` | `-m` | Hostname |
 | `--role` | `-r` | Node role (default `worker`) |
+| `--node-package` | `-p` | Path to a node package ZIP for offline installation |
+
+Use `--node-package` together with `k2s system package --node-package --os ...` when adding a Linux worker node without internet access.
 
 ### node remove
 

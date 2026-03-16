@@ -20,6 +20,8 @@ $infraModule =   "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.inf
 $nodeModule =    "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule
+$puttyToolsHelper = "$PSScriptRoot\..\..\..\..\scripts\k2s\system\package\New-K2sPackage.PuttyTools.ps1"
+. $puttyToolsHelper
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -30,6 +32,8 @@ $installationPath = Get-KubePath
 Set-Location $installationPath
 
 Write-Log "Performing pre-requisites check" -Console
+
+Assert-PuttyToolsReady -LogPrefix '[NodeAdd]' -Proxy $Proxy
 
 $connectionCheck = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which ls' -UserName $UserName -IpAddress $IpAddress)
 if (!$connectionCheck.Success) {
