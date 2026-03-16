@@ -443,21 +443,22 @@ func DumpRegistryDiagnostics(ctx context.Context, suite *framework.K2sTestSuite,
 		"-o", `jsonpath={range .items[*]}{.metadata.name}: {range .subsets[*]}{range .addresses[*]}{.ip}:{range ..ports[*]}{.port}{end}{end}{end}{"\n"}{end}`)
 	GinkgoWriter.Printf("%s\n", ep)
 
-	GinkgoWriter.Println("[Diag] === registry service (namespace registry) ===")
+	GinkgoWriter.Println("[Diag] === registry service NodePort (namespace registry) ===")
 	svc, _ := suite.Kubectl().Exec(ctx,
 		"get", "service", "-n", "registry",
-		"-o", `jsonpath={range .items[*]}{.metadata.name} clusterIP={.spec.clusterIP} ports={range .spec.ports[*]}{.port}/{.protocol}{" "}{end}{"\n"}{end}`)
+		"-o", `jsonpath={range .items[*]}{.metadata.name} clusterIP={.spec.clusterIP} ports={range .spec.ports[*]}{.port}->{.nodePort}/{.protocol}{" "}{end}{"\n"}{end}`)
 	GinkgoWriter.Printf("%s\n", svc)
 
-	// Read /etc/resolv.conf inside source-controller to confirm in-pod DNS nameserver.
+	// Read /etc/resolv.conf inside source-controller to confirm the in-pod DNS nameserver.
+	// If this shows the wrong nameserver the pod cannot resolve cluster-internal hostnames.
 	GinkgoWriter.Printf("[Diag] === source-controller /etc/resolv.conf (namespace %s) ===\n", fluxNamespace)
 	scPodName, _ := suite.Kubectl().Exec(ctx,
 		"get", "pods", "-n", fluxNamespace,
 		"-l", "app=source-controller",
 		"-o", "jsonpath={.items[0].metadata.name}")
-	if scPodName != "" {
+	if strings.TrimSpace(scPodName) != "" {
 		resolvConf, exitCode := suite.Kubectl().Exec(ctx,
-			"exec", "-n", fluxNamespace, scPodName, "--",
+			"exec", "-n", fluxNamespace, strings.TrimSpace(scPodName), "--",
 			"cat", "/etc/resolv.conf")
 		if exitCode == 0 {
 			GinkgoWriter.Printf("%s\n", resolvConf)
