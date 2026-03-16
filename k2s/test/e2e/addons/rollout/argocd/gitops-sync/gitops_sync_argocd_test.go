@@ -189,17 +189,17 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 				"CronJob concurrencyPolicy should be 'Forbid' to prevent concurrent sync runs")
 		})
 
-		It("addon-sync-poller CronJob has activeDeadlineSeconds of 900 seconds", func(ctx context.Context) {
+		It("addon-sync-poller CronJob has activeDeadlineSeconds of 300 seconds", func(ctx context.Context) {
 			deadline := suite.Kubectl().MustExec(ctx,
 				"get", "cronjob", addonSyncPoller,
 				"-n", addonSyncNamespace,
 				"-o", "jsonpath={.spec.jobTemplate.spec.activeDeadlineSeconds}")
 
-			// 900 s (15 min) gives enough headroom for mcr.microsoft.com/windows/servercore
-			// image pull on a cold node before the sync script starts.
-			// concurrencyPolicy: Forbid ensures no overlap regardless of run duration.
-			Expect(deadline).To(Equal("900"),
-				"CronJob activeDeadlineSeconds should be 900 (15 min) to accommodate image pull on cold nodes")
+			// 300 s (5 min) is sufficient because the pause-win image is pre-cached
+			// on every K2s Windows node (zero pull time). The sync script itself
+			// completes in 30-120 s depending on the number of addons.
+			Expect(deadline).To(Equal("300"),
+				"CronJob activeDeadlineSeconds should be 300 (5 min) — pause-win image is pre-cached")
 		})
 
 		It("addon-sync-poller CronJob references the addon-sync-config ConfigMap via env valueFrom", func(ctx context.Context) {

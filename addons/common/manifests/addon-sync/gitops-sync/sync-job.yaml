@@ -21,8 +21,8 @@
 #   addon-sync-script  → Sync-Addons.ps1 processor script
 #
 ## exclude-from-export
-# The mcr.microsoft.com/windows/servercore image used here is a base Windows OS image
-# available on every Windows node and must not be packaged as part of addon exports.
+# The pause-win image is the containerd sandbox image, pre-loaded on every K2s
+# Windows node. It must not be packaged as part of addon exports.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -37,7 +37,7 @@ metadata:
     k2s.io/export-timestamp: "EXPORT_TIMESTAMP_PLACEHOLDER"
 spec:
   ttlSecondsAfterFinished: 300
-  activeDeadlineSeconds: 900
+  activeDeadlineSeconds: 300
   backoffLimit: 3
   template:
     metadata:
@@ -62,7 +62,8 @@ spec:
       hostPID: true
       containers:
         - name: addon-sync
-          image: mcr.microsoft.com/windows/servercore:ltsc2022
+          image: shsk2s.azurecr.io/pause-win:v1.7.0
+          imagePullPolicy: IfNotPresent
           resources:
             requests:
               memory: "128Mi"

@@ -14,6 +14,10 @@
 #
 # This replaces what would otherwise need: a webhook Deployment + webhook RBAC +
 # Linux poller pod + separate K8s ConfigMap for state.
+#
+## exclude-from-export
+# The pause-win image is the containerd sandbox image, pre-loaded on every K2s
+# Windows node. It must not be packaged as part of addon exports.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -32,7 +36,7 @@ spec:
   jobTemplate:
     spec:
       ttlSecondsAfterFinished: 300
-      activeDeadlineSeconds: 900
+      activeDeadlineSeconds: 300
       backoffLimit: 0
       template:
         metadata:
@@ -58,7 +62,8 @@ spec:
               runAsUserName: "NT AUTHORITY\\SYSTEM"
           containers:
             - name: addon-sync
-              image: mcr.microsoft.com/windows/servercore:ltsc2022
+              image: shsk2s.azurecr.io/pause-win:v1.7.0
+              imagePullPolicy: IfNotPresent
               resources:
                 requests:
                   memory: "128Mi"

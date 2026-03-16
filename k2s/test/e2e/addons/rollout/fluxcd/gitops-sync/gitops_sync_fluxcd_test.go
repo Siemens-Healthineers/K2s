@@ -243,7 +243,7 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 
 	// -----------------------------------------------------------------------
 	// End-to-end sync test — requires the registry addon and internet access
-	// for image pulls on first run.
+	// for registry push and FluxCD reconciliation on first run.
 	// Labels: registry, internet-required
 	// -----------------------------------------------------------------------
 	When("registry addon is enabled", Label("registry", "internet-required"), Ordered, func() {
