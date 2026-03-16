@@ -75,13 +75,20 @@ Three mutually exclusive implementations for external access:
 | `traefik` | Traefik Proxy | Cloud-native reverse proxy |
 | `nginx-gw` | NGINX Gateway Fabric | Gateway API-based NGINX controller |
 
+| Enable Flag | Type | Default | Description |
+|-------------|------|---------|-------------|
+| `--omitCertMgr` | boolean | `false` | Omit cert-manager installation. Use when you want to provide your own certificate issuer. See [Certificate Management](certificate-management.md). |
+
 ```console
 k2s addons enable ingress nginx
 k2s addons enable ingress traefik
 k2s addons enable ingress nginx-gw
+
+# Without default cert-manager (bring your own issuer)
+k2s addons enable ingress nginx --omitCertMgr
 ```
 
-No additional flags. Only one ingress implementation can be active at a time.
+Only one ingress implementation can be active at a time. By default, cert-manager is installed with a self-signed CA. See [Certificate Management](certificate-management.md) for details on using external certificate authorities.
 
 ### dashboard
 
@@ -159,6 +166,8 @@ Two mutually exclusive GitOps implementations:
 |-------------|-------|------|---------|-------------|
 | `--ingress` | `-i` | string | `none` | Ingress controller for the webhook receiver (`none`, `nginx`, `nginx-gw`, `traefik`) |
 
+When you enable `rollout fluxcd`, *K2s* installs the host Flux CLI at `bin\\flux.exe`. In offline environments the CLI zip is bundled in the addon export and extracted on import.
+
 ```console
 k2s addons enable rollout argocd --ingress nginx
 k2s addons enable rollout fluxcd --ingress traefik
@@ -225,9 +234,18 @@ Additional helper scripts:
 
 ### gpu-node
 
-No CLI flags. Configures the Linux control-plane node to use NVIDIA GPUs.
+| Enable Flag | Short | Type | Default | Description |
+|-------------|-------|------|---------|-------------|
+| `--time-slices` | `-t` | integer | `1` | Number of virtual GPU slots per physical GPU. `1` = exclusive access. Set `>1` to share the GPU across multiple pods simultaneously via CUDA time-slicing (max `16`). |
 
-Installs the NVIDIA container toolkit on the Linux VM. For WSL 2 setups, a custom kernel image (`microsoft-standard-wsl2`) is used to enable GPU passthrough.
+```console
+k2s addons enable gpu-node
+k2s addons enable gpu-node --time-slices 4
+```
+
+Installs the NVIDIA Container Toolkit on the Linux VM and deploys the NVIDIA Device Plugin DaemonSet. For Hyper-V setups, also configures GPU-PV passthrough and installs the WSL2 kernel. For WSL2 setups, the GPU libraries are already available via the shared dxcore stack.
+
+See [GPU Node](gpu-node.md) for full usage details including how to write GPU pod specs, time-slicing, offline workflow, and known limitations.
 
 ### autoscaling
 

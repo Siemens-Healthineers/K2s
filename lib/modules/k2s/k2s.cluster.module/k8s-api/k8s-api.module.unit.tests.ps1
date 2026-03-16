@@ -45,8 +45,8 @@ Describe 'Get-Age' -Tag 'unit', 'ci' {
 
     Context 'timestamp is in the past' {
         BeforeEach {
-            $now = [datetime]::new(2023, 1, 2)
-            $then = [datetime]::new(2023, 1, 1)
+            $now = [datetime]::SpecifyKind([datetime]::new(2023, 1, 2), [System.DateTimeKind]::Utc)
+            $then = [datetime]::SpecifyKind([datetime]::new(2023, 1, 1), [System.DateTimeKind]::Utc)
             $expectedDuration = $now - $then
             $expectedResult = 'past test'
 
@@ -54,7 +54,7 @@ Describe 'Get-Age' -Tag 'unit', 'ci' {
             Mock -ModuleName $moduleName Convert-ToAgeString { return $expectedResult } -Verifiable -ParameterFilter { $Duration -eq $expectedDuration }
 
             InModuleScope $moduleName -Parameters @{Then = $then } {
-                $script:result = Get-Age -Timestamp $($Then.ToString())
+                $script:result = Get-Age -Timestamp $($Then.ToString('o'))
             }
         }
 
@@ -71,21 +71,21 @@ Describe 'Get-Age' -Tag 'unit', 'ci' {
 
     Context 'timestamp is in the future' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-Now { return [datetime]::new(2023, 1, 1) }
+            Mock -ModuleName $moduleName Get-Now { return [datetime]::SpecifyKind([datetime]::new(2023, 1, 1), [System.DateTimeKind]::Utc) }
         }
 
         It 'throws' {
             InModuleScope $moduleName {
-                $timestamp = [datetime]::new(2023, 1, 2)
+                $timestamp = [datetime]::SpecifyKind([datetime]::new(2023, 1, 2), [System.DateTimeKind]::Utc)
 
-                { Get-Age -Timestamp $($timestamp.ToString()) } | Should -Throw
+                { Get-Age -Timestamp $($timestamp.ToString('o')) } | Should -Throw
             }
         }
     }
 
     Context 'timestamp is now' {
         BeforeEach {
-            $now = [datetime]::new(2023, 1, 2)
+            $now = [datetime]::SpecifyKind([datetime]::new(2023, 1, 2), [System.DateTimeKind]::Utc)
             $then = $now
             $expectedDuration = $now - $then
             $expectedResult = 'now test'
@@ -94,7 +94,7 @@ Describe 'Get-Age' -Tag 'unit', 'ci' {
             Mock -ModuleName $moduleName Convert-ToAgeString { return $expectedResult } -Verifiable -ParameterFilter { $Duration -eq $expectedDuration }
 
             InModuleScope $moduleName -Parameters @{Then = $then } {
-                $script:result = Get-Age -Timestamp $($Then.ToString())
+                $script:result = Get-Age -Timestamp $($Then.ToString('o'))
             }
         }
 

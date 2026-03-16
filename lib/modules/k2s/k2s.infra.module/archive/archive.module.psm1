@@ -70,6 +70,9 @@ function New-ZipWithProgress {
         [string]$Label = 'archive',
         [switch]$Show
     )
+    # Resolve to full (long) path to avoid Windows 8.3 short name mismatches
+    # (e.g. ADMINI~1 vs Administrator) when computing relative paths from Get-ChildItem .FullName
+    $SourceDir = (Get-Item -LiteralPath $SourceDir).FullName
     Write-Log "[Zip] Creating archive '$ZipPath' from source '$SourceDir'" -Console
     if (-not (Test-Path -LiteralPath $SourceDir)) { throw "Source dir not found: $SourceDir" }
     $files = Get-ChildItem -Path $SourceDir -Recurse -File
