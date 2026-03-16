@@ -6,5 +6,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: k2s
 resources:
+  - anchor-pod.yaml
   - windows-albums-cp.yaml
   - linux-curl.yaml

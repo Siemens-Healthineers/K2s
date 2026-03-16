@@ -49,18 +49,8 @@ if ($systemError) {
     Write-Log $systemError.Message -Error
     exit 1
 }
-if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
-    $errMsg = "Addon 'security' is already disabled, nothing to do."
 
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-    
-    Write-Log $errMsg -Error
-    exit 1
-}
+$addonEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })
 
 Write-Log 'Checking if cert-manager can be uninstalled' -Console
 $hasNginxIngress = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
@@ -95,11 +85,16 @@ if ($needsGatewayApiCrds) {
 }
 
 $linkerdYaml = Get-LinkerdConfigDirectory
-(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-k',$linkerdYaml).Output | Write-Log
+$linkerdCrdsFile = Join-Path $linkerdYaml 'linkerd-crds.yaml'
+if (Test-Path $linkerdCrdsFile) {
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-k',$linkerdYaml).Output | Write-Log
 
-if ($needsGatewayApiCrds) {
-    Write-Log 'Re-applying Gateway API CRDs (removed by Linkerd deletion)' -Console
-    (Invoke-Kubectl -Params 'apply', '-f', $gatewayApiCrds).Output | Write-Log
+    if ($needsGatewayApiCrds) {
+        Write-Log 'Re-applying Gateway API CRDs (removed by Linkerd deletion)' -Console
+        (Invoke-Kubectl -Params 'apply', '-f', $gatewayApiCrds).Output | Write-Log
+    }
+} else {
+    Write-Log 'Linkerd manifests not found, skipping kustomize deletion' -Console
 }
 
 Remove-LinkerdMarkerConfig
@@ -124,7 +119,12 @@ Write-Log 'Deleting old storage files for postgres' -Console
 
 Write-Log 'Cleaning up NGINX Gateway OAuth2 auth resources' -Console
 Write-Log '  Deleting oauth2-auth-filter SnippetsFilters...' -Console
-(Invoke-Kubectl -Params 'delete', 'snippetsfilter', 'oauth2-auth-filter', '-A', '--ignore-not-found').Output | Write-Log
+$snippetsFilterCrd = (Invoke-Kubectl -Params 'api-resources', '--api-group=gateway.nginx.org', '-o', 'name', '--no-headers').Output 2>$null
+if ($snippetsFilterCrd -and $snippetsFilterCrd -match 'snippetsfilters') {
+    (Invoke-Kubectl -Params 'delete', 'snippetsfilter', 'oauth2-auth-filter', '-A', '--ignore-not-found').Output | Write-Log
+} else {
+    Write-Log '  SnippetsFilter CRD not found, skipping' -Console
+}
 
 Write-Log '  Deleting oauth2-proxy-config ConfigMap...' -Console
 (Invoke-Kubectl -Params 'delete', 'configmap', 'oauth2-proxy-config', '-n', 'security', '--ignore-not-found').Output | Write-Log
@@ -166,7 +166,9 @@ if ($clusterRole) {
     }
 }
 
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
+if ($addonEnabled) {
+    Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
+}
 
 # if security addon is enabled, than adapt other addons
 # Important is that update is called at the end because addons check state of security addon
