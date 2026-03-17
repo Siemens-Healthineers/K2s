@@ -318,12 +318,21 @@ spec:
 		suite.K2sCli().MustExec(ctx, "system", "backup", "-f", pvRestoreBackup, "--skip-images")
 		Expect(pvRestoreBackup).To(BeAnExistingFile())
 
-		// Now test restore
+		// Now test restore - delete PV, PVC, and pod so restore creates them fresh.
+		// The PV must be deleted because the backup strips spec.claimRef (by design),
+		// but kubectl apply --server-side won't remove an existing claimRef owned by
+		// the PV controller. A stale claimRef.uid causes the restored PVC to show "Lost".
 		suite.Kubectl().Exec(ctx, "delete", "pod", podName, "-n", testNamespace, "--ignore-not-found=true", "--wait=false")
 		suite.Kubectl().Exec(ctx, "delete", "pvc", pvcName, "-n", testNamespace, "--ignore-not-found=true")
+		suite.Kubectl().Exec(ctx, "delete", "pv", pvName, "--ignore-not-found=true", "--wait=false")
 
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pvc", pvcName, "-n", testNamespace, "--ignore-not-found=true")
+			return output
+		}).WithContext(ctx).WithTimeout(15 * time.Second).WithPolling(500 * time.Millisecond).Should(BeEmpty())
+
+		Eventually(func(ctx context.Context) string {
+			output, _ := suite.Kubectl().Exec(ctx, "get", "pv", pvName, "--ignore-not-found=true")
 			return output
 		}).WithContext(ctx).WithTimeout(15 * time.Second).WithPolling(500 * time.Millisecond).Should(BeEmpty())
 
@@ -331,10 +340,14 @@ spec:
 		output := suite.K2sCli().MustExec(ctx, "system", "restore", "-f", pvRestoreBackup)
 		Expect(output).To(ContainSubstring(successMessage))
 
+		// Diagnostic: print PV state after restore to aid debugging
+		pvOut, _ := suite.Kubectl().Exec(ctx, "get", "pv", pvName, "-o", "jsonpath={.status.phase},{.spec.claimRef.uid}")
+		GinkgoWriter.Printf("After restore: PV %s status=%s\n", pvName, pvOut)
+
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pvc", pvcName, "-n", testNamespace, "-o", "jsonpath={.status.phase}")
 			return output
-		}).WithContext(ctx).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Equal("Bound"))
+		}).WithContext(ctx).WithTimeout(30 * time.Second).WithPolling(500 * time.Millisecond).Should(Equal("Bound"))
 
 		// Verify data integrity
 		readerPod := "test-restore-reader"

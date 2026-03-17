@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,9 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
@@ -305,105 +304,53 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 	}
 }
 
-// loadWindowsRootCAs loads certificates from the Windows certificate store and returns a cert pool
-func loadWindowsRootCAs() (*x509.CertPool, error) {
-	// Start with system cert pool
-	pool, err := x509.SystemCertPool()
+// loadK2sCACertFromCluster fetches the CA certificate directly from the Kubernetes
+// cluster secret, bypassing the Windows cert store entirely. This avoids issues with
+// Go's x509.SystemCertPool() caching and Windows CryptoAPI cert store round-trips.
+func loadK2sCACertFromCluster() *x509.CertPool {
+	rootDir, err := sos.RootDir()
 	if err != nil {
-		GinkgoWriter.Printf("Warning: Failed to load system cert pool: %v\n", err)
-		pool = x509.NewCertPool()
+		GinkgoWriter.Printf("Warning: Failed to get root dir for kubectl: %v\n", err)
+		return nil
 	}
 
-	// Load certificates from Windows Root CA store
-	storeNames := []string{"ROOT", "CA"}
-
-	for _, storeName := range storeNames {
-		store, err := openWindowsCertStore(storeName)
-		if err != nil {
-			GinkgoWriter.Printf("Warning: Failed to open Windows cert store %s: %v\n", storeName, err)
-			continue
-		}
-		defer closeCertStore(store)
-
-		// Enumerate all certificates in the store
-		var cert *syscall.CertContext
-		for {
-			cert, err = enumCertificates(store, cert)
-			if err != nil {
-				break
-			}
-			if cert == nil {
-				break
-			}
-
-			// Convert Windows cert to x509 certificate
-			certBytes := (*[1 << 20]byte)(unsafe.Pointer(cert.EncodedCert))[:cert.Length:cert.Length]
-			x509Cert, err := x509.ParseCertificate(certBytes)
-			if err != nil {
-				GinkgoWriter.Printf("Warning: Failed to parse certificate: %v\n", err)
-				continue
-			}
-
-			// Add to pool
-			pool.AddCert(x509Cert)
-		}
-	}
-
-	return pool, nil
-}
-
-// Windows API functions for certificate store access
-var (
-	crypt32                     = syscall.NewLazyDLL("crypt32.dll")
-	certOpenSystemStoreW        = crypt32.NewProc("CertOpenSystemStoreW")
-	certCloseStore              = crypt32.NewProc("CertCloseStore")
-	certEnumCertificatesInStore = crypt32.NewProc("CertEnumCertificatesInStore")
-)
-
-func openWindowsCertStore(storeName string) (syscall.Handle, error) {
-	storeNamePtr, err := syscall.UTF16PtrFromString(storeName)
+	kubectlPath := filepath.Join(rootDir, "bin", "kube", "kubectl.exe")
+	out, err := exec.Command(kubectlPath, "-n", "cert-manager", "get", "secrets",
+		"ca-issuer-root-secret", "-o", "jsonpath={.data.ca\\.crt}").Output()
 	if err != nil {
-		return 0, err
+		GinkgoWriter.Printf("Warning: Failed to get CA cert from cluster: %v\n", err)
+		return nil
 	}
 
-	store, _, err := certOpenSystemStoreW.Call(0, uintptr(unsafe.Pointer(storeNamePtr)))
-	if store == 0 {
-		return 0, fmt.Errorf("failed to open cert store: %v", err)
+	caCertPEM, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(out)))
+	if err != nil {
+		GinkgoWriter.Printf("Warning: Failed to decode CA cert: %v\n", err)
+		return nil
 	}
 
-	return syscall.Handle(store), nil
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caCertPEM) {
+		GinkgoWriter.Printf("Warning: Failed to parse CA cert PEM\n")
+		return nil
+	}
+
+	GinkgoWriter.Printf("Successfully loaded K2s CA cert from cluster secret\n")
+	return pool
 }
 
-func closeCertStore(store syscall.Handle) error {
-	ret, _, err := certCloseStore.Call(uintptr(store), 0)
-	if ret == 0 {
-		return err
-	}
-	return nil
-}
-
-func enumCertificates(store syscall.Handle, prevContext *syscall.CertContext) (*syscall.CertContext, error) {
-	var prevContextPtr uintptr
-	if prevContext != nil {
-		prevContextPtr = uintptr(unsafe.Pointer(prevContext))
-	}
-
-	context, _, err := certEnumCertificatesInStore.Call(uintptr(store), prevContextPtr)
-	if context == 0 {
-		return nil, err
-	}
-
-	// Safe conversion: context is a pointer returned from Windows API
-	certContext := *(**syscall.CertContext)(unsafe.Pointer(&context))
-	return certContext, nil
-}
-
-// createHTTPClientWithWindowsCerts creates an HTTP client that trusts Windows certificate store
+// createHTTPClientWithWindowsCerts creates an HTTP client that trusts the K2s CA.
+// It fetches the CA cert directly from the Kubernetes cluster secret to avoid
+// Windows cert store read-back issues and Go cert pool caching.
 func createHTTPClientWithWindowsCerts(timeout time.Duration) *http.Client {
-	rootCAs, err := loadWindowsRootCAs()
-	if err != nil {
-		GinkgoWriter.Printf("Warning: Failed to load Windows root CAs: %v. Using system defaults.\n", err)
-		return &http.Client{Timeout: timeout}
+	rootCAs := loadK2sCACertFromCluster()
+	if rootCAs == nil {
+		// Fallback to system cert pool if kubectl is not available
+		var err error
+		rootCAs, err = x509.SystemCertPool()
+		if err != nil {
+			GinkgoWriter.Printf("Warning: Failed to load system cert pool: %v. Using default TLS.\n", err)
+			return &http.Client{Timeout: timeout}
+		}
 	}
 
 	return &http.Client{
