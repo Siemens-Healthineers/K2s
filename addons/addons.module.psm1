@@ -768,7 +768,7 @@ function Add-CoreDNSHostEntry {
 		[string] $Hostname
 	)
 	$ipAddress = Get-ConfiguredIPControlPlane
-	Write-Log "[CoreDNS] Adding '$ipAddress $Hostname' to CoreDNS hosts block.." -Console
+	Write-Log "Adding '$ipAddress $Hostname' to CoreDNS hosts block.." -Console
 
 	$result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
 	if (-not $result.Success) {
@@ -807,7 +807,7 @@ function Add-CoreDNSHostEntry {
 	finally {
 		Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
 	}
-	Write-Log "[CoreDNS] '$ipAddress $Hostname' added to CoreDNS hosts block" -Console
+	Write-Log "'$ipAddress $Hostname' added to CoreDNS hosts block" -Console
 }
 
 <#
@@ -824,7 +824,7 @@ function Remove-CoreDNSHostEntry {
 		[Parameter(Mandatory = $true)]
 		[string] $Hostname
 	)
-	Write-Log "[CoreDNS] Removing '$Hostname' from CoreDNS hosts block.." -Console
+	Write-Log "Removing '$Hostname' from CoreDNS hosts block.." -Console
 
 	$result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
 	if (-not $result.Success) {
@@ -851,7 +851,7 @@ function Remove-CoreDNSHostEntry {
 	finally {
 		Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
 	}
-	Write-Log "[CoreDNS] '$Hostname' removed from CoreDNS hosts block" -Console
+	Write-Log "'$Hostname' removed from CoreDNS hosts block" -Console
 }
 
 function Update-Addons {
