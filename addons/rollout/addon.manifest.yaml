@@ -53,7 +53,7 @@ spec:
           additionalImages: []
         windows:
           curl:
-            - url: https://github.com/fluxcd/flux2/releases/download/v2.8.2/flux_2.8.2_windows_amd64.zip
+            - url: https://github.com/fluxcd/flux2/releases/download/v2.8.3/flux_2.8.3_windows_amd64.zip
               destination: bin\flux.exe
       commands:
         enable:
