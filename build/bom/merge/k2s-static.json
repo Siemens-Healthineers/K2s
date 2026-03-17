@@ -30,7 +30,7 @@
     {
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.79.0",
+      "version": "v0.81.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -47,7 +47,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.79.0",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.81.0",
       "type": "application"
     },
     {
@@ -465,9 +465,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.1/cri-containerd-cni-2.2.1-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.2/cri-containerd-cni-2.2.2-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
-      "version": "v2.2.1",
+      "version": "v2.2.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -484,13 +484,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.1",
+      "purl": "pkg:github/containerd/containerd@v2.2.2",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.1/cri-containerd-cni-2.2.1-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.2/cri-containerd-cni-2.2.2-windows-amd64.tar.gz",
       "name": "containerd-stress",
-      "version": "v2.2.1",
+      "version": "v2.2.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -507,13 +507,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.1",
+      "purl": "pkg:github/containerd/containerd@v2.2.2",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.1/cri-containerd-cni-2.2.1-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.2/cri-containerd-cni-2.2.2-windows-amd64.tar.gz",
       "name": "containerd",
-      "version": "v2.2.1",
+      "version": "v2.2.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -530,13 +530,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.1",
+      "purl": "pkg:github/containerd/containerd@v2.2.2",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.1/cri-containerd-cni-2.2.1-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.2/cri-containerd-cni-2.2.2-windows-amd64.tar.gz",
       "name": "ctr",
-      "version": "v2.2.1",
+      "version": "v2.2.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -553,7 +553,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.1",
+      "purl": "pkg:github/containerd/containerd@v2.2.2",
       "type": "application"
     },
     {
@@ -580,9 +580,9 @@
       "type": "application"
     },
     {
-      "group": "https://get.helm.sh/helm-v4.1.1-windows-amd64.zip",
+      "group": "https://get.helm.sh/helm-v4.1.3-windows-amd64.zip",
       "name": "helm",
-      "version": "v4.1.1",
+      "version": "v4.1.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -599,7 +599,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/helm/helm@v4.1.1",
+      "purl": "pkg:github/helm/helm@v4.1.3",
       "type": "application"
     }
   ],

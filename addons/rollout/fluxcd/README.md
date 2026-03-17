@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -12,13 +12,15 @@ Flux CD is a GitOps tool that automatically syncs Kubernetes cluster state with 
 
 ## Enable Flux
 
-```powershell
+```console
 k2s addons enable rollout fluxcd
 ```
 
+Enabling `rollout fluxcd` also installs the Flux CLI on the Windows host at `bin\\flux.exe`.
+
 ### Optional: Enable Webhooks (for Git push notifications)
 
-```powershell
+```console
 k2s addons enable rollout fluxcd --ingress nginx
 ```
 
@@ -26,7 +28,7 @@ Most users don't need this—Flux polls Git by default (every 1 minute).
 
 ## Check Status
 
-```powershell
+```console
 k2s addons status rollout fluxcd
 ```
 
@@ -67,7 +69,7 @@ spec:
 
 ### 3. Apply
 
-```powershell
+```console
 kubectl apply -f gitrepository.yaml
 kubectl apply -f kustomization.yaml
 ```
@@ -106,7 +108,7 @@ spec:
 
 ## Disable Flux
 
-```powershell
+```console
 k2s addons disable rollout fluxcd
 ```
 
@@ -126,6 +128,7 @@ Backup/restore is **scoped to the `rollout` namespace only**.
 
 - Flux controllers/CRDs (they are re-installed during restore via `k2s addons enable rollout fluxcd`)
 - Resources outside of the `rollout` namespace
+- Host binary `bin\\flux.exe` (installed on `enable`; in offline environments it is carried by `k2s addons export` / `k2s addons import`)
 
 ### Commands
 

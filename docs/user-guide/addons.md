@@ -75,13 +75,20 @@ Three mutually exclusive implementations for external access:
 | `traefik` | Traefik Proxy | Cloud-native reverse proxy |
 | `nginx-gw` | NGINX Gateway Fabric | Gateway API-based NGINX controller |
 
+| Enable Flag | Type | Default | Description |
+|-------------|------|---------|-------------|
+| `--omitCertMgr` | boolean | `false` | Omit cert-manager installation. Use when you want to provide your own certificate issuer. See [Certificate Management](certificate-management.md). |
+
 ```console
 k2s addons enable ingress nginx
 k2s addons enable ingress traefik
 k2s addons enable ingress nginx-gw
+
+# Without default cert-manager (bring your own issuer)
+k2s addons enable ingress nginx --omitCertMgr
 ```
 
-No additional flags. Only one ingress implementation can be active at a time.
+Only one ingress implementation can be active at a time. By default, cert-manager is installed with a self-signed CA. See [Certificate Management](certificate-management.md) for details on using external certificate authorities.
 
 ### dashboard
 
@@ -158,6 +165,8 @@ Two mutually exclusive GitOps implementations:
 | Enable Flag | Short | Type | Default | Description |
 |-------------|-------|------|---------|-------------|
 | `--ingress` | `-i` | string | `none` | Ingress controller for the webhook receiver (`none`, `nginx`, `nginx-gw`, `traefik`) |
+
+When you enable `rollout fluxcd`, *K2s* installs the host Flux CLI at `bin\\flux.exe`. In offline environments the CLI zip is bundled in the addon export and extracted on import.
 
 ```console
 k2s addons enable rollout argocd --ingress nginx
