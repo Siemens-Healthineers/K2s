@@ -796,9 +796,16 @@ function Add-CoreDNSHostEntry {
 
 	$newCorefile = $newLines -join "`n"
 	$patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
-	$patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', '-p', $patch
-	if (-not $patchResult.Success) {
-		throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+	$patchFile = [System.IO.Path]::GetTempFileName()
+	try {
+		[System.IO.File]::WriteAllText($patchFile, $patch, [System.Text.Encoding]::UTF8)
+		$patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', "--patch-file=$patchFile"
+		if (-not $patchResult.Success) {
+			throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+		}
+	}
+	finally {
+		Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
 	}
 	Write-Log "[CoreDNS] '$ipAddress $Hostname' added to CoreDNS hosts block" -Console
 }
@@ -833,9 +840,16 @@ function Remove-CoreDNSHostEntry {
 	$newCorefile = ($corefile -split "`n" | Where-Object { $_ -notmatch [regex]::Escape($Hostname) }) -join "`n"
 
 	$patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
-	$patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', '-p', $patch
-	if (-not $patchResult.Success) {
-		throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+	$patchFile = [System.IO.Path]::GetTempFileName()
+	try {
+		[System.IO.File]::WriteAllText($patchFile, $patch, [System.Text.Encoding]::UTF8)
+		$patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', "--patch-file=$patchFile"
+		if (-not $patchResult.Success) {
+			throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+		}
+	}
+	finally {
+		Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
 	}
 	Write-Log "[CoreDNS] '$Hostname' removed from CoreDNS hosts block" -Console
 }
