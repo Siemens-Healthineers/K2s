@@ -90,7 +90,7 @@ This addon installs workloads needed to secure the network communication by conf
 
 ## How to use it
 
-### Certificate Management wit cert-manager
+### Certificate Management with cert-manager
 
 Cert-manager is a powerful and widely-adopted add-on for Kubernetes that automates the management, issuance, and renewal of TLS certificates. It brings the crucial task of securing communication with Transport Layer Security (TLS) directly into the Kubernetes ecosystem, eliminating the need for manual certificate handling and reducing the risk of outages due to expired certificates.
 

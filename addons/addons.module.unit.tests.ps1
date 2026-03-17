@@ -1264,6 +1264,8 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
+        Mock -ModuleName $moduleName Get-CAIssuerName { return 'K2s Self-Signed CA' }
+        Mock -ModuleName $moduleName Get-ChildItem { return @() }
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = $script:b64 } }
         Mock -ModuleName $moduleName Import-Certificate { }
         Mock -CommandName New-TemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
@@ -1359,6 +1361,8 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
 
 Describe 'Get-CertManagerStatusProperties' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'cert-manager' } }
+        Mock -ModuleName $moduleName Test-Path { return $true }
         Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
         Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $false }
     }
