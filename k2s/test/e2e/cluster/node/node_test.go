@@ -249,9 +249,8 @@ func applyDeployments(ctx context.Context) {
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
-	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
-
 	for _, data := range deployments {
+		GinkgoWriter.Println("Waiting for deployment availability and pod readiness for <", data.DeploymentName, ">")
 		suite.Cluster().ExpectDeploymentToBeAvailable(data.DeploymentName, namespace)
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", data.DeploymentName, namespace)
 	}
