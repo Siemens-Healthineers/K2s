@@ -17,15 +17,23 @@ else {
     $isDevicePluginRunningProp.Message = "The gpu node is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable gpu-node' and 'k2s addons enable gpu-node'"
 } 
 
-$success = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout=5s').Success
-
-# DCGM requires NVML which is unavailable via dxcore — failure is non-fatal.
-$isDCGMExporterRunningProp = @{Name = 'IsDCGMExporterRunning'; Value = $success; Okay = $true }
-if ($success) {
-    $isDCGMExporterRunningProp.Message = 'The DCGM exporter is working'
+# DCGM requires NVML which is unavailable via dxcore (GPU-PV). Since K2s only
+# supports GPU-PV, DCGM-Exporter is no longer deployed by default. Check
+# whether it exists (e.g. from an older enable) and report accordingly.
+$dcgmExists = (Invoke-Kubectl -Params 'get', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--no-headers', '--ignore-not-found').Output
+$isDCGMExporterRunningProp = @{Name = 'IsDCGMExporterRunning'; Value = $false; Okay = $true }
+if ([string]::IsNullOrWhiteSpace($dcgmExists)) {
+    $isDCGMExporterRunningProp.Message = 'DCGM-Exporter is not deployed (NVML is unavailable via the dxcore/D3D12 GPU-PV path). GPU workloads are not affected.'
 }
 else {
-    $isDCGMExporterRunningProp.Message = 'The DCGM exporter is not running. This is expected as NVML cannot access the GPU through the dxcore driver path (WSL2 and Hyper-V GPU-PV). GPU workloads are not affected.'
+    $success = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout=5s').Success
+    $isDCGMExporterRunningProp.Value = $success
+    if ($success) {
+        $isDCGMExporterRunningProp.Message = 'The DCGM exporter is working'
+    }
+    else {
+        $isDCGMExporterRunningProp.Message = 'The DCGM exporter is deployed but not running. This is expected as NVML cannot access the GPU through the dxcore driver path (WSL2 and Hyper-V GPU-PV). GPU workloads are not affected. Consider disabling and re-enabling the addon to remove the unused DaemonSet.'
+    }
 } 
 
 $controlPlaneNodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role.kubernetes.io/control-plane', '-o', 'jsonpath={.items[0].metadata.name}').Output
