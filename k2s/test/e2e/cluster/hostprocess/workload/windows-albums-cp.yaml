@@ -1,31 +1,9 @@
 # SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-# 1. Anchor Pod (non-HostProcess): simple pause container to own the compartment/network.
-apiVersion: v1
-kind: Pod
-metadata:
-  name: albums-compartment-anchor
-  labels:
-    app: cp-albums-win # <== label selector used by cplauncher in part 2
-  annotations:
-    linkerd.io/inject: enabled
-spec:
-  nodeSelector:
-    kubernetes.io/os: windows
-  tolerations: # (optional) tolerate Windows specific taint
-    - key: 'OS'
-      operator: 'Equal'
-      value: 'Windows'
-      effect: 'NoSchedule'
-  containers:
-    - name: pause
-      image: shsk2s.azurecr.io/pause-win:v1.7.0
-      imagePullPolicy: IfNotPresent
-      # No custom command required: pause.exe in image keeps container alive.
-  restartPolicy: Always
----
-# 2. HostProcess Deployment launching cplauncher from the host (single replica)
+# HostProcess Deployment launching cplauncher from the host (single replica)
+# NOTE: The anchor pod (albums-compartment-anchor) is in anchor-pod.yaml and must
+#       be deployed and Ready BEFORE this deployment so cplauncher can resolve it.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -78,40 +56,45 @@ spec:
             - -NoLogo
             - -NoProfile
             - -Command
-            - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -label-timeout 30s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
+            - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace k2s -label-timeout 120s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
+          # Probes use the static Service ClusterIP to reach the health endpoints.
+          # The albumswin process listens in the anchor pod's network compartment,
+          # NOT the host compartment, so kubelet cannot probe via podIP or localhost.
+          # Using the ClusterIP avoids DNS resolution of .cluster.local which the
+          # Windows host DNS resolver cannot perform.
           readinessProbe:
             httpGet:
-              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local   # Service DNS name (same namespace)
+              host: 172.21.1.211          # static ClusterIP of albums-win-hp-app-hostprocess Service
               port: 8080
-              path: /health/readiness     
+              path: /health/readiness
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 5
             successThreshold: 1
             timeoutSeconds: 6
-          livenessProbe:  # lightweight: slower period to reduce probe load
+          livenessProbe:
             httpGet:
-              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
+              host: 172.21.1.211
               port: 8080
               path: /health/liveness
               scheme: HTTP
-            initialDelaySeconds: 30   # allow full startup & readiness first
-            periodSeconds: 30         # low frequency keeps overhead small
+            initialDelaySeconds: 30
+            periodSeconds: 30
             timeoutSeconds: 6
-            failureThreshold: 2       
+            failureThreshold: 5
             successThreshold: 1
           startupProbe:
             httpGet:
-              host: albums-win-hp-app-hostprocess.k2s.svc.cluster.local
+              host: 172.21.1.211
               port: 8080
               path: /health/startup
               scheme: HTTP
-            initialDelaySeconds: 30       # small delay before first check
-            periodSeconds: 10             # check every 5s during startup
-            failureThreshold: 2         
-            successThreshold: 1          # one successful connect is enough
-            timeoutSeconds: 5            # short timeout for TCP connect
+            initialDelaySeconds: 15       # allow cplauncher to resolve anchor pod first
+            periodSeconds: 10             # check every 10s during startup
+            failureThreshold: 18          # 15 + 18*10 = 195s budget; covers cplauncher label-timeout (120s)
+            successThreshold: 1
+            timeoutSeconds: 5
           volumeMounts:
             - name: host-var-log
               mountPath: C:/var/log

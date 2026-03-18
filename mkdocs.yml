@@ -92,7 +92,9 @@ nav:
       - k2s CLI: user-guide/k2s-cli.md
       - CLI Shortcuts: user-guide/cli-shortcuts.md
       - Addons: user-guide/addons.md
+      - GPU Node: user-guide/gpu-node.md
       - Assignment of Cluster IP Addresses for Services: user-guide/cluster-ip-addresses.md
+      - Certificate Management: user-guide/certificate-management.md
       - Adding a Container Registry: user-guide/adding-container-registry.md
       - Building a Container Image: user-guide/building-container-image.md
   - Operator Manual:
@@ -107,10 +109,10 @@ nav:
       - Adding K2s Users: op-manual/adding-k2s-users.md
       - Stopping K2s: op-manual/stopping-k2s.md
       - Upgrading K2s: op-manual/upgrading-k2s.md
+      - Compacting VHDX Storage: op-manual/compacting-vhdx-storage.md
       - Hook System: op-manual/hook-system.md
       - Backing Up and Restoring the System: op-manual/backing-up-restoring-system.md
       - Backing Up and Restoring Addons: op-manual/backing-up-restoring-addons.md
-      - Configuring HTTPProxy Service: op-manual/configuring-httpproxy-service.md
       - External DNS: op-manual/external-dns.md
       - Extending K2s cluster: op-manual/extending-k2s-cluster.md
       - Secure Host Access: op-manual/secure-host-access.md
