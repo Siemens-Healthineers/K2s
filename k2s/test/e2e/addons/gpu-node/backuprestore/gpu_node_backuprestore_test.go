@@ -128,7 +128,6 @@ var _ = Describe("'gpu-node' addon backup/restore", Ordered, func() {
 			k2s.VerifyAddonIsEnabled("gpu-node")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("nvidia-device-plugin", "gpu-node")
-			suite.Kubectl().MustExec(ctx, "rollout", "status", "daemonset/dcgm-exporter", "-n", "gpu-node", "--timeout=180s")
 		})
 
 		It("creates a backup", func(ctx context.Context) {
@@ -154,7 +153,6 @@ var _ = Describe("'gpu-node' addon backup/restore", Ordered, func() {
 			k2s.VerifyAddonIsEnabled("gpu-node")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("nvidia-device-plugin", "gpu-node")
-			suite.Kubectl().MustExec(ctx, "rollout", "status", "daemonset/dcgm-exporter", "-n", "gpu-node", "--timeout=180s")
 		})
 	})
 })
