@@ -497,6 +497,32 @@ function Set-InstalledClusterName {
     Set-ConfigValue -Path $SetupJsonFile -Key 'ClusterName' -Value $Value
 }
 
+<#
+.SYNOPSIS
+    Returns the cloud image configuration for a supported distribution.
+.DESCRIPTION
+    Looks up the cloudImage block (urlRoot, urlFile) for the given OS key
+    from the supportedWorkerOS array in cfg/config.json.
+    Throws if the OS is not listed or has no cloudImage entry.
+.PARAMETER OS
+    The distribution key (e.g. 'debian12', 'debian13').
+#>
+function Get-DistributionCloudImage {
+    param (
+        [string] $OS = $(throw 'Argument missing: OS')
+    )
+    foreach ($entry in $rootConfig.supportedWorkerOS) {
+        if ($entry.os -eq $OS) {
+            if (-not $entry.cloudImage) {
+                throw "No 'cloudImage' configuration found for OS '$OS' in cfg/config.json"
+            }
+            return $entry.cloudImage
+        }
+    }
+    $supported = ($rootConfig.supportedWorkerOS | ForEach-Object { $_.os }) -join ', '
+    throw "OS '$OS' not found in supportedWorkerOS in cfg/config.json. Supported: $supported"
+}
+
 Export-ModuleMember -Function Get-ConfigValue,
 Set-ConfigValue,
 Get-ConfiguredKubeConfigDir,
@@ -555,4 +581,5 @@ Get-ConfiguredClusterNetworkPrefix,
 Get-MirrorRegistries,
 Get-ClusterName,
 Get-InstalledClusterName,
-Set-InstalledClusterName
+Set-InstalledClusterName,
+Get-DistributionCloudImage
