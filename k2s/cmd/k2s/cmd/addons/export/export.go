@@ -33,23 +33,45 @@ var exportCommandExample = `
 
   # Export all addons to specified folder
   k2s addons export -d C:\tmp
+
+  # Export addon without container images
+  k2s addons export registry -d C:\tmp --omit-images
+
+  # Export addon without packages
+  k2s addons export registry -d C:\tmp --omit-packages
+
+  # Export addon without container images and packages
+  k2s addons export registry -d C:\tmp --omit-images --omit-packages
 `
 
 const (
-	directoryLabel   = "directory"
-	defaultDirectory = ""
-	errLinuxOnlyMsg  = "linux-only"
+	directoryLabel    = "directory"
+	defaultDirectory  = ""
+	errLinuxOnlyMsg   = "linux-only"
+	omitImagesLabel   = "omit-images"
+	omitPackagesLabel = "omit-packages"
 )
 
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "export ADDON",
-		Short:   "Export addon",
+		Use:   "export ADDON",
+		Short: "Export addon as OCI artifact",
+		Long: `Export one or more addons as an OCI-compliant artifact containing configuration,
+manifests, scripts, container images, and packages.
+
+Use --omit-images to skip pulling and packaging container images (Linux and Windows),
+producing a lighter artifact with only config, manifests, scripts, and packages layers.
+
+Use --omit-packages to skip downloading and packaging debian, linux, and windows packages.
+
+Both flags can be combined to export only configuration, manifests, and scripts.`,
 		Example: exportCommandExample,
 		RunE:    runExport,
 	}
 
 	cmd.Flags().StringP(directoryLabel, "d", defaultDirectory, "Directory for addon export")
+	cmd.Flags().Bool(omitImagesLabel, false, "Omit container images from export")
+	cmd.Flags().Bool(omitPackagesLabel, false, "Omit packages (debian, linux, windows) from export")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -138,6 +160,22 @@ func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, par
 
 	if outputFlag {
 		params = append(params, " -ShowLogs")
+	}
+
+	omitImages, err := cmd.Flags().GetBool(omitImagesLabel)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag: %s", omitImagesLabel)
+	}
+	if omitImages {
+		params = append(params, " -OmitImages")
+	}
+
+	omitPackages, err := cmd.Flags().GetBool(omitPackagesLabel)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag: %s", omitPackagesLabel)
+	}
+	if omitPackages {
+		params = append(params, " -OmitPackages")
 	}
 
 	return
