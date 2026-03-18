@@ -6,11 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: dashboard
-  description: Dashboard for Kubernetes
+  description: Headlamp - Kubernetes Dashboard (kubernetes-sigs)
 spec:
   implementations:
     - name: dashboard
-      description: Dashboard for Kubernetes
+      description: Headlamp - Kubernetes Dashboard (kubernetes-sigs)
       commands:
         enable:
           cli:
@@ -27,16 +27,16 @@ spec:
                     - traefik
               - name: enable-metrics
                 default: false
-                description: Enable metrics in dashboard
+                description: Enable metrics addon for use with dashboard
             examples:
               - cmd: k2s addons enable dashboard
-                comment: Enable dashboard in k2s
+                comment: Enable Headlamp dashboard in k2s
               - cmd: k2s addons enable dashboard --ingress traefik
-                comment: Enable dashboard in k2s with ingress traefik
-              - cmd: k2s addons enable dashboard --ingress nginx-gateway-fabric
-                comment: Enable dashboard in k2s with ingress nginx gateway fabric
+                comment: Enable Headlamp dashboard in k2s with ingress traefik
+              - cmd: k2s addons enable dashboard --ingress nginx-gw
+                comment: Enable Headlamp dashboard in k2s with ingress nginx gateway fabric
               - cmd: k2s addons enable dashboard --ingress traefik --enable-metrics
-                comment: Enable dashboard in k2s with ingress traefik and metrics server
+                comment: Enable Headlamp dashboard in k2s with ingress traefik and metrics server
           script:
             subPath: Enable.ps1
             parameterMappings:

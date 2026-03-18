@@ -42,7 +42,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	if suite == nil {
+	if suite == nil || k2s == nil {
+		GinkgoWriter.Println(">>> TEST: AfterSuite - suite or k2s is nil (BeforeSuite failed), skipping cleanup")
 		return
 	}
 
@@ -112,7 +113,7 @@ var _ = Describe("'dashboard' addon backup/restore", Ordered, func() {
 
 			k2s.VerifyAddonIsEnabled("dashboard")
 
-			suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-web", "dashboard")
+			suite.Cluster().ExpectDeploymentToBeAvailable("headlamp", "dashboard")
 		})
 
 		It("creates a backup", func(ctx context.Context) {
@@ -132,7 +133,7 @@ var _ = Describe("'dashboard' addon backup/restore", Ordered, func() {
 
 			k2s.VerifyAddonIsDisabled("dashboard")
 
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "headlamp", "dashboard")
 		})
 
 		It("restores from backup successfully", func(ctx context.Context) {
@@ -140,8 +141,7 @@ var _ = Describe("'dashboard' addon backup/restore", Ordered, func() {
 
 			k2s.VerifyAddonIsEnabled("dashboard")
 
-			suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-api", "dashboard")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-web", "dashboard")
+			suite.Cluster().ExpectDeploymentToBeAvailable("headlamp", "dashboard")
 		})
 	})
 })

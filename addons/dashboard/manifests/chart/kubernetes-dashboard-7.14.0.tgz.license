@@ -1,3 +1,6 @@
-SPDX-FileCopyrightText: Copyright 2017 The Kubernetes Author
+SPDX-FileCopyrightText: This file references the kubernetes-dashboard-7.14.0.tgz chart which is superseded.
+The Headlamp chart (headlamp-<version>.tgz) must be placed in this directory.
+Headlamp is licensed under Apache-2.0.
+See https://github.com/kubernetes-sigs/headlamp for the Headlamp Helm chart license.
 
 SPDX-License-Identifier: Apache-2.0

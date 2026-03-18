@@ -1,42 +1,34 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
-# The kubernetes-dashboard service exposes an angular application on port 443
-# The angular application is design in such a way that it constructs the
-# relative paths based on the value stored in the x-forwarded-prefix header
-# of the request. So if the application is exposed on another path than root,
-# this header must have as value that path.
+# Headlamp service exposes a React application on port 4466 (HTTP).
+# The application is configured with --base-url=/dashboard so it correctly
+# constructs relative paths when served under the /dashboard/ prefix.
+# No path rewriting is needed: the /dashboard/ prefix is preserved when
+# forwarding to Headlamp because Headlamp expects it via --base-url.
 
-# this ingress will be merged with ingress provided in:
+# This ingress will be merged with ingress provided in:
 # addons/ingress/nginx/manifests/cluster-local-ingress.yaml
-# and exposes the kubernetes-dashboard angular application on:
+# and exposes the Headlamp dashboard application on:
 # https://k2s.cluster.local/dashboard/
 # The certificate is taken from k8s secret 'k2s.cluster.local-tls'
 # (see addons/ingress/nginx/manifests/cluster-local-ingress.yaml)
-# NOTE: there is a glitch in dashboard,
-# causing the trailing / in bot URLs to be needed, i.e.
-# https://k2s.cluster.local/dashboard will not work!
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dashboard-nginx-cluster-local
   namespace: dashboard
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-    nginx.ingress.kubernetes.io/x-forwarded-prefix: "/dashboard/"
 spec:
   ingressClassName: nginx
   rules:
     - host: k2s.cluster.local
       http:
         paths:
-          - path: /dashboard/(.*)
-            pathType: ImplementationSpecific
+          - path: /dashboard/
+            pathType: Prefix
             backend:
               service:
-                name: kubernetes-dashboard-kong-proxy
+                name: headlamp
                 port:
-                  number: 443
+                  number: 4466

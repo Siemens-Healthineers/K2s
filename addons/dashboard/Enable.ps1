@@ -6,21 +6,20 @@
 
 <#
 .SYNOPSIS
-Installs Kubernetes Dashboard UI
+Installs Headlamp - Kubernetes Dashboard UI
 
 .DESCRIPTION
-Dashboard is a web-based Kubernetes user interface. You can use Dashboard to:
+Headlamp is a lightweight, extensible Kubernetes web UI (CNCF sandbox project under kubernetes-sigs).
+You can use Headlamp to:
 - get an overview of applications running on your cluster
-- deploy containerized applications to a Kubernetes cluster
+- browse and manage Kubernetes resources
 - troubleshoot your containerized application
 
-Dashboard also provides information on the state of Kubernetes resources in your cluster and on any errors that may have occurred.
-
 .EXAMPLE
-Enable Dashboard in k2s
+Enable Headlamp dashboard in k2s
 powershell <installation folder>\addons\dashboard\Enable.ps1
 
-Enable Dashboard in k2s with nginx addon and metrics server addon
+Enable Headlamp dashboard in k2s with nginx addon and metrics server addon
 powershell <installation folder>\addons\dashboard\Enable.ps1 -Ingress "nginx" -EnableMetricsServer
 #>
 
@@ -49,7 +48,7 @@ Import-Module $clusterModule, $infraModule, $addonsModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Write-Log 'Checking cluster status' -Console
+Write-Log '[Dashboard] Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -64,7 +63,7 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne 'k2s') {
-    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'dashboard' can only be enabled for 'k2s' setup type."  
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'dashboard' can only be enabled for 'k2s' setup type."
     Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
 }
@@ -77,7 +76,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' })) -eq $
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
-    
+
     Write-Log $errMsg -Error
     exit 1
 }
@@ -90,19 +89,15 @@ if ($EnableMetricsServer) {
     Enable-MetricsServer
 }
 
-Write-Log 'Installing dashboard from helm chart' -Console
-$dashboardChartDirectory = Get-DashboardChartDirectory
-(Invoke-Kubectl -Params 'create', 'namespace', 'dashboard').Output | Write-Log
+Write-Log '[Dashboard] Installing Headlamp' -Console
+$headlampManifests = "$PSScriptRoot\manifests\headlamp"
 
-# apply the chart
-$dashboardChart = "$dashboardChartDirectory/kubernetes-dashboard-7.14.0.tgz"
-$dashboardValues = "$dashboardChartDirectory/values.yaml"
-(Invoke-Helm -Params 'install', 'kubernetes-dashboard', $dashboardChart, '--namespace', 'dashboard', '-f', $dashboardValues).Output | Write-Log 
+(Invoke-Kubectl -Params 'apply', '-k', $headlampManifests).Output | Write-Log
 
-Write-Log 'Checking Dashboard status' -Console
-$dashboardStatus = Wait-ForDashboardAvailable
-if ($dashboardStatus -ne $true) {
-    $errMsg = "All dashboard pods could not become ready. Please use kubectl describe for more details.`nInstallation of Kubernetes dashboard failed."
+Write-Log '[Dashboard] Checking Headlamp status' -Console
+$headlampReady = Wait-ForHeadlampAvailable
+if ($headlampReady -ne $true) {
+    $errMsg = "Headlamp pod could not become ready. Please use kubectl describe for more details.`nInstallation of Headlamp dashboard failed."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -113,17 +108,15 @@ if ($dashboardStatus -ne $true) {
     exit 1
 }
 
-$dashboardServiceAccount = "$dashboardChartDirectory/dashboard-service-account.yaml"
-(Invoke-Kubectl -Params 'apply' , '-f', $dashboardServiceAccount).Output | Write-Log
 
-&"$PSScriptRoot\Update.ps1"
+&"$PSScriptRoot\Update.ps1" -PreferredIngress $(if ($Ingress -eq 'none') { 'auto' } else { $Ingress })
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
-Write-DashboardUsageForUser
+Write-HeadlampUsageForUser
 Write-BrowserWarningForUser
 
-Write-Log 'Installation of Kubernetes dashboard finished.' -Console
+Write-Log '[Dashboard] Installation of Headlamp dashboard finished.' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

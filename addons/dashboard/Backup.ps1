@@ -55,7 +55,7 @@ function Fail([string]$errMsg, [string]$code = 'addon-backup-failed') {
     exit 1
 }
 
-Write-Log "[DashboardBackup] Backing up addon 'dashboard'" -Console
+Write-Log "[DashboardBackup] Backing up addon 'dashboard' (Headlamp)" -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {

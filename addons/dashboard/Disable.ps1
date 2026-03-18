@@ -6,12 +6,12 @@
 
 <#
 .SYNOPSIS
-Uninstalls Kubernetes Dashboard UI
+Uninstalls Headlamp Kubernetes Dashboard UI
 
 .DESCRIPTION
 
 .EXAMPLE
-Disable Dashboard
+Disable Headlamp dashboard
 powershell <installation folder>\addons\dashboard\Disable.ps1
 #>
 
@@ -32,7 +32,7 @@ Import-Module $clusterModule, $infraModule, $addonsModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Write-Log 'Checking cluster status' -Console
+Write-Log '[Dashboard] Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -45,7 +45,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dashboard', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' })) -ne $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' })) -ne $true) {
     $errMsg = "Addon 'dashboard' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -53,22 +53,23 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dashboard', '--ignore
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
-    
+
     Write-Log $errMsg -Error
     exit 1
 }
 
-Write-Log 'Uninstalling Kubernetes dashboard' -Console
+Write-Log '[Dashboard] Uninstalling Headlamp dashboard' -Console
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'dashboard' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dashboard' })
 Remove-IngressForNginxGateway -Addon ([pscustomobject] @{Name = 'dashboard' })
 
-Write-Log 'Uninstalling Kubernetes dashboard workloads, please wait ...' -Console
-(Invoke-Helm -Params 'uninstall', 'kubernetes-dashboard', '-n', 'dashboard').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'namespace', 'dashboard').Output | Write-Log
+Write-Log '[Dashboard] Uninstalling Headlamp workloads, please wait ...' -Console
+$headlampManifests = "$PSScriptRoot\manifests\headlamp"
+(Invoke-Kubectl -Params 'delete', '-k', $headlampManifests, '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'namespace', 'dashboard', '--ignore-not-found').Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
-Write-Log 'Uninstallation of Kubernetes dashboard finished' -Console
+Write-Log '[Dashboard] Uninstallation of Headlamp dashboard finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

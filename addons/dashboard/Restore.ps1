@@ -9,13 +9,12 @@
 Restores dashboard configuration from a backup staging folder
 
 .DESCRIPTION
-This restore is configs-only and does not attempt to restore Helm-managed dashboard resources.
-It restores:
+This restore is metadata-only. It restores:
 - ingress integration choice (none/nginx/traefik/nginx-gw)
 - whether metrics addon should be enabled
 
-After applying the desired ingress integration, it runs Update.ps1 to (re)generate ephemeral
-auth wiring (bearer-token middleware/patch) and service-mesh patches based on current cluster state.
+It ensures the dashboard addon is enabled, then runs Update.ps1 to
+re-apply ingress integration and service-mesh patches based on current cluster state.
 
 .PARAMETER BackupDir
 Directory containing extracted backup artifacts (including backup.json).
@@ -54,7 +53,7 @@ function Fail([string]$errMsg, [string]$code = 'addon-restore-failed') {
     exit 1
 }
 
-Write-Log "[DashboardRestore] Restoring addon 'dashboard'" -Console
+Write-Log "[DashboardRestore] Restoring addon 'dashboard' (Headlamp)" -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -119,10 +118,10 @@ try {
     Write-Log "[DashboardRestore] Applying dashboard ingress integration (preferred: $desiredIngress)" -Console
     &"$PSScriptRoot\Update.ps1" -PreferredIngress $desiredIngress
 
-    Write-Log "[DashboardRestore] Waiting for dashboard to become ready" -Console
-    $ok = Wait-ForDashboardAvailable
+    Write-Log "[DashboardRestore] Waiting for Headlamp to become ready" -Console
+    $ok = Wait-ForHeadlampAvailable
     if (-not $ok) {
-        throw "Dashboard pods did not become ready after restore."
+        throw "Headlamp dashboard pods did not become ready after restore."
     }
 }
 catch {

@@ -8,111 +8,102 @@ SPDX-License-Identifier: MIT
 
 ## Introduction
 
-The `dashboard` addon provides a Kubernetes Dashboard which is a general purpose, web-based UI for Kubernetes clusters. It allows users to manage applications runing in the cluster and troubleshoot them, as well as manage the cluster itself.
+The `dashboard` addon provides **Headlamp** — a lightweight, extensible Kubernetes web UI developed under the `kubernetes-sigs` organization (CNCF sandbox project). It allows users to browse and manage cluster resources, inspect workloads, view logs, and troubleshoot containerized applications.
+
+> **Note:** The previous `kubernetes/dashboard` project has been retired and archived at `github.com/kubernetes-retired/dashboard`. Headlamp is the recommended replacement.
 
 ## Getting started
 
-The Kubernetes dashboard can be enabled using the k2s CLI by running the following command:
+The Headlamp dashboard can be enabled using the k2s CLI:
 
-```
+```console
 k2s addons enable dashboard
 ```
 
-### Intergration with metrics addon
+### Integration with metrics addon
 
-By enabling the metrics addon, the dashboard addon can present the collected metrics in the dashboard UI.
+By enabling the metrics addon, Headlamp can display resource usage metrics (CPU/memory) for pods and nodes.
 
-The following commands enable the metrics addon and the dashboard addon:
-
-```
+```console
 k2s addons enable metrics
 k2s addons enable dashboard
 ```
 
-The metrics addon can be enabled while enabling the dashboard addon using the following command:
+Or enable both together:
 
-```
+```console
 k2s addons enable dashboard --enable-metrics
 ```
 
-### Integration with ingress nginx, ingress traefik and ingress nginx-gw addons
+### Integration with ingress addons
 
-The dashboard addon can be integrated with either the ingress nginx, the ingress traefik, or the ingress nginx-gw addon so that it can be exposed outside the cluster.
+The dashboard addon can be integrated with the ingress nginx, ingress traefik, or ingress nginx-gw addon to expose Headlamp outside the cluster.
 
-For example, the dashboard can be enabled along with ingress traefik addon using the following command:
-
-```
+```console
 k2s addons enable dashboard --ingress traefik
 ```
 
-Similarly, the dashboard can be enabled along with ingress nginx-gw addon using the following command:
-
+```console
+k2s addons enable dashboard --ingress nginx
 ```
+
+```console
 k2s addons enable dashboard --ingress nginx-gw
 ```
 
-_Note:_ The above commands shall enable the respective ingress addon if it is not enabled.
-
-The dashboard addon can be integrated with either the ingress nginx, the ingress traefik, or the ingress nginx-gw addon so that it can be exposed outside the cluster.
-
-For example, the dashboard can be enabled along with ingress traefik addon using the following command:
-
-```
-k2s addons enable dashboard --ingress traefik
-```
-
-Similarly, the dashboard can be enabled along with ingress nginx-gw addon using the following command:
-
-```
-k2s addons enable dashboard --ingress nginx-gw
-```
-
-_Note:_ The above commands shall enable the respective ingress addon if it is not enabled.
+_Note:_ The above commands will enable the respective ingress addon if it is not already enabled.
 
 ## Accessing the dashboard
 
-The dashboard UI can be accessed via the following methods.
-
 ### Access using ingress
 
-To access dashboard via ingress, the ingress nginx, the ingress traefik, or the ingress nginx-gw addon has to be enabled.
-Once the addons are enabled, the dashboard UI can be accessed at the following link: https://k2s.cluster.local/dashboard/
+Once an ingress addon is enabled, the Headlamp UI is accessible at:
 
-_Note:_ If a proxy server is configured in the Windows Proxy settings, please add the hosts **k2s.cluster.local** as a proxy override.
+```
+https://k2s.cluster.local/dashboard/
+```
+
+_Note:_ If a proxy server is configured in Windows Proxy settings, add `k2s.cluster.local` as a proxy override.
 
 ### Access using port-forwarding
 
-To access dashboard via port-forwarding, the following command can be executed:
-
-```
-kubectl -n dashboard port-forward svc/kubernetes-dashboard 8443:443
+```console
+kubectl port-forward svc/headlamp -n dashboard 4466:4466
 ```
 
-In this case, the dashboard UI can be accessed at the following link: <https://localhost:8443>
+The Headlamp UI will be accessible at: <http://localhost:4466/dashboard/>
 
-_Note:_ It is not important to use port 8443 during port-forwarding. Any available port can be used.
+_Note:_ Any available local port can be substituted for `4466`.
 
-### Login to dashboard
+### Authentication
 
-When the dashboard UI is opened in the browser, please press the **Skip** button. This allows the users to begin using the dashboard without generating the access token or using the KUBECONFIG file for login.
+When you open Headlamp for the first time, a **token login screen is displayed — this is expected and normal**. Headlamp requires a bearer token for cluster access.
+
+To generate a ServiceAccount token and log in:
+
+```console
+kubectl -n dashboard create token headlamp --duration 24h
+```
+
+Copy the printed token and paste it into the Headlamp login screen, then click **Authenticate**.
+
+> **Tip:** The `headlamp` ServiceAccount has `cluster-admin` rights, so it can see all cluster resources.
 
 ## Disable dashboard
 
-The dashboard can be disabled using the k2s CLI by running the following command:
-
-```
+```console
 k2s addons disable dashboard
 ```
 
-_Note:_ The above command will only disable dashboard addon. If other addons were enabled while enabling the dashboard addon, they will not be disabled.
+_Note:_ Only the dashboard addon is disabled. Other addons enabled alongside it (e.g. ingress) are not disabled.
 
 ## Backup and restore
 
 The dashboard addon supports backup and restore via the `k2s` CLI.
 
-Backup stores restore-relevant settings (currently metadata-only):
-- selected ingress integration (`none`/`nginx`/`traefik`/`nginx-gw`)
-- whether the `metrics` addon was enabled
+Backup stores restore-relevant metadata:
+- Selected ingress integration (`none`/`nginx`/`traefik`/`nginx-gw`)
+- Whether the `metrics` addon was enabled
 
 ```console
 k2s addons backup dashboard
@@ -121,5 +112,5 @@ k2s addons restore dashboard -f C:\Temp\k2s\Addons\dashboard_backup_YYYYMMDD_HHM
 
 ## Further Reading
 
-- Kubernetes Dashboard Docs on GitHub: <https://github.com/kubernetes/dashboard/tree/master/docs>
-
+- Headlamp Documentation: <https://headlamp.dev/docs/latest/>
+- Headlamp GitHub: <https://github.com/kubernetes-sigs/headlamp>
