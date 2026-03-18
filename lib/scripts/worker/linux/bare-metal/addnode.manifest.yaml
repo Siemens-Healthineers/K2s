@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+metadata:
+  name: add-linux-worker-node-bare-metal
+  displayName: Add Linux worker node (bare-metal)
+  summary: Adds an existing Linux machine to an installed K2s cluster as a worker node.
+
+spec:
+  script:
+    path: lib/scripts/worker/linux/bare-metal/Add.ps1
+    entry: Add.ps1
+  host:
+    os: windows
+    requiresAdministrator: true
+  target:
+    role: worker
+    os: linux
+    provisioning: bare-metal
+  parameters:
+    - name: UserName
+      type: string
+      required: true
+      description: SSH username used to connect to the Linux machine.
+    - name: IpAddress
+      type: string
+      required: true
+      description: IPv4 address of the Linux machine to join.
+    - name: NodeName
+      type: string
+      required: false
+      description: Optional hostname override. If set, it must match the remote hostname.
+    - name: WindowsHostIpAddress
+      type: string
+      required: false
+      description: Optional host-side gateway IP used for route setup on the remote node.
+    - name: Proxy
+      type: string
+      required: false
+      description: Optional HTTP proxy for remote package and image preparation.
+    - name: ShowLogs
+      type: switch
+      required: false
+      description: Emits logs to the console while the script runs.
+  prerequisites:
+    - K2s cluster is already installed and running on the Windows host.
+    - SSH connectivity from the Windows host to the target Linux machine is available.
+    - The Windows host public key exists locally and is present in ~/.ssh/authorized_keys on the target machine.
+    - The target machine is not already part of the cluster.
+    - The target Linux distribution is supported by K2s worker provisioning.
+  behavior:
+    autoDetection:
+      - Detects the remote hostname and uses it as node name.
+      - Detects the installed Linux distribution before provisioning.
+      - Derives the Windows host gateway IP automatically when WindowsHostIpAddress is not supplied.
+    postInstall:
+      - Joins the node to the cluster.
+      - Starts the worker node and obtains the worker Pod CIDR.
+  examples:
+    - description: Add a Linux worker with explicit username and IP address.
+      command: k2s node add --ip-addr 192.168.114.10 --username remote --name k2s-nodepkg-debian13
+    - description: Run the underlying PowerShell script directly.
+      command: .\lib\scripts\worker\linux\bare-metal\Add.ps1 -UserName remote -IpAddress 192.168.114.10 -NodeName k2s-nodepkg-debian13 -ShowLogs
