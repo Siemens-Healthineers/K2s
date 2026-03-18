@@ -14,11 +14,16 @@ GPU workloads are scheduled via the [NVIDIA Device Plugin](https://github.com/NV
 
 ## Prerequisites
 
+- **WSL (Windows Subsystem for Linux)** must be installed on the Windows host. The WSL infrastructure provides the GPU paravirtualization library (`libdxcore.so`) that is required by both the Hyper-V and WSL2 hosting variants. No Linux distribution is needed:
+  ```console
+  wsl --install --no-distribution
+  ```
+
 - **NVIDIA drivers** must be installed on the Windows host before enabling the addon.
   Download from: [https://www.nvidia.com/Download/index.aspx](https://www.nvidia.com/Download/index.aspx)
 
 !!! note
-    A reboot of the Windows host may be required after driver installation.
+    A reboot of the Windows host may be required after installing either component.
 
 - For **WSL2 hosting variant**: after installing or updating NVIDIA drivers you must restart the K2s cluster before enabling the addon:
   ```console

@@ -67,11 +67,30 @@ $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
 $tunnelProc = $null
 $sshErrFile = $null
 
-if (!(Test-Path -Path 'C:\Windows\System32\lxss\lib\libdxcore.so')) {
-    $errMsg = "It seems that the needed Nvidia drivers are not installed.`nPlease install them from the following URL: https://www.nvidia.com/Download/index.aspx"
+# Resolve WSL GPU translation library directory.
+# Newer WSL 2.x (shipped as a Store app) places libdxcore.so under
+# 'C:\Program Files\WSL\lib', while older versions used
+# 'C:\Windows\System32\lxss\lib'. NVIDIA driver files (libcuda.so,
+# libnvidia-*.so, nvidia-smi, etc.) are always installed into lxss\lib.
+$wslLibDir = $null
+$nvidiaLibDir = 'C:\Windows\System32\lxss\lib'
+if (Test-Path -Path 'C:\Program Files\WSL\lib\libdxcore.so') {
+    $wslLibDir = 'C:\Program Files\WSL\lib'
+}
+elseif (Test-Path -Path "$nvidiaLibDir\libdxcore.so") {
+    $wslLibDir = $nvidiaLibDir
+}
+
+if ($null -eq $wslLibDir) {
+    $errMsg = "The WSL GPU paravirtualization library (libdxcore.so) was not found.`n" +
+        "This file is provided by the WSL infrastructure (not the NVIDIA driver).`n" +
+        "Please ensure both are installed:`n" +
+        "  1. WSL:          wsl --install --no-distribution`n" +
+        "  2. NVIDIA driver: https://www.nvidia.com/Download/index.aspx`n" +
+        'After installation, reboot the machine before enabling this addon.'
 
     if ($WSL) {
-        $errMsg += "`nAfter Nvidia driver installation you need to reinstall the cluster for the changes to take effect."
+        $errMsg += "`nAfter installation you also need to reinstall the cluster for the changes to take effect."
     }
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -83,6 +102,8 @@ if (!(Test-Path -Path 'C:\Windows\System32\lxss\lib\libdxcore.so')) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+Write-Log "[gpu-node] WSL lib directory resolved to: $wslLibDir" -Console
 
 if ($WSL) {
     $success = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute '[ -f /usr/lib/wsl/lib/libdxcore.so ]').Success
@@ -203,7 +224,14 @@ else {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .nvidiadrivers/lib').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .nvidiadrivers/drivers').Output | Write-Log
 
-    Copy-ToControlPlaneViaSSHKey 'C:\Windows\System32\lxss\lib\*' '.nvidiadrivers/lib'
+    # Copy NVIDIA driver files from lxss\lib (always present after driver install).
+    Copy-ToControlPlaneViaSSHKey "$nvidiaLibDir\*" '.nvidiadrivers/lib'
+    # If WSL's libdxcore.so lives in a separate directory (newer WSL 2.x),
+    # copy those files too so the VM has the complete GPU-PV stack.
+    if ($wslLibDir -ne $nvidiaLibDir) {
+        Write-Log "[gpu-node] Merging WSL GPU libs from '$wslLibDir'" -Console
+        Copy-ToControlPlaneViaSSHKey "$wslLibDir\*" '.nvidiadrivers/lib'
+    }
     Copy-ToControlPlaneViaSSHKey $drivers '.nvidiadrivers/drivers'
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /usr/lib/wsl').Output | Write-Log
