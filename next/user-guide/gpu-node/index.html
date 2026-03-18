@@ -2834,28 +2834,35 @@ SPDX-License-Identifier: MIT
 <hr />
 <h2 id="prerequisites">Prerequisites</h2>
 <ul>
-<li><strong>NVIDIA drivers</strong> must be installed on the Windows host before enabling the addon.
-  Download from: <a href="https://www.nvidia.com/Download/index.aspx">https://www.nvidia.com/Download/index.aspx</a></li>
+<li>
+<p><strong><abbr title="Windows Subsystem for Linux">WSL</abbr> (Windows Subsystem for Linux)</strong> must be installed on the Windows host. The <abbr title="Windows Subsystem for Linux">WSL</abbr> infrastructure provides the GPU paravirtualization library (<code>libdxcore.so</code>) that is required by both the Hyper-V and WSL2 hosting variants. No Linux distribution is needed:
+  <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">wsl --install --no-distribution</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>NVIDIA drivers</strong> must be installed on the Windows host before enabling the addon.
+  Download from: <a href="https://www.nvidia.com/Download/index.aspx">https://www.nvidia.com/Download/index.aspx</a></p>
+</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>A reboot of the Windows host may be required after driver installation.</p>
+<p>A reboot of the Windows host may be required after installing either component.</p>
 </div>
 <ul>
 <li>For <strong>WSL2 hosting variant</strong>: after installing or updating NVIDIA drivers you must restart the K2s cluster before enabling the addon:
-  <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s stop</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">k2s start</span>
+  <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s stop</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">k2s start</span>
 </code></pre></div></li>
 </ul>
 <hr />
 <h2 id="enabling-the-addon">Enabling the Addon</h2>
 <h3 id="exclusive-gpu-access-default">Exclusive GPU access (default)</h3>
 <p>Each pod gets exclusive access to the physical GPU:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s addons enable gpu-node</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s addons enable gpu-node</span>
 </code></pre></div>
 <h3 id="gpu-time-slicing-shared-access">GPU time-slicing (shared access)</h3>
 <p>To allow multiple pods to share the GPU simultaneously, use the <code>--time-slices</code> flag:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s addons enable gpu-node --time-slices 4</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons enable gpu-node --time-slices 4</span>
 </code></pre></div>
 <p>This configures the NVIDIA device plugin to advertise <code>4</code> virtual GPU slots backed by one physical GPU. Any integer from <code>2</code> to <code>16</code> is accepted. CUDA time-slicing handles multiplexing transparently — pods see <code>nvidia.com/gpu: 1</code> each and execute concurrently.</p>
 <div class="admonition warning">
@@ -2864,7 +2871,7 @@ SPDX-License-Identifier: MIT
 </div>
 <hr />
 <h2 id="checking-status">Checking Status</h2>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons status gpu-node</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons status gpu-node</span>
 </code></pre></div>
 <p>The status output reports:</p>
 <table>
@@ -2901,80 +2908,80 @@ SPDX-License-Identifier: MIT
 <h2 id="hosting-a-gpu-pod">Hosting a GPU Pod</h2>
 <h3 id="pod-spec">Pod spec</h3>
 <p>Pods request GPU access by declaring a resource limit on <code>nvidia.com/gpu</code>. No <code>runtimeClassName</code> is required:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-gpu-workload</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">restartPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Never</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">containers</span><span class="p">:</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">workload</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your-cuda-image&gt;</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="nt">resources</span><span class="p">:</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">        </span><span class="nt">limits</span><span class="p">:</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">          </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-gpu-workload</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">restartPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Never</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">containers</span><span class="p">:</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">workload</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your-cuda-image&gt;</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">      </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">        </span><span class="nt">limits</span><span class="p">:</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">          </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 </code></pre></div>
 <p>The NVIDIA Device Plugin allocates a GPU slot and injects the device into the container via CDI annotations. The container gains access to <code>/dev/dxg</code> and the NVIDIA driver libraries under <code>/usr/lib/wsl/</code>.</p>
 <h3 id="targeting-the-gpu-node-explicitly">Targeting the GPU node explicitly</h3>
 <p>The control-plane node is automatically labeled <code>gpu=true</code> and <code>accelerator=nvidia</code> when the addon is enabled. Use these labels in <code>nodeSelector</code> to pin GPU workloads to it:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">nodeSelector</span><span class="p">:</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">gpu</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">accelerator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvidia</span>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">nodeSelector</span><span class="p">:</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">gpu</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">accelerator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvidia</span>
 </code></pre></div>
 <p>This is useful in multi-node K2s setups where you want to ensure the pod lands on the GPU node.</p>
 <h3 id="requesting-multiple-slots-time-slicing-only">Requesting multiple slots (time-slicing only)</h3>
 <p>When time-slicing is enabled with e.g. <code>--time-slices 4</code>, you can schedule up to 4 pods each requesting one slot:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">resources</span><span class="p">:</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">limits</span><span class="p">:</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">   </span><span class="c1"># each pod requests one slot; up to 4 can run concurrently</span>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">limits</span><span class="p">:</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">   </span><span class="c1"># each pod requests one slot; up to 4 can run concurrently</span>
 </code></pre></div>
 <p>Requesting more than 1 <code>nvidia.com/gpu</code> per pod is not supported with time-slicing.</p>
 <hr />
 <h2 id="sample-cuda-workload">Sample CUDA Workload</h2>
 <p>The following pod runs the NVIDIA vectorAdd CUDA sample to verify GPU allocation and compute access:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpu-test</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">restartPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Never</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">containers</span><span class="p">:</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpu-test</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">      </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda11.7.1</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">      </span><span class="nt">imagePullPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">IfNotPresent</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">      </span><span class="nt">resources</span><span class="p">:</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">        </span><span class="nt">limits</span><span class="p">:</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">          </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpu-test</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="nt">restartPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Never</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="nt">containers</span><span class="p">:</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpu-test</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">      </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda11.7.1</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">      </span><span class="nt">imagePullPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">IfNotPresent</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">      </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">        </span><span class="nt">limits</span><span class="p">:</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">          </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 </code></pre></div>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">kubectl apply -f gpu-test.yaml</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">kubectl wait pod gpu-test --for=jsonpath=&#39;{.status.phase}&#39;=Succeeded --timeout=120s</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="go">kubectl logs gpu-test</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="go">kubectl delete pod gpu-test</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">kubectl apply -f gpu-test.yaml</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">kubectl wait pod gpu-test --for=jsonpath=&#39;{.status.phase}&#39;=Succeeded --timeout=120s</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="go">kubectl logs gpu-test</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="go">kubectl delete pod gpu-test</span>
 </code></pre></div>
 <p>Expected output:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>[Vector addition of 50000 elements]
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>Copy input data from the host memory to the CUDA device
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>CUDA kernel launch with 196 blocks of 256 threads
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>Copy output data from the CUDA device to the host memory
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>Test PASSED
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>[Vector addition of 50000 elements]
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>Copy input data from the host memory to the CUDA device
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>CUDA kernel launch with 196 blocks of 256 threads
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>Copy output data from the CUDA device to the host memory
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>Test PASSED
 </code></pre></div>
 <p>This works on both Hyper-V GPU-PV and WSL2 setups.</p>
 <hr />
 <h2 id="offline-usage">Offline Usage</h2>
 <p>In air-gapped environments where the Linux <abbr title="Virtual Machine">VM</abbr> cannot reach the internet, use the export/import workflow:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="gp"># </span>On<span class="w"> </span>a<span class="w"> </span>machine<span class="w"> </span>with<span class="w"> </span>internet<span class="w"> </span>access:
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="go">k2s addons export gpu-node -d C:\Exports</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="gp"># </span>Transfer<span class="w"> </span>the<span class="w"> </span>exported<span class="w"> </span>.oci.tar<span class="w"> </span>file<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>restricted<span class="w"> </span>host,<span class="w"> </span><span class="k">then</span>:
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="go">k2s addons import gpu-node -f C:\Exports\gpu-node_*.oci.tar</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="gp"># </span>Now<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>normally<span class="w"> </span>—<span class="w"> </span>no<span class="w"> </span>internet<span class="w"> </span>required:
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="go">k2s addons enable gpu-node</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gp"># </span>On<span class="w"> </span>a<span class="w"> </span>machine<span class="w"> </span>with<span class="w"> </span>internet<span class="w"> </span>access:
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="go">k2s addons export gpu-node -d C:\Exports</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gp"># </span>Transfer<span class="w"> </span>the<span class="w"> </span>exported<span class="w"> </span>.oci.tar<span class="w"> </span>file<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>restricted<span class="w"> </span>host,<span class="w"> </span><span class="k">then</span>:
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">k2s addons import gpu-node -f C:\Exports\gpu-node_*.oci.tar</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="gp"># </span>Now<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>normally<span class="w"> </span>—<span class="w"> </span>no<span class="w"> </span>internet<span class="w"> </span>required:
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="go">k2s addons enable gpu-node</span>
 </code></pre></div>
 <hr />
 <h2 id="disabling-the-addon">Disabling the Addon</h2>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s addons disable gpu-node</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s addons disable gpu-node</span>
 </code></pre></div>
 <p>This removes the Device Plugin and DCGM Exporter DaemonSets, uninstalls the NVIDIA Container Toolkit packages from the Linux <abbr title="Virtual Machine">VM</abbr>, reverts the GRUB boot entry to the default kernel (Hyper-V only), removes the GPU partition adapter from the <abbr title="Virtual Machine">VM</abbr> (Hyper-V only), and removes the <code>gpu=true</code> / <code>accelerator=nvidia</code> node labels.</p>
 <hr />
@@ -2988,8 +2995,8 @@ SPDX-License-Identifier: MIT
 </thead>
 <tbody>
 <tr>
-<td><strong>DCGM / nvidia-smi full NVML</strong></td>
-<td>NVML is unavailable on the dxcore/D3D12 driver path used by both WSL2 and Hyper-V GPU-PV. <code>nvidia-smi</code> works for UUID queries but NVML-dependent tools (DCGM metrics) do not function. CUDA workloads are unaffected.</td>
+<td><strong>DCGM-Exporter not deployed</strong></td>
+<td>NVML is unavailable on the dxcore/D3D12 driver path used by both WSL2 and Hyper-V GPU-PV. Because K2s only supports GPU-PV, the DCGM-Exporter DaemonSet is <strong>not deployed</strong> (it would crash-loop). <code>nvidia-smi</code> works for basic UUID queries. CUDA workloads are unaffected.</td>
 </tr>
 <tr>
 <td><strong><code>nvidia-smi</code> reports limited info</strong></td>
