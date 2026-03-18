@@ -26,6 +26,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/json"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 
@@ -125,12 +126,11 @@ func resolveInstallDirForDelta(exeDir string) (string, error) {
 	slog.Info("Delta package detected, resolving actual install directory")
 
 	// Read install folder from setup.json at the well-known ProgramData location,
-	// consistent with Start-ClusterUpdate.ps1 behavior
-	systemDrive := os.Getenv("SystemDrive")
-	if systemDrive == "" {
-		systemDrive = "C:"
-	}
-	setupConfigPath := filepath.Join(systemDrive, "ProgramData", "k2s", "setup.json")
+	// consistent with Start-ClusterUpdate.ps1 behavior.
+	// Note: must use host.SystemDrive() (returns "C:\") instead of os.Getenv("SystemDrive")
+	// (returns "C:") because Go's filepath.Join does not add a separator after a bare
+	// drive letter — see https://github.com/golang/go/issues/26953
+	setupConfigPath := filepath.Join(host.SystemDrive(), "ProgramData", "k2s", "setup.json")
 
 	setup, err := json.FromFile[setupJson](setupConfigPath)
 	if err != nil {
