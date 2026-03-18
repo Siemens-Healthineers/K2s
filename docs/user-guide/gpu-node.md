@@ -198,7 +198,7 @@ This removes the Device Plugin and DCGM Exporter DaemonSets, uninstalls the NVID
 
 | Limitation | Details |
 |------------|---------|
-| **DCGM / nvidia-smi full NVML** | NVML is unavailable on the dxcore/D3D12 driver path used by both WSL2 and Hyper-V GPU-PV. `nvidia-smi` works for UUID queries but NVML-dependent tools (DCGM metrics) do not function. CUDA workloads are unaffected. |
+| **DCGM-Exporter not deployed** | NVML is unavailable on the dxcore/D3D12 driver path used by both WSL2 and Hyper-V GPU-PV. Because K2s only supports GPU-PV, the DCGM-Exporter DaemonSet is **not deployed** (it would crash-loop). `nvidia-smi` works for basic UUID queries. CUDA workloads are unaffected. |
 | **`nvidia-smi` reports limited info** | Only UUID queries work reliably. Power draw, temperature, and utilization queries are not available via dxcore. |
 | **Single GPU only** | Only one physical GPU is exposed to the VM per K2s node. Multi-GPU passthrough is not supported. |
 | **Hyper-V requirement** | GPU-PV (Hyper-V path) requires Windows 10 version 20H1 (build 19041) or later and a GPU with a WDDM 2.9+ driver. |

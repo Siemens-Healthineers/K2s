@@ -487,14 +487,12 @@ if (!$gpuRegistered) {
     exit 1
 }
 
-Write-Log 'Installing DCGM-Exporter' -Console
-(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout', '10s')
-Write-Log $kubectlCmd.Output
-if (!$kubectlCmd.Success) {
-    # DCGM requires NVML which is unavailable via dxcore — non-fatal.
-    Write-Log '[GPU] DCGM-Exporter could not be started. This is expected: NVML cannot access the GPU via the dxcore/D3D12 path (WSL2 and Hyper-V GPU-PV). GPU workloads will still function correctly.' -Console
-}
+# DCGM-Exporter is NOT deployed. It requires the native NVML library which is
+# unavailable on the dxcore/D3D12 driver path used by both WSL2 and Hyper-V
+# GPU-PV. Deploying it would only produce a crash-looping pod. The manifest
+# is kept in manifests/dcgm-exporter.yaml for potential future bare-metal
+# passthrough support.
+Write-Log '[GPU] Skipping DCGM-Exporter: NVML is not available via the dxcore/D3D12 GPU-PV path. GPU workloads are not affected.' -Console
 
 if ($TimeSlices -gt 1) {
     Write-Log "[gpu-node] GPU time-slicing enabled: $TimeSlices virtual GPU slots available (pods share 1 physical GPU)" -Console
