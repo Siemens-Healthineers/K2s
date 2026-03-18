@@ -933,6 +933,8 @@ You're not viewing the latest release version.
       
         
       
+        
+      
     
     
     
@@ -1511,6 +1513,34 @@ You're not viewing the latest release version.
     
   
     Backing Up and Restoring Addons
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gitops-addon-delivery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitOps Addon Delivery
   
 
     
@@ -2675,15 +2705,24 @@ SPDX-License-Identifier: MIT
 <p>Or export all addons:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s addons export -d &lt;export-output-directory&gt;</span>
 </code></pre></div></p>
+<p>To export without container images (produces a lighter artifact):
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images</span>
+</code></pre></div></p>
+<p>To export without packages (Debian, Linux, and Windows packages):
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-packages</span>
+</code></pre></div></p>
+<p>Both flags can be combined to export only configuration, manifests, and scripts:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images --omit-packages</span>
+</code></pre></div></p>
 <h3 id="addons-import">Addons Import</h3>
 <p>To inspect all export options, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s addons import -h</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s addons import -h</span>
 </code></pre></div></p>
 <p>Either specify one or more addons to import from the offline package:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s addons import registry -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons import registry -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
 </code></pre></div></p>
 <p>Or import all addons from the offline package:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s addons import -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s addons import -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
 </code></pre></div></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

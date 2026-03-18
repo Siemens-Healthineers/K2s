@@ -1,0 +1,4084 @@
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/gitops-addon-delivery/">
+      
+      
+        <link rel="prev" href="../backing-up-restoring-addons/">
+      
+      
+        <link rel="next" href="../external-dns/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+    
+    
+      
+        <title>GitOps Addon Delivery - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        
+        <link rel="stylesheet" href="../../assets/external/fonts.googleapis.com/css.49ea35f2.css">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#gitops-addon-delivery" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+You're not viewing the latest release version.
+<a href="../../..">
+    <strong>Click here to go to latest release.</strong>
+</a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("../.."),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-header__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
+      
+  <img src="../../assets/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            K2s - Kubernetes distribution for Windows & Linux workloads
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              GitOps Addon Delivery
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Siemens-Healthineers/K2s/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../quickstart/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/hosting-variants/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../os-support/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Operator Manual
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../dev-guide/contributing/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../security/security-features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Security
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../troubleshooting/diagnostics/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Troubleshooting
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-nav__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
+      
+  <img src="../../assets/logo.png" alt="logo">
+
+    </a>
+    K2s - Kubernetes distribution for Windows & Linux workloads
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Siemens-Healthineers/K2s/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../quickstart/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/hosting-variants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosting Variants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/k2s-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    k2s CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cli-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/addons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Addons
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/gpu-node/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Node
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cluster-ip-addresses/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Assignment of Cluster IP Addresses for Services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/certificate-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Certificate Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/adding-container-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a Container Registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/building-container-image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building a Container Image
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operator Manual
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operator Manual
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../os-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supported OS Versions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting K2s
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../creating-offline-package/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Creating Offline Package
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../delta-packages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delta Packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installing-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installing K2s
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../starting-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Starting K2s
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../checking-k2s-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checking K2s Status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adding-k2s-users/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding K2s Users
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stopping-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stopping K2s
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upgrading-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading K2s
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compacting-vhdx-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compacting VHDX Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hook-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hook System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backing-up-restoring-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backing Up and Restoring the System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backing-up-restoring-addons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backing Up and Restoring Addons
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitOps Addon Delivery
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitOps Addon Delivery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#placeholder-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placeholder conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-fluxcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using FluxCD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-argocd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using ArgoCD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disabling-addon-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disabling Addon-Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removing-addon-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing Addon-Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#delivering-addons-via-gitops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delivering Addons via GitOps
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Delivering Addons via GitOps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#export-addon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export addon
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#push-to-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Push to registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#register-addon-for-fluxcd-sync-one-time-per-addon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Register addon for FluxCD sync (one-time per addon)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How It Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oci-artifact-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OCI Artifact Layers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addon-sync-directory-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Addon-Sync Directory Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxcd-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FluxCD Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#argocd-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ArgoCD Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sync-addonsps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync-Addons.ps1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-after-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Happens After Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#registry-url-and-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registry URL and Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#polling-interval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Polling Interval
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxcd-custom-layer-selector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FluxCD: Custom Layer Selector
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#check-addon-sync-namespace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check addon-sync namespace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxcd-check-ocirepository-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FluxCD: Check OCIRepository status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxcd-check-kustomization-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FluxCD: Check Kustomization status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#argocd-check-poller-cronjob-and-recent-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ArgoCD: Check poller CronJob and recent Jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-sync-job-logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check sync Job logs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify-synced-addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify synced addons
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#argocd-check-poller-logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ArgoCD: Check poller logs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Use Cases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Use Cases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#use-case-a-new-addon-becomes-available-via-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use case A -- New addon becomes available via sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-case-b-updated-addon-version-is-published" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use case B -- Updated addon version is published
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#offline-vs-gitops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline vs GitOps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../external-dns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External DNS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extending-k2s-cluster/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extending K2s cluster
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../secure-host-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secure Host Access
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../networking-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Networking Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../running-apps-as-hostprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running Native Windows Apps (HostProcess & Compartments)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../uninstalling-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Uninstalling K2s
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../signcatalog-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sign K2s package
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-signing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Signing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../dev-guide/contributing/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_1" id="__nav_5_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/cla-corporate-contributor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate Contributors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/cla-individual-contributor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual Contributors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/licensing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Licensing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/powershell-dev/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PowerShell Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/building-locally/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Locally
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/automated-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Automated Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/tags-labels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tags/Labels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/updating-documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Updating Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/submitting-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Submitting Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/hosting-variants-features-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosting Variants Features Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture & Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/linux-development/linux-development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linux Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Security
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/security-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Troubleshooting
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/known-issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known Issues
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#placeholder-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placeholder conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-fluxcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using FluxCD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-argocd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using ArgoCD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disabling-addon-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disabling Addon-Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removing-addon-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing Addon-Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#delivering-addons-via-gitops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delivering Addons via GitOps
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Delivering Addons via GitOps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#export-addon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export addon
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#push-to-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Push to registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#register-addon-for-fluxcd-sync-one-time-per-addon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Register addon for FluxCD sync (one-time per addon)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How It Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oci-artifact-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OCI Artifact Layers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addon-sync-directory-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Addon-Sync Directory Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxcd-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FluxCD Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#argocd-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ArgoCD Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sync-addonsps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync-Addons.ps1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-after-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Happens After Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#registry-url-and-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registry URL and Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#polling-interval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Polling Interval
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxcd-custom-layer-selector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FluxCD: Custom Layer Selector
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#check-addon-sync-namespace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check addon-sync namespace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxcd-check-ocirepository-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FluxCD: Check OCIRepository status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxcd-check-kustomization-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FluxCD: Check Kustomization status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#argocd-check-poller-cronjob-and-recent-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ArgoCD: Check poller CronJob and recent Jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-sync-job-logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check sync Job logs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify-synced-addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify synced addons
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#argocd-check-poller-logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ArgoCD: Check poller logs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Use Cases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Use Cases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#use-case-a-new-addon-becomes-available-via-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use case A -- New addon becomes available via sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-case-b-updated-addon-version-is-published" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use case B -- Updated addon version is published
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#offline-vs-gitops" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline vs GitOps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/gitops-addon-delivery.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<!--
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+
+SPDX-License-Identifier: MIT
+-->
+
+<h1 id="gitops-addon-delivery">GitOps Addon Delivery</h1>
+<p>K2s supports delivering addons to a cluster using GitOps workflows via <strong>FluxCD</strong> or <strong>ArgoCD</strong>. Addons exported as OCI artifacts can be pushed to an OCI registry, and the GitOps tooling automatically syncs them into the cluster — making them discoverable by <code>k2s addons ls</code> and ready for enablement via <code>k2s addons enable</code>.</p>
+<h2 id="overview">Overview</h2>
+<p>The GitOps addon delivery flow:</p>
+<ol>
+<li><strong>Export</strong> addons as OCI artifacts using <code>k2s addons export</code></li>
+<li><strong>Push</strong> the OCI Image Layout artifact to a registry using <code>oras copy</code></li>
+<li><strong>GitOps tool detects</strong> the new artifact digest in the registry</li>
+<li><strong>Sync runs</strong> on the Windows node to extract addon layers into the K2s addons directory</li>
+<li><strong>Addons appear</strong> in <code>k2s addons ls</code> and can be enabled normally</li>
+</ol>
+<div class="admonition important">
+<p class="admonition-title">Sync updates the addon catalog -- it does not auto-enable addon workloads</p>
+<p>Addon-sync extracts definition files (manifests, scripts, config) into the local addon catalog on the Windows host. Container workloads are <strong>not</strong> started automatically. After sync completes, run <code>k2s addons enable &lt;ADDON_NAME&gt;</code> to deploy the addon's Kubernetes workloads.</p>
+</div>
+<p>Only layers 0-3 (config, manifests, charts, scripts) are synced. Image layers (4/5) and package layers (6) are <strong>omitted</strong> -- container images are pulled directly from the registry when the addon is enabled.</p>
+<h2 id="placeholder-conventions">Placeholder conventions</h2>
+<p>This guide uses the following placeholders:</p>
+<ul>
+<li><code>&lt;REGISTRY_HOST&gt;</code> -- reachable OCI registry host (for example, <code>registry.example.local:5000</code>)</li>
+<li><code>&lt;REGISTRY_URL&gt;</code> -- <code>oci://&lt;REGISTRY_HOST&gt;</code></li>
+<li><code>&lt;ADDON_NAME&gt;</code> -- addon repository name under <code>addons/</code></li>
+<li><code>&lt;TAG&gt;</code> -- addon artifact tag (typically the exported addon version)</li>
+</ul>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>K2s must be installed and running</li>
+<li>A reachable OCI-compatible registry must be available to producer and consumer nodes</li>
+<li><code>k2s addons enable registry</code> is optional for local K2s dev/test setups</li>
+<li>The <strong>rollout</strong> addon must be enabled with either the <code>fluxcd</code> or the <code>argocd</code> implementation</li>
+</ul>
+<h2 id="setup">Setup</h2>
+<h3 id="using-fluxcd">Using FluxCD</h3>
+<p>Use any reachable OCI registry. For local K2s dev/test only, you can enable the bundled registry addon:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s addons enable registry</span>
+</code></pre></div>
+<p>Then enable the FluxCD rollout implementation:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s addons enable rollout fluxcd</span>
+</code></pre></div>
+<p>By default, the rollout enable script deploys the <strong>addon-sync infrastructure</strong> into the <code>k2s-addon-sync</code> namespace. This installs:</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Namespace</code> <code>k2s-addon-sync</code></td>
+<td>Isolates addon-sync workloads</td>
+</tr>
+<tr>
+<td><code>ServiceAccount</code> <code>addon-sync-processor</code></td>
+<td>Identity for HostProcess Jobs</td>
+</tr>
+<tr>
+<td><code>ConfigMap</code> <code>addon-sync-config</code></td>
+<td>Registry <abbr title="Uniform Resource Locator">URL</abbr>, K2s install dir, insecure flag</td>
+</tr>
+<tr>
+<td><code>ConfigMap</code> <code>addon-sync-script</code></td>
+<td>Contains <code>Sync-Addons.ps1</code> (generated from file)</td>
+</tr>
+</tbody>
+</table>
+<p>Per-addon FluxCD resources (<code>OCIRepository addon-sync-&lt;ADDON_NAME&gt;</code> and <code>Kustomization addon-sync-&lt;ADDON_NAME&gt;</code>) are <strong>not</strong> deployed during setup. They are registered once per addon by applying the per-addon templates (see <a href="#register-addon-for-fluxcd-sync-one-time-per-addon">Register addon for FluxCD sync</a>).</p>
+<p><strong>How FluxCD triggers sync:</strong></p>
+<ol>
+<li>Each addon has its own <code>OCIRepository addon-sync-&lt;ADDON_NAME&gt;</code> watching <code>addons/&lt;ADDON_NAME&gt;</code> every minute -- Flux selects the highest matching semver tag via <code>ref.semver: "&gt;=0.0.0-0"</code> and detects when the selected revision changes</li>
+<li>When a new revision is selected, Flux extracts the <strong>manifests layer</strong> from the artifact (using <code>layerSelector</code> with media type <code>application/vnd.k2s.addon.manifests.v1.tar+gzip</code>)</li>
+<li>The manifests layer contains a <code>gitops-sync/</code> directory with a <code>sync-job.yaml</code> -- a HostProcess Job template injected by <code>Export.ps1</code> during export, with the addon name embedded</li>
+<li>The per-addon <code>Kustomization addon-sync-&lt;ADDON_NAME&gt;</code> applies <code>gitops-sync/sync-job.yaml</code>, which creates a HostProcess Job on the Windows node</li>
+<li>The Job runs <code>Sync-Addons.ps1 -AddonName &lt;ADDON_NAME&gt;</code> which pulls only the specific addon artifact and extracts layers 0-3 to the addons directory</li>
+</ol>
+<div class="admonition success">
+<p class="admonition-title">No global trigger required</p>
+<p>Each addon has its own <code>OCIRepository</code> watching only its repository (<code>addons/&lt;ADDON_NAME&gt;</code>).
+Pushing a new versioned tag only triggers reconciliation for that specific addon, not all addons at once.
+FluxCD polls every minute (<code>interval: 1m</code> on <code>OCIRepository</code>). The ArgoCD poller CronJob runs every 5 minutes — a deliberate trade-off for simplicity (no separate Linux pod, no <abbr title="Kubernetes">K8s</abbr> <abbr title="Application Programming Interface">API</abbr> state).</p>
+</div>
+<div class="admonition info">
+<p class="admonition-title">The export timestamp</p>
+<p><code>Export.ps1</code> replaces a timestamp placeholder in the Job annotation on each export. Combined with Flux's <code>force: true</code> setting, this ensures the Job is recreated every time the artifact changes.</p>
+</div>
+<h3 id="using-argocd">Using ArgoCD</h3>
+<p>Use any reachable OCI registry. For local K2s dev/test only, you can enable the bundled registry addon:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s addons enable registry</span>
+</code></pre></div>
+<p>Then enable the ArgoCD rollout implementation:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons enable rollout argocd</span>
+</code></pre></div>
+<p>The addon-sync infrastructure deployed for ArgoCD includes:</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Kind</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>k2s-addon-sync</code></td>
+<td><code>Namespace</code></td>
+<td>Isolates addon-sync workloads</td>
+</tr>
+<tr>
+<td><code>addon-sync-poller</code></td>
+<td><code>CronJob</code></td>
+<td>Windows HostProcess, runs <code>Sync-Addons.ps1 -CheckDigest true</code> every 5 minutes</td>
+</tr>
+<tr>
+<td><code>addon-sync-processor</code></td>
+<td><code>ServiceAccount</code></td>
+<td>Identity for the poller CronJob (no <abbr title="Kubernetes">K8s</abbr> <abbr title="Application Programming Interface">API</abbr> <abbr title="Role-Based Access Control">RBAC</abbr> needed — state on host filesystem)</td>
+</tr>
+<tr>
+<td><code>addon-sync-config</code></td>
+<td><code>ConfigMap</code></td>
+<td>Registry <abbr title="Uniform Resource Locator">URL</abbr>, K2s install dir, insecure flag</td>
+</tr>
+<tr>
+<td><code>addon-sync-script</code></td>
+<td><code>ConfigMap</code></td>
+<td>Contains <code>Sync-Addons.ps1</code> (generated from file)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>How ArgoCD triggers sync:</strong></p>
+<p>ArgoCD cannot natively watch raw OCI artifact layers (unlike FluxCD's <code>OCIRepository</code>). Instead, the <code>addon-sync-poller</code> CronJob polls the registry directly, running as a Windows HostProcess at the same privilege level as the sync Jobs:</p>
+<ol>
+<li>A <strong>consumer manually pushes</strong> an OCI artifact to <code>addons/&lt;ADDON_NAME&gt;</code> in the registry</li>
+<li>The <code>addon-sync-poller</code> CronJob runs every 5 minutes on the Windows node</li>
+<li><code>Sync-Addons.ps1 -CheckDigest true</code> calls <code>oras repo ls</code> to discover <code>addons/*</code> repositories, selects the tag per repo (<code>latest</code> if present, otherwise the highest available semver tag), and fetches the manifest digest</li>
+<li>The digest is compared against a per-addon file at <code>$K2sInstallDir\addons\.addon-sync-digests\&lt;ADDON_NAME&gt;</code> on the Windows host filesystem</li>
+<li>If the digest changed, the script pulls the artifact via <code>oras</code> and extracts layers 0-3 (config, manifests, Helm charts, scripts) to the K2s addons directory; the digest file is updated</li>
+<li>After the sync completes, the addon appears in <code>k2s addons ls</code></li>
+<li>The <strong>consumer manually enables</strong> the addon with <code>k2s addons enable &lt;ADDON_NAME&gt;</code> to deploy its workloads</li>
+</ol>
+<div class="admonition important">
+<p class="admonition-title">Push and enable are manual consumer steps</p>
+<p>The poller automates the download and extraction of addon artifacts. Pushing artifacts to the registry <strong>and</strong> enabling addons are both deliberate actions taken by the consumer.</p>
+</div>
+<h3 id="disabling-addon-sync">Disabling Addon-Sync</h3>
+<p>To deploy FluxCD or ArgoCD without the addon-sync infrastructure:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons enable rollout fluxcd --addon-sync=false</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">k2s addons enable rollout argocd --addon-sync=false</span>
+</code></pre></div>
+<p>This only deploys the GitOps tool itself. You can add addon-sync later by applying the kustomize overlay directly:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">kubectl apply -k &lt;K2S_INSTALL_DIR&gt;\addons\common\manifests\addon-sync\fluxcd\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">kubectl apply -k &lt;K2S_INSTALL_DIR&gt;\addons\common\manifests\addon-sync\argocd\</span>
+</code></pre></div>
+<h3 id="removing-addon-sync">Removing Addon-Sync</h3>
+<p>When the rollout addon is disabled, the <code>k2s-addon-sync</code> namespace and all its resources are automatically cleaned up:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s addons disable rollout fluxcd</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="go">k2s addons disable rollout argocd</span>
+</code></pre></div>
+<h2 id="delivering-addons-via-gitops">Delivering Addons via GitOps</h2>
+<h3 id="export-addon">Export addon</h3>
+<p>Export one or more addons by name. For GitOps use, add <code>--omit-images</code> and <code>--omit-packages</code> since containers pull images directly from the registry:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s addons export monitoring -d C:\exports --omit-images --omit-packages</span>
+</code></pre></div>
+<p>Export multiple addons:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s addons export registry ingress nginx -d C:\exports --omit-images --omit-packages</span>
+</code></pre></div>
+<p>Export all addons (omit addon names):</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s addons export -d C:\exports --omit-images --omit-packages</span>
+</code></pre></div>
+<p>The export produces a file like <code>K2s-&lt;TAG&gt;-addons-*.oci.tar</code> -- an OCI Image Layout archive containing <code>oci-layout</code>, <code>index.json</code>, and <code>blobs/sha256/</code>.</p>
+<h3 id="push-to-registry">Push to registry</h3>
+<p>The exported <code>.oci.tar</code> contains an OCI Image Layout at its root. The export process tags the artifact with the addon version (from <code>addon.manifest.yaml</code>).</p>
+<p>The registry layout expected by addon-sync uses a <strong>per-addon repository</strong> structure:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>addons/&lt;ADDON_NAME&gt;:&lt;TAG&gt;    &lt;- per-addon artifact (versioned tag, e.g. v1.2.3)
+</code></pre></div>
+<p>Addon-sync discovers all repos matching <code>addons/*</code> automatically (ArgoCD).
+For FluxCD, each addon's <code>OCIRepository addon-sync-&lt;ADDON_NAME&gt;</code> selects the highest semver-matching tag in <code>addons/&lt;ADDON_NAME&gt;</code> via <code>ref.semver: "&gt;=0.0.0-0"</code>. A single versioned push is sufficient -- no <code>latest</code> tag is needed.</p>
+<p>To find the tag, inspect the exported <code>index.json</code>:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nv">$tarFile</span> <span class="p">=</span> <span class="nb">Get-Item</span> <span class="n">C</span><span class="p">:\</span><span class="n">exports</span><span class="p">\</span><span class="n">K2s</span><span class="p">-*</span><span class="n">-addons</span><span class="p">-*.</span><span class="n">oci</span><span class="p">.</span><span class="n">tar</span> <span class="p">|</span> <span class="nb">Select-Object</span> <span class="n">-First</span> <span class="n">1</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="c"># Extract and check the tag</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="nv">$tempDir</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$env:TEMP</span> <span class="s2">&quot;oci-inspect&quot;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">mkdir</span> <span class="nv">$tempDir</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="n">tar</span> <span class="n">-xf</span> <span class="nv">$tarFile</span><span class="p">.</span><span class="n">FullName</span> <span class="n">-C</span> <span class="nv">$tempDir</span> <span class="n">oci-layout</span> <span class="n">index</span><span class="p">.</span><span class="n">json</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="nv">$index</span> <span class="p">=</span> <span class="nb">Get-Content</span> <span class="s2">&quot;$tempDir\index.json&quot;</span> <span class="p">|</span> <span class="nb">ConvertFrom-Json</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="nv">$tag</span> <span class="p">=</span> <span class="nv">$index</span><span class="p">.</span><span class="n">manifests</span><span class="p">[</span><span class="n">0</span><span class="p">].</span><span class="n">annotations</span><span class="p">.</span><span class="s1">&#39;org.opencontainers.image.ref.name&#39;</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="nb">Remove-Item</span> <span class="nv">$tempDir</span> <span class="n">-Recurse</span> <span class="n">-Force</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="nb">Write-Host</span> <span class="s2">&quot;Exported tag: $tag&quot;</span>
+</code></pre></div>
+<p>Push to the per-addon repository with the versioned tag:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">$orasExe</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$k2sInstallDir</span> <span class="s1">&#39;bin\oras.exe&#39;</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c"># One push -- FluxCD semver selection and ArgoCD tag selection both pick it up automatically</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="p">&amp;</span> <span class="nv">$orasExe</span> <span class="nb">copy </span><span class="p">-</span><span class="n">-from-oci-layout</span> <span class="s2">&quot;${tarFile}:$tag&quot;</span> <span class="p">-</span><span class="n">-to-plain-http</span> <span class="p">&lt;</span><span class="n">REGISTRY_HOST</span><span class="p">&gt;/</span><span class="n">addons</span><span class="p">/&lt;</span><span class="n">ADDON_NAME</span><span class="p">&gt;:</span><span class="nv">$tag</span>
+</code></pre></div>
+<p>Complete example with the monitoring addon:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nv">$orasExe</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$k2sInstallDir</span> <span class="s1">&#39;bin\oras.exe&#39;</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="c"># Export monitoring addon (omit images/packages for GitOps)</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">k2s</span> <span class="n">addons</span> <span class="n">export</span> <span class="n">monitoring</span> <span class="n">-d</span> <span class="n">C</span><span class="p">:\</span><span class="n">exports</span> <span class="p">-</span><span class="n">-omit-images</span> <span class="p">-</span><span class="n">-omit-packages</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="c"># Find the tar and extract its version tag</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="nv">$tar</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Get-ChildItem</span> <span class="n">C</span><span class="p">:\</span><span class="n">exports</span> <span class="n">-Filter</span> <span class="p">*</span><span class="n">monitoring</span><span class="p">*.</span><span class="n">oci</span><span class="p">.</span><span class="n">tar</span><span class="p">)[</span><span class="n">0</span><span class="p">].</span><span class="n">FullName</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="nv">$tempDir</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$env:TEMP</span> <span class="s2">&quot;oci-inspect&quot;</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="n">mkdir</span> <span class="nv">$tempDir</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="n">tar</span> <span class="n">-xf</span> <span class="nv">$tar</span> <span class="n">-C</span> <span class="nv">$tempDir</span> <span class="n">oci-layout</span> <span class="n">index</span><span class="p">.</span><span class="n">json</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="nv">$tag</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Get-Content</span> <span class="s2">&quot;$tempDir\index.json&quot;</span> <span class="p">|</span> <span class="nb">ConvertFrom-Json</span><span class="p">).</span><span class="n">manifests</span><span class="p">[</span><span class="n">0</span><span class="p">].</span><span class="n">annotations</span><span class="p">.</span><span class="s1">&#39;org.opencontainers.image.ref.name&#39;</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="nb">Remove-Item</span> <span class="nv">$tempDir</span> <span class="n">-Recurse</span> <span class="n">-Force</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="c"># One push -- versioned tag is sufficient</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="p">&amp;</span> <span class="nv">$orasExe</span> <span class="nb">copy </span><span class="p">-</span><span class="n">-from-oci-layout</span> <span class="s2">&quot;${tar}:$tag&quot;</span> <span class="p">-</span><span class="n">-to-plain-http</span> <span class="p">&lt;</span><span class="n">REGISTRY_HOST</span><span class="p">&gt;/</span><span class="n">addons</span><span class="p">/&lt;</span><span class="n">ADDON_NAME</span><span class="p">&gt;:</span><span class="nv">$tag</span>
+</code></pre></div>
+<div class="admonition success">
+<p class="admonition-title">FluxCD sync triggers automatically</p>
+<p>Once pushed, FluxCD's per-addon <code>OCIRepository</code> selects the new highest semver tag and creates a sync Job for that addon. No <code>latest</code> tag push is required.</p>
+</div>
+<div class="admonition info">
+<p class="admonition-title">Tag format</p>
+<p>Export.ps1 tags artifacts using the version from <code>addon.manifest.yaml</code> (e.g., <code>v1.0.0</code>). The source tag is required for <code>--from-oci-layout</code>, but you can retag to <code>latest</code> (or any tag) at the destination registry.</p>
+</div>
+<div class="admonition success">
+<p class="admonition-title">Verified approach</p>
+<p>This <code>--from-oci-layout</code> method works directly with the <code>.oci.tar</code> file without requiring full extraction. Only <code>index.json</code> needs to be inspected to discover the tag.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Multiple addons in one artifact</p>
+<p>If you exported multiple addons with different implementations, the OCI Image Index contains multiple manifests. The addon-sync system processes all manifests in the index automatically.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Why not <code>oras push</code>?</p>
+<p><code>oras push</code> uploads individual files as opaque blobs, which loses the multi-layer OCI structure (layer media types, manifest references, per-addon annotations, etc.). Always use <code>oras copy --from-oci-layout</code> to preserve the complete artifact structure that <code>Sync-Addons.ps1</code> and FluxCD's <code>layerSelector</code> depend on.</p>
+</div>
+<h3 id="register-addon-for-fluxcd-sync-one-time-per-addon">Register addon for FluxCD sync (one-time per addon)</h3>
+<p>For FluxCD, each addon needs its own <code>OCIRepository</code> and <code>Kustomization</code> in <code>k2s-addon-sync</code>.
+These are created once per addon and remain in the cluster across pushes -- subsequent pushes
+of new versioned tags to <code>addons/&lt;ADDON_NAME&gt;</code> are detected automatically without re-applying these resources.</p>
+<p>Template files are located at:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>&lt;K2S_INSTALL_DIR&gt;\addons\common\manifests\addon-sync\fluxcd\per-addon\
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>  ocirepository-template.yaml
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>  kustomization-template.yaml
+</code></pre></div>
+<p>Substitute placeholders and apply:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nv">$k2sInstallDir</span> <span class="p">=</span> <span class="p">(</span><span class="n">kubectl</span> <span class="n">get</span> <span class="n">configmap</span> <span class="n">addon-sync-config</span> <span class="n">-n</span> <span class="n">k2s-addon-sync</span> <span class="n">-o</span> <span class="n">jsonpath</span><span class="p">=</span><span class="s1">&#39;{.data.K2S_INSTALL_DIR}&#39;</span><span class="p">).</span><span class="n">Trim</span><span class="p">()</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="nv">$addonName</span>     <span class="p">=</span> <span class="s1">&#39;&lt;ADDON_NAME&gt;&#39;</span> <span class="c"># addon folder name</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="nv">$registryHost</span>  <span class="p">=</span> <span class="s1">&#39;&lt;REGISTRY_HOST&gt;&#39;</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="nv">$insecure</span>      <span class="p">=</span> <span class="s1">&#39;true&#39;</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="nv">$templateDir</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$k2sInstallDir</span> <span class="s1">&#39;addons\common\manifests\addon-sync\fluxcd\per-addon&#39;</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="nv">$tmpDir</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$env:TEMP</span> <span class="s2">&quot;addon-sync-register-$addonName&quot;</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="nb">New-Item</span> <span class="n">-ItemType</span> <span class="n">Directory</span> <span class="n">-Path</span> <span class="nv">$tmpDir</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="k">foreach</span> <span class="p">(</span><span class="nv">$template</span> <span class="k">in</span> <span class="p">@(</span><span class="s1">&#39;ocirepository-template.yaml&#39;</span><span class="p">,</span> <span class="s1">&#39;kustomization-template.yaml&#39;</span><span class="p">))</span> <span class="p">{</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    <span class="nv">$content</span> <span class="p">=</span> <span class="nb">Get-Content</span> <span class="p">(</span><span class="nb">Join-Path</span> <span class="nv">$templateDir</span> <span class="nv">$template</span><span class="p">)</span> <span class="n">-Raw</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>    <span class="nv">$content</span> <span class="p">=</span> <span class="nv">$content</span> <span class="o">-replace</span> <span class="s1">&#39;ADDON_NAME_PLACEHOLDER&#39;</span><span class="p">,</span>    <span class="nv">$addonName</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>    <span class="nv">$content</span> <span class="p">=</span> <span class="nv">$content</span> <span class="o">-replace</span> <span class="s1">&#39;REGISTRY_HOST_PLACEHOLDER&#39;</span><span class="p">,</span> <span class="nv">$registryHost</span>
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>    <span class="nv">$content</span> <span class="p">=</span> <span class="nv">$content</span> <span class="o">-replace</span> <span class="s1">&#39;INSECURE_PLACEHOLDER&#39;</span><span class="p">,</span>      <span class="nv">$insecure</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a>    <span class="nb">Set-Content</span> <span class="n">-Path</span> <span class="p">(</span><span class="nb">Join-Path</span> <span class="nv">$tmpDir</span> <span class="nv">$template</span><span class="p">)</span> <span class="n">-Value</span> <span class="nv">$content</span> <span class="n">-Encoding</span> <span class="n">UTF8</span>
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="p">}</span>
+<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>
+<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="n">kubectl</span> <span class="n">apply</span> <span class="o">-f</span> <span class="nv">$tmpDir</span>
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="nb">Remove-Item</span> <span class="nv">$tmpDir</span> <span class="n">-Recurse</span> <span class="n">-Force</span>
+</code></pre></div>
+<p>Verify the resources were created:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">kubectl</span> <span class="n">get</span> <span class="n">ocirepository</span> <span class="n">addon-sync-monitoring</span> <span class="n">-n</span> <span class="n">k2s-addon-sync</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">kubectl</span> <span class="n">get</span> <span class="n">kustomization</span> <span class="n">addon-sync-monitoring</span> <span class="n">-n</span> <span class="n">k2s-addon-sync</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">ArgoCD does not require this step</p>
+<p>ArgoCD uses a shared poller (<code>addons/common/manifests/addon-sync/argocd/addon-sync-poller.yaml</code>) that
+discovers <code>addons/*</code> repositories and checks digest changes every 5 minutes.
+No per-addon resource registration is required.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Custom registry <abbr title="Uniform Resource Locator">URL</abbr></p>
+<p>Example local K2s setup uses base registry <abbr title="Uniform Resource Locator">URL</abbr> <code>k2s.registry.local:30500</code>. Per-addon repositories at <code>addons/&lt;ADDON_NAME&gt;</code> are discovered automatically. For any reachable registry, update the <code>addon-sync-config</code> ConfigMap:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">kubectl edit configmap addon-sync-config -n k2s-addon-sync</span>
+</code></pre></div>
+</div>
+<h2 id="how-it-works">How It Works</h2>
+<h3 id="oci-artifact-layers">OCI Artifact Layers</h3>
+<p>Each exported addon artifact contains up to 7 layers:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Content</th>
+<th>Media Type</th>
+<th>GitOps Sync</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Config files (<code>addon.manifest.yaml</code>, <code>values.yaml</code>)</td>
+<td><code>vnd.k2s.addon.configfiles.v1.tar+gzip</code></td>
+<td>Extracted</td>
+</tr>
+<tr>
+<td>1</td>
+<td><abbr title="Kubernetes">K8s</abbr> Manifests (<abbr title="Yet Another Markup Language">YAML</abbr>, kustomization, CRDs)</td>
+<td><code>vnd.k2s.addon.manifests.v1.tar+gzip</code></td>
+<td>Extracted</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Helm Charts (<code>.tgz</code> packages)</td>
+<td><code>vnd.cncf.helm.chart.content.v1.tar+gzip</code></td>
+<td>Extracted</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Scripts (<code>Enable.ps1</code>, <code>Disable.ps1</code>, etc.)</td>
+<td><code>vnd.k2s.addon.scripts.v1.tar+gzip</code></td>
+<td>Extracted</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Linux Images (tar-of-tars)</td>
+<td><code>vnd.oci.image.layer.v1.tar</code></td>
+<td>Skipped</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Windows Images (tar-of-tars)</td>
+<td><code>vnd.k2s.addon.images-windows.v1.tar</code></td>
+<td>Skipped</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Packages (<code>.deb</code> files, binaries)</td>
+<td><code>vnd.k2s.addon.packages.v1.tar+gzip</code></td>
+<td>Skipped</td>
+</tr>
+</tbody>
+</table>
+<p>For multi-addon exports, the artifact uses an OCI Image Index with per-addon manifests.</p>
+<h3 id="addon-sync-directory-structure">Addon-Sync Directory Structure</h3>
+<p>The addon-sync infrastructure uses kustomize overlays:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>addons/common/manifests/addon-sync/
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>|- base/                        # Shared resources (both flows)
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>|  |- kustomization.yaml        # configMapGenerator for Sync-Addons.ps1
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>|  |- namespace.yaml            # k2s-addon-sync namespace
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>|  |- rbac.yaml                 # ServiceAccount for HostProcess Jobs
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>|  |- configmap.yaml            # Registry URL, K2s install dir, insecure flag
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>|  \- scripts/
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>|     \- Sync-Addons.ps1       # Sync processor script
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>|- fluxcd/                      # FluxCD overlay
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>|  |- kustomization.yaml        # References ../base only (no global trigger)
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>|  \- per-addon/                # Templates for per-addon FluxCD registration
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>|     |- ocirepository-template.yaml
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>|     \- kustomization-template.yaml
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>|- argocd/                      # ArgoCD overlay
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>|  |- kustomization.yaml        # References ../base + addon-sync-poller.yaml
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>|  \- addon-sync-poller.yaml    # HostProcess CronJob for digest-based registry polling
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a>\- gitops-sync/                # Embedded in OCI artifact by Export.ps1
+<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>   |- kustomization.yaml
+<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a>   \- sync-job.yaml            # HostProcess Job applied by Flux
+</code></pre></div>
+<h3 id="fluxcd-flow">FluxCD Flow</h3>
+<ol>
+<li><code>OCIRepository addon-sync-&lt;ADDON_NAME&gt;</code> polls the per-addon repository (<code>addons/&lt;ADDON_NAME&gt;</code>) and detects a new selected semver revision.</li>
+<li>Flux extracts the manifests layer and applies <code>./gitops-sync/sync-job.yaml</code> through <code>Kustomization addon-sync-&lt;ADDON_NAME&gt;</code>.</li>
+<li>The HostProcess Job runs <code>Sync-Addons.ps1</code>, pulls the OCI artifact, validates layout, extracts layers 0-3, and skips layers 4-6.</li>
+<li>Result: the addon appears in <code>k2s addons ls</code> and can be enabled normally.</li>
+</ol>
+<p>Key details:</p>
+<ul>
+<li><code>Export.ps1</code> injects a <code>gitops-sync/</code> directory into every addon's manifests layer containing a Job template (<code>sync-job.yaml</code>) and a <code>kustomization.yaml</code></li>
+<li>The export timestamp annotation in the Job ensures Flux (with <code>force: true</code>) recreates the Job on each new artifact revision</li>
+<li>The Flux <code>Kustomization</code> uses <code>path: ./gitops-sync</code> to apply only the sync Job, not the addon's own <abbr title="Kubernetes">K8s</abbr> manifests</li>
+<li><code>prune: true</code> cleans up old completed Jobs; <code>wait: true</code> reports Job completion status</li>
+</ul>
+<h3 id="argocd-flow">ArgoCD Flow</h3>
+<ol>
+<li>A consumer manually pushes <code>addons/&lt;ADDON_NAME&gt;:&lt;TAG&gt;</code> to the registry.</li>
+<li><code>addon-sync-poller</code> CronJob runs every 5 minutes on the Windows node as a HostProcess container.</li>
+<li><code>Sync-Addons.ps1 -CheckDigest true</code> discovers <code>addons/*</code> repositories, selects the tag per repo (<code>latest</code> if present, otherwise the highest available semver tag), and compares manifest digests to local digest files.</li>
+<li>For changed digests, the poller pulls artifacts, validates layout, extracts layers 0-3, and skips layers 4-6.</li>
+<li>Result: synced addons appear in <code>k2s addons ls</code>; consumer then runs <code>k2s addons enable &lt;ADDON_NAME&gt;</code>.</li>
+</ol>
+<p>Key details:</p>
+<ul>
+<li>The poller runs directly on the Windows node as a HostProcess CronJob and uses <code>oras</code> for repository discovery and digest checks</li>
+<li>Both <strong>pushing an artifact</strong> to the registry and <strong>enabling an addon</strong> are deliberate manual steps taken by the consumer</li>
+<li>Polling interval is configured by the CronJob schedule (<code>*/5 * * * *</code> by default)</li>
+<li>Digest state is stored on the host filesystem under <code>addons/.addon-sync-digests/</code></li>
+</ul>
+<h3 id="sync-addonsps1">Sync-Addons.ps1</h3>
+<p><code>Sync-Addons.ps1</code> is a self-contained PowerShell script that runs inside HostProcess containers on the Windows node. It inlines helper functions from <code>oci.module.psm1</code> so it does not depend on K2s PowerShell modules being imported.</p>
+<p><strong>Processing steps:</strong></p>
+<ol>
+<li>(Optional) <strong>Digest check</strong> -- when <code>-CheckDigest</code> is set, compare registry digest with stored digest</li>
+<li><strong>Pull</strong> -- <code>oras copy --to-oci-layout</code> downloads the full OCI artifact to a temp directory as an OCI Image Layout</li>
+<li><strong>Validate</strong> -- verify <code>oci-layout</code> file, <code>blobs/sha256/</code>, <code>index.json</code> structure</li>
+<li><strong>Enumerate</strong> -- parse <code>index.json</code> to find per-addon manifests with <code>vnd.k2s.addon.name</code> annotations; when annotations are absent from index entries (stripped during registry round-trip via <code>oras copy</code>), they are read directly from the manifest blob</li>
+<li><strong>Extract layers 0-3</strong> -- for each addon, by media type:<ul>
+<li>Layer 0 (config): <code>addon.manifest.yaml</code>, <code>values.yaml</code>, settings -&gt; addon root directory</li>
+<li>Layer 1 (manifests): <abbr title="Kubernetes">K8s</abbr> <abbr title="Yet Another Markup Language">YAML</abbr>, kustomization files -&gt; <code>manifests/</code> subdirectory</li>
+<li>Layer 2 (charts): Helm <code>.tgz</code> packages -&gt; <code>manifests/chart/</code> subdirectory</li>
+<li>Layer 3 (scripts): <code>Enable.ps1</code>, <code>Disable.ps1</code>, etc. -&gt; addon implementation directory</li>
+</ul>
+</li>
+<li><strong>Merge manifests</strong> -- for multi-implementation addons (e.g., ingress with nginx and traefik), merge <code>addon.manifest.yaml</code> implementations using <code>yq</code></li>
+<li>(Optional) <strong>Persist digest</strong> -- when <code>-CheckDigest</code> is set, save the current digest for next run</li>
+</ol>
+<h3 id="what-happens-after-sync">What Happens After Sync</h3>
+<p>After the sync completes:</p>
+<ol>
+<li>The addon's <code>addon.manifest.yaml</code>, scripts, manifests, and config files are written to the <code>addons/</code> directory</li>
+<li>The Go <abbr title="Command-Line Interface">CLI</abbr> discovers the addon via <code>addon.manifest.yaml</code> and creates Cobra commands dynamically</li>
+<li><code>k2s addons ls</code> lists the synced addon</li>
+<li><code>k2s addons enable &lt;ADDON_NAME&gt;</code> runs the addon's <code>Enable.ps1</code> script, which applies <abbr title="Kubernetes">K8s</abbr> manifests and pulls container images from the registry as needed</li>
+</ol>
+<h2 id="customization">Customization</h2>
+<h3 id="registry-url-and-configuration">Registry <abbr title="Uniform Resource Locator">URL</abbr> and Configuration</h3>
+<p>The <code>addon-sync-config</code> ConfigMap controls the sync target:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">kubectl edit configmap addon-sync-config -n k2s-addon-sync</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>REGISTRY_URL</code></td>
+<td>Example local value: <code>oci://k2s.registry.local:30500</code></td>
+<td>Base OCI registry <abbr title="Uniform Resource Locator">URL</abbr> (registry host only, no repository path). Sync-Addons.ps1 discovers per-addon repos at <code>addons/&lt;ADDON_NAME&gt;</code> automatically</td>
+</tr>
+<tr>
+<td><code>K2S_INSTALL_DIR</code></td>
+<td><code>C:\k</code></td>
+<td>K2s installation directory on the Windows host</td>
+</tr>
+<tr>
+<td><code>INSECURE</code></td>
+<td><code>true</code></td>
+<td>Allow <abbr title="Hypertext Transfer Protocol">HTTP</abbr> registry connections (required for local insecure registries, such as local K2s dev/test)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="polling-interval">Polling Interval</h3>
+<p><strong>FluxCD</strong> -- edit the per-addon <code>OCIRepository</code> interval (replace <code>&lt;ADDON_NAME&gt;</code> with the addon folder name):</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">kubectl edit ocirepository addon-sync-&lt;ADDON_NAME&gt; -n k2s-addon-sync</span>
+</code></pre></div>
+<p>Change <code>spec.interval</code> (e.g., <code>1m</code> for faster polling, <code>30m</code> for less frequent checks).</p>
+<p><strong>ArgoCD</strong> -- addon sync runs via the <code>addon-sync-poller</code> CronJob on a polling schedule. To inspect or adjust the schedule:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">kubectl edit cronjob addon-sync-poller -n k2s-addon-sync</span>
+</code></pre></div>
+<h3 id="fluxcd-custom-layer-selector">FluxCD: Custom Layer Selector</h3>
+<p>The per-addon <code>OCIRepository</code> extracts only the manifests layer. To change which layer FluxCD extracts (replace <code>&lt;ADDON_NAME&gt;</code> with the addon folder name):</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">kubectl edit ocirepository addon-sync-&lt;ADDON_NAME&gt; -n k2s-addon-sync</span>
+</code></pre></div>
+<p>Modify <code>spec.layerSelector.mediaType</code> to match a different layer's media type.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="check-addon-sync-namespace">Check addon-sync namespace</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">kubectl get all -n k2s-addon-sync</span>
+</code></pre></div>
+<h3 id="fluxcd-check-ocirepository-status">FluxCD: Check OCIRepository status</h3>
+<p>Replace <code>&lt;ADDON_NAME&gt;</code> with the addon folder name (e.g., <code>monitoring</code>):</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="go">kubectl get ocirepository addon-sync-&lt;ADDON_NAME&gt; -n k2s-addon-sync -o yaml</span>
+</code></pre></div>
+<p>Look for <code>status.conditions</code> -- the <code>Ready</code> condition should be <code>True</code> and <code>status.artifact.revision</code> should show the latest digest.</p>
+<h3 id="fluxcd-check-kustomization-status">FluxCD: Check Kustomization status</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="go">kubectl get kustomization addon-sync-&lt;ADDON_NAME&gt; -n k2s-addon-sync -o yaml</span>
+</code></pre></div>
+<p>Look for <code>status.conditions</code> -- <code>Ready</code> should be <code>True</code> and <code>lastAppliedRevision</code> should match the OCIRepository's artifact revision.</p>
+<h3 id="argocd-check-poller-cronjob-and-recent-jobs">ArgoCD: Check poller CronJob and recent Jobs</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="go">kubectl get cronjob addon-sync-poller -n k2s-addon-sync</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="go">kubectl get jobs -n k2s-addon-sync --sort-by=.metadata.creationTimestamp</span>
+</code></pre></div>
+<p>Verify <code>addon-sync-poller</code> exists and the latest scheduled runs complete successfully. Check <code>COMPLETIONS</code> and <code>AGE</code> columns to confirm recent sync Jobs ran.</p>
+<h3 id="check-sync-job-logs">Check sync Job logs</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="go">kubectl logs -n k2s-addon-sync -l app.kubernetes.io/name=addon-sync --tail=100</span>
+</code></pre></div>
+<p>All log lines are prefixed with <code>[AddonSync]</code>. Look for:</p>
+<ul>
+<li><code>[AddonSync] Digest changed -- proceeding with full sync</code> -- a new artifact was detected and sync is running</li>
+<li><code>[AddonSync][ERROR]</code> -- sync failures with details</li>
+</ul>
+<h3 id="verify-synced-addons">Verify synced addons</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="go">k2s addons ls</span>
+</code></pre></div>
+<h3 id="argocd-check-poller-logs">ArgoCD: Check poller logs</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="go">kubectl logs -n k2s-addon-sync -l app.kubernetes.io/name=addon-sync -l app.kubernetes.io/component=poller --tail=100</span>
+</code></pre></div>
+<p>Look for digest checks and sync decisions for changed addons.</p>
+<h3 id="common-issues">Common issues</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Cause</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OCIRepository shows <code>not found</code></td>
+<td>No artifact pushed to registry</td>
+<td>Push via <code>oras copy --from-oci-layout</code> -- see <a href="#push-to-registry">Push to registry</a></td>
+</tr>
+<tr>
+<td>Job fails with <code>oras pull failed</code></td>
+<td>Registry unreachable or wrong <abbr title="Uniform Resource Locator">URL</abbr></td>
+<td>Check <code>addon-sync-config</code> ConfigMap</td>
+</tr>
+<tr>
+<td>Addon not appearing in <code>k2s addons ls</code></td>
+<td>Sync not complete or <code>addon.manifest.yaml</code> invalid</td>
+<td>Check Job logs for <code>[AddonSync][ERROR]</code></td>
+</tr>
+<tr>
+<td>ArgoCD poller not running</td>
+<td>Addon-sync not deployed or CronJob suspended</td>
+<td>Check <code>kubectl get cronjob addon-sync-poller -n k2s-addon-sync</code>; re-enable with <code>k2s addons enable rollout argocd</code></td>
+</tr>
+<tr>
+<td>New addon not detected yet</td>
+<td>Poll interval not elapsed or digest unchanged</td>
+<td>Wait for next schedule, or trigger a manual Job from the CronJob for immediate sync</td>
+</tr>
+<tr>
+<td>FluxCD Job not recreated</td>
+<td>Export timestamp unchanged</td>
+<td>Re-export the addon to generate a new timestamp</td>
+</tr>
+<tr>
+<td><code>yq.exe not found</code> in logs</td>
+<td>Missing <code>yq</code> binary</td>
+<td>Ensure <code>&lt;K2S_INSTALL_DIR&gt;\bin\windowsnode\yaml\yq.exe</code> exists</td>
+</tr>
+</tbody>
+</table>
+<h2 id="common-use-cases">Common Use Cases</h2>
+<h3 id="use-case-a-new-addon-becomes-available-via-sync">Use case A -- New addon becomes available via sync</h3>
+<p>A new addon (one that does not yet exist locally) is published to the registry. After the artifact is pushed, the addon appears in <code>k2s addons ls</code> and can be enabled.</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>Export and push the new addon to the registry (see <a href="#push-to-registry">Push to registry</a>).</li>
+<li>For FluxCD: the per-addon <code>OCIRepository</code> detects the new highest semver tag and triggers sync automatically. For ArgoCD: <code>addon-sync-poller</code> detects changed digests on its next run and syncs changed addons.</li>
+<li>Verify the addon is discoverable:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="go">k2s addons ls</span>
+</code></pre></div></li>
+<li>Enable the addon to start its workloads:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="go"> k2s addons enable &lt;ADDON_NAME&gt;</span>
+</code></pre></div></li>
+</ol>
+<h3 id="use-case-b-updated-addon-version-is-published">Use case B -- Updated addon version is published</h3>
+<p>An existing addon is re-exported with a newer version and pushed to the registry. Addon-sync detects the changed artifact, extracts the updated definition files, and updates the local catalog entry.</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>Export the updated addon and push a new versioned tag to <code>addons/&lt;ADDON_NAME&gt;</code>.</li>
+<li>For FluxCD: the per-addon <code>OCIRepository</code> detects the new highest semver tag and triggers sync automatically -- no extra push needed.</li>
+<li>Wait for the next sync cycle.</li>
+<li>The local addon directory is updated with the new scripts, manifests, and config.</li>
+<li>If the addon was already enabled, disable and re-enable it to apply the updated manifests:
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="go"> k2s addons disable &lt;ADDON_NAME&gt;</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="go"> k2s addons enable &lt;ADDON_NAME&gt;</span>
+</code></pre></div></li>
+</ol>
+<h2 id="offline-vs-gitops">Offline vs GitOps</h2>
+<p>Both approaches can coexist. Use <code>k2s addons import</code> for air-gapped environments and GitOps for connected clusters:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Offline (<code>k2s addons import</code>)</th>
+<th>GitOps (FluxCD/ArgoCD)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trigger</td>
+<td>Manual import from <code>.oci.tar</code> file</td>
+<td>Automatic -- FluxCD polls per-addon OCIRepository; ArgoCD polls via <code>addon-sync-poller</code> CronJob</td>
+</tr>
+<tr>
+<td>Images</td>
+<td>Imported into container runtime from layers 4/5</td>
+<td>Pulled from registry at enable time</td>
+</tr>
+<tr>
+<td>Packages</td>
+<td>Installed from layer 6</td>
+<td>Skipped (not needed when registry is reachable)</td>
+</tr>
+<tr>
+<td>Network</td>
+<td>Air-gapped compatible</td>
+<td>Requires registry access</td>
+</tr>
+<tr>
+<td>Layers processed</td>
+<td>All 7 layers</td>
+<td>Layers 0-3 only</td>
+</tr>
+<tr>
+<td>Addon discovery</td>
+<td>Immediate after import</td>
+<td>FluxCD: after poll interval (e.g., 1m); ArgoCD: after poll interval (default 5m)</td>
+</tr>
+</tbody>
+</table>
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../backing-up-restoring-addons/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Backing Up and Restoring Addons">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Backing Up and Restoring Addons
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../external-dns/" class="md-footer__link md-footer__link--next" aria-label="Next: External DNS">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                External DNS
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024 Siemens Healthineers AG
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
