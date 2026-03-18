@@ -11,3 +11,4 @@ resources:
 - configmap.yaml
 - statefulset.yaml
 - service.yaml
+- service-nodeport.yaml
