@@ -103,6 +103,8 @@ if (!$kubectlCmd.Success) {
 
 Add-HostEntries -Url 'k2s.registry.local'
 
+Add-CoreDNSHostEntry -Hostname 'k2s.registry.local'
+
 &"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
