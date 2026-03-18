@@ -1132,6 +1132,17 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#node-package-for-offline-node-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Node Package for Offline Node Add
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#addons-offline-package" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2572,6 +2583,17 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#node-package-for-offline-node-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Node Package for Offline Node Add
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#addons-offline-package" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2693,36 +2715,63 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Note</p>
 <p>Omitting the <code>--for-offline-installation</code> flag will effectively bundle only repository source files similar to the <a href="https://github.com/Siemens-Healthineers/K2s/releases" target="_blank" rel="noopener"><em>K2s</em> Releases</a>.</p>
 </div>
+<h2 id="node-package-for-offline-node-add">Node Package for Offline Node Add</h2>
+<p>To add a Linux worker node to an existing cluster without internet access on that node, create a <strong>node package</strong>.</p>
+<p>No installed <em>K2s</em> cluster is required to create this node package. You can run the command directly from the extracted <em>K2s</em> repository or release directory.</p>
+<p>Inspect the available options:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s system package -h</span>
+</code></pre></div>
+<p>Example from a local directory using <code>k2s.exe</code> directly:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">.\k2s.exe system package --node-package --os debian12 --target-dir &quot;D:\Linuxpackagetest&quot; --name &quot;debian12.zip&quot;</span>
+</code></pre></div>
+<p>Create an <abbr title="Operating System">OS</abbr>-specific node package ZIP:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s system package --node-package --os debian12 --target-dir C:\output --name debian12-node.zip</span>
+</code></pre></div>
+<p>Example for Debian 13:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip</span>
+</code></pre></div>
+<p>Then add the node by passing the package to <code>k2s node add</code>:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s node add --ip-addr &lt;IPAddressOfNewNode&gt; --username &lt;UserNameForRemoteConnection&gt; --node-package C:\output\debian13-node.zip</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The node package is intended for extending an existing cluster with a Linux worker node. It is separate from the full offline installation package used for installing <em>K2s</em> itself.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Creating the node package does not require that <em>K2s</em> is already installed on the current machine.</p>
+</div>
+<p>See <a href="../extending-k2s-cluster/">Extending K2s cluster</a> for the complete node onboarding workflow.</p>
 <h2 id="addons-offline-package">Addons Offline Package</h2>
 <p>To enable addons without an internet connection being available, the required binaries can be exported to an offline package as well.</p>
 <h3 id="addons-export">Addons Export</h3>
 <p>To inspect all export options, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons export -h</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s addons export -h</span>
 </code></pre></div></p>
 <p>Either specify one or more addons to export:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt;</span>
 </code></pre></div></p>
 <p>Or export all addons:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s addons export -d &lt;export-output-directory&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons export -d &lt;export-output-directory&gt;</span>
 </code></pre></div></p>
 <p>To export without container images (produces a lighter artifact):
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images</span>
 </code></pre></div></p>
 <p>To export without packages (Debian, Linux, and Windows packages):
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-packages</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-packages</span>
 </code></pre></div></p>
 <p>Both flags can be combined to export only configuration, manifests, and scripts:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images --omit-packages</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images --omit-packages</span>
 </code></pre></div></p>
 <h3 id="addons-import">Addons Import</h3>
 <p>To inspect all export options, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s addons import -h</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s addons import -h</span>
 </code></pre></div></p>
 <p>Either specify one or more addons to import from the offline package:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons import registry -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s addons import registry -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
 </code></pre></div></p>
 <p>Or import all addons from the offline package:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s addons import -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s addons import -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
 </code></pre></div></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

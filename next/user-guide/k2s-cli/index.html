@@ -4704,8 +4704,14 @@ SPDX-License-Identifier: MIT
 <td><code>-r</code></td>
 <td>Node role (default <code>worker</code>)</td>
 </tr>
+<tr>
+<td><code>--node-package</code></td>
+<td><code>-p</code></td>
+<td>Path to a node package ZIP for offline installation</td>
+</tr>
 </tbody>
 </table>
+<p>Use <code>--node-package</code> together with <code>k2s system package --node-package --os ...</code> when adding a Linux worker node without internet access.</p>
 <h3 id="node-remove">node remove</h3>
 <p>Remove a node from the cluster.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="go">k2s node remove [flags]</span>

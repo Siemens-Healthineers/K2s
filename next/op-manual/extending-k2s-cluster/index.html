@@ -1546,6 +1546,17 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#online-vs-offline-node-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Online vs. Offline Node Add
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#steps-to-add-a-physical-host-or-vm" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1687,6 +1698,78 @@ You're not viewing the latest release version.
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#offline-installation-of-a-linux-worker-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline Installation of a Linux Worker Node
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Offline Installation of a Linux Worker Node">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-create-the-node-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Create the node package
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-prepare-ssh-access-to-the-target-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Prepare SSH access to the target node
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-add-the-node-using-the-offline-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Add the node using the offline package
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-verify-the-node-joined-successfully" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Verify the node joined successfully
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-the-node-ip-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the Node IP Changes
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2655,6 +2738,17 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#online-vs-offline-node-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Online vs. Offline Node Add
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#steps-to-add-a-physical-host-or-vm" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2799,6 +2893,78 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#offline-installation-of-a-linux-worker-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline Installation of a Linux Worker Node
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Offline Installation of a Linux Worker Node">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-create-the-node-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Create the node package
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-prepare-ssh-access-to-the-target-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Prepare SSH access to the target node
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-add-the-node-using-the-offline-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Add the node using the offline package
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-verify-the-node-joined-successfully" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Verify the node joined successfully
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-the-node-ip-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the Node IP Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2840,8 +3006,11 @@ SPDX-License-Identifier: MIT
 </li>
 <li>
 <p><strong>New Host or <abbr title="Virtual Machine">VM</abbr> Requirements</strong>:</p>
-</li>
+<ul>
 <li>Install a compatible operating system (Linux or Windows, based on your cluster requirements).</li>
+<li>For Linux worker node onboarding, the currently supported Debian versions are <code>debian12</code> and <code>debian13</code>.</li>
+</ul>
+</li>
 <li>Install an <abbr title="Secure Shell">SSH</abbr> service on the new machine and ensure port 22 is enabled for connectivity.</li>
 <li>Ensure network connectivity with the K2s node.</li>
 <li><strong><abbr title="Internet Protocol">IP</abbr> Address Requirements</strong>:<ul>
@@ -2852,9 +3021,18 @@ SPDX-License-Identifier: MIT
 <hr />
 <h2 id="known-limitations">Known Limitations</h2>
 <ul>
-<li>Adding a new node works only if there is an internet connection on the new node. <em>(Offline support is in progress.)</em></li>
-<li>Adding a new physical host is currently supported only on <strong>Debian</strong> and <strong>Ubuntu</strong> Linux distributions.</li>
+<li>Adding a Linux worker node is currently supported for <em>Debian 12</em> and <em>Debian 13</em>.</li>
+<li>The supported target can be either a physical host or a virtual machine, as long as <abbr title="Secure Shell">SSH</abbr> access and the <abbr title="Operating System">OS</abbr> requirements are met.</li>
+<li>The node <abbr title="Internet Protocol">IP</abbr> address supplied to <code>k2s node add</code> must stay stable. Use a static <abbr title="Internet Protocol">IP</abbr> address or a <abbr title="Dynamic Host Configuration Protocol">DHCP</abbr> reservation.</li>
 </ul>
+<hr />
+<h2 id="online-vs-offline-node-add">Online vs. Offline Node Add</h2>
+<p><code>k2s node add</code> supports two installation modes for Linux worker nodes on either physical hosts or virtual machines:</p>
+<ul>
+<li><strong>Online mode</strong>: the target node downloads or receives the required packages during provisioning.</li>
+<li><strong>Offline mode</strong>: a prebuilt node package ZIP is supplied with <code>--node-package</code>, and <em>K2s</em> installs the node from the package contents instead of downloading artifacts from the internet.</li>
+</ul>
+<p>Use offline mode when the new node has no internet connectivity, is behind a restricted proxy, or when you want reproducible node onboarding.</p>
 <hr />
 <h2 id="steps-to-add-a-physical-host-or-vm">Steps to Add a Physical Host or <abbr title="Virtual Machine">VM</abbr></h2>
 <h3 id="1-copy-the-public-ssh-key-to-the-new-node">1. Copy the public <abbr title="Secure Shell">SSH</abbr> Key to the new node</h3>
@@ -2904,9 +3082,67 @@ This key must be copied to the physical host or <abbr title="Virtual Machine">VM
 <h3 id="3-add-new-node-with-k2s-cli">3. Add new node with K2s <abbr title="Command-Line Interface">CLI</abbr></h3>
 <div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>k2s node add --ip-addr &lt;IPAddressOfNewNode&gt; --username &lt;UserNameForRemoteConnection&gt;
 </code></pre></div>
-<h3 id="4-check-new-node-status">4. Check new node status</h3>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>k2s status -o wide
+<p>If the node should be installed <strong>offline</strong>, first create a node package and then pass it to <code>k2s node add</code>:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s node add --ip-addr &lt;IPAddressOfNewNode&gt; --username &lt;UserNameForRemoteConnection&gt; --node-package &lt;PathToNodePackageZip&gt;</span>
 </code></pre></div>
+<h3 id="4-check-new-node-status">4. Check new node status</h3>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>k2s status -o wide
+</code></pre></div>
+<h2 id="offline-installation-of-a-linux-worker-node">Offline Installation of a Linux Worker Node</h2>
+<p>The offline workflow has two phases:</p>
+<ol>
+<li>Build a node package on a machine that has access to the required artifacts.</li>
+<li>Use that package while running <code>k2s node add</code> against the target machine.</li>
+</ol>
+<h3 id="1-create-the-node-package">1. Create the node package</h3>
+<p>Generate an <abbr title="Operating System">OS</abbr>-specific node package. This step does <strong>not</strong> require an installed <em>K2s</em> cluster on the machine where you run the command.</p>
+<p>Example using <code>k2s.exe</code> directly from a local directory:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">.\k2s.exe system package --node-package --os debian12 --target-dir &quot;D:\Linuxpackagetest&quot; --name &quot;debian12.zip&quot;</span>
+</code></pre></div>
+<p>You can also generate the package on an existing <em>K2s</em> host:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s system package --node-package --os debian12 --target-dir C:\output --name debian12-node.zip</span>
+</code></pre></div>
+<p>For Debian 13 nodes, create a Debian 13 package instead:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The node package contains Linux worker node artifacts such as <code>.deb</code> packages and container images needed during <code>k2s node add</code>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code>--os</code> value must match the target node's distribution. Use the package built for the node you are adding.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The same workflow applies whether the target Linux node is a physical host or an existing <abbr title="Virtual Machine">VM</abbr>.</p>
+</div>
+<h3 id="2-prepare-ssh-access-to-the-target-node">2. Prepare <abbr title="Secure Shell">SSH</abbr> access to the target node</h3>
+<p>Follow the <abbr title="Secure Shell">SSH</abbr> key setup described above:</p>
+<ul>
+<li>Copy <code>%USERPROFILE%\.ssh\k2s\id_rsa.pub</code> to the target node.</li>
+<li>Add it to the authorized <abbr title="Secure Shell">SSH</abbr> keys on the target node.</li>
+</ul>
+<p>This step is required in both online and offline mode because <code>k2s node add</code> still connects to the node over <abbr title="Secure Shell">SSH</abbr>.</p>
+<h3 id="3-add-the-node-using-the-offline-package">3. Add the node using the offline package</h3>
+<p>Run <code>k2s node add</code> and point it to the node package ZIP:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s node add --ip-addr &lt;IPAddressOfNewNode&gt; --username &lt;UserNameForRemoteConnection&gt; --node-package C:\temp\debian13-node.zip</span>
+</code></pre></div>
+<h3 id="4-verify-the-node-joined-successfully">4. Verify the node joined successfully</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s status -o wide</span>
+</code></pre></div>
+<p>You can also use <code>k2s node connect</code> or <code>k2s node exec</code> to confirm <abbr title="Secure Shell">SSH</abbr> connectivity to the node after provisioning.</p>
+<h2 id="when-the-node-ip-changes">When the Node <abbr title="Internet Protocol">IP</abbr> Changes</h2>
+<p><code>k2s node add</code> stores the node <abbr title="Internet Protocol">IP</abbr> address for later management operations. If the node gets a different <abbr title="Local Area Network">LAN</abbr> <abbr title="Internet Protocol">IP</abbr> after a reboot or network change, <abbr title="Secure Shell">SSH</abbr>-based operations can fail.</p>
+<p>Recommended handling:</p>
+<ol>
+<li>Configure a static <abbr title="Internet Protocol">IP</abbr> address or <abbr title="Dynamic Host Configuration Protocol">DHCP</abbr> reservation for the node.</li>
+<li>If the <abbr title="Internet Protocol">IP</abbr> already changed, remove and re-add the node with the new <abbr title="Internet Protocol">IP</abbr>:</li>
+</ol>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s node remove --name &lt;NodeName&gt;</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">k2s node add --ip-addr &lt;NewIpAddress&gt; --username &lt;UserNameForRemoteConnection&gt; --name &lt;NodeName&gt;</span>
+</code></pre></div>
+<p>If you use offline installation, include <code>--node-package &lt;PathToNodePackageZip&gt;</code> again during the re-add operation.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
