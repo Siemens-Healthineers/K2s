@@ -541,6 +541,9 @@ function Assert-UpgradeVersionIsValid {
 	)
 	Write-Log 'Asserting upgrade version is valid..'
 
+	$VersionInstalled = $VersionInstalled.Trim()
+	$VersionToBeUsed = $VersionToBeUsed.Trim()
+
 	$versionRegex = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
 
 	if (-not ($VersionInstalled -match $versionRegex)) {
