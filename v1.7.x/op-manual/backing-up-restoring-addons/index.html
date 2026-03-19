@@ -1,0 +1,3084 @@
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/v1.7.x/op-manual/backing-up-restoring-addons/">
+      
+      
+        <link rel="prev" href="../backing-up-restoring-system/">
+      
+      
+        <link rel="next" href="../external-dns/">
+      
+      
+      <link rel="icon" href="../../assets/logo.png">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
+    
+    
+      
+        <title>Backing Up and Restoring Addons - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        
+        <link rel="stylesheet" href="../../assets/external/fonts.googleapis.com/css.49ea35f2.css">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#backing-up-and-restoring-k2s-addons" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+You're not viewing the latest release version.
+<a href="../../..">
+    <strong>Click here to go to latest release.</strong>
+</a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),outdated=__md_get("__outdated",sessionStorage);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-header__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
+      
+  <img src="../../assets/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            K2s - Kubernetes distribution for Windows & Linux workloads
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Backing Up and Restoring Addons
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3 3.19.09m3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95 2.06.05m-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5c-.84 0-1.65.15-2.39.42L12 2M3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29L3.34 7m.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14L3.36 17M20.65 7l-1.77 3.79a7.023 7.023 0 0 0-2.38-4.15l4.15.36m-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29L20.64 17M12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44L12 22Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7 0-.24-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91 1.61 0 2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08Z"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Siemens-Healthineers/K2s/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../quickstart/" class="md-tabs__link">
+          
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/hosting-variants/" class="md-tabs__link">
+          
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../os-support/" class="md-tabs__link">
+          
+  
+    
+  
+  Operator Manual
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../dev-guide/contributing/" class="md-tabs__link">
+          
+  
+    
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../security/security-features/" class="md-tabs__link">
+          
+  
+    
+  
+  Security
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../troubleshooting/diagnostics/" class="md-tabs__link">
+          
+  
+    
+  
+  Troubleshooting
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-nav__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
+      
+  <img src="../../assets/logo.png" alt="logo">
+
+    </a>
+    K2s - Kubernetes distribution for Windows & Linux workloads
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Siemens-Healthineers/K2s/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../quickstart/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting Started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    User Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/hosting-variants/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hosting Variants
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/k2s-cli/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    k2s CLI
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cli-shortcuts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    CLI Shortcuts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/addons/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Addons
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/gpu-node/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GPU Node
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cluster-ip-addresses/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Assignment of Cluster IP Addresses for Services
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/certificate-management/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificate Management
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/adding-container-registry/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Adding a Container Registry
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/building-container-image/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building a Container Image
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Operator Manual
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Operator Manual
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../os-support/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Supported OS Versions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Getting K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../creating-offline-package/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Creating Offline Package
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../delta-packages/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Delta Packages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installing-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration Reference
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../starting-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Starting K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../checking-k2s-status/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Checking K2s Status
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adding-k2s-users/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Adding K2s Users
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stopping-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Stopping K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upgrading-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compacting-vhdx-storage/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compacting VHDX Storage
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hook-system/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hook System
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backing-up-restoring-system/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Backing Up and Restoring the System
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Backing Up and Restoring Addons
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Backing Up and Restoring Addons
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backup Command
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backup Command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default Behavior
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#restore-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      Restore Command
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Restore Command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flags_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#typical-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Typical Workflow
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-backed-up-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Gets Backed Up — Summary
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-addon-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      Per-Addon Details
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Per-Addon Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autoscaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      autoscaling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      dashboard
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dicom" class="md-nav__link">
+    <span class="md-ellipsis">
+      dicom
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      gpu-node
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-nginx" class="md-nav__link">
+    <span class="md-ellipsis">
+      ingress nginx
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-nginx-gw" class="md-nav__link">
+    <span class="md-ellipsis">
+      ingress nginx-gw
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-traefik" class="md-nav__link">
+    <span class="md-ellipsis">
+      ingress traefik
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kubevirt" class="md-nav__link">
+    <span class="md-ellipsis">
+      kubevirt
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      logging
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      metrics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      monitoring
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      registry
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-argocd" class="md-nav__link">
+    <span class="md-ellipsis">
+      rollout argocd
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-fluxcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      rollout fluxcd
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      security
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage-smb" class="md-nav__link">
+    <span class="md-ellipsis">
+      storage smb
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#viewer" class="md-nav__link">
+    <span class="md-ellipsis">
+      viewer
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-manifest-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backup Manifest Format
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../external-dns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    External DNS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extending-k2s-cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Extending K2s cluster
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../secure-host-access/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Secure Host Access
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../networking-architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Networking Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../running-apps-as-hostprocess/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running Native Windows Apps (HostProcess & Compartments)
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../uninstalling-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Uninstalling K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../signcatalog-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Sign K2s package
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-signing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Code Signing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Developer Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Developer Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_1" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../dev-guide/contributing/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Contributing
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_1" id="__nav_5_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/cla-corporate-contributor/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Corporate Contributors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/cla-individual-contributor/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Individual Contributors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/licensing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Licensing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/powershell-dev/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PowerShell Development
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/building-locally/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building Locally
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/automated-testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Automated Testing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/tags-labels/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Tags/Labels
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/updating-documentation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Updating Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/submitting-changes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Submitting Changes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/hosting-variants-features-matrix/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hosting Variants Features Matrix
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture & Tools
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/linux-development/linux-development/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Linux Development
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/training/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Training
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Security
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Security
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/security-features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/diagnostics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Diagnostics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/known-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Known Issues
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backup Command
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backup Command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      Default Behavior
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#restore-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      Restore Command
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Restore Command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flags_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#typical-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Typical Workflow
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-backed-up-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      What Gets Backed Up — Summary
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-addon-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      Per-Addon Details
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Per-Addon Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autoscaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      autoscaling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      dashboard
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dicom" class="md-nav__link">
+    <span class="md-ellipsis">
+      dicom
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      gpu-node
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-nginx" class="md-nav__link">
+    <span class="md-ellipsis">
+      ingress nginx
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-nginx-gw" class="md-nav__link">
+    <span class="md-ellipsis">
+      ingress nginx-gw
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ingress-traefik" class="md-nav__link">
+    <span class="md-ellipsis">
+      ingress traefik
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kubevirt" class="md-nav__link">
+    <span class="md-ellipsis">
+      kubevirt
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      logging
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      metrics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      monitoring
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      registry
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-argocd" class="md-nav__link">
+    <span class="md-ellipsis">
+      rollout argocd
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-fluxcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      rollout fluxcd
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      security
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage-smb" class="md-nav__link">
+    <span class="md-ellipsis">
+      storage smb
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#viewer" class="md-nav__link">
+    <span class="md-ellipsis">
+      viewer
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-manifest-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backup Manifest Format
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/backing-up-restoring-addons.md" title="Edit this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4v-2m10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1 2.1 2.1Z"/></svg>
+    </a>
+  
+  
+
+
+<!--
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+
+SPDX-License-Identifier: MIT
+-->
+
+<h1 id="backing-up-and-restoring-k2s-addons">Backing Up and Restoring <em>K2s</em> Addons</h1>
+<p><em>K2s</em> provides built-in <abbr title="Command-Line Interface">CLI</abbr> commands to back up and restore addon configuration and data. This allows you to preserve addon state across upgrade, migration, or disaster-recovery scenarios.</p>
+<p>Each addon ships its own <code>Backup.ps1</code> and <code>Restore.ps1</code> scripts that know exactly which Kubernetes resources, configuration files, or persistent data to capture. The <abbr title="Command-Line Interface">CLI</abbr> orchestrates staging, zip creation/extraction, manifest validation, and the addon re-enable cycle automatically.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li><strong>Administrator privileges</strong> — all backup and restore commands must run in an elevated shell.</li>
+<li><strong>Cluster running</strong> — the <em>K2s</em> cluster must be started before executing backup or restore (exception: <em>storage smb</em> can back up local data even when the cluster is not running).</li>
+<li><strong>Addon enabled</strong> — an addon must be <strong>enabled</strong> for backup to capture its state.</li>
+<li><strong>Addon disabled</strong> — an addon must be <strong>disabled</strong> before restore. The <abbr title="Command-Line Interface">CLI</abbr> enforces this and returns an error otherwise.</li>
+</ul>
+<h2 id="backup-command">Backup Command</h2>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s addons backup ADDON [IMPLEMENTATION] [-f &lt;path&gt;]</span>
+</code></pre></div>
+<p>Creates a zip archive containing the addon's backed-up resources and a <code>backup.json</code> manifest.</p>
+<h3 id="flags">Flags</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--file</code></td>
+<td><code>-f</code></td>
+<td>Output zip file path</td>
+<td>Auto-generated in <code>C:\Temp\k2s\Addons</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="default-behavior">Default Behavior</h3>
+<p>When <code>-f</code> is omitted the zip is written to <code>C:\Temp\k2s\Addons</code> with the naming pattern:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>{addon_name}_backup_{yyyyMMdd_HHmmss}.zip
+</code></pre></div>
+<p>Spaces and slashes in the addon name are replaced with underscores (e.g. <code>ingress nginx</code> → <code>ingress_nginx_backup_20260219_143012.zip</code>).</p>
+<h3 id="examples">Examples</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp"># </span>Backup<span class="w"> </span>a<span class="w"> </span>single<span class="w"> </span>addon<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>default<span class="w"> </span>location
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">k2s addons backup registry</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="gp"># </span>Backup<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>implementation<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>custom<span class="w"> </span>path
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">k2s addons backup &quot;ingress nginx&quot; -f D:\backups\ingress-nginx.zip</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="gp"># </span>Backup<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>implementation<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>default<span class="w"> </span>folder
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="go">k2s addons backup &quot;ingress traefik&quot;</span>
+</code></pre></div>
+<h2 id="restore-command">Restore Command</h2>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons restore ADDON [IMPLEMENTATION] [-f &lt;path&gt;]</span>
+</code></pre></div>
+<p>Restores an addon from a previously created backup zip. The restore flow is:</p>
+<ol>
+<li>Extract the zip to a temporary staging directory.</li>
+<li>Validate the <code>backup.json</code> manifest (addon name, implementation, K2s version).</li>
+<li>Re-enable the addon (using <code>EnableForRestore.ps1</code> if available, otherwise standard <code>Enable.ps1</code>).</li>
+<li>Execute the addon's <code>Restore.ps1</code> to apply backed-up resources.</li>
+<li>Clean up staging files.</li>
+</ol>
+<h3 id="flags_1">Flags</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--file</code></td>
+<td><code>-f</code></td>
+<td>Input zip file path</td>
+<td>Newest matching zip in <code>C:\Temp\k2s\Addons</code></td>
+</tr>
+</tbody>
+</table>
+<p>When <code>-f</code> is omitted the <abbr title="Command-Line Interface">CLI</abbr> searches <code>C:\Temp\k2s\Addons</code> for files matching <code>{addon_name}_backup_*.zip</code> and picks the most recently modified one.</p>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> The addon <strong>must be disabled</strong> before running restore. If the addon is still enabled the command will fail with: <code>addon '&lt;name&gt;' must be disabled before restore</code>.</p>
+</blockquote>
+<h3 id="examples_1">Examples</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>an<span class="w"> </span>explicit<span class="w"> </span>backup<span class="w"> </span>file
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">k2s addons restore registry -f D:\backups\registry-backup.zip</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>the<span class="w"> </span>latest<span class="w"> </span>backup<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span>default<span class="w"> </span>folder
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="go">k2s addons restore &quot;ingress nginx&quot;</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="gp"># </span>Restore<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon<span class="w"> </span>implementation
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="go">k2s addons restore &quot;storage smb&quot; -f C:\Temp\k2s\Addons\storage_smb_backup_20260219_143012.zip</span>
+</code></pre></div>
+<h2 id="typical-workflow">Typical Workflow</h2>
+<p>A common scenario is backing up addons before a <em>K2s</em> upgrade and restoring them afterwards:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gp"># </span><span class="m">1</span>.<span class="w"> </span>Back<span class="w"> </span>up<span class="w"> </span>the<span class="w"> </span>addons<span class="w"> </span>you<span class="w"> </span>want<span class="w"> </span>to<span class="w"> </span>preserve
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">k2s addons backup registry</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="go">k2s addons backup &quot;ingress nginx&quot;</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="go">k2s addons backup security</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="gp"># </span><span class="m">2</span>.<span class="w"> </span>Disable<span class="w"> </span>the<span class="w"> </span>addons
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="go">k2s addons disable registry</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="go">k2s addons disable ingress nginx</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="go">k2s addons disable security</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="gp"># </span><span class="m">3</span>.<span class="w"> </span>Perform<span class="w"> </span>the<span class="w"> </span>upgrade
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="go">k2s system upgrade</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="gp"># </span><span class="m">4</span>.<span class="w"> </span>Restore<span class="w"> </span>each<span class="w"> </span>addon<span class="w"> </span><span class="o">(</span>re-enables<span class="w"> </span>automatically<span class="o">)</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="go">k2s addons restore registry</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="go">k2s addons restore &quot;ingress nginx&quot;</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="go">k2s addons restore security</span>
+</code></pre></div>
+<p>After restore each addon is re-enabled with its backed-up configuration applied on top.</p>
+<h2 id="what-gets-backed-up-summary">What Gets Backed Up — Summary</h2>
+<p>The following table shows at a glance what each addon's backup contains.</p>
+<table>
+<thead>
+<tr>
+<th>Addon</th>
+<th>Backup Type</th>
+<th>What Gets Backed Up</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>autoscaling</strong></td>
+<td>Config</td>
+<td>ConfigMaps in <code>autoscaling</code> namespace</td>
+<td><code>EnableForRestore.ps1</code> with best-effort pod readiness</td>
+</tr>
+<tr>
+<td><strong>dashboard</strong></td>
+<td>Metadata</td>
+<td>Ingress type, metrics-addon-enabled flag</td>
+<td>Restore calls <code>Update.ps1</code>; may re-enable metrics addon</td>
+</tr>
+<tr>
+<td><strong>dicom</strong></td>
+<td>Config</td>
+<td>Orthanc ConfigMap, ingress resources, Traefik middlewares</td>
+<td>Restarts deployment after config restore</td>
+</tr>
+<tr>
+<td><strong>gpu-node</strong></td>
+<td>Metadata</td>
+<td>Nothing (infrastructure-only)</td>
+<td>Re-enable fully restores functionality</td>
+</tr>
+<tr>
+<td><strong>ingress nginx</strong></td>
+<td>Config</td>
+<td>Controller ConfigMap, cluster-local Ingress</td>
+<td>Waits for controller pod readiness</td>
+</tr>
+<tr>
+<td><strong>ingress nginx-gw</strong></td>
+<td>Config</td>
+<td>Gateway CR, NginxGateway CR</td>
+<td>Certificates regenerated on enable; not backed up</td>
+</tr>
+<tr>
+<td><strong>ingress traefik</strong></td>
+<td>Config</td>
+<td>Cluster-local Ingress</td>
+<td>Waits for traefik pod readiness</td>
+</tr>
+<tr>
+<td><strong>kubevirt</strong></td>
+<td>Metadata</td>
+<td>Nothing (infrastructure-only)</td>
+<td>Re-enable fully restores functionality</td>
+</tr>
+<tr>
+<td><strong>logging</strong></td>
+<td>Config</td>
+<td>4 ConfigMaps (OpenSearch, Fluent Bit Linux/Windows)</td>
+<td>Rollout-restarts StatefulSet, Deployments, DaemonSets</td>
+</tr>
+<tr>
+<td><strong>metrics</strong></td>
+<td>Config</td>
+<td>Metrics-server Deployment, APIService, Windows exporter resources</td>
+<td>Rollout-restarts after apply</td>
+</tr>
+<tr>
+<td><strong>monitoring</strong></td>
+<td>Config</td>
+<td>User Grafana dashboards/datasources, Ingress resources, non-Helm Prometheus CRs</td>
+<td>Secrets and PV data <strong>not</strong> backed up; Helm-managed resources skipped</td>
+</tr>
+<tr>
+<td><strong>registry</strong></td>
+<td>Data</td>
+<td><code>tar.gz</code> of <code>/registry/repository</code> from control-plane <abbr title="Virtual Machine">VM</abbr>, ConfigMap</td>
+<td>Overwrites existing data; <abbr title="Secure Shell">SSH</abbr> to <abbr title="Virtual Machine">VM</abbr></td>
+</tr>
+<tr>
+<td><strong>rollout argocd</strong></td>
+<td>Data</td>
+<td>ArgoCD state export, ingress resources, Traefik middleware</td>
+<td>Export <strong>contains credentials</strong> (repo creds)</td>
+</tr>
+<tr>
+<td><strong>rollout fluxcd</strong></td>
+<td>Config</td>
+<td>All Flux CRs, referenced Secrets, webhook ingress</td>
+<td>Secrets backed up (Flux requires them)</td>
+</tr>
+<tr>
+<td><strong>security</strong></td>
+<td>Data</td>
+<td><abbr title="Certificate Authority">CA</abbr> root Secret, Keycloak PostgreSQL dump, enhanced-security marker</td>
+<td><code>EnableForRestore.ps1</code> reconstructs original enable flags; drops/recreates Keycloak DB</td>
+</tr>
+<tr>
+<td><strong>storage smb</strong></td>
+<td>Data</td>
+<td><code>SmbStorage.json</code>, addon config snapshot, <abbr title="Server Message Block">SMB</abbr> share file data</td>
+<td>Disable/enable cycle with <code>-Keep</code>; works offline</td>
+</tr>
+<tr>
+<td><strong>viewer</strong></td>
+<td>Config</td>
+<td>ConfigMap, Service, ingress resources, Traefik middleware</td>
+<td>Runs <code>Update.ps1</code> after restore</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Backup Types:</strong></p>
+<ul>
+<li><strong>Config</strong> — Kubernetes resources (ConfigMaps, Ingresses, CRDs) exported as <abbr title="Yet Another Markup Language">YAML</abbr>/<abbr title="JavaScript Object Notation">JSON</abbr>. No persistent volume data.</li>
+<li><strong>Data</strong> — Includes files or database dumps copied from the cluster or <abbr title="Virtual Machine">VM</abbr>, in addition to configuration.</li>
+<li><strong>Metadata</strong> — Only <code>backup.json</code> manifest with flags/settings. No files are captured; re-enabling restores full functionality.</li>
+</ul>
+<h2 id="per-addon-details">Per-Addon Details</h2>
+<h3 id="autoscaling">autoscaling</h3>
+<p><strong>Backup:</strong> Exports all ConfigMaps in the <code>autoscaling</code> namespace (excluding <code>kube-root-ca.crt</code>) as <abbr title="Yet Another Markup Language">YAML</abbr> files.</p>
+<p><strong>Restore:</strong> Uses <code>EnableForRestore.ps1</code> which applies the KEDA manifest with best-effort readiness checks, allowing restore to proceed even if the keda-operator pod is temporarily unhealthy. Applies backed-up ConfigMaps with server-side apply fallback on conflict. Waits for KEDA pods (admission-webhooks, metrics-apiserver, operator).</p>
+<h3 id="dashboard">dashboard</h3>
+<p><strong>Backup:</strong> Metadata-only — records the active ingress type (<code>none</code>, <code>nginx</code>, <code>traefik</code>, or <code>nginx-gw</code>) and whether the metrics addon was enabled. No Kubernetes resources are exported.</p>
+<p><strong>Restore:</strong> Re-enables the metrics addon if it was enabled at backup time. Ensures the correct ingress addon is enabled. Calls <code>Update.ps1</code> to regenerate authentication wiring. Waits for dashboard pod availability.</p>
+<h3 id="dicom">dicom</h3>
+<p><strong>Backup:</strong> Exports the Orthanc <code>json-configmap</code> ConfigMap (required), plus optional ingress resources: nginx Ingress, traefik Ingress (including <code>correct1</code>/<code>correct2</code> variants), nginx-gw HTTPRoutes (http + https), and Traefik middlewares (<code>strip-prefix</code>, <code>cors-header</code>, <code>oauth2-proxy-auth</code>). Resources are exported as minimal <abbr title="JavaScript Object Notation">JSON</abbr> with server-managed fields stripped.</p>
+<p><strong>Restore:</strong> Detects the active ingress controller and skips non-matching ingress resources. Waits for DICOM deployments, applies resources, restarts the DICOM deployment if configuration was restored, then runs <code>Update.ps1</code>.</p>
+<h3 id="gpu-node">gpu-node</h3>
+<p><strong>Backup:</strong> No-op. This is an infrastructure-only addon — <code>backup.json</code> contains <code>files: []</code>. Re-enabling the addon fully restores GPU passthrough functionality.</p>
+<h3 id="ingress-nginx">ingress nginx</h3>
+<p><strong>Backup:</strong> Exports the <code>ingress-nginx-controller</code> ConfigMap and the optional <code>nginx-cluster-local</code> Ingress resource.</p>
+<p><strong>Restore:</strong> Waits for the ingress-nginx controller pod, then applies resources with conflict fallback.</p>
+<h3 id="ingress-nginx-gw">ingress nginx-gw</h3>
+<p><strong>Backup:</strong> Exports the <code>nginx-cluster-local</code> Gateway and <code>nginx-gw-config</code> NginxGateway CR as minimal <abbr title="JavaScript Object Notation">JSON</abbr>. TLS certificates are <strong>intentionally not backed up</strong> — they are regenerated when the addon is re-enabled.</p>
+<p><strong>Restore:</strong> Applies backed-up resources, then applies the NginxProxy configuration with the current control-plane <abbr title="Internet Protocol">IP</abbr>. Waits for the controller pod. Runs <code>Update.ps1</code>.</p>
+<h3 id="ingress-traefik">ingress traefik</h3>
+<p><strong>Backup:</strong> Exports the <code>traefik-cluster-local</code> Ingress as <abbr title="Yet Another Markup Language">YAML</abbr>.</p>
+<p><strong>Restore:</strong> Waits for the traefik pod to become ready, then applies the Ingress with conflict fallback.</p>
+<h3 id="kubevirt">kubevirt</h3>
+<p><strong>Backup:</strong> No-op. Infrastructure-only addon — <code>backup.json</code> contains <code>files: []</code>. Re-enabling fully restores KubeVirt functionality.</p>
+<h3 id="logging">logging</h3>
+<p><strong>Backup:</strong> Exports four ConfigMaps as minimal <abbr title="JavaScript Object Notation">JSON</abbr>: <code>opensearch-cluster-master-config</code>, <code>fluent-bit</code>, <code>fluent-bit-win-parsers</code>, <code>fluent-bit-win-config</code>.</p>
+<p><strong>Restore:</strong> Applies all configuration files, then performs best-effort rollout restarts of the OpenSearch StatefulSet, Dashboards Deployment, and Fluent Bit DaemonSets (Linux and Windows). Waits for rollout completion with a 600-second timeout.</p>
+<h3 id="metrics">metrics</h3>
+<p><strong>Backup:</strong> Exports the <code>metrics-server</code> Deployment (from <code>metrics</code> namespace), the <code>v1beta1.metrics.k8s.io</code> APIService (cluster-scoped), and Windows exporter resources in <code>kube-system</code> namespace (ConfigMap, DaemonSet, Service) plus the <code>windows-exporter</code> ServiceMonitor in the <code>monitoring</code> namespace. All exported as minimal <abbr title="JavaScript Object Notation">JSON</abbr>.</p>
+<p><strong>Restore:</strong> Applies all files, then performs rollout restarts of the <code>metrics-server</code> Deployment and <code>windows-exporter</code> DaemonSet.</p>
+<h3 id="monitoring">monitoring</h3>
+<p><strong>Backup:</strong> Exports user-created (non-Helm-managed) Grafana dashboard and datasource ConfigMaps (labeled <code>grafana_dashboard=1</code> / <code>grafana_datasource=1</code>; default <code>kube-prometheus-stack-*</code> ConfigMaps are also excluded), all Ingress/HTTPRoute/IngressRoute/Middleware resources, and non-Helm-managed Prometheus Operator CRs (Prometheus, Alertmanager, PrometheusRule, ServiceMonitor, PodMonitor, AlertmanagerConfig).</p>
+<blockquote>
+<p><strong>ℹ️ Note:</strong> Secrets and PersistentVolume data are <strong>not</strong> backed up. Helm-managed resources are skipped — they are recreated when the addon is re-enabled.</p>
+</blockquote>
+<p><strong>Restore:</strong> Skips ingress resources that do not match the currently active ingress controller. Uses server-side apply with sanitized fields (removes <code>resourceVersion</code>, <code>uid</code>, <code>managedFields</code>). Performs best-effort rollout status checks for all monitoring workloads.</p>
+<h3 id="registry">registry</h3>
+<p><strong>Backup:</strong> Creates a <code>tar.gz</code> archive of <code>/registry/repository</code> on the control-plane <abbr title="Virtual Machine">VM</abbr> via <abbr title="Secure Shell">SSH</abbr>, copies it to the staging directory. Also exports the <code>registry-config</code> ConfigMap.</p>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> Restore <strong>overwrites</strong> any existing registry data. The StatefulSet is scaled to zero during restore.</p>
+</blockquote>
+<p><strong>Restore:</strong> Scales the StatefulSet to 0, waits for pod termination, copies the archive to the <abbr title="Virtual Machine">VM</abbr> via <abbr title="Secure Shell">SSH</abbr>, deletes existing data, extracts the archive, optionally restores the ConfigMap, then scales back to 1.</p>
+<h3 id="rollout-argocd">rollout argocd</h3>
+<p><strong>Backup:</strong> Uses <code>argocd admin export</code> to capture the full ArgoCD state (applications, projects, repositories, clusters). Also exports ingress resources (nginx Ingress, traefik Ingress, nginx-gw HTTPRoutes) and the Traefik <code>oauth2-proxy-auth</code> Middleware. The export is run via the host <code>argocd.exe</code> binary if available, otherwise via <code>kubectl exec</code> into the argocd-server pod.</p>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> The ArgoCD export <strong>contains credentials</strong> (repository secrets). Handle the backup zip with care.</p>
+</blockquote>
+<p><strong>Restore:</strong> Waits for ArgoCD deployments and StatefulSets. Applies ingress resources matching the active controller only. Uses <code>argocd admin import</code> with sanitized <abbr title="Yet Another Markup Language">YAML</abbr>. Runs <code>Update.ps1</code>. Cleans up export files to prevent credential lingering.</p>
+<h3 id="rollout-fluxcd">rollout fluxcd</h3>
+<p><strong>Backup:</strong> Exports all Flux custom resources in the <code>rollout</code> namespace (GitRepository, Kustomization, HelmRelease, HelmRepository, OCIRepository, Bucket, ImageRepository, ImagePolicy, ImageUpdateAutomation, Provider, Alert, Receiver), plus referenced Secrets (discovered via recursive <code>secretRef</code> scanning), plus webhook ingress resources. Secrets are written first in the manifest's file list.</p>
+<p>The host Flux <abbr title="Command-Line Interface">CLI</abbr> (<code>bin\\flux.exe</code>) is not part of backup data. It is installed when <code>k2s addons enable rollout fluxcd</code> runs.</p>
+<p><strong>Restore:</strong> Waits for Flux controller deployments. Applies resources with ingress-aware filtering. Runs <code>Update.ps1</code>.</p>
+<p>During restore, the addon re-enable step ensures <code>bin\\flux.exe</code> is present on the host.</p>
+<h3 id="security">security</h3>
+<p><strong>Backup:</strong> Exports the <abbr title="Certificate Authority">CA</abbr> root Secret (<code>ca-issuer-root-secret</code> from <code>cert-manager</code> namespace), a PostgreSQL dump of the Keycloak database (via <code>pg_dump</code> exec into the pod), and the enhanced-security marker file. Detects and records the current enable flags (<code>--type</code>, <code>--ingress</code>, <code>--omitKeycloak</code>, <code>--omitHydra</code>, <code>--omitOAuth2Proxy</code>).</p>
+<p><strong>Restore:</strong> Uses <code>EnableForRestore.ps1</code> which reads <code>backup.json</code> to reconstruct the original enable flags and delegates to <code>Enable.ps1</code>. Restores the <abbr title="Certificate Authority">CA</abbr> Secret with <code>--force</code> and restarts cert-manager. For Keycloak: scales down the Keycloak pod, drops and recreates the database, imports the dump via <code>psql</code> exec, then scales back up. Restores the enhanced-security marker file.</p>
+<h3 id="storage-smb">storage smb</h3>
+<p><strong>Backup:</strong> Copies the <code>SmbStorage.json</code> configuration file, an addon config snapshot from <code>setup.json</code>, and the <abbr title="Server Message Block">SMB</abbr> share data from the Windows mount path. Works even when the cluster is not running (local data only).</p>
+<p><strong>Restore:</strong> Restores the config snapshot, determines the <abbr title="Server Message Block">SMB</abbr> host type from addon configuration, performs a disable/enable cycle with the <code>-Keep</code> flag, then restores the share data.</p>
+<h3 id="viewer">viewer</h3>
+<p><strong>Backup:</strong> Exports the <code>config-json</code> ConfigMap, the <code>viewerwebapp</code> Service, and ingress resources for all three ingress types, plus the Traefik <code>oauth2-proxy-auth</code> Middleware.</p>
+<p><strong>Restore:</strong> Detects the active ingress controller, waits for the viewer deployment, applies resources with ingress-aware filtering (skips non-matching), handles missing CRDs gracefully. Runs <code>Update.ps1</code>.</p>
+<h2 id="backup-manifest-format">Backup Manifest Format</h2>
+<p>Each backup zip contains a <code>backup.json</code> file at the root with the following structure:</p>
+<div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;k2sVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.5.0&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;files&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;configmap.yaml&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;ingress.json&quot;</span><span class="p">],</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">&quot;addon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">&quot;implementation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">&quot;createdAt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-19T14:30:12Z&quot;</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>k2sVersion</code></td>
+<td>The <em>K2s</em> version that created the backup</td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td>List of files in the zip (may be empty for metadata-only backups)</td>
+</tr>
+<tr>
+<td><code>addon</code></td>
+<td>Addon name</td>
+</tr>
+<tr>
+<td><code>implementation</code></td>
+<td>Implementation name (omitted when addon has a single implementation)</td>
+</tr>
+<tr>
+<td><code>createdAt</code></td>
+<td>Timestamp of backup creation</td>
+</tr>
+</tbody>
+</table>
+<p>Some addons add extra fields (e.g. <code>ingress</code>, <code>enableParams</code>, <code>scope</code>, <code>storageUsage</code>) that their <code>Restore.ps1</code> / <code>EnableForRestore.ps1</code> scripts use to customize the restore flow.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>addon '&lt;name&gt;' must be disabled before restore</code></td>
+<td>The addon is still enabled</td>
+<td>Run <code>k2s addons disable &lt;name&gt;</code> first</td>
+</tr>
+<tr>
+<td><code>no backup zip found</code></td>
+<td>No matching zip in <code>C:\Temp\k2s\Addons</code></td>
+<td>Provide an explicit path with <code>-f</code></td>
+</tr>
+<tr>
+<td>Manifest addon/implementation mismatch</td>
+<td>The zip was created for a different addon</td>
+<td>Use the correct zip file for the target addon</td>
+</tr>
+<tr>
+<td><code>No Backup.ps1 found</code></td>
+<td>Addon does not support backup</td>
+<td>Nothing to back up — the addon is fully recreated on enable</td>
+</tr>
+<tr>
+<td>Restore fails during re-enable</td>
+<td>Cluster resources unavailable</td>
+<td>Check cluster health with <code>k2s system status</code> and retry</td>
+</tr>
+<tr>
+<td>Registry restore overwrites data</td>
+<td>By design — restore replaces existing repository contents</td>
+<td>Back up the current state first if needed</td>
+</tr>
+<tr>
+<td>ArgoCD credentials in backup</td>
+<td><code>argocd admin export</code> includes repo secrets</td>
+<td>Store the backup zip securely; delete after restore</td>
+</tr>
+</tbody>
+</table>
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../backing-up-restoring-system/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Backing Up and Restoring the System">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Backing Up and Restoring the System
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../external-dns/" class="md-footer__link md-footer__link--next" aria-label="Next: External DNS">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                External DNS
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024 Siemens Healthineers AG
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      
+    
+  </body>
+</html>

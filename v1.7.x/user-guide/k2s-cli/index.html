@@ -1,0 +1,4296 @@
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/v1.7.x/user-guide/k2s-cli/">
+      
+      
+        <link rel="prev" href="../hosting-variants/">
+      
+      
+        <link rel="next" href="../cli-shortcuts/">
+      
+      
+      <link rel="icon" href="../../assets/logo.png">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
+    
+    
+      
+        <title>k2s CLI - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        
+        <link rel="stylesheet" href="../../assets/external/fonts.googleapis.com/css.49ea35f2.css">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#k2s-cli" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+You're not viewing the latest release version.
+<a href="../../..">
+    <strong>Click here to go to latest release.</strong>
+</a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),outdated=__md_get("__outdated",sessionStorage);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-header__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
+      
+  <img src="../../assets/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            K2s - Kubernetes distribution for Windows & Linux workloads
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              k2s CLI
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3 3.19.09m3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95 2.06.05m-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5c-.84 0-1.65.15-2.39.42L12 2M3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29L3.34 7m.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14L3.36 17M20.65 7l-1.77 3.79a7.023 7.023 0 0 0-2.38-4.15l4.15.36m-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29L20.64 17M12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44L12 22Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7 0-.24-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91 1.61 0 2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08Z"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Siemens-Healthineers/K2s/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../quickstart/" class="md-tabs__link">
+          
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../hosting-variants/" class="md-tabs__link">
+          
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../op-manual/os-support/" class="md-tabs__link">
+          
+  
+    
+  
+  Operator Manual
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../dev-guide/contributing/" class="md-tabs__link">
+          
+  
+    
+  
+  Developer Guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../security/security-features/" class="md-tabs__link">
+          
+  
+    
+  
+  Security
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../troubleshooting/diagnostics/" class="md-tabs__link">
+          
+  
+    
+  
+  Troubleshooting
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-nav__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
+      
+  <img src="../../assets/logo.png" alt="logo">
+
+    </a>
+    K2s - Kubernetes distribution for Windows & Linux workloads
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Siemens-Healthineers/K2s/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../quickstart/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting Started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    User Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            User Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hosting-variants/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hosting Variants
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    k2s CLI
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    k2s CLI
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      install
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="install">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#install-buildonly" class="md-nav__link">
+    <span class="md-ellipsis">
+      install buildonly
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uninstall" class="md-nav__link">
+    <span class="md-ellipsis">
+      uninstall
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#start" class="md-nav__link">
+    <span class="md-ellipsis">
+      start
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stop" class="md-nav__link">
+    <span class="md-ellipsis">
+      stop
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      status
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#version" class="md-nav__link">
+    <span class="md-ellipsis">
+      version
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#image" class="md-nav__link">
+    <span class="md-ellipsis">
+      image
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="image">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-ls" class="md-nav__link">
+    <span class="md-ellipsis">
+      image ls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      image build
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-pull" class="md-nav__link">
+    <span class="md-ellipsis">
+      image pull
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      image push
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      image tag
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      image export
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      image import
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-rm" class="md-nav__link">
+    <span class="md-ellipsis">
+      image rm
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-clean" class="md-nav__link">
+    <span class="md-ellipsis">
+      image clean
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-reset-win-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      image reset-win-storage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      image registry
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="image registry">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-registry-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      image registry add
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-registry-rm" class="md-nav__link">
+    <span class="md-ellipsis">
+      image registry rm
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-registry-ls" class="md-nav__link">
+    <span class="md-ellipsis">
+      image registry ls
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="addons">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#addons-ls" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons ls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-enable-disable" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons enable / disable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons export
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons import
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-backup" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons backup
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons restore
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#system" class="md-nav__link">
+    <span class="md-ellipsis">
+      system
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="system">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#system-upgrade" class="md-nav__link">
+    <span class="md-ellipsis">
+      system upgrade
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      system package
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-backup" class="md-nav__link">
+    <span class="md-ellipsis">
+      system backup
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      system restore
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-dump" class="md-nav__link">
+    <span class="md-ellipsis">
+      system dump
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-certificate-renew" class="md-nav__link">
+    <span class="md-ellipsis">
+      system certificate renew
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      system proxy
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="system proxy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#system-proxy-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      system proxy override
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-users-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      system users add
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-reset-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      system reset network
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#node" class="md-nav__link">
+    <span class="md-ellipsis">
+      node
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="node">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#node-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      node add
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-remove" class="md-nav__link">
+    <span class="md-ellipsis">
+      node remove
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      node copy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-exec" class="md-nav__link">
+    <span class="md-ellipsis">
+      node exec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-connect" class="md-nav__link">
+    <span class="md-ellipsis">
+      node connect
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-shortcuts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    CLI Shortcuts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../addons/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Addons
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gpu-node/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GPU Node
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cluster-ip-addresses/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Assignment of Cluster IP Addresses for Services
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../certificate-management/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificate Management
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adding-container-registry/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Adding a Container Registry
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../building-container-image/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building a Container Image
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Operator Manual
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Operator Manual
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/os-support/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Supported OS Versions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/getting-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Getting K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/creating-offline-package/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Creating Offline Package
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/delta-packages/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Delta Packages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/installing-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/configuration-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration Reference
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/starting-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Starting K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/checking-k2s-status/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Checking K2s Status
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/adding-k2s-users/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Adding K2s Users
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/stopping-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Stopping K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/upgrading-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/compacting-vhdx-storage/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compacting VHDX Storage
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/hook-system/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hook System
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/backing-up-restoring-system/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Backing Up and Restoring the System
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/backing-up-restoring-addons/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Backing Up and Restoring Addons
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/external-dns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    External DNS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/extending-k2s-cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Extending K2s cluster
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/secure-host-access/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Secure Host Access
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/networking-architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Networking Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/running-apps-as-hostprocess/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running Native Windows Apps (HostProcess & Compartments)
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/uninstalling-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Uninstalling K2s
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/signcatalog-k2s/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Sign K2s package
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../op-manual/code-signing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Code Signing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Developer Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Developer Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_1" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../dev-guide/contributing/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Contributing
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_1" id="__nav_5_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/cla-corporate-contributor/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Corporate Contributors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/cla-individual-contributor/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Individual Contributors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/licensing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Licensing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/powershell-dev/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    PowerShell Development
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/building-locally/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Building Locally
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/automated-testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Automated Testing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/tags-labels/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Tags/Labels
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/updating-documentation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Updating Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/submitting-changes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Submitting Changes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/hosting-variants-features-matrix/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hosting Variants Features Matrix
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture & Tools
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/contributing/linux-development/linux-development/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Linux Development
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev-guide/training/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Training
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Security
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Security
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/security-features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Troubleshooting
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/diagnostics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Diagnostics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/known-issues/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Known Issues
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      install
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="install">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#install-buildonly" class="md-nav__link">
+    <span class="md-ellipsis">
+      install buildonly
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uninstall" class="md-nav__link">
+    <span class="md-ellipsis">
+      uninstall
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#start" class="md-nav__link">
+    <span class="md-ellipsis">
+      start
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stop" class="md-nav__link">
+    <span class="md-ellipsis">
+      stop
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      status
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#version" class="md-nav__link">
+    <span class="md-ellipsis">
+      version
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#image" class="md-nav__link">
+    <span class="md-ellipsis">
+      image
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="image">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-ls" class="md-nav__link">
+    <span class="md-ellipsis">
+      image ls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      image build
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-pull" class="md-nav__link">
+    <span class="md-ellipsis">
+      image pull
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      image push
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      image tag
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      image export
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      image import
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-rm" class="md-nav__link">
+    <span class="md-ellipsis">
+      image rm
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-clean" class="md-nav__link">
+    <span class="md-ellipsis">
+      image clean
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-reset-win-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      image reset-win-storage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      image registry
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="image registry">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#image-registry-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      image registry add
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-registry-rm" class="md-nav__link">
+    <span class="md-ellipsis">
+      image registry rm
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-registry-ls" class="md-nav__link">
+    <span class="md-ellipsis">
+      image registry ls
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#addons" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="addons">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#addons-ls" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons ls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-enable-disable" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons enable / disable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons export
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons import
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-backup" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons backup
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#addons-restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      addons restore
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#system" class="md-nav__link">
+    <span class="md-ellipsis">
+      system
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="system">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#system-upgrade" class="md-nav__link">
+    <span class="md-ellipsis">
+      system upgrade
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      system package
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-backup" class="md-nav__link">
+    <span class="md-ellipsis">
+      system backup
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-restore" class="md-nav__link">
+    <span class="md-ellipsis">
+      system restore
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-dump" class="md-nav__link">
+    <span class="md-ellipsis">
+      system dump
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-certificate-renew" class="md-nav__link">
+    <span class="md-ellipsis">
+      system certificate renew
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      system proxy
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="system proxy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#system-proxy-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      system proxy override
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-users-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      system users add
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-reset-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      system reset network
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#node" class="md-nav__link">
+    <span class="md-ellipsis">
+      node
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="node">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#node-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      node add
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-remove" class="md-nav__link">
+    <span class="md-ellipsis">
+      node remove
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      node copy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-exec" class="md-nav__link">
+    <span class="md-ellipsis">
+      node exec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#node-connect" class="md-nav__link">
+    <span class="md-ellipsis">
+      node connect
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/user-guide/k2s-cli.md" title="Edit this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4v-2m10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1 2.1 2.1Z"/></svg>
+    </a>
+  
+  
+
+
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
+<h1 id="k2s-cli">k2s <abbr title="Command-Line Interface">CLI</abbr></h1>
+<p>The <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> is the primary interface for managing a <em>K2s</em> cluster. It covers the full lifecycle — installation, startup, upgrade, image management, addon management, and system maintenance.</p>
+<p>Every command supports <code>--output</code> / <code>-o</code> (show log in terminal) and <code>--verbosity</code> / <code>-v</code> (log level, default <code>info</code>) as global flags.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s -h</span>
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>When <em>K2s</em> is installed, the executables including <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> have been added to <code>PATH</code>, so that the <abbr title="Command-Line Interface">CLI</abbr> can be called by using its name only.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Most of the <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> commands require administrator privileges.</p>
+</div>
+<hr />
+<h2 id="install">install</h2>
+<p>Installs a <em>K2s</em> Kubernetes cluster on the host machine.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s install [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--master-cpus</code></td>
+<td></td>
+<td>Number of CPUs allocated to master <abbr title="Virtual Machine">VM</abbr></td>
+</tr>
+<tr>
+<td><code>--master-memory</code></td>
+<td></td>
+<td><abbr title="Random-Access Memory">RAM</abbr> for master <abbr title="Virtual Machine">VM</abbr> (minimum 2 GB)</td>
+</tr>
+<tr>
+<td><code>--master-memory-min</code></td>
+<td></td>
+<td>Minimum <abbr title="Random-Access Memory">RAM</abbr> for dynamic memory (enables dynamic memory)</td>
+</tr>
+<tr>
+<td><code>--master-memory-max</code></td>
+<td></td>
+<td>Maximum <abbr title="Random-Access Memory">RAM</abbr> for dynamic memory (enables dynamic memory)</td>
+</tr>
+<tr>
+<td><code>--master-disk</code></td>
+<td></td>
+<td>Disk size for master <abbr title="Virtual Machine">VM</abbr> (minimum 10 GB)</td>
+</tr>
+<tr>
+<td><code>--proxy</code></td>
+<td><code>-p</code></td>
+<td><abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy</td>
+</tr>
+<tr>
+<td><code>--no-proxy</code></td>
+<td></td>
+<td>No-proxy hosts/domains (comma-separated)</td>
+</tr>
+<tr>
+<td><code>--config</code></td>
+<td><code>-c</code></td>
+<td>Path to config file</td>
+</tr>
+<tr>
+<td><code>--wsl</code></td>
+<td></td>
+<td>Use <abbr title="Windows Subsystem for Linux">WSL</abbr> 2 for hosting the KubeMaster</td>
+</tr>
+<tr>
+<td><code>--linux-only</code></td>
+<td></td>
+<td>No Windows worker node</td>
+</tr>
+<tr>
+<td><code>--force-online-installation</code></td>
+<td><code>-f</code></td>
+<td>Force online installation</td>
+</tr>
+<tr>
+<td><code>--delete-files-for-offline-installation</code></td>
+<td><code>-d</code></td>
+<td>Delete offline-only files after online install</td>
+</tr>
+<tr>
+<td><code>--k8s-bins</code></td>
+<td></td>
+<td>Path to locally built Kubernetes binaries</td>
+</tr>
+<tr>
+<td><code>--skip-start</code></td>
+<td></td>
+<td>Do not start the cluster after installation</td>
+</tr>
+<tr>
+<td><code>--append-log</code></td>
+<td></td>
+<td>Append to existing log file</td>
+</tr>
+<tr>
+<td><code>--additional-hooks-dir</code></td>
+<td></td>
+<td>Directory with additional hook scripts</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Dynamic Memory Examples:</strong></p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp"># </span>Static<span class="w"> </span>memory<span class="w"> </span><span class="o">(</span>default<span class="w"> </span>behavior<span class="o">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">k2s install --master-memory 4GB</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="gp"># </span>Dynamic<span class="w"> </span>memory<span class="w"> </span>-<span class="w"> </span>starts<span class="w"> </span>with<span class="w"> </span>2GB,<span class="w"> </span>can<span class="w"> </span>grow<span class="w"> </span>based<span class="w"> </span>on<span class="w"> </span>host<span class="w"> </span>capacity
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">k2s install --master-memory-min 2GB</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="gp"># </span>Max<span class="w"> </span>auto-calculated:<span class="w"> </span><span class="m">50</span>%<span class="w"> </span>of<span class="w"> </span>host<span class="w"> </span>RAM<span class="w"> </span><span class="o">(</span>e.g.,<span class="w"> </span>16GB<span class="w"> </span>on<span class="w"> </span>32GB<span class="w"> </span>host<span class="o">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="gp"># </span>Dynamic<span class="w"> </span>memory<span class="w"> </span>-<span class="w"> </span>starts<span class="w"> </span>with<span class="w"> </span>6GB<span class="w"> </span><span class="o">(</span>default<span class="o">)</span>,<span class="w"> </span>can<span class="w"> </span>shrink<span class="w"> </span>to<span class="w"> </span>2GB<span class="w"> </span>when<span class="w"> </span>idle,<span class="w"> </span>grow<span class="w"> </span>to<span class="w"> </span>8GB
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="go">k2s install --master-memory-max 8GB</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="gp"># </span>Min<span class="w"> </span>auto-calculated:<span class="w"> </span><span class="m">30</span>%<span class="w"> </span>of<span class="w"> </span>startup<span class="w"> </span><span class="o">(</span>2GB,<span class="w"> </span>with<span class="w"> </span>2GB<span class="w"> </span>floor<span class="o">)</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="gp"># </span>Dynamic<span class="w"> </span>memory<span class="w"> </span>with<span class="w"> </span>min<span class="w"> </span>and<span class="w"> </span>max<span class="w"> </span>-<span class="w"> </span>starts<span class="w"> </span>with<span class="w"> </span>2GB,<span class="w"> </span>can<span class="w"> </span>grow<span class="w"> </span>up<span class="w"> </span>to<span class="w"> </span>8GB
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="go">k2s install --master-memory-min 2GB --master-memory-max 8GB</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="gp"># </span>Dynamic<span class="w"> </span>memory<span class="w"> </span>with<span class="w"> </span>explicit<span class="w"> </span>startup<span class="w"> </span>-<span class="w"> </span>starts<span class="w"> </span>with<span class="w"> </span>4GB,<span class="w"> </span>scales<span class="w"> </span>between<span class="w"> </span>2GB-8GB
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="go">k2s install --master-memory 4GB --master-memory-min 2GB --master-memory-max 8GB</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Dynamic Memory with Intelligent Defaults</p>
+<ul>
+<li>Specifying <code>--master-memory-min</code> or <code>--master-memory-max</code> <strong>automatically enables</strong> Hyper-V dynamic memory</li>
+</ul>
+<p><strong>Intelligent Defaults:</strong>
+- <strong>Min not specified:</strong> Defaults to 30% of startup (floor: 2GB) - allows <abbr title="Virtual Machine">VM</abbr> to shrink significantly when idle
+- <strong>Max not specified:</strong> Defaults to 50% of host <abbr title="Random-Access Memory">RAM</abbr> (floor: 8GB, ceiling: 32GB) - allows <abbr title="Virtual Machine">VM</abbr> to grow as needed
+- <strong>Startup not specified with min:</strong> <abbr title="Virtual Machine">VM</abbr> starts with minimum memory for optimal resource efficiency</p>
+<p><strong>Validation Rules:</strong>
+- Minimum memory must be ≤ maximum memory
+- Minimum memory must be ≤ startup memory (if specified)
+- Maximum memory must be ≥ startup memory (if specified)
+- Dynamic memory is <strong>not supported with WSL2</strong> (<code>--wsl</code> flag uses static memory only)</p>
+</div>
+<h3 id="install-buildonly">install buildonly</h3>
+<p>Installs a minimal <em>buildonly</em> setup (Linux <abbr title="Virtual Machine">VM</abbr> without Windows worker node, intended for container image building only).</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s install buildonly [flags]</span>
+</code></pre></div>
+<p>Accepts the same <abbr title="Virtual Machine">VM</abbr>-resource, proxy, and config flags as <code>install</code>.</p>
+<hr />
+<h2 id="uninstall">uninstall</h2>
+<p>Removes the <em>K2s</em> cluster from the host machine.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s uninstall [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--skip-purge</code></td>
+<td></td>
+<td>Keep installation files on disk</td>
+</tr>
+<tr>
+<td><code>--delete-files-for-offline-installation</code></td>
+<td><code>-d</code></td>
+<td>Delete offline-only files</td>
+</tr>
+<tr>
+<td><code>--additional-hooks-dir</code></td>
+<td></td>
+<td>Directory with additional hook scripts</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="start">start</h2>
+<p>Starts a previously installed <em>K2s</em> cluster.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s start [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ignore-if-running</code></td>
+<td><code>-i</code></td>
+<td>Skip if already running</td>
+</tr>
+<tr>
+<td><code>--autouse-cached-vswitch</code></td>
+<td></td>
+<td>Re-use the cached vSwitch (cbr0 / KubeSwitch)</td>
+</tr>
+<tr>
+<td><code>--additional-hooks-dir</code></td>
+<td></td>
+<td>Directory with additional hook scripts</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="stop">stop</h2>
+<p>Stops the running <em>K2s</em> cluster.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s stop [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--cache-vswitch</code></td>
+<td></td>
+<td>Cache vswitches for cluster connectivity</td>
+</tr>
+<tr>
+<td><code>--additional-hooks-dir</code></td>
+<td></td>
+<td>Directory with additional hook scripts</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="status">status</h2>
+<p>Prints status information about the <em>K2s</em> cluster.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s status [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--output</code></td>
+<td><code>-o</code></td>
+<td>Output format: <code>wide</code>, <code>json</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="version">version</h2>
+<p>Prints the installed <em>K2s</em> version.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s version</span>
+</code></pre></div>
+<hr />
+<h2 id="image">image</h2>
+<p>Manage container images on the cluster nodes.</p>
+<h3 id="image-ls">image ls</h3>
+<p>List images on all nodes.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s image ls [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--include-k8s-images</code></td>
+<td><code>-A</code></td>
+<td>Include Kubernetes system images</td>
+</tr>
+<tr>
+<td><code>--output</code></td>
+<td><code>-o</code></td>
+<td>Output format: <code>json</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="image-build">image build</h3>
+<p>Build a container image.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s image build [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--input-folder</code></td>
+<td><code>-d</code></td>
+<td>Build context directory (default <code>.</code>)</td>
+</tr>
+<tr>
+<td><code>--dockerfile</code></td>
+<td><code>-f</code></td>
+<td>Dockerfile location</td>
+</tr>
+<tr>
+<td><code>--image-name</code></td>
+<td><code>-n</code></td>
+<td>Image name</td>
+</tr>
+<tr>
+<td><code>--image-tag</code></td>
+<td><code>-t</code></td>
+<td>Image tag</td>
+</tr>
+<tr>
+<td><code>--build-arg</code></td>
+<td></td>
+<td>Build arguments (repeatable)</td>
+</tr>
+<tr>
+<td><code>--windows</code></td>
+<td><code>-w</code></td>
+<td>Build a Windows container image</td>
+</tr>
+<tr>
+<td><code>--push</code></td>
+<td><code>-p</code></td>
+<td>Push to private registry after build</td>
+</tr>
+</tbody>
+</table>
+<h3 id="image-pull">image pull</h3>
+<p>Pull an image onto a Kubernetes node.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s image pull &lt;image&gt; [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--windows</code></td>
+<td><code>-w</code></td>
+<td>Pull onto the Windows node</td>
+</tr>
+</tbody>
+</table>
+<h3 id="image-push">image push</h3>
+<p>Push an image into a registry.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s image push [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--id</code></td>
+<td></td>
+<td>Image <abbr title="Identifier">ID</abbr></td>
+</tr>
+<tr>
+<td><code>--image-name</code></td>
+<td><code>-n</code></td>
+<td>Image name including tag</td>
+</tr>
+</tbody>
+</table>
+<h3 id="image-tag">image tag</h3>
+<p>Tag an existing image with a new name.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s image tag [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--id</code></td>
+<td></td>
+<td>Image <abbr title="Identifier">ID</abbr></td>
+</tr>
+<tr>
+<td><code>--image-name</code></td>
+<td><code>-n</code></td>
+<td>Current image name including tag</td>
+</tr>
+<tr>
+<td><code>--target-name</code></td>
+<td><code>-t</code></td>
+<td>New image name including tag</td>
+</tr>
+</tbody>
+</table>
+<h3 id="image-export">image export</h3>
+<p>Export an image to a tar archive.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s image export [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--id</code></td>
+<td></td>
+<td>Image <abbr title="Identifier">ID</abbr></td>
+</tr>
+<tr>
+<td><code>--name</code></td>
+<td><code>-n</code></td>
+<td>Image name including tag</td>
+</tr>
+<tr>
+<td><code>--tar</code></td>
+<td><code>-t</code></td>
+<td>Output tar file path</td>
+</tr>
+<tr>
+<td><code>--docker-archive</code></td>
+<td></td>
+<td>Export as docker-archive (default: oci-archive)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="image-import">image import</h3>
+<p>Import an image from a tar archive.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s image import [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--tar</code></td>
+<td><code>-t</code></td>
+<td>Path to oci-archive tar</td>
+</tr>
+<tr>
+<td><code>--dir</code></td>
+<td><code>-d</code></td>
+<td>Directory containing multiple oci-archive tars</td>
+</tr>
+<tr>
+<td><code>--windows</code></td>
+<td><code>-w</code></td>
+<td>Import as Windows image</td>
+</tr>
+<tr>
+<td><code>--docker-archive</code></td>
+<td></td>
+<td>Import from docker-archive tar</td>
+</tr>
+</tbody>
+</table>
+<h3 id="image-rm">image rm</h3>
+<p>Remove a container image.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s image rm [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--id</code></td>
+<td></td>
+<td>Image <abbr title="Identifier">ID</abbr></td>
+</tr>
+<tr>
+<td><code>--name</code></td>
+<td></td>
+<td>Image name</td>
+</tr>
+<tr>
+<td><code>--from-registry</code></td>
+<td></td>
+<td>Remove from local registry</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td></td>
+<td>Force removal (removes containers using the image first)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="image-clean">image clean</h3>
+<p>Remove all non-system container images from every node.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s image clean</span>
+</code></pre></div>
+<h3 id="image-reset-win-storage">image reset-win-storage</h3>
+<p>Reset the containerd and Docker image storage on Windows nodes.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s image reset-win-storage [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--containerd</code></td>
+<td></td>
+<td>Containerd directory</td>
+</tr>
+<tr>
+<td><code>--docker</code></td>
+<td></td>
+<td>Docker directory</td>
+</tr>
+<tr>
+<td><code>--max-retry</code></td>
+<td></td>
+<td>Max retries for directory deletion (default <code>1</code>)</td>
+</tr>
+<tr>
+<td><code>--force-zap</code></td>
+<td><code>-z</code></td>
+<td>Use <code>zap.exe</code> to forcefully remove directories</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td><code>-f</code></td>
+<td>No user prompts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="image-registry">image registry</h3>
+<p>Manage configured container registries.</p>
+<h4 id="image-registry-add">image registry add</h4>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">k2s image registry add &lt;registry-url&gt; [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--username</code></td>
+<td><code>-u</code></td>
+<td>Registry username</td>
+</tr>
+<tr>
+<td><code>--password</code></td>
+<td><code>-p</code></td>
+<td>Registry password</td>
+</tr>
+<tr>
+<td><code>--skip-verify</code></td>
+<td></td>
+<td>Skip HTTPS certificate verification</td>
+</tr>
+<tr>
+<td><code>--plain-http</code></td>
+<td></td>
+<td>Allow plain <abbr title="Hypertext Transfer Protocol">HTTP</abbr> fallback</td>
+</tr>
+</tbody>
+</table>
+<h4 id="image-registry-rm">image registry rm</h4>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">k2s image registry rm &lt;registry-url&gt;</span>
+</code></pre></div>
+<h4 id="image-registry-ls">image registry ls</h4>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s image registry ls</span>
+</code></pre></div>
+<hr />
+<h2 id="addons">addons</h2>
+<p>Manage optional cluster addons. See the <a href="../addons/">Addons</a> page for a full overview.</p>
+<h3 id="addons-ls">addons ls</h3>
+<p>List all available addons and their status.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons ls [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--output</code></td>
+<td><code>-o</code></td>
+<td>Output format: <code>json</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="addons-enable-disable">addons enable / disable</h3>
+<p>Enable or disable a specific addon. The subcommands and their flags are defined dynamically from each addon's <code>addon.manifest.yaml</code>.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">k2s addons enable &lt;addon&gt; [flags]</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="go">k2s addons disable &lt;addon&gt;</span>
+</code></pre></div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="go">k2s addons enable ingress</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="go">k2s addons enable registry</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="go">k2s addons disable dashboard</span>
+</code></pre></div>
+</div>
+<h3 id="addons-status">addons status</h3>
+<p>Print the status of a specific addon.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="go">k2s addons status &lt;addon&gt; [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--output</code></td>
+<td><code>-o</code></td>
+<td>Output format: <code>json</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="addons-export">addons export</h3>
+<p>Export an addon and its container images as an OCI artifact.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="go">k2s addons export &lt;addon&gt; [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--directory</code></td>
+<td><code>-d</code></td>
+<td>Target directory for the exported artifact</td>
+</tr>
+</tbody>
+</table>
+<h3 id="addons-import">addons import</h3>
+<p>Import a previously exported addon from an OCI artifact.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="go">k2s addons import &lt;addon&gt; [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--zip</code></td>
+<td><code>-z</code></td>
+<td>Path to the OCI artifact tar file</td>
+</tr>
+</tbody>
+</table>
+<h3 id="addons-backup">addons backup</h3>
+<p>Back up addon data (persistent volumes, configuration).</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="go">k2s addons backup &lt;addon&gt; [implementation] [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--file</code></td>
+<td><code>-f</code></td>
+<td>Output zip file path</td>
+</tr>
+</tbody>
+</table>
+<h3 id="addons-restore">addons restore</h3>
+<p>Restore addon data from a backup.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="go">k2s addons restore &lt;addon&gt; [implementation] [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--file</code></td>
+<td><code>-f</code></td>
+<td>Input zip file path (default: newest match in <code>C:\Temp\k2s\Addons</code>)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="system">system</h2>
+<p>Perform system-level tasks — upgrading, packaging, backup/restore, diagnostics, certificates, proxy, users, and network reset.</p>
+<h3 id="system-upgrade">system upgrade</h3>
+<p>Upgrade the installed <em>K2s</em> cluster to the version of the package (full upgrade or in-place delta update).</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="go">k2s system upgrade [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--skip-resources</code></td>
+<td><code>-s</code></td>
+<td>Skip takeover of <abbr title="Kubernetes">K8s</abbr> resources</td>
+</tr>
+<tr>
+<td><code>--skip-images</code></td>
+<td><code>-i</code></td>
+<td>Skip takeover of container images</td>
+</tr>
+<tr>
+<td><code>--delete-files</code></td>
+<td><code>-d</code></td>
+<td>Delete downloaded files after upgrade</td>
+</tr>
+<tr>
+<td><code>--config</code></td>
+<td><code>-c</code></td>
+<td>Path to config file</td>
+</tr>
+<tr>
+<td><code>--proxy</code></td>
+<td><code>-p</code></td>
+<td><abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy</td>
+</tr>
+<tr>
+<td><code>--backup-dir</code></td>
+<td><code>-b</code></td>
+<td>Backup directory</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td><code>-f</code></td>
+<td>Force upgrade even if versions are not consecutive</td>
+</tr>
+<tr>
+<td><code>--additional-hooks-dir</code></td>
+<td></td>
+<td>Directory with additional hook scripts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="system-package">system package</h3>
+<p>Build a <em>K2s</em> zip package (optionally offline, delta, or code-signed).</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="go">k2s system package [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--target-dir</code></td>
+<td><code>-d</code></td>
+<td><strong>Required.</strong> Target directory</td>
+</tr>
+<tr>
+<td><code>--name</code></td>
+<td><code>-n</code></td>
+<td><strong>Required.</strong> Package zip file name</td>
+</tr>
+<tr>
+<td><code>--for-offline-installation</code></td>
+<td></td>
+<td>Create offline package</td>
+</tr>
+<tr>
+<td><code>--delta-package</code></td>
+<td></td>
+<td>Create a delta package</td>
+</tr>
+<tr>
+<td><code>--package-version-from</code></td>
+<td></td>
+<td>Base full-package zip (required with <code>--delta-package</code>)</td>
+</tr>
+<tr>
+<td><code>--package-version-to</code></td>
+<td></td>
+<td>Target full-package zip (required with <code>--delta-package</code>)</td>
+</tr>
+<tr>
+<td><code>--certificate</code></td>
+<td><code>-c</code></td>
+<td>Code-signing certificate (.pfx)</td>
+</tr>
+<tr>
+<td><code>--password</code></td>
+<td><code>-w</code></td>
+<td>Certificate password</td>
+</tr>
+<tr>
+<td><code>--profile</code></td>
+<td></td>
+<td>Packaging profile: <code>Dev</code> (default) or <code>Lite</code></td>
+</tr>
+<tr>
+<td><code>--addons-list</code></td>
+<td></td>
+<td>Comma-separated addons to include</td>
+</tr>
+<tr>
+<td><code>--master-cpus</code></td>
+<td></td>
+<td>CPUs for master <abbr title="Virtual Machine">VM</abbr></td>
+</tr>
+<tr>
+<td><code>--master-memory</code></td>
+<td></td>
+<td>Memory for master <abbr title="Virtual Machine">VM</abbr></td>
+</tr>
+<tr>
+<td><code>--master-disk</code></td>
+<td></td>
+<td>Disk for master <abbr title="Virtual Machine">VM</abbr></td>
+</tr>
+<tr>
+<td><code>--proxy</code></td>
+<td><code>-p</code></td>
+<td><abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy</td>
+</tr>
+<tr>
+<td><code>--k8s-bins</code></td>
+<td></td>
+<td>Path to locally built Kubernetes binaries</td>
+</tr>
+</tbody>
+</table>
+<h3 id="system-backup">system backup</h3>
+<p>Back up the cluster (resources, persistent volumes, user images).</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="go">k2s system backup [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--file</code></td>
+<td><code>-f</code></td>
+<td>Output zip file path</td>
+</tr>
+<tr>
+<td><code>--skip-images</code></td>
+<td></td>
+<td>Skip container image backup</td>
+</tr>
+<tr>
+<td><code>--skip-pvs</code></td>
+<td></td>
+<td>Skip persistent volume backup</td>
+</tr>
+<tr>
+<td><code>--additional-hooks-dir</code></td>
+<td></td>
+<td>Directory with additional hook scripts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="system-restore">system restore</h3>
+<p>Restore a <em>K2s</em> cluster from a backup.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="go">k2s system restore [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--file</code></td>
+<td><code>-f</code></td>
+<td><strong>Required.</strong> Backup zip file</td>
+</tr>
+<tr>
+<td><code>--error-on-failure</code></td>
+<td><code>-e</code></td>
+<td>Fail on resource-restore errors</td>
+</tr>
+<tr>
+<td><code>--additional-hooks-dir</code></td>
+<td></td>
+<td>Directory with additional hook scripts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="system-dump">system dump</h3>
+<p>Dump full system status to a folder for diagnostics.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="go">k2s system dump [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--skip-open</code></td>
+<td><code>-S</code></td>
+<td>Do not open the dump folder afterwards</td>
+</tr>
+</tbody>
+</table>
+<h3 id="system-certificate-renew">system certificate renew</h3>
+<p>Renew Kubernetes certificates.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="go">k2s system certificate renew [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--force</code></td>
+<td><code>-f</code></td>
+<td>Force renewal</td>
+</tr>
+</tbody>
+</table>
+<h3 id="system-proxy">system proxy</h3>
+<p>Manage <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy settings for the cluster.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="go">k2s system proxy set &lt;proxy-uri&gt;</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="go">k2s system proxy get</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="go">k2s system proxy show</span>
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="go">k2s system proxy reset</span>
+</code></pre></div>
+<h4 id="system-proxy-override">system proxy override</h4>
+<p>Manage no-proxy overrides.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="go">k2s system proxy override add &lt;hosts...&gt;</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="go">k2s system proxy override delete &lt;hosts...&gt;</span>
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a><span class="go">k2s system proxy override ls</span>
+</code></pre></div>
+<h3 id="system-users-add">system users add</h3>
+<p>Grant a Windows user access to the <em>K2s</em> cluster.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="go">k2s system users add [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--username</code></td>
+<td><code>-u</code></td>
+<td>Windows user name (mutually exclusive with <code>--id</code>)</td>
+</tr>
+<tr>
+<td><code>--id</code></td>
+<td><code>-i</code></td>
+<td>Windows user <abbr title="Identifier">ID</abbr> (mutually exclusive with <code>--username</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="system-reset-network">system reset network</h3>
+<p>Reset the host network configuration (requires reboot).</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="go">k2s system reset network [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--force</code></td>
+<td><code>-f</code></td>
+<td>Force network reset</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="node">node</h2>
+<div class="admonition warning">
+<p class="admonition-title">Experimental</p>
+<p>All <code>node</code> subcommands are experimental.</p>
+</div>
+<p>Manage additional cluster nodes (physical machines or VMs).</p>
+<h3 id="node-add">node add</h3>
+<p>Add a node to the cluster.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="go">k2s node add [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ip-addr</code></td>
+<td><code>-i</code></td>
+<td><strong>Required.</strong> <abbr title="Internet Protocol">IP</abbr> address of the machine</td>
+</tr>
+<tr>
+<td><code>--username</code></td>
+<td><code>-u</code></td>
+<td><strong>Required.</strong> <abbr title="Secure Shell">SSH</abbr> username</td>
+</tr>
+<tr>
+<td><code>--name</code></td>
+<td><code>-m</code></td>
+<td>Hostname</td>
+</tr>
+<tr>
+<td><code>--role</code></td>
+<td><code>-r</code></td>
+<td>Node role (default <code>worker</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="node-remove">node remove</h3>
+<p>Remove a node from the cluster.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="go">k2s node remove [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--name</code></td>
+<td><code>-m</code></td>
+<td><strong>Required.</strong> Hostname of the machine</td>
+</tr>
+</tbody>
+</table>
+<h3 id="node-copy">node copy</h3>
+<p>Copy files or folders between host and node.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="go">k2s node copy [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ip-addr</code></td>
+<td><code>-i</code></td>
+<td><strong>Required.</strong> Node <abbr title="Internet Protocol">IP</abbr> address</td>
+</tr>
+<tr>
+<td><code>--username</code></td>
+<td><code>-u</code></td>
+<td><strong>Required.</strong> <abbr title="Secure Shell">SSH</abbr> username</td>
+</tr>
+<tr>
+<td><code>--source</code></td>
+<td><code>-s</code></td>
+<td><strong>Required.</strong> Source path</td>
+</tr>
+<tr>
+<td><code>--target</code></td>
+<td><code>-t</code></td>
+<td><strong>Required.</strong> Target path</td>
+</tr>
+<tr>
+<td><code>--reverse</code></td>
+<td><code>-r</code></td>
+<td>Copy from node to host</td>
+</tr>
+<tr>
+<td><code>--port</code></td>
+<td><code>-p</code></td>
+<td><abbr title="Secure Shell">SSH</abbr> port</td>
+</tr>
+<tr>
+<td><code>--timeout</code></td>
+<td></td>
+<td>Connection timeout</td>
+</tr>
+</tbody>
+</table>
+<h3 id="node-exec">node exec</h3>
+<p>Execute a command on a remote node.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="go">k2s node exec [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ip-addr</code></td>
+<td><code>-i</code></td>
+<td><strong>Required.</strong> Node <abbr title="Internet Protocol">IP</abbr> address</td>
+</tr>
+<tr>
+<td><code>--username</code></td>
+<td><code>-u</code></td>
+<td><strong>Required.</strong> <abbr title="Secure Shell">SSH</abbr> username</td>
+</tr>
+<tr>
+<td><code>--command</code></td>
+<td><code>-c</code></td>
+<td><strong>Required.</strong> Command to execute</td>
+</tr>
+<tr>
+<td><code>--port</code></td>
+<td><code>-p</code></td>
+<td><abbr title="Secure Shell">SSH</abbr> port</td>
+</tr>
+<tr>
+<td><code>--timeout</code></td>
+<td></td>
+<td>Connection timeout</td>
+</tr>
+<tr>
+<td><code>--raw</code></td>
+<td><code>-r</code></td>
+<td>Print only remote output</td>
+</tr>
+</tbody>
+</table>
+<h3 id="node-connect">node connect</h3>
+<p>Open an interactive <abbr title="Secure Shell">SSH</abbr> session to a remote node.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="go">k2s node connect [flags]</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Short</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--ip-addr</code></td>
+<td><code>-i</code></td>
+<td><strong>Required.</strong> Node <abbr title="Internet Protocol">IP</abbr> address</td>
+</tr>
+<tr>
+<td><code>--username</code></td>
+<td><code>-u</code></td>
+<td><strong>Required.</strong> <abbr title="Secure Shell">SSH</abbr> username</td>
+</tr>
+<tr>
+<td><code>--port</code></td>
+<td><code>-p</code></td>
+<td><abbr title="Secure Shell">SSH</abbr> port</td>
+</tr>
+<tr>
+<td><code>--timeout</code></td>
+<td></td>
+<td>Connection timeout</td>
+</tr>
+</tbody>
+</table>
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../hosting-variants/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Hosting Variants">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Hosting Variants
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../cli-shortcuts/" class="md-footer__link md-footer__link--next" aria-label="Next: CLI Shortcuts">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                CLI Shortcuts
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024 Siemens Healthineers AG
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      
+    
+  </body>
+</html>
