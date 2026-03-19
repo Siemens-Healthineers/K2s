@@ -94,7 +94,7 @@ function Get-SetupConfigFilePath {
 }
 
 function Get-ProductVersion {
-    return "$(Get-Content -Raw -Path "$kubePath\VERSION")"
+    return "$(Get-Content -Raw -Path "$kubePath\VERSION")".Trim()
 }
 
 function Get-SSHKeyControlPlane {

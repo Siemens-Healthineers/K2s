@@ -1006,7 +1006,7 @@ function Get-ProductVersionGivenKubePath {
 		[Parameter(Mandatory = $false)]
 		[string]$KubePathLocal = $(throw 'KubePath not specified')        
 	)
-	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")"
+	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")".Trim()
 }
 
 
