@@ -166,6 +166,50 @@ var _ = Describe("Node Communication Core", func() {
 			})
 		})
 
+		Describe("Linux ControlPlane/Worker Communication Matrix", func() {
+
+			It("Master and Linux workers can communicate with each other in both directions", func(ctx SpecContext) {
+				if len(linuxNodes) < 2 {
+					Skip("Not enough Linux nodes")
+				}
+
+				linuxPodsByNode := suite.Cluster().GetPodsGroupedByNode(ctx, namespace, linuxNodes)
+
+				controlPlaneNode := getControlPlaneNode(ctx)
+				if controlPlaneNode == "" {
+					controlPlaneNode = suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()
+				}
+
+				masterLinuxPod, ok := getFirstPodOnNode(linuxPodsByNode, controlPlaneNode)
+				if !ok {
+					Skip(fmt.Sprintf("No Linux pod found on control-plane node %q", controlPlaneNode))
+				}
+
+				linuxWorkerPods := getFirstPodsExcludingNode(linuxPodsByNode, controlPlaneNode)
+				if len(linuxWorkerPods) == 0 {
+					Skip("No Linux worker pods found")
+				}
+
+				By("Master Linux pod -> each Linux worker service")
+				for _, workerPod := range linuxWorkerPods {
+					checkCommunication(ctx, masterLinuxPod, workerPod, "curl-sidecar")
+				}
+
+				By("Each Linux worker pod -> master Linux service")
+				for _, workerPod := range linuxWorkerPods {
+					checkCommunication(ctx, workerPod, masterLinuxPod, "curl-sidecar")
+				}
+
+				By("Each Linux worker pod -> every other Linux worker service")
+				for i := 0; i < len(linuxWorkerPods); i++ {
+					for j := i + 1; j < len(linuxWorkerPods); j++ {
+						checkCommunication(ctx, linuxWorkerPods[i], linuxWorkerPods[j], "curl-sidecar")
+						checkCommunication(ctx, linuxWorkerPods[j], linuxWorkerPods[i], "curl-sidecar")
+					}
+				}
+			})
+		})
+
 		Describe("Internet Access from Linux/Windows Pods from all Nodes", func() {
 
 			It("Internet Communication from Nodes", func(ctx SpecContext) {
@@ -199,9 +243,8 @@ func applyDeployments(ctx context.Context) {
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
-	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
-
 	for _, data := range deployments {
+		GinkgoWriter.Println("Waiting for deployment availability and pod readiness for <", data.DeploymentName, ">")
 		suite.Cluster().ExpectDeploymentToBeAvailable(data.DeploymentName, namespace)
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", data.DeploymentName, namespace)
 	}
@@ -481,4 +524,49 @@ func getDeploymentNames() []string {
 		names = append(names, deployment.DeploymentName)
 	}
 	return names
+}
+
+func getControlPlaneNode(ctx context.Context) string {
+	output := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "node-role.kubernetes.io/control-plane", "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\n'}{end}")
+	output = strings.TrimSpace(output)
+	if output != "" {
+		return strings.Split(output, "\n")[0]
+	}
+
+	output = suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "node-role.kubernetes.io/master", "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\n'}{end}")
+	output = strings.TrimSpace(output)
+	if output != "" {
+		return strings.Split(output, "\n")[0]
+	}
+
+	return ""
+}
+
+func getFirstPodOnNode(podsByNode map[string][]v1.Pod, nodeName string) (v1.Pod, bool) {
+	pods, ok := podsByNode[nodeName]
+	if ok && len(pods) > 0 {
+		return pods[0], true
+	}
+
+	for node, nodePods := range podsByNode {
+		if strings.EqualFold(node, nodeName) && len(nodePods) > 0 {
+			return nodePods[0], true
+		}
+	}
+
+	return v1.Pod{}, false
+}
+
+func getFirstPodsExcludingNode(podsByNode map[string][]v1.Pod, excludedNode string) []v1.Pod {
+	result := []v1.Pod{}
+	for node, pods := range podsByNode {
+		if strings.EqualFold(node, excludedNode) {
+			continue
+		}
+		if len(pods) > 0 {
+			result = append(result, pods[0])
+		}
+	}
+
+	return result
 }
