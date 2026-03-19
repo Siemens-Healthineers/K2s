@@ -541,6 +541,9 @@ function Assert-UpgradeVersionIsValid {
 	)
 	Write-Log 'Asserting upgrade version is valid..'
 
+	$VersionInstalled = $VersionInstalled.Trim()
+	$VersionToBeUsed = $VersionToBeUsed.Trim()
+
 	$versionRegex = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
 
 	if (-not ($VersionInstalled -match $versionRegex)) {
@@ -1006,7 +1009,7 @@ function Get-ProductVersionGivenKubePath {
 		[Parameter(Mandatory = $false)]
 		[string]$KubePathLocal = $(throw 'KubePath not specified')        
 	)
-	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")"
+	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")".Trim()
 }
 
 
