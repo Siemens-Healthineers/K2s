@@ -146,3 +146,33 @@ function Ensure-PuttyToolsAvailable {
             -Proxy $Proxy -PuttyToolsModulePath $puttytoolsModulePath
     }
 }
+
+function Assert-PuttyToolsReady {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LogPrefix,
+        [string]$Proxy = ''
+    )
+
+    Write-Log "$LogPrefix === Prerequisite: Checking plink.exe / pscp.exe ===" -Console
+
+    $kubeBinPath = Get-KubeBinPath
+    $plinkPath = Join-Path $kubeBinPath 'plink.exe'
+    $pscpPath = Join-Path $kubeBinPath 'pscp.exe'
+    $windowsNodeArtifactsZipPath = Get-WindowsNodeArtifactsZipFilePath
+    $useOfflineInstallation = Test-Path $windowsNodeArtifactsZipPath
+
+    Write-Log "$LogPrefix plink.exe: $plinkPath (exists: $(Test-Path $plinkPath))" -Console
+    Write-Log "$LogPrefix pscp.exe:  $pscpPath (exists: $(Test-Path $pscpPath))" -Console
+    Write-Log "$LogPrefix WindowsNodeArtifacts.zip: $windowsNodeArtifactsZipPath (exists: $useOfflineInstallation)" -Console
+
+    $puttyToolsAvailable = Ensure-PuttyToolsAvailable -PlinkPath $plinkPath -PscpPath $pscpPath `
+        -IsOfflineInstallation $useOfflineInstallation -WindowsNodeArtifactsZipPath $windowsNodeArtifactsZipPath `
+        -Proxy $Proxy
+
+    if (-not $puttyToolsAvailable) {
+        throw "$LogPrefix Could not obtain plink.exe / pscp.exe. Place them in the bin\ folder, or ensure WindowsNodeArtifacts.zip is present for offline restore, or provide internet access for download."
+    }
+
+    Write-Log "$LogPrefix plink.exe and pscp.exe are ready." -Console
+}
