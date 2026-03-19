@@ -13,9 +13,20 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
+type cloudImageConfig struct {
+	UrlRoot string `json:"urlRoot"`
+	UrlFile string `json:"urlFile"`
+}
+
+type supportedWorkerOSEntry struct {
+	OS         string           `json:"os"`
+	CloudImage cloudImageConfig `json:"cloudImage"`
+}
+
 type configJson struct {
-	SmallSetup smallSetup `json:"smallsetup"`
-	ConfigDir  configDir  `json:"configDir"`
+	SmallSetup        smallSetup               `json:"smallsetup"`
+	ConfigDir         configDir                `json:"configDir"`
+	SupportedWorkerOS []supportedWorkerOSEntry `json:"supportedWorkerOS"`
 }
 
 type smallSetup struct {
@@ -52,4 +63,21 @@ func ReadK2sConfig(k2sInstallDir string) (*cconfig.K2sConfig, error) {
 	controlPlaneConfig := cconfig.NewControlPlaneConfig(configJson.SmallSetup.ControlPlanIpAddress)
 
 	return cconfig.NewK2sConfig(hostConfig, controlPlaneConfig), nil
+}
+
+// ReadSupportedWorkerOS returns the list of supported worker OS keys (e.g. "debian12", "debian13")
+// from the supportedWorkerOS array in cfg/config.json.
+func ReadSupportedWorkerOS(k2sInstallDir string) ([]string, error) {
+	configFilePath := filepath.Join(k2sInstallDir, "cfg\\config.json")
+
+	configJson, err := json.FromFile[configJson](configFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading config file: %w", err)
+	}
+
+	result := make([]string, 0, len(configJson.SupportedWorkerOS))
+	for _, entry := range configJson.SupportedWorkerOS {
+		result = append(result, entry.OS)
+	}
+	return result, nil
 }

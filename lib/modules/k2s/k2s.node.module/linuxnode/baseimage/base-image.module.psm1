@@ -40,15 +40,16 @@ function Invoke-Download($destination, $source, $forceDownload,
     }
 }
 
-function Invoke-DownloadDebianImage {
+function Invoke-DownloadLinuxImage {
     param(
         [string]$OutputPath,
-        [string]$Proxy = ''
+        [string]$Proxy = '',
+        [string]$TargetDistribution = 'debian12'
     )
 
-    $urlRoot = 'https://cloud.debian.org/images/cloud/bookworm/latest/'
-
-    $urlFile = 'debian-12-genericcloud-amd64.qcow2'
+    $cloudImage = Get-DistributionCloudImage -OS $TargetDistribution
+    $urlRoot = $cloudImage.urlRoot
+    $urlFile = $cloudImage.urlFile
 
     $url = "$urlRoot/$urlFile"
 
@@ -90,7 +91,7 @@ function Invoke-DownloadDebianImage {
 }
 
 
-Function New-VhdxDebianCloud {
+Function New-VhdxFromCloudImage {
     param (
         [Parameter(Mandatory = $false)]
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
@@ -99,7 +100,9 @@ Function New-VhdxDebianCloud {
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
         [string]$DownloadsDirectory,
         [parameter(Mandatory = $false)]
-        [string]$Proxy = ''
+        [string]$Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13).')]
+        [string]$TargetDistribution = 'debian12'
     )
 
     Assert-Path -Path $TargetFilePath -PathType "Leaf" -ShallExist $false | Out-Null
@@ -108,32 +111,37 @@ Function New-VhdxDebianCloud {
 
     Assert-Path -Path $DownloadsDirectory -PathType "Container" -ShallExist $true | Out-Null
 
-    $debianImage = Get-DebianImage -Proxy $Proxy -DownloadsDirectory $DownloadsDirectory | Assert-Path -PathType "Leaf" -ShallExist $true
+    $linuxImage = Get-LinuxImage -Proxy $Proxy -DownloadsDirectory $DownloadsDirectory -TargetDistribution $TargetDistribution | Assert-Path -PathType "Leaf" -ShallExist $true
     $qemuTool = Get-QemuTool -Proxy $Proxy -DownloadsDirectory $DownloadsDirectory | Assert-Path -PathType "Leaf" -ShallExist $true
-    $vhdxFile = New-VhdxFile -SourcePath $debianImage -VhdxPath $TargetFilePath -QemuExePath $qemuTool | Assert-Path -PathType "Leaf" -ShallExist $true
+    $vhdxFile = New-VhdxFile -SourcePath $linuxImage -VhdxPath $TargetFilePath -QemuExePath $qemuTool | Assert-Path -PathType "Leaf" -ShallExist $true
 }
 
 
-Function Get-DebianImage {
+Function Get-LinuxImage {
     param (
         [Parameter(Mandatory = $false, ValueFromPipeline=$true)]
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
         [string]$DownloadsDirectory,
         [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
-        [string]$Proxy = ''
+        [string]$Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13).')]
+        [string]$TargetDistribution = 'debian12'
     )
     Assert-Path -Path $DownloadsDirectory -PathType 'Container' -ShallExist $true | Out-Null
 
+    $cloudImage = Get-DistributionCloudImage -OS $TargetDistribution
+    $qcow2FileName = $cloudImage.urlFile
+
     # check if image file already exists under bin directory
     $kubeBinPath = Get-KubeBinPath
-    $imgFile = Join-Path $kubeBinPath 'debian-12-genericcloud-amd64.qcow2'
+    $imgFile = Join-Path $kubeBinPath $qcow2FileName
     if (Test-Path $imgFile) {
         Write-Output $imgFile
         return
     }
 
-    # dowload directly to bin folder
-    $imgFile = Invoke-DownloadDebianImage $kubeBinPath $Proxy
+    # download directly to bin folder
+    $imgFile = Invoke-DownloadLinuxImage -OutputPath $kubeBinPath -Proxy $Proxy -TargetDistribution $TargetDistribution
 
     Write-Output $imgFile
 }
@@ -516,12 +524,14 @@ A hashtable containing the directories that will be used. The needed keys are:
 - DownloadsDirectory: the full path of the directory where the artifacts downloaded from the internet will be stored.
 - ProvisioningDirectory: the full path of the directory where the artifacts used during provisioning will be stored.
 #>
-Function New-DebianCloudBasedVirtualMachine {
+Function New-LinuxCloudBasedVirtualMachine {
     Param (
         [Hashtable]$VirtualMachineParams,
         [Hashtable]$NetworkParams,
         [Hashtable]$IsoFileParams,
-        [Hashtable]$WorkingDirectoriesParams
+        [Hashtable]$WorkingDirectoriesParams,
+        [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13).')]
+        [string]$TargetDistribution = 'debian12'
     )
     $vmName = $VirtualMachineParams.VmName
     $inProvisioningVhdxName = $VirtualMachineParams.VhdxName
@@ -567,7 +577,7 @@ Function New-DebianCloudBasedVirtualMachine {
     New-Folder $provisioningFolder | Out-Null
 
     Write-Log "Create the base vhdx"
-    New-VhdxDebianCloud -Proxy $Proxy -TargetFilePath $inProvisioningVhdxPath -DownloadsDirectory $downloadsFolder
+    New-VhdxFromCloudImage -Proxy $Proxy -TargetFilePath $inProvisioningVhdxPath -DownloadsDirectory $downloadsFolder -TargetDistribution $TargetDistribution
 
     Write-Log "Create the iso file"
     $isoContentParameterValues = [hashtable]@{
@@ -826,7 +836,7 @@ Function Copy-VhdxFile {
 Export-ModuleMember -Function Remove-VirtualMachineForBaseImageProvisioning, 
 Start-VirtualMachineAndWaitForHeartbeat, 
 Wait-ForVMHeartbeatWithTimeout, 
-New-DebianCloudBasedVirtualMachine, 
+New-LinuxCloudBasedVirtualMachine, 
 Stop-VirtualMachineForBaseImageProvisioning, 
 Remove-SshKeyFromKnownHostsFile, 
 Remove-NetworkForProvisioning, 
