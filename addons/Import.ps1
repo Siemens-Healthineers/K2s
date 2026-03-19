@@ -287,20 +287,10 @@ foreach ($addon in $addonsToImport) {
             continue
         }
         
-        # Extract base addon name and implementation name for multi-implementation addons
-        # Only split on hyphen when the implementation differs from the addon name,
-        # indicating a true multi-implementation addon (e.g. ingress-nginx where
-        # name="ingress-nginx" and implementation="nginx"). Single-implementation
-        # addons with hyphens (e.g. gpu-node where name=implementation="gpu-node")
-        # must not be split.
-        $implementationName = $null
-        $isMultiImpl = $addon.implementation -and $addon.implementation -ne $addon.name
-        $baseAddonName = if ($isMultiImpl -and $addon.name -match '^([^-]+)-(.+)$') {
-            $implementationName = $matches[2]
-            $matches[1]
-        } else {
-            $addon.name  # Single implementation addon
-        }
+        # Resolve addon folder path using OCI annotation metadata
+        $resolved = Resolve-AddonImportPath -AddonName $addon.name -AddonImplementation $addon.implementation
+        $baseAddonName = $resolved.BaseAddonName
+        $implementationName = $resolved.ImplementationName
         
         # Build destination path: addons/<base-addon-name>
         $folderParts = $baseAddonName -split '\s+'
