@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k2s-addon-sync
+  labels:
+    app.kubernetes.io/name: addon-sync
+    app.kubernetes.io/part-of: k2s
