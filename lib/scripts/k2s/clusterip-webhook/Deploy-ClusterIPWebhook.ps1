@@ -96,14 +96,14 @@ function Deploy-ClusterIPWebhook {
     &$executeRemoteCommand "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Retries 3
 
     Write-Log '[ClusterIP-Webhook] Waiting for cert-create job to complete'
-    &$executeRemoteCommand "kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-clusterip-webhook --timeout=120s" -Retries 3
+    &$executeRemoteCommand "kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-webhook --timeout=120s" -Retries 3
 
     # Step 5: Run TLS cert-patch Job and wait for completion
     Write-Log '[ClusterIP-Webhook] Running TLS certificate patch job'
     &$executeRemoteCommand "kubectl apply -f $remoteDir/certgen-patch-job.yaml" -Retries 3
 
     Write-Log '[ClusterIP-Webhook] Waiting for cert-patch job to complete'
-    &$executeRemoteCommand "kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-clusterip-webhook --timeout=120s" -Retries 3
+    &$executeRemoteCommand "kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-webhook --timeout=120s" -Retries 3
 
     # Step 6: Apply Deployment + Service (after TLS secret exists)
     Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
@@ -111,7 +111,7 @@ function Deploy-ClusterIPWebhook {
 
     # Step 7: Wait for webhook deployment to be ready
     Write-Log '[ClusterIP-Webhook] Waiting for webhook deployment to be ready'
-    &$executeRemoteCommand "kubectl rollout status deployment/clusterip-webhook -n k2s-clusterip-webhook --timeout=120s" -Retries 3
+    &$executeRemoteCommand "kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s" -Retries 3
 
     # Step 9: Cleanup temp files
     &$executeRemoteCommand "rm -rf $remoteDir" -IgnoreErrors
@@ -135,8 +135,8 @@ function Remove-ClusterIPWebhook {
 
     Write-Log '[ClusterIP-Webhook] Removing clusterip-webhook components' -Console
 
-    &$executeRemoteCommand 'kubectl delete mutatingwebhookconfiguration k2s-clusterip-webhook --ignore-not-found' -IgnoreErrors
-    &$executeRemoteCommand 'kubectl delete namespace k2s-clusterip-webhook --ignore-not-found' -IgnoreErrors
+    &$executeRemoteCommand 'kubectl delete mutatingwebhookconfiguration k2s-webhook --ignore-not-found' -IgnoreErrors
+    &$executeRemoteCommand 'kubectl delete namespace k2s-webhook --ignore-not-found' -IgnoreErrors
     &$executeRemoteCommand 'kubectl delete clusterrole k2s:clusterip-webhook k2s:clusterip-webhook-certgen --ignore-not-found' -IgnoreErrors
     &$executeRemoteCommand 'kubectl delete clusterrolebinding k2s:clusterip-webhook k2s:clusterip-webhook-certgen --ignore-not-found' -IgnoreErrors
 

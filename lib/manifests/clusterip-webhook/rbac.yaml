@@ -8,7 +8,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: clusterip-webhook
-  namespace: k2s-clusterip-webhook
+  namespace: k2s-webhook
   labels:
     app.kubernetes.io/name: clusterip-webhook
     app.kubernetes.io/part-of: k2s
@@ -50,14 +50,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: clusterip-webhook
-    namespace: k2s-clusterip-webhook
+    namespace: k2s-webhook
 ---
 # ServiceAccount for the TLS cert-gen Jobs
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: clusterip-webhook-certgen
-  namespace: k2s-clusterip-webhook
+  namespace: k2s-webhook
   labels:
     app.kubernetes.io/name: clusterip-webhook
     app.kubernetes.io/component: certgen
@@ -68,7 +68,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: clusterip-webhook-certgen
-  namespace: k2s-clusterip-webhook
+  namespace: k2s-webhook
   labels:
     app.kubernetes.io/name: clusterip-webhook
     app.kubernetes.io/component: certgen
@@ -82,7 +82,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: clusterip-webhook-certgen
-  namespace: k2s-clusterip-webhook
+  namespace: k2s-webhook
   labels:
     app.kubernetes.io/name: clusterip-webhook
     app.kubernetes.io/component: certgen
@@ -94,7 +94,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: clusterip-webhook-certgen
-    namespace: k2s-clusterip-webhook
+    namespace: k2s-webhook
 ---
 # The certgen patch Job needs to update the MutatingWebhookConfiguration caBundle
 apiVersion: rbac.authorization.k8s.io/v1
@@ -125,4 +125,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: clusterip-webhook-certgen
-    namespace: k2s-clusterip-webhook
+    namespace: k2s-webhook

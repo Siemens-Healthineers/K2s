@@ -49,7 +49,7 @@ No special label is needed. The webhook automatically detects that the Service t
 
 ## How it works
 
-The `clusterip-webhook` runs as a Deployment in the `k2s-clusterip-webhook` namespace. On every `Service` CREATE request, it:
+The `clusterip-webhook` runs as a Deployment in the `k2s-webhook` namespace. On every `Service` CREATE request, it:
 
 1. Checks if the Service already has an explicit `clusterIP` (or is headless / ExternalName) — if so, it does nothing.
 2. Looks up Deployments, StatefulSets, and DaemonSets in the same namespace whose pod template labels match the Service selector. If the workload has `kubernetes.io/os: windows` in its `nodeSelector`, the Windows subnet is used.

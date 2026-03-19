@@ -270,9 +270,9 @@ function Restore-ClusterIPWebhook {
 
 		# Step 2: Delete old certgen Jobs and TLS secret (Jobs are immutable - must be recreated)
 		Write-Log '[Webhook] Cleaning old certgen Jobs and TLS secret...' -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete job clusterip-webhook-certgen-create -n k2s-clusterip-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete job clusterip-webhook-certgen-patch -n k2s-clusterip-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete secret clusterip-webhook-tls -n k2s-clusterip-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete job clusterip-webhook-certgen-create -n k2s-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete job clusterip-webhook-certgen-patch -n k2s-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete secret clusterip-webhook-tls -n k2s-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
 
 		# Step 3: Re-apply deployment (may have new image or config)
 		Write-Log '[Webhook] Applying deployment and service...' -Console:$consoleSwitch
@@ -283,19 +283,19 @@ function Restore-ClusterIPWebhook {
 		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
 
 		Write-Log '[Webhook] Waiting for cert-create job to complete...' -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-clusterip-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
 
 		# Step 5: Run certgen patch Job to inject caBundle into MutatingWebhookConfiguration
 		Write-Log '[Webhook] Running TLS certificate patch job...' -Console:$consoleSwitch
 		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/certgen-patch-job.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
 
 		Write-Log '[Webhook] Waiting for cert-patch job to complete...' -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-clusterip-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
 
 		# Step 6: Restart webhook deployment to pick up new certs
 		Write-Log '[Webhook] Restarting webhook deployment...' -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/clusterip-webhook -n k2s-clusterip-webhook' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout status deployment/clusterip-webhook -n k2s-clusterip-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/clusterip-webhook -n k2s-webhook' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
 
 		# Cleanup
 		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "rm -rf $remoteDir" -Timeout 30 -IgnoreErrors:$true).Output | Out-Null

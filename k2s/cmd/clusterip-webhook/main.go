@@ -301,23 +301,42 @@ func (h *WebhookHandler) getUsedClusterIPs() (map[string]bool, error) {
 //  1. Deployments, StatefulSets, DaemonSets with a kubernetes.io/os nodeSelector
 //  2. Running Pods → their Node's kubernetes.io/os label
 //  3. Defaults to "linux"
+//
+// When a Service and its backing Deployment are applied simultaneously, the
+// Deployment may not be visible yet. To handle this race, the function retries
+// once after a brief delay if no matching workload is found at all.
 func (h *WebhookHandler) detectTargetOS(namespace string, selector map[string]string) string {
 	if len(selector) == 0 {
 		slog.Info("Service has no selector, defaulting to linux", "namespace", namespace)
 		return "linux"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	for attempt := range 2 {
+		if attempt > 0 {
+			slog.Info("No matching workload found, retrying after brief delay", "namespace", namespace)
+			time.Sleep(1 * time.Second)
+		}
 
-	// Strategy 1: Check workload nodeSelectors
-	if os := h.detectOSFromWorkloads(ctx, namespace, selector); os != "" {
-		return os
-	}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
-	// Strategy 2: Check running pods → node labels
-	if os := h.detectOSFromPods(ctx, namespace, selector); os != "" {
-		return os
+		// Strategy 1: Check workload nodeSelectors
+		os, found := h.detectOSFromWorkloads(ctx, namespace, selector)
+		if found {
+			cancel()
+			if os != "" {
+				return os
+			}
+			// Workload found but no kubernetes.io/os nodeSelector → Linux
+			return "linux"
+		}
+
+		// Strategy 2: Check running pods → node labels
+		if os := h.detectOSFromPods(ctx, namespace, selector); os != "" {
+			cancel()
+			return os
+		}
+
+		cancel()
 	}
 
 	slog.Info("No OS detected from workloads or pods, defaulting to linux", "namespace", namespace)
@@ -327,7 +346,9 @@ func (h *WebhookHandler) detectTargetOS(namespace string, selector map[string]st
 // detectOSFromWorkloads checks Deployments, StatefulSets, and DaemonSets in the
 // namespace for a pod template whose labels are a superset of the Service selector
 // and whose nodeSelector contains kubernetes.io/os.
-func (h *WebhookHandler) detectOSFromWorkloads(ctx context.Context, namespace string, selector map[string]string) string {
+// Returns (os, workloadFound) where workloadFound indicates if any matching
+// workload was found regardless of whether it had an OS nodeSelector.
+func (h *WebhookHandler) detectOSFromWorkloads(ctx context.Context, namespace string, selector map[string]string) (string, bool) {
 	selectorSet := labels.Set(selector)
 
 	// Check Deployments
@@ -335,8 +356,8 @@ func (h *WebhookHandler) detectOSFromWorkloads(ctx context.Context, namespace st
 	if err != nil {
 		slog.Warn("Failed to list Deployments", "error", err, "namespace", namespace)
 	} else {
-		if os := osFromPodSpecs(deployments.Items, selectorSet); os != "" {
-			return os
+		if os, found := osFromPodSpecs(deployments.Items, selectorSet); found {
+			return os, true
 		}
 	}
 
@@ -345,8 +366,8 @@ func (h *WebhookHandler) detectOSFromWorkloads(ctx context.Context, namespace st
 	if err != nil {
 		slog.Warn("Failed to list StatefulSets", "error", err, "namespace", namespace)
 	} else {
-		if os := osFromPodSpecs(statefulSets.Items, selectorSet); os != "" {
-			return os
+		if os, found := osFromPodSpecs(statefulSets.Items, selectorSet); found {
+			return os, true
 		}
 	}
 
@@ -355,12 +376,12 @@ func (h *WebhookHandler) detectOSFromWorkloads(ctx context.Context, namespace st
 	if err != nil {
 		slog.Warn("Failed to list DaemonSets", "error", err, "namespace", namespace)
 	} else {
-		if os := osFromPodSpecs(daemonSets.Items, selectorSet); os != "" {
-			return os
+		if os, found := osFromPodSpecs(daemonSets.Items, selectorSet); found {
+			return os, true
 		}
 	}
 
-	return ""
+	return "", false
 }
 
 // workload is satisfied by Deployment, StatefulSet, and DaemonSet.
@@ -368,7 +389,10 @@ type workload interface {
 	appsv1.Deployment | appsv1.StatefulSet | appsv1.DaemonSet
 }
 
-func osFromPodSpecs[T workload](items []T, selectorSet labels.Set) string {
+// osFromPodSpecs checks if any workload's pod template labels match the Service
+// selector. Returns (os, found) where found indicates a matching workload exists,
+// and os is the value of kubernetes.io/os from its nodeSelector (may be empty).
+func osFromPodSpecs[T workload](items []T, selectorSet labels.Set) (string, bool) {
 	for i := range items {
 		var podLabels map[string]string
 		var nodeSelector map[string]string
@@ -388,10 +412,11 @@ func osFromPodSpecs[T workload](items []T, selectorSet labels.Set) string {
 			continue
 		}
 		if os, ok := nodeSelector[nodeOSKey]; ok {
-			return strings.ToLower(os)
+			return strings.ToLower(os), true
 		}
+		return "", true // workload found but no OS in nodeSelector
 	}
-	return ""
+	return "", false
 }
 
 // detectOSFromPods finds pods matching the selector, then checks their node's

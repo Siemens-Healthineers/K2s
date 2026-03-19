@@ -6,7 +6,7 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: k2s-clusterip-webhook
+  name: k2s-webhook
   labels:
     app.kubernetes.io/name: clusterip-webhook
     app.kubernetes.io/part-of: k2s
@@ -30,11 +30,11 @@ webhooks:
           operator: NotIn
           values:
             - kube-system
-            - k2s-clusterip-webhook
+            - k2s-webhook
     clientConfig:
       service:
         name: clusterip-webhook
-        namespace: k2s-clusterip-webhook
+        namespace: k2s-webhook
         path: /mutate
         port: 443
       # caBundle will be injected by the kube-webhook-certgen patch Job

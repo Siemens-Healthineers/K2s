@@ -410,7 +410,10 @@ func TestOsFromPodSpecs_PartialSelectorMatch(t *testing.T) {
 		},
 	}}
 	selectorSet := labels.Set(map[string]string{"app": "myapp"})
-	result := osFromPodSpecs(items, selectorSet)
+	result, found := osFromPodSpecs(items, selectorSet)
+	if !found {
+		t.Error("expected found=true (partial selector match)")
+	}
 	if result != "windows" {
 		t.Errorf("got %s, want windows (partial selector match)", result)
 	}
@@ -428,8 +431,30 @@ func TestOsFromPodSpecs_NoMatch(t *testing.T) {
 		},
 	}}
 	selectorSet := labels.Set(map[string]string{"app": "myapp"})
-	result := osFromPodSpecs(items, selectorSet)
+	result, found := osFromPodSpecs(items, selectorSet)
+	if found {
+		t.Error("expected found=false (no match)")
+	}
 	if result != "" {
 		t.Errorf("got %s, want empty (no match)", result)
+	}
+}
+
+func TestOsFromPodSpecs_FoundButNoOSNodeSelector(t *testing.T) {
+	items := []appsv1.Deployment{{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "myapp"}},
+				Spec:       corev1.PodSpec{},
+			},
+		},
+	}}
+	selectorSet := labels.Set(map[string]string{"app": "myapp"})
+	result, found := osFromPodSpecs(items, selectorSet)
+	if !found {
+		t.Error("expected found=true (workload matches but no nodeSelector)")
+	}
+	if result != "" {
+		t.Errorf("got %s, want empty (no OS in nodeSelector)", result)
 	}
 }

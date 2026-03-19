@@ -1215,19 +1215,19 @@ Function Deploy-ClusterIPWebhook {
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Retries 3
 
     Write-Log '[ClusterIP-Webhook] Waiting for cert-create job to complete'
-    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-clusterip-webhook --timeout=120s' -Retries 3
+    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-webhook --timeout=120s' -Retries 3
 
     Write-Log '[ClusterIP-Webhook] Running TLS certificate patch job'
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-patch-job.yaml" -Retries 3
 
     Write-Log '[ClusterIP-Webhook] Waiting for cert-patch job to complete'
-    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-clusterip-webhook --timeout=120s' -Retries 3
+    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-webhook --timeout=120s' -Retries 3
 
     Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/deployment.yaml" -Retries 3
 
     Write-Log '[ClusterIP-Webhook] Waiting for webhook deployment to be ready'
-    &$ExecuteRemoteCommand 'kubectl rollout status deployment/clusterip-webhook -n k2s-clusterip-webhook --timeout=120s' -Retries 3
+    &$ExecuteRemoteCommand 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s' -Retries 3
 
     &$ExecuteRemoteCommand "rm -rf $remoteDir" -IgnoreErrors
 

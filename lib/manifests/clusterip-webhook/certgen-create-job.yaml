@@ -8,7 +8,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: clusterip-webhook-certgen-create
-  namespace: k2s-clusterip-webhook
+  namespace: k2s-webhook
   labels:
     app.kubernetes.io/name: clusterip-webhook
     app.kubernetes.io/component: certgen
@@ -27,8 +27,8 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - create
-            - --host=clusterip-webhook,clusterip-webhook.k2s-clusterip-webhook.svc
-            - --namespace=k2s-clusterip-webhook
+            - --host=clusterip-webhook,clusterip-webhook.k2s-webhook.svc
+            - --namespace=k2s-webhook
             - --secret-name=clusterip-webhook-tls
           securityContext:
             allowPrivilegeEscalation: false

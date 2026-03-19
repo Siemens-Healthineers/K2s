@@ -8,7 +8,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: clusterip-webhook-certgen-patch
-  namespace: k2s-clusterip-webhook
+  namespace: k2s-webhook
   labels:
     app.kubernetes.io/name: clusterip-webhook
     app.kubernetes.io/component: certgen
@@ -27,8 +27,8 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - patch
-            - --webhook-name=k2s-clusterip-webhook
-            - --namespace=k2s-clusterip-webhook
+            - --webhook-name=k2s-webhook
+            - --namespace=k2s-webhook
             - --secret-name=clusterip-webhook-tls
             - --patch-mutating=true
             - --patch-validating=false
