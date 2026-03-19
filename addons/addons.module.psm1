@@ -1403,6 +1403,51 @@ function Enable-StorageAddon([string]$Storage) {
 	}
 }
 
+<#
+.SYNOPSIS
+Resolves addon import path components from OCI annotation metadata.
+
+.DESCRIPTION
+Determines the base addon folder name and optional implementation subdirectory
+for importing an addon from an OCI artifact. Multi-implementation addons
+(e.g. ingress-nginx, where name and implementation differ) are split into
+base folder + implementation subdirectory. Single-implementation addons
+with hyphens in their name (e.g. gpu-node) are kept as-is.
+
+.PARAMETER AddonName
+The addon name from the OCI index annotation 'vnd.k2s.addon.name'.
+
+.PARAMETER AddonImplementation
+The addon implementation from the OCI index annotation 'vnd.k2s.addon.implementation'.
+
+.OUTPUTS
+Hashtable with keys:
+  - BaseAddonName: The base addon folder name
+  - ImplementationName: The implementation subdirectory name ($null for single-implementation addons)
+#>
+function Resolve-AddonImportPath {
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]$AddonName,
+		[Parameter(Mandatory = $false)]
+		[string]$AddonImplementation
+	)
+
+	$implementationName = $null
+	$isMultiImpl = $AddonImplementation -and $AddonImplementation -ne $AddonName
+	$baseAddonName = if ($isMultiImpl -and $AddonName -match '^([^-]+)-(.+)$') {
+		$implementationName = $matches[2]
+		$matches[1]
+	} else {
+		$AddonName
+	}
+
+	return @{
+		BaseAddonName      = $baseAddonName
+		ImplementationName = $implementationName
+	}
+}
+
 function Get-AddonNameFromFolderPath {
 	param (
 		[string]$BaseFolderPath
@@ -2190,7 +2235,7 @@ Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound, Get-ErrCodeInvalidParameter,
 Add-HostEntries, Add-CoreDNSHostEntry, Remove-CoreDNSHostEntry, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
-Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
+Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, Resolve-AddonImportPath, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
 Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
