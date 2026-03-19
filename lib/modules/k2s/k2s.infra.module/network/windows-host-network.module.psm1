@@ -83,6 +83,42 @@ function Get-HostPhysicalIp {
     return $hostphysicalIp
 }
 
+function Get-HostIpAddressForRemoteIp {
+    param (
+        [string]$RemoteIpAddress = $(throw 'Argument missing: RemoteIpAddress'),
+        [string]$ExcludeNetworkInterfaceName = ''
+    )
+
+    $findRouteParams = @{
+        RemoteIPAddress = $RemoteIpAddress
+        ErrorAction     = 'SilentlyContinue'
+    }
+
+    $findNetRouteCommand = Get-Command -Name 'Find-NetRoute' -ErrorAction SilentlyContinue
+    if ($null -ne $findNetRouteCommand -and $findNetRouteCommand.Parameters.ContainsKey('AddressFamily')) {
+        $findRouteParams.AddressFamily = 'IPv4'
+    }
+
+    $route = Find-NetRoute @findRouteParams |
+        Where-Object {
+            # Keep IPv4 routes only (DestinationPrefix usually looks like 192.168.1.0/24)
+            $_.DestinationPrefix -match '^(?:\d{1,3}\.){3}\d{1,3}/\d{1,2}$'
+        } |
+        Select-Object -First 1
+    if ($null -ne $route) {
+        $ipOnRouteInterface = Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPAddress -ne '127.0.0.1' -and $_.IPAddress -notmatch '^169\.254\.' -and $_.InterfaceAlias -ne $ExcludeNetworkInterfaceName } |
+            Select-Object -ExpandProperty IPAddress -First 1
+
+        if (-not [string]::IsNullOrWhiteSpace($ipOnRouteInterface)) {
+            return $ipOnRouteInterface
+        }
+    }
+
+    Write-Log "Could not derive host IP for remote IP '$RemoteIpAddress' from routing table. Falling back to generic host physical IP detection."
+    return Get-HostPhysicalIp -ExcludeNetworkInterfaceName $ExcludeNetworkInterfaceName
+}
+
 <#
 .SYNOPSIS
 Checks if Hyper-V Default Switch subnet collides with K2s network configuration.
@@ -196,5 +232,5 @@ function Test-SubnetOverlap {
 }
 
 
-Export-ModuleMember -Function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost, Get-HostPhysicalIp, Test-DefaultSwitch
+Export-ModuleMember -Function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost, Get-HostPhysicalIp, Get-HostIpAddressForRemoteIp, Test-DefaultSwitch
 # Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost, Reset-DnsForActivePhysicalInterfacesOnWindowsHost
