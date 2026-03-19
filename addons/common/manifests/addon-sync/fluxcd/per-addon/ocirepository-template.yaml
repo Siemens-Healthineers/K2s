@@ -13,7 +13,7 @@
 # Flux selects the highest matching immutable version tag (for example v1.2.3)
 # from `addons/<name>` via `ref.semver` and reconciles the matching
 # Kustomization (addon-sync-ADDON_NAME_PLACEHOLDER) when the selected revision changes.
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
   name: addon-sync-ADDON_NAME_PLACEHOLDER
