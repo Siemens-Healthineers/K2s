@@ -369,7 +369,16 @@ function Join-LinuxNode {
 
         # check success in joining
         Write-Log "Check join status for node '$NodeName'"
-        $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $NodeName -SimpleMatch
+        $nodefound = $false
+        for ($retry = 0; $retry -lt 30; $retry++) {
+            $singleNodeStatus = &"$kubeToolsPath\kubectl.exe" get node $NodeName --ignore-not-found --no-headers 2>&1
+            if (($LASTEXITCODE -eq 0) -and -not [string]::IsNullOrWhiteSpace((($singleNodeStatus | Out-String).Trim()))) {
+                $nodefound = $true
+                break
+            }
+            Start-Sleep -Seconds 2
+        }
+
         if ( !($nodefound) ) {
             &"$kubeToolsPath\kubectl.exe" get nodes
             throw "Joining the linux node '$NodeName' failed"
