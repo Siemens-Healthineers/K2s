@@ -1583,3 +1583,82 @@ Describe 'Assert-IngressTlsCertificate' -Tag 'unit', 'ci', 'addon' {
         }
     }
 }
+
+Describe 'Resolve-AddonImportPath' -Tag 'unit', 'ci', 'addon' {
+    Context 'single-implementation addon without hyphen' {
+        It 'returns the addon name as base with no implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'dashboard' -AddonImplementation 'dashboard'
+
+                $result.BaseAddonName | Should -Be 'dashboard'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+
+    Context 'single-implementation addon with hyphen in name (gpu-node bug)' {
+        It 'preserves the full hyphenated name as base folder' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'gpu-node' -AddonImplementation 'gpu-node'
+
+                $result.BaseAddonName | Should -Be 'gpu-node'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+
+    Context 'multi-implementation addon (ingress-nginx)' {
+        It 'splits into base addon and implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'ingress-nginx' -AddonImplementation 'nginx'
+
+                $result.BaseAddonName | Should -Be 'ingress'
+                $result.ImplementationName | Should -Be 'nginx'
+            }
+        }
+    }
+
+    Context 'multi-implementation addon (ingress-traefik)' {
+        It 'splits into base addon and implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'ingress-traefik' -AddonImplementation 'traefik'
+
+                $result.BaseAddonName | Should -Be 'ingress'
+                $result.ImplementationName | Should -Be 'traefik'
+            }
+        }
+    }
+
+    Context 'single-implementation addon with multiple hyphens' {
+        It 'preserves the full name when name equals implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'my-cool-addon' -AddonImplementation 'my-cool-addon'
+
+                $result.BaseAddonName | Should -Be 'my-cool-addon'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+
+    Context 'addon with no implementation annotation' {
+        It 'returns the addon name as base with no implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'metrics'
+
+                $result.BaseAddonName | Should -Be 'metrics'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+
+    Context 'addon with empty implementation annotation' {
+        It 'returns the addon name as base with no implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'gpu-node' -AddonImplementation ''
+
+                $result.BaseAddonName | Should -Be 'gpu-node'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+}

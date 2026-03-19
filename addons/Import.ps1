@@ -287,14 +287,10 @@ foreach ($addon in $addonsToImport) {
             continue
         }
         
-        # Extract base addon name and implementation name for multi-implementation addons
-        $implementationName = $null
-        $baseAddonName = if ($addon.name -match '^([^-]+)-(.+)$') {
-            $implementationName = $matches[2]
-            $matches[1]
-        } else {
-            $addon.name  # Single implementation addon
-        }
+        # Resolve addon folder path using OCI annotation metadata
+        $resolved = Resolve-AddonImportPath -AddonName $addon.name -AddonImplementation $addon.implementation
+        $baseAddonName = $resolved.BaseAddonName
+        $implementationName = $resolved.ImplementationName
         
         # Build destination path: addons/<base-addon-name>
         $folderParts = $baseAddonName -split '\s+'
