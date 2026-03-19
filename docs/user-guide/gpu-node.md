@@ -8,6 +8,9 @@ SPDX-License-Identifier: MIT
 
 The `gpu-node` addon configures the K2s control-plane Linux VM as a GPU node so that Kubernetes pods can request and use the NVIDIA GPU of the Windows host machine. GPU access is shared between the Windows host and the Linux VM simultaneously.
 
+!!! info "Supported hosting variants"
+    The `gpu-node` addon is fully supported on both **Hyper-V** and **WSL2** K2s setups. GPU access uses the GPU paravirtualization (GPU-PV) mechanism in both cases.
+
 GPU workloads are scheduled via the [NVIDIA Device Plugin](https://github.com/NVIDIA/k8s-device-plugin) using the **CDI (Container Device Interface)** injection model — the same approach used by upstream Kubernetes.
 
 ---

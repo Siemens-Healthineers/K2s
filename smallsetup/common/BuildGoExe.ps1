@@ -83,7 +83,7 @@ if ($Proxy) {
 }
 
 #VERSION
-$Version = Get-Content -Path $global:KubernetesPath\VERSION
+$Version = (Get-Content -Raw -Path $global:KubernetesPath\VERSION).Trim()
 Write-Output "VERSION: $Version"
 
 #BUILD DATE
