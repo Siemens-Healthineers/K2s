@@ -85,7 +85,7 @@ kubectl apply -f kustomization.yaml
 ### Helm chart deployment
 
 ```yaml
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: bitnami
