@@ -273,7 +273,11 @@ func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(stri
 	}
 
 	if flag.Value.Type() == "bool" {
-		add(fmt.Sprintf("-%s", scriptParam.ScriptParameterName))
+		if flag.Value.String() == "true" {
+			add(fmt.Sprintf("-%s", scriptParam.ScriptParameterName))
+		} else {
+			add(fmt.Sprintf("-%s:$false", scriptParam.ScriptParameterName))
+		}
 		return nil
 	}
 

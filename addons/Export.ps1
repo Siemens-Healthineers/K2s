@@ -13,6 +13,10 @@ Param(
     [switch] $All,
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to export')]
     [string[]] $Names,
+    [parameter(Mandatory = $false, HelpMessage = 'Omit container images from export')]
+    [switch] $OmitImages,
+    [parameter(Mandatory = $false, HelpMessage = 'Omit packages (debian, linux, windows) from export')]
+    [switch] $OmitPackages,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -181,7 +185,39 @@ try {
 
              $sourceManifestsDir = Join-Path $dirPath 'manifests'
              if (Test-Path $sourceManifestsDir) {
+                 $manifestFiles = @(Get-ChildItem -Path $sourceManifestsDir -Recurse -File)
+                 Write-Log "Copying $($manifestFiles.Count) files from addon manifests directory"
                  Copy-Item -Path (Join-Path $sourceManifestsDir '*') -Destination $manifestsStaging -Recurse -Force -ErrorAction SilentlyContinue
+             } else {
+                 Write-Log "No manifests directory found at $sourceManifestsDir"
+             }
+
+             # Inject gitops-sync/ Job template into manifests layer for GitOps delivery.
+             $gitopsSyncSource = Join-Path $PSScriptRoot 'common\manifests\addon-sync\gitops-sync'
+             Write-Log "Checking for gitops-sync source at: $gitopsSyncSource"
+             
+             if (Test-Path $gitopsSyncSource) {
+                 $gitopsSyncDest = Join-Path $manifestsStaging 'gitops-sync'
+                 New-Item -ItemType Directory -Path $gitopsSyncDest -Force | Out-Null
+                 
+                 $gitopsSyncFiles = @(Get-ChildItem -Path $gitopsSyncSource -File)
+                 Write-Log "Found $($gitopsSyncFiles.Count) gitops-sync files to inject"
+                 Copy-Item -Path (Join-Path $gitopsSyncSource '*') -Destination $gitopsSyncDest -Recurse -Force
+
+                 # Replace the timestamp placeholder with the actual export timestamp
+                 $exportTimestamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
+                 $syncJobPath = Join-Path $gitopsSyncDest 'sync-job.yaml'
+                 if (Test-Path $syncJobPath) {
+                     $content = [System.IO.File]::ReadAllText($syncJobPath, [System.Text.Encoding]::UTF8)
+                     $content = $content -replace 'EXPORT_TIMESTAMP_PLACEHOLDER', $exportTimestamp
+                     $content = $content -replace 'ADDON_NAME_PLACEHOLDER', $addonFolderName
+                     [System.IO.File]::WriteAllText($syncJobPath, $content, [System.Text.UTF8Encoding]::new($false))
+                     Write-Log "Injected gitops-sync Job template with timestamp $exportTimestamp and addon name $addonFolderName" -Console
+                 } else {
+                     Write-Log "Warning: sync-job.yaml not found at $syncJobPath" -Console
+                 }
+             } else {
+                 Write-Log "Warning: gitops-sync source directory not found at $gitopsSyncSource" -Console
              }
 
              $readmePath = Join-Path $dirPath 'README.md'
@@ -294,6 +330,9 @@ try {
             # Add version information as OCI annotations (stored in oci-manifest.json)
             Write-Log "Preparing OCI artifact for addon $addonName" -Console
             
+            if ($OmitImages) {
+                Write-Log "Omitting container images for addon $addonName (--omit-images)" -Console
+            } else {
             Write-Log "Pulling images for addon $addonName from $dirPath" -Console
 
             Write-Log '---'
@@ -547,8 +586,9 @@ try {
             else {
                 Write-Log "No images found for addon $addonName"
             }
+            } 
 
-            if ($null -ne $implementation.offline_usage) {
+            if ($null -ne $implementation.offline_usage -and -not $OmitPackages) {
                 Write-Log '---'
                 Write-Log "Downloading packages for addon $addonName" -Console
                 $linuxPackages = $implementation.offline_usage.linux
@@ -611,6 +651,9 @@ try {
                     }
                 }
             }
+            elseif ($OmitPackages) {
+                Write-Log "Omitting packages for addon $addonName (--omit-packages)" -Console
+            }
 
             Write-Log "Creating OCI artifact layers for $addonName" -Console
             
@@ -632,9 +675,14 @@ try {
             }
             
             # Layer 1: Manifests - store in blobs
-            if ((Get-ChildItem $manifestsStaging -ErrorAction SilentlyContinue).Count -gt 0) {
+            $manifestsStageCount = (Get-ChildItem $manifestsStaging -ErrorAction SilentlyContinue).Count
+            Write-Log "Manifests staging directory contains $manifestsStageCount items"
+            
+            if ($manifestsStageCount -gt 0) {
                 $manifestsTarPath = Join-Path $artifactPath 'manifests.tar.gz'
-                if (New-TarGzArchive -SourcePath $manifestsStaging -DestinationPath $manifestsTarPath -ArchiveContents) {
+                $tarCreated = New-TarGzArchive -SourcePath $manifestsStaging -DestinationPath $manifestsTarPath -ArchiveContents
+                
+                if ($tarCreated) {
                     $blobResult = Add-ContentToBlobs -BlobsDir $blobsDir -SourcePath $manifestsTarPath -Move
                     $ociLayerDescriptors += @{
                         mediaType = $ociMediaTypes.Manifests
@@ -643,6 +691,28 @@ try {
                         annotations = @{ 'org.opencontainers.image.title' = 'manifests.tar.gz' }
                     }
                     Write-Log "Created manifests layer: $($blobResult.Digest)"
+                } else {
+                    Write-Log "Warning: New-TarGzArchive returned false for manifests layer" -Console
+                }
+            } else {
+                # Create empty manifests layer
+                Write-Log "Creating empty manifests layer (no content in staging directory)" -Console
+                $manifestsTarPath = Join-Path $artifactPath 'manifests.tar.gz'
+                
+                # Create minimal tar.gz with empty directory structure
+                $emptyManifestDir = Join-Path $artifactPath 'empty-manifest-temp'
+                New-Item -ItemType Directory -Path $emptyManifestDir -Force | Out-Null
+                
+                if (New-TarGzArchive -SourcePath $emptyManifestDir -DestinationPath $manifestsTarPath -ArchiveContents) {
+                    Remove-Item -Path $emptyManifestDir -Recurse -Force -ErrorAction SilentlyContinue
+                    $blobResult = Add-ContentToBlobs -BlobsDir $blobsDir -SourcePath $manifestsTarPath -Move
+                    $ociLayerDescriptors += @{
+                        mediaType = $ociMediaTypes.Manifests
+                        size = $blobResult.Size
+                        digest = $blobResult.Digest
+                        annotations = @{ 'org.opencontainers.image.title' = 'manifests.tar.gz' }
+                    }
+                    Write-Log "Created empty manifests layer: $($blobResult.Digest)"
                 }
             }
             
@@ -889,9 +959,18 @@ Write-Log "  Layer 0: config.tar.gz       (application/vnd.k2s.addon.configfiles
 Write-Log "  Layer 1: manifests.tar.gz    (application/vnd.k2s.addon.manifests.v1.tar+gzip)" -Console
 Write-Log "  Layer 2: charts.tar.gz       (application/vnd.cncf.helm.chart.content.v1.tar+gzip) [if helm-based]" -Console
 Write-Log "  Layer 3: scripts.tar.gz      (application/vnd.k2s.addon.scripts.v1.tar+gzip)" -Console
-Write-Log "  Layer 4: images-linux.tar    (application/vnd.oci.image.layer.v1.tar)" -Console
-Write-Log "  Layer 5: images-windows.tar  (application/vnd.k2s.addon.images-windows.v1.tar)" -Console
-Write-Log "  Layer 6: packages.tar.gz     (application/vnd.k2s.addon.packages.v1.tar+gzip)" -Console
+if ($OmitImages) {
+    Write-Log "  Layer 4: images-linux.tar    (application/vnd.oci.image.layer.v1.tar) [SKIPPED]" -Console
+    Write-Log "  Layer 5: images-windows.tar  (application/vnd.k2s.addon.images-windows.v1.tar) [SKIPPED]" -Console
+} else {
+    Write-Log "  Layer 4: images-linux.tar    (application/vnd.oci.image.layer.v1.tar)" -Console
+    Write-Log "  Layer 5: images-windows.tar  (application/vnd.k2s.addon.images-windows.v1.tar)" -Console
+}
+if ($OmitPackages) {
+    Write-Log "  Layer 6: packages.tar.gz     (application/vnd.k2s.addon.packages.v1.tar+gzip) [SKIPPED]" -Console
+} else {
+    Write-Log "  Layer 6: packages.tar.gz     (application/vnd.k2s.addon.packages.v1.tar+gzip)" -Console
+}
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

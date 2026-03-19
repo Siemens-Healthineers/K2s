@@ -64,6 +64,10 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'rollout', '--ignore-n
 Write-Log 'Uninstalling rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
 
+# Clean up addon-sync infrastructure (if deployed)
+Write-Log 'Cleaning up addon-sync infrastructure' -Console
+(Invoke-Kubectl -Params 'delete', 'namespace', 'k2s-addon-sync', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout' })
 
