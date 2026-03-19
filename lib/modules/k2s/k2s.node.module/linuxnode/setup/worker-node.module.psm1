@@ -162,7 +162,7 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
     Write-Log "Prepare the computer $IpAddress for provisioning"
     Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
-    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -268,14 +268,16 @@ function Stop-LinuxWorkerNodeOnExistingVM {
     }
 }
 
-function Add-LinuxWorkerNodeOnUbuntuBareMetal {
+function Add-LinuxWorkerNodeOnBareMetal {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $WindowsHostIpAddress = $(throw 'Argument missing: WindowsHostIpAddress'),
         [string] $Proxy = '',
-        [string] $AdditionalHooksDir = ''
+        [string] $AdditionalHooksDir = '',
+        [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: installedDistributionOnRemoteComputer'),
+        [string] $NodePackagePath = ''
     )
 
     $nodeParams = @{
@@ -293,9 +295,10 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
     Write-Log "Installing node essentials" -Console
 
     Write-Log "Prepare the computer $IpAddress for provisioning"
-    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
-    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer
+
+    Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath
 
     $doBeforeJoining = {
         Write-Log "Configuring networking for adding the node" -Console
@@ -458,18 +461,94 @@ function Remove-RouteToLinuxWorkerNode {
     route delete $ClusterCIDRWorker >$null 2>&1
 }
 
-function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
+function Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer {
     Param(
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $Proxy = ''
+        [string] $Proxy = '',
+        [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: InstalledDistribution'),
+        [string] $NodePackagePath = ''
     )
+
+    # ---------------------------------------------------------------------------
+    # Offline path: node package zip supplied → extract into 'linuxnode' folder
+    # ---------------------------------------------------------------------------
+    if (![string]::IsNullOrWhiteSpace($NodePackagePath)) {
+        if (!(Test-Path $NodePackagePath)) {
+            throw "[NodeAdd] Node package not found: '$NodePackagePath'"
+        }
+
+        Write-Log "[NodeAdd] --node-package supplied: '$NodePackagePath'. Using offline installation." -Console
+
+        # Extract zip to a temp staging area
+        $extractTempPath = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-node-pkg-extract-$([guid]::NewGuid().ToString().Substring(0, 8))"
+        New-Item -Path $extractTempPath -ItemType Directory -Force | Out-Null
+        Write-Log "[NodeAdd] Extracting node package to staging: '$extractTempPath'" -Console
+        Expand-Archive -LiteralPath $NodePackagePath -DestinationPath $extractTempPath -Force
+        Write-Log "[NodeAdd] Node package extracted." -Console
+
+        # Validate expected content
+        $zipPackagesPath = Join-Path $extractTempPath 'packages'
+        $zipPackagesPathWithOs = Join-Path $zipPackagesPath $installedDistributionOnRemoteComputer
+        $zipImagesPath   = Join-Path $extractTempPath 'images'
+        if (!(Test-Path $zipPackagesPath)) {
+            throw "[NodeAdd] Expected 'packages' folder not found in node package: '$zipPackagesPath'"
+        }
+
+        $zipPackagesPathToUse = $zipPackagesPath
+        if (Test-Path $zipPackagesPathWithOs) {
+            $zipPackagesPathToUse = $zipPackagesPathWithOs
+        } else {
+            Write-Log "[NodeAdd] WARNING: OS-specific packages path '$zipPackagesPathWithOs' not found. Falling back to '$zipPackagesPath'." -Console
+        }
+
+        # Prepare the 'linuxnode' artifacts directory: keep folder, overwrite contents
+        $linuxNodeDir = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
+        if (!(Test-Path $linuxNodeDir)) {
+            New-Item -Path $linuxNodeDir -ItemType Directory -Force | Out-Null
+            Write-Log "[NodeAdd] Created 'linuxnode' directory: '$linuxNodeDir'" -Console
+        } else {
+            Write-Log "[NodeAdd] Using existing 'linuxnode' directory: '$linuxNodeDir'" -Console
+        }
+
+        $linuxNodePackagesPath = Join-Path $linuxNodeDir 'packages'
+        $linuxNodePackagesByOsPath = Join-Path $linuxNodePackagesPath $installedDistributionOnRemoteComputer
+        $linuxNodeImagesPath = Join-Path $linuxNodeDir 'images'
+
+        if (Test-Path $linuxNodePackagesByOsPath) {
+            Write-Log "[NodeAdd] Overwriting existing packages content in '$linuxNodePackagesByOsPath'" -Console
+            Remove-Item -Path $linuxNodePackagesByOsPath -Recurse -Force
+        }
+        if (Test-Path $linuxNodeImagesPath) {
+            Write-Log "[NodeAdd] Overwriting existing images content in '$linuxNodeImagesPath'" -Console
+            Remove-Item -Path $linuxNodeImagesPath -Recurse -Force
+        }
+
+        # Copy packages and images from extracted zip into linuxnode
+        New-Item -Path $linuxNodePackagesByOsPath -ItemType Directory -Force | Out-Null
+        Write-Log "[NodeAdd] Copying packages from node package into '$linuxNodePackagesByOsPath'" -Console
+        Copy-Item -Path "$zipPackagesPathToUse\*" -Destination $linuxNodePackagesByOsPath -Recurse -Force
+
+        if (Test-Path $zipImagesPath) {
+            Write-Log "[NodeAdd] Copying images from node package into '$linuxNodeDir\images'" -Console
+            Copy-Item -Path $zipImagesPath -Destination $linuxNodeDir -Recurse -Force
+        } else {
+            Write-Log "[NodeAdd] WARNING: 'images' folder not found in node package. Skipping image copy." -Console
+        }
+
+        # Cleanup temp staging
+        Remove-Item -Path $extractTempPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    # ---------------------------------------------------------------------------
+    # Online path: discover packages from control plane or download from internet
+    # ---------------------------------------------------------------------------
     $controlPlaneUserName = Get-DefaultUserNameControlPlane
     $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
     $installedDistributionOnControlPlane = Get-InstalledDistribution -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
-    $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
     Write-Log "Installed distribution in the control plane: $installedDistributionOnControlPlane"
     Write-Log "Installed distribution in the machine with IP '$IpAddress': $installedDistributionOnRemoteComputer"
+   
     $baseDirectoryOfKubenodeDebPackagesOnWindowsHost = Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost
     $windowsHostDebPackagesSourcePath = "$baseDirectoryOfKubenodeDebPackagesOnWindowsHost\$installedDistributionOnRemoteComputer"
 
@@ -478,10 +557,11 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
 
     $packagePathExists = $(Test-Path -Path $linuxNodeArtifactsPackagePath)
     $linuxNodeArtifactsPathExists = $(Test-Path -Path $linuxNodeArtifactsPath)
+
     Write-Log "Zip file '$linuxNodeArtifactsPackagePath' with Linux node artifacts exists?: $packagePathExists"
     Write-Log "Folder '$linuxNodeArtifactsPath' with Linux node artifacts exists?: $linuxNodeArtifactsPathExists"
 
-    if (!($linuxNodeArtifactsPathExists) -and ($packagePathExists)) {
+    if (!($linuxNodeArtifactsPathExists) -and ($packagePathExists) -and [string]::IsNullOrWhiteSpace($NodePackagePath)) {
         Write-Log "Create folder '$linuxNodeArtifactsPath'"
         New-Item -Path $linuxNodeArtifactsPath -ItemType Directory -Force | Out-Null
         Write-Log "Extracting content of file '$linuxNodeArtifactsPackagePath' into '$linuxNodeArtifactsPath'"
@@ -492,24 +572,57 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     Write-Log "Folder with deb packages '$windowsHostDebPackagesSourcePath' exists?: $distributionDebPackagesSourcePathExists"
     if ($distributionDebPackagesSourcePathExists) {
         Write-Log "The content of the folder '$windowsHostDebPackagesSourcePath' will be used"
-    } else {
-        if ($installedDistributionOnRemoteComputer -eq $installedDistributionOnControlPlane) {
-            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is equal to the control plane's distribution --> its deb packages will be copied into '$windowsHostDebPackagesSourcePath'"
-            Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath "$windowsHostDebPackagesSourcePath"
-        } else {
-            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane"
-        }        
-    }
-
+    } 
+    
     $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
-    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath
-    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
+    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
+    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
 
     $buildahDebPackagesTargetPath = Get-BuildahDebPackagesPath -UserName $UserName
-    Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $buildahDebPackagesTargetPath
-    Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesTargetPath
+    Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $buildahDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
+    Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesTargetPath -InstalledDistribution $installedDistributionOnRemoteComputer
 
     Copy-KubernetesImagesFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
+}
+
+function Test-SupportedWorkerOS {
+    <#
+    .SYNOPSIS
+        Validates that the given OS key is listed in supportedWorkerOS in cfg/config.json.
+    .PARAMETER OS
+        The combined OS+version key to validate (e.g. 'debian12', 'debian13').
+    .PARAMETER InstallationPath
+        The K2s installation root. Defaults to Get-KubePath when not specified.
+    #>
+    param(
+        [string] $OS = $(throw 'Argument missing: OS'),
+        [string] $InstallationPath = ''
+    )
+
+    if ($InstallationPath -eq '') {
+        $InstallationPath = Get-KubePath
+    }
+
+    $configPath = Join-Path $InstallationPath 'cfg\config.json'
+    if (!(Test-Path $configPath)) {
+        throw "Configuration file not found: $configPath"
+    }
+
+    $config = Get-Content $configPath -Raw | ConvertFrom-Json
+    $supportedOS = $config.supportedWorkerOS
+    if (!$supportedOS) {
+        throw 'No supported OS configurations found in cfg/config.json'
+    }
+
+    foreach ($supported in $supportedOS) {
+        if ($supported.os -eq $OS) {
+            Write-Log "[WorkerOS] OS '$OS' is supported" -Console
+            return
+        }
+    }
+
+    $supportedList = ($supportedOS | ForEach-Object { $_.os }) -join ', '
+    throw "OS '$OS' is not supported. Supported: $supportedList"
 }
 
 Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM,
@@ -520,7 +633,8 @@ Start-LinuxWorkerNodeOnExistingVM,
 Stop-LinuxWorkerNodeOnExistingVM,
 Add-LinuxWorkerNodeOnExistingUbuntuVM,
 Remove-LinuxWorkerNodeOnExistingUbuntuVM,
-Add-LinuxWorkerNodeOnUbuntuBareMetal,
+Add-LinuxWorkerNodeOnBareMetal,
 Remove-LinuxWorkerNodeOnUbuntuBareMetal,
 Start-LinuxWorkerNodeOnUbuntuBareMetal,
-Stop-LinuxWorkerNodeOnUbuntuBareMetal
+Stop-LinuxWorkerNodeOnUbuntuBareMetal,
+Test-SupportedWorkerOS

@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: nginx-gw
     app.kubernetes.io/name: nginx-gw
-    app.kubernetes.io/version: "2.3.0"
+    app.kubernetes.io/version: "2.4.2"
   name: nginx-gw-controller
   namespace: nginx-gw
 spec:
@@ -59,8 +59,8 @@ spec:
             fieldRef:
               fieldPath: metadata.labels['app.kubernetes.io/instance']
         - name: IMAGE_NAME
-          value: ghcr.io/nginx/nginx-gateway-fabric:2.3.0
-        image: ghcr.io/nginx/nginx-gateway-fabric:2.3.0
+          value: ghcr.io/nginx/nginx-gateway-fabric:2.4.2
+        image: ghcr.io/nginx/nginx-gateway-fabric:2.4.2
         imagePullPolicy: IfNotPresent
         name: nginx-gw
         ports:
