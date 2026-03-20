@@ -302,19 +302,25 @@ func (h *WebhookHandler) getUsedClusterIPs() (map[string]bool, error) {
 //  2. Running Pods → their Node's kubernetes.io/os label
 //  3. Defaults to "linux"
 //
-// When a Service and its backing Deployment are applied simultaneously, the
-// Deployment may not be visible yet. To handle this race, the function retries
-// once after a brief delay if no matching workload is found at all.
+// When a Service and its backing Deployment are applied simultaneously (e.g.
+// via kubectl apply -k), the Deployment may not be visible yet due to API server
+// processing order. To handle this race, the function retries with brief delays
+// when no matching workload is found at all.
+const (
+	detectRetries  = 5
+	detectInterval = 500 * time.Millisecond
+)
+
 func (h *WebhookHandler) detectTargetOS(namespace string, selector map[string]string) string {
 	if len(selector) == 0 {
 		slog.Info("Service has no selector, defaulting to linux", "namespace", namespace)
 		return "linux"
 	}
 
-	for attempt := range 2 {
+	for attempt := range detectRetries {
 		if attempt > 0 {
-			slog.Info("No matching workload found, retrying after brief delay", "namespace", namespace)
-			time.Sleep(1 * time.Second)
+			slog.Info("No matching workload found, retrying", "attempt", attempt+1, "namespace", namespace)
+			time.Sleep(detectInterval)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
