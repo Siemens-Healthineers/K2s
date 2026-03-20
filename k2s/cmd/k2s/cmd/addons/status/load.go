@@ -4,6 +4,8 @@
 package status
 
 import (
+	"path/filepath"
+
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -25,7 +27,7 @@ type AddonStatusProp struct {
 }
 
 func LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error) {
-	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Get-Status.ps1")
+	scriptPath := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "addons", "Get-Status.ps1"))
 
 	return powershell.ExecutePsWithStructuredResult[*LoadedAddonStatus](
 		scriptPath,
