@@ -10,6 +10,7 @@ Param(
     [string] $NodeName,
     [string] $WindowsHostIpAddress = '',
     [string] $Proxy = '',
+    [string] $NodePackagePath = '',
     [switch] $ShowLogs = $false
 )
 
@@ -19,6 +20,8 @@ $infraModule =   "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.inf
 $nodeModule =    "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule
+$puttyToolsHelper = "$PSScriptRoot\..\..\..\..\scripts\k2s\system\package\New-K2sPackage.PuttyTools.ps1"
+. $puttyToolsHelper
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -29,6 +32,8 @@ $installationPath = Get-KubePath
 Set-Location $installationPath
 
 Write-Log "Performing pre-requisites check" -Console
+
+Assert-PuttyToolsReady -LogPrefix '[NodeAdd]' -Proxy $Proxy
 
 $connectionCheck = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which ls' -UserName $UserName -IpAddress $IpAddress)
 if (!$connectionCheck.Success) {
@@ -45,9 +50,13 @@ if ([string]::IsNullOrWhiteSpace($localPublicKey)) {
     throw "Precondition not met: the file '$localPublicKeyFilePath' is not empty."
 }
 $authorizedKeysFilePath = '~/.ssh/authorized_keys'
-$authorizedKeys = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "[ -f $authorizedKeysFilePath ] && cat $authorizedKeysFilePath || echo 'File $authorizedKeysFilePath not available'" -UserName $UserName -IpAddress $IpAddress).Output
-if (!($authorizedKeys.Contains($localPublicKey))) {
-    throw "Precondition not met: the local public key from the file '$localPublicKeyFilePath' is present in the file '$authorizedKeysFilePath' of the computer with IP '$IpAddress'."
+$authorizedKeysRaw = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "[ -f $authorizedKeysFilePath ] && cat $authorizedKeysFilePath || echo 'File $authorizedKeysFilePath not available'" -UserName $UserName -IpAddress $IpAddress).Output
+# Output may be a string or array (multiple lines); join and normalize CR to handle both cases
+$authorizedKeys = if ($authorizedKeysRaw -is [array]) { $authorizedKeysRaw -join "`n" } else { [string]$authorizedKeysRaw }
+$authorizedKeys = $authorizedKeys.Replace("`r", '')
+$normalizedLocalPublicKey = $localPublicKey.Replace("`r", '')
+if (!($authorizedKeys.Contains($normalizedLocalPublicKey))) {
+    throw "Precondition not met: the local public key from the file '$localPublicKeyFilePath' is NOT present in the file '$authorizedKeysFilePath' of the computer with IP '$IpAddress'. Please add the public key to the authorized_keys file on the remote machine."
 }
 
 $actualHostname = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo $(hostname)' -UserName $UserName -IpAddress $IpAddress).Output
@@ -58,6 +67,12 @@ $k8sFormattedNodeName = $actualHostname.ToLower()
 if (![string]::IsNullOrWhiteSpace($NodeName) -and ($NodeName.ToLower() -ne $k8sFormattedNodeName)) {
     throw "Precondition not met: the passed NodeName '$NodeName' is the hostname of the computer with IP '$IpAddress' ($actualHostname)"
 }
+
+$installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
+
+Write-Log "Detected OS on remote computer: $($installedDistributionOnRemoteComputer)" -Console
+
+Test-SupportedWorkerOS -OS $installedDistributionOnRemoteComputer
 
 $NodeName = $actualHostname
 
@@ -78,7 +93,7 @@ Write-Log "Disable swap"
 
 if ($WindowsHostIpAddress -eq '') {
     $loopbackAdapter = Get-L2BridgeName
-    $WindowsHostIpAddress = Get-HostPhysicalIp -ExcludeNetworkInterfaceName $loopbackAdapter
+    $WindowsHostIpAddress = Get-HostIpAddressForRemoteIp -RemoteIpAddress $IpAddress -ExcludeNetworkInterfaceName $loopbackAdapter
 }
 Write-Log "Windows Host IP address: $WindowsHostIpAddress"
 
@@ -88,6 +103,8 @@ if ($Proxy -eq '') {
     $Proxy = $proxyConfig.HttpProxy
 }
 
+
+
 $workerNodeParams = @{
     NodeName = $NodeName
     UserName = $UserName
@@ -95,8 +112,10 @@ $workerNodeParams = @{
     WindowsHostIpAddress = $WindowsHostIpAddress
     Proxy = $Proxy
     AdditionalHooksDir = $AdditionalHooksDir
+    installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer
+    NodePackagePath = $NodePackagePath
 }
-Add-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
+Add-LinuxWorkerNodeOnBareMetal @workerNodeParams
 
 if (! $SkipStart) {
     Write-Log 'Starting worker node' -Console
