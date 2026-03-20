@@ -8,7 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/instance: nginx-gw
     app.kubernetes.io/name: nginx-gw
-    app.kubernetes.io/version: "2.3.0"
+    app.kubernetes.io/version: "2.4.2"
   name: nginx-gw
 spec:
   controllerName: gateway.nginx.org/nginx-gw-controller

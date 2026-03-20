@@ -76,6 +76,8 @@ if ($DeleteImages) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
 }
 
+Remove-CoreDNSHostEntry -Hostname 'k2s.registry.local'
+
 Remove-Registry -Name "k2s.registry.local*"
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })

@@ -114,6 +114,7 @@ nav:
       - Hook System: op-manual/hook-system.md
       - Backing Up and Restoring the System: op-manual/backing-up-restoring-system.md
       - Backing Up and Restoring Addons: op-manual/backing-up-restoring-addons.md
+      - GitOps Addon Delivery: op-manual/gitops-addon-delivery.md
       - External DNS: op-manual/external-dns.md
       - Extending K2s cluster: op-manual/extending-k2s-cluster.md
       - Secure Host Access: op-manual/secure-host-access.md
