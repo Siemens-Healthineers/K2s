@@ -9,12 +9,20 @@ SPDX-License-Identifier: MIT
 ## Introduction
 The `gpu-node` addon provides the possibility to configure the KubeMaster Linux VM as GPU node in order to run GPU workloads. When enabling this addon the KubeMaster Linux VM is configured to use the WSL2 Linux Kernel which is able to access the GPU of the Windows host machine and use it as shared instance together with the Windows host machine. The [k8s device plugin](https://github.com/NVIDIA/k8s-device-plugin) from Nvidia is responsible for deploying GPU workloads.
 
+> **Supported hosting variants:** The `gpu-node` addon is fully supported on both **Hyper-V** and **WSL2** K2s setups.
+
 ## Getting started
 
 ### Prerequisites
-In order to configure the GPU node you need to install the latest Nvidia drivers for the GPU on the Windows host machine first: https://www.nvidia.com/Download/index.aspx
 
-**NOTE:** A reboot may be necessary.
+1. **WSL (Windows Subsystem for Linux)** must be installed on the Windows host. This provides the GPU paravirtualization library (`libdxcore.so`) required by both the Hyper-V and WSL2 hosting variants. No Linux distribution is needed:
+   ```console
+   wsl --install --no-distribution
+   ```
+
+2. **NVIDIA drivers** must be installed on the Windows host: https://www.nvidia.com/Download/index.aspx
+
+**NOTE:** A reboot may be necessary after installing either component.
 
 The gpu-node addon can be enabled using the k2s CLI by running the following command:
 ```console
