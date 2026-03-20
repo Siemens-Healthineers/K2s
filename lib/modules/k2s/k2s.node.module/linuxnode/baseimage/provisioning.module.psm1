@@ -529,7 +529,7 @@ function New-ProvisionedBaseImage {
     Write-Log "Role assignment finished"
 
     Write-Log "[Proxy] Remove proxy settings from base image before sealing"
-    Remove-ProxySettingsOnKubenode -IpAddress $vmIP -UserName $userName
+    Remove-ProxySettingsOnKubenode -IpAddress $vmIP -UserName $userName -CommandExecutionTimeoutSeconds 30
 
     Write-Log "Stop the VM $vmName"
     Stop-VirtualMachineForBaseImageProvisioning -Name $vmName
