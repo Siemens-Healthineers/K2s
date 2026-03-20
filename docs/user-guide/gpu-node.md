@@ -8,17 +8,25 @@ SPDX-License-Identifier: MIT
 
 The `gpu-node` addon configures the K2s control-plane Linux VM as a GPU node so that Kubernetes pods can request and use the NVIDIA GPU of the Windows host machine. GPU access is shared between the Windows host and the Linux VM simultaneously.
 
+!!! info "Supported hosting variants"
+    The `gpu-node` addon is fully supported on both **Hyper-V** and **WSL2** K2s setups. GPU access uses the GPU paravirtualization (GPU-PV) mechanism in both cases.
+
 GPU workloads are scheduled via the [NVIDIA Device Plugin](https://github.com/NVIDIA/k8s-device-plugin) using the **CDI (Container Device Interface)** injection model — the same approach used by upstream Kubernetes.
 
 ---
 
 ## Prerequisites
 
+- **WSL (Windows Subsystem for Linux)** must be installed on the Windows host. The WSL infrastructure provides the GPU paravirtualization library (`libdxcore.so`) that is required by both the Hyper-V and WSL2 hosting variants. No Linux distribution is needed:
+  ```console
+  wsl --install --no-distribution
+  ```
+
 - **NVIDIA drivers** must be installed on the Windows host before enabling the addon.
   Download from: [https://www.nvidia.com/Download/index.aspx](https://www.nvidia.com/Download/index.aspx)
 
 !!! note
-    A reboot of the Windows host may be required after driver installation.
+    A reboot of the Windows host may be required after installing either component.
 
 - For **WSL2 hosting variant**: after installing or updating NVIDIA drivers you must restart the K2s cluster before enabling the addon:
   ```console
@@ -193,7 +201,7 @@ This removes the Device Plugin and DCGM Exporter DaemonSets, uninstalls the NVID
 
 | Limitation | Details |
 |------------|---------|
-| **DCGM / nvidia-smi full NVML** | NVML is unavailable on the dxcore/D3D12 driver path used by both WSL2 and Hyper-V GPU-PV. `nvidia-smi` works for UUID queries but NVML-dependent tools (DCGM metrics) do not function. CUDA workloads are unaffected. |
+| **DCGM-Exporter not deployed** | NVML is unavailable on the dxcore/D3D12 driver path used by both WSL2 and Hyper-V GPU-PV. Because K2s only supports GPU-PV, the DCGM-Exporter DaemonSet is **not deployed** (it would crash-loop). `nvidia-smi` works for basic UUID queries. CUDA workloads are unaffected. |
 | **`nvidia-smi` reports limited info** | Only UUID queries work reliably. Power draw, temperature, and utilization queries are not available via dxcore. |
 | **Single GPU only** | Only one physical GPU is exposed to the VM per K2s node. Multi-GPU passthrough is not supported. |
 | **Hyper-V requirement** | GPU-PV (Hyper-V path) requires Windows 10 version 20H1 (build 19041) or later and a GPU with a WDDM 2.9+ driver. |

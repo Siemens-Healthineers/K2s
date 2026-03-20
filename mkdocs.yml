@@ -94,6 +94,7 @@ nav:
       - Addons: user-guide/addons.md
       - GPU Node: user-guide/gpu-node.md
       - Assignment of Cluster IP Addresses for Services: user-guide/cluster-ip-addresses.md
+      - Certificate Management: user-guide/certificate-management.md
       - Adding a Container Registry: user-guide/adding-container-registry.md
       - Building a Container Image: user-guide/building-container-image.md
   - Operator Manual:
@@ -112,6 +113,7 @@ nav:
       - Hook System: op-manual/hook-system.md
       - Backing Up and Restoring the System: op-manual/backing-up-restoring-system.md
       - Backing Up and Restoring Addons: op-manual/backing-up-restoring-addons.md
+      - GitOps Addon Delivery: op-manual/gitops-addon-delivery.md
       - External DNS: op-manual/external-dns.md
       - Extending K2s cluster: op-manual/extending-k2s-cluster.md
       - Secure Host Access: op-manual/secure-host-access.md
