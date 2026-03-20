@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
@@ -16,6 +16,7 @@ $key = Get-SSHKeyControlPlane
 $kubePath = Get-KubePath
 $plinkExe = "$kubePath\bin\plink.exe"
 $scpExe = "$kubePath\bin\pscp.exe"
+$sshExe = (Get-Command 'ssh.exe' -ErrorAction Stop).Source
 
 # TODO Separate Linux distribution module
 $LinuxOsTypeDebianCloud = 'DebianCloud'
@@ -35,7 +36,9 @@ function Invoke-SSHWithKey {
         $Nested,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $ipControlPlane,
-        [string] $UserName = $defaultUserName
+        [string] $UserName = $defaultUserName,
+        [Parameter(Mandatory = $false)]
+        [uint16]$ExecutionTimeoutSeconds = 0
     )
     $userOnRemoteMachine = "$UserName@$IpAddress"
     $params = '-n', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
@@ -50,14 +53,44 @@ function Invoke-SSHWithKey {
     $rawOutput = $null
     $sshExitCode = 0
     try {
-        $rawOutput = &ssh.exe $params 2>&1
-        $sshExitCode = $LASTEXITCODE
+        if ($ExecutionTimeoutSeconds -gt 0) {
+            $stdoutFile = [System.IO.Path]::GetTempFileName()
+            $stderrFile = [System.IO.Path]::GetTempFileName()
+            try {
+                $process = Start-Process -FilePath $sshExe -ArgumentList $params -NoNewWindow -PassThru -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+                if (-not $process.WaitForExit($ExecutionTimeoutSeconds * 1000)) {
+                    try {
+                        $process.Kill()
+                        $process.WaitForExit()
+                    }
+                    catch {
+                        Write-Log "[SSH] Failed to terminate timed out ssh.exe process: $($_.Exception.Message)"
+                    }
+
+                    $timeoutMessage = "[SSH] Command timed out after $ExecutionTimeoutSeconds sec. IP: $IpAddress. Command: $Command"
+                    Write-Log $timeoutMessage
+                    throw $timeoutMessage
+                }
+
+                $stdout = if (Test-Path $stdoutFile) { Get-Content -Path $stdoutFile } else { @() }
+                $stderr = if (Test-Path $stderrFile) { Get-Content -Path $stderrFile } else { @() }
+                $rawOutput = @($stdout) + @($stderr)
+                $sshExitCode = $process.ExitCode
+            }
+            finally {
+                Remove-Item -Path $stdoutFile, $stderrFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+        else {
+            $rawOutput = &$sshExe $params 2>&1
+            $sshExitCode = $LASTEXITCODE
+        }
     } catch {
         # In case of unexpected terminating error, capture it
         Write-Log "[SSH] Unexpected error during SSH command execution: $_"
         throw
     }
-    
+
     # Convert to array of strings, handling both regular output and ErrorRecord objects
     # ErrorRecord objects from stderr redirect need to be converted to strings
     $allLines = @()
@@ -71,7 +104,7 @@ function Invoke-SSHWithKey {
             }
         }
     }
-    
+
     # Filter out SSH-specific connection warnings that contaminate command output
     # These are transient socket cleanup messages that don't indicate actual command failure
     $outputLines = @()
@@ -90,7 +123,7 @@ function Invoke-SSHWithKey {
             $outputLines += $line
         }
     }
-    
+
     # If a socket cleanup warning occurred, the exit code may be misleading.
     # Windows SSH can return various non-zero exit codes (255, 3221226356, etc.)
     # when the socket cleanup warning happens, even if the command succeeded.
@@ -112,7 +145,7 @@ function Invoke-SSHWithKey {
         # No socket warning - preserve the actual exit code for the caller
         $global:LASTEXITCODE = $sshExitCode
     }
-    
+
     # Return clean output as a single string (joining with newlines if multiple lines)
     # Note: Do NOT log output to console here - callers decide how to display output
     if ($outputLines.Count -eq 0) {
@@ -132,11 +165,11 @@ function Get-FilteredSSHOutput {
         [Parameter(Mandatory = $false)]
         $RawOutput
     )
-    
+
     if ($null -eq $RawOutput) {
         return ''
     }
-    
+
     $outputLines = @()
     foreach ($item in @($RawOutput)) {
         $line = if ($item -is [System.Management.Automation.ErrorRecord]) {
@@ -144,7 +177,7 @@ function Get-FilteredSSHOutput {
         } else {
             "$item"
         }
-        
+
         # Filter out SSH-specific connection warnings
         if ($line -notmatch '^close - IO is still pending' -and
             $line -notmatch 'IO is still pending on closed socket' -and
@@ -153,7 +186,7 @@ function Get-FilteredSSHOutput {
             $outputLines += $line
         }
     }
-    
+
     if ($outputLines.Count -eq 0) {
         return ''
     } elseif ($outputLines.Count -eq 1) {
@@ -178,18 +211,18 @@ function Invoke-SCPWithKey {
         [Parameter(Mandatory = $false)]
         [uint16]$RetryDelay = 2
     )
-    
+
     $params = @('-o', 'StrictHostKeyChecking=no', '-i', $key)
     if ($Recursive) { $params += '-r' }
     $params += $Source, $Target
-    
+
     $attempt = 0
     $lastOutput = $null
     $lastExitCode = 0
-    
+
     do {
         $attempt++
-        
+
         # Capture all output first, then filter SSH connection warnings
         $rawOutput = $null
         $scpExitCode = 0
@@ -200,7 +233,7 @@ function Invoke-SCPWithKey {
             Write-Log "[SCP] Unexpected error during SCP execution: $_"
             throw
         }
-        
+
         # Convert to array of strings, handling both regular output and ErrorRecord objects
         $allLines = @()
         if ($null -ne $rawOutput) {
@@ -212,7 +245,7 @@ function Invoke-SCPWithKey {
                 }
             }
         }
-        
+
         # Filter out SSH-specific connection warnings
         $outputLines = @()
         $hadSocketWarning = $false
@@ -229,7 +262,7 @@ function Invoke-SCPWithKey {
                 $outputLines += $line
             }
         }
-        
+
         # Correct exit code if socket warning detected with SSH-level error codes
         if ($hadSocketWarning) {
             if ($scpExitCode -eq 255 -or $scpExitCode -eq -1 -or $scpExitCode -gt 255) {
@@ -241,20 +274,20 @@ function Invoke-SCPWithKey {
         } else {
             $global:LASTEXITCODE = $scpExitCode
         }
-        
+
         $lastOutput = if ($outputLines.Count -eq 0) { '' } elseif ($outputLines.Count -eq 1) { $outputLines[0] } else { $outputLines -join "`n" }
         $lastExitCode = $LASTEXITCODE
-        
+
         if ($lastExitCode -eq 0) {
             return $lastOutput
         }
-        
+
         if ($attempt -le $Retries) {
             Write-Log "[SCP] Attempt $attempt failed with exit code $lastExitCode, retrying in $RetryDelay seconds..."
             Start-Sleep -Seconds $RetryDelay
         }
     } while ($attempt -le $Retries)
-    
+
     # Return the output even on failure - caller decides how to handle
     $global:LASTEXITCODE = $lastExitCode
     return $lastOutput
@@ -325,16 +358,18 @@ function Invoke-CmdOnVmViaSSHKey(
     [string]$RepairCmd = $null,
     [Parameter(Mandatory = $false)]
     [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
-    [string]$UserName = $defaultUserName) {
+    [string]$UserName = $defaultUserName,
+    [Parameter(Mandatory = $false)]
+    [uint16]$ExecutionTimeoutSeconds = 0) {
 
     if (!$NoLog) {
-        Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $Nested, ip address: $IpAddress"
+        Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, execution timeout: $ExecutionTimeoutSeconds sec, ignore err: $IgnoreErrors, nested: $Nested, ip address: $IpAddress"
     }
     $Stoploop = $false
     [uint16]$Retrycount = 1
     do {
         try {
-            $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -UserName $UserName -IpAddress $IpAddress
+            $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -UserName $UserName -IpAddress $IpAddress -ExecutionTimeoutSeconds $ExecutionTimeoutSeconds
             $success = ($LASTEXITCODE -eq 0)
 
             if (!$success -and !$IgnoreErrors) {
@@ -803,13 +838,13 @@ function Wait-ForSshPossible {
             Write-Log "SSH login into VM with $($User) still not available after $maxIterations attempts, ssh result is '$($result)' aborting..." -Console
             throw "Unable to SSH login into VM after $maxIterations attempts"
         }
-        
+
         # Enhanced logging for sporadic failure diagnosis
         if ($iteration -ge 3) {
             $timeWaited = ($iteration - 1) * $baseDelay
             Write-Log "SSH login into VM with $($User) not yet possible (attempt $iteration/$maxIterations, waited ${timeWaited}s), current result is '$($result)' waiting for it..."
         }
-        
+
         # Implement progressive backoff for better handling of sporadic failures
         if ($iteration -le 5) {
             # Quick retries for the first few attempts
@@ -821,11 +856,11 @@ function Wait-ForSshPossible {
             # Longer delays for later attempts to handle slow VM initialization
             $delayTime = $maxDelay
         }
-        
+
         # Add small random jitter to prevent thundering herd in concurrent scenarios
         $jitter = Get-Random -Minimum 0 -Maximum 2
         $finalDelay = $delayTime + $jitter
-        
+
         Start-Sleep $finalDelay
     }
     $endTime = Get-Date
