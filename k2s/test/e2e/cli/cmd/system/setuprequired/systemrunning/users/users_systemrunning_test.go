@@ -88,7 +88,7 @@ var _ = Describe("system users add", Ordered, func() {
 					getCurrent: winusers.Current,
 				}
 
-				sut = integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider)
+				sut = integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider, integration.PlatformACLProvider())
 
 				Expect(sut.AddByName(systemUserName)).To(Succeed())
 			})
@@ -146,7 +146,7 @@ users:
 					getCurrent: winusers.Current,
 				}
 
-				sut = integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider)
+				sut = integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider, integration.PlatformACLProvider())
 
 				Expect(os.MkdirAll(kubeconfigDir, os.ModePerm)).To(Succeed())
 				Expect(os.WriteFile(kubeconfigPath, []byte(kubeconfig), os.ModePerm)).To(Succeed())
