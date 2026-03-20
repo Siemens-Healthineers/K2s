@@ -26,16 +26,23 @@ spec:
                     - nginx
                     - nginx-gw
                     - traefik
+              - name: addon-sync
+                default: true
+                description: Deploy addon-sync infrastructure for GitOps addon delivery from OCI registry
             examples:
               - cmd: k2s addons enable rollout argocd
                 comment: Enable rollout with ArgoCD in k2s
               - cmd: k2s addons enable rollout argocd --ingress traefik
                 comment: Enable rollout with ArgoCD in k2s with traefik ingress
+              - cmd: k2s addons enable rollout argocd --addon-sync=false
+                comment: Enable rollout with ArgoCD without addon-sync infrastructure
           script:
             subPath: argocd/Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
+              - cliFlagName: addon-sync
+                scriptParameterName: AddonSync
         disable:
           cli:
             examples:
@@ -53,7 +60,7 @@ spec:
           additionalImages: []
         windows:
           curl:
-            - url: https://github.com/fluxcd/flux2/releases/download/v2.8.1/flux_2.8.1_windows_amd64.zip
+            - url: https://github.com/fluxcd/flux2/releases/download/v2.8.3/flux_2.8.3_windows_amd64.zip
               destination: bin\flux.exe
       commands:
         enable:
@@ -70,16 +77,23 @@ spec:
                     - nginx
                     - nginx-gw
                     - traefik
+              - name: addon-sync
+                default: true
+                description: Deploy addon-sync infrastructure for GitOps addon delivery from OCI registry
             examples:
               - cmd: k2s addons enable rollout fluxcd
                 comment: Enable rollout with Flux CD in k2s
               - cmd: k2s addons enable rollout fluxcd --ingress nginx
                 comment: Enable rollout with Flux CD and webhook ingress in k2s
+              - cmd: k2s addons enable rollout fluxcd --addon-sync=false
+                comment: Enable rollout with Flux CD without addon-sync infrastructure
           script:
             subPath: fluxcd/Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
+              - cliFlagName: addon-sync
+                scriptParameterName: AddonSync
         disable:
           cli:
             examples:
