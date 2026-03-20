@@ -62,6 +62,18 @@ spec:
           value: 'Windows'
           effect: 'NoSchedule'
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: albums-win1
+spec:
+  selector:
+    app: albums-win1
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -121,4 +133,15 @@ spec:
           value: 'Windows'
           effect: 'NoSchedule'
 ---
-
+apiVersion: v1
+kind: Service
+metadata:
+  name: albums-win2
+spec:
+  selector:
+    app: albums-win2
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---

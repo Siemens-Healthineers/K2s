@@ -16,7 +16,7 @@ webhooks:
     sideEffects: None
     failurePolicy: Ignore
     reinvocationPolicy: IfNeeded
-    timeoutSeconds: 5
+    timeoutSeconds: 10
     rules:
       - apiGroups: [""]
         apiVersions: ["v1"]

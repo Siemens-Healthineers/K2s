@@ -64,25 +64,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		GinkgoWriter.Printf("Warning: failed to start pod watcher: %v\n", err)
 	}
 
-	// Apply in two phases: Deployments first, then Services.
-	// The clusterip-webhook assigns ClusterIPs based on the workload's
-	// nodeSelector (kubernetes.io/os). Kustomize sorts resources by kind and
-	// applies Services before Deployments; if both are applied together, the
-	// webhook cannot yet see the Deployment when the Service is created and
-	// falls back to the Linux subnet. Applying Deployments first ensures the
-	// webhook can always detect the correct OS.
-	GinkgoWriter.Println("Phase 1: Creating namespace and Deployments..")
-	suite.Kubectl().MustExec(ctx, "apply", "-f", "workload/base/namespace.yaml")
-	suite.Kubectl().MustExec(ctx, "apply", "-n", namespace, "-f", "workload/base/linux-albums.yaml")
-	suite.Kubectl().MustExec(ctx, "apply", "-n", namespace, "-f", "workload/base/linux-curl.yaml")
-	if manifestDir == "workload/windows" {
-		suite.Kubectl().MustExec(ctx, "apply", "-n", namespace, "-f", "workload/windows/windows-albums.yaml")
-	}
-
-	GinkgoWriter.Println("Phase 2: Creating Windows Services..")
-	if manifestDir == "workload/windows" {
-		suite.Kubectl().MustExec(ctx, "apply", "-n", namespace, "-f", "workload/windows/windows-albums-services.yaml")
-	}
+	suite.Kubectl().MustExec(ctx, "apply", "-k", manifestDir)
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
@@ -130,7 +112,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	// for finding out the sporadically failed test runs
 	if !testFailed {
-		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir, "--ignore-not-found")
+		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
 
 		GinkgoWriter.Println("Workloads deleted")
 

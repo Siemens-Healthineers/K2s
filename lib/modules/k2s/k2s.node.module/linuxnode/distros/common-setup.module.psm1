@@ -790,7 +790,7 @@ function Get-ClusterIPWebhookImages {
 
     Write-Log 'Get images used by clusterip-webhook'
 
-    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.0.0'
+    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.0.1'
     &$executeRemoteCommand 'sudo crictl pull registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.7'
 }
 

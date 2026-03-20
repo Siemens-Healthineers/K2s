@@ -7,4 +7,3 @@ namespace: k2s
 resources:
   - ../base
   - windows-albums.yaml
-  - windows-albums-services.yaml

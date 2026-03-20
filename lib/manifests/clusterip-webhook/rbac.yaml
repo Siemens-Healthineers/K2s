@@ -14,7 +14,7 @@ metadata:
     app.kubernetes.io/part-of: k2s
 ---
 # The webhook needs to list Services to discover used IPs, and inspect
-# workloads, pods, and nodes to detect the target OS for each Service.
+# pods and nodes to detect the target OS for each Service.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -25,9 +25,6 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["services"]
-    verbs: ["list"]
-  - apiGroups: ["apps"]
-    resources: ["deployments", "statefulsets", "daemonsets"]
     verbs: ["list"]
   - apiGroups: [""]
     resources: ["pods"]

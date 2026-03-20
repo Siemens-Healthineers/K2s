@@ -31,7 +31,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: webhook
-          image: shsk2s.azurecr.io/clusterip-webhook:v1.0.0
+          image: shsk2s.azurecr.io/clusterip-webhook:v1.0.1
           imagePullPolicy: IfNotPresent
           args:
             - --addr=:8443
