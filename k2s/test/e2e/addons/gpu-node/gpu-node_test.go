@@ -147,7 +147,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 				SatisfyAll(
 					HaveField("Name", "IsDCGMExporterRunning"),
 					HaveField("Okay", gstruct.PointTo(BeTrue()))),
-				// DCGM requires NVML which is unavailable via dxcore (WSL2 + Hyper-V GPU-PV) — non-fatal, Value may be false
+				// DCGM is no longer deployed (NVML unavailable via dxcore/GPU-PV), but status is still reported as Okay
 				SatisfyAll(
 					HaveField("Name", "NodeGpuLabels"),
 					HaveField("Value", true),
