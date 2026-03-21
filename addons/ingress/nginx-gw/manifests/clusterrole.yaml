@@ -72,6 +72,7 @@ rules:
   verbs:
   - list
 - apiGroups:
+  - events.k8s.io
   - ""
   resources:
   - events
@@ -125,8 +126,12 @@ rules:
   - gateway.nginx.org
   resources:
   - nginxproxies
+  - authenticationfilters
   - clientsettingspolicies
   - observabilitypolicies
+  - proxysettingspolicies
+  - ratelimitpolicies
+  - snippetsfilters
   - upstreamsettingspolicies
   verbs:
   - list
@@ -134,9 +139,13 @@ rules:
 - apiGroups:
   - gateway.nginx.org
   resources:
+  - authenticationfilters/status
   - nginxgateways/status
   - clientsettingspolicies/status
   - observabilitypolicies/status
+  - proxysettingspolicies/status
+  - ratelimitpolicies/status
+  - snippetsfilters/status
   - upstreamsettingspolicies/status
   verbs:
   - update
