@@ -197,17 +197,6 @@ if (-not $ngfDiscoveryReady) {
 # # delete the temporary directory
 Remove-Item -Path $kustomizationDir -Recurse
 
-# Wait for the cert generator job to complete before applying NginxProxy and waiting
-# for the controller pod. The job creates the server-tls and agent-tls secrets that
-# the controller deployment mounts as a volume — without them the pod stays Pending.
-Write-Log '[nginx-gw] Waiting for cert generator job to complete (creates TLS secrets)...' -Console
-$certJobWait = Invoke-Kubectl -Params 'wait', 'job', 'nginx-gw-cert-generator', '-n', $ingressNginxGatewayNamespace, '--for=condition=complete', '--timeout=180s'
-if ($certJobWait.Success -ne $true) {
-    Write-Log "[nginx-gw] WARNING: cert generator job did not complete within 180s: $($certJobWait.Output)" -Console
-} else {
-    Write-Log '[nginx-gw] TLS secrets created by cert generator job, proceeding' -Console
-}
-
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
 # Apply NginxProxy resource with the control plane IP configured
