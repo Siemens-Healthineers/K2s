@@ -235,7 +235,7 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		return "", err
 	}
 
-	path := utils.InstallDir() + "\\lib\\scripts\\k2s\\install\\install.ps1"
+	path := filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "install", "install.ps1")
 	formattedPath := utils.FormatScriptFilePath(path)
 	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		formattedPath,

@@ -6,22 +6,14 @@ package main
 
 import (
 	"flag"
-	"log"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
-	"syscall"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
 const cliName = "httpproxy"
@@ -29,116 +21,6 @@ const cliName = "httpproxy"
 var cleanupWg sync.WaitGroup // WaitGroup to synchronize cleanup tasks
 
 var listener net.Listener
-
-var kernel32 = syscall.NewLazyDLL("kernel32.dll")
-var setConsoleCtrlHandler = kernel32.NewProc("SetConsoleCtrlHandler")
-
-// Console control event types
-const (
-	CTRL_C_EVENT        uint32 = 0
-	CTRL_BREAK_EVENT    uint32 = 1
-	CTRL_CLOSE_EVENT    uint32 = 2
-	CTRL_LOGOFF_EVENT   uint32 = 5 // Not sent to services
-	CTRL_SHUTDOWN_EVENT uint32 = 6 // Sent to console apps during system shutdown
-)
-
-func buildSystemShutdownCmd() (string, []string, error) {
-	params := []string{}
-	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "..", "lib", "scripts", "k2s", "system", "shutdown", "Stop-System.ps1"))
-	params = append(params, " -ShowLogs")
-	return systemPackageCommand, params, nil
-}
-
-func buildSystemStartupCmd() (string, []string, error) {
-	params := []string{}
-	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "..", "lib", "scripts", "k2s", "system", "startup", "Start-System.ps1"))
-	params = append(params, " -ShowLogs")
-	return systemPackageCommand, params, nil
-}
-
-func systemShutdownCmd() error {
-	// Build cmd and execute it
-	slog.Info("Build shutdown cmd and execute it")
-	systemPackageCommand, params, err := buildSystemShutdownCmd()
-	if err != nil {
-		return err
-	}
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
-		// slog.Error("Shutdown cmd failed", "error", err)
-		return err
-	}
-	if cmdResult.Failure != nil {
-		// slog.Error("Shutdown cmd failed", "error", cmdResult.Failure)
-		return cmdResult.Failure
-	}
-	slog.Info("Shutdown cmd finalized")
-	return nil
-}
-
-func systemStartupCmd() error {
-	// Build cmd and execute it
-	slog.Info("Build startup cmd and execute it")
-	systemPackageCommand, params, err := buildSystemStartupCmd()
-	if err != nil {
-		return err
-	}
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
-		return err
-	}
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
-	}
-	slog.Info("Startup cmd finalized")
-	return nil
-}
-
-// Handler function for console control events
-func consoleCtrlHandler(ctrlType uint32) uintptr {
-	switch ctrlType {
-	case CTRL_CLOSE_EVENT:
-		slog.Info("Console close event received.")
-		return 1 // Indicate that the event was handled
-	case CTRL_SHUTDOWN_EVENT:
-		cleanupWg.Add(1)
-		go func() {
-			defer cleanupWg.Done()
-			slog.Info("Shutdown event received: Attempting cleanup.")
-
-			// Hard timeout slightly below the NSSM AppStopMethodConsole timeout
-			// (30s). If Stop-System.ps1 hangs, we still exit cleanly instead of
-			// being force-killed by NSSM/Windows with no log output.
-			done := make(chan error, 1)
-			go func() {
-				done <- systemShutdownCmd()
-			}()
-
-			select {
-			case err := <-done:
-				if err != nil {
-					slog.Error("Shutdown cmd failed", "error", err)
-				} else {
-					slog.Info("Shutdown event received: Cleanup finished.")
-				}
-			case <-time.After(25 * time.Second):
-				slog.Warn("Shutdown cleanup timed out after 25s, proceeding with exit")
-			}
-		}()
-		cleanupWg.Wait()
-		if listener != nil {
-			listener.Close()
-		}
-		return 1
-	case CTRL_C_EVENT:
-		slog.Info("Ctrl+C received.")
-		return 1 // Indicate that the event was handled
-	case CTRL_BREAK_EVENT:
-		slog.Info("Ctrl+Break received.")
-		return 1 // Indicate that the event was handled
-	}
-	return 0 // Indicate that the event was not handled
-}
 
 func main() {
 	var allowedCIDRs networkCIDRs
@@ -155,15 +37,11 @@ func main() {
 		return
 	}
 
-	// Register the handler function
-	handler := syscall.NewCallback(consoleCtrlHandler)
-	ret, _, err := setConsoleCtrlHandler.Call(handler, 1)
-	if ret == 0 {
-		log.Fatalf("Error registering console control handler: %v\n", err)
+	// Register platform-specific signal/event handler and run startup
+	if err := registerPlatformHandler(); err != nil {
+		slog.Error("Failed to register platform handler", "error", err)
 		return
 	}
-	// Call the system startup command
-	systemStartupCmd()
 
 	// start proxy
 	slog.Info("Start of proxy.")
@@ -171,6 +49,7 @@ func main() {
 	proxyHandler := newProxyHttpHandler(proxyConfig)
 
 	// Keep a reference to the listener
+	var err error
 	listener, err = net.Listen("tcp", *proxyConfig.ListenAddress)
 	if err != nil {
 		slog.Error("Failed to listen", "error", err)
