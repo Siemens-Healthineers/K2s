@@ -96,17 +96,17 @@ See [Hosting Variants](../user-guide/hosting-variants.md) and the [Features Matr
 
 ### Building Tools from Source
 
-All Go tools can be built locally using the build script:
+All Go tools can be built locally using the build script. **After cloning the repository, building is mandatory** — Go-built binaries are not committed to git:
 
 ```console
+# Build all Go executables (required after clone)
+bgo -BuildAll
+
 # Build k2s.exe only
 bgo
 
 # Build a specific tool
 bgo -ProjectDir "k2s\cmd\httpproxy" -ExeOutDir "bin"
-
-# Build all Go executables
-bgo -BuildAll
 ```
 
 See [Building Locally](contributing/building-locally.md) for prerequisites.

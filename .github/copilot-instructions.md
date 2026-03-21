@@ -109,6 +109,7 @@ When adding a new packaging / diff feature:
 - PSScriptAnalyzer: avoid automatic variable assignment, prefer approved verbs; add suppressions only with justification in a comment.
 
 ## 13. Typical Commands (Local Dev)
+- **After fresh clone (mandatory)**: `bgo -BuildAll` — Go-built binaries are not committed to git; this builds all 10 executables to their expected locations.
 - Build CLI (Go): `go build ./k2s/cmd/k2s` (respect existing Go module).
   - Or use build script: `bgo` (builds k2s.exe), `bgo -BuildAll` (all Go executables), `bgo -ProjectDir "..." -ExeOutDir "..."`.
 - Run delta packaging: `powershell -File lib/scripts/k2s/system/package/New-K2sDeltaPackage.ps1 ...`.
