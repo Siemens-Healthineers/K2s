@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
+//go:build windows
+
 package host_test
 
 import (
