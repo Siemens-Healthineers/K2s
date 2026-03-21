@@ -23,14 +23,18 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/providers/kubectl"
 	kubeconfig_adapter "github.com/siemens-healthineers/k2s/internal/users/adapters/kubeconfig"
 	"github.com/siemens-healthineers/k2s/internal/users/adapters/ssh"
-	"github.com/siemens-healthineers/k2s/internal/users/adapters/winacl"
-	"github.com/siemens-healthineers/k2s/internal/users/adapters/winusers"
 )
 
+// UsersProvider abstracts OS user lookup.
 type UsersProvider interface {
 	CurrentUser() (*users_contracts.OSUser, error)
 	FindByName(name string) (*users_contracts.OSUser, error)
 	FindById(id string) (*users_contracts.OSUser, error)
+}
+
+// ACLProvider abstracts file ownership transfer (platform-specific).
+type ACLProvider interface {
+	TransferFileOwnership(path string, user *users_contracts.OSUser) error
 }
 
 type AddUserIntegration struct {
@@ -38,11 +42,9 @@ type AddUserIntegration struct {
 	userAdmission *users.UserAdmission
 }
 
-func WinUsersProvider() UsersProvider {
-	return winusers.NewWinUsersProvider()
-}
-
-func NewAddUserIntegration(k2sConfig *config.K2sConfig, runtimeConfig *config.K2sRuntimeConfig, usersProvider UsersProvider) *AddUserIntegration {
+// NewAddUserIntegration creates a user admission integration using the given
+// platform-specific UsersProvider and ACLProvider.
+func NewAddUserIntegration(k2sConfig *config.K2sConfig, runtimeConfig *config.K2sRuntimeConfig, usersProvider UsersProvider, aclProvider ACLProvider) *AddUserIntegration {
 	connectionOptions := ssh_contracts.ConnectionOptions{
 		RemoteUser:        definitions.SSHRemoteUser,
 		IpAddress:         k2sConfig.ControlPlane().IpAddress(),
@@ -52,7 +54,6 @@ func NewAddUserIntegration(k2sConfig *config.K2sConfig, runtimeConfig *config.K2
 	}
 
 	sshProvider := ssh.NewSSHProvider(connectionOptions)
-	aclProvider := winacl.NewACLProvider()
 	keyAuthorizer := keyauth.NewKeyAuthorizer(sshProvider)
 	knownHostsCopier := knownhosts.NewKnownHostsCopier(k2sConfig.Host().SshConfig())
 	controlPlaneAdmission := controlplane.NewControlPlaneAdmission(k2sConfig, sshProvider, aclProvider, keyAuthorizer, knownHostsCopier)

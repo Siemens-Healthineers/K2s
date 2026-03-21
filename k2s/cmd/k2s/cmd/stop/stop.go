@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 
 	"github.com/pterm/pterm"
@@ -157,7 +158,7 @@ func buildNodeStopCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
 	OsType := string(nodeConfig.OS)
 	nodeType := cc.GetNodeDirectory(string(nodeConfig.NodeType))
 
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\" + roleType + "\\" + OsType + "\\" + nodeType + "\\Stop.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", roleType, OsType, nodeType, "Stop.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"
