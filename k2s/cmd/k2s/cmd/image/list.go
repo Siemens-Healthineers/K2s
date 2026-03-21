@@ -6,6 +6,7 @@ package image
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -219,7 +220,7 @@ func printImagesToUser(getImagesFunc func() (*LoadedImages, error), printer term
 }
 
 func getImages(includeK8sImages bool) (*LoadedImages, error) {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Get-Images.ps1"))
 
 	var params []string
 	if includeK8sImages {

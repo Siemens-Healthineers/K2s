@@ -6,6 +6,7 @@ package uninstall
 import (
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
@@ -114,7 +115,7 @@ func buildUninstallCmd(flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) (
 }
 
 func buildk2sUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\uninstall\\uninstall.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "uninstall", "uninstall.ps1"))
 
 	if skipPurge {
 		cmd += " -SkipPurge"
@@ -136,7 +137,7 @@ func buildk2sUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir stri
 }
 
 func buildBuildOnlyUninstallCmd(showLogs bool, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\buildonly\\uninstall\\uninstall.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "buildonly", "uninstall", "uninstall.ps1"))
 
 	if showLogs {
 		cmd += " -ShowLogs"
@@ -150,7 +151,7 @@ func buildBuildOnlyUninstallCmd(showLogs bool, deleteFilesForOfflineInstallation
 }
 
 func buildLinuxOnlyUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\linuxonly\\uninstall\\uninstall.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "linuxonly", "uninstall", "uninstall.ps1"))
 
 	if skipPurge {
 		cmd += " -SkipPurge"
