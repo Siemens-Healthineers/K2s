@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/os"
@@ -20,7 +21,7 @@ type structuredOutputWriter struct {
 	rawMessages      []string
 }
 
-const PsCmd = "powershell"
+// PsCmd is set per-platform: "powershell" on Windows, "pwsh" on Linux.
 
 // ExecutePsWithStructuredResult waits until the command has finished and returns the structured data it received or errors that occurred
 // Calls to OutputWriter happen asynchronous
@@ -120,12 +121,12 @@ func prepareExecScript(script string) (string, error) {
 	}
 
 	// check if there is an directory lib folder
-	if os.PathExists(installDir + "\\lib") {
-		wrapperScript = ("&'" + installDir + "\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
+	if os.PathExists(filepath.Join(installDir, "lib")) {
+		wrapperScript = ("&'" + filepath.Join(installDir, "lib", "scripts", "k2s", "base", "Invoke-ExecScript.ps1") + "' -Script ")
 		wrapperScript += "\"" + script + "\""
 	} else {
 		// we assume we have a binary under bin path and not in the root
-		wrapperScript = ("&'" + installDir + "\\..\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
+		wrapperScript = ("&'" + filepath.Join(installDir, "..", "lib", "scripts", "k2s", "base", "Invoke-ExecScript.ps1") + "' -Script ")
 		wrapperScript += "\"" + script + "\""
 	}
 
