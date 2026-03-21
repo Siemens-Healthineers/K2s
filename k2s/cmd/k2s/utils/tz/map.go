@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 )
@@ -68,7 +67,7 @@ func (tzch *timezoneConfigHandler) CopyTo(newFile, orginalFile string) error {
 }
 
 func (tzch *timezoneConfigHandler) Remove(file string) error {
-	err := syscall.Unlink(file)
+	err := os.Remove(file)
 	if err != nil {
 		return err
 	}
@@ -86,7 +85,7 @@ func NewTimezoneConfigWorkspace(config *config.KubeConfig) (ConfigWorkspace, err
 
 func (tcws *TimezoneConfigWorkspace) CreateHandle() (ConfigWorkspaceHandle, error) {
 	embeddedTzFp := "embed/" + TimezoneConfigFile
-	tzFp := tcws.kubeDir + "\\" + TimezoneConfigFile
+	tzFp := filepath.Join(tcws.kubeDir, TimezoneConfigFile)
 
 	err := tcws.fileHandler.CopyTo(tzFp, embeddedTzFp)
 	if err != nil {

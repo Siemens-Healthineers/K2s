@@ -72,9 +72,9 @@ func GetNodeDirectory(nodeType string) string {
 	case NodeTypeHost:
 		return "bare-metal"
 	case NodeTypeVMNew:
-		return "hyper-v-vm\\new-vm"
+		return filepath.Join("hyper-v-vm", "new-vm")
 	case NodeTypeVMExisting:
-		return "hyper-v-vm\\existing-vm"
+		return filepath.Join("hyper-v-vm", "existing-vm")
 	default:
 		return "unknown-node-type"
 	}

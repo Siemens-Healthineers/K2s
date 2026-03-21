@@ -6,6 +6,7 @@ package start
 import (
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 
 	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
@@ -168,7 +169,7 @@ func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
 	OsType := string(nodeConfig.OS)
 	nodeType := cc.GetNodeDirectory(string(nodeConfig.NodeType))
 
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\" + roleType + "\\" + OsType + "\\" + nodeType + "\\Start.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", roleType, OsType, nodeType, "Start.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"
@@ -221,7 +222,7 @@ func buildStartCmd(flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) (stri
 }
 
 func buildk2sStartCmd(showLogs bool, additionalHooksDir string, autouseCachedVSwitch bool) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\start\\start.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "start", "start.ps1"))
 
 	if showLogs {
 		cmd += " -ShowLogs"
@@ -239,7 +240,7 @@ func buildk2sStartCmd(showLogs bool, additionalHooksDir string, autouseCachedVSw
 }
 
 func buildLinuxOnlyStartCmd(showLogs bool, additionalHooksDir string) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\linuxonly\\start\\start.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "linuxonly", "start", "start.ps1"))
 
 	if showLogs {
 		cmd += " -ShowLogs"
