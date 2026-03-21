@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"strconv"
 
 	users_contracts "github.com/siemens-healthineers/k2s/internal/contracts/users"
 )
@@ -44,9 +45,11 @@ func (p *linuxUsersProvider) FindById(id string) (*users_contracts.OSUser, error
 type linuxACLProvider struct{}
 
 func (p *linuxACLProvider) TransferFileOwnership(path string, targetUser *users_contracts.OSUser) error {
-	// On Linux, use chown to transfer ownership.
-	// targetUser.Id() is the UID string.
-	return os.Chown(path, -1, -1) // TODO: parse targetUser.Id() to int uid and set properly
+	uid, err := strconv.Atoi(targetUser.Id())
+	if err != nil {
+		return fmt.Errorf("invalid UID '%s': %w", targetUser.Id(), err)
+	}
+	return os.Chown(path, uid, -1)
 }
 
 // PlatformUsersProvider returns the Linux-specific user lookup provider.

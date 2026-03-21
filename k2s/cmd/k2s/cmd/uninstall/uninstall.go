@@ -24,6 +24,10 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 )
 
+// errNotLinux is a sentinel returned by uninstallLinux on Windows to signal
+// that the caller should fall through to the PowerShell-based path.
+var errNotLinux = errors.New("not running on Linux")
+
 var (
 	skipPurge       = "skip-purge"
 	Uninstallk8sCmd = &cobra.Command{
@@ -42,6 +46,12 @@ func init() {
 }
 
 func uninstallk8s(cmd *cobra.Command, args []string) error {
+	// Try native Linux uninstall path (no-op on Windows, returns errNotLinux)
+	if linuxErr := uninstallLinux(cmd); !errors.Is(linuxErr, errNotLinux) {
+		return linuxErr
+	}
+
+	// Windows path: use PowerShell-based uninstall
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	version := version.GetVersion()
 
