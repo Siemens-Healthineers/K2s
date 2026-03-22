@@ -29,6 +29,10 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
+// errNotLinux is a sentinel returned by startLinux on Windows to signal
+// that the caller should fall through to the PowerShell-based path.
+var errNotLinux = errors.New("not running on Linux")
+
 var Startk8sCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts K2s cluster on the host machine",
@@ -44,6 +48,12 @@ func init() {
 }
 
 func startk8s(ccmd *cobra.Command, args []string) error {
+	// Try native Linux start path (no-op on Windows, returns errNotLinux)
+	if linuxErr := startLinux(ccmd); !errors.Is(linuxErr, errNotLinux) {
+		return linuxErr
+	}
+
+	// Windows path: use PowerShell-based start
 	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 

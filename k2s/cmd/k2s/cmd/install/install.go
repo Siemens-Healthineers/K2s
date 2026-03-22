@@ -4,6 +4,7 @@
 package install
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -38,6 +39,10 @@ import (
 const (
 	kind ic.Kind = "k2s"
 )
+
+// errNotLinux is a sentinel returned by installLinux on Windows to signal
+// that the caller should fall through to the PowerShell-based path.
+var errNotLinux = errors.New("not running on Linux")
 
 var (
 	example = `
@@ -204,6 +209,17 @@ func install(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.")
 	}
 
+	// Try native Linux installation path (no-op on Windows, returns errNotLinux)
+	installCfgAccess := ic.NewInstallConfigAccess()
+	installConfig, err := installCfgAccess.Load(kind, cmd.Flags())
+	if err != nil {
+		return err
+	}
+	if linuxErr := installLinux(cmd, installConfig); !errors.Is(linuxErr, errNotLinux) {
+		return linuxErr // nil on success, or real error on failure
+	}
+
+	// Windows path: use PowerShell-based installer
 	cmdSession := cc.StartCmdSession(cmd.CommandPath())
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
 	if err != nil {
