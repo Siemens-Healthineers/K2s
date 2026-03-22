@@ -69,7 +69,6 @@ type ServiceManager interface {
 
 // InstallConfig holds parameters for cluster installation.
 type InstallConfig struct {
-<<<<<<< HEAD
 	ShowLogs                 bool
 	MasterVMProcessorCount   string
 	MasterVMMemory           string
@@ -84,17 +83,6 @@ type InstallConfig struct {
 	Version                  string // K2s version string
 	ClusterName              string // Kubernetes cluster name
 	ControlPlaneHostname     string // hostname of the control plane node
-=======
-	ShowLogs                bool
-	MasterVMProcessorCount string
-	MasterVMMemory         string
-	MasterDiskSize         string
-	LinuxOnly              bool
-	WSL                    bool
-	ForceOnlineInstallation bool
-	Proxy                  string
-	AdditionalHooksDir     string
->>>>>>> main
 }
 
 // UninstallConfig holds parameters for cluster uninstallation.
@@ -103,10 +91,7 @@ type UninstallConfig struct {
 	SkipPurge                         bool
 	DeleteFilesForOfflineInstallation bool
 	AdditionalHooksDir                string
-<<<<<<< HEAD
 	ConfigDir                         string // K2s setup config dir
-=======
->>>>>>> main
 }
 
 // StartConfig holds parameters for cluster start.
