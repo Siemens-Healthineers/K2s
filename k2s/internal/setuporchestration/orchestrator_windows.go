@@ -10,19 +10,36 @@ import (
 	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+<<<<<<< HEAD
 	k2sos "github.com/siemens-healthineers/k2s/internal/os"
+=======
+>>>>>>> main
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
 // WindowsOrchestrator implements Orchestrator by delegating to PowerShell scripts.
 // This preserves the existing Windows behavior.
 type WindowsOrchestrator struct {
+<<<<<<< HEAD
 	stdWriter k2sos.StdWriter
+=======
+	stdWriter powershell.StdWriter
+}
+
+type StdWriter = interface {
+	WriteStdOut(message string)
+	WriteStdErr(message string)
+	Flush()
+>>>>>>> main
 }
 
 // NewOrchestrator returns the platform-specific orchestrator.
 // On Windows, it returns a PowerShell-based orchestrator.
+<<<<<<< HEAD
 func NewOrchestrator(writer k2sos.StdWriter) Orchestrator {
+=======
+func NewOrchestrator(writer StdWriter) Orchestrator {
+>>>>>>> main
 	return &WindowsOrchestrator{stdWriter: writer}
 }
 
