@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: MIT
 
+//go:build windows
+
 package remove
 
 import (
