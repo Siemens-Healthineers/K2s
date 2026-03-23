@@ -1,0 +1,94 @@
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-License-Identifier:   MIT
+
+package provider
+
+// SystemProvider abstracts system-level operations (dump, upgrade, packaging, etc.).
+// On Windows: delegates to PowerShell scripts.
+// On Linux: uses native commands (kubectl, qemu-img, etc.).
+type SystemProvider interface {
+	// Dump collects diagnostic information from the cluster.
+	Dump(config SystemDumpConfig) error
+
+	// Upgrade upgrades the K2s cluster from a package.
+	Upgrade(config SystemUpgradeConfig) error
+
+	// Package creates an offline installation package.
+	Package(config SystemPackageConfig) error
+
+	// Reset resets the K2s system to a clean state.
+	Reset(config SystemResetConfig) error
+
+	// ResetNetwork resets the cluster networking.
+	ResetNetwork(config SystemResetNetworkConfig) error
+
+	// Compact compacts VM disk images to reclaim space.
+	Compact(config SystemCompactConfig) error
+
+	// Backup creates a backup of the cluster state.
+	Backup(config SystemBackupConfig) error
+
+	// Restore restores the cluster from a backup.
+	Restore(config SystemRestoreConfig) error
+
+	// CertificateRenew renews the Kubernetes certificates.
+	CertificateRenew(config SystemCertRenewConfig) error
+}
+
+// SystemDumpConfig holds parameters for the dump operation.
+type SystemDumpConfig struct {
+	OutputDir  string
+	ShowOutput bool
+}
+
+// SystemUpgradeConfig holds parameters for the upgrade operation.
+type SystemUpgradeConfig struct {
+	PackagePath        string
+	AdditionalHooksDir string
+	SkipImages         bool
+	ForceOnline        bool
+	ShowOutput         bool
+	DeletePackage      bool
+}
+
+// SystemPackageConfig holds parameters for the package operation.
+type SystemPackageConfig struct {
+	OutputDir          string
+	ForDeltaPackage    bool
+	BasePackagePath    string
+	TargetPackagePath  string
+	ShowOutput         bool
+}
+
+// SystemResetConfig holds parameters for the reset operation.
+type SystemResetConfig struct {
+	ShowOutput bool
+}
+
+// SystemResetNetworkConfig holds parameters for network reset.
+type SystemResetNetworkConfig struct {
+	AdditionalHooksDir string
+	ShowOutput         bool
+}
+
+// SystemCompactConfig holds parameters for the compact operation.
+type SystemCompactConfig struct {
+	ShowOutput bool
+}
+
+// SystemBackupConfig holds parameters for the backup operation.
+type SystemBackupConfig struct {
+	BackupDir  string
+	ShowOutput bool
+}
+
+// SystemRestoreConfig holds parameters for the restore operation.
+type SystemRestoreConfig struct {
+	BackupDir  string
+	ShowOutput bool
+}
+
+// SystemCertRenewConfig holds parameters for certificate renewal.
+type SystemCertRenewConfig struct {
+	ShowOutput bool
+}

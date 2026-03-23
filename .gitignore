@@ -104,6 +104,13 @@ addons/hooks
 # apps in /k2s exclude 
 /k2s/**/*.exe
 
+# Linux binaries built via cross-compilation
+/k2s/cloudinitisobuilder
+/k2s/httpproxy
+/k2s/pause
+/k2s/yaml2json
+/k2s/k2s
+
 tmp/**/*
 
 # temp files in /k2s
