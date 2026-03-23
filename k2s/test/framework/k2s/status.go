@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
+//go:build windows
+
 package k2s
 
 import (

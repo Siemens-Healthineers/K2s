@@ -1,0 +1,241 @@
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-License-Identifier:   MIT
+
+//go:build windows
+
+package provider
+
+import (
+	"fmt"
+	"path/filepath"
+	"strings"
+
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	k2sos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
+)
+
+type windowsImageProvider struct {
+	installDir string
+	stdWriter  k2sos.StdWriter
+}
+
+func newWindowsImageProvider(cfg ProviderConfig) *windowsImageProvider {
+	return &windowsImageProvider{
+		installDir: cfg.InstallDir,
+		stdWriter:  cfg.StdWriter,
+	}
+}
+
+func (p *windowsImageProvider) scriptPath(script string) string {
+	return utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "k2s", "image", script))
+}
+
+func (p *windowsImageProvider) execPS(psCmd string, params ...string) error {
+	result, err := powershell.ExecutePsWithStructuredResult[*psCmdResult](psCmd, "CmdResult", p.stdWriter, params...)
+	if err != nil {
+		return err
+	}
+	return result.checkFailure()
+}
+
+func (p *windowsImageProvider) List(cfg ImageListConfig) (*ImageListResult, error) {
+	psCmd := p.scriptPath("Get-Images.ps1")
+
+	var params []string
+	if cfg.IncludeK8sImages {
+		params = append(params, "-IncludeK8sImages")
+	}
+
+	type psImages struct {
+		psCmdResult
+		ContainerImages []struct {
+			ImageId    string `json:"imageid"`
+			Repository string `json:"repository"`
+			Tag        string `json:"tag"`
+			Node       string `json:"node"`
+			Size       string `json:"size"`
+		} `json:"containerimages"`
+		ContainerRegistry *string `json:"containerregistry"`
+		PushedImages      []struct {
+			Name string `json:"name"`
+			Tag  string `json:"tag"`
+		} `json:"pushedimages"`
+	}
+
+	result, err := powershell.ExecutePsWithStructuredResult[*psImages](psCmd, "StoredImages", p.stdWriter, params...)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.checkFailure(); err != nil {
+		return nil, err
+	}
+
+	listResult := &ImageListResult{}
+	if result.ContainerRegistry != nil {
+		listResult.ContainerRegistry = *result.ContainerRegistry
+	}
+
+	for _, img := range result.ContainerImages {
+		listResult.ContainerImages = append(listResult.ContainerImages, ContainerImage{
+			ImageId:    img.ImageId,
+			Repository: img.Repository,
+			Tag:        img.Tag,
+			Node:       img.Node,
+			Size:       img.Size,
+		})
+	}
+
+	for _, img := range result.PushedImages {
+		listResult.PushedImages = append(listResult.PushedImages, PushedImage{
+			Name: img.Name,
+			Tag:  img.Tag,
+		})
+	}
+
+	return listResult, nil
+}
+
+func (p *windowsImageProvider) Pull(cfg ImagePullConfig) error {
+	psCmd := p.scriptPath("Pull-Image.ps1")
+
+	var params []string
+	params = append(params, " -ImageName "+cfg.ImageName)
+	if cfg.Windows {
+		params = append(params, " -Windows")
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) Remove(cfg ImageRemoveConfig) error {
+	psCmd := p.scriptPath("Remove-Image.ps1")
+
+	var params []string
+	if cfg.ImageId != "" {
+		params = append(params, " -ImageId "+cfg.ImageId)
+	}
+	if cfg.ImageName != "" {
+		params = append(params, " -ImageName "+cfg.ImageName)
+	}
+	if cfg.FromRegistry {
+		params = append(params, " -FromRegistry")
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) Build(cfg ImageBuildConfig) error {
+	psCmd := p.scriptPath("Build-Image.ps1")
+
+	var params []string
+	params = append(params, " -InputFolder "+cfg.InputFolder)
+	if cfg.Dockerfile != "" {
+		params = append(params, " -Dockerfile "+cfg.Dockerfile)
+	}
+	if cfg.Windows {
+		params = append(params, " -Windows")
+	}
+	if cfg.ImageName != "" {
+		params = append(params, " -ImageName "+cfg.ImageName)
+	}
+	if cfg.Push {
+		params = append(params, " -Push")
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+	if len(cfg.BuildArgs) > 0 {
+		params = append(params, " -BuildArgs "+strings.Join(cfg.BuildArgs, ","))
+	}
+
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) Import(cfg ImageImportConfig) error {
+	psCmd := p.scriptPath("Import-Image.ps1")
+
+	var params []string
+	if cfg.TarPath != "" {
+		params = append(params, " -ImagePath '"+cfg.TarPath+"'")
+	}
+	if cfg.Windows {
+		params = append(params, " -Windows")
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) Export(cfg ImageExportConfig) error {
+	psCmd := p.scriptPath("Export-Image.ps1")
+
+	var params []string
+	if cfg.ImageId != "" {
+		params = append(params, " -Id '"+cfg.ImageId+"'")
+	}
+	if cfg.ImageName != "" {
+		params = append(params, " -Name '"+cfg.ImageName+"'")
+	}
+	if cfg.OutputPath != "" {
+		params = append(params, " -ExportPath '"+cfg.OutputPath+"'")
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+	if cfg.ExportFormat == "docker-archive" {
+		params = append(params, " -DockerArchive")
+	}
+
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) Tag(cfg ImageTagConfig) error {
+	psCmd := p.scriptPath("Tag-Image.ps1")
+
+	var params []string
+	if cfg.ImageId != "" {
+		params = append(params, " -Id "+cfg.ImageId)
+	}
+	if cfg.ImageName != "" {
+		params = append(params, fmt.Sprintf(" -ImageName '%s'", cfg.ImageName))
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) Push(cfg ImagePushConfig) error {
+	psCmd := p.scriptPath("Push-Image.ps1")
+
+	var params []string
+	if cfg.ImageName != "" {
+		params = append(params, " -ImageName "+cfg.ImageName)
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) Clean(cfg ImageCleanConfig) error {
+	psCmd := p.scriptPath("Clean-Images.ps1")
+
+	var params []string
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+
+	return p.execPS(psCmd, params...)
+}
