@@ -5,8 +5,21 @@
 
 package powershell
 
+import "fmt"
+
 // PsCmd is the PowerShell executable name on Linux (PowerShell Core).
 // On Linux, PowerShell Core ("pwsh") is used when PS scripts need to run
 // (e.g., inside a Windows VM via remoting). For native Linux orchestration,
 // the Go CLI calls bash/native commands directly instead.
 const PsCmd = "pwsh"
+
+// platformGuard returns an error on Linux because the PowerShell scripts in this
+// project are written for Windows and depend on Windows-specific APIs (HNS,
+// Hyper-V, NSSM, Windows services, etc.). They cannot run on a Linux host even
+// if PowerShell Core (pwsh) is installed. Commands that support Linux hosts have
+// native Go implementations and never reach this code path.
+func platformGuard() error {
+	return fmt.Errorf("this command is not yet available on Linux hosts. " +
+		"Supported commands on Linux: install, uninstall, start, stop, status, version, " +
+		"node connect/exec/copy")
+}

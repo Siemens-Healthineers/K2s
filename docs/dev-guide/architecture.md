@@ -9,7 +9,11 @@ This page describes the high-level architecture of a *K2s* cluster, the supporti
 
 ## High-Level Architecture
 
-A *K2s* default cluster runs on a single Windows host with a Linux VM acting as the Kubernetes control plane:
+*K2s* supports two host configurations: a **Windows host** (the original and default) and a **Linux host** (inverted setup). Both produce a mixed-OS Kubernetes cluster with a Linux control plane and an optional worker node of the opposite OS.
+
+### Windows Host (Default)
+
+A single Windows machine runs the CLI, PowerShell modules, and a Linux VM as the Kubernetes control plane:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -34,23 +38,124 @@ A *K2s* default cluster runs on a single Windows host with a Linux VM acting as 
 └─────────────────────────────────────────────────────────┘
 ```
 
+### Linux Host (Inverted Setup)
+
+A Linux machine runs the CLI natively, hosts the Kubernetes control plane directly, and provisions a Windows VM as an optional worker node:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Linux Host                                             │
+│                                                         │
+│  ┌───────────────────────┐    ┌──────────────────────┐  │
+│  │ Linux Control Plane   │    │ Windows VM (Worker)  │  │
+│  │                       │    │                      │  │
+│  │ • CRI-O / containerd  │    │ • containerd         │  │
+│  │ • kubelet             │    │ • kubelet            │  │
+│  │ • kube-apiserver      │    │ • kube-proxy         │  │
+│  │ • kube-scheduler      │    │ • flannel (CNI)      │  │
+│  │ • kube-controller-mgr │    │                      │  │
+│  │ • etcd                │    └──────────────────────┘  │
+│  │ • flannel (CNI)       │                              │
+│  │ • CoreDNS             │    k2s CLI (native binary)   │
+│  │ • buildah             │    No PowerShell required    │
+│  └───────────────────────┘                              │
+│                                                         │
+│  ─── KVM / libvirt (QEMU + OVMF UEFI) ──────────────── │
+└─────────────────────────────────────────────────────────┘
+```
+
+On Linux, the CLI is a native Go binary that interacts directly with Kubernetes and VM management APIs — **no PowerShell dependency**. Windows VMs are provisioned through libvirt/KVM with OVMF UEFI firmware and VirtIO drivers.
+
 ### Key Design Decisions
 
 - **Flannel CNI with host-gateway mode** — routes pod traffic directly through host routing tables for maximum performance and simplicity. A VXLAN backend template is also available.
-- **Mixed OS support** — Windows containers run on the host via containerd; Linux containers run in the VM via CRI-O.
+- **Mixed OS support** — Windows containers run on one node via containerd; Linux containers run on the other via CRI-O.
 - **Offline-first** — all dependencies are bundled or downloadable as offline packages. No runtime network fetches unless explicitly triggered.
-- **Single-binary CLI** — `k2s.exe` is the only user-facing tool; all operations route through it.
+- **Single-binary CLI** — `k2s` is the only user-facing tool; all operations route through it.
+- **Dual-platform host support** — the same CLI binary (built for each platform via Go build tags) runs on both Windows and Linux hosts. Platform differences are encapsulated in the [Provider Architecture](#provider-architecture).
+- **Provider abstraction** — command handlers are platform-agnostic; all platform-specific logic lives behind provider interfaces (see below).
 
 ### Hosting Variants
 
-| Variant | `kind` | Windows Worker | Linux VM | Use Case |
-|---------|--------|:-:|:-:|----------|
-| Host (default) | `k2s` | Yes | Yes | Full mixed-OS cluster |
-| Host + Linux-Only | `k2s` + `--linux-only` | No | Yes | Linux-only workloads |
-| Host + WSL 2 | `k2s` + `--wsl` | Yes | Yes (WSL) | Lighter footprint, shared kernel |
-| Development-Only | `buildonly` | No | Yes | Container image building only, no K8s |
+| Variant | `kind` | Host OS | Worker VM | Use Case |
+|---------|--------|---------|-----------|----------|
+| Host (default) | `k2s` | Windows | Linux VM (control plane + worker) | Full mixed-OS cluster |
+| Host + Linux-Only | `k2s` + `--linux-only` | Windows | Linux VM (control plane only) | Linux-only workloads |
+| Host + WSL 2 | `k2s` + `--wsl` | Windows | Linux VM via WSL 2 | Lighter footprint, shared kernel |
+| Development-Only | `buildonly` | Windows | Linux VM | Container image building only, no K8s |
+| Linux Host | `k2s` | Linux | Windows VM (worker, optional) | Inverted setup — Linux-native control plane |
 
 See [Hosting Variants](../user-guide/hosting-variants.md) and the [Features Matrix](hosting-variants-features-matrix.md) for detailed comparisons.
+
+---
+
+## Provider Architecture
+
+The Go CLI uses a **provider pattern** to abstract all platform-specific operations behind a set of domain interfaces. This decouples command handlers from platform details and makes it straightforward to add new host platforms.
+
+### Design
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  Command Layer (cmd/k2s/cmd/)                            │
+│  install.go, start.go, stop.go, uninstall.go, ...       │
+│                                                          │
+│  context.Providers().Cluster.Install(config)             │
+│  context.Providers().Image.Build(config)                 │
+│  context.Providers().System.Package(config)              │
+└──────────────┬───────────────────────────────────────────┘
+               │ (interface calls)
+┌──────────────▼───────────────────────────────────────────┐
+│  Provider Interfaces (internal/provider/)                 │
+│                                                          │
+│  ClusterProvider   — Install, Uninstall, Start, Stop     │
+│  ImageProvider     — Build, Import, Export, List, Remove │
+│  NodeProvider      — Add, Remove, List                   │
+│  SystemProvider    — Package, Upgrade, Backup, Restore   │
+│  AddonProvider     — Enable, Disable, Status             │
+└──────────────┬──────────────────┬────────────────────────┘
+        ┌──────┘                  └──────┐
+┌───────▼──────────────┐  ┌──────────────▼─────────────────┐
+│  Windows Provider     │  │  Linux Provider                │
+│  (*_windows.go)       │  │  (*_linux.go)                  │
+│                       │  │                                │
+│  Delegates to PS      │  │  Native Go: kubeadm, kubectl,  │
+│  via ExecutePs...     │  │  libvirt/KVM, SSH, crictl      │
+│  Supports all setup   │  │  No PowerShell dependency      │
+│  types (k2s, linux-   │  │                                │
+│  only, buildonly)     │  │                                │
+└───────────────────────┘  └────────────────────────────────┘
+```
+
+### Key Components
+
+| File | Purpose |
+|------|---------|
+| `provider.go` | `Registry` struct (holds all providers) and `ProviderConfig` |
+| `cluster.go` | `ClusterProvider` interface — Install, Uninstall, Start, Stop, Status |
+| `image.go` | `ImageProvider` interface — Build, Import, Export, List, Remove |
+| `node.go` | `NodeProvider` interface — Add, Remove, List |
+| `system.go` | `SystemProvider` interface — Package, Upgrade, Backup, Restore |
+| `addon.go` | `AddonProvider` interface — Enable, Disable, Status |
+| `errors.go` | `ErrNotSupported` sentinel, `UnsupportedOperationError` |
+| `registry_windows.go` | Build-tagged factory creating Windows providers |
+| `registry_linux.go` | Build-tagged factory creating Linux providers |
+
+### How It Works
+
+1. During CLI initialisation (`PersistentPreRunE` in `cmd.go`), a `provider.Registry` is created via `provider.NewRegistry(config)`. The build-tagged factory selects Windows or Linux implementations.
+2. The registry is stored in the Cobra command context via `CmdContext`.
+3. Command handlers call `context.Providers().Cluster.Start(...)` etc. — no `if runtime.GOOS == ...` checks anywhere in command code.
+4. On **Windows**, providers delegate to PowerShell scripts via `ExecutePsWithStructuredResult`, exactly preserving the existing Go ↔ PS bridge.
+5. On **Linux**, providers use native Go APIs (kubeadm, kubectl, libvirt, SSH) with no PowerShell dependency.
+6. Operations not available on the current platform return `provider.ErrNotSupported`.
+
+### Adding a New Provider Domain
+
+1. Define the interface in `internal/provider/<domain>.go`.
+2. Create `<domain>_windows.go` and `<domain>_linux.go` with concrete implementations.
+3. Add the provider field to `Registry` and wire it in both `registry_*.go` factories.
+4. Call the provider from the relevant command handler via `context.Providers().<Domain>.Method()`.
 
 ---
 

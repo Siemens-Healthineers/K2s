@@ -14,6 +14,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/providers/k8s"
 
 	"github.com/pterm/pterm"
@@ -52,8 +53,9 @@ type SlogWriter struct {
 }
 
 type CmdContext struct {
-	config *config.K2sConfig
-	logger *logging.Slogger
+	config    *config.K2sConfig
+	logger    *logging.Slogger
+	providers *provider.Registry
 }
 
 type CmdSession struct {
@@ -108,10 +110,11 @@ func NewPtermWriter() *PtermWriter {
 
 func NewSlogWriter() os.StdWriter { return &SlogWriter{} }
 
-func NewCmdContext(config *config.K2sConfig, logger *logging.Slogger) *CmdContext {
+func NewCmdContext(config *config.K2sConfig, logger *logging.Slogger, providers *provider.Registry) *CmdContext {
 	return &CmdContext{
-		config: config,
-		logger: logger,
+		config:    config,
+		logger:    logger,
+		providers: providers,
 	}
 }
 
@@ -267,6 +270,8 @@ func (*SlogWriter) Flush() { /*empty*/ }
 func (c *CmdContext) Config() *config.K2sConfig { return c.config }
 
 func (c *CmdContext) Logger() *logging.Slogger { return c.logger }
+
+func (c *CmdContext) Providers() *provider.Registry { return c.providers }
 
 func (c *CmdContext) EnsureK2sK8sContext(clusterName string) error {
 	slog.Debug("Ensuring correct K8s context", "cluster-name", clusterName)

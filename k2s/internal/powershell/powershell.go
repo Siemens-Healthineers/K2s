@@ -26,6 +26,10 @@ type structuredOutputWriter struct {
 // ExecutePsWithStructuredResult waits until the command has finished and returns the structured data it received or errors that occurred
 // Calls to OutputWriter happen asynchronous
 func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string, writer os.StdWriter, additionalParams ...string) (v T, err error) {
+	if err := platformGuard(); err != nil {
+		return v, err
+	}
+
 	cmdString := buildCmdString(psScriptPath, targetType, additionalParams...)
 	cmdString, err = prepareExecScript(cmdString)
 	if err != nil {
@@ -55,6 +59,10 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 }
 
 func ExecutePs(script string, writer os.StdWriter) error {
+	if err := platformGuard(); err != nil {
+		return err
+	}
+
 	script, err := prepareExecScript(script)
 	if err != nil {
 		return err
