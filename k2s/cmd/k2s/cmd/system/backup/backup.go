@@ -14,7 +14,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 const (
@@ -43,15 +43,25 @@ func runSystemBackup(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("📦 Creating K2s system backup ...")
 
-	psCmd := createSystemBackupPsCommand(cmd)
+	out, _ := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 
-	outputWriter := common.NewPtermWriter()
-	if err := powershell.ExecutePs(psCmd, outputWriter); err != nil {
+	backupFile := resolveBackupFileName(cmd)
+
+	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+
+	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImagesFlag).Value.String())
+	skipPVs, _ := strconv.ParseBool(cmd.Flags().Lookup(skipPVsFlag).Value.String())
+
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+
+	if err := context.Providers().System.Backup(provider.SystemBackupConfig{
+		BackupFile:         backupFile,
+		AdditionalHooksDir: additionalHooksDir,
+		SkipImages:         skipImages,
+		SkipPVs:            skipPVs,
+		ShowOutput:         out,
+	}); err != nil {
 		return err
-	}
-
-	if outputWriter.ErrorOccurred {
-		return fmt.Errorf("system backup failed: PowerShell script encountered errors")
 	}
 
 	cmdSession.Finish()

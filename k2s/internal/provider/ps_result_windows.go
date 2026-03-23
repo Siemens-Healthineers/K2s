@@ -5,8 +5,6 @@
 
 package provider
 
-import "fmt"
-
 // psFailure mirrors common.CmdFailure for PS structured result deserialization.
 // Defined locally to avoid circular imports with cmd/common.
 type psFailure struct {
@@ -16,19 +14,21 @@ type psFailure struct {
 	SuppressCliOutput bool   `json:"suppressCliOutput"`
 }
 
-func (f *psFailure) Error() string {
-	return fmt.Sprintf("[%s] %s", f.Code, f.Message)
-}
-
 // psCmdResult mirrors common.CmdResult for PS structured result deserialization.
 type psCmdResult struct {
 	Failure *psFailure `json:"error"`
 }
 
-// checkFailure returns the failure as an error if present, nil otherwise.
+// checkFailure returns the failure as a *ProviderFailure error if present, nil otherwise.
+// ProviderFailure is the exported error type that the main CLI error handler recognizes.
 func (r *psCmdResult) checkFailure() error {
 	if r.Failure != nil {
-		return r.Failure
+		return &ProviderFailure{
+			Severity:          FailureSeverity(r.Failure.Severity),
+			Code:              r.Failure.Code,
+			Message:           r.Failure.Message,
+			SuppressCliOutput: r.Failure.SuppressCliOutput,
+		}
 	}
 	return nil
 }

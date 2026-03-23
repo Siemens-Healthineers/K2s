@@ -13,6 +13,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/pterm/pterm"
 )
@@ -48,27 +49,37 @@ func main() {
 	exitCode = cli.ExitCodeFailure
 
 	var cmdFailure *common.CmdFailure
-	if !errors.As(err, &cmdFailure) {
-		handleUnexpectedError(err)
+	if errors.As(err, &cmdFailure) {
+		handleCmdFailure(cmdFailure.Severity, cmdFailure.Code, cmdFailure.Message, cmdFailure.SuppressCliOutput)
 		return
 	}
 
-	if !cmdFailure.SuppressCliOutput {
-		switch cmdFailure.Severity {
+	var providerFailure *provider.ProviderFailure
+	if errors.As(err, &providerFailure) {
+		handleCmdFailure(common.FailureSeverity(providerFailure.Severity), providerFailure.Code, providerFailure.Message, providerFailure.SuppressCliOutput)
+		return
+	}
+
+	handleUnexpectedError(err)
+}
+
+func handleCmdFailure(severity common.FailureSeverity, code string, message string, suppressCliOutput bool) {
+	if !suppressCliOutput {
+		switch severity {
 		case common.SeverityWarning:
-			pterm.Warning.Println(cmdFailure.Message)
+			pterm.Warning.Println(message)
 		case common.SeverityError:
-			pterm.Error.Println(cmdFailure.Message)
+			pterm.Error.Println(message)
 		default:
-			slog.Warn("unknown cmd failure severity", "severity", cmdFailure.Severity)
+			slog.Warn("unknown cmd failure severity", "severity", severity)
 		}
 	}
 
 	slog.Error("command failed",
-		"severity", fmt.Sprintf("%d(%s)", cmdFailure.Severity, cmdFailure.Severity),
-		"code", cmdFailure.Code,
-		"message", cmdFailure.Message,
-		"suppressCliOutput", cmdFailure.SuppressCliOutput)
+		"severity", fmt.Sprintf("%d(%s)", severity, severity),
+		"code", code,
+		"message", message,
+		"suppressCliOutput", suppressCliOutput)
 }
 
 func handleUnexpectedError(err any) {

@@ -245,8 +245,10 @@ func (p *windowsClusterProvider) Status(cfg ClusterStatusConfig) (*ClusterStatus
 		status.Issues = result.RunningState.Issues
 	}
 	if result.K8sVersionInfo != nil {
-		status.K8sServerVer = result.K8sVersionInfo.K8sServerVersion
-		status.K8sClientVer = result.K8sVersionInfo.K8sClientVersion
+		status.K8sVersionInfo = &K8sVersionInfo{
+			K8sServerVersion: result.K8sVersionInfo.K8sServerVersion,
+			K8sClientVersion: result.K8sVersionInfo.K8sClientVersion,
+		}
 	}
 
 	for _, n := range result.Nodes {
@@ -261,9 +263,11 @@ func (p *windowsClusterProvider) Status(cfg ClusterStatusConfig) (*ClusterStatus
 			ContainerRuntime: n.ContainerRuntime,
 			InternalIp:       n.InternalIp,
 			IsReady:          n.IsReady,
-			CpuCapacity:      n.Capacity.Cpu,
-			MemoryCapacity:   n.Capacity.Memory,
-			StorageCapacity:  n.Capacity.Storage,
+			Capacity: NodeCapacity{
+				Cpu:     n.Capacity.Cpu,
+				Memory:  n.Capacity.Memory,
+				Storage: n.Capacity.Storage,
+			},
 		})
 	}
 

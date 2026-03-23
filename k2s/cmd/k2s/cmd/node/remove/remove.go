@@ -5,7 +5,6 @@ package remove
 
 import (
 	"errors"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 
@@ -15,7 +14,7 @@ import (
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -59,16 +58,23 @@ func removeNode(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	addNodeCmd, err := buildRemoveNodeCmd(ccmd.Flags(), runtimeConfig.InstallConfig().SetupName())
+	if runtimeConfig.InstallConfig().SetupName() != definitions.SetupNameK2s {
+		return errors.New("removing node is not supported for this setup type. Aborting")
+	}
+
+	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	pterm.Printfln("🤖 Removing node from K2s cluster")
-	slog.Debug("PS command created", "command", addNodeCmd)
+	machineName := ccmd.Flags().Lookup(MachineName).Value.String()
 
-	err = powershell.ExecutePs(addNodeCmd, common.NewPtermWriter())
-	if err != nil {
+	pterm.Printfln("🤖 Removing node from K2s cluster")
+
+	if err := context.Providers().Node.Remove(provider.NodeRemoveConfig{
+		NodeName:   machineName,
+		ShowOutput: outputFlag,
+	}); err != nil {
 		return err
 	}
 
