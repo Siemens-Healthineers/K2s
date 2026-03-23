@@ -20,18 +20,14 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
-
-// errNotLinux is a sentinel returned by startLinux on Windows to signal
-// that the caller should fall through to the PowerShell-based path.
-var errNotLinux = errors.New("not running on Linux")
 
 var Startk8sCmd = &cobra.Command{
 	Use:   "start",
@@ -48,12 +44,6 @@ func init() {
 }
 
 func startk8s(ccmd *cobra.Command, args []string) error {
-	// Try native Linux start path (no-op on Windows, returns errNotLinux)
-	if linuxErr := startLinux(ccmd); !errors.Is(linuxErr, errNotLinux) {
-		return linuxErr
-	}
-
-	// Windows path: use PowerShell-based start
 	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
@@ -82,20 +72,35 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	startCmd, err := buildStartCmd(ccmd.Flags(), runtimeConfig)
-	if err != nil {
-		return err
-	}
-
 	tzConfigHandle, err := createTimezoneConfigHandle(context.Config().Host().KubeConfig())
 	if err != nil {
 		return err
 	}
 	defer tzConfigHandle.Release()
 
-	slog.Debug("PS command created", "command", startCmd)
+	// Read flags
+	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(common.OutputFlagName).Value.String())
+	if err != nil {
+		return err
+	}
+	additionalHooksDir := ccmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+	autouseCachedVSwitch, err := strconv.ParseBool(ccmd.Flags().Lookup(common.AutouseCachedVSwitchFlagName).Value.String())
+	if err != nil {
+		return err
+	}
 
-	err = powershell.ExecutePs(startCmd, common.NewPtermWriter())
+	// Determine setup info from runtime config
+	setupName := runtimeConfig.InstallConfig().SetupName()
+	linuxOnly := runtimeConfig.InstallConfig().LinuxOnly()
+
+	// Start cluster via provider (handles platform dispatch)
+	err = context.Providers().Cluster.Start(provider.ClusterStartConfig{
+		ShowLogs:            outputFlag,
+		AdditionalHooksDir:  additionalHooksDir,
+		UseCachedK2sVSwitch: autouseCachedVSwitch,
+		SetupName:           setupName,
+		LinuxOnly:           linuxOnly,
+	})
 	if err != nil {
 		return err
 	}
@@ -107,7 +112,6 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	}
 
 	cmdSession.Finish()
-
 	return nil
 }
 
@@ -195,69 +199,6 @@ func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
 
 	if nodeConfig.Name != "" {
 		cmd += " -NodeName " + nodeConfig.Name
-	}
-
-	return cmd
-}
-
-func buildStartCmd(flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) (string, error) {
-	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
-
-	autouseCachedVSwitch, err := strconv.ParseBool(flags.Lookup(common.AutouseCachedVSwitchFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	var cmd string
-
-	switch config.InstallConfig().SetupName() {
-	case definitions.SetupNameK2s:
-		if config.InstallConfig().LinuxOnly() {
-			cmd = buildLinuxOnlyStartCmd(outputFlag, additionalHooksDir)
-		} else {
-			cmd = buildk2sStartCmd(outputFlag, additionalHooksDir, autouseCachedVSwitch)
-		}
-	case definitions.SetupNameBuildOnlyEnv:
-		return "", errors.New("there is no cluster to start in build-only setup mode ;-). Aborting")
-	default:
-		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct start script directly")
-	}
-
-	return cmd, nil
-}
-
-func buildk2sStartCmd(showLogs bool, additionalHooksDir string, autouseCachedVSwitch bool) string {
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "start", "start.ps1"))
-
-	if showLogs {
-		cmd += " -ShowLogs"
-	}
-
-	if additionalHooksDir != "" {
-		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
-	}
-
-	if autouseCachedVSwitch {
-		cmd += " -UseCachedK2sVSwitches"
-	}
-
-	return cmd
-}
-
-func buildLinuxOnlyStartCmd(showLogs bool, additionalHooksDir string) string {
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "linuxonly", "start", "start.ps1"))
-
-	if showLogs {
-		cmd += " -ShowLogs"
-	}
-
-	if additionalHooksDir != "" {
-		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
 	}
 
 	return cmd
