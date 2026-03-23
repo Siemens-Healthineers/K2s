@@ -83,7 +83,7 @@ On Linux, the CLI is a native Go binary that interacts directly with Kubernetes 
 | Host + Linux-Only | `k2s` + `--linux-only` | Windows | Linux VM (control plane only) | Linux-only workloads |
 | Host + WSL 2 | `k2s` + `--wsl` | Windows | Linux VM via WSL 2 | Lighter footprint, shared kernel |
 | Development-Only | `buildonly` | Windows | Linux VM | Container image building only, no K8s |
-| Linux Host | `k2s` | Linux | Windows VM (worker, optional) | Inverted setup — Linux-native control plane |
+| Linux Host | `k2s` | Linux | Windows VM (worker, optional) | **Experimental** — Inverted setup, Linux-native control plane |
 
 See [Hosting Variants](../user-guide/hosting-variants.md) and the [Features Matrix](hosting-variants-features-matrix.md) for detailed comparisons.
 

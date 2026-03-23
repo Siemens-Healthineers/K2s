@@ -48,6 +48,10 @@ provider/
 └── README.md               # This file
 ```
 
+## Experimental Status
+
+> **Linux host support is experimental.** The Linux providers are functional for core cluster lifecycle, image management, node management, and addon enable/disable. System-level operations (offline packaging, backup/restore, upgrade) are not yet implemented and return `ErrNotSupported`. A runtime warning is printed to stderr on every CLI invocation on Linux.
+
 ## How It Works
 
 1. **Initialisation**: During `PersistentPreRunE` in `cmd.go`, a `Registry` is created via `NewRegistry(ProviderConfig{...})`. The build-tagged factory (`registry_windows.go` or `registry_linux.go`) instantiates the correct implementations.
