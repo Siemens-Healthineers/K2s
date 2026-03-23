@@ -5,10 +5,6 @@ package status
 
 import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
 type LoadedStatus struct {
@@ -59,10 +55,4 @@ type Capacity struct {
 	Cpu     string `json:"cpu"`
 	Storage string `json:"storage"`
 	Memory  string `json:"memory"`
-}
-
-func LoadStatus() (*LoadedStatus, error) {
-	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + `\lib\scripts\k2s\status\Get-Status.ps1`)
-
-	return powershell.ExecutePsWithStructuredResult[*LoadedStatus](scriptPath, "CmdResult", common.NewPtermWriter())
 }

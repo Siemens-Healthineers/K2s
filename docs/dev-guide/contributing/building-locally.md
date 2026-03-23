@@ -43,3 +43,19 @@ If *K2s* is installed then just simply execute the command without the full path
 bgo -ProjectDir "C:\ws\k2s\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"
 bgo -BuildAll
 ```
+
+## Cross-Compiling for Linux
+
+The *K2s* CLI supports both Windows and Linux hosts. You can cross-compile the Linux binary from any platform using standard Go tools:
+
+```bash
+# Build the Linux binary
+GOOS=linux go build -o k2s ./k2s/cmd/k2s
+
+# Verify the build compiles for both platforms
+GOOS=windows go build ./k2s/cmd/k2s
+GOOS=linux go build ./k2s/cmd/k2s
+```
+
+!!! note
+    On Linux, the CLI uses native Go APIs (kubeadm, kubectl, libvirt/KVM, SSH) instead of PowerShell. The platform-specific logic is encapsulated in the [Provider Architecture](../architecture.md#provider-architecture).

@@ -5,28 +5,18 @@ package uninstall
 
 import (
 	"errors"
-	"log/slog"
-	"path/filepath"
 	"strconv"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 )
-
-// errNotLinux is a sentinel returned by uninstallLinux on Windows to signal
-// that the caller should fall through to the PowerShell-based path.
-var errNotLinux = errors.New("not running on Linux")
 
 var (
 	skipPurge       = "skip-purge"
@@ -46,16 +36,10 @@ func init() {
 }
 
 func uninstallk8s(cmd *cobra.Command, args []string) error {
-	// Try native Linux uninstall path (no-op on Windows, returns errNotLinux)
-	if linuxErr := uninstallLinux(cmd); !errors.Is(linuxErr, errNotLinux) {
-		return linuxErr
-	}
-
-	// Windows path: use PowerShell-based uninstall
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
-	version := version.GetVersion()
+	ver := version.GetVersion()
 
-	pterm.Printfln("🤖 Uninstalling K2s %s", version)
+	pterm.Printfln("🤖 Uninstalling K2s %s", ver)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -68,116 +52,43 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	uninstallCmd, err := buildUninstallCmd(cmd.Flags(), runtimeConfig)
+	// Read flags
+	skipPurgeFlag, err := strconv.ParseBool(cmd.Flags().Lookup(skipPurge).Value.String())
+	if err != nil {
+		return err
+	}
+	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
+	if err != nil {
+		return err
+	}
+	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+	deleteFiles, err := strconv.ParseBool(cmd.Flags().Lookup(common.DeleteFilesFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	slog.Debug("PS command created", "command", uninstallCmd)
+	// Determine setup info from runtime config
+	var setupName string
+	var linuxOnly bool
+	if runtimeConfig != nil {
+		setupName = runtimeConfig.InstallConfig().SetupName()
+		linuxOnly = runtimeConfig.InstallConfig().LinuxOnly()
+	}
 
-	err = powershell.ExecutePs(uninstallCmd, common.NewPtermWriter())
+	// Uninstall via provider (handles platform dispatch)
+	err = context.Providers().Cluster.Uninstall(provider.ClusterUninstallConfig{
+		ShowLogs:                          outputFlag,
+		SkipPurge:                         skipPurgeFlag,
+		DeleteFilesForOfflineInstallation: deleteFiles,
+		AdditionalHooksDir:                additionalHooksDir,
+		ConfigDir:                         context.Config().Host().K2sSetupConfigDir(),
+		SetupName:                         setupName,
+		LinuxOnly:                         linuxOnly,
+	})
 	if err != nil {
 		return err
 	}
 
 	cmdSession.Finish()
-
 	return nil
-}
-
-func buildUninstallCmd(flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) (string, error) {
-	skipPurgeFlag, err := strconv.ParseBool(flags.Lookup(skipPurge).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
-
-	deleteFilesForOfflineInstallation, err := strconv.ParseBool(flags.Lookup(common.DeleteFilesFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	var cmd string
-
-	switch config.InstallConfig().SetupName() {
-	case definitions.SetupNameK2s:
-		if config.InstallConfig().LinuxOnly() {
-			cmd = buildLinuxOnlyUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
-		} else {
-			cmd = buildk2sUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
-		}
-	case definitions.SetupNameBuildOnlyEnv:
-		cmd = buildBuildOnlyUninstallCmd(outputFlag, deleteFilesForOfflineInstallation)
-
-	default:
-		slog.Warn("Uninstall", "Found invalid setup type", config.InstallConfig().SetupName())
-		pterm.Warning.Printfln("could not determine the setup type, proceeding uninstall with default variant 'k2s'")
-		cmd = buildk2sUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
-	}
-
-	return cmd, nil
-}
-
-func buildk2sUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "uninstall", "uninstall.ps1"))
-
-	if skipPurge {
-		cmd += " -SkipPurge"
-	}
-
-	if showLogs {
-		cmd += " -ShowLogs"
-	}
-
-	if additionalHooksDir != "" {
-		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
-	}
-
-	if deleteFilesForOfflineInstallation {
-		cmd += " -DeleteFilesForOfflineInstallation"
-	}
-
-	return cmd
-}
-
-func buildBuildOnlyUninstallCmd(showLogs bool, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "buildonly", "uninstall", "uninstall.ps1"))
-
-	if showLogs {
-		cmd += " -ShowLogs"
-	}
-
-	if deleteFilesForOfflineInstallation {
-		cmd += " -DeleteFilesForOfflineInstallation"
-	}
-
-	return cmd
-}
-
-func buildLinuxOnlyUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "linuxonly", "uninstall", "uninstall.ps1"))
-
-	if skipPurge {
-		cmd += " -SkipPurge"
-	}
-
-	if showLogs {
-		cmd += " -ShowLogs"
-	}
-
-	if additionalHooksDir != "" {
-		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
-	}
-
-	if deleteFilesForOfflineInstallation {
-		cmd += " -DeleteFilesForOfflineInstallation"
-	}
-
-	return cmd
 }
