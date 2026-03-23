@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 site_name: K2s - Kubernetes distribution for Windows & Linux workloads
@@ -95,6 +95,7 @@ nav:
       - GPU Node: user-guide/gpu-node.md
       - Assignment of Cluster IP Addresses for Services: user-guide/cluster-ip-addresses.md
       - Certificate Management: user-guide/certificate-management.md
+      - Proxy Configuration: user-guide/proxy-configuration.md
       - Adding a Container Registry: user-guide/adding-container-registry.md
       - Building a Container Image: user-guide/building-container-image.md
   - Operator Manual:
