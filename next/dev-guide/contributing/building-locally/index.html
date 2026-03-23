@@ -26,7 +26,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
@@ -2009,6 +2009,17 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#cross-compiling-for-linux" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Compiling for Linux
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2513,6 +2524,17 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#cross-compiling-for-linux" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Compiling for Linux
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2576,6 +2598,19 @@ If you have not installed <em>K2s</em> yet, then your <code>PATH</code> is not u
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">bgo -ProjectDir &quot;C:\ws\k2s\k2s\cmd\httpproxy\&quot; -ExeOutDir &quot;c:\ws\k2s\bin&quot;</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">bgo -BuildAll</span>
 </code></pre></div></p>
+<h2 id="cross-compiling-for-linux">Cross-Compiling for Linux</h2>
+<p>The <em>K2s</em> <abbr title="Command-Line Interface">CLI</abbr> supports both Windows and Linux hosts. You can cross-compile the Linux binary from any platform using standard Go tools:</p>
+<div class="highlight"><span class="filename">Bash</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Build the Linux binary</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>k2s<span class="w"> </span>./k2s/cmd/k2s
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Verify the build compiles for both platforms</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">GOOS</span><span class="o">=</span>windows<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./k2s/cmd/k2s
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./k2s/cmd/k2s
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>On Linux, the <abbr title="Command-Line Interface">CLI</abbr> uses native Go APIs (kubeadm, kubectl, libvirt/KVM, <abbr title="Secure Shell">SSH</abbr>) instead of PowerShell. The platform-specific logic is encapsulated in the <a href="../../architecture/#provider-architecture">Provider Architecture</a>.</p>
+</div>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT

@@ -26,7 +26,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
@@ -2134,6 +2134,17 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#linux-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux Host
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#l2bridge" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2512,6 +2523,17 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#linux-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux Host
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#l2bridge" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2591,6 +2613,7 @@ SPDX-License-Identifier: MIT
 <thead>
 <tr>
 <th>Hosting Variant</th>
+<th style="text-align: center;">Host <abbr title="Operating System">OS</abbr></th>
 <th style="text-align: center;">L2Bridge</th>
 <th style="text-align: center;">DNSProxy</th>
 <th style="text-align: center;">HttpProxy</th>
@@ -2600,6 +2623,7 @@ SPDX-License-Identifier: MIT
 <tbody>
 <tr>
 <td>Host</td>
+<td style="text-align: center;">Windows</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
@@ -2607,6 +2631,7 @@ SPDX-License-Identifier: MIT
 </tr>
 <tr>
 <td>Development-Only</td>
+<td style="text-align: center;">Windows</td>
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10004;</td>
@@ -2614,6 +2639,7 @@ SPDX-License-Identifier: MIT
 </tr>
 <tr>
 <td>Linux-only</td>
+<td style="text-align: center;">Windows</td>
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10008;</td>
@@ -2621,6 +2647,7 @@ SPDX-License-Identifier: MIT
 </tr>
 <tr>
 <td>Host (<abbr title="Windows Subsystem for Linux">WSL</abbr>)</td>
+<td style="text-align: center;">Windows</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
@@ -2628,6 +2655,7 @@ SPDX-License-Identifier: MIT
 </tr>
 <tr>
 <td>Development-Only (<abbr title="Windows Subsystem for Linux">WSL</abbr>)</td>
+<td style="text-align: center;">Windows</td>
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10004;</td>
@@ -2635,13 +2663,24 @@ SPDX-License-Identifier: MIT
 </tr>
 <tr>
 <td>Linux-only (<abbr title="Windows Subsystem for Linux">WSL</abbr>)</td>
+<td style="text-align: center;">Windows</td>
 <td style="text-align: center;">not supported</td>
 <td style="text-align: center;">not supported</td>
 <td style="text-align: center;">not supported</td>
 <td style="text-align: center;">not supported</td>
 </tr>
+<tr>
+<td>Linux Host</td>
+<td style="text-align: center;">Linux</td>
+<td style="text-align: center;">&#10008;</td>
+<td style="text-align: center;">&#10008;</td>
+<td style="text-align: center;">&#10008;</td>
+<td style="text-align: center;">&#10008;</td>
+</tr>
 </tbody>
 </table>
+<h2 id="linux-host"><em>Linux Host</em></h2>
+<p>On a Linux host the control plane runs natively (no <abbr title="Virtual Machine">VM</abbr>). An optional Windows <abbr title="Virtual Machine">VM</abbr> is provisioned via libvirt/KVM for mixed-<abbr title="Operating System">OS</abbr> workloads. Networking uses standard Linux routing and iptables — L2Bridge, DNSProxy, VFPRules are Windows-specific components and are not used.</p>
 <h2 id="l2bridge"><em>L2Bridge</em></h2>
 <p>Creation of <em>L2Bridge</em> is essential for communication between <em>Pods</em> across <em>Linux</em> and <em>Windows</em> nodes. In principle, a network adapter named <code>cbr0</code> is created to facilitate communication across nodes.</p>
 <h2 id="dnsproxy"><em>DNSProxy</em></h2>
