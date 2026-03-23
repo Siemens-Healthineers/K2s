@@ -61,7 +61,7 @@ Returns only the proxy URI (useful for scripting). If no proxy is configured, th
 
 ### Show proxy details
 
-Display the proxy URI together with all configured proxy overrides.
+Display the proxy URI together with the overrides stored in the proxy configuration.
 
 ```console
 k2s system proxy show
@@ -96,7 +96,9 @@ After resetting, the cluster accesses external networks directly (or via NAT, de
 
 ## Proxy Overrides (No-Proxy)
 
-Proxy overrides define destinations that should bypass the proxy and be reached directly. *K2s* automatically includes internal cluster addresses (e.g., the control-plane IP, pod/service CIDRs) — you do not need to add these manually.
+Proxy overrides define destinations that should bypass the proxy and be reached directly.
+
+*K2s* internally manages additional bypass entries (e.g., the control-plane IP, pod/service CIDRs) to ensure cluster components can communicate without going through the proxy. These internal entries are applied automatically and do not appear in the `override` commands.
 
 Use overrides for additional hosts or domains that should not go through the proxy, such as internal registries, artifact servers, or local services.
 
@@ -139,7 +141,7 @@ k2s system proxy override delete registry.internal.example.com
 k2s system proxy override ls
 ```
 
-Lists all currently configured proxy overrides, including both user-added and auto-generated K2s internal entries.
+Lists the proxy overrides currently stored in the proxy configuration.
 
 ---
 
