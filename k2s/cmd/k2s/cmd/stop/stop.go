@@ -5,7 +5,6 @@ package stop
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strconv"
@@ -22,13 +21,9 @@ import (
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
-
-// errNotLinux is a sentinel returned by stopLinux on Windows to signal
-// that the caller should fall through to the PowerShell-based path.
-var errNotLinux = errors.New("not running on Linux")
 
 var Stopk8sCmd = &cobra.Command{
 	Use:   "stop",
@@ -44,12 +39,6 @@ func init() {
 }
 
 func stopk8s(cmd *cobra.Command, args []string) error {
-	// Try native Linux stop path (no-op on Windows, returns errNotLinux)
-	if linuxErr := stopLinux(cmd); !errors.Is(linuxErr, errNotLinux) {
-		return linuxErr
-	}
-
-	// Windows path: use PowerShell-based stop
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Printfln("🛑 Stopping K2s cluster")
 
@@ -71,62 +60,35 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 		slog.Warn("Failures during stopping of additional nodes", "err", err)
 	}
 
-	stopCmd, err := buildStopCmd(cmd.Flags(), runtimeConfig)
+	// Read flags
+	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
+	if err != nil {
+		return err
+	}
+	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+	cacheVSwitches, err := strconv.ParseBool(cmd.Flags().Lookup(common.CacheVSwitchFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	slog.Debug("PS command created", "command", stopCmd)
+	// Determine setup info from runtime config
+	setupName := runtimeConfig.InstallConfig().SetupName()
+	linuxOnly := runtimeConfig.InstallConfig().LinuxOnly()
 
-	err = powershell.ExecutePs(stopCmd, common.NewPtermWriter())
+	// Stop cluster via provider (handles platform dispatch)
+	err = context.Providers().Cluster.Stop(provider.ClusterStopConfig{
+		ShowLogs:           outputFlag,
+		AdditionalHooksDir: additionalHooksDir,
+		CacheVSwitch:       cacheVSwitches,
+		SetupName:          setupName,
+		LinuxOnly:          linuxOnly,
+	})
 	if err != nil {
 		return err
 	}
 
 	cmdSession.Finish()
-
 	return nil
-}
-
-func buildStopCmd(flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) (string, error) {
-	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	additionalHooksdir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
-
-	cacheVSwitches, err := strconv.ParseBool(flags.Lookup(common.CacheVSwitchFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	var cmd string
-
-	switch config.InstallConfig().SetupName() {
-	case definitions.SetupNameK2s:
-		setup := "k2s"
-		if config.InstallConfig().LinuxOnly() {
-			setup = "linuxonly"
-		}
-		cmd = utils.FormatScriptFilePath(fmt.Sprintf("%s\\lib\\scripts\\%s\\stop\\stop.ps1", utils.InstallDir(), setup))
-		if additionalHooksdir != "" {
-			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
-		}
-		if cacheVSwitches && !config.InstallConfig().LinuxOnly() {
-			cmd += " -CacheK2sVSwitches"
-		}
-	case definitions.SetupNameBuildOnlyEnv:
-		return "", errors.New("there is no cluster to stop in build-only setup mode ;-). Aborting")
-	default:
-		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct stop script directly")
-	}
-
-	if outputFlag {
-		cmd += " -ShowLogs"
-	}
-
-	return cmd, nil
 }
 
 func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet) error {
