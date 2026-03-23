@@ -99,7 +99,7 @@ function Get-NodeStatus {
 
     $result = @{StatusText = $status; IsReady = $isReady }
 
-    Write-Log "returning StatusText='$StatusText' and IsReady='$IsReady'"
+    Write-Log "returning StatusText='$($result.StatusText)' and IsReady='$($result.IsReady)'"
 
     return $result
 }
@@ -251,7 +251,7 @@ function Get-PodStatus {
 
     $result = @{StatusText = $status; IsRunning = $isRunning; Restarts = $restarts; Ready = $ready }
 
-    Write-Log "returning StatusText='$StatusText', IsRunning='$IsRunning', Restarts='$Restarts' and Ready='$Ready'"
+    Write-Log "returning StatusText='$($result.StatusText)', IsRunning='$($result.IsRunning)', Restarts='$($result.Restarts)' and Ready='$($result.Ready)'"
 
     return $result
 }
