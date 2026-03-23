@@ -29,6 +29,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/json"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -80,7 +81,13 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 
 			slog.Debug("config loaded", "config", k2sConfig)
 
-			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyCmdContext, cc.NewCmdContext(k2sConfig, logger)))
+			registry := provider.NewRegistry(provider.ProviderConfig{
+				InstallDir: utils.InstallDir(),
+				ConfigDir:  k2sConfig.Host().K2sSetupConfigDir(),
+				StdWriter:  cc.NewPtermWriter(),
+			})
+
+			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyCmdContext, cc.NewCmdContext(k2sConfig, logger, registry)))
 
 			return nil
 		},

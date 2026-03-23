@@ -90,3 +90,24 @@ func mapAddons(inputAddons []addon) (addons []contracts.Addon) {
 	}
 	return
 }
+
+// WriteRuntimeConfig persists the setup configuration to the given directory.
+// It creates the directory if it does not exist.
+func WriteRuntimeConfig(configDir string, setupName string, linuxOnly bool, version string, clusterName string, controlPlaneHostname string, wslEnabled bool) error {
+	if err := os.MkdirAll(configDir, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create config directory '%s': %w", configDir, err)
+	}
+
+	configPath := filepath.Join(configDir, definitions.K2sRuntimeConfigFileName)
+
+	cfg := &config{
+		SetupName:                setupName,
+		LinuxOnly:                linuxOnly,
+		Version:                  version,
+		ClusterName:              clusterName,
+		ControlPlaneNodeHostname: controlPlaneHostname,
+		WslEnabled:               wslEnabled,
+	}
+
+	return json.ToFile(configPath, cfg)
+}
