@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/user-guide/hosting-variants/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/user-guide/proxy-configuration/">
       
       
-        <link rel="prev" href="../../quickstart/">
+        <link rel="prev" href="../certificate-management/">
       
       
-        <link rel="next" href="../k2s-cli/">
+        <link rel="next" href="../adding-container-registry/">
       
       
         
@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Hosting Variants - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Proxy Configuration - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#hosting-variants" class="md-skip">
+        <a href="#proxy-configuration" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Hosting Variants
+              Proxy Configuration
             
           </span>
         </div>
@@ -291,7 +291,7 @@ You're not viewing the latest release version.
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+        <a href="../hosting-variants/" class="md-tabs__link">
           
   
   
@@ -628,37 +628,10 @@ You're not viewing the latest release version.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Hosting Variants
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../hosting-variants/" class="md-nav__link">
         
   
   
@@ -674,48 +647,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#host-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Host (Default)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#development-only" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Development-Only
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -893,10 +824,37 @@ You're not viewing the latest release version.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../proxy-configuration/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Configuration
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -912,6 +870,170 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#show-proxy-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Show proxy details
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reset-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reset proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proxy-overrides-no-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proxy Overrides (No-Proxy)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Proxy Overrides (No-Proxy)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#add-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delete overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#typical-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typical Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2518,10 +2640,10 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#host-default" class="md-nav__link">
+  <a href="#how-it-works" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Host (Default)
+        How It Works
       
     </span>
   </a>
@@ -2529,10 +2651,132 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#development-only" class="md-nav__link">
+  <a href="#commands" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Development-Only
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#show-proxy-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Show proxy details
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reset-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reset proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proxy-overrides-no-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proxy Overrides (No-Proxy)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Proxy Overrides (No-Proxy)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#add-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delete overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#typical-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typical Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
       
     </span>
   </a>
@@ -2556,7 +2800,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/user-guide/hosting-variants.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/user-guide/proxy-configuration.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2565,18 +2809,145 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="hosting-variants">Hosting Variants</h1>
-<h2 id="host-default">Host (Default)</h2>
-<p>On the <em>Windows</em> host, a single <abbr title="Virtual Machine">VM</abbr> is exclusively utilized as the <em>Linux</em> control-plane node while the <em>Windows</em> host itself functions as the worker node.</p>
-<p>This variant is also the default, offering efficient and very low memory consumption. The <abbr title="Virtual Machine">VM</abbr>'s memory usage starts at 2GB.<br/><br/>
-<img alt="Host Variant" src="../assets/VariantHost400.jpg" /></p>
-<h2 id="development-only">Development-Only</h2>
-<p>In this variant, the focus is on setting up an environment solely for building and testing <em>Windows</em> and <em>Linux</em> containers without creating a <em><abbr title="Kubernetes">K8s</abbr></em> cluster.<br/><br/>
-<img alt="Development-Only" src="../assets/VariantDevOnly400.jpg" /></p>
+<h1 id="proxy-configuration">Proxy Configuration</h1>
+<p>If your environment requires an <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy to access external networks (e.g., corporate firewalls), <em>K2s</em> can route all outbound traffic from both the Windows host and the Linux <abbr title="Virtual Machine">VM</abbr> through a proxy server.</p>
+<p>This page covers configuring the proxy <strong>after</strong> installation. To set a proxy <strong>during</strong> installation, use the <code>--proxy</code> flag — see <a href="../k2s-cli/#install">k2s <abbr title="Command-Line Interface">CLI</abbr> – install</a>.</p>
+<h2 id="how-it-works">How It Works</h2>
+<p><em>K2s</em> runs a transparent <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy service (<code>httpproxy</code>) on the Windows host. When you configure a proxy, the following happens:</p>
+<ol>
+<li>The <code>httpproxy</code> service on the Windows host is configured to forward requests through your upstream proxy.</li>
+<li>Inside the Linux <abbr title="Virtual Machine">VM</abbr> (KubeMaster), the proxy settings are applied to:<ul>
+<li><strong>APT</strong> (package manager) — <code>/etc/apt/apt.conf.d/proxy.conf</code></li>
+<li><strong><abbr title="Container Runtime Interface">CRI</abbr>-O</strong> (container runtime) — systemd environment override</li>
+<li><strong>Buildah/Podman</strong> (container engine) — <code>/etc/containers/containers.conf</code></li>
+</ul>
+</li>
+<li>Proxy overrides (no-proxy entries) define hosts that should be reached <strong>directly</strong>, bypassing the proxy. <em>K2s</em> automatically includes internal cluster addresses in the no-proxy list.</li>
+</ol>
+<pre class="mermaid"><code>flowchart LR
+    A[Windows Host] --&gt;|httpproxy service| B[Upstream Proxy]
+    C[Linux VM] --&gt;|apt / crio / buildah| B
+    B --&gt; D[External Network]
+    A -.-&gt;|no-proxy| E[Direct Access]
+    C -.-&gt;|no-proxy| E</code></pre>
+<h2 id="commands">Commands</h2>
+<p>All proxy commands require a running <em>K2s</em> installation.</p>
+<h3 id="set-proxy">Set proxy</h3>
+<p>Configure the <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy for the cluster.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s system proxy set &lt;proxy-uri&gt;</span>
+</code></pre></div>
+<p><strong>Example:</strong></p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s system proxy set http://proxy.example.com:8080</span>
+</code></pre></div>
+<p>This updates the proxy on both the Windows host and the Linux <abbr title="Virtual Machine">VM</abbr>. The <code>httpproxy</code> service is restarted with the new configuration.</p>
+<h3 id="get-proxy">Get proxy</h3>
+<p>Print the currently configured proxy URI.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s system proxy get</span>
+</code></pre></div>
+<p>Returns only the proxy URI (useful for scripting). If no proxy is configured, the output is empty.</p>
+<h3 id="show-proxy-details">Show proxy details</h3>
+<p>Display the proxy URI together with the overrides stored in the proxy configuration.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s system proxy show</span>
+</code></pre></div>
+<p><strong>Example output:</strong></p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Proxy: http://proxy.example.com:8080
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Proxy Overrides:
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  - .example.com
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  - 10.0.0.0/8
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  - 172.19.1.0/24
+</code></pre></div>
+<h3 id="reset-proxy">Reset proxy</h3>
+<p>Remove all proxy configuration from the cluster.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s system proxy reset</span>
+</code></pre></div>
+<p>This clears the proxy on both the Windows host and the Linux <abbr title="Virtual Machine">VM</abbr>:</p>
+<ul>
+<li>The <code>httpproxy</code> service is restarted without an upstream proxy.</li>
+<li>APT, <abbr title="Container Runtime Interface">CRI</abbr>-O, and container engine proxy settings are removed from the Linux <abbr title="Virtual Machine">VM</abbr>.</li>
+</ul>
+<p>After resetting, the cluster accesses external networks directly (or via <abbr title="Network Address Translation">NAT</abbr>, depending on the hosting variant).</p>
+<hr />
+<h2 id="proxy-overrides-no-proxy">Proxy Overrides (No-Proxy)</h2>
+<p>Proxy overrides define destinations that should bypass the proxy and be reached directly.</p>
+<p><em>K2s</em> internally manages additional bypass entries (e.g., the control-plane <abbr title="Internet Protocol">IP</abbr>, pod/service CIDRs) to ensure cluster components can communicate without going through the proxy. These internal entries are applied automatically and do not appear in the <code>override</code> commands.</p>
+<p>Use overrides for additional hosts or domains that should not go through the proxy, such as internal registries, artifact servers, or local services.</p>
+<h3 id="add-overrides">Add overrides</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system proxy override add &lt;hosts...&gt;</span>
+</code></pre></div>
+<p><strong>Example:</strong></p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s system proxy override add registry.internal.example.com .local 10.20.0.0/16</span>
+</code></pre></div>
+<p>You can specify multiple entries separated by spaces. Supported formats:</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Example</th>
+<th>Matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hostname</td>
+<td><code>registry.example.com</code></td>
+<td>Exact host</td>
+</tr>
+<tr>
+<td>Domain wildcard</td>
+<td><code>.example.com</code></td>
+<td>All subdomains of <code>example.com</code></td>
+</tr>
+<tr>
+<td><abbr title="Internet Protocol">IP</abbr> address</td>
+<td><code>10.0.0.5</code></td>
+<td>Single <abbr title="Internet Protocol">IP</abbr></td>
+</tr>
+<tr>
+<td><abbr title="Classless Inter-Domain Routing">CIDR</abbr> range</td>
+<td><code>10.20.0.0/16</code></td>
+<td>All IPs in the subnet</td>
+</tr>
+</tbody>
+</table>
+<h3 id="delete-overrides">Delete overrides</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s system proxy override delete &lt;hosts...&gt;</span>
+</code></pre></div>
+<p><strong>Example:</strong></p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s system proxy override delete registry.internal.example.com</span>
+</code></pre></div>
+<h3 id="list-overrides">List overrides</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s system proxy override ls</span>
+</code></pre></div>
+<p>Lists the proxy overrides currently stored in the proxy configuration.</p>
+<hr />
+<h2 id="typical-workflow">Typical Workflow</h2>
+<p>A common workflow for configuring proxy access in a corporate environment:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gp"># </span><span class="m">1</span>.<span class="w"> </span>Set<span class="w"> </span>the<span class="w"> </span>proxy
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="go">k2s system proxy set http://proxy.corp.example.com:3128</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gp"># </span><span class="m">2</span>.<span class="w"> </span>Add<span class="w"> </span>internal<span class="w"> </span>hosts<span class="w"> </span>that<span class="w"> </span>should<span class="w"> </span>bypass<span class="w"> </span>the<span class="w"> </span>proxy
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">k2s system proxy override add .corp.example.com registry.internal.corp.example.com</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="gp"># </span><span class="m">3</span>.<span class="w"> </span>Verify<span class="w"> </span>the<span class="w"> </span>configuration
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="go">k2s system proxy show</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="gp"># </span><span class="m">4</span>.<span class="w"> </span>Later,<span class="w"> </span><span class="k">if</span><span class="w"> </span>the<span class="w"> </span>proxy<span class="w"> </span>is<span class="w"> </span>no<span class="w"> </span>longer<span class="w"> </span>needed
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="go">k2s system proxy reset</span>
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you are creating an offline package with <code>k2s system package</code> while behind a proxy, run <code>k2s system proxy reset</code> <strong>before</strong> packaging. This ensures the package does not contain references to your proxy server.</p>
+</div>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="../k2s-cli/#install">k2s <abbr title="Command-Line Interface">CLI</abbr> – install <code>--proxy</code> flag</a> — set a proxy during installation</li>
+<li><a href="../k2s-cli/#system-proxy">k2s <abbr title="Command-Line Interface">CLI</abbr> – system proxy</a> — command reference</li>
+<li><a href="../../dev-guide/hosting-variants-features-matrix/">Hosting Variants Features Matrix</a> — which variants use the HttpProxy service</li>
+</ul>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -2616,7 +2987,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../quickstart/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Quick Start">
+          <a href="../certificate-management/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Certificate Management">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2626,20 +2997,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Quick Start
+                Certificate Management
               </div>
             </div>
           </a>
         
         
           
-          <a href="../k2s-cli/" class="md-footer__link md-footer__link--next" aria-label="Next: k2s CLI">
+          <a href="../adding-container-registry/" class="md-footer__link md-footer__link--next" aria-label="Next: Adding a Container Registry">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                k2s CLI
+                Adding a Container Registry
               </div>
             </div>
             <div class="md-footer__button md-icon">
