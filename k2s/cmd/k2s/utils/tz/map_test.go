@@ -5,6 +5,7 @@ package tz
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/internal/reflection"
@@ -59,7 +60,7 @@ var _ = Describe("timezonemap", func() {
 			It("FileHandler.CopyTo is invoked with correct arguments", func() {
 				fileHandler := &mockTimezonConfigHandler{}
 				kubeDir := "C:\\.kube"
-				expectedNewFilePath := kubeDir + "\\" + TimezoneConfigFile
+				expectedNewFilePath := filepath.Join(kubeDir, TimezoneConfigFile)
 				expectedOriginalFilePath := "embed/" + TimezoneConfigFile
 				fileHandler.On(reflection.GetFunctionName(fileHandler.CopyTo), expectedNewFilePath, expectedOriginalFilePath).Return(nil)
 				sut := newTimezoneConfigWorkspaceForTest(kubeDir, fileHandler)

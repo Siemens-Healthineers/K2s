@@ -74,7 +74,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	addUserIntegration := users.NewAddUserIntegration(k2sConfig, runtimeConfig, users.WinUsersProvider())
+	addUserIntegration := users.NewAddUserIntegration(k2sConfig, runtimeConfig, users.PlatformUsersProvider(), users.PlatformACLProvider())
 
 	if userName != "" {
 		err = addUserIntegration.AddByName(userName)

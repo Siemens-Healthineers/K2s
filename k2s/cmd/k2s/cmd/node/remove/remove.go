@@ -6,6 +6,7 @@ package remove
 import (
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 
 	"github.com/pterm/pterm"
@@ -86,7 +87,7 @@ func buildRemoveNodeCmd(flags *pflag.FlagSet, setupName string) (string, error) 
 		return "", errors.New("removing node is not supported for this setup type. Aborting")
 	}
 
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\worker\\linux\\bare-metal\\Remove.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "worker", "linux", "bare-metal", "Remove.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"
