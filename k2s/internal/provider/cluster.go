@@ -27,6 +27,7 @@ type ClusterProvider interface {
 
 // ClusterInstallConfig holds parameters for cluster installation.
 type ClusterInstallConfig struct {
+	SetupName              string
 	MasterVMProcessorCount string
 	MasterVMMemory         string
 	MasterVMMemoryMin      string
@@ -92,12 +93,17 @@ type ClusterStatusConfig struct {
 
 // ClusterStatus holds the loaded cluster status.
 type ClusterStatus struct {
-	IsRunning    bool
-	Issues       []string
-	Nodes        []NodeStatus
-	Pods         []PodStatus
-	K8sServerVer string
-	K8sClientVer string
+	IsRunning      bool
+	Issues         []string
+	Nodes          []NodeStatus
+	Pods           []PodStatus
+	K8sVersionInfo *K8sVersionInfo
+}
+
+// K8sVersionInfo holds Kubernetes version information.
+type K8sVersionInfo struct {
+	K8sServerVersion string
+	K8sClientVersion string
 }
 
 // NodeStatus holds status information for a single node.
@@ -112,9 +118,14 @@ type NodeStatus struct {
 	ContainerRuntime string
 	InternalIp       string
 	IsReady          bool
-	CpuCapacity      string
-	MemoryCapacity   string
-	StorageCapacity  string
+	Capacity         NodeCapacity
+}
+
+// NodeCapacity holds resource capacity for a node.
+type NodeCapacity struct {
+	Cpu     string
+	Storage string
+	Memory  string
 }
 
 // PodStatus holds status information for a single pod.

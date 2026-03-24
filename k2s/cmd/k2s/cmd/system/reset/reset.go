@@ -5,15 +5,11 @@ package reset
 
 import (
 	"errors"
-	"log/slog"
-	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -32,12 +28,6 @@ func init() {
 
 func resetSystem(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
-	resetSystemCommand, err := buildResetSystemCmd()
-	if err != nil {
-		return err
-	}
-
-	slog.Debug("PS command created", "command", resetSystemCommand)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -51,18 +41,11 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	err = powershell.ExecutePs(resetSystemCommand, common.NewPtermWriter())
-	if err != nil {
+	if err := context.Providers().System.Reset(provider.SystemResetConfig{}); err != nil {
 		return err
 	}
 
 	cmdSession.Finish()
 
 	return nil
-}
-
-func buildResetSystemCmd() (string, error) {
-	resetSystemCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "reset", "Reset-System.ps1"))
-
-	return resetSystemCommand, nil
 }

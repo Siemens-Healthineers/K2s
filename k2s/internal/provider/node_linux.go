@@ -21,7 +21,7 @@ func newLinuxNodeProvider(cfg ProviderConfig) *linuxNodeProvider {
 }
 
 func (p *linuxNodeProvider) Add(cfg NodeAddConfig) error {
-	slog.Info("[Node] Adding node", "type", cfg.NodeType, "ip", cfg.IpAddress)
+	slog.Info("[Node] Adding node", "ip", cfg.IpAddress, "user", cfg.UserName, "name", cfg.NodeName)
 
 	// Generate join token on control plane
 	output, err := exec.Command("kubeadm", "token", "create", "--print-join-command").Output()
@@ -31,14 +31,7 @@ func (p *linuxNodeProvider) Add(cfg NodeAddConfig) error {
 	joinCmd := strings.TrimSpace(string(output))
 
 	// Execute join on the target node via SSH
-	remoteCmd := joinCmd
-	if cfg.NodeType == "windows" {
-		// Windows kubeadm needs extra flags
-		remoteCmd = fmt.Sprintf(`C:\k2s\bin\kubeadm.exe %s --ignore-preflight-errors=IsPrivilegedUser,SystemVerification --cri-socket npipe:////./pipe/containerd-containerd`,
-			strings.TrimPrefix(joinCmd, "kubeadm "))
-	}
-
-	_, err = sshCmd(remoteCmd)
+	_, err = sshCmd(joinCmd)
 	if err != nil {
 		return fmt.Errorf("kubeadm join failed on remote node: %w", err)
 	}

@@ -58,14 +58,15 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	k2sConfig := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
+	ctx := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	k2sConfig := ctx.Config()
 
 	runtimeConfig, err := loadSetupConfig(k2sConfig.Host().K2sSetupConfigDir())
 	if err != nil {
 		return err
 	}
 
-	systemStatus, err := status.LoadStatus()
+	systemStatus, err := status.LoadStatus(ctx)
 	if err != nil {
 		return fmt.Errorf("could not determine system status: %w", err)
 	}
