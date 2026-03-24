@@ -194,6 +194,18 @@ func (p *linuxAddonProvider) Import(_ AddonImportConfig) error {
 		"addon import on Linux hosts is not yet implemented")
 }
 
+func (p *linuxAddonProvider) RunCommand(cfg AddonRunCommandConfig) error {
+	switch cfg.CommandName {
+	case "enable":
+		return p.Enable(AddonEnableConfig{Name: cfg.AddonName, ShowOutput: cfg.ShowOutput})
+	case "disable":
+		return p.Disable(AddonDisableConfig{Name: cfg.AddonName, ShowOutput: cfg.ShowOutput})
+	default:
+		return NotSupportedError(fmt.Sprintf("addon %s", cfg.CommandName),
+			fmt.Sprintf("addon '%s' command on Linux hosts is not yet implemented", cfg.CommandName))
+	}
+}
+
 // isAddonDeployed checks if an addon has any pods deployed in the cluster.
 func isAddonDeployed(addonName string) bool {
 	output, err := exec.Command("kubectl", "get", "pods", "-A",

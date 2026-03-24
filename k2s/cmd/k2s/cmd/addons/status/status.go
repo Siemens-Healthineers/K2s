@@ -6,7 +6,6 @@ package status
 import (
 	"errors"
 	"log/slog"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -118,11 +117,7 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, implementation string,
 	loadFunc := func(addonName string, implementation string) (*LoadedAddonStatus, error) {
 		slog.Info("Loading status", "addon", addonName, "directory", addon.Directory)
 
-		if implementation != "" {
-			return LoadAddonStatus(addonName, filepath.Join(addon.Directory, implementation))
-		}
-
-		return LoadAddonStatus(addonName, addon.Directory)
+		return LoadAddonStatus(context.Providers().Addon, addonName, addon.Directory)
 	}
 
 	return printer.PrintStatus(addon.Metadata.Name, implementation, loadFunc)

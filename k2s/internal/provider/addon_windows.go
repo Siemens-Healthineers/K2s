@@ -189,3 +189,12 @@ func (p *windowsAddonProvider) Import(cfg AddonImportConfig) error {
 	}
 	return result.checkFailure()
 }
+
+func (p *windowsAddonProvider) RunCommand(cfg AddonRunCommandConfig) error {
+	scriptPath := utils.FormatScriptFilePath(filepath.Join(cfg.AddonDirectory, cfg.ScriptSubPath))
+	result, err := powershell.ExecutePsWithStructuredResult[*psCmdResult](scriptPath, "CmdResult", p.stdWriter, cfg.Params...)
+	if err != nil {
+		return err
+	}
+	return result.checkFailure()
+}
