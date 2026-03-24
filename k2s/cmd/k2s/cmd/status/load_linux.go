@@ -3,7 +3,7 @@
 
 //go:build linux
 
-package provider
+package status
 
 import (
 	"encoding/json"
@@ -13,126 +13,68 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/setuporchestration"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 )
 
-type linuxClusterProvider struct {
-	installDir string
-	configDir  string
-}
-
-func newLinuxClusterProvider(cfg ProviderConfig) *linuxClusterProvider {
-	return &linuxClusterProvider{
-		installDir: cfg.InstallDir,
-		configDir:  cfg.ConfigDir,
-	}
-}
-
-func (p *linuxClusterProvider) Install(cfg ClusterInstallConfig) error {
-	orch := setuporchestration.NewOrchestrator(nil)
-	return orch.Install(setuporchestration.InstallConfig{
-		ShowLogs:                cfg.ShowLogs,
-		MasterVMProcessorCount:  cfg.MasterVMProcessorCount,
-		MasterVMMemory:          cfg.MasterVMMemory,
-		MasterDiskSize:          cfg.MasterDiskSize,
-		LinuxOnly:               cfg.LinuxOnly,
-		WSL:                     cfg.WSL,
-		ForceOnlineInstallation: cfg.ForceOnlineInstallation,
-		Proxy:                   cfg.Proxy,
-		AdditionalHooksDir:      cfg.AdditionalHooksDir,
-		ConfigDir:               cfg.ConfigDir,
-		InstallDir:              cfg.InstallDir,
-		Version:                 cfg.Version,
-		ClusterName:             cfg.ClusterName,
-		ControlPlaneHostname:    cfg.ControlPlaneHostname,
-	})
-}
-
-func (p *linuxClusterProvider) Uninstall(cfg ClusterUninstallConfig) error {
-	orch := setuporchestration.NewOrchestrator(nil)
-	return orch.Uninstall(setuporchestration.UninstallConfig{
-		ShowLogs:                          cfg.ShowLogs,
-		SkipPurge:                         cfg.SkipPurge,
-		DeleteFilesForOfflineInstallation: cfg.DeleteFilesForOfflineInstallation,
-		AdditionalHooksDir:                cfg.AdditionalHooksDir,
-		ConfigDir:                         cfg.ConfigDir,
-	})
-}
-
-func (p *linuxClusterProvider) Start(cfg ClusterStartConfig) error {
-	orch := setuporchestration.NewOrchestrator(nil)
-	return orch.Start(setuporchestration.StartConfig{
-		ShowLogs:            cfg.ShowLogs,
-		AdditionalHooksDir:  cfg.AdditionalHooksDir,
-		UseCachedK2sVSwitch: cfg.UseCachedK2sVSwitch,
-	})
-}
-
-func (p *linuxClusterProvider) Stop(cfg ClusterStopConfig) error {
-	orch := setuporchestration.NewOrchestrator(nil)
-	return orch.Stop(setuporchestration.StopConfig{
-		ShowLogs:           cfg.ShowLogs,
-		AdditionalHooksDir: cfg.AdditionalHooksDir,
-	})
-}
-
-func (p *linuxClusterProvider) Status(_ ClusterStatusConfig) (*ClusterStatus, error) {
+// LoadStatus gathers cluster status on Linux using kubectl directly,
+// producing the same LoadedStatus shape as the Windows/PowerShell path.
+func LoadStatus() (*LoadedStatus, error) {
 	slog.Debug("[Status] Loading status via kubectl (Linux)")
 
-	status := &ClusterStatus{}
-	status.IsRunning = isAPIServerReachable()
+	running := isAPIServerReachable()
 
-	if !status.IsRunning {
-		status.Issues = []string{"Kubernetes API server is not reachable"}
-		return status, nil
+	result := &LoadedStatus{
+		CmdResult: common.CmdResult{},
+		RunningState: &RunningState{
+			IsRunning: running,
+		},
 	}
 
-	nodes, err := gatherNodeStatus()
+	if !running {
+		result.RunningState.Issues = []string{"Kubernetes API server is not reachable"}
+		return result, nil
+	}
+
+	// Gather nodes
+	nodes, err := gatherNodes()
 	if err != nil {
 		slog.Warn("[Status] Could not gather node info", "error", err)
-		status.Issues = append(status.Issues, fmt.Sprintf("cannot list nodes: %v", err))
+		result.RunningState.Issues = append(result.RunningState.Issues, fmt.Sprintf("cannot list nodes: %v", err))
 	} else {
-		status.Nodes = nodes
+		result.Nodes = nodes
 	}
 
-	pods, err := gatherPodStatus()
+	// Gather pods (all namespaces)
+	pods, err := gatherPods()
 	if err != nil {
 		slog.Warn("[Status] Could not gather pod info", "error", err)
 	} else {
-		status.Pods = pods
+		result.Pods = pods
 	}
 
-	ver, err := gatherVersionInfo()
+	// Gather version info
+	versionInfo, err := gatherVersionInfo()
 	if err != nil {
 		slog.Warn("[Status] Could not gather version info", "error", err)
-	}
-	if ver != nil {
-<<<<<<< HEAD
-		status.K8sVersionInfo = &K8sVersionInfo{
-			K8sServerVersion: ver.server,
-			K8sClientVersion: ver.client,
-		}
-=======
-		status.K8sServerVer = ver.server
-		status.K8sClientVer = ver.client
->>>>>>> main
+	} else {
+		result.K8sVersionInfo = versionInfo
 	}
 
-	return status, nil
+	return result, nil
 }
 
-// ---------- kubectl helpers ----------
-
 func isAPIServerReachable() bool {
-	cmd := exec.Command("kubectl", "cluster-info", "--request-timeout=5s")
+	ctx := fmt.Sprintf("--request-timeout=%ds", 5)
+	cmd := exec.Command("kubectl", "cluster-info", ctx)
 	return cmd.Run() == nil
 }
 
+// kubectl JSON structures for nodes
 type k8sNodeList struct {
-	Items []k8sNodeItem `json:"items"`
+	Items []k8sNode `json:"items"`
 }
 
-type k8sNodeItem struct {
+type k8sNode struct {
 	Metadata struct {
 		Name              string            `json:"name"`
 		Labels            map[string]string `json:"labels"`
@@ -148,6 +90,7 @@ type k8sNodeItem struct {
 			KernelVersion    string `json:"kernelVersion"`
 			OsImage          string `json:"osImage"`
 			ContainerRuntime string `json:"containerRuntimeVersion"`
+			OperatingSystem  string `json:"operatingSystem"`
 		} `json:"nodeInfo"`
 		Addresses []struct {
 			Type    string `json:"type"`
@@ -161,7 +104,7 @@ type k8sNodeItem struct {
 	} `json:"status"`
 }
 
-func gatherNodeStatus() ([]NodeStatus, error) {
+func gatherNodes() ([]Node, error) {
 	output, err := exec.Command("kubectl", "get", "nodes", "-o", "json").Output()
 	if err != nil {
 		return nil, fmt.Errorf("kubectl get nodes: %w", err)
@@ -172,27 +115,22 @@ func gatherNodeStatus() ([]NodeStatus, error) {
 		return nil, fmt.Errorf("parsing node JSON: %w", err)
 	}
 
-	var nodes []NodeStatus
+	nodes := make([]Node, 0, len(nodeList.Items))
 	for _, n := range nodeList.Items {
-		node := NodeStatus{
+		node := Node{
 			Name:             n.Metadata.Name,
 			KubeletVersion:   n.Status.NodeInfo.KubeletVersion,
 			KernelVersion:    n.Status.NodeInfo.KernelVersion,
 			OsImage:          n.Status.NodeInfo.OsImage,
 			ContainerRuntime: n.Status.NodeInfo.ContainerRuntime,
-<<<<<<< HEAD
-			Capacity: NodeCapacity{
+			Capacity: Capacity{
 				Cpu:     n.Status.Capacity.CPU,
 				Storage: n.Status.Capacity.EphemeralStorage,
 				Memory:  n.Status.Capacity.Memory,
 			},
-=======
-			CpuCapacity:      n.Status.Capacity.CPU,
-			StorageCapacity:  n.Status.Capacity.EphemeralStorage,
-			MemoryCapacity:   n.Status.Capacity.Memory,
->>>>>>> main
 		}
 
+		// Determine role from labels
 		for label := range n.Metadata.Labels {
 			if strings.HasPrefix(label, "node-role.kubernetes.io/") {
 				node.Role = strings.TrimPrefix(label, "node-role.kubernetes.io/")
@@ -200,6 +138,7 @@ func gatherNodeStatus() ([]NodeStatus, error) {
 			}
 		}
 
+		// Determine Ready status
 		for _, cond := range n.Status.Conditions {
 			if cond.Type == "Ready" {
 				node.IsReady = cond.Status == "True"
@@ -212,6 +151,7 @@ func gatherNodeStatus() ([]NodeStatus, error) {
 			}
 		}
 
+		// Get internal IP
 		for _, addr := range n.Status.Addresses {
 			if addr.Type == "InternalIP" {
 				node.InternalIp = addr.Address
@@ -219,9 +159,10 @@ func gatherNodeStatus() ([]NodeStatus, error) {
 			}
 		}
 
+		// Compute age
 		if n.Metadata.CreationTimestamp != "" {
 			if created, err := time.Parse(time.RFC3339, n.Metadata.CreationTimestamp); err == nil {
-				node.Age = formatDuration(time.Since(created))
+				node.Age = formatAge(time.Since(created))
 			}
 		}
 
@@ -231,11 +172,12 @@ func gatherNodeStatus() ([]NodeStatus, error) {
 	return nodes, nil
 }
 
-type k8sPodListItems struct {
-	Items []k8sPodItem `json:"items"`
+// kubectl JSON structures for pods
+type k8sPodList struct {
+	Items []k8sPod `json:"items"`
 }
 
-type k8sPodItem struct {
+type k8sPod struct {
 	Metadata struct {
 		Name              string `json:"name"`
 		Namespace         string `json:"namespace"`
@@ -245,29 +187,29 @@ type k8sPodItem struct {
 		NodeName string `json:"nodeName"`
 	} `json:"spec"`
 	Status struct {
-		Phase             string `json:"phase"`
-		PodIP             string `json:"podIP"`
+		Phase  string `json:"phase"`
+		PodIP  string `json:"podIP"`
 		ContainerStatuses []struct {
-			Ready        bool `json:"ready"`
-			RestartCount int  `json:"restartCount"`
+			Ready        bool  `json:"ready"`
+			RestartCount int   `json:"restartCount"`
 		} `json:"containerStatuses"`
 	} `json:"status"`
 }
 
-func gatherPodStatus() ([]PodStatus, error) {
+func gatherPods() ([]Pod, error) {
 	output, err := exec.Command("kubectl", "get", "pods", "--all-namespaces", "-o", "json").Output()
 	if err != nil {
 		return nil, fmt.Errorf("kubectl get pods: %w", err)
 	}
 
-	var podList k8sPodListItems
+	var podList k8sPodList
 	if err := json.Unmarshal(output, &podList); err != nil {
 		return nil, fmt.Errorf("parsing pod JSON: %w", err)
 	}
 
-	var pods []PodStatus
+	pods := make([]Pod, 0, len(podList.Items))
 	for _, p := range podList.Items {
-		pod := PodStatus{
+		pod := Pod{
 			Name:      p.Metadata.Name,
 			Namespace: p.Metadata.Namespace,
 			Status:    p.Status.Phase,
@@ -276,21 +218,23 @@ func gatherPodStatus() ([]PodStatus, error) {
 			IsRunning: p.Status.Phase == "Running",
 		}
 
-		total := len(p.Status.ContainerStatuses)
-		ready := 0
-		restarts := 0
+		// Compute ready fraction and restarts
+		totalContainers := len(p.Status.ContainerStatuses)
+		readyContainers := 0
+		totalRestarts := 0
 		for _, cs := range p.Status.ContainerStatuses {
 			if cs.Ready {
-				ready++
+				readyContainers++
 			}
-			restarts += cs.RestartCount
+			totalRestarts += cs.RestartCount
 		}
-		pod.Ready = fmt.Sprintf("%d/%d", ready, total)
-		pod.Restarts = fmt.Sprintf("%d", restarts)
+		pod.Ready = fmt.Sprintf("%d/%d", readyContainers, totalContainers)
+		pod.Restarts = fmt.Sprintf("%d", totalRestarts)
 
+		// Compute age
 		if p.Metadata.CreationTimestamp != "" {
 			if created, err := time.Parse(time.RFC3339, p.Metadata.CreationTimestamp); err == nil {
-				pod.Age = formatDuration(time.Since(created))
+				pod.Age = formatAge(time.Since(created))
 			}
 		}
 
@@ -300,13 +244,8 @@ func gatherPodStatus() ([]PodStatus, error) {
 	return pods, nil
 }
 
-type versionResult struct {
-	client string
-	server string
-}
-
-func gatherVersionInfo() (*versionResult, error) {
-	info := &versionResult{}
+func gatherVersionInfo() (*K8sVersionInfo, error) {
+	info := &K8sVersionInfo{}
 
 	if output, err := exec.Command("kubectl", "version", "--client", "-o", "json").Output(); err == nil {
 		var v struct {
@@ -315,7 +254,7 @@ func gatherVersionInfo() (*versionResult, error) {
 			} `json:"clientVersion"`
 		}
 		if json.Unmarshal(output, &v) == nil {
-			info.client = v.ClientVersion.GitVersion
+			info.K8sClientVersion = v.ClientVersion.GitVersion
 		}
 	}
 
@@ -326,14 +265,14 @@ func gatherVersionInfo() (*versionResult, error) {
 			} `json:"serverVersion"`
 		}
 		if json.Unmarshal(output, &v) == nil {
-			info.server = v.ServerVersion.GitVersion
+			info.K8sServerVersion = v.ServerVersion.GitVersion
 		}
 	}
 
 	return info, nil
 }
 
-func formatDuration(d time.Duration) string {
+func formatAge(d time.Duration) string {
 	if d < time.Minute {
 		return fmt.Sprintf("%ds", int(d.Seconds()))
 	}
@@ -343,5 +282,6 @@ func formatDuration(d time.Duration) string {
 	if d < 24*time.Hour {
 		return fmt.Sprintf("%dh", int(d.Hours()))
 	}
-	return fmt.Sprintf("%dd", int(d.Hours()/24))
+	days := int(d.Hours() / 24)
+	return fmt.Sprintf("%dd", days)
 }

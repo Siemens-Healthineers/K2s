@@ -66,11 +66,42 @@ A Linux machine runs the CLI natively, hosts the Kubernetes control plane direct
 
 On Linux, the CLI is a native Go binary that interacts directly with Kubernetes and VM management APIs — **no PowerShell dependency**. Windows VMs are provisioned through libvirt/KVM with OVMF UEFI firmware and VirtIO drivers.
 
+### Linux Host (Inverted Setup)
+
+A Linux machine runs the CLI natively, hosts the Kubernetes control plane directly, and provisions a Windows VM as an optional worker node:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Linux Host                                             │
+│                                                         │
+│  ┌───────────────────────┐    ┌──────────────────────┐  │
+│  │ Linux Control Plane   │    │ Windows VM (Worker)  │  │
+│  │                       │    │                      │  │
+│  │ • CRI-O / containerd  │    │ • containerd         │  │
+│  │ • kubelet             │    │ • kubelet            │  │
+│  │ • kube-apiserver      │    │ • kube-proxy         │  │
+│  │ • kube-scheduler      │    │ • flannel (CNI)      │  │
+│  │ • kube-controller-mgr │    │                      │  │
+│  │ • etcd                │    └──────────────────────┘  │
+│  │ • flannel (CNI)       │                              │
+│  │ • CoreDNS             │    k2s CLI (native binary)   │
+│  │ • buildah             │    No PowerShell required    │
+│  └───────────────────────┘                              │
+│                                                         │
+│  ─── KVM / libvirt (QEMU + OVMF UEFI) ──────────────── │
+└─────────────────────────────────────────────────────────┘
+```
+
+On Linux, the CLI is a native Go binary that interacts directly with Kubernetes and VM management APIs — **no PowerShell dependency**. Windows VMs are provisioned through libvirt/KVM with OVMF UEFI firmware and VirtIO drivers.
+
 ### Key Design Decisions
 
 - **Flannel CNI with host-gateway mode** — routes pod traffic directly through host routing tables for maximum performance and simplicity. A VXLAN backend template is also available.
 - **Mixed OS support** — Windows containers run on one node via containerd; Linux containers run on the other via CRI-O.
 - **Offline-first** — all dependencies are bundled or downloadable as offline packages. No runtime network fetches unless explicitly triggered.
+- **Single-binary CLI** — `k2s` is the only user-facing tool; all operations route through it.
+- **Dual-platform host support** — the same CLI binary (built for each platform via Go build tags) runs on both Windows and Linux hosts. Platform differences are encapsulated in the [Provider Architecture](#provider-architecture).
+- **Provider abstraction** — command handlers are platform-agnostic; all platform-specific logic lives behind provider interfaces (see below).
 - **Single-binary CLI** — `k2s` is the only user-facing tool; all operations route through it.
 - **Dual-platform host support** — the same CLI binary (built for each platform via Go build tags) runs on both Windows and Linux hosts. Platform differences are encapsulated in the [Provider Architecture](#provider-architecture).
 - **Provider abstraction** — command handlers are platform-agnostic; all platform-specific logic lives behind provider interfaces (see below).

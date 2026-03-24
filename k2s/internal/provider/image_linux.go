@@ -90,12 +90,16 @@ func (p *linuxImageProvider) Remove(cfg ImageRemoveConfig) error {
 		ref = cfg.ImageName
 	}
 	slog.Info("[Image] Removing image", "ref", ref)
+<<<<<<< HEAD
 	args := []string{"rmi"}
 	if cfg.Force {
 		args = append(args, "--force")
 	}
 	args = append(args, ref)
 	return exec.Command("crictl", args...).Run()
+=======
+	return exec.Command("crictl", "rmi", ref).Run()
+>>>>>>> main
 }
 
 func (p *linuxImageProvider) Build(cfg ImageBuildConfig) error {
@@ -105,6 +109,7 @@ func (p *linuxImageProvider) Build(cfg ImageBuildConfig) error {
 	if cfg.Dockerfile != "" {
 		args = append(args, "-f", cfg.Dockerfile)
 	}
+<<<<<<< HEAD
 	name := cfg.ImageName
 	if name != "" && cfg.ImageTag != "" {
 		name = name + ":" + cfg.ImageTag
@@ -114,6 +119,10 @@ func (p *linuxImageProvider) Build(cfg ImageBuildConfig) error {
 	}
 	for k, v := range cfg.BuildArgs {
 		args = append(args, "--build-arg", k+"="+v)
+=======
+	if cfg.ImageName != "" {
+		args = append(args, "-t", cfg.ImageName)
+>>>>>>> main
 	}
 	args = append(args, cfg.InputFolder)
 
@@ -124,14 +133,20 @@ func (p *linuxImageProvider) Build(cfg ImageBuildConfig) error {
 		return fmt.Errorf("nerdctl build failed: %w", err)
 	}
 
+<<<<<<< HEAD
 	if cfg.Push && name != "" {
 		return exec.Command("nerdctl", "push", name).Run()
+=======
+	if cfg.Push && cfg.ImageName != "" {
+		return exec.Command("nerdctl", "push", cfg.ImageName).Run()
+>>>>>>> main
 	}
 
 	return nil
 }
 
 func (p *linuxImageProvider) Import(cfg ImageImportConfig) error {
+<<<<<<< HEAD
 	path := cfg.TarPath
 	if path == "" {
 		path = cfg.DirPath
@@ -144,6 +159,16 @@ func (p *linuxImageProvider) Import(cfg ImageImportConfig) error {
 		return err
 	}
 	return exec.Command("ctr", "-n", "k8s.io", "images", "import", path).Run()
+=======
+	slog.Info("[Image] Importing image", "path", cfg.TarPath, "windows", cfg.Windows)
+
+	if cfg.Windows {
+		// Import on Windows VM via SSH
+		_, err := sshCmd(fmt.Sprintf(`ctr -n k8s.io images import "%s"`, cfg.TarPath))
+		return err
+	}
+	return exec.Command("ctr", "-n", "k8s.io", "images", "import", cfg.TarPath).Run()
+>>>>>>> main
 }
 
 func (p *linuxImageProvider) Export(cfg ImageExportConfig) error {
@@ -160,12 +185,17 @@ func (p *linuxImageProvider) Tag(cfg ImageTagConfig) error {
 	if ref == "" {
 		ref = cfg.ImageName
 	}
+<<<<<<< HEAD
 	target := cfg.TargetImageName
 	if target == "" {
 		target = cfg.ImageName
 	}
 	slog.Info("[Image] Tagging image", "ref", ref, "target", target)
 	return exec.Command("ctr", "-n", "k8s.io", "images", "tag", ref, target).Run()
+=======
+	slog.Info("[Image] Tagging image", "ref", ref, "target", cfg.ImageName)
+	return exec.Command("ctr", "-n", "k8s.io", "images", "tag", ref, cfg.ImageName).Run()
+>>>>>>> main
 }
 
 func (p *linuxImageProvider) Push(cfg ImagePushConfig) error {

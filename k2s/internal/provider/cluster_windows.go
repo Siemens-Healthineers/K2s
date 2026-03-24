@@ -30,12 +30,16 @@ func newWindowsClusterProvider(cfg ProviderConfig) *windowsClusterProvider {
 }
 
 func (p *windowsClusterProvider) Install(cfg ClusterInstallConfig) error {
+<<<<<<< HEAD
 	if cfg.LinuxOnly && cfg.WSL {
 		return errors.New("linux-only in combination with WSL is currently not supported")
 	}
 
 	setup := p.resolveSetupDir(cfg.SetupName, cfg.LinuxOnly)
 	path := filepath.Join(p.installDir, "lib", "scripts", setup, "install", "install.ps1")
+=======
+	path := filepath.Join(p.installDir, "lib", "scripts", "k2s", "install", "install.ps1")
+>>>>>>> main
 	cmd := utils.FormatScriptFilePath(path)
 	cmd += fmt.Sprintf(" -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		cfg.MasterVMProcessorCount, cfg.MasterVMMemory, cfg.MasterDiskSize)
@@ -58,6 +62,7 @@ func (p *windowsClusterProvider) Install(cfg ClusterInstallConfig) error {
 	if cfg.AdditionalHooksDir != "" {
 		cmd += fmt.Sprintf(" -AdditionalHooksDir '%s'", cfg.AdditionalHooksDir)
 	}
+<<<<<<< HEAD
 	// RestartAfterInstallCount, K8sBinsPath, and WSL are only supported by the k2s install script,
 	// not by the linuxonly install script.
 	if !cfg.LinuxOnly {
@@ -70,6 +75,13 @@ func (p *windowsClusterProvider) Install(cfg ClusterInstallConfig) error {
 		if cfg.WSL {
 			cmd += " -WSL"
 		}
+=======
+	if cfg.RestartPostInstall != "" {
+		cmd += fmt.Sprintf(" -RestartAfterInstallCount %s", cfg.RestartPostInstall)
+	}
+	if cfg.K8sBinsPath != "" {
+		cmd += fmt.Sprintf(" -K8sBinsPath '%s'", cfg.K8sBinsPath)
+>>>>>>> main
 	}
 	if cfg.ShowLogs {
 		cmd += " -ShowLogs"
@@ -83,6 +95,15 @@ func (p *windowsClusterProvider) Install(cfg ClusterInstallConfig) error {
 	if cfg.ForceOnlineInstallation {
 		cmd += " -ForceOnlineInstallation"
 	}
+<<<<<<< HEAD
+=======
+	if cfg.LinuxOnly {
+		cmd += " -LinuxOnly"
+	}
+	if cfg.WSL {
+		cmd += " -WSL"
+	}
+>>>>>>> main
 	if cfg.AppendLog {
 		cmd += " -AppendLogFile"
 	}
@@ -251,10 +272,15 @@ func (p *windowsClusterProvider) Status(cfg ClusterStatusConfig) (*ClusterStatus
 		status.Issues = result.RunningState.Issues
 	}
 	if result.K8sVersionInfo != nil {
+<<<<<<< HEAD
 		status.K8sVersionInfo = &K8sVersionInfo{
 			K8sServerVersion: result.K8sVersionInfo.K8sServerVersion,
 			K8sClientVersion: result.K8sVersionInfo.K8sClientVersion,
 		}
+=======
+		status.K8sServerVer = result.K8sVersionInfo.K8sServerVersion
+		status.K8sClientVer = result.K8sVersionInfo.K8sClientVersion
+>>>>>>> main
 	}
 
 	for _, n := range result.Nodes {
@@ -269,11 +295,17 @@ func (p *windowsClusterProvider) Status(cfg ClusterStatusConfig) (*ClusterStatus
 			ContainerRuntime: n.ContainerRuntime,
 			InternalIp:       n.InternalIp,
 			IsReady:          n.IsReady,
+<<<<<<< HEAD
 			Capacity: NodeCapacity{
 				Cpu:     n.Capacity.Cpu,
 				Memory:  n.Capacity.Memory,
 				Storage: n.Capacity.Storage,
 			},
+=======
+			CpuCapacity:      n.Capacity.Cpu,
+			MemoryCapacity:   n.Capacity.Memory,
+			StorageCapacity:  n.Capacity.Storage,
+>>>>>>> main
 		})
 	}
 

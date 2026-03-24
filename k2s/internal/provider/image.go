@@ -75,7 +75,10 @@ type ImageRemoveConfig struct {
 	ImageId       string
 	ImageName     string
 	FromRegistry  bool
+<<<<<<< HEAD
 	Force         bool
+=======
+>>>>>>> main
 	ShowOutput    bool
 }
 
@@ -84,42 +87,71 @@ type ImageBuildConfig struct {
 	InputFolder string
 	Dockerfile  string
 	ImageName   string
+<<<<<<< HEAD
 	ImageTag    string
 	Push        bool
 	Windows     bool
 	BuildArgs   map[string]string
+=======
+	Push        bool
+	Windows     bool
+	BuildArgs   []string
+>>>>>>> main
 	ShowOutput  bool
 }
 
 // ImageImportConfig holds parameters for importing a container image.
 type ImageImportConfig struct {
+<<<<<<< HEAD
 	TarPath       string
 	DirPath       string
 	Windows       bool
 	DockerArchive bool
 	ShowOutput    bool
+=======
+	TarPath    string
+	Windows    bool
+	ShowOutput bool
+>>>>>>> main
 }
 
 // ImageExportConfig holds parameters for exporting a container image.
 type ImageExportConfig struct {
+<<<<<<< HEAD
 	ImageId       string
 	ImageName     string
 	OutputPath    string
 	DockerArchive bool
 	ShowOutput    bool
+=======
+	ImageId    string
+	ImageName  string
+	OutputPath string
+	ExportFormat string
+	ShowOutput bool
+>>>>>>> main
 }
 
 // ImageTagConfig holds parameters for tagging a container image.
 type ImageTagConfig struct {
+<<<<<<< HEAD
 	ImageId         string
 	ImageName       string
 	TargetImageName string
 	ShowOutput      bool
+=======
+	ImageId   string
+	ImageName string
+	ShowOutput bool
+>>>>>>> main
 }
 
 // ImagePushConfig holds parameters for pushing a container image.
 type ImagePushConfig struct {
+<<<<<<< HEAD
 	ImageId    string
+=======
+>>>>>>> main
 	ImageName  string
 	ShowOutput bool
 }

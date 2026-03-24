@@ -16,12 +16,18 @@ type NodeProvider interface {
 
 // NodeAddConfig holds parameters for adding a node.
 type NodeAddConfig struct {
+<<<<<<< HEAD
 	IpAddress       string
 	UserName        string
 	NodeName        string
 	Role            string
 	NodePackagePath string
 	ShowOutput      bool
+=======
+	NodeType   string // "windows" or "linux"
+	IpAddress  string
+	ShowOutput bool
+>>>>>>> main
 }
 
 // NodeRemoveConfig holds parameters for removing a node.
