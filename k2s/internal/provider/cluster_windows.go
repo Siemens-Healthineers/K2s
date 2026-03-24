@@ -30,7 +30,12 @@ func newWindowsClusterProvider(cfg ProviderConfig) *windowsClusterProvider {
 }
 
 func (p *windowsClusterProvider) Install(cfg ClusterInstallConfig) error {
-	path := filepath.Join(p.installDir, "lib", "scripts", "k2s", "install", "install.ps1")
+	if cfg.LinuxOnly && cfg.WSL {
+		return errors.New("linux-only in combination with WSL is currently not supported")
+	}
+
+	setup := p.resolveSetupDir(cfg.SetupName, cfg.LinuxOnly)
+	path := filepath.Join(p.installDir, "lib", "scripts", setup, "install", "install.ps1")
 	cmd := utils.FormatScriptFilePath(path)
 	cmd += fmt.Sprintf(" -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		cfg.MasterVMProcessorCount, cfg.MasterVMMemory, cfg.MasterDiskSize)
@@ -53,11 +58,18 @@ func (p *windowsClusterProvider) Install(cfg ClusterInstallConfig) error {
 	if cfg.AdditionalHooksDir != "" {
 		cmd += fmt.Sprintf(" -AdditionalHooksDir '%s'", cfg.AdditionalHooksDir)
 	}
-	if cfg.RestartPostInstall != "" {
-		cmd += fmt.Sprintf(" -RestartAfterInstallCount %s", cfg.RestartPostInstall)
-	}
-	if cfg.K8sBinsPath != "" {
-		cmd += fmt.Sprintf(" -K8sBinsPath '%s'", cfg.K8sBinsPath)
+	// RestartAfterInstallCount, K8sBinsPath, and WSL are only supported by the k2s install script,
+	// not by the linuxonly install script.
+	if !cfg.LinuxOnly {
+		if cfg.RestartPostInstall != "" {
+			cmd += fmt.Sprintf(" -RestartAfterInstallCount %s", cfg.RestartPostInstall)
+		}
+		if cfg.K8sBinsPath != "" {
+			cmd += fmt.Sprintf(" -K8sBinsPath '%s'", cfg.K8sBinsPath)
+		}
+		if cfg.WSL {
+			cmd += " -WSL"
+		}
 	}
 	if cfg.ShowLogs {
 		cmd += " -ShowLogs"
@@ -70,12 +82,6 @@ func (p *windowsClusterProvider) Install(cfg ClusterInstallConfig) error {
 	}
 	if cfg.ForceOnlineInstallation {
 		cmd += " -ForceOnlineInstallation"
-	}
-	if cfg.LinuxOnly {
-		cmd += " -LinuxOnly"
-	}
-	if cfg.WSL {
-		cmd += " -WSL"
 	}
 	if cfg.AppendLog {
 		cmd += " -AppendLogFile"

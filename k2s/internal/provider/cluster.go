@@ -27,6 +27,7 @@ type ClusterProvider interface {
 
 // ClusterInstallConfig holds parameters for cluster installation.
 type ClusterInstallConfig struct {
+	SetupName              string
 	MasterVMProcessorCount string
 	MasterVMMemory         string
 	MasterVMMemoryMin      string
