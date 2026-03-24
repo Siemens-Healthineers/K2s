@@ -2700,7 +2700,7 @@ SPDX-License-Identifier: MIT
 <td style="text-align: center;">not supported</td>
 </tr>
 <tr>
-<td>Linux Host</td>
+<td>Linux Host <em>(experimental)</em></td>
 <td style="text-align: center;">Linux</td>
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10008;</td>
@@ -2710,6 +2710,10 @@ SPDX-License-Identifier: MIT
 </tbody>
 </table>
 <h2 id="linux-host"><em>Linux Host</em></h2>
+<div class="admonition warning">
+<p class="admonition-title">Experimental</p>
+<p>Linux host support is experimental. Some features may be incomplete or change without notice.</p>
+</div>
 <p>On a Linux host the control plane runs natively (no <abbr title="Virtual Machine">VM</abbr>). An optional Windows <abbr title="Virtual Machine">VM</abbr> is provisioned via libvirt/KVM for mixed-<abbr title="Operating System">OS</abbr> workloads. Networking uses standard Linux routing and iptables — L2Bridge, DNSProxy, VFPRules are Windows-specific components and are not used.</p>
 <h2 id="l2bridge"><em>L2Bridge</em></h2>
 <p>Creation of <em>L2Bridge</em> is essential for communication between <em>Pods</em> across <em>Linux</em> and <em>Windows</em> nodes. In principle, a network adapter named <code>cbr0</code> is created to facilitate communication across nodes.</p>

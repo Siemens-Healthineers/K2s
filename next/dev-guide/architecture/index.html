@@ -2226,6 +2226,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#linux-host-inverted-setup_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux Host (Inverted Setup)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#key-design-decisions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2831,6 +2842,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#linux-host-inverted-setup_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux Host (Inverted Setup)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#key-design-decisions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3175,11 +3197,37 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>└─────────────────────────────────────────────────────────┘
 </code></pre></div>
 <p>On Linux, the <abbr title="Command-Line Interface">CLI</abbr> is a native Go binary that interacts directly with Kubernetes and <abbr title="Virtual Machine">VM</abbr> management APIs — <strong>no PowerShell dependency</strong>. Windows VMs are provisioned through libvirt/KVM with OVMF UEFI firmware and VirtIO drivers.</p>
+<h3 id="linux-host-inverted-setup_1">Linux Host (Inverted Setup)</h3>
+<p>A Linux machine runs the <abbr title="Command-Line Interface">CLI</abbr> natively, hosts the Kubernetes control plane directly, and provisions a Windows <abbr title="Virtual Machine">VM</abbr> as an optional worker node:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>┌─────────────────────────────────────────────────────────┐
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>│  Linux Host                                             │
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>│                                                         │
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>│  ┌───────────────────────┐    ┌──────────────────────┐  │
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>│  │ Linux Control Plane   │    │ Windows VM (Worker)  │  │
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>│  │                       │    │                      │  │
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>│  │ • CRI-O / containerd  │    │ • containerd         │  │
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>│  │ • kubelet             │    │ • kubelet            │  │
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>│  │ • kube-apiserver      │    │ • kube-proxy         │  │
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>│  │ • kube-scheduler      │    │ • flannel (CNI)      │  │
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>│  │ • kube-controller-mgr │    │                      │  │
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>│  │ • etcd                │    └──────────────────────┘  │
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>│  │ • flannel (CNI)       │                              │
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>│  │ • CoreDNS             │    k2s CLI (native binary)   │
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>│  │ • buildah             │    No PowerShell required    │
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>│  └───────────────────────┘                              │
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>│                                                         │
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>│  ─── KVM / libvirt (QEMU + OVMF UEFI) ──────────────── │
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>└─────────────────────────────────────────────────────────┘
+</code></pre></div>
+<p>On Linux, the <abbr title="Command-Line Interface">CLI</abbr> is a native Go binary that interacts directly with Kubernetes and <abbr title="Virtual Machine">VM</abbr> management APIs — <strong>no PowerShell dependency</strong>. Windows VMs are provisioned through libvirt/KVM with OVMF UEFI firmware and VirtIO drivers.</p>
 <h3 id="key-design-decisions">Key Design Decisions</h3>
 <ul>
 <li><strong>Flannel CNI with host-gateway mode</strong> — routes pod traffic directly through host routing tables for maximum performance and simplicity. A VXLAN backend template is also available.</li>
 <li><strong>Mixed <abbr title="Operating System">OS</abbr> support</strong> — Windows containers run on one node via containerd; Linux containers run on the other via <abbr title="Container Runtime Interface">CRI</abbr>-O.</li>
 <li><strong>Offline-first</strong> — all dependencies are bundled or downloadable as offline packages. No runtime network fetches unless explicitly triggered.</li>
+<li><strong>Single-binary <abbr title="Command-Line Interface">CLI</abbr></strong> — <code>k2s</code> is the only user-facing tool; all operations route through it.</li>
+<li><strong>Dual-platform host support</strong> — the same <abbr title="Command-Line Interface">CLI</abbr> binary (built for each platform via Go build tags) runs on both Windows and Linux hosts. Platform differences are encapsulated in the <a href="#provider-architecture">Provider Architecture</a>.</li>
+<li><strong>Provider abstraction</strong> — command handlers are platform-agnostic; all platform-specific logic lives behind provider interfaces (see below).</li>
 <li><strong>Single-binary <abbr title="Command-Line Interface">CLI</abbr></strong> — <code>k2s</code> is the only user-facing tool; all operations route through it.</li>
 <li><strong>Dual-platform host support</strong> — the same <abbr title="Command-Line Interface">CLI</abbr> binary (built for each platform via Go build tags) runs on both Windows and Linux hosts. Platform differences are encapsulated in the <a href="#provider-architecture">Provider Architecture</a>.</li>
 <li><strong>Provider abstraction</strong> — command handlers are platform-agnostic; all platform-specific logic lives behind provider interfaces (see below).</li>
@@ -3229,7 +3277,7 @@ SPDX-License-Identifier: MIT
 <td><code>k2s</code></td>
 <td>Linux</td>
 <td>Windows <abbr title="Virtual Machine">VM</abbr> (worker, optional)</td>
-<td>Inverted setup — Linux-native control plane</td>
+<td><strong>Experimental</strong> — Inverted setup, Linux-native control plane</td>
 </tr>
 </tbody>
 </table>
@@ -3238,35 +3286,35 @@ SPDX-License-Identifier: MIT
 <h2 id="provider-architecture">Provider Architecture</h2>
 <p>The Go <abbr title="Command-Line Interface">CLI</abbr> uses a <strong>provider pattern</strong> to abstract all platform-specific operations behind a set of domain interfaces. This decouples command handlers from platform details and makes it straightforward to add new host platforms.</p>
 <h3 id="design">Design</h3>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>┌──────────────────────────────────────────────────────────┐
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>│  Command Layer (cmd/k2s/cmd/)                            │
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>│  install.go, start.go, stop.go, uninstall.go, ...       │
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>│                                                          │
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>│  context.Providers().Cluster.Install(config)             │
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>│  context.Providers().Image.Build(config)                 │
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>│  context.Providers().System.Package(config)              │
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>└──────────────┬───────────────────────────────────────────┘
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>               │ (interface calls)
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>┌──────────────▼───────────────────────────────────────────┐
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>│  Provider Interfaces (internal/provider/)                 │
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>│                                                          │
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>│  ClusterProvider   — Install, Uninstall, Start, Stop     │
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>│  ImageProvider     — Build, Import, Export, List, Remove │
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>│  NodeProvider      — Add, Remove, List                   │
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>│  SystemProvider    — Package, Upgrade, Backup, Restore   │
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>│  AddonProvider     — Enable, Disable, Status             │
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>└──────────────┬──────────────────┬────────────────────────┘
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        ┌──────┘                  └──────┐
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>┌───────▼──────────────┐  ┌──────────────▼─────────────────┐
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>│  Windows Provider     │  │  Linux Provider                │
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>│  (*_windows.go)       │  │  (*_linux.go)                  │
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>│                       │  │                                │
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>│  Delegates to PS      │  │  Native Go: kubeadm, kubectl,  │
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>│  via ExecutePs...     │  │  libvirt/KVM, SSH, crictl      │
-<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>│  Supports all setup   │  │  No PowerShell dependency      │
-<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>│  types (k2s, linux-   │  │                                │
-<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>│  only, buildonly)     │  │                                │
-<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>└───────────────────────┘  └────────────────────────────────┘
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>┌──────────────────────────────────────────────────────────┐
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>│  Command Layer (cmd/k2s/cmd/)                            │
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>│  install.go, start.go, stop.go, uninstall.go, ...       │
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>│                                                          │
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>│  context.Providers().Cluster.Install(config)             │
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>│  context.Providers().Image.Build(config)                 │
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>│  context.Providers().System.Package(config)              │
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>└──────────────┬───────────────────────────────────────────┘
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>               │ (interface calls)
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>┌──────────────▼───────────────────────────────────────────┐
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>│  Provider Interfaces (internal/provider/)                 │
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>│                                                          │
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>│  ClusterProvider   — Install, Uninstall, Start, Stop     │
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>│  ImageProvider     — Build, Import, Export, List, Remove │
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>│  NodeProvider      — Add, Remove, List                   │
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>│  SystemProvider    — Package, Upgrade, Backup, Restore   │
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>│  AddonProvider     — Enable, Disable, Status             │
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>└──────────────┬──────────────────┬────────────────────────┘
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>        ┌──────┘                  └──────┐
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>┌───────▼──────────────┐  ┌──────────────▼─────────────────┐
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>│  Windows Provider     │  │  Linux Provider                │
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>│  (*_windows.go)       │  │  (*_linux.go)                  │
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>│                       │  │                                │
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>│  Delegates to PS      │  │  Native Go: kubeadm, kubectl,  │
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>│  via ExecutePs...     │  │  libvirt/KVM, SSH, crictl      │
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>│  Supports all setup   │  │  No PowerShell dependency      │
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>│  types (k2s, linux-   │  │                                │
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>│  only, buildonly)     │  │                                │
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>└───────────────────────┘  └────────────────────────────────┘
 </code></pre></div>
 <h3 id="key-components">Key Components</h3>
 <table>
@@ -3451,14 +3499,14 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="building-tools-from-source">Building Tools from Source</h3>
 <p>All Go tools can be built locally using the build script:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="gp"># </span>Build<span class="w"> </span>k2s.exe<span class="w"> </span>only
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="go">bgo</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="gp"># </span>Build<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>tool
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="go">bgo -ProjectDir &quot;k2s\cmd\httpproxy&quot; -ExeOutDir &quot;bin&quot;</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="gp"># </span>Build<span class="w"> </span>all<span class="w"> </span>Go<span class="w"> </span>executables
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="go">bgo -BuildAll</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gp"># </span>Build<span class="w"> </span>k2s.exe<span class="w"> </span>only
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">bgo</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="gp"># </span>Build<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>tool
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="go">bgo -ProjectDir &quot;k2s\cmd\httpproxy&quot; -ExeOutDir &quot;bin&quot;</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="gp"># </span>Build<span class="w"> </span>all<span class="w"> </span>Go<span class="w"> </span>executables
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="go">bgo -BuildAll</span>
 </code></pre></div>
 <p>See <a href="../contributing/building-locally/">Building Locally</a> for prerequisites.</p>
 <hr />

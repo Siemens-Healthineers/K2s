@@ -712,6 +712,17 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#linux-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux Host
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2539,6 +2550,17 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#linux-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux Host
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2577,6 +2599,39 @@ SPDX-License-Identifier: MIT
 <h2 id="development-only">Development-Only</h2>
 <p>In this variant, the focus is on setting up an environment solely for building and testing <em>Windows</em> and <em>Linux</em> containers without creating a <em><abbr title="Kubernetes">K8s</abbr></em> cluster.<br/><br/>
 <img alt="Development-Only" src="../assets/VariantDevOnly400.jpg" /></p>
+<h2 id="linux-host">Linux Host</h2>
+<div class="admonition warning">
+<p class="admonition-title">Experimental</p>
+<p>Linux host support is experimental. Some features (offline packaging, backup/restore) are not yet available. The interface may change without notice.</p>
+</div>
+<p>In this variant the <em>Linux</em> machine <strong>is</strong> the host. The <em>Kubernetes</em> control plane runs natively on the host (no <abbr title="Virtual Machine">VM</abbr>), and an optional <em>Windows</em> <abbr title="Virtual Machine">VM</abbr> is provisioned via <em>libvirt/KVM</em> with OVMF UEFI firmware to provide a mixed-<abbr title="Operating System">OS</abbr> worker node.</p>
+<p>The <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> is compiled as a native <em>Linux</em> binary and uses <em>Go</em> APIs directly (kubeadm, kubectl, libvirt, <abbr title="Secure Shell">SSH</abbr>) — <strong>no PowerShell</strong> is required.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Control plane (kubelet, kube-apiserver, etcd, …)</td>
+<td>Linux host</td>
+</tr>
+<tr>
+<td>Linux container runtime (<abbr title="Container Runtime Interface">CRI</abbr>-O / containerd)</td>
+<td>Linux host</td>
+</tr>
+<tr>
+<td>Windows worker (optional)</td>
+<td>Windows <abbr title="Virtual Machine">VM</abbr> via KVM</td>
+</tr>
+<tr>
+<td><abbr title="Command-Line Interface">CLI</abbr></td>
+<td><code>k2s</code> (Linux binary)</td>
+</tr>
+</tbody>
+</table>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT

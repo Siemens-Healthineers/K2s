@@ -3645,6 +3645,10 @@ SPDX-License-Identifier: MIT
 
 <h1 id="k2s-cli">k2s <abbr title="Command-Line Interface">CLI</abbr></h1>
 <p>The <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> is the primary interface for managing a <em>K2s</em> cluster. It covers the full lifecycle — installation, startup, upgrade, image management, addon management, and system maintenance.</p>
+<div class="admonition warning">
+<p class="admonition-title">Linux Host Support — Experimental</p>
+<p>Running the <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> on a <strong>Linux host</strong> is an experimental feature. Core cluster lifecycle commands (<code>install</code>, <code>start</code>, <code>stop</code>, <code>uninstall</code>, <code>status</code>) and image/addon management work, but some system commands (<code>system upgrade</code>, <code>system package</code>, <code>system backup/restore</code>) are not yet implemented on Linux. See <a href="../hosting-variants/#linux-host">Hosting Variants</a> for details.</p>
+</div>
 <p>Every command supports <code>--output</code> / <code>-o</code> (show log in terminal) and <code>--verbosity</code> / <code>-v</code> (log level, default <code>info</code>) as global flags.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s -h</span>
 </code></pre></div>
