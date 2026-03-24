@@ -195,9 +195,6 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 		})
 
 		It("Prometheus discovers Windows Exporter as a target", func(ctx context.Context) {
-			// Wait for Prometheus to discover the target
-			time.Sleep(45 * time.Second)
-
 			// Get Prometheus pod
 			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 
@@ -205,22 +202,25 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Prometheus pod found")
 			}
 
-			// Check Prometheus targets via API
-			// We execute a command in the Prometheus pod to query its own API
+			// Poll the Prometheus query API for the windows-exporter 'up' metric.
+			// Using /api/v1/query instead of /api/v1/targets avoids downloading the
+			// full (multi-MB) targets payload which caused wget to stall and chunked-
+			// encoding parse errors in the framework's exit-code extraction.
 			Eventually(func() bool {
-				// Query Prometheus API for targets
 				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
-					"wget", "-qO-", "http://localhost:9090/api/v1/targets",
+					"wget", "-qO-",
+					`http://localhost:9090/api/v1/query?query=up{job="windows-exporter"}`,
 				)
 
 				if exitCode != 0 {
 					return false
 				}
 
-				// Check if windows-exporter target is present
-				return strings.Contains(output, "windows-exporter") && strings.Contains(output, "kube-system")
-			}).WithTimeout(120*time.Second).WithPolling(10*time.Second).Should(BeTrue(), "Prometheus should discover Windows Exporter target")
+				// Response is small: {"status":"success","data":{"resultType":"vector","result":[{"metric":{..."job":"windows-exporter","namespace":"kube-system",...}}]}}
+				return strings.Contains(output, "\"status\":\"success\"") &&
+					strings.Contains(output, "windows-exporter")
+			}).WithTimeout(180*time.Second).WithPolling(15*time.Second).Should(BeTrue(), "Prometheus should discover Windows Exporter target")
 		})
 
 		It("Windows Exporter metrics are available in Prometheus", func(ctx context.Context) {
