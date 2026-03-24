@@ -86,7 +86,10 @@ function Invoke-SSHWithKey {
             $sshExitCode = $LASTEXITCODE
         }
     } catch {
-        # In case of unexpected terminating error, capture it
+        # Timeout already logged inside; other errors get logged here before rethrow.
+        if ($_.Exception.Message -match '^\[SSH\] Command timed out') {
+            throw
+        }
         Write-Log "[SSH] Unexpected error during SSH command execution: $_"
         throw
     }
