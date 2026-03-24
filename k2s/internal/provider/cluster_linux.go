@@ -107,15 +107,10 @@ func (p *linuxClusterProvider) Status(_ ClusterStatusConfig) (*ClusterStatus, er
 		slog.Warn("[Status] Could not gather version info", "error", err)
 	}
 	if ver != nil {
-<<<<<<< HEAD
 		status.K8sVersionInfo = &K8sVersionInfo{
 			K8sServerVersion: ver.server,
 			K8sClientVersion: ver.client,
 		}
-=======
-		status.K8sServerVer = ver.server
-		status.K8sClientVer = ver.client
->>>>>>> main
 	}
 
 	return status, nil
@@ -180,17 +175,11 @@ func gatherNodeStatus() ([]NodeStatus, error) {
 			KernelVersion:    n.Status.NodeInfo.KernelVersion,
 			OsImage:          n.Status.NodeInfo.OsImage,
 			ContainerRuntime: n.Status.NodeInfo.ContainerRuntime,
-<<<<<<< HEAD
 			Capacity: NodeCapacity{
 				Cpu:     n.Status.Capacity.CPU,
 				Storage: n.Status.Capacity.EphemeralStorage,
 				Memory:  n.Status.Capacity.Memory,
 			},
-=======
-			CpuCapacity:      n.Status.Capacity.CPU,
-			StorageCapacity:  n.Status.Capacity.EphemeralStorage,
-			MemoryCapacity:   n.Status.Capacity.Memory,
->>>>>>> main
 		}
 
 		for label := range n.Metadata.Labels {

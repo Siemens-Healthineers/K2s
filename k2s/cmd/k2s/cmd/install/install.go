@@ -255,10 +255,7 @@ func install(cmd *cobra.Command, args []string) error {
 	outputWriter := cc.NewPtermWriter()
 
 	err = context.Providers().Cluster.Install(provider.ClusterInstallConfig{
-<<<<<<< HEAD
 		SetupName:                         string(kind),
-=======
->>>>>>> main
 		MasterVMProcessorCount:            node.Resources.Cpu,
 		MasterVMMemory:                    node.Resources.Memory,
 		MasterVMMemoryMin:                 node.Resources.MemoryMin,

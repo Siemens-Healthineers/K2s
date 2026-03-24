@@ -28,7 +28,6 @@ func (e *UnsupportedOperationError) Error() string {
 func (e *UnsupportedOperationError) Is(target error) bool {
 	return target == ErrNotSupported
 }
-<<<<<<< HEAD
 
 // FailureSeverity mirrors the severity levels used by CLI command failures.
 type FailureSeverity uint8
@@ -54,5 +53,3 @@ type ProviderFailure struct {
 func (f *ProviderFailure) Error() string {
 	return f.Code + ": " + f.Message
 }
-=======
->>>>>>> main

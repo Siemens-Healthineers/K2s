@@ -27,10 +27,7 @@ type ClusterProvider interface {
 
 // ClusterInstallConfig holds parameters for cluster installation.
 type ClusterInstallConfig struct {
-<<<<<<< HEAD
 	SetupName              string
-=======
->>>>>>> main
 	MasterVMProcessorCount string
 	MasterVMMemory         string
 	MasterVMMemoryMin      string
@@ -96,7 +93,6 @@ type ClusterStatusConfig struct {
 
 // ClusterStatus holds the loaded cluster status.
 type ClusterStatus struct {
-<<<<<<< HEAD
 	IsRunning      bool
 	Issues         []string
 	Nodes          []NodeStatus
@@ -108,14 +104,6 @@ type ClusterStatus struct {
 type K8sVersionInfo struct {
 	K8sServerVersion string
 	K8sClientVersion string
-=======
-	IsRunning    bool
-	Issues       []string
-	Nodes        []NodeStatus
-	Pods         []PodStatus
-	K8sServerVer string
-	K8sClientVer string
->>>>>>> main
 }
 
 // NodeStatus holds status information for a single node.
@@ -130,7 +118,6 @@ type NodeStatus struct {
 	ContainerRuntime string
 	InternalIp       string
 	IsReady          bool
-<<<<<<< HEAD
 	Capacity         NodeCapacity
 }
 
@@ -139,11 +126,6 @@ type NodeCapacity struct {
 	Cpu     string
 	Storage string
 	Memory  string
-=======
-	CpuCapacity      string
-	MemoryCapacity   string
-	StorageCapacity  string
->>>>>>> main
 }
 
 // PodStatus holds status information for a single pod.

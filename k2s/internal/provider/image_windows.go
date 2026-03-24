@@ -124,12 +124,9 @@ func (p *windowsImageProvider) Remove(cfg ImageRemoveConfig) error {
 	if cfg.FromRegistry {
 		params = append(params, " -FromRegistry")
 	}
-<<<<<<< HEAD
 	if cfg.Force {
 		params = append(params, " -Force")
 	}
-=======
->>>>>>> main
 	if cfg.ShowOutput {
 		params = append(params, " -ShowLogs")
 	}
@@ -157,7 +154,6 @@ func (p *windowsImageProvider) Build(cfg ImageBuildConfig) error {
 	if cfg.ShowOutput {
 		params = append(params, " -ShowLogs")
 	}
-<<<<<<< HEAD
 	if cfg.ImageTag != "" {
 		params = append(params, " -ImageTag "+cfg.ImageTag)
 	}
@@ -167,10 +163,6 @@ func (p *windowsImageProvider) Build(cfg ImageBuildConfig) error {
 			args = append(args, k+"="+v)
 		}
 		params = append(params, " -BuildArgs "+strings.Join(args, ","))
-=======
-	if len(cfg.BuildArgs) > 0 {
-		params = append(params, " -BuildArgs "+strings.Join(cfg.BuildArgs, ","))
->>>>>>> main
 	}
 
 	return p.execPS(psCmd, params...)
@@ -183,7 +175,6 @@ func (p *windowsImageProvider) Import(cfg ImageImportConfig) error {
 	if cfg.TarPath != "" {
 		params = append(params, " -ImagePath '"+cfg.TarPath+"'")
 	}
-<<<<<<< HEAD
 	if cfg.DirPath != "" {
 		params = append(params, " -ImageDir '"+cfg.DirPath+"'")
 	}
@@ -193,11 +184,6 @@ func (p *windowsImageProvider) Import(cfg ImageImportConfig) error {
 	if cfg.DockerArchive {
 		params = append(params, " -DockerArchive")
 	}
-=======
-	if cfg.Windows {
-		params = append(params, " -Windows")
-	}
->>>>>>> main
 	if cfg.ShowOutput {
 		params = append(params, " -ShowLogs")
 	}
@@ -218,21 +204,12 @@ func (p *windowsImageProvider) Export(cfg ImageExportConfig) error {
 	if cfg.OutputPath != "" {
 		params = append(params, " -ExportPath '"+cfg.OutputPath+"'")
 	}
-<<<<<<< HEAD
 	if cfg.DockerArchive {
 		params = append(params, " -DockerArchive")
 	}
 	if cfg.ShowOutput {
 		params = append(params, " -ShowLogs")
 	}
-=======
-	if cfg.ShowOutput {
-		params = append(params, " -ShowLogs")
-	}
-	if cfg.ExportFormat == "docker-archive" {
-		params = append(params, " -DockerArchive")
-	}
->>>>>>> main
 
 	return p.execPS(psCmd, params...)
 }
@@ -247,12 +224,9 @@ func (p *windowsImageProvider) Tag(cfg ImageTagConfig) error {
 	if cfg.ImageName != "" {
 		params = append(params, fmt.Sprintf(" -ImageName '%s'", cfg.ImageName))
 	}
-<<<<<<< HEAD
 	if cfg.TargetImageName != "" {
 		params = append(params, fmt.Sprintf(" -TargetImageName '%s'", cfg.TargetImageName))
 	}
-=======
->>>>>>> main
 	if cfg.ShowOutput {
 		params = append(params, " -ShowLogs")
 	}
@@ -264,12 +238,9 @@ func (p *windowsImageProvider) Push(cfg ImagePushConfig) error {
 	psCmd := p.scriptPath("Push-Image.ps1")
 
 	var params []string
-<<<<<<< HEAD
 	if cfg.ImageId != "" {
 		params = append(params, " -Id "+cfg.ImageId)
 	}
-=======
->>>>>>> main
 	if cfg.ImageName != "" {
 		params = append(params, " -ImageName "+cfg.ImageName)
 	}

@@ -5,10 +5,7 @@ package status
 
 import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-<<<<<<< HEAD
 	"github.com/siemens-healthineers/k2s/internal/provider"
-=======
->>>>>>> main
 )
 
 type LoadedStatus struct {
@@ -60,7 +57,6 @@ type Capacity struct {
 	Storage string `json:"storage"`
 	Memory  string `json:"memory"`
 }
-<<<<<<< HEAD
 
 // LoadStatus delegates status loading to the platform provider.
 // The provider returns domain types which are mapped back to the command-local
@@ -122,5 +118,3 @@ func LoadStatus(ctx *common.CmdContext) (*LoadedStatus, error) {
 
 	return result, nil
 }
-=======
->>>>>>> main

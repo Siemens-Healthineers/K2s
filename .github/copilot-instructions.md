@@ -9,11 +9,7 @@ SPDX-License-Identifier: MIT
 These instructions make an AI agent immediately productive in this repository. Keep responses concise, apply these conventions automatically, and prefer concrete edits (not vague advice).
 
 ## 1. Big Picture
-<<<<<<< HEAD
 K2s is a dual‑platform Kubernetes distribution supporting both Windows and Linux hosts, with strong offline support. On Windows it bundles a Linux VM (Hyper-V or WSL) plus curated OSS components. On Linux (**experimental**) it runs the control plane natively and optionally provisions a Windows VM via libvirt/KVM. Repo delivers:
-=======
-K2s is a dual‑platform Kubernetes distribution supporting both Windows and Linux hosts, with strong offline support. On Windows it bundles a Linux VM (Hyper-V or WSL) plus curated OSS components. On Linux it runs the control plane natively and optionally provisions a Windows VM via libvirt/KVM. Repo delivers:
->>>>>>> main
 - `k2s` CLI (Go) under `k2s/cmd/...` operating orchestration & lifecycle. Builds for both Windows and Linux via `go build` tags.
 - PowerShell modules & scripts for host provisioning, packaging, offline builds, addon management (`lib/modules`, `lib/scripts`, `addons/`) — used on Windows only.
 - Provider architecture (`k2s/internal/provider/`) abstracts all platform-specific logic behind domain interfaces. Commands use providers exclusively — no `runtime.GOOS` checks in command handlers.
