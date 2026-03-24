@@ -4,7 +4,6 @@
 package restore
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/pterm/pterm"
@@ -12,7 +11,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 const (
@@ -38,15 +37,23 @@ func runSystemRestore(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("📦 Restoring K2s system backup ...")
 
-	psCmd := createSystemRestorePsCommand(cmd)
+	out, _ := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 
-	outputWriter := common.NewPtermWriter()
-	if err := powershell.ExecutePs(psCmd, outputWriter); err != nil {
+	backupFile := cmd.Flags().Lookup(restoreFileFlag).Value.String()
+
+	errorOnFailure, _ := strconv.ParseBool(cmd.Flags().Lookup(errorOnFailureFlag).Value.String())
+
+	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+
+	if err := context.Providers().System.Restore(provider.SystemRestoreConfig{
+		BackupFile:         backupFile,
+		AdditionalHooksDir: additionalHooksDir,
+		ErrorOnFailure:     errorOnFailure,
+		ShowOutput:         out,
+	}); err != nil {
 		return err
-	}
-
-	if outputWriter.ErrorOccurred {
-		return fmt.Errorf("system restore failed: PowerShell script encountered errors")
 	}
 
 	cmdSession.Finish()
