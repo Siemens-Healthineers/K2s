@@ -47,7 +47,11 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
-	skipStartIfRunning, err := HandleIgnoreIfRunning(ccmd, isClusterRunning)
+	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+
+	skipStartIfRunning, err := HandleIgnoreIfRunning(ccmd, func() (bool, error) {
+		return isClusterRunning(context)
+	})
 	if err != nil {
 		return err
 	}
@@ -56,7 +60,6 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
@@ -139,9 +142,9 @@ func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, conf
 	return nil
 }
 
-func isClusterRunning() (bool, error) {
+func isClusterRunning(ctx *common.CmdContext) (bool, error) {
 
-	clusterStatus, err := status.LoadStatus()
+	clusterStatus, err := status.LoadStatus(ctx)
 	if err != nil {
 		slog.Error("Failed to load cluster status", "error", err)
 		return false, err
