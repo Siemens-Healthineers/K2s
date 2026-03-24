@@ -5,8 +5,6 @@ package image
 
 import (
 	"errors"
-	"log/slog"
-	"path/filepath"
 	"strconv"
 
 	"github.com/pterm/pterm"
@@ -14,11 +12,9 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 var cleanCmd = &cobra.Command{
@@ -31,19 +27,10 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Cleaning container images..")
 
-	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Clean-Images.ps1"))
-	params := []string{}
-
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
-
-	if showOutput {
-		params = append(params, " -ShowLogs")
-	}
-
-	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -61,13 +48,10 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
+	if err := context.Providers().Image.Clean(provider.ImageCleanConfig{
+		ShowOutput: showOutput,
+	}); err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()

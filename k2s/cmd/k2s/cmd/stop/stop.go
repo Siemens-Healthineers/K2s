@@ -92,7 +92,7 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 }
 
 func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet) error {
-	systemStatus, err := status.LoadStatus()
+	systemStatus, err := status.LoadStatus(context)
 	if err != nil || !systemStatus.RunningState.IsRunning {
 		// Nothing to do if system is not running
 		return nil

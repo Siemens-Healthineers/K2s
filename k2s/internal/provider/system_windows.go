@@ -39,8 +39,11 @@ func (p *windowsSystemProvider) execPS(psCmd string, params ...string) error {
 }
 
 func (p *windowsSystemProvider) Dump(cfg SystemDumpConfig) error {
-	psCmd := p.scriptPath("dump/Dump-Status.ps1")
+	psCmd := p.scriptPath("dump/dump.ps1")
 	var params string
+	if cfg.SkipOpenDump {
+		params += " -OpenDumpFolder `$false"
+	}
 	if cfg.ShowOutput {
 		params += " -ShowLogs"
 	}
@@ -48,25 +51,34 @@ func (p *windowsSystemProvider) Dump(cfg SystemDumpConfig) error {
 }
 
 func (p *windowsSystemProvider) Upgrade(cfg SystemUpgradeConfig) error {
-	psCmd := p.scriptPath("upgrade/Start-ClusterUpdate.ps1")
+	psCmd := p.scriptPath("upgrade/Start-ClusterUpgrade.ps1")
 	var params string
-	if cfg.PackagePath != "" {
-		params += fmt.Sprintf(" -ZipFilePath '%s'", cfg.PackagePath)
+	if cfg.ShowOutput {
+		params += " -ShowLogs"
+	}
+	if cfg.SkipResources {
+		params += " -SkipResources"
 	}
 	if cfg.SkipImages {
 		params += " -SkipImages"
 	}
-	if cfg.ForceOnline {
-		params += " -ForceOnlineInstallation"
-	}
 	if cfg.DeletePackage {
 		params += " -DeleteFiles"
 	}
-	if cfg.ShowOutput {
-		params += " -ShowLogs"
+	if cfg.ConfigFile != "" {
+		params += " -Config " + cfg.ConfigFile
+	}
+	if cfg.Proxy != "" {
+		params += " -Proxy " + cfg.Proxy
+	}
+	if cfg.BackupDir != "" {
+		params += fmt.Sprintf(" -BackupDir '%s'", cfg.BackupDir)
 	}
 	if cfg.AdditionalHooksDir != "" {
 		params += fmt.Sprintf(" -AdditionalHooksDir '%s'", cfg.AdditionalHooksDir)
+	}
+	if cfg.Force {
+		params += " -Force"
 	}
 	return powershell.ExecutePs(psCmd+params, p.stdWriter)
 }
@@ -81,7 +93,7 @@ func (p *windowsSystemProvider) Package(cfg SystemPackageConfig) error {
 }
 
 func (p *windowsSystemProvider) Reset(cfg SystemResetConfig) error {
-	psCmd := p.scriptPath("reset/Reset.ps1")
+	psCmd := p.scriptPath("reset/Reset-System.ps1")
 	var params string
 	if cfg.ShowOutput {
 		params += " -ShowLogs"
@@ -90,8 +102,11 @@ func (p *windowsSystemProvider) Reset(cfg SystemResetConfig) error {
 }
 
 func (p *windowsSystemProvider) ResetNetwork(cfg SystemResetNetworkConfig) error {
-	psCmd := p.scriptPath("reset/Reset-Network.ps1")
+	psCmd := p.scriptPath("reset/network/Reset-Network.ps1")
 	var params []string
+	if cfg.Force {
+		params = append(params, " -Force")
+	}
 	if cfg.AdditionalHooksDir != "" {
 		params = append(params, fmt.Sprintf(" -AdditionalHooksDir '%s'", cfg.AdditionalHooksDir))
 	}
@@ -102,8 +117,14 @@ func (p *windowsSystemProvider) ResetNetwork(cfg SystemResetNetworkConfig) error
 }
 
 func (p *windowsSystemProvider) Compact(cfg SystemCompactConfig) error {
-	psCmd := p.scriptPath("compact/Compact-Vhdx.ps1")
+	psCmd := p.scriptPath("compact/Invoke-VhdxCompaction.ps1")
 	var params string
+	if cfg.NoRestart {
+		params += " -NoRestart"
+	}
+	if cfg.Yes {
+		params += " -Yes"
+	}
 	if cfg.ShowOutput {
 		params += " -ShowLogs"
 	}
@@ -111,10 +132,19 @@ func (p *windowsSystemProvider) Compact(cfg SystemCompactConfig) error {
 }
 
 func (p *windowsSystemProvider) Backup(cfg SystemBackupConfig) error {
-	psCmd := p.scriptPath("backup/Backup.ps1")
+	psCmd := p.scriptPath("backup/Start-SystemBackup.ps1")
 	var params string
-	if cfg.BackupDir != "" {
-		params += fmt.Sprintf(" -BackupDir '%s'", cfg.BackupDir)
+	if cfg.BackupFile != "" {
+		params += fmt.Sprintf(" -BackupFile '%s'", cfg.BackupFile)
+	}
+	if cfg.AdditionalHooksDir != "" {
+		params += fmt.Sprintf(" -AdditionalHooksDir '%s'", cfg.AdditionalHooksDir)
+	}
+	if cfg.SkipImages {
+		params += " -SkipImages"
+	}
+	if cfg.SkipPVs {
+		params += " -SkipPVs"
 	}
 	if cfg.ShowOutput {
 		params += " -ShowLogs"
@@ -123,10 +153,16 @@ func (p *windowsSystemProvider) Backup(cfg SystemBackupConfig) error {
 }
 
 func (p *windowsSystemProvider) Restore(cfg SystemRestoreConfig) error {
-	psCmd := p.scriptPath("restore/Restore.ps1")
+	psCmd := p.scriptPath("restore/Start-SystemRestore.ps1")
 	var params string
-	if cfg.BackupDir != "" {
-		params += fmt.Sprintf(" -BackupDir '%s'", cfg.BackupDir)
+	if cfg.BackupFile != "" {
+		params += fmt.Sprintf(" -BackupFile '%s'", cfg.BackupFile)
+	}
+	if cfg.ErrorOnFailure {
+		params += " -ErrorOnFailure"
+	}
+	if cfg.AdditionalHooksDir != "" {
+		params += fmt.Sprintf(" -AdditionalHooksDir '%s'", cfg.AdditionalHooksDir)
 	}
 	if cfg.ShowOutput {
 		params += " -ShowLogs"
@@ -135,10 +171,13 @@ func (p *windowsSystemProvider) Restore(cfg SystemRestoreConfig) error {
 }
 
 func (p *windowsSystemProvider) CertificateRenew(cfg SystemCertRenewConfig) error {
-	psCmd := p.scriptPath("certificate/Renew-Certificate.ps1")
+	psCmd := p.scriptPath("certificate/renew.ps1")
 	var params []string
+	if cfg.Force {
+		params = append(params, "-Force")
+	}
 	if cfg.ShowOutput {
-		params = append(params, " -ShowLogs")
+		params = append(params, "-ShowLogs")
 	}
 	return p.execPS(psCmd, params...)
 }

@@ -20,7 +20,7 @@ import (
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 type buildOptions struct {
@@ -134,9 +134,6 @@ func buildImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd, params := buildPsCmd(buildOptions)
-	slog.Debug("PS command created", "command", psCmd, "params", params)
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
@@ -153,13 +150,17 @@ func buildImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
+	if err := context.Providers().Image.Build(provider.ImageBuildConfig{
+		InputFolder: buildOptions.InputFolder,
+		Dockerfile:  buildOptions.Dockerfile,
+		ImageName:   buildOptions.ImageName,
+		ImageTag:    buildOptions.ImageTag,
+		Push:        buildOptions.Push,
+		Windows:     buildOptions.Windows,
+		BuildArgs:   buildOptions.BuildArgs,
+		ShowOutput:  buildOptions.Output,
+	}); err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()

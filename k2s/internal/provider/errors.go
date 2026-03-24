@@ -28,3 +28,28 @@ func (e *UnsupportedOperationError) Error() string {
 func (e *UnsupportedOperationError) Is(target error) bool {
 	return target == ErrNotSupported
 }
+
+// FailureSeverity mirrors the severity levels used by CLI command failures.
+type FailureSeverity uint8
+
+const (
+	// SeverityWarning indicates a non-fatal command failure (exit code 1, yellow output).
+	SeverityWarning FailureSeverity = 3
+	// SeverityError indicates a fatal command failure (exit code 1, red output).
+	SeverityError FailureSeverity = 4
+)
+
+// ProviderFailure represents a structured failure returned by a provider
+// operation (deserialized from PowerShell structured output). It carries the
+// same severity/code/message semantics as common.CmdFailure to ensure the
+// main error handler can display the correct output.
+type ProviderFailure struct {
+	Severity          FailureSeverity
+	Code              string
+	Message           string
+	SuppressCliOutput bool
+}
+
+func (f *ProviderFailure) Error() string {
+	return f.Code + ": " + f.Message
+}
