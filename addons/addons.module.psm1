@@ -754,106 +754,6 @@ function Add-HostEntries {
 	}
 }
 
-<#
-.SYNOPSIS
-	Adds a static host entry to the CoreDNS hosts block.
-.DESCRIPTION
-	Inserts "<ControlPlaneIP> Hostname" into the CoreDNS ConfigMap hosts {} block immediately
-	after the k2s.cluster.local anchor line. Uses kubectl patch --type=merge so the update is
-	atomic. Idempotent: no-op when the hostname is already present.
-#>
-function Add-CoreDNSHostEntry {
-	param (
-		[Parameter(Mandatory = $true)]
-		[string] $Hostname
-	)
-	$ipAddress = Get-ConfiguredIPControlPlane
-	Write-Log "Adding '$ipAddress $Hostname' to CoreDNS hosts block.." -Console
-
-	$result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
-	if (-not $result.Success) {
-		throw "[CoreDNS] Failed to read CoreDNS ConfigMap: $($result.Output)"
-	}
-
-	$corefile = $result.Output -replace "`r", ''
-	if ($corefile -match [regex]::Escape($Hostname)) {
-		Write-Log "[CoreDNS] '$Hostname' already in CoreDNS hosts block, skipping"
-		return
-	}
-
-	$injected = $false
-	$newLines = foreach ($line in ($corefile -split "`n")) {
-		$line
-		if (-not $injected -and $line -match [regex]::Escape('k2s.cluster.local')) {
-			"    $ipAddress $Hostname"
-			$injected = $true
-		}
-	}
-
-	if (-not $injected) {
-		throw "[CoreDNS] Anchor 'k2s.cluster.local' not found in CoreDNS Corefile; cannot add entry"
-	}
-
-	$newCorefile = $newLines -join "`n"
-	$patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
-	$patchFile = [System.IO.Path]::GetTempFileName()
-	try {
-		[System.IO.File]::WriteAllText($patchFile, $patch, [System.Text.Encoding]::UTF8)
-		$patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', "--patch-file=$patchFile"
-		if (-not $patchResult.Success) {
-			throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
-		}
-	}
-	finally {
-		Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
-	}
-	Write-Log "'$ipAddress $Hostname' added to CoreDNS hosts block" -Console
-}
-
-<#
-.SYNOPSIS
-	Removes a static host entry from the CoreDNS hosts block.
-.DESCRIPTION
-	Deletes the line containing Hostname from the CoreDNS ConfigMap hosts {} block.
-	Reverse operation of Add-CoreDNSHostEntry; intended to be called on addon disable.
-	Uses kubectl patch --type=merge so the update is atomic. Idempotent: no-op when the
-	hostname is not present.
-#>
-function Remove-CoreDNSHostEntry {
-	param (
-		[Parameter(Mandatory = $true)]
-		[string] $Hostname
-	)
-	Write-Log "Removing '$Hostname' from CoreDNS hosts block.." -Console
-
-	$result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
-	if (-not $result.Success) {
-		throw "[CoreDNS] Failed to read CoreDNS ConfigMap: $($result.Output)"
-	}
-
-	$corefile = $result.Output -replace "`r", ''
-	if ($corefile -notmatch [regex]::Escape($Hostname)) {
-		Write-Log "[CoreDNS] '$Hostname' not found in CoreDNS hosts block, skipping"
-		return
-	}
-
-	$newCorefile = ($corefile -split "`n" | Where-Object { $_ -notmatch [regex]::Escape($Hostname) }) -join "`n"
-
-	$patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
-	$patchFile = [System.IO.Path]::GetTempFileName()
-	try {
-		[System.IO.File]::WriteAllText($patchFile, $patch, [System.Text.Encoding]::UTF8)
-		$patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', "--patch-file=$patchFile"
-		if (-not $patchResult.Success) {
-			throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
-		}
-	}
-	finally {
-		Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
-	}
-	Write-Log "'$Hostname' removed from CoreDNS hosts block" -Console
-}
-
 function Update-Addons {
 	param (
 		[Parameter(Mandatory = $false)]
@@ -1209,12 +1109,12 @@ function Update-IngressForNginx {
 		$kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
 		# check if $kustomizationDir does not exist
 		if (!(Test-Path -Path $kustomizationDir)) {
-			Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+			Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
 			$kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
 		}
 	}
 	else {
-		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+		Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
 		$kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
 	}
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
@@ -1252,11 +1152,26 @@ function Remove-IngressForNginx {
 	)
 
 	$props = Get-AddonProperties -Addon $Addon
-	
-	Write-Log "  Deleting nginx ingress manifest for $($props.Name)..." -Console
-	# SecureNginxConfig is a superset of NginsConfig, so we delete that:
-	$kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
-	Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
+
+	# Check whether the nginx Ingress resource is actually deployed in the cluster.
+	# The source manifest directories always exist on disk, so Test-Path on the
+	# kustomization folder is not a reliable indicator — we must query the cluster.
+	$nginxIngressExists = (Invoke-Kubectl -Params 'get', 'ingress', 'dashboard-nginx-cluster-local', '-n', 'dashboard', '--ignore-not-found').Output
+	if ($nginxIngressExists) {
+		# Both the standard (ingress-nginx) and secure (ingress-nginx-secure) variants
+		# deploy an Ingress with the identical name 'dashboard-nginx-cluster-local'.
+		# Delete both kustomizations with --ignore-not-found — whichever was applied will
+		# be removed; the other delete is a safe no-op.
+		$standardNginxConfig = Get-IngressNginxConfigDirectory -Directory $props.Directory
+		$secureNginxConfig = Get-IngressNginxSecureConfig -Directory $props.Directory
+
+		Write-Log "  Deleting nginx ingress manifest for $($props.Name)..." -Console
+		Invoke-Kubectl -Params 'delete', '-k', $standardNginxConfig, '--ignore-not-found' | Out-Null
+		Invoke-Kubectl -Params 'delete', '-k', $secureNginxConfig, '--ignore-not-found' | Out-Null
+	}
+	else {
+		Write-Log "  No nginx ingress resource found for $($props.Name) in cluster, skipping delete."
+	}
 }
 
 <#
@@ -1272,30 +1187,34 @@ function Update-IngressForTraefik {
 	$props = Get-AddonProperties -Addon $Addon
 	$kustomizationDir = ''
 
-	# Store each result separately for debugging
 	$keycloakAvailable = Test-KeyCloakServiceAvailability
-	Write-Log "KeyCloak available: $keycloakAvailable" -Console
-	
-	# Always evaluate Hydra availability
+	Write-Log "KeyCloak available: $keycloakAvailable"
+
 	$hydraAvailable = Test-HydraAvailability
-	Write-Log "Hydra available: $hydraAvailable" -Console
+	Write-Log "Hydra available: $hydraAvailable"
 
 	if ($keycloakAvailable -or $hydraAvailable) {
-		Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
+		Write-Log "  Applying secure traefik ingress manifest for $($props.Name)..." -Console
 		$kustomizationDir = Get-IngressTraefikSecureConfig -Directory $props.Directory
 		# check if $kustomizationDir does not exist
 		if (!(Test-Path -Path $kustomizationDir)) {
-			Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+			Write-Log "  Applying traefik ingress manifest for $($props.Name)..." -Console
 			$kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
 		}
 	}
 	else {
-		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+		Write-Log "  Applying traefik ingress manifest for $($props.Name)..." -Console
 		$kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
 	}
 
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
+	$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
+	if ($result.Success) {
+		Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+	}
+	else {
+		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name): $($result.Output)" -Console
+	}
 }
 
 <#
@@ -1310,17 +1229,27 @@ function Remove-IngressForTraefik {
 
 	$props = Get-AddonProperties -Addon $Addon
 
-	Write-Log "  Deleting traefik ingress manifest for $($props.Name)..." -Console
-	$ingressTraefikConfig = Get-IngressTraefikConfig -Directory $props.Directory
-	
-	Invoke-Kubectl -Params 'delete', '-k', $ingressTraefikConfig | Out-Null
+	# Check whether the traefik Ingress resource is actually deployed in the cluster.
+	# The source manifest directories always exist on disk, so Test-Path on the
+	# kustomization folder is not a reliable indicator — we must query the cluster.
+	$traefikIngressExists = (Invoke-Kubectl -Params 'get', 'ingress', 'dashboard-traefik-cluster-local', '-n', 'dashboard', '--ignore-not-found').Output
+	if ($traefikIngressExists) {
+		# Both the standard (ingress-traefik) and secure (ingress-traefik-secure) variants
+		# deploy an Ingress with the identical name 'dashboard-traefik-cluster-local'.
+		# We cannot reliably determine which variant was applied by checking disk paths
+		# (both directories always exist in the repo).
+		# Solution: delete both kustomizations with --ignore-not-found — whichever was
+		# applied will be removed; the other delete is a safe no-op.
+		$standardTraefikConfig = Get-IngressTraefikConfig -Directory $props.Directory
+		$secureTraefikConfig = Get-IngressTraefikSecureConfig -Directory $props.Directory
 
-	$kustomizationDir = Get-IngressTraefikSecureConfig -Directory $props.Directory
-	if (!(Test-Path -Path $kustomizationDir)) {
-		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
-		$kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
+		Write-Log "  Deleting traefik ingress manifest for $($props.Name)..." -Console
+		Invoke-Kubectl -Params 'delete', '-k', $standardTraefikConfig, '--ignore-not-found' | Out-Null
+		Invoke-Kubectl -Params 'delete', '-k', $secureTraefikConfig, '--ignore-not-found' | Out-Null
 	}
-	Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
+	else {
+		Write-Log "  No traefik ingress resource found for $($props.Name) in cluster, skipping delete."
+	}
 }
 
 <#
@@ -1336,13 +1265,11 @@ function Update-IngressForNginxGateway {
 	$props = Get-AddonProperties -Addon $Addon
 	$kustomizationDir = ''
 
-	#Store each result separately for debugging
 	$keycloakAvailable = Test-KeyCloakServiceAvailability
-	Write-Log "KeyCloak available: $keycloakAvailable" -Console
-	
-	# Always evaluate Hydra availability
+	Write-Log "KeyCloak available: $keycloakAvailable"
+
 	$hydraAvailable = Test-HydraAvailability
-	Write-Log "Hydra available: $hydraAvailable" -Console
+	Write-Log "Hydra available: $hydraAvailable"
 
 	if ($keycloakAvailable -or $hydraAvailable) {
 		Write-Log "  Applying secure nginx ingress gateway manifest for $($props.Name)..." -Console
@@ -1350,19 +1277,25 @@ function Update-IngressForNginxGateway {
 		$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
 		# check if $kustomizationDir does not exist
 		if (!(Test-Path -Path $kustomizationDir)) {
-			Write-Log "  Applying nginx ingress gateway manifest for $($props.Name) $($props.Directory)..." -Console
+			Write-Log "  Applying nginx ingress gateway manifest for $($props.Name)..." -Console
 			$ingressDir = Get-IngressNginxGatewayConfig
 			$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
 		}
 	}
 	else {
-		Write-Log "  Applying nginx ingress gateway manifest for $($props.Name) $($props.Directory)..." -Console
+		Write-Log "  Applying nginx ingress gateway manifest for $($props.Name)..." -Console
 		$ingressDir = Get-IngressNginxGatewayConfig
 		$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
 	}
 
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
+	$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
+	if ($result.Success) {
+		Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+	}
+	else {
+		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name): $($result.Output)" -Console
+	}
 }
 
 <#
@@ -1377,17 +1310,34 @@ function Remove-IngressForNginxGateway {
 
 	$props = Get-AddonProperties -Addon $Addon
 
-	Write-Log "  Deleting gateway manifest for $($props.Name)..." -Console
-	$nginxGatewayConfig = Get-IngressNginxGatewayConfig -Directory $props.Directory
-	
-	Invoke-Kubectl -Params 'delete', '-k', $nginxGatewayConfig | Out-Null
+	# Check whether the nginx-gw HTTPRoute resource is actually deployed in the cluster.
+	# The source manifest directories always exist on disk, so Test-Path on the
+	# kustomization folder is not a reliable indicator — we must query the cluster.
+	# IMPORTANT: HTTPRoute is a CRD; when nginx-gw is NOT installed the CRD itself does
+	# not exist and kubectl exits with a non-zero code, writing an error like
+	# "the server doesn't have a resource type 'httproute'" to stderr (merged via 2>&1
+	# into .Output).  We must therefore check BOTH Success=true AND non-empty Output to
+	# avoid treating an API-discovery error as "resource exists".
+	$gwRouteResult = Invoke-Kubectl -Params 'get', 'httproute', 'dashboard-nginx-gw-cluster-local', '-n', 'dashboard', '--ignore-not-found'
+	if ($gwRouteResult.Success -and $gwRouteResult.Output) {
+		# Both the standard (ingress-nginx-gw) and secure (ingress-nginx-gw-secure) variants
+		# deploy resources with identical names (HTTPRoute + ReferenceGrant).
+		# We cannot reliably determine which variant was applied by checking disk paths
+		# (both directories always exist in the repo).
+		# Solution: delete both kustomizations with --ignore-not-found — whichever was
+		# applied will be removed; the other delete is a safe no-op.
+		$standardIngressDir = Get-IngressNginxGatewayConfig
+		$standardKustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$standardIngressDir"
+		$secureIngressDir = Get-IngressNginxGatewaySecureConfig
+		$secureKustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$secureIngressDir"
 
-	$kustomizationDir = Get-IngressNginxGatewaySecureConfig -Directory $props.Directory
-	if (!(Test-Path -Path $kustomizationDir)) {
-		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
-		$kustomizationDir = Get-IngressNginxGatewaySecureConfig -Directory $props.Directory
+		Write-Log "  Deleting gateway manifest for $($props.Name)..." -Console
+		Invoke-Kubectl -Params 'delete', '-k', $standardKustomizationDir, '--ignore-not-found' | Out-Null
+		Invoke-Kubectl -Params 'delete', '-k', $secureKustomizationDir, '--ignore-not-found' | Out-Null
 	}
-	Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
+	else {
+		Write-Log "  No nginx gateway route resource found for $($props.Name) in cluster, skipping delete."
+	}
 }
 
 <#
@@ -1400,51 +1350,6 @@ function Enable-StorageAddon([string]$Storage) {
 			&"$PSScriptRoot\storage\smb\Enable.ps1"
 			break
 		}
-	}
-}
-
-<#
-.SYNOPSIS
-Resolves addon import path components from OCI annotation metadata.
-
-.DESCRIPTION
-Determines the base addon folder name and optional implementation subdirectory
-for importing an addon from an OCI artifact. Multi-implementation addons
-(e.g. ingress-nginx, where name and implementation differ) are split into
-base folder + implementation subdirectory. Single-implementation addons
-with hyphens in their name (e.g. gpu-node) are kept as-is.
-
-.PARAMETER AddonName
-The addon name from the OCI index annotation 'vnd.k2s.addon.name'.
-
-.PARAMETER AddonImplementation
-The addon implementation from the OCI index annotation 'vnd.k2s.addon.implementation'.
-
-.OUTPUTS
-Hashtable with keys:
-  - BaseAddonName: The base addon folder name
-  - ImplementationName: The implementation subdirectory name ($null for single-implementation addons)
-#>
-function Resolve-AddonImportPath {
-	param (
-		[Parameter(Mandatory = $true)]
-		[string]$AddonName,
-		[Parameter(Mandatory = $false)]
-		[string]$AddonImplementation
-	)
-
-	$implementationName = $null
-	$isMultiImpl = $AddonImplementation -and $AddonImplementation -ne $AddonName
-	$baseAddonName = if ($isMultiImpl -and $AddonName -match '^([^-]+)-(.+)$') {
-		$implementationName = $matches[2]
-		$matches[1]
-	} else {
-		$AddonName
-	}
-
-	return @{
-		BaseAddonName      = $baseAddonName
-		ImplementationName = $implementationName
 	}
 }
 
@@ -1832,20 +1737,10 @@ function Import-CACertificateToWindowsStore {
     param()
 
     Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
-
-    # Remove any stale CA certificates with the same subject before importing the new one.
-    # This prevents duplicate/stale certs from prior enable/disable cycles or crashed runs
-    # from confusing certificate chain verification (e.g. ECDSA verification failure).
-    $caIssuerName = Get-CAIssuerName
-    $certLocationStore = Get-TrustedRootStoreLocation
-    $staleCerts = Get-ChildItem -Path $certLocationStore | Where-Object { $_.Subject -match $caIssuerName }
-    if ($staleCerts) {
-        Write-Log "[CertManager] Removing $($staleCerts.Count) stale CA certificate(s) from trusted root store" -Console
-        $staleCerts | Remove-Item -Force
-    }
     
     $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
     $tempFile = New-TemporaryFile
+    $certLocationStore = Get-TrustedRootStoreLocation
     
     [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
     
@@ -2063,59 +1958,23 @@ function Get-CertManagerStatusProperties {
     [CmdletBinding()]
     param()
     
-    try {
-        # Check if cert-manager is installed by probing the namespace
-        $certManagerNs = (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output
-        if (-not (Test-Path $cmctlExe) -or [string]::IsNullOrWhiteSpace($certManagerNs)) {
-            $certManagerProp = @{
-                Name = 'IsCertManagerAvailable'
-                Value = $false
-                Okay = $false
-                Message = 'The cert-manager is not installed (omitted during addon enablement).'
-            }
-            $caRootCertificateProp = @{
-                Name = 'IsCaRootCertificateAvailable'
-                Value = $false
-                Okay = $false
-                Message = 'The CA root certificate is not available (cert-manager was omitted).'
-            }
-            return $certManagerProp, $caRootCertificateProp
-        }
-
-        $certManagerAvailable = Wait-ForCertManagerAvailable
-        $certManagerProp = @{
-            Name = 'IsCertManagerAvailable'
-            Value = $certManagerAvailable
-            Okay = $certManagerAvailable
-            Message = if ($certManagerAvailable) { 'The cert-manager API is ready' } else { 'The cert-manager API is not ready. Please use cmctl.exe for further diagnostics.' }
-        }
-        
-        $caRootCertificateAvailable = Wait-ForCARootCertificate
-        $caRootCertificateProp = @{
-            Name = 'IsCaRootCertificateAvailable'
-            Value = $caRootCertificateAvailable
-            Okay = $caRootCertificateAvailable
-            Message = if ($caRootCertificateAvailable) { 'The CA root certificate is available' } else { "The CA root certificate is not available ('ca-issuer-root-secret' not created)." }
-        }
-        
-        return $certManagerProp, $caRootCertificateProp
+    $certManagerAvailable = Wait-ForCertManagerAvailable
+    $certManagerProp = @{
+        Name = 'IsCertManagerAvailable'
+        Value = $certManagerAvailable
+        Okay = $certManagerAvailable
+        Message = if ($certManagerAvailable) { 'The cert-manager API is ready' } else { 'The cert-manager API is not ready. Please use cmctl.exe for further diagnostics.' }
     }
-    catch {
-        Write-Log "[CertManager] Error checking cert-manager status: $($_.Exception.Message)" -Console
-        $certManagerProp = @{
-            Name = 'IsCertManagerAvailable'
-            Value = $false
-            Okay = $false
-            Message = 'The cert-manager is not installed (omitted during addon enablement).'
-        }
-        $caRootCertificateProp = @{
-            Name = 'IsCaRootCertificateAvailable'
-            Value = $false
-            Okay = $false
-            Message = 'The CA root certificate is not available (cert-manager was omitted).'
-        }
-        return $certManagerProp, $caRootCertificateProp
+    
+    $caRootCertificateAvailable = Wait-ForCARootCertificate
+    $caRootCertificateProp = @{
+        Name = 'IsCaRootCertificateAvailable'
+        Value = $caRootCertificateAvailable
+        Okay = $caRootCertificateAvailable
+        Message = if ($caRootCertificateAvailable) { 'The CA root certificate is available' } else { "The CA root certificate is not available ('ca-issuer-root-secret' not created)." }
     }
+    
+    return $certManagerProp, $caRootCertificateProp
 }
 
 <#
@@ -2233,9 +2092,9 @@ Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-Ad
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound, Get-ErrCodeInvalidParameter,
-Add-HostEntries, Add-CoreDNSHostEntry, Remove-CoreDNSHostEntry, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
+Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
-Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, Resolve-AddonImportPath, 
+Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
 Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
