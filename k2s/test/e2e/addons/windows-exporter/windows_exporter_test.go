@@ -209,7 +209,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 			Eventually(func() bool {
 				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
-					"wget", "-qO-",
+					"wget", "-qO-", "-T", "30",
 					`http://localhost:9090/api/v1/query?query=up{job="windows-exporter"}`,
 				)
 
@@ -224,9 +224,6 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 		})
 
 		It("Windows Exporter metrics are available in Prometheus", func(ctx context.Context) {
-			// Wait for metrics to be scraped
-			time.Sleep(60 * time.Second)
-
 			// Get Prometheus pod
 			promPodOutput := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "monitoring", "-l", "app.kubernetes.io/name=prometheus", "-o", "jsonpath={.items[0].metadata.name}")
 
@@ -234,21 +231,18 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Prometheus pod found")
 			}
 
-			// Query for Windows metrics via Prometheus API
+			// Poll until the up metric for windows-exporter appears.
 			Eventually(func() bool {
-				// Query for windows_os_info metric which should always be present
-				query := "up{job=\"windows-exporter\"}"
 				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
-					"wget", "-qO-", "--post-data", "query="+query,
-					"http://localhost:9090/api/v1/query",
+					"wget", "-qO-", "-T", "30",
+					`http://localhost:9090/api/v1/query?query=up{job="windows-exporter"}`,
 				)
 
 				if exitCode != 0 {
 					return false
 				}
 
-				// Check if result contains data
 				return strings.Contains(output, "\"status\":\"success\"") && strings.Contains(output, "windows-exporter")
 			}).WithTimeout(120*time.Second).WithPolling(15*time.Second).Should(BeTrue(), "Windows Exporter metrics should be queryable in Prometheus")
 		})
@@ -328,12 +322,12 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Prometheus pod found")
 			}
 
-			// Query for windows_os_info - should contain OS version
+			// Query for windows_os_info - info metric, one series per node, response is small
 			Eventually(func() bool {
 				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
-					"wget", "-qO-", "--post-data", "query=windows_os_info",
-					"http://localhost:9090/api/v1/query",
+					"wget", "-qO-", "-T", "30",
+					`http://localhost:9090/api/v1/query?query=windows_os_info{job="windows-exporter"}`,
 				)
 
 				if exitCode != 0 {
@@ -362,12 +356,14 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Prometheus pod found")
 			}
 
-			// Query for windows_cpu_time_total
+			// Use count() to collapse the high-cardinality series (cores × modes) into a
+			// single scalar, keeping the response small and avoiding the framework's
+			// chunked-encoding/jq parse failure that occurs with 50+ series in the output.
 			Eventually(func() bool {
 				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
-					"wget", "-qO-", "--post-data", "query=windows_cpu_time_total",
-					"http://localhost:9090/api/v1/query",
+					"wget", "-qO-", "-T", "30",
+					`http://localhost:9090/api/v1/query?query=count(windows_cpu_time_total{job="windows-exporter"})`,
 				)
 
 				if exitCode != 0 {
@@ -375,7 +371,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				}
 
 				return strings.Contains(output, "\"status\":\"success\"") &&
-					strings.Contains(output, "windows_cpu_time_total")
+					strings.Contains(output, "\"result\":[{")
 			}).WithTimeout(60*time.Second).WithPolling(10*time.Second).Should(BeTrue(), "windows_cpu_time_total metric should be available")
 		})
 
@@ -394,12 +390,12 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Prometheus pod found")
 			}
 
-			// Query for windows_memory_available_bytes
+			// Use avg() to return a single value regardless of node count.
 			Eventually(func() bool {
 				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
-					"wget", "-qO-", "--post-data", "query=windows_memory_available_bytes",
-					"http://localhost:9090/api/v1/query",
+					"wget", "-qO-", "-T", "30",
+					`http://localhost:9090/api/v1/query?query=avg(windows_memory_available_bytes{job="windows-exporter"})`,
 				)
 
 				if exitCode != 0 {
@@ -407,7 +403,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				}
 
 				return strings.Contains(output, "\"status\":\"success\"") &&
-					strings.Contains(output, "windows_memory_available_bytes")
+					strings.Contains(output, "\"result\":[{")
 			}).WithTimeout(60*time.Second).WithPolling(10*time.Second).Should(BeTrue(), "windows_memory_available_bytes metric should be available")
 		})
 
@@ -426,12 +422,12 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Prometheus pod found")
 			}
 
-			// Query for windows_logical_disk_free_bytes (C: drive)
+			// Use count() to collapse per-drive series into a single scalar.
 			Eventually(func() bool {
 				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
-					"wget", "-qO-", "--post-data", "query=windows_logical_disk_free_bytes",
-					"http://localhost:9090/api/v1/query",
+					"wget", "-qO-", "-T", "30",
+					`http://localhost:9090/api/v1/query?query=count(windows_logical_disk_free_bytes{job="windows-exporter"})`,
 				)
 
 				if exitCode != 0 {
@@ -439,7 +435,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				}
 
 				return strings.Contains(output, "\"status\":\"success\"") &&
-					strings.Contains(output, "windows_logical_disk_free_bytes")
+					strings.Contains(output, "\"result\":[{")
 			}).WithTimeout(60*time.Second).WithPolling(10*time.Second).Should(BeTrue(), "windows_logical_disk_free_bytes metric should be available")
 		})
 
@@ -458,12 +454,12 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				Skip("No Prometheus pod found")
 			}
 
-			// Query for windows_net_bytes_total
+			// Use count() to collapse per-interface series into a single scalar.
 			Eventually(func() bool {
 				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
-					"wget", "-qO-", "--post-data", "query=windows_net_bytes_total",
-					"http://localhost:9090/api/v1/query",
+					"wget", "-qO-", "-T", "30",
+					`http://localhost:9090/api/v1/query?query=count(windows_net_bytes_total{job="windows-exporter"})`,
 				)
 
 				if exitCode != 0 {
@@ -471,7 +467,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				}
 
 				return strings.Contains(output, "\"status\":\"success\"") &&
-					strings.Contains(output, "windows_net_bytes_total")
+					strings.Contains(output, "\"result\":[{")
 			}).WithTimeout(60*time.Second).WithPolling(10*time.Second).Should(BeTrue(), "windows_net_bytes_total metric should be available")
 		})
 
@@ -494,8 +490,8 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 			Eventually(func() bool {
 				output, exitCode := suite.Kubectl().Exec(ctx,
 					"exec", promPodOutput, "-n", "monitoring", "--",
-					"wget", "-qO-", "--post-data", "query=up{job=\"windows-exporter\"}",
-					"http://localhost:9090/api/v1/query",
+					"wget", "-qO-", "-T", "30",
+					`http://localhost:9090/api/v1/query?query=up{job="windows-exporter"}`,
 				)
 
 				if exitCode != 0 {
@@ -506,6 +502,7 @@ var _ = Describe("Windows Exporter as HostProcess Container", Ordered, func() {
 				return strings.Contains(output, "\"status\":\"success\"") &&
 					strings.Contains(output, "\"job\":\"windows-exporter\"") &&
 					strings.Contains(output, "\"instance\":")
+
 			}).WithTimeout(60*time.Second).WithPolling(10*time.Second).Should(BeTrue(), "Windows Exporter metrics should have correct job and instance labels")
 		})
 	})
