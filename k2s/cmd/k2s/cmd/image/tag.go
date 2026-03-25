@@ -6,7 +6,6 @@ package image
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 
@@ -16,7 +15,7 @@ import (
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -50,12 +49,29 @@ func tagImage(cmd *cobra.Command, args []string) error {
 
 	pterm.Println("🤖 Tagging container image..")
 
-	psCmd, params, err := buildTagPsCmd(cmd)
+	imageId, err := cmd.Flags().GetString(imageIdFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)
+	}
+
+	imageName, err := cmd.Flags().GetString(imageNameFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", imageNameFlagName, err)
+	}
+
+	targetImageName, err := cmd.Flags().GetString(targetImageNameFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", targetImageNameFlagName, err)
+	}
+
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	slog.Debug("PS command created", "command", psCmd, "params", params)
+	if imageId == "" && imageName == "" {
+		return errors.New("no image id or image name provided")
+	}
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -73,13 +89,13 @@ func tagImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
+	if err := context.Providers().Image.Tag(provider.ImageTagConfig{
+		ImageId:         imageId,
+		ImageName:       imageName,
+		TargetImageName: targetImageName,
+		ShowOutput:      showOutput,
+	}); err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()

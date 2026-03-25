@@ -6,7 +6,6 @@ package image
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 
@@ -16,7 +15,7 @@ import (
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -67,12 +66,29 @@ func importImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd, params, err := buildImportPsCmd(cmd, isWindowsImage)
+	imagePath, err := cmd.Flags().GetString(tarFlag)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", tarFlag, err)
+	}
+
+	dir, err := cmd.Flags().GetString(dirFlag)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", dirFlag, err)
+	}
+
+	if imagePath == "" && dir == "" {
+		return errors.New("no path to oci archive provided")
+	}
+
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	slog.Debug("PS command created", "command", psCmd, "params", params)
+	isDockerArchive, err := strconv.ParseBool(cmd.Flags().Lookup(dockerArchiveFlag).Value.String())
+	if err != nil {
+		return err
+	}
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -90,13 +106,14 @@ func importImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
+	if err := context.Providers().Image.Import(provider.ImageImportConfig{
+		TarPath:       imagePath,
+		DirPath:       dir,
+		Windows:       isWindowsImage,
+		DockerArchive: isDockerArchive,
+		ShowOutput:    showOutput,
+	}); err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()

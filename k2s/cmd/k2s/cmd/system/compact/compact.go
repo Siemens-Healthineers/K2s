@@ -5,18 +5,16 @@ package compact
 
 import (
 	"errors"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -59,13 +57,6 @@ func compactVhdx(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	compactCommand, err := buildCompactCmd(outputFlag)
-	if err != nil {
-		return err
-	}
-
-	slog.Debug("PS command created", "command", compactCommand)
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
@@ -104,8 +95,11 @@ func compactVhdx(cmd *cobra.Command, args []string) error {
 	}
 	defer handle.Release()
 
-	err = powershell.ExecutePs(compactCommand, common.NewPtermWriter())
-	if err != nil {
+	if err := context.Providers().System.Compact(provider.SystemCompactConfig{
+		NoRestart:  noRestartFlag,
+		Yes:        yesFlag,
+		ShowOutput: outputFlag,
+	}); err != nil {
 		return err
 	}
 
