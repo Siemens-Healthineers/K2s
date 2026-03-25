@@ -14,6 +14,7 @@ import (
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -127,7 +128,33 @@ func listImages(cmd *cobra.Command, args []string) error {
 	}
 
 	getImagesFunc := func() (*LoadedImages, error) {
-		return getImages(includeK8sImages)
+		result, err := context.Providers().Image.List(provider.ImageListConfig{
+			IncludeK8sImages: includeK8sImages,
+		})
+		if err != nil {
+			return nil, err
+		}
+		loaded := &LoadedImages{}
+		if result.ContainerRegistry != "" {
+			reg := result.ContainerRegistry
+			loaded.ContainerRegistry = &reg
+		}
+		for _, img := range result.ContainerImages {
+			loaded.ContainerImages = append(loaded.ContainerImages, containerImage{
+				ImageId:    img.ImageId,
+				Repository: img.Repository,
+				Tag:        img.Tag,
+				Node:       img.Node,
+				Size:       img.Size,
+			})
+		}
+		for _, img := range result.PushedImages {
+			loaded.PushedImages = append(loaded.PushedImages, pushedImage{
+				Name: img.Name,
+				Tag:  img.Tag,
+			})
+		}
+		return loaded, nil
 	}
 
 	if outputOption == jsonOption {

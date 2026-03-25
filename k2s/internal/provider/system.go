@@ -37,16 +37,22 @@ type SystemProvider interface {
 
 // SystemDumpConfig holds parameters for the dump operation.
 type SystemDumpConfig struct {
-	OutputDir  string
-	ShowOutput bool
+	OutputDir    string
+	SkipOpenDump bool
+	ShowOutput   bool
 }
 
 // SystemUpgradeConfig holds parameters for the upgrade operation.
 type SystemUpgradeConfig struct {
 	PackagePath        string
+	ConfigFile         string
+	Proxy              string
+	BackupDir          string
 	AdditionalHooksDir string
 	SkipImages         bool
+	SkipResources      bool
 	ForceOnline        bool
+	Force              bool
 	ShowOutput         bool
 	DeletePackage      bool
 }
@@ -68,27 +74,36 @@ type SystemResetConfig struct {
 // SystemResetNetworkConfig holds parameters for network reset.
 type SystemResetNetworkConfig struct {
 	AdditionalHooksDir string
+	Force              bool
 	ShowOutput         bool
 }
 
 // SystemCompactConfig holds parameters for the compact operation.
 type SystemCompactConfig struct {
+	NoRestart  bool
+	Yes        bool
 	ShowOutput bool
 }
 
 // SystemBackupConfig holds parameters for the backup operation.
 type SystemBackupConfig struct {
-	BackupDir  string
-	ShowOutput bool
+	BackupFile         string
+	AdditionalHooksDir string
+	SkipImages         bool
+	SkipPVs            bool
+	ShowOutput         bool
 }
 
 // SystemRestoreConfig holds parameters for the restore operation.
 type SystemRestoreConfig struct {
-	BackupDir  string
-	ShowOutput bool
+	BackupFile         string
+	AdditionalHooksDir string
+	ErrorOnFailure     bool
+	ShowOutput         bool
 }
 
 // SystemCertRenewConfig holds parameters for certificate renewal.
 type SystemCertRenewConfig struct {
+	Force      bool
 	ShowOutput bool
 }

@@ -26,14 +26,20 @@ func newWindowsNodeProvider(cfg ProviderConfig) *windowsNodeProvider {
 }
 
 func (p *windowsNodeProvider) Add(cfg NodeAddConfig) error {
-	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "k2s", "node", "Add-Node.ps1"))
+	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "worker", "linux", "bare-metal", "Add.ps1"))
 
 	var params string
-	if cfg.NodeType != "" {
-		params += " -NodeType " + cfg.NodeType
+	if cfg.UserName != "" {
+		params += " -UserName " + cfg.UserName
 	}
 	if cfg.IpAddress != "" {
 		params += " -IpAddress " + cfg.IpAddress
+	}
+	if cfg.NodeName != "" {
+		params += " -NodeName " + cfg.NodeName
+	}
+	if cfg.NodePackagePath != "" {
+		params += " -NodePackagePath '" + cfg.NodePackagePath + "'"
 	}
 	if cfg.ShowOutput {
 		params += " -ShowLogs"
@@ -43,7 +49,7 @@ func (p *windowsNodeProvider) Add(cfg NodeAddConfig) error {
 }
 
 func (p *windowsNodeProvider) Remove(cfg NodeRemoveConfig) error {
-	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "k2s", "node", "Remove-Node.ps1"))
+	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "worker", "linux", "bare-metal", "Remove.ps1"))
 
 	var params string
 	if cfg.NodeName != "" {

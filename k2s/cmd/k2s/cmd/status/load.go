@@ -5,6 +5,7 @@ package status
 
 import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 type LoadedStatus struct {
@@ -55,4 +56,65 @@ type Capacity struct {
 	Cpu     string `json:"cpu"`
 	Storage string `json:"storage"`
 	Memory  string `json:"memory"`
+}
+
+// LoadStatus delegates status loading to the platform provider.
+// The provider returns domain types which are mapped back to the command-local
+// types used by the printer chain.
+func LoadStatus(ctx *common.CmdContext) (*LoadedStatus, error) {
+	clusterStatus, err := ctx.Providers().Cluster.Status(provider.ClusterStatusConfig{})
+	if err != nil {
+		return nil, err
+	}
+
+	result := &LoadedStatus{
+		CmdResult: common.CmdResult{},
+		RunningState: &RunningState{
+			IsRunning: clusterStatus.IsRunning,
+			Issues:    clusterStatus.Issues,
+		},
+	}
+
+	for _, n := range clusterStatus.Nodes {
+		result.Nodes = append(result.Nodes, Node{
+			Status:           n.Status,
+			Name:             n.Name,
+			Role:             n.Role,
+			Age:              n.Age,
+			KubeletVersion:   n.KubeletVersion,
+			KernelVersion:    n.KernelVersion,
+			OsImage:          n.OsImage,
+			ContainerRuntime: n.ContainerRuntime,
+			InternalIp:       n.InternalIp,
+			IsReady:          n.IsReady,
+			Capacity: Capacity{
+				Cpu:     n.Capacity.Cpu,
+				Storage: n.Capacity.Storage,
+				Memory:  n.Capacity.Memory,
+			},
+		})
+	}
+
+	for _, p := range clusterStatus.Pods {
+		result.Pods = append(result.Pods, Pod{
+			Status:    p.Status,
+			Namespace: p.Namespace,
+			Name:      p.Name,
+			Ready:     p.Ready,
+			Restarts:  p.Restarts,
+			Age:       p.Age,
+			Ip:        p.Ip,
+			Node:      p.Node,
+			IsRunning: p.IsRunning,
+		})
+	}
+
+	if clusterStatus.K8sVersionInfo != nil {
+		result.K8sVersionInfo = &K8sVersionInfo{
+			K8sServerVersion: clusterStatus.K8sVersionInfo.K8sServerVersion,
+			K8sClientVersion: clusterStatus.K8sVersionInfo.K8sClientVersion,
+		}
+	}
+
+	return result, nil
 }
