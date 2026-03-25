@@ -65,6 +65,7 @@ type AddonInfo struct {
 // AddonStatusConfig holds parameters for querying addon status.
 type AddonStatusConfig struct {
 	Name       string // Empty means all addons
+	Directory  string // Full path to addon directory (required by PS Get-Status.ps1)
 	ShowOutput bool
 }
 

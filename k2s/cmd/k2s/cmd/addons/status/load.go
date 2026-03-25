@@ -23,7 +23,8 @@ type AddonStatusProp struct {
 
 func LoadAddonStatus(addonProv provider.AddonProvider, addonName string, addonDirectory string) (*LoadedAddonStatus, error) {
 	result, err := addonProv.Status(provider.AddonStatusConfig{
-		Name: addonName,
+		Name:      addonName,
+		Directory: addonDirectory,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not load addon status for '%s': %w", addonName, err)
