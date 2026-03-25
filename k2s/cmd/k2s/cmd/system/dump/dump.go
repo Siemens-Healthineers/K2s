@@ -4,17 +4,13 @@
 package dump
 
 import (
-	"log/slog"
-	"path/filepath"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 var (
@@ -46,20 +42,12 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	dumpStatusCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "dump", "dump.ps1"))
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 
-	if skipOpenDumpFlag {
-		dumpStatusCommand += " -OpenDumpFolder `$false"
-	}
-
-	if outputFlag {
-		dumpStatusCommand += " -ShowLogs"
-	}
-
-	slog.Debug("PS command created", "command", dumpStatusCommand)
-
-	err = powershell.ExecutePs(dumpStatusCommand, common.NewPtermWriter())
-	if err != nil {
+	if err := context.Providers().System.Dump(provider.SystemDumpConfig{
+		SkipOpenDump: skipOpenDumpFlag,
+		ShowOutput:   outputFlag,
+	}); err != nil {
 		return err
 	}
 
