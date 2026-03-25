@@ -114,23 +114,36 @@ else {
 if ($patchApplied) {
 	(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', 'headlamp', '-n', 'dashboard', '--timeout', '120s').Output | Write-Log
 
-	# Wait for the old pod to be fully gone before returning so callers see a clean single-pod state.
+	# Wait for the old pod to be fully gone — ignore pods already in a terminal state
+	# (Error, Completed, OOMKilled, CrashLoopBackOff) so they don't block this check.
 	Write-Log '[Dashboard] Waiting for old headlamp pod to terminate...'
+	$terminalPhases = @('Succeeded', 'Failed')
+	$terminalReasons = @('Error', 'Completed', 'OOMKilled', 'CrashLoopBackOff', 'CreateContainerConfigError')
 	$maxWait = 60
 	$waited = 0
 	do {
 		$podsJson = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'dashboard',
 			'-l', 'app.kubernetes.io/name=headlamp', '-o', 'json').Output
-		$podCount = 0
+		$activePodCount = 0
 		if ($podsJson) {
 			try {
 				$podList = $podsJson | ConvertFrom-Json
-				$podCount = @($podList.items).Count
+				foreach ($pod in @($podList.items)) {
+					$phase = $pod.status.phase
+					$reason = $pod.status.reason
+					$containerReason = $pod.status.containerStatuses | Select-Object -First 1 |
+						ForEach-Object { $_.state.waiting.reason; $_.state.terminated.reason } |
+						Where-Object { $_ } | Select-Object -First 1
+					$isTerminal = ($phase -in $terminalPhases) -or
+					              ($reason -in $terminalReasons) -or
+					              ($containerReason -in $terminalReasons)
+					if (-not $isTerminal) { $activePodCount++ }
+				}
 			}
-			catch { $podCount = 1 }
+			catch { $activePodCount = 1 }
 		}
-		if ($podCount -le 1) { break }
-		Write-Log "[Dashboard] $podCount headlamp pods still present (old pod terminating), waiting..."
+		if ($activePodCount -le 1) { break }
+		Write-Log "[Dashboard] $activePodCount active headlamp pods still present (old pod terminating), waiting..."
 		Start-Sleep -Seconds 2
 		$waited += 2
 	} while ($waited -lt $maxWait)
