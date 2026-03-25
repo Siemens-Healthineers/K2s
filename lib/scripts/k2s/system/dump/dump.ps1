@@ -1,4 +1,5 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -89,6 +90,12 @@ function Invoke-LinuxNodeDetailsCollection(
         $linuxNodeDumpFile = Join-Path $NodeDetailsDirectory "$($linuxNodeName)-node.txt"
         (Invoke-CmdOnControlPlaneViaSSHKey 'uname -a').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ uname -a'
         (Invoke-CmdOnControlPlaneViaSSHKey 'cat /proc/version').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ cat /proc/version'
+
+        $linuxProcessesDumpFile = Join-Path $NodeDetailsDirectory "$($linuxNodeName)-processes.txt"
+        (Invoke-CmdOnControlPlaneViaSSHKey 'ps aux --sort=-%mem').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxProcessesDumpFile -Description 'KubeMaster~$ ps aux --sort=-%mem'
+
+        $linuxSystemdDumpFile = Join-Path $NodeDetailsDirectory "$($linuxNodeName)-systemd-units.txt"
+        (Invoke-CmdOnControlPlaneViaSSHKey 'systemctl list-units --type=service --all').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxSystemdDumpFile -Description 'KubeMaster~$ systemctl list-units --type=service --all'
     }
 }
 
@@ -175,6 +182,8 @@ function Invoke-HostDiagnosticsCollection(
     Write-Log '[HostDiag] Collecting MSINFO32...'
     $msinfoFile = Join-Path $HostDiagnosticsDir "$env:COMPUTERNAME`_MSINFO32.NFO"
     Start-Process -FilePath "MSINFO32.exe" -ArgumentList "/nfo $msinfoFile /categories +all" -Wait
+    Write-Log '[HostDiag] Collecting running processes...'
+    Get-Process | Format-Table -AutoSize Id, ProcessName, CPU, WorkingSet64, Path | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir "processes.txt") -Description "Get-Process"
     Write-Log '[HostDiag] Host diagnostics collection finished.'
 }
 
