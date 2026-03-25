@@ -185,12 +185,12 @@ if ( $UseSoftwareVirtualization ) {
 }
 
 # deploy kubevirt
-$VERSION_KV = 'v0.59.2'
+$VERSION_KV = 'v1.7.2'
 Write-Log "deploy kubevirt version $VERSION_KV"
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-operator.yaml").Output | Write-Log
 
 # deploy virtctrl
-$VERSION_VCTRL = 'v0.59.2'
+$VERSION_VCTRL = 'v1.7.2'
 $IMPLICITPROXY = "http://$(Get-ConfiguredKubeSwitchIP):8181"
 Write-Log "deploy virtctl version $VERSION_VCTRL"
 if ( $K8sSetup -eq 'SmallSetup' ) {

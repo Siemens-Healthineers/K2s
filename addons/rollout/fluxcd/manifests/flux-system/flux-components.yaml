@@ -1,6 +1,7 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -8048,7 +8049,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/helm-controller:v1.5.2
+        image: ghcr.io/fluxcd/helm-controller:v1.5.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

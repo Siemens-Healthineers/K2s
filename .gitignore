@@ -104,6 +104,13 @@ addons/hooks
 # apps in /k2s exclude 
 /k2s/**/*.exe
 
+# Linux binaries built via cross-compilation
+/k2s/cloudinitisobuilder
+/k2s/httpproxy
+/k2s/pause
+/k2s/yaml2json
+/k2s/k2s
+
 tmp/**/*
 
 # temp files in /k2s
@@ -174,6 +181,7 @@ addons/security/manifests/linkerd/linkerd.yaml
 addons/security/manifests/linkerd/linkerd-crds.yaml
 addons/storage/smb/build/smbplugin.exe
 addons/storage/smb/build/csi-node-driver-registrar.exe
+addons/.addon-sync-digests/
 bin/debian-12-genericcloud-amd64.qcow2
 **/debianpackages/**/*.deb
 **/linuxpackages/**

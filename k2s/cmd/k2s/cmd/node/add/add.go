@@ -6,7 +6,7 @@ package add
 import (
 	"errors"
 	"fmt"
-	"log/slog"
+	"path/filepath"
 	"strconv"
 
 	"github.com/pterm/pterm"
@@ -16,7 +16,7 @@ import (
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -30,6 +30,8 @@ const (
 	MachineUsernameFlagUsage  = "Username of the machine for remote connection"
 	MachineRole               = "role"
 	MachineRoleFlagUsage      = "Role of the machine as a node"
+	NodePackagePath           = "node-package"
+	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet."
 )
 
 func NewCmd() *cobra.Command {
@@ -43,6 +45,7 @@ func NewCmd() *cobra.Command {
 	cmd.Flags().StringP(MachineUsername, "u", "", MachineUsernameFlagUsage)
 	cmd.Flags().StringP(MachineName, "m", "", MachineNameFlagUsage)
 	cmd.Flags().StringP(MachineRole, "r", "worker", MachineRoleFlagUsage)
+	cmd.Flags().StringP(NodePackagePath, "p", "", NodePackagePathFlagUsage)
 
 	cmd.MarkFlagRequired(MachineIPAddress)
 	cmd.MarkFlagRequired(MachineUsername)
@@ -72,7 +75,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	systemStatus, err := status.LoadStatus()
+	systemStatus, err := status.LoadStatus(context)
 	if err != nil {
 		return fmt.Errorf("could not determine system status: %w", err)
 	}
@@ -81,16 +84,29 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	addNodeCmd, err := buildAddNodeCmd(ccmd.Flags(), runtimeConfig.InstallConfig().SetupName())
+	if runtimeConfig.InstallConfig().SetupName() != definitions.SetupNameK2s {
+		return errors.New("adding node is not supported for this setup type. Aborting")
+	}
+
+	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	pterm.Printfln("🤖 Adding node to K2s cluster")
-	slog.Debug("PS command created", "command", addNodeCmd)
+	machineUserName := ccmd.Flags().Lookup(MachineUsername).Value.String()
+	machineIpAddress := ccmd.Flags().Lookup(MachineIPAddress).Value.String()
+	machineName := ccmd.Flags().Lookup(MachineName).Value.String()
+	nodePackagePath := ccmd.Flags().Lookup(NodePackagePath).Value.String()
 
-	err = powershell.ExecutePs(addNodeCmd, common.NewPtermWriter())
-	if err != nil {
+	pterm.Printfln("🤖 Adding node to K2s cluster")
+
+	if err := context.Providers().Node.Add(provider.NodeAddConfig{
+		IpAddress:       machineIpAddress,
+		UserName:        machineUserName,
+		NodeName:        machineName,
+		NodePackagePath: nodePackagePath,
+		ShowOutput:      outputFlag,
+	}); err != nil {
 		return err
 	}
 
@@ -109,23 +125,28 @@ func buildAddNodeCmd(flags *pflag.FlagSet, setupName string) (string, error) {
 		return "", errors.New("adding node is not supported for this setup type. Aborting")
 	}
 
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\worker\\linux\\bare-metal\\Add.ps1")
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "worker", "linux", "bare-metal", "Add.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"
 	}
 
-	// TODO: usage of role
+	// role flag is accepted but only 'worker' is currently implemented
 
 	machineUserName := flags.Lookup(MachineUsername).Value.String()
 	machineIpAddress := flags.Lookup(MachineIPAddress).Value.String()
 	machineName := flags.Lookup(MachineName).Value.String()
+	nodePackagePath := flags.Lookup(NodePackagePath).Value.String()
 
 	cmd += " -UserName " + machineUserName
 	cmd += " -IpAddress " + machineIpAddress
 
 	if machineName != "" {
 		cmd += " -NodeName " + machineName
+	}
+
+	if nodePackagePath != "" {
+		cmd += " -NodePackagePath " + utils.EscapeWithSingleQuotes(nodePackagePath)
 	}
 
 	return cmd, nil
