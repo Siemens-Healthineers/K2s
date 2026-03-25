@@ -6,7 +6,6 @@ package image
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 
@@ -19,7 +18,7 @@ import (
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 type removeOptions struct {
@@ -93,17 +92,14 @@ func removeImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd, params := buildRemovePsCmd(options)
-
-	slog.Debug("PS command created", "command", psCmd, "params", params)
-
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
+	if err := context.Providers().Image.Remove(provider.ImageRemoveConfig{
+		ImageId:      options.imageId,
+		ImageName:    options.imageName,
+		FromRegistry: options.fromRegistry,
+		Force:        options.force,
+		ShowOutput:   options.showOutput,
+	}); err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()

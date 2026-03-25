@@ -86,14 +86,14 @@ func printStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	printer := determinePrinter(outputOption, runtimeConfig, terminalPrinter)
+	printer := determinePrinter(outputOption, runtimeConfig, terminalPrinter, context)
 
 	return printer.Print()
 }
 
-func determinePrinter(outputOption string, config *cconfig.K2sRuntimeConfig, terminalPrinter TerminalPrinter) StatusPrinter {
+func determinePrinter(outputOption string, config *cconfig.K2sRuntimeConfig, terminalPrinter TerminalPrinter, context *common.CmdContext) StatusPrinter {
 	loadFunc := func() (*LoadedStatus, error) {
-		return LoadStatus()
+		return LoadStatus(context)
 	}
 
 	if outputOption == jsonOption {

@@ -4,15 +4,13 @@
 package certificate
 
 import (
-	"path/filepath"
 	"strconv"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 var (
@@ -46,32 +44,23 @@ func renewCertificates(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🔑 Renewing Kubernetes certificates...")
 
-	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "certificate", "renew.ps1"))
-	params := []string{}
-
 	force, err := strconv.ParseBool(cmd.Flags().Lookup("force").Value.String())
 	if err != nil {
 		return err
-	}
-	if force {
-		params = append(params, "-Force")
 	}
 
 	showLogs, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
-	if showLogs {
-		params = append(params, "-ShowLogs")
-	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+
+	if err := context.Providers().System.CertificateRenew(provider.SystemCertRenewConfig{
+		Force:      force,
+		ShowOutput: showLogs,
+	}); err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()

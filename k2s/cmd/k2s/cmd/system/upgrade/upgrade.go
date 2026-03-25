@@ -25,7 +25,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade or in-place delta update)"
@@ -151,24 +151,33 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd := createUpgradeCommand(cmd)
-
-	slog.Debug("PS command created", "command", psCmd)
-
-	outputWriter := common.NewPtermWriter()
+	skip, _ := cmd.Flags().GetBool(skipK8sResources)
+	delete, _ := cmd.Flags().GetBool(deleteFiles)
+	configFile := cmd.Flags().Lookup(configFileFlagName).Value.String()
+	proxyVal := cmd.Flags().Lookup(proxy).Value.String()
+	skipImages, _ := cmd.Flags().GetBool(skipImagesFlag)
+	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+	backupDirVal := cmd.Flags().Lookup(backupDir).Value.String()
+	forceVal, _ := cmd.Flags().GetBool(force)
 
 	switchToUpgradeLogFile(showLog, context.Logger())
 
-	psErr := powershell.ExecutePs(psCmd, outputWriter)
+	psErr := context.Providers().System.Upgrade(provider.SystemUpgradeConfig{
+		SkipResources:      skip,
+		SkipImages:         skipImages,
+		DeletePackage:      delete,
+		ConfigFile:         configFile,
+		Proxy:              proxyVal,
+		BackupDir:          backupDirVal,
+		AdditionalHooksDir: additionalHooksDir,
+		Force:              forceVal,
+		ShowOutput:         showLog,
+	})
 
 	switchToDefaultLogFile(showLog, context.Logger())
 
 	if psErr != nil {
 		return psErr
-	}
-
-	if outputWriter.ErrorOccurred {
-		return common.CreateSystemUnableToUpgradeCmdFailure()
 	}
 
 	cmdSession.Finish()
