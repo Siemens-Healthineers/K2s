@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 
 # Dashboard Addon (Headlamp) — Testing Checklist
 
-This document covers **all** testing required before raising a PR for the Headlamp dashboard addon migration (`kubernetes-sigs/headlamp`).
+This document covers **all** testing required before raising a PR for the Headlamp dashboard addon (Helm-based, `kubernetes-sigs/headlamp` v0.40.1, chart v0.40.1).
 
 ---
 
@@ -42,6 +42,18 @@ Invoke-Pester addons\dashboard\dashboard.module.unit.tests.ps1 -Tag 'unit'
 |------|----------|
 | `Get-HeadlampManifestsDirectory` returns path ending with `\manifests\headlamp` | Pass |
 | `Get-HeadlampChartDirectory` returns path ending with `\manifests\chart` | Pass |
+| `Get-HeadlampChartPath` returns full path to `headlamp-*.tgz` when chart exists | Pass |
+| `Get-HeadlampChartPath` returns `$null` when no chart file found | Pass |
+| `Install-HeadlampViaHelm` calls `Invoke-Helm` with `upgrade --install headlamp` | Pass |
+| `Install-HeadlampViaHelm` passes `--namespace dashboard` to helm | Pass |
+| `Install-HeadlampViaHelm` passes `--values` flag to helm | Pass |
+| `Install-HeadlampViaHelm` throws `"No headlamp Helm chart .tgz found"` when chart missing | Pass |
+| `Install-HeadlampViaHelm` throws `"values.yaml not found"` when values file missing | Pass |
+| `Install-HeadlampViaHelm` throws `"helm upgrade --install failed"` when helm returns non-zero | Pass |
+| `Uninstall-HeadlampViaHelm` calls `helm uninstall headlamp` when release exists | Pass |
+| `Uninstall-HeadlampViaHelm` deletes `clusterrolebinding headlamp-admin` | Pass |
+| `Uninstall-HeadlampViaHelm` deletes `namespace dashboard` | Pass |
+| `Uninstall-HeadlampViaHelm` skips `helm uninstall` when no release found | Pass |
 | `Wait-ForHeadlampAvailable` calls `Wait-ForPodCondition` with label `app.kubernetes.io/name=headlamp`, namespace `dashboard`, timeout 200s | Pass |
 | `Wait-ForHeadlampAvailable` returns `$true` when pod becomes ready | Pass |
 | `Wait-ForHeadlampAvailable` returns `$false` when pod does not become ready | Pass |
@@ -55,6 +67,9 @@ Invoke-Pester addons\dashboard\dashboard.module.unit.tests.ps1 -Tag 'unit'
 | `Write-HeadlampUsageForUser` mentions `create token headlamp` | Pass |
 | Module exports `Get-HeadlampManifestsDirectory` | Pass |
 | Module exports `Get-HeadlampChartDirectory` | Pass |
+| Module exports `Get-HeadlampChartPath` | Pass |
+| Module exports `Install-HeadlampViaHelm` | Pass |
+| Module exports `Uninstall-HeadlampViaHelm` | Pass |
 | Module exports `Wait-ForHeadlampAvailable` | Pass |
 | Module exports `Write-HeadlampUsageForUser` | Pass |
 | Module does NOT export old functions (`Get-HeadlampConfig`, `Test-SecurityAddonAvailability`) | Pass |
@@ -125,11 +140,13 @@ Invoke-Pester addons\addons.module.unit.tests.ps1 -Tag 'unit'
 k2s addons enable dashboard -o
 ```
 
-- [ ] `helm list -n dashboard` shows release `headlamp` with status `deployed`
+- [ ] Log shows `"[Dashboard] Installing Headlamp via Helm"`
+- [ ] Log shows `"Installing Headlamp via Helm chart: headlamp-0.40.1.tgz"`
+- [ ] `helm list -n dashboard` shows release `headlamp` with chart `headlamp-0.40.1`, status `deployed`
 - [ ] Headlamp deployment in namespace `dashboard` becomes available
 - [ ] Pod label `app.kubernetes.io/name=headlamp` is present
 - [ ] Service `headlamp` on port `4466` is present
-- [ ] `kubectl get clusterrolebinding headlamp-admin` exists (applied from `headlamp-service-account.yaml`)
+- [ ] `kubectl get clusterrolebinding headlamp-admin` exists (applied separately after helm install)
 - [ ] `k2s addons status dashboard` shows `IsHeadlampRunning: true` and no error
 - [ ] `k2s addons status dashboard -o json` → `props[0].Name=IsHeadlampRunning`, `props[0].Value=true`
 - [ ] Enabling again → error: `"Addon 'dashboard' is already enabled"`
@@ -138,6 +155,8 @@ k2s addons enable dashboard -o
 k2s addons disable dashboard -o
 ```
 
+- [ ] Log shows `"[Dashboard] Uninstalling Headlamp workloads via Helm"`
+- [ ] Log shows `"[Dashboard] Uninstalling Headlamp Helm release"`
 - [ ] `helm list -n dashboard` shows no `headlamp` release (uninstalled)
 - [ ] Namespace `dashboard` deleted
 - [ ] `kubectl get clusterrolebinding headlamp-admin` → not found (deleted before helm uninstall)
@@ -590,7 +609,7 @@ Manually trace the script logic:
 - [ ] Decodes base64 content with `jq -r '.content' | base64 -d`
 - [ ] Extracts version from line `image: ghcr.io/headlamp-k8s/headlamp:vX.Y.Z` using `grep -oE`
 - [ ] Outputs `vX.Y.Z` (with `v` prefix) — same format as `fetch-latest-headlamp-version`
-- [ ] Does NOT read from `Enable.ps1`, `values.yaml`, or any chart file (only `headlamp.yaml`)
+- [ ] Does NOT read from `Enable.ps1` or any chart file (only `headlamp.yaml`)
 
 ### 10.4 `create-headlamp-update-pr` template
 
@@ -706,7 +725,21 @@ reuse lint
 
 ---
 
-## 13. Pre-PR Checklist
+## 13. Helm Upgrade / Version Bump Checklist
+
+When updating Headlamp to a new version (e.g. `v0.40.1` → `v0.41.0`):
+
+- [ ] `manifests/headlamp/headlamp.yaml` — update image tag, version labels, comment, and chart reference comment
+- [ ] `manifests/chart/values.yaml` — update `image.tag`
+- [ ] `manifests/chart/` — replace `headlamp-0.40.1.tgz` with new chart `.tgz`, update `.license` sidecar filename
+- [ ] `manifests/chart/headlamp-*.tgz.license` — ensure SPDX Apache-2.0 sidecar exists for the new chart
+- [ ] Run unit tests: `Invoke-Pester addons\dashboard\dashboard.module.unit.tests.ps1`
+- [ ] Run manual test **2.1** (basic enable/disable) — verify `helm list -n dashboard` shows new chart version
+- [ ] Confirm `values.yaml` `image.tag`, `headlamp.yaml` image, and chart `.tgz` filename are all consistent
+
+---
+
+## 14. Pre-PR Checklist
 
 Before raising the PR, confirm:
 
@@ -721,4 +754,7 @@ Before raising the PR, confirm:
 - [ ] `reuse lint` passes (section 12)
 - [ ] No references to old `kubernetes-retired/dashboard`, `kong`, `kubernetes-dashboard-*.tgz` in any changed file
 - [ ] `values.yaml` `image.tag` matches `headlamp.yaml` image tag AND `manifests/chart/headlamp-X.Y.Z.tgz` version
+- [ ] `helm list -n dashboard` shows correct chart version after `k2s addons enable dashboard`
 - [ ] README.md updated for Headlamp (no old dashboard references)
+- [ ] Enable.ps1 uses `Install-HeadlampViaHelm` (not `kubectl apply -k`)
+- [ ] Disable.ps1 uses `Uninstall-HeadlampViaHelm` (not `kubectl delete -k`)

@@ -6,13 +6,7 @@
 
 <#
 .SYNOPSIS
-Uninstalls Headlamp Kubernetes Dashboard UI
-
-.DESCRIPTION
-
-.EXAMPLE
-Disable Headlamp dashboard
-powershell <installation folder>\addons\dashboard\Disable.ps1
+Uninstalls Headlamp - Kubernetes Dashboard UI
 #>
 
 Param (
@@ -63,10 +57,8 @@ Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'dashboard' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dashboard' })
 Remove-IngressForNginxGateway -Addon ([pscustomobject] @{Name = 'dashboard' })
 
-Write-Log '[Dashboard] Uninstalling Headlamp workloads, please wait ...' -Console
-$headlampManifests = "$PSScriptRoot\manifests\headlamp"
-(Invoke-Kubectl -Params 'delete', '-k', $headlampManifests, '--ignore-not-found').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'namespace', 'dashboard', '--ignore-not-found').Output | Write-Log
+Write-Log '[Dashboard] Uninstalling Headlamp workloads via Helm, please wait ...' -Console
+Uninstall-HeadlampViaHelm
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 Write-Log '[Dashboard] Uninstallation of Headlamp dashboard finished' -Console

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 # Headlamp Kubernetes manifests for k2s
-# Based on Headlamp v0.30.0 (https://github.com/kubernetes-sigs/headlamp)
+# Based on Headlamp v0.40.1 (https://github.com/kubernetes-sigs/headlamp)
 ---
 apiVersion: v1
 kind: Namespace
@@ -20,8 +20,8 @@ metadata:
   labels:
     app.kubernetes.io/name: headlamp
     app.kubernetes.io/instance: headlamp
-    app.kubernetes.io/version: "0.30.0"
-    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/version: "0.40.1"
+    app.kubernetes.io/managed-by: Helm
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -65,8 +65,8 @@ metadata:
   labels:
     app.kubernetes.io/name: headlamp
     app.kubernetes.io/instance: headlamp
-    app.kubernetes.io/version: "0.30.0"
-    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/version: "0.40.1"
+    app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
   selector:
@@ -97,7 +97,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-          image: ghcr.io/headlamp-k8s/headlamp:v0.30.0
+          image: ghcr.io/headlamp-k8s/headlamp:v0.40.1
           imagePullPolicy: IfNotPresent
           args:
             - "-in-cluster"

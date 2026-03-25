@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Headlamp Helm chart values for k2s
+# Chart: headlamp-0.40.1  (https://headlamp-k8s.github.io/headlamp)
+
+image:
+  registry: ghcr.io
+  repository: headlamp-k8s/headlamp
+  tag: "v0.40.1"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+config:
+  baseURL: "/dashboard"
+  pluginsDir: "/tmp/headlamp/plugins"
+
+serviceAccount:
+  create: true
+  name: "headlamp"
+
+clusterRoleBinding:
+  create: true
+  clusterRoleName: cluster-admin
+
+nodeSelector:
+  kubernetes.io/os: linux
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+service:
+  port: 4466
+
+ingress:
+  enabled: false

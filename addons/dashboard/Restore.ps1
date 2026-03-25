@@ -6,15 +6,7 @@
 
 <#[
 .SYNOPSIS
-Restores dashboard configuration from a backup staging folder
-
-.DESCRIPTION
-This restore is metadata-only. It restores:
-- ingress integration choice (none/nginx/traefik/nginx-gw)
-- whether metrics addon should be enabled
-
-It ensures the dashboard addon is enabled, then runs Update.ps1 to
-re-apply ingress integration and service-mesh patches based on current cluster state.
+Restores dashboard addon configuration from a backup staging folder.
 
 .PARAMETER BackupDir
 Directory containing extracted backup artifacts (including backup.json).

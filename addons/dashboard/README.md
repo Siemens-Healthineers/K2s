@@ -10,8 +10,6 @@ SPDX-License-Identifier: MIT
 
 The `dashboard` addon provides **Headlamp** — a lightweight, extensible Kubernetes web UI developed under the `kubernetes-sigs` organization (CNCF sandbox project). It allows users to browse and manage cluster resources, inspect workloads, view logs, and troubleshoot containerized applications.
 
-> **Note:** The previous `kubernetes/dashboard` project has been retired and archived at `github.com/kubernetes-retired/dashboard`. Headlamp is the recommended replacement.
-
 ## Getting started
 
 The Headlamp dashboard can be enabled using the k2s CLI:

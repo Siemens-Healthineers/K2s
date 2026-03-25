@@ -10,34 +10,79 @@ $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule
 
-<#
-.DESCRIPTION
-Gets the location of static Headlamp Kubernetes manifests
-#>
 function Get-HeadlampManifestsDirectory {
     return "$PSScriptRoot\manifests\headlamp"
 }
 
-<#
-.DESCRIPTION
-Enables the metrics server addon.
-#>
+function Get-HeadlampChartDirectory {
+    return "$PSScriptRoot\manifests\chart"
+}
+
+function Get-HeadlampChartPath {
+    $chartDir = Get-HeadlampChartDirectory
+    $charts = @(Get-ChildItem -Path $chartDir -Filter 'headlamp-*.tgz' -ErrorAction SilentlyContinue)
+    if ($charts.Count -eq 0) {
+        return $null
+    }
+    return $charts[0].FullName
+}
+
+function Install-HeadlampViaHelm {
+    $chartDir = Get-HeadlampChartDirectory
+    $chartPath = Get-HeadlampChartPath
+    if ($null -eq $chartPath) {
+        throw '[Dashboard] No headlamp Helm chart .tgz found in manifests/chart/'
+    }
+    $valuesPath = Join-Path $chartDir 'values.yaml'
+    if (-not (Test-Path $valuesPath)) {
+        throw "[Dashboard] values.yaml not found at '$valuesPath'"
+    }
+
+    $nsExists = (Invoke-Kubectl -Params 'get', 'namespace', 'dashboard', '--ignore-not-found').Output
+    if (-not $nsExists) {
+        Write-Log '[Dashboard] Creating dashboard namespace' -Console
+        (Invoke-Kubectl -Params 'create', 'namespace', 'dashboard').Output | Write-Log
+        (Invoke-Kubectl -Params 'label', 'namespace', 'dashboard', 'app.kubernetes.io/name=headlamp', '--overwrite').Output | Write-Log
+    }
+
+    Write-Log "[Dashboard] Installing Headlamp via Helm chart: $(Split-Path $chartPath -Leaf)" -Console
+    $helmResult = Invoke-Helm -Params @(
+        'upgrade', '--install', 'headlamp', $chartPath,
+        '--namespace', 'dashboard',
+        '--values', $valuesPath
+    )
+    $helmResult.Output | Write-Log
+    if (-not $helmResult.Success) {
+        throw '[Dashboard] helm upgrade --install failed. See log for details.'
+    }
+}
+
+function Uninstall-HeadlampViaHelm {
+    $releaseExists = (Invoke-Helm -Params @('list', '-n', 'dashboard', '-q')).Output
+    if ($releaseExists -match 'headlamp') {
+        Write-Log '[Dashboard] Uninstalling Headlamp Helm release' -Console
+        $helmResult = Invoke-Helm -Params @('uninstall', 'headlamp', '--namespace', 'dashboard', '--wait', '--timeout', '2m0s')
+        $helmResult.Output | Write-Log
+        if (-not $helmResult.Success) {
+            Write-Log '[Dashboard] Warning: helm uninstall returned non-zero; continuing cleanup' -Console
+        }
+    }
+    else {
+        Write-Log '[Dashboard] No headlamp Helm release found; skipping helm uninstall' -Console
+    }
+
+    (Invoke-Kubectl -Params 'delete', 'clusterrolebinding', 'headlamp-admin', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'namespace', 'dashboard', '--ignore-not-found').Output | Write-Log
+}
+
 function Enable-MetricsServer {
     &"$PSScriptRoot\..\metrics\Enable.ps1" -ShowLogs:$ShowLogs
 }
 
-<#
-.DESCRIPTION
-Waits for the Headlamp pod to be available.
-#>
 function Wait-ForHeadlampAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=headlamp' -Namespace 'dashboard' -TimeoutSeconds 200)
 }
 
-<#
-.DESCRIPTION
-Writes the usage notes for Headlamp for the user.
-#>
 function Write-HeadlampUsageForUser {
     @"
                 DASHBOARD ADDON (Headlamp) - USAGE NOTES
@@ -67,4 +112,4 @@ function Write-HeadlampUsageForUser {
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
-Export-ModuleMember -Function Get-HeadlampManifestsDirectory, Enable-MetricsServer, Wait-ForHeadlampAvailable, Write-HeadlampUsageForUser
+Export-ModuleMember -Function Get-HeadlampManifestsDirectory, Get-HeadlampChartDirectory, Get-HeadlampChartPath, Install-HeadlampViaHelm, Uninstall-HeadlampViaHelm, Enable-MetricsServer, Wait-ForHeadlampAvailable, Write-HeadlampUsageForUser

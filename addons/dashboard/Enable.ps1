@@ -8,19 +8,9 @@
 .SYNOPSIS
 Installs Headlamp - Kubernetes Dashboard UI
 
-.DESCRIPTION
-Headlamp is a lightweight, extensible Kubernetes web UI (CNCF sandbox project under kubernetes-sigs).
-You can use Headlamp to:
-- get an overview of applications running on your cluster
-- browse and manage Kubernetes resources
-- troubleshoot your containerized application
-
 .EXAMPLE
-Enable Headlamp dashboard in k2s
-powershell <installation folder>\addons\dashboard\Enable.ps1
-
-Enable Headlamp dashboard in k2s with nginx addon and metrics server addon
-powershell <installation folder>\addons\dashboard\Enable.ps1 -Ingress "nginx" -EnableMetricsServer
+k2s addons enable dashboard
+k2s addons enable dashboard --ingress nginx --enable-metrics
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
@@ -89,10 +79,21 @@ if ($EnableMetricsServer) {
     Enable-MetricsServer
 }
 
-Write-Log '[Dashboard] Installing Headlamp' -Console
-$headlampManifests = "$PSScriptRoot\manifests\headlamp"
+Write-Log '[Dashboard] Installing Headlamp via Helm' -Console
 
-(Invoke-Kubectl -Params 'apply', '-k', $headlampManifests).Output | Write-Log
+try {
+    Install-HeadlampViaHelm
+}
+catch {
+    $errMsg = "Failed to install Headlamp via Helm: $($_.Exception.Message)"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 Write-Log '[Dashboard] Checking Headlamp status' -Console
 $headlampReady = Wait-ForHeadlampAvailable

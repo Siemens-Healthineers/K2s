@@ -10,10 +10,12 @@ Param(
 	[string] $PreferredIngress = 'auto'
 )
 
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $dashboardModule = "$PSScriptRoot\dashboard.module.psm1"
 
-Import-Module $addonsModule, $dashboardModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $dashboardModule
 
 $addonObj = [pscustomobject] @{ Name = 'dashboard' }
 
@@ -41,7 +43,6 @@ elseif ($PreferredIngress -eq 'nginx-gw') {
 	Update-IngressForNginxGateway -Addon $addonObj
 }
 
-# Service mesh (Linkerd) integration for the single Headlamp deployment
 $linkerdEnabled = Test-LinkerdServiceAvailability
 $patchApplied = $false
 if ($linkerdEnabled) {
@@ -55,7 +56,6 @@ if ($linkerdEnabled) {
 	do {
 		$attempt++
 		$headlampDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'headlamp', '-n', 'dashboard', '-o', 'json').Output | ConvertFrom-Json
-		# Guard against null annotations object on fresh deployment
 		$linkerdAnnotation = $null
 		if ($null -ne $headlampDeployment.spec.template.metadata.annotations) {
 			$linkerdAnnotation = $headlampDeployment.spec.template.metadata.annotations.'linkerd.io/inject'
@@ -73,8 +73,6 @@ if ($linkerdEnabled) {
 	$patchApplied = $true
 }
 else {
-	# Check whether the annotation is already absent before patching to avoid an
-	# unnecessary pod restart on every dashboard enable when Linkerd was never installed.
 	$currentDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'headlamp', '-n', 'dashboard', '-o', 'json').Output | ConvertFrom-Json
 	$currentAnnotation = $null
 	if ($null -ne $currentDeployment.spec.template.metadata.annotations) {
@@ -114,7 +112,32 @@ else {
 }
 
 if ($patchApplied) {
-	(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', 'headlamp', '-n', 'dashboard', '--timeout', '60s').Output | Write-Log
+	(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', 'headlamp', '-n', 'dashboard', '--timeout', '120s').Output | Write-Log
+
+	# Wait for the old pod to be fully gone before returning so callers see a clean single-pod state.
+	Write-Log '[Dashboard] Waiting for old headlamp pod to terminate...'
+	$maxWait = 60
+	$waited = 0
+	do {
+		$podsJson = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'dashboard',
+			'-l', 'app.kubernetes.io/name=headlamp', '-o', 'json').Output
+		$podCount = 0
+		if ($podsJson) {
+			try {
+				$podList = $podsJson | ConvertFrom-Json
+				$podCount = @($podList.items).Count
+			}
+			catch { $podCount = 1 }
+		}
+		if ($podCount -le 1) { break }
+		Write-Log "[Dashboard] $podCount headlamp pods still present (old pod terminating), waiting..."
+		Start-Sleep -Seconds 2
+		$waited += 2
+	} while ($waited -lt $maxWait)
+
+	if ($waited -ge $maxWait) {
+		Write-Log '[Dashboard] Warning: old headlamp pod did not terminate within the expected time; continuing anyway.' -Console
+	}
 }
 
 Write-Log '[Dashboard] Updating dashboard addon finished.' -Console
