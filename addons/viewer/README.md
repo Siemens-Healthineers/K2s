@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 
 ## Introduction
 
-The `viewer` addon provides a local Dicom images viewer based in the Ohif viewer running inside k2s.
+The `viewer` addon provides a local Dicom images viewer based in the [OHIF Viewer v3.12.0](https://github.com/OHIF/Viewers/releases/tag/v3.12.0) running inside k2s.
 
 ## Getting started
 
