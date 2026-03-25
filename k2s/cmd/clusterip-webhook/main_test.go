@@ -5,9 +5,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -211,8 +214,65 @@ func itoa(i int) string {
 	return fmt.Sprintf("%d", i)
 }
 
+// --- OSCache tests ---
+
+func TestOSCache_StoreAndLookup(t *testing.T) {
+	c := NewOSCache(5 * time.Second)
+	c.Store("default", map[string]string{"app": "myapp"}, "windows")
+
+	result := c.Lookup("default", map[string]string{"app": "myapp"})
+	if result != "windows" {
+		t.Errorf("got %q, want windows", result)
+	}
+}
+
+func TestOSCache_LookupMiss(t *testing.T) {
+	c := NewOSCache(5 * time.Second)
+
+	result := c.Lookup("default", map[string]string{"app": "missing"})
+	if result != "" {
+		t.Errorf("got %q, want empty string for cache miss", result)
+	}
+}
+
+func TestOSCache_Expiry(t *testing.T) {
+	c := NewOSCache(1 * time.Millisecond)
+	c.Store("default", map[string]string{"app": "myapp"}, "windows")
+
+	time.Sleep(5 * time.Millisecond)
+
+	result := c.Lookup("default", map[string]string{"app": "myapp"})
+	if result != "" {
+		t.Errorf("got %q, want empty string for expired entry", result)
+	}
+}
+
+func TestOSCache_DifferentNamespaces(t *testing.T) {
+	c := NewOSCache(5 * time.Second)
+	c.Store("ns1", map[string]string{"app": "myapp"}, "windows")
+	c.Store("ns2", map[string]string{"app": "myapp"}, "linux")
+
+	if result := c.Lookup("ns1", map[string]string{"app": "myapp"}); result != "windows" {
+		t.Errorf("ns1: got %q, want windows", result)
+	}
+	if result := c.Lookup("ns2", map[string]string{"app": "myapp"}); result != "linux" {
+		t.Errorf("ns2: got %q, want linux", result)
+	}
+}
+
+func TestCacheKey_Deterministic(t *testing.T) {
+	// Same labels in different insertion order should produce the same key
+	k1 := cacheKey("ns", map[string]string{"a": "1", "b": "2"})
+	k2 := cacheKey("ns", map[string]string{"b": "2", "a": "1"})
+	if k1 != k2 {
+		t.Errorf("keys differ: %q vs %q", k1, k2)
+	}
+}
+
+// --- detectTargetOS tests ---
+
 func TestDetectTargetOS_NilSelector(t *testing.T) {
-	h := &WebhookHandler{clientset: fake.NewSimpleClientset()}
+	h := &WebhookHandler{clientset: fake.NewSimpleClientset(), cache: NewOSCache(5 * time.Second)}
 	result := h.detectTargetOS("default", nil)
 	if result != "linux" {
 		t.Errorf("got %s, want linux for nil selector", result)
@@ -220,10 +280,49 @@ func TestDetectTargetOS_NilSelector(t *testing.T) {
 }
 
 func TestDetectTargetOS_EmptySelector(t *testing.T) {
-	h := &WebhookHandler{clientset: fake.NewSimpleClientset()}
+	h := &WebhookHandler{clientset: fake.NewSimpleClientset(), cache: NewOSCache(5 * time.Second)}
 	result := h.detectTargetOS("default", map[string]string{})
 	if result != "linux" {
 		t.Errorf("got %s, want linux for empty selector", result)
+	}
+}
+
+func TestDetectTargetOS_CacheHit(t *testing.T) {
+	h := &WebhookHandler{clientset: fake.NewSimpleClientset(), cache: NewOSCache(5 * time.Second)}
+	h.cache.Store("default", map[string]string{"app": "win-app"}, "windows")
+
+	result := h.detectTargetOS("default", map[string]string{"app": "win-app"})
+	if result != "windows" {
+		t.Errorf("got %s, want windows (from cache)", result)
+	}
+}
+
+func TestDetectTargetOS_WorkloadNodeSelector(t *testing.T) {
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "win-deploy",
+			Namespace: "default",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "win-app"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "win-app"},
+				},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "windows"},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(deploy)
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
+
+	result := h.detectTargetOS("default", map[string]string{"app": "win-app"})
+	if result != "windows" {
+		t.Errorf("got %s, want windows (from workload nodeSelector)", result)
 	}
 }
 
@@ -245,7 +344,7 @@ func TestDetectTargetOS_PodOnWindowsNode(t *testing.T) {
 		},
 	}
 	client := fake.NewSimpleClientset(node, pod)
-	h := &WebhookHandler{clientset: client}
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
 
 	result := h.detectTargetOS("default", map[string]string{"app": "win-app"})
 	if result != "windows" {
@@ -271,7 +370,7 @@ func TestDetectTargetOS_PodOnLinuxNode(t *testing.T) {
 		},
 	}
 	client := fake.NewSimpleClientset(node, pod)
-	h := &WebhookHandler{clientset: client}
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
 
 	result := h.detectTargetOS("default", map[string]string{"app": "linux-app"})
 	if result != "linux" {
@@ -280,7 +379,6 @@ func TestDetectTargetOS_PodOnLinuxNode(t *testing.T) {
 }
 
 func TestDetectTargetOS_PodNotScheduled_DefaultsLinux(t *testing.T) {
-	// Pod exists but not yet assigned to a node
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pending-pod",
@@ -290,7 +388,7 @@ func TestDetectTargetOS_PodNotScheduled_DefaultsLinux(t *testing.T) {
 		Spec: corev1.PodSpec{},
 	}
 	client := fake.NewSimpleClientset(pod)
-	h := &WebhookHandler{clientset: client}
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
 
 	result := h.detectTargetOS("default", map[string]string{"app": "pending"})
 	if result != "linux" {
@@ -300,7 +398,7 @@ func TestDetectTargetOS_PodNotScheduled_DefaultsLinux(t *testing.T) {
 
 func TestDetectTargetOS_NoPods_DefaultsLinux(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	h := &WebhookHandler{clientset: client}
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
 
 	result := h.detectTargetOS("default", map[string]string{"app": "missing"})
 	if result != "linux" {
@@ -326,11 +424,264 @@ func TestDetectTargetOS_WrongNamespace_DefaultsLinux(t *testing.T) {
 		},
 	}
 	client := fake.NewSimpleClientset(node, pod)
-	h := &WebhookHandler{clientset: client}
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
 
-	// Service in "default", Pod in "other" — should not match
 	result := h.detectTargetOS("default", map[string]string{"app": "win-app"})
 	if result != "linux" {
 		t.Errorf("got %s, want linux (wrong namespace)", result)
+	}
+}
+
+func TestDetectTargetOS_CacheTakesPriorityOverWorkload(t *testing.T) {
+	// Even if a Linux workload exists, a cache entry for "windows" wins
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "linux-deploy",
+			Namespace: "default",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "myapp"},
+				},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "linux"},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(deploy)
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
+	h.cache.Store("default", map[string]string{"app": "myapp"}, "windows")
+
+	result := h.detectTargetOS("default", map[string]string{"app": "myapp"})
+	if result != "windows" {
+		t.Errorf("got %s, want windows (cache should win)", result)
+	}
+}
+
+// --- detectOSFromWorkloads tests ---
+
+func TestDetectOSFromWorkloads_DeploymentMatch(t *testing.T) {
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "win-deploy",
+			Namespace: "default",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "win-app", "version": "v1"},
+				},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "windows"},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(deploy)
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
+
+	ctx := context.Background()
+	result := h.detectOSFromWorkloads(ctx, "default", map[string]string{"app": "win-app"})
+	if result != "windows" {
+		t.Errorf("got %q, want windows", result)
+	}
+}
+
+func TestDetectOSFromWorkloads_NoNodeSelector(t *testing.T) {
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "deploy-no-ns",
+			Namespace: "default",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "myapp"},
+				},
+				Spec: corev1.PodSpec{},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(deploy)
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
+
+	ctx := context.Background()
+	result := h.detectOSFromWorkloads(ctx, "default", map[string]string{"app": "myapp"})
+	if result != "" {
+		t.Errorf("got %q, want empty (no nodeSelector)", result)
+	}
+}
+
+func TestDetectOSFromWorkloads_StatefulSetMatch(t *testing.T) {
+	sts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "win-sts",
+			Namespace: "default",
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "win-sts"},
+				},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{"kubernetes.io/os": "windows"},
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(sts)
+	h := &WebhookHandler{clientset: client, cache: NewOSCache(5 * time.Second)}
+
+	ctx := context.Background()
+	result := h.detectOSFromWorkloads(ctx, "default", map[string]string{"app": "win-sts"})
+	if result != "windows" {
+		t.Errorf("got %q, want windows", result)
+	}
+}
+
+// --- IsInLinuxSubnet tests ---
+
+func TestIsInLinuxSubnet(t *testing.T) {
+	alloc, _ := NewIPAllocator("172.21.0.0/24", "172.21.1.0/24", 50)
+
+	tests := []struct {
+		ip   string
+		want bool
+	}{
+		{"172.21.0.50", true},
+		{"172.21.0.100", true},
+		{"172.21.0.254", true},
+		{"172.21.1.50", false},
+		{"172.21.1.100", false},
+		{"10.0.0.1", false},
+		{"invalid", false},
+	}
+
+	for _, tt := range tests {
+		got := alloc.IsInLinuxSubnet(tt.ip)
+		if got != tt.want {
+			t.Errorf("IsInLinuxSubnet(%s) = %v, want %v", tt.ip, got, tt.want)
+		}
+	}
+}
+
+// --- reconcileMismatchedServices tests ---
+
+func TestReconcileMismatchedServices(t *testing.T) {
+	// Service with Linux-range IP matching a Windows workload's labels
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "win-svc",
+			Namespace: "default",
+			Labels:    map[string]string{"tier": "frontend"},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector:  map[string]string{"app": "win-app"},
+			ClusterIP: "172.21.0.55",
+			Ports: []corev1.ServicePort{
+				{Port: 80, Protocol: corev1.ProtocolTCP},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(svc)
+	alloc, _ := NewIPAllocator("172.21.0.0/24", "172.21.1.0/24", 50)
+	h := &WebhookHandler{
+		clientset: client,
+		allocator: alloc,
+		cache:     NewOSCache(5 * time.Second),
+	}
+
+	h.reconcileMismatchedServices("default", map[string]string{"app": "win-app"})
+
+	// The original service should have been deleted and recreated
+	ctx := context.Background()
+	newSvc, err := client.CoreV1().Services("default").Get(ctx, "win-svc", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Service should have been recreated: %v", err)
+	}
+
+	// The recreated service should not have a ClusterIP set (the fake client
+	// doesn't run the webhook, but the real API server would)
+	if newSvc.Spec.ClusterIP == "172.21.0.55" {
+		t.Error("Service should have been recreated without the old Linux ClusterIP")
+	}
+
+	// Labels and selector should be preserved
+	if newSvc.Labels["tier"] != "frontend" {
+		t.Error("Labels not preserved on recreated service")
+	}
+	if newSvc.Spec.Selector["app"] != "win-app" {
+		t.Error("Selector not preserved on recreated service")
+	}
+}
+
+func TestReconcileMismatchedServices_SkipsWindowsSubnet(t *testing.T) {
+	// Service already in Windows subnet — should not be reconciled
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "win-svc",
+			Namespace: "default",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector:  map[string]string{"app": "win-app"},
+			ClusterIP: "172.21.1.55",
+			Ports: []corev1.ServicePort{
+				{Port: 80, Protocol: corev1.ProtocolTCP},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(svc)
+	alloc, _ := NewIPAllocator("172.21.0.0/24", "172.21.1.0/24", 50)
+	h := &WebhookHandler{
+		clientset: client,
+		allocator: alloc,
+		cache:     NewOSCache(5 * time.Second),
+	}
+
+	h.reconcileMismatchedServices("default", map[string]string{"app": "win-app"})
+
+	ctx := context.Background()
+	svcAfter, err := client.CoreV1().Services("default").Get(ctx, "win-svc", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Service should still exist: %v", err)
+	}
+	if svcAfter.Spec.ClusterIP != "172.21.1.55" {
+		t.Error("Service in Windows subnet should not have been touched")
+	}
+}
+
+func TestReconcileMismatchedServices_SkipsNonMatchingSelector(t *testing.T) {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "other-svc",
+			Namespace: "default",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector:  map[string]string{"app": "other-app"},
+			ClusterIP: "172.21.0.55",
+			Ports: []corev1.ServicePort{
+				{Port: 80, Protocol: corev1.ProtocolTCP},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(svc)
+	alloc, _ := NewIPAllocator("172.21.0.0/24", "172.21.1.0/24", 50)
+	h := &WebhookHandler{
+		clientset: client,
+		allocator: alloc,
+		cache:     NewOSCache(5 * time.Second),
+	}
+
+	h.reconcileMismatchedServices("default", map[string]string{"app": "win-app"})
+
+	ctx := context.Background()
+	svcAfter, err := client.CoreV1().Services("default").Get(ctx, "other-svc", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Service should still exist: %v", err)
+	}
+	if svcAfter.Spec.ClusterIP != "172.21.0.55" {
+		t.Error("Non-matching service should not have been touched")
 	}
 }

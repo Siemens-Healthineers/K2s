@@ -16,15 +16,19 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
@@ -42,6 +46,8 @@ const (
 
 	certFile = "/certs/tls.crt"
 	keyFile  = "/certs/tls.key"
+
+	cacheTTL = 30 * time.Second
 )
 
 var (
@@ -96,10 +102,12 @@ func main() {
 	handler := &WebhookHandler{
 		clientset: clientset,
 		allocator: allocator,
+		cache:     NewOSCache(cacheTTL),
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mutate", handler.handleMutate)
+	mux.HandleFunc("/mutate-workload", handler.handleMutateWorkload)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "ok")
@@ -148,6 +156,7 @@ func main() {
 type WebhookHandler struct {
 	clientset kubernetes.Interface
 	allocator *IPAllocator
+	cache     *OSCache
 }
 
 func (h *WebhookHandler) handleMutate(w http.ResponseWriter, r *http.Request) {
@@ -294,38 +303,104 @@ func (h *WebhookHandler) getUsedClusterIPs() (map[string]bool, error) {
 	return used, nil
 }
 
-// detectTargetOS discovers the OS for a Service by waiting for pods that match
-// the Service's selector to be scheduled, then reading the node's
-// kubernetes.io/os label. This handles the case where a Service and its backing
-// Deployment are applied simultaneously — the webhook retries until a matching
-// pod appears on a node. Defaults to "linux" if no pod is found.
-const (
-	detectRetries  = 5
-	detectInterval = 500 * time.Millisecond
-)
-
+// detectTargetOS discovers the OS for a Service by checking in order:
+//  1. In-memory cache (populated by recent workload admissions)
+//  2. Existing workloads' nodeSelector (Deployments/StatefulSets/DaemonSets)
+//  3. Running Pods → their Node's kubernetes.io/os label
+//  4. Defaults to "linux"
 func (h *WebhookHandler) detectTargetOS(namespace string, selector map[string]string) string {
 	if len(selector) == 0 {
 		slog.Info("Service has no selector, defaulting to linux", "namespace", namespace)
 		return "linux"
 	}
 
-	for attempt := range detectRetries {
-		if attempt > 0 {
-			slog.Info("No matching pod found, retrying", "attempt", attempt+1, "namespace", namespace)
-			time.Sleep(detectInterval)
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		if os := h.detectOSFromPods(ctx, namespace, selector); os != "" {
-			cancel()
-			return os
-		}
-		cancel()
+	// Strategy 1: Check in-memory cache from recent workload admissions
+	if os := h.cache.Lookup(namespace, selector); os != "" {
+		slog.Info("OS found in cache", "os", os, "namespace", namespace)
+		return os
 	}
 
-	slog.Info("No scheduled pod found after retries, defaulting to linux", "namespace", namespace)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Strategy 2: Check workload nodeSelectors
+	if os := h.detectOSFromWorkloads(ctx, namespace, selector); os != "" {
+		return os
+	}
+
+	// Strategy 3: Check running pods → node labels
+	if os := h.detectOSFromPods(ctx, namespace, selector); os != "" {
+		return os
+	}
+
+	slog.Info("No OS detected from cache, workloads, or pods, defaulting to linux", "namespace", namespace)
 	return "linux"
+}
+
+// detectOSFromWorkloads checks Deployments, StatefulSets, and DaemonSets in the
+// namespace for a pod template whose labels are a superset of the Service selector
+// and whose nodeSelector contains kubernetes.io/os.
+func (h *WebhookHandler) detectOSFromWorkloads(ctx context.Context, namespace string, selector map[string]string) string {
+	selectorSet := labels.Set(selector)
+
+	deployments, err := h.clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Warn("Failed to list Deployments", "error", err, "namespace", namespace)
+	} else {
+		if os := osFromPodSpecs(deployments.Items, selectorSet); os != "" {
+			return os
+		}
+	}
+
+	statefulSets, err := h.clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Warn("Failed to list StatefulSets", "error", err, "namespace", namespace)
+	} else {
+		if os := osFromPodSpecs(statefulSets.Items, selectorSet); os != "" {
+			return os
+		}
+	}
+
+	daemonSets, err := h.clientset.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Warn("Failed to list DaemonSets", "error", err, "namespace", namespace)
+	} else {
+		if os := osFromPodSpecs(daemonSets.Items, selectorSet); os != "" {
+			return os
+		}
+	}
+
+	return ""
+}
+
+// workload is satisfied by Deployment, StatefulSet, and DaemonSet.
+type workload interface {
+	appsv1.Deployment | appsv1.StatefulSet | appsv1.DaemonSet
+}
+
+func osFromPodSpecs[T workload](items []T, selectorSet labels.Set) string {
+	for i := range items {
+		var podLabels map[string]string
+		var nodeSelector map[string]string
+		switch w := any(&items[i]).(type) {
+		case *appsv1.Deployment:
+			podLabels = w.Spec.Template.Labels
+			nodeSelector = w.Spec.Template.Spec.NodeSelector
+		case *appsv1.StatefulSet:
+			podLabels = w.Spec.Template.Labels
+			nodeSelector = w.Spec.Template.Spec.NodeSelector
+		case *appsv1.DaemonSet:
+			podLabels = w.Spec.Template.Labels
+			nodeSelector = w.Spec.Template.Spec.NodeSelector
+		}
+		if !selectorSet.AsSelector().Matches(labels.Set(podLabels)) {
+			continue
+		}
+		if os, ok := nodeSelector[nodeOSKey]; ok {
+			return strings.ToLower(os)
+		}
+	}
+	return ""
 }
 
 // detectOSFromPods finds pods matching the selector, then checks their node's
@@ -358,6 +433,268 @@ func (h *WebhookHandler) detectOSFromPods(ctx context.Context, namespace string,
 	}
 
 	return ""
+}
+
+// handleMutateWorkload intercepts Deployment/StatefulSet/DaemonSet CREATE requests.
+// It caches the OS from the workload's nodeSelector and, if the workload targets
+// Windows, reconciles any matching Services that may have been assigned a Linux ClusterIP.
+func (h *WebhookHandler) handleMutateWorkload(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		slog.Error("Failed to read request body", "error", err)
+		http.Error(w, "failed to read body", http.StatusBadRequest)
+		return
+	}
+
+	admissionReview := admissionv1.AdmissionReview{}
+	if err := json.Unmarshal(body, &admissionReview); err != nil {
+		slog.Error("Failed to unmarshal AdmissionReview", "error", err)
+		http.Error(w, "failed to unmarshal", http.StatusBadRequest)
+		return
+	}
+
+	request := admissionReview.Request
+	if request == nil {
+		slog.Error("AdmissionReview request is nil")
+		http.Error(w, "empty request", http.StatusBadRequest)
+		return
+	}
+
+	slog.Info("Received workload admission request",
+		"uid", request.UID,
+		"kind", request.Kind.Kind,
+		"namespace", request.Namespace,
+		"name", request.Name,
+		"operation", request.Operation)
+
+	response := h.processWorkload(request)
+
+	admissionReview.Response = response
+	admissionReview.Response.UID = request.UID
+
+	respBytes, err := json.Marshal(admissionReview)
+	if err != nil {
+		slog.Error("Failed to marshal response", "error", err)
+		http.Error(w, "failed to marshal response", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(respBytes)
+}
+
+// processWorkload extracts the nodeSelector and pod template labels from a workload,
+// caches the OS, and reconciles mismatched Services if the workload targets Windows.
+func (h *WebhookHandler) processWorkload(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+	if request.Operation != admissionv1.Create {
+		return &admissionv1.AdmissionResponse{Allowed: true}
+	}
+
+	podLabels, nodeSelector, err := extractWorkloadInfo(request)
+	if err != nil {
+		slog.Warn("Failed to extract workload info", "error", err,
+			"kind", request.Kind.Kind, "name", request.Name)
+		return &admissionv1.AdmissionResponse{Allowed: true}
+	}
+
+	os, hasOS := nodeSelector[nodeOSKey]
+	if !hasOS {
+		return &admissionv1.AdmissionResponse{Allowed: true}
+	}
+
+	os = strings.ToLower(os)
+	h.cache.Store(request.Namespace, podLabels, os)
+	slog.Info("Cached OS from workload",
+		"os", os, "kind", request.Kind.Kind, "name", request.Name, "namespace", request.Namespace)
+
+	// Only reconcile for Windows workloads — Linux is the default, so Services
+	// already got the correct IP. Skip reconciliation on dry-run requests.
+	if os == "windows" && (request.DryRun == nil || !*request.DryRun) {
+		h.reconcileMismatchedServices(request.Namespace, podLabels)
+	}
+
+	return &admissionv1.AdmissionResponse{Allowed: true}
+}
+
+// extractWorkloadInfo returns the pod template labels and nodeSelector from a
+// Deployment, StatefulSet, or DaemonSet admission request.
+func extractWorkloadInfo(request *admissionv1.AdmissionRequest) (podLabels, nodeSelector map[string]string, err error) {
+	switch request.Kind.Kind {
+	case "Deployment":
+		var d appsv1.Deployment
+		if err := json.Unmarshal(request.Object.Raw, &d); err != nil {
+			return nil, nil, fmt.Errorf("unmarshal Deployment: %w", err)
+		}
+		return d.Spec.Template.Labels, d.Spec.Template.Spec.NodeSelector, nil
+	case "StatefulSet":
+		var s appsv1.StatefulSet
+		if err := json.Unmarshal(request.Object.Raw, &s); err != nil {
+			return nil, nil, fmt.Errorf("unmarshal StatefulSet: %w", err)
+		}
+		return s.Spec.Template.Labels, s.Spec.Template.Spec.NodeSelector, nil
+	case "DaemonSet":
+		var d appsv1.DaemonSet
+		if err := json.Unmarshal(request.Object.Raw, &d); err != nil {
+			return nil, nil, fmt.Errorf("unmarshal DaemonSet: %w", err)
+		}
+		return d.Spec.Template.Labels, d.Spec.Template.Spec.NodeSelector, nil
+	default:
+		return nil, nil, fmt.Errorf("unsupported kind: %s", request.Kind.Kind)
+	}
+}
+
+// reconcileMismatchedServices finds Services in the namespace whose selector
+// matches the workload's pod labels and whose ClusterIP is in the Linux subnet
+// (assigned by default before the Windows workload existed). It deletes each
+// such Service and recreates it without a ClusterIP so the webhook can reassign
+// the correct Windows IP on the new CREATE admission.
+func (h *WebhookHandler) reconcileMismatchedServices(namespace string, podLabels map[string]string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	services, err := h.clientset.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Error("Failed to list services for reconciliation", "error", err, "namespace", namespace)
+		return
+	}
+
+	podLabelSet := labels.Set(podLabels)
+
+	for _, svc := range services.Items {
+		if svc.Spec.ClusterIP == "" || svc.Spec.ClusterIP == "None" {
+			continue
+		}
+		if svc.Spec.Type == corev1.ServiceTypeExternalName {
+			continue
+		}
+
+		// Check if the service selector matches the workload's pod labels
+		svcSelector := labels.Set(svc.Spec.Selector)
+		if len(svcSelector) == 0 || !svcSelector.AsSelector().Matches(podLabelSet) {
+			continue
+		}
+
+		// Check if the ClusterIP is in the Linux subnet (wrong for a Windows workload)
+		if !h.allocator.IsInLinuxSubnet(svc.Spec.ClusterIP) {
+			continue
+		}
+
+		slog.Info("Reconciling mismatched Service",
+			"service", svc.Name, "namespace", namespace,
+			"currentIP", svc.Spec.ClusterIP, "reason", "workload targets windows")
+
+		if err := h.deleteAndRecreateService(ctx, &svc); err != nil {
+			slog.Error("Failed to reconcile Service",
+				"error", err, "service", svc.Name, "namespace", namespace)
+		}
+	}
+}
+
+// deleteAndRecreateService deletes a Service and recreates it without a ClusterIP,
+// allowing the webhook to assign the correct IP on the new CREATE.
+func (h *WebhookHandler) deleteAndRecreateService(ctx context.Context, svc *corev1.Service) error {
+	namespace := svc.Namespace
+	name := svc.Name
+
+	if err := h.clientset.CoreV1().Services(namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("delete service %s/%s: %w", namespace, name, err)
+	}
+
+	newSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      svc.Labels,
+			Annotations: svc.Annotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: svc.Spec.Selector,
+			Ports:    svc.Spec.Ports,
+			Type:     svc.Spec.Type,
+		},
+	}
+
+	if _, err := h.clientset.CoreV1().Services(namespace).Create(ctx, newSvc, metav1.CreateOptions{}); err != nil {
+		return fmt.Errorf("recreate service %s/%s: %w", namespace, name, err)
+	}
+
+	slog.Info("Service recreated for correct ClusterIP assignment",
+		"service", name, "namespace", namespace)
+	return nil
+}
+
+// OSCache is a thread-safe, TTL-based cache mapping workload pod labels to
+// their target OS. It bridges the timing gap when Services and workloads are
+// applied simultaneously — the workload admission populates the cache, and
+// the recreated Service admission reads it.
+type OSCache struct {
+	mu      sync.RWMutex
+	entries map[string]osCacheEntry
+	ttl     time.Duration
+}
+
+type osCacheEntry struct {
+	os        string
+	expiresAt time.Time
+}
+
+func NewOSCache(ttl time.Duration) *OSCache {
+	return &OSCache{
+		entries: make(map[string]osCacheEntry),
+		ttl:     ttl,
+	}
+}
+
+// Store caches the OS for a given namespace + pod label combination.
+func (c *OSCache) Store(namespace string, podLabels map[string]string, os string) {
+	key := cacheKey(namespace, podLabels)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries[key] = osCacheEntry{os: os, expiresAt: time.Now().Add(c.ttl)}
+}
+
+// Lookup returns the cached OS for the given namespace + service selector.
+// Returns "" if no matching entry exists or the entry has expired.
+func (c *OSCache) Lookup(namespace string, selector map[string]string) string {
+	key := cacheKey(namespace, selector)
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	entry, ok := c.entries[key]
+	if !ok || time.Now().After(entry.expiresAt) {
+		return ""
+	}
+	return entry.os
+}
+
+// cacheKey produces a deterministic key from namespace and labels.
+func cacheKey(namespace string, lbls map[string]string) string {
+	keys := make([]string, 0, len(lbls))
+	for k := range lbls {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	b.WriteString(namespace)
+	for _, k := range keys {
+		b.WriteByte('/')
+		b.WriteString(k)
+		b.WriteByte('=')
+		b.WriteString(lbls[k])
+	}
+	return b.String()
+}
+
+// IsInLinuxSubnet checks whether the given IP falls within the Linux ClusterIP range.
+func (a *IPAllocator) IsInLinuxSubnet(ip string) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	parsed = parsed.To4()
+	if parsed == nil {
+		return false
+	}
+	return !bytesGreater(dupIP(a.linuxStart), parsed) && !bytesGreater(parsed, dupIP(a.linuxEnd))
 }
 
 // IPAllocator manages IP allocation from Linux and Windows subnets.
