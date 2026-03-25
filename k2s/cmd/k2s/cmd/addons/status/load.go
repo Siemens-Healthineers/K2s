@@ -38,11 +38,10 @@ func LoadAddonStatus(addonProv provider.AddonProvider, addonName string, addonDi
 				Enabled: &enabled,
 			}
 			for _, p := range a.Props {
-				okay := p.Okay
 				loaded.Props = append(loaded.Props, AddonStatusProp{
 					Name:  p.Name,
 					Value: p.Value,
-					Okay:  &okay,
+					Okay:  p.Okay, // preserve nil for informational props
 				})
 			}
 			return loaded, nil

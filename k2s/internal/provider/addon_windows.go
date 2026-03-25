@@ -134,9 +134,7 @@ func (p *windowsAddonProvider) Status(cfg AddonStatusConfig) (*AddonStatusResult
 		sp := AddonStatusProp{
 			Name:  prop.Name,
 			Value: fmt.Sprintf("%v", prop.Value),
-		}
-		if prop.Okay != nil {
-			sp.Okay = *prop.Okay
+			Okay:  prop.Okay, // preserve nil for informational props
 		}
 		info.Props = append(info.Props, sp)
 	}

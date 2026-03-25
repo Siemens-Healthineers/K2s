@@ -85,7 +85,7 @@ type AddonStatusInfo struct {
 type AddonStatusProp struct {
 	Name   string
 	Value  string
-	Okay   bool
+	Okay   *bool // nil = informational (cyan), non-nil = success/warning
 }
 
 // AddonExportConfig holds parameters for exporting addon state.
