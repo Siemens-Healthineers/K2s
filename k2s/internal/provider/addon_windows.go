@@ -88,9 +88,10 @@ func (p *windowsAddonProvider) Status(cfg AddonStatusConfig) (*AddonStatusResult
 
 	// The PS Get-Status.ps1 returns: {enabled: bool, props: [...], error: {severity, code, message}}
 	type psProp struct {
-		Name  string `json:"name"`
-		Value any    `json:"value"`
-		Okay  *bool  `json:"okay"`
+		Name    string  `json:"name"`
+		Value   any     `json:"value"`
+		Okay    *bool   `json:"okay"`
+		Message *string `json:"message"`
 	}
 	type psError struct {
 		Severity int    `json:"severity"`
@@ -132,9 +133,10 @@ func (p *windowsAddonProvider) Status(cfg AddonStatusConfig) (*AddonStatusResult
 	}
 	for _, prop := range result.Props {
 		sp := AddonStatusProp{
-			Name:  prop.Name,
-			Value: fmt.Sprintf("%v", prop.Value),
-			Okay:  prop.Okay, // preserve nil for informational props
+			Name:    prop.Name,
+			Value:   fmt.Sprintf("%v", prop.Value),
+			Okay:    prop.Okay,    // preserve nil for informational props
+			Message: prop.Message, // preserve optional display message
 		}
 		info.Props = append(info.Props, sp)
 	}

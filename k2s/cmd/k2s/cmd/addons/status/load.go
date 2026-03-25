@@ -39,9 +39,10 @@ func LoadAddonStatus(addonProv provider.AddonProvider, addonName string, addonDi
 			}
 			for _, p := range a.Props {
 				loaded.Props = append(loaded.Props, AddonStatusProp{
-					Name:  p.Name,
-					Value: p.Value,
-					Okay:  p.Okay, // preserve nil for informational props
+					Name:    p.Name,
+					Value:   p.Value,
+					Okay:    p.Okay,    // preserve nil for informational props
+					Message: p.Message, // preserve optional display message
 				})
 			}
 			return loaded, nil

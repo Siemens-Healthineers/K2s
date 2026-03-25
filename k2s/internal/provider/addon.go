@@ -83,9 +83,10 @@ type AddonStatusInfo struct {
 
 // AddonStatusProp holds a single status property for an addon.
 type AddonStatusProp struct {
-	Name   string
-	Value  string
-	Okay   *bool // nil = informational (cyan), non-nil = success/warning
+	Name    string
+	Value   string
+	Okay    *bool   // nil = informational (cyan), non-nil = success/warning
+	Message *string // optional display message (overrides Name: Value formatting)
 }
 
 // AddonExportConfig holds parameters for exporting addon state.
