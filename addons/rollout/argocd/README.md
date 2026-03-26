@@ -13,12 +13,6 @@ ArgoCD is a declarative GitOps continuous delivery tool with a web UI and CLI. I
 ## Enable ArgoCD
 
 ```console
-k2s addons enable rollout
-```
-
-Or explicitly:
-
-```console
 k2s addons enable rollout argocd
 ```
 
