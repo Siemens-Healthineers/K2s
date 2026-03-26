@@ -106,6 +106,12 @@ Addon-sync provides GitOps-style addon delivery from an OCI registry into the lo
 - Reachable OCI registry for addon artifacts
 - `oras` available to push exported OCI addon artifacts
 
+Placeholders used below:
+
+- `<REGISTRY_HOST>`: OCI registry host (example only: `k2s.registry.local:30500`)
+- `<REGISTRY_URL>`: `oci://<REGISTRY_HOST>`
+- `<ADDON_NAME>`: addon repository name under `addons/` (for example `monitoring`)
+
 ```console
 k2s addons enable rollout argocd
 ```
@@ -119,29 +125,29 @@ k2s addons enable rollout argocd
 
 ```console
 # 1) Export
-k2s addons export monitoring -d C:\exports --omit-images --omit-packages
+k2s addons export <ADDON_NAME> -d C:\exports --omit-images --omit-packages
 
 # 2) Push (example)
-oras copy --from-oci-layout C:\exports\<exported-addon>.oci.tar:<tag> <REGISTRY_HOST>/addons/monitoring:<tag>
+oras copy --from-oci-layout C:\exports\<exported-addon>.oci.tar:<tag> <REGISTRY_HOST>/addons/<ADDON_NAME>:<tag>
 
 # 3) Verify it is now available locally
 k2s addons ls
 
 # 4) Deploy workloads
-k2s addons enable monitoring
+k2s addons enable <ADDON_NAME>
 ```
 
 ### Custom registry values (example)
 
-Use your own registry host and repository path in the push target. For example, set `REGISTRY_HOST` and `REGISTRY_REPO` and push the exported addon artifact:
+Use your own registry host in the push target. For example:
 
 ```console
 set REGISTRY_HOST=registry.example.local:5000
-set REGISTRY_REPO=team-addons
-oras copy --from-oci-layout C:\exports\<exported-addon>.oci.tar:<tag> %REGISTRY_HOST%/%REGISTRY_REPO%/monitoring:<tag>
+set REGISTRY_URL=oci://%REGISTRY_HOST%
+oras copy --from-oci-layout C:\exports\<exported-addon>.oci.tar:<tag> %REGISTRY_HOST%/addons/<ADDON_NAME>:<tag>
 ```
 
-Use the same host/repository that your addon-sync configuration watches.
+Use the same `%REGISTRY_URL%` and repository path (`addons/<ADDON_NAME>`) that your addon-sync configuration watches.
 
 ### Configurable options
 
