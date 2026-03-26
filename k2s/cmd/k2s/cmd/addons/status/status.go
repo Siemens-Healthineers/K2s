@@ -116,13 +116,13 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, implementation string,
 	}
 
 	loadFunc := func(addonName string, implementation string) (*LoadedAddonStatus, error) {
-		slog.Info("Loading status", "addon", addonName, "directory", addon.Directory)
-
+		addonDir := addon.Directory
 		if implementation != "" {
-			return LoadAddonStatus(addonName, filepath.Join(addon.Directory, implementation))
+			addonDir = filepath.Join(addon.Directory, implementation)
 		}
+		slog.Info("Loading status", "addon", addonName, "directory", addonDir)
 
-		return LoadAddonStatus(addonName, addon.Directory)
+		return LoadAddonStatus(context.Providers().Addon, addonName, addonDir)
 	}
 
 	return printer.PrintStatus(addon.Metadata.Name, implementation, loadFunc)
