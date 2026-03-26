@@ -28,19 +28,13 @@ Both implementations are installed into the `rollout` namespace and share the sa
 
 **Pick ArgoCD** if you want a visual dashboard for managing deployments, reviewing diffs, and triggering syncs from a UI.
 
-**Pick Flux CD** if you prefer a fully declarative, YAML-only approach where all operations are driven by `kubectl` and Git.
+**Pick Flux CD** if you prefer a fully declarative, YAML-first workflow managed with Git, `kubectl`, and Flux CRDs — the `flux` CLI is also available for managing sources and releases.
 
 > **Note:** The two implementations are mutually exclusive. You must disable one before enabling the other.
 
 ## Getting Started
 
-### Enable with ArgoCD (default)
-
-```console
-k2s addons enable rollout
-```
-
-Or explicitly:
+### Enable with ArgoCD 
 
 ```console
 k2s addons enable rollout argocd
