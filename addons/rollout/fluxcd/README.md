@@ -126,6 +126,12 @@ Addon-sync delivers addon definition content (manifests, charts, scripts, metada
 - Cluster can reach the OCI registry that stores addon artifacts.
 - Addons intended for sync are registered for Flux reconciliation.
 
+### Placeholder reference
+
+- `<REGISTRY_HOST>`: OCI registry host (example only: `k2s.registry.local:30500`)
+- `<REGISTRY_URL>`: `oci://<REGISTRY_HOST>`
+- `<ADDON_NAME>`: addon repository name under `addons/` (for example `monitoring`)
+
 ### Register addon for Flux sync (one-time per addon)
 
 In Flux mode, this registration is required per addon. For each addon, create both resources in namespace `k2s-addon-sync`:
@@ -137,7 +143,7 @@ Use the templates from:
 
 `<K2S_INSTALL_DIR>\addons\common\manifests\addon-sync\fluxcd\per-addon`
 
-Replace placeholders for addon name, registry host, and insecure flag, then apply and verify:
+Replace placeholders (for example `<ADDON_NAME>`, `<REGISTRY_HOST>`, and insecure flag) and then apply and verify:
 
 ```console
 kubectl apply -f <path-to-ocirepository.yaml>
@@ -153,29 +159,28 @@ kubectl -n k2s-addon-sync get ocirepository,kustomization
 4. Enable the addon explicitly.
 
 ```console
-k2s addons export <name> -d <export-dir> --omit-images --omit-packages
-oras copy --from-oci-layout <exported-oci-tar>:<tag> <registry>/addons/<name>:<tag>
+k2s addons export <ADDON_NAME> -d <export-dir> --omit-images --omit-packages
+oras copy --from-oci-layout <exported-oci-tar>:<tag> <REGISTRY_URL>/addons/<ADDON_NAME>:<tag>
 k2s addons ls
-k2s addons enable <name>
+k2s addons enable <ADDON_NAME>
 ```
 
 ### Custom registry values (example)
 
-Use your own registry host and repository path when publishing addon artifacts.
+Use your own registry host when publishing addon artifacts.
 
 ```console
-set REGISTRY_HOST=registry.example.com
-set REGISTRY_REPO=k2s-addons
-oras copy --from-oci-layout <exported-oci-tar>:<tag> %REGISTRY_HOST%/%REGISTRY_REPO%/<name>:<tag>
+set REGISTRY_HOST=<REGISTRY_HOST>
+oras copy --from-oci-layout <exported-oci-tar>:<tag> oci://%REGISTRY_HOST%/addons/<ADDON_NAME>:<tag>
 ```
 
-Use the same host/repository that your addon-sync configuration watches.
+Use the same registry host that your addon-sync configuration watches.
 
 ### Configurable options
 
 `addon-sync-config` controls default sync behavior:
 
-- `REGISTRY_URL`: registry host/repository path used by addon-sync
+- `REGISTRY_URL`: `oci://<REGISTRY_HOST>` used by addon-sync
 - `K2S_INSTALL_DIR`: host install directory used by sync scripts
 - `INSECURE`: enable insecure registry access (`true`/`false`)
 
@@ -198,7 +203,7 @@ Flux addon-sync registers and reconciles addons per addon, so publishing one add
 
 - Addon not listed after push: verify artifact location/tag and wait for the next reconcile interval.
 - Sync looks stale: check Flux source and kustomization status in `k2s-addon-sync`.
-- Addon listed but not running: run `k2s addons enable <name>` (sync alone does not deploy).
+- Addon listed but not running: run `k2s addons enable <ADDON_NAME>` (sync alone does not deploy).
 
 
 ## Disable Flux
