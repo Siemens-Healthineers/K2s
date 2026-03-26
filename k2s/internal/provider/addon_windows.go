@@ -134,7 +134,7 @@ func (p *windowsAddonProvider) Status(cfg AddonStatusConfig) (*AddonStatusResult
 	for _, prop := range result.Props {
 		sp := AddonStatusProp{
 			Name:    prop.Name,
-			Value:   fmt.Sprintf("%v", prop.Value),
+			Value:   prop.Value,   // preserve native type (bool, string, etc.)
 			Okay:    prop.Okay,    // preserve nil for informational props
 			Message: prop.Message, // preserve optional display message
 		}

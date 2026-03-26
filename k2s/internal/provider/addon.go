@@ -84,7 +84,7 @@ type AddonStatusInfo struct {
 // AddonStatusProp holds a single status property for an addon.
 type AddonStatusProp struct {
 	Name    string
-	Value   string
+	Value   any     // native type from PS (bool, string, float64, etc.)
 	Okay    *bool   // nil = informational (cyan), non-nil = success/warning
 	Message *string // optional display message (overrides Name: Value formatting)
 }
