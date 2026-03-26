@@ -13,7 +13,7 @@ metadata:
 webhooks:
   - name: clusterip.k2s.io
     admissionReviewVersions: ["v1"]
-    sideEffects: NoneOnDryRun
+    sideEffects: None
     failurePolicy: Ignore
     reinvocationPolicy: IfNeeded
     timeoutSeconds: 10
