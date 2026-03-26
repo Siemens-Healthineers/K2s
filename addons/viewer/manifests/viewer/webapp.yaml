@@ -27,12 +27,12 @@ spec:
         - name: regcred
       containers:
         - name: viewerwebapp
-          image: shsk2s.azurecr.io/viewer:2
+          image: shsk2s.azurecr.io/viewer:3
           ports:
             - containerPort: 80
           volumeMounts:
             - name: config-volume
-              mountPath: /usr/share/nginx/html/datasources
+              mountPath: /usr/share/nginx/html/viewer/datasources
               readOnly: true
           resources:
             limits:

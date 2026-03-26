@@ -18,9 +18,12 @@ data:
       "showWarningMessageForCrossOrigin": false,
       "showCPUFallbackMessage": true,
       "showLoadingIndicator": true,
+      "experimentalStudyBrowserSort": false,
       "useSharedArrayBuffer": "FALSE",
       "strictZSpacingForVolumeViewport": true,
       "groupEnabledModesFirst": true,
+      "allowMultiSelectExport": false,
+      "showErrorDetails": "always",
       "maxNumRequests": {
       "interaction": 100,
       "thumbnail": 75,
