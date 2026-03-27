@@ -57,9 +57,10 @@ type AddonListResult struct {
 
 // AddonInfo holds information about a single addon.
 type AddonInfo struct {
-	Name        string
-	Enabled     bool
-	Description string
+	Name            string
+	Enabled         bool
+	Description     string
+	Implementations []string
 }
 
 // AddonStatusConfig holds parameters for querying addon status.
