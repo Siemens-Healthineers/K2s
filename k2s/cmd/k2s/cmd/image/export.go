@@ -6,7 +6,6 @@ package image
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 
@@ -14,7 +13,7 @@ import (
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -46,12 +45,39 @@ func init() {
 
 func exportImage(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
-	psCmd, params, err := buildExportPsCmd(cmd)
+
+	imageId, err := cmd.Flags().GetString(imageIdFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)
+	}
+
+	imageName, err := cmd.Flags().GetString(removeImgNameFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", removeImgNameFlagName, err)
+	}
+
+	if imageId == "" && imageName == "" {
+		return errors.New("no image id or image name provided")
+	}
+
+	exportPath, err := cmd.Flags().GetString(tarFlag)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", tarFlag, err)
+	}
+
+	if exportPath == "" {
+		return errors.New("no export path provided")
+	}
+
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	slog.Debug("PS command created", "command", psCmd, "params", params)
+	isDockerArchive, err := strconv.ParseBool(cmd.Flags().Lookup(dockerArchiveFlag).Value.String())
+	if err != nil {
+		return err
+	}
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -69,13 +95,14 @@ func exportImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
+	if err := context.Providers().Image.Export(provider.ImageExportConfig{
+		ImageId:       imageId,
+		ImageName:     imageName,
+		OutputPath:    exportPath,
+		DockerArchive: isDockerArchive,
+		ShowOutput:    showOutput,
+	}); err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()

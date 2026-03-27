@@ -20,13 +20,13 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 var Startk8sCmd = &cobra.Command{
@@ -47,7 +47,11 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
-	skipStartIfRunning, err := HandleIgnoreIfRunning(ccmd, isClusterRunning)
+	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+
+	skipStartIfRunning, err := HandleIgnoreIfRunning(ccmd, func() (bool, error) {
+		return isClusterRunning(context)
+	})
 	if err != nil {
 		return err
 	}
@@ -56,7 +60,6 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
@@ -72,20 +75,35 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	startCmd, err := buildStartCmd(ccmd.Flags(), runtimeConfig)
-	if err != nil {
-		return err
-	}
-
 	tzConfigHandle, err := createTimezoneConfigHandle(context.Config().Host().KubeConfig())
 	if err != nil {
 		return err
 	}
 	defer tzConfigHandle.Release()
 
-	slog.Debug("PS command created", "command", startCmd)
+	// Read flags
+	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(common.OutputFlagName).Value.String())
+	if err != nil {
+		return err
+	}
+	additionalHooksDir := ccmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+	autouseCachedVSwitch, err := strconv.ParseBool(ccmd.Flags().Lookup(common.AutouseCachedVSwitchFlagName).Value.String())
+	if err != nil {
+		return err
+	}
 
-	err = powershell.ExecutePs(startCmd, common.NewPtermWriter())
+	// Determine setup info from runtime config
+	setupName := runtimeConfig.InstallConfig().SetupName()
+	linuxOnly := runtimeConfig.InstallConfig().LinuxOnly()
+
+	// Start cluster via provider (handles platform dispatch)
+	err = context.Providers().Cluster.Start(provider.ClusterStartConfig{
+		ShowLogs:            outputFlag,
+		AdditionalHooksDir:  additionalHooksDir,
+		UseCachedK2sVSwitch: autouseCachedVSwitch,
+		SetupName:           setupName,
+		LinuxOnly:           linuxOnly,
+	})
 	if err != nil {
 		return err
 	}
@@ -97,7 +115,6 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	}
 
 	cmdSession.Finish()
-
 	return nil
 }
 
@@ -125,9 +142,9 @@ func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, conf
 	return nil
 }
 
-func isClusterRunning() (bool, error) {
+func isClusterRunning(ctx *common.CmdContext) (bool, error) {
 
-	clusterStatus, err := status.LoadStatus()
+	clusterStatus, err := status.LoadStatus(ctx)
 	if err != nil {
 		slog.Error("Failed to load cluster status", "error", err)
 		return false, err
@@ -185,69 +202,6 @@ func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
 
 	if nodeConfig.Name != "" {
 		cmd += " -NodeName " + nodeConfig.Name
-	}
-
-	return cmd
-}
-
-func buildStartCmd(flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) (string, error) {
-	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
-
-	autouseCachedVSwitch, err := strconv.ParseBool(flags.Lookup(common.AutouseCachedVSwitchFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	var cmd string
-
-	switch config.InstallConfig().SetupName() {
-	case definitions.SetupNameK2s:
-		if config.InstallConfig().LinuxOnly() {
-			cmd = buildLinuxOnlyStartCmd(outputFlag, additionalHooksDir)
-		} else {
-			cmd = buildk2sStartCmd(outputFlag, additionalHooksDir, autouseCachedVSwitch)
-		}
-	case definitions.SetupNameBuildOnlyEnv:
-		return "", errors.New("there is no cluster to start in build-only setup mode ;-). Aborting")
-	default:
-		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct start script directly")
-	}
-
-	return cmd, nil
-}
-
-func buildk2sStartCmd(showLogs bool, additionalHooksDir string, autouseCachedVSwitch bool) string {
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "start", "start.ps1"))
-
-	if showLogs {
-		cmd += " -ShowLogs"
-	}
-
-	if additionalHooksDir != "" {
-		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
-	}
-
-	if autouseCachedVSwitch {
-		cmd += " -UseCachedK2sVSwitches"
-	}
-
-	return cmd
-}
-
-func buildLinuxOnlyStartCmd(showLogs bool, additionalHooksDir string) string {
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "linuxonly", "start", "start.ps1"))
-
-	if showLogs {
-		cmd += " -ShowLogs"
-	}
-
-	if additionalHooksDir != "" {
-		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
 	}
 
 	return cmd
