@@ -1,19 +1,20 @@
 # SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-name: Automerge from PR for binary build
+# DEPRECATED: This workflow is no longer needed.
+# Go-built binaries are no longer committed to git, so there are no
+# auto-commit binary PRs to merge. Kept for reference only.
+
+name: "[DEPRECATED] Automerge from PR for binary build"
 
 on:
   workflow_dispatch:
 #  pull_request:
 #    types: [opened, synchronize, reopened]
-#permissions:
-#  pull-requests: write
-#  contents: write
   
 jobs:
   auto-merge-temp-pr:
-    if: startsWith(github.head_ref, 'ci-auto-commit-binary-')
+    if: false  # disabled — binary auto-commit PRs are no longer created
     runs-on: ubuntu-latest
     steps:
       - name: Merge PR
