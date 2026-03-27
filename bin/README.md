@@ -10,6 +10,16 @@ These are meant to make daily life with the K2s setup easier.
 They provide some 1..3 character shortcuts for often used commands in the
 Kubernetes world
 
+## Go-Built Executables
+
+Several Go-built executables (`devgon.exe`, `cloudinitisobuilder.exe`, `httpproxy.exe`, `yaml2json.exe`, `zap.exe`) are placed in this directory by the build system but are **not committed to git**. After cloning the repository, build them with:
+
+```console
+bgo -BuildAll
+```
+
+See `bgo.cmd` in this directory (shortcut for `BuildGoExe.ps1`).
+
 ## Usage
 
 You can either add this directory directly to your user PATH, if you want
