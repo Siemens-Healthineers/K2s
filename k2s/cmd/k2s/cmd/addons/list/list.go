@@ -134,8 +134,9 @@ func loadEnabledAddons(addonProv provider.AddonProvider) ([]print.EnabledAddon, 
 	for _, a := range listResult.Addons {
 		if a.Enabled {
 			enabled = append(enabled, print.EnabledAddon{
-				Name:        a.Name,
-				Description: a.Description,
+				Name:            a.Name,
+				Description:     a.Description,
+				Implementations: a.Implementations,
 			})
 		}
 	}
