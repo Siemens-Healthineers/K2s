@@ -2029,6 +2029,17 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#first-step-after-clone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First Step After Clone
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#build-go-projects" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2544,6 +2555,17 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#first-step-after-clone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        First Step After Clone
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#build-go-projects" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2601,6 +2623,15 @@ SPDX-License-Identifier: MIT
 <ul>
 <li>Install <a href="https://go.dev/dl/" target="_blank" rel="noopener"><em>Go</em></a> for <em>Windows</em>.</li>
 </ul>
+<h2 id="first-step-after-clone">First Step After Clone</h2>
+<p>Go-built binaries are <strong>not committed</strong> to the git repository. After cloning the repo, you <strong>must</strong> build them locally before using <em>K2s</em>:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">C:\ws\k2s\bin\bgo -BuildAll</span>
+</code></pre></div>
+<p>This builds all 10 Go executables (<code>k2s.exe</code>, <code>bridge.exe</code>, <code>cloudinitisobuilder.exe</code>, <code>devgon.exe</code>, <code>httpproxy.exe</code>, <code>l4proxy.exe</code>, <code>vfprules.exe</code>, <code>yaml2json.exe</code>, <code>zap.exe</code>, <code>cplauncher.exe</code>) and places them in their expected locations (<code>bin/</code>, <code>bin/cni/</code>, and the repo root).</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Without this step, <code>k2s.exe</code> and supporting tools will be missing and <em>K2s</em> will not function.</p>
+</div>
 <h2 id="build-go-projects">Build <em>Go</em> projects</h2>
 <p>Building <em>Go</em> based projects is done through <a href="https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/common/BuildGoExe.ps1" target="_blank" rel="noopener">BuildGoExe.ps1</a></p>
 <div class="admonition tip">
@@ -2609,33 +2640,33 @@ SPDX-License-Identifier: MIT
 If you have not installed <em>K2s</em> yet, then your <code>PATH</code> is not updated with the required locations. In this case, look for bgo.cmd and invoke the build command.</p>
 </div>
 <p>In the below example, <code>c:\ws\k2s</code> is the root of the <em>Git</em> repo:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">where bgo</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">C:\ws\k2s\bin\bgo.cmd</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">where bgo</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">C:\ws\k2s\bin\bgo.cmd</span>
 </code></pre></div></p>
 <p>Building <code>httpproxy</code> <em>Go</em> project:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">C:\ws\k2s\bin\bgo -ProjectDir &quot;C:\ws\k2s\k2s\cmd\httpproxy\&quot; -ExeOutDir &quot;c:\ws\k2s\bin&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">C:\ws\k2s\bin\bgo -ProjectDir &quot;C:\ws\k2s\k2s\cmd\httpproxy\&quot; -ExeOutDir &quot;c:\ws\k2s\bin&quot;</span>
 </code></pre></div></p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
 <p>The <code>k2s</code> <abbr title="Command-Line Interface">CLI</abbr> can be built without any parameters:</p>
 </div>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">C:\ws\k2s\bin\bgo</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">C:\ws\k2s\bin\bgo</span>
 </code></pre></div>
 <p>To build all <em>Go</em> executables:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">C:\ws\k2s\bin\bgo -BuildAll</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">C:\ws\k2s\bin\bgo -BuildAll</span>
 </code></pre></div></p>
 <p>If <em>K2s</em> is installed then just simply execute the command without the full path:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">bgo -ProjectDir &quot;C:\ws\k2s\k2s\cmd\httpproxy\&quot; -ExeOutDir &quot;c:\ws\k2s\bin&quot;</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">bgo -BuildAll</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">bgo -ProjectDir &quot;C:\ws\k2s\k2s\cmd\httpproxy\&quot; -ExeOutDir &quot;c:\ws\k2s\bin&quot;</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">bgo -BuildAll</span>
 </code></pre></div></p>
 <h2 id="cross-compiling-for-linux">Cross-Compiling for Linux</h2>
 <p>The <em>K2s</em> <abbr title="Command-Line Interface">CLI</abbr> supports both Windows and Linux hosts. You can cross-compile the Linux binary from any platform using standard Go tools:</p>
-<div class="highlight"><span class="filename">Bash</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Build the Linux binary</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>k2s<span class="w"> </span>./k2s/cmd/k2s
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Verify the build compiles for both platforms</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">GOOS</span><span class="o">=</span>windows<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./k2s/cmd/k2s
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./k2s/cmd/k2s
+<div class="highlight"><span class="filename">Bash</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Build the Linux binary</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>k2s<span class="w"> </span>./k2s/cmd/k2s
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Verify the build compiles for both platforms</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nv">GOOS</span><span class="o">=</span>windows<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./k2s/cmd/k2s
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./k2s/cmd/k2s
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
