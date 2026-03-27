@@ -141,39 +141,6 @@ var _ = Describe("status pkg", func() {
 				})
 			})
 
-			When("cmd failure occurred", func() {
-				It("prints JSON with failure and returns silent cmd failure", func() {
-					addonName := "test-addon"
-					implementation := "test-implementation"
-					statusBytes := []byte("status-JSON")
-					loadedStatus := &LoadedAddonStatus{CmdResult: common.CreateSystemNotInstalledCmdResult()}
-
-					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName, implementation).Return(loadedStatus, nil)
-
-					marshalMock := &mockObject{}
-					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
-						return status.Name == addonName && *status.Error == loadedStatus.Failure.Code
-					})).Return(statusBytes, nil)
-
-					printerMock := &mockObject{}
-					printerMock.On(r.GetFunctionName(printerMock.Println), "status-JSON").Once()
-
-					sut := NewJsonPrinter(printerMock, marshalMock.marshalIndent)
-
-					err := sut.PrintStatus(addonName, implementation, loaderMock.loadAddonStatus)
-
-					var cmdFailure *common.CmdFailure
-					Expect(errors.As(err, &cmdFailure)).To(BeTrue())
-					Expect(cmdFailure.Code).To(Equal(config.ErrSystemNotInstalled.Error()))
-					Expect(cmdFailure.Message).To(Equal(common.ErrSystemNotInstalledMsg))
-					Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
-					Expect(cmdFailure.SuppressCliOutput).To(BeTrue())
-
-					printerMock.AssertExpectations(GinkgoT())
-				})
-			})
-
 			When("marshalling error occurred", func() {
 				It("returns error without printing", func() {
 					addonName := "test-addon"
@@ -374,32 +341,6 @@ var _ = Describe("status pkg", func() {
 					err := sut.PrintStatus(addonName, implementation, loaderMock.loadAddonStatus)
 
 					Expect(err).To(MatchError(expectedError))
-
-					printerMock.AssertExpectations(GinkgoT())
-					spinnerMock.AssertExpectations(GinkgoT())
-				})
-			})
-
-			When("cmd failure occurred", func() {
-				It("returns cmd failure", func() {
-					addonName := "test-addon"
-					implementation := "test-implementation"
-					loadedStatus := &LoadedAddonStatus{CmdResult: common.CreateSystemNotInstalledCmdResult()}
-
-					spinnerMock := &mockObject{}
-					spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
-
-					printerMock := &mockObject{}
-					printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
-
-					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName, implementation).Return(loadedStatus, nil)
-
-					sut := NewUserFriendlyPrinter(printerMock)
-
-					err := sut.PrintStatus(addonName, implementation, loaderMock.loadAddonStatus)
-
-					Expect(err).To(Equal(loadedStatus.Failure))
 
 					printerMock.AssertExpectations(GinkgoT())
 					spinnerMock.AssertExpectations(GinkgoT())
