@@ -7,16 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/list/print"
@@ -70,21 +68,23 @@ func listAddons(cmd *cobra.Command, allAddons addons.Addons) error {
 		if !errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return err
 		}
-		slog.Info("Setup not installed, falling back to default PowerShell version", "error", err)
+		slog.Info("Setup not installed, listing addons without enabled status", "error", err)
 	}
+
+	addonProv := context.Providers().Addon
 
 	if outputOption == jsonOption {
-		return printAddonsAsJson(allAddons)
+		return printAddonsAsJson(allAddons, addonProv)
 	}
 
-	return printAddonsUserFriendly(allAddons)
+	return printAddonsUserFriendly(allAddons, addonProv)
 }
 
-func printAddonsAsJson(allAddons addons.Addons) error {
+func printAddonsAsJson(allAddons addons.Addons, addonProv provider.AddonProvider) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
-	enabledAddons, err := loadEnabledAddons()
+	enabledAddons, err := loadEnabledAddons(addonProv)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func printAddonsAsJson(allAddons addons.Addons) error {
 	return nil
 }
 
-func printAddonsUserFriendly(allAddons addons.Addons) error {
+func printAddonsUserFriendly(allAddons addons.Addons, addonProv provider.AddonProvider) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
@@ -105,7 +105,7 @@ func printAddonsUserFriendly(allAddons addons.Addons) error {
 		return err
 	}
 
-	enabledAddons, err := loadEnabledAddons()
+	enabledAddons, err := loadEnabledAddons(addonProv)
 
 	cc.StopSpinner(spinner)
 
@@ -124,14 +124,20 @@ func printAddonsUserFriendly(allAddons addons.Addons) error {
 	return nil
 }
 
-func loadEnabledAddons() ([]print.EnabledAddon, error) {
-	scriptPath := filepath.Join(utils.InstallDir(), addons.AddonsDirName, "Get-EnabledAddons.ps1")
-	formattedPath := utils.FormatScriptFilePath(scriptPath)
-
-	enabledAddons, err := powershell.ExecutePsWithStructuredResult[[]print.EnabledAddon](formattedPath, "EnabledAddons", cc.NewPtermWriter())
+func loadEnabledAddons(addonProv provider.AddonProvider) ([]print.EnabledAddon, error) {
+	listResult, err := addonProv.List(provider.AddonListConfig{})
 	if err != nil {
 		return nil, fmt.Errorf("could not load enabled addons: %s", err)
 	}
 
-	return enabledAddons, nil
+	var enabled []print.EnabledAddon
+	for _, a := range listResult.Addons {
+		if a.Enabled {
+			enabled = append(enabled, print.EnabledAddon{
+				Name:        a.Name,
+				Description: a.Description,
+			})
+		}
+	}
+	return enabled, nil
 }

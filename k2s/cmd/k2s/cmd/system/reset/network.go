@@ -5,19 +5,16 @@ package reset
 
 import (
 	"errors"
-	"path/filepath"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 )
 
 var resetNetworkCmd = &cobra.Command{
@@ -52,17 +49,9 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	resetNetworkCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "reset", "network", "Reset-Network.ps1"))
-
-	params := []string{}
-
 	forceFlag, err := strconv.ParseBool(cmd.Flags().Lookup(forceFlagName).Value.String())
 	if err != nil {
 		return err
-	}
-
-	if forceFlag {
-		params = append(params, " -Force")
 	}
 
 	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
@@ -70,18 +59,11 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if outputFlag {
-		params = append(params, " -ShowLogs")
-	}
-
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", common.NewPtermWriter(), params...)
-
-	if err != nil {
+	if err := context.Providers().System.ResetNetwork(provider.SystemResetNetworkConfig{
+		Force:      forceFlag,
+		ShowOutput: outputFlag,
+	}); err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()

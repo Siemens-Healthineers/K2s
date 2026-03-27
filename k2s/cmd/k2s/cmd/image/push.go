@@ -6,7 +6,6 @@ package image
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 
@@ -16,7 +15,7 @@ import (
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -47,13 +46,24 @@ func pushImage(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Pushing container image..")
 
-	psCmd, params, err := buildPushPsCmd(cmd)
+	imageId, err := cmd.Flags().GetString(imageIdFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)
+	}
 
+	imageName, err := cmd.Flags().GetString(imageNameFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", imageNameFlagName, err)
+	}
+
+	if imageId == "" && imageName == "" {
+		return errors.New("no image id or image name provided")
+	}
+
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
-
-	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -71,13 +81,12 @@ func pushImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
+	if err := context.Providers().Image.Push(provider.ImagePushConfig{
+		ImageId:    imageId,
+		ImageName:  imageName,
+		ShowOutput: showOutput,
+	}); err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()

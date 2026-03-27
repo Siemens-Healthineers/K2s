@@ -85,7 +85,7 @@ var _ = Describe("core", func() {
 
 				cmd := &cobra.Command{}
 				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
-				cmdContext := common.NewCmdContext(cfg, nil)
+				cmdContext := common.NewCmdContext(cfg, nil, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 				runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("existent", false, "", false, false), nil)
 
@@ -118,7 +118,7 @@ var _ = Describe("core", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
 					cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
-					cmdContext := common.NewCmdContext(cfg, nil)
+					cmdContext := common.NewCmdContext(cfg, nil, nil)
 					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 					expectedError := errors.New("oops")
@@ -147,7 +147,7 @@ var _ = Describe("core", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
 					cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
-					cmdContext := common.NewCmdContext(cfg, nil)
+					cmdContext := common.NewCmdContext(cfg, nil, nil)
 					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 					expectedError := common.CreateSystemInCorruptedStateCmdFailure()
@@ -172,7 +172,7 @@ var _ = Describe("core", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
 				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
-				cmdContext := common.NewCmdContext(cfg, nil)
+				cmdContext := common.NewCmdContext(cfg, nil, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				installConfig := &ic.InstallConfig{}
@@ -203,7 +203,7 @@ var _ = Describe("core", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
 				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
-				cmdContext := common.NewCmdContext(cfg, nil)
+				cmdContext := common.NewCmdContext(cfg, nil, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				installConfig := &ic.InstallConfig{}
@@ -252,7 +252,7 @@ var _ = Describe("core", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
 				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
-				cmdContext := common.NewCmdContext(cfg, nil)
+				cmdContext := common.NewCmdContext(cfg, nil, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				installConfig := &ic.InstallConfig{}

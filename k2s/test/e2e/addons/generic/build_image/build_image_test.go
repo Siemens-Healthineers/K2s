@@ -64,20 +64,22 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if suite == nil {
+		return
+	}
+
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
 	suite.TearDown(ctx)
-
-	if !testFailed {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o", "-d")
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-	}
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o", "-d")
+	suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 })
 
 var _ = AfterEach(func() {
-	if CurrentSpecReport().Failed() {
+	report := CurrentSpecReport()
+	if report.Failed() && report.NumAttempts >= report.MaxFlakeAttempts {
 		testFailed = true
 	}
 })

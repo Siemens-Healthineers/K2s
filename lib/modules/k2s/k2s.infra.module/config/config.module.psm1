@@ -94,7 +94,7 @@ function Get-SetupConfigFilePath {
 }
 
 function Get-ProductVersion {
-    return "$(Get-Content -Raw -Path "$kubePath\VERSION")"
+    return "$(Get-Content -Raw -Path "$kubePath\VERSION")".Trim()
 }
 
 function Get-SSHKeyControlPlane {
@@ -321,7 +321,11 @@ function Set-ConfigInstallFolder {
 }
 
 function Get-ConfigProductVersion {
-    return Get-ConfigValue -Path $SetupJsonFile -Key 'Version'
+    $version = Get-ConfigValue -Path $SetupJsonFile -Key 'Version'
+    if (-not [string]::IsNullOrEmpty($version)) {
+        $version = $version.Trim()
+    }
+    return $version
 }
 
 function Set-ConfigProductVersion {
@@ -451,7 +455,7 @@ function Get-MinimalProvisioningBaseImageDiskSize {
     return 10GB
 }
 function Get-DefaultK8sVersion {
-    return 'v1.35.2'
+    return 'v1.35.3'
 }
 
 <#
