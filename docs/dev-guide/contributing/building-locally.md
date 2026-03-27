@@ -9,6 +9,19 @@ All the prerequisites mentioned in [Installation Prerequisites](../../op-manual/
 
 * Install [*Go*](https://go.dev/dl/){target="_blank"} for *Windows*.
 
+## First Step After Clone
+
+Go-built binaries are **not committed** to the git repository. After cloning the repo, you **must** build them locally before using *K2s*:
+
+```console
+C:\ws\k2s\bin\bgo -BuildAll
+```
+
+This builds all 10 Go executables (`k2s.exe`, `bridge.exe`, `cloudinitisobuilder.exe`, `devgon.exe`, `httpproxy.exe`, `l4proxy.exe`, `vfprules.exe`, `yaml2json.exe`, `zap.exe`, `cplauncher.exe`) and places them in their expected locations (`bin/`, `bin/cni/`, and the repo root).
+
+!!! warning
+    Without this step, `k2s.exe` and supporting tools will be missing and *K2s* will not function.
+
 ## Build *Go* projects
 Building *Go* based projects is done through [BuildGoExe.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/common/BuildGoExe.ps1){target="_blank"}
 
