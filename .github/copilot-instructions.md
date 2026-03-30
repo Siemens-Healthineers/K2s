@@ -76,7 +76,7 @@ New addon: copy a minimal existing one (e.g. `addons/autoscaling/`) and adjust m
   - Common packages: `cli`, `host`, `powershell`, `logging`, `json`, `yaml`, `os`, `terminal`, `windows`, `provider`, `setuporchestration`.
 - Keep binaries buildable offline: avoid introducing network-time fetches at runtime.
 - **Cross-compilation**: The CLI builds for both Windows and Linux. Use `GOOS=linux go build ./k2s/cmd/k2s` to verify.
-- Build via `BuildGoExe.ps1` (or `bgo.cmd` shortcut): `bgo -ProjectDir "path/to/cmd" -ExeOutDir "path/to/bin"` or `bgo -BuildAll`.
+- Build via `BuildGoExe.ps1` (or `bgo.cmd` shortcut): `bgo -ProjectDir "path/to/cmd" -ExeOutDir "path/to/bin"`, or use `bgow` (all Windows) / `bgol` (all Linux).
 
 ## 7. Build & CI Workflows
 See `.github/workflows/` for canonical pipelines:
@@ -114,10 +114,10 @@ When adding a new packaging / diff feature:
 - PSScriptAnalyzer: avoid automatic variable assignment, prefer approved verbs; add suppressions only with justification in a comment.
 
 ## 13. Typical Commands (Local Dev)
-- **After fresh clone (mandatory)**: `bgo -BuildAll` — Go-built binaries are not committed to git; this builds all 10 executables to their expected locations.
+- **After fresh clone (mandatory)**: `bgow` — Go-built binaries are not committed to git; this builds all 10 Windows executables to their expected locations. Use `bgol` for Linux cross-compilation.
 - Build CLI (Go): `go build ./k2s/cmd/k2s` (respect existing Go module).
-  - Or use build script: `bgo` (builds k2s.exe), `bgo -BuildAll` (all Go executables), `bgo -ProjectDir "..." -ExeOutDir "..."`.
-  - Cross-compile for Linux: `GOOS=linux go build -o k2s ./k2s/cmd/k2s`.
+  - Or use build shortcuts: `bgow` (all Windows executables), `bgol` (all Linux executables), `bgo` (builds k2s.exe only), `bgo -ProjectDir "..." -ExeOutDir "..."`.
+  - Cross-compile for Linux: `bgol` or `GOOS=linux go build -o k2s ./k2s/cmd/k2s`.
 - Run delta packaging: `powershell -File lib/scripts/k2s/system/package/New-K2sDeltaPackage.ps1 ...`.
 - Serve docs locally: `mkdocs serve` (ensure python + mkdocs installed).
 - Test PowerShell modules: Execute unit test files like `addons.module.unit.tests.ps1` with Pester.
