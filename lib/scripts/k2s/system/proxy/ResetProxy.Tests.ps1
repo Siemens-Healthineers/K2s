@@ -1,14 +1,15 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
 BeforeAll {
     $scriptPath = "$PSScriptRoot\ResetProxy.ps1"
-    
+    $scriptContent = (Get-Content -Path $scriptPath | Where-Object { $_ -notmatch '^#Requires\b' }) -join [Environment]::NewLine
+
     function global:Initialize-Logging { }
-    
+
     function global:Reset-ProxyConfig { }
-    function global:Get-ProxyConfig { 
+    function global:Get-ProxyConfig {
         return [PSCustomObject]@{
             HttpProxy = ''
             HttpsProxy = ''
@@ -18,10 +19,32 @@ BeforeAll {
     function global:Get-K2sHosts { return @('172.19.1.100', '172.19.1.1', '.local', '.cluster.local') }
     function global:Stop-WinHttpProxy { }
     function global:Start-WinHttpProxy { }
+    function global:Get-ConfiguredIPControlPlane { return '172.19.1.100' }
+    function global:Get-DefaultUserNameControlPlane { return 'remote' }
+    function global:Remove-ProxySettingsOnKubenode { param($IpAddress, $UserName) }
     function global:Set-ProxyConfigInHttpProxy { param($Proxy, $ProxyOverrides) }
     function global:Send-ToCli { param($MessageType, $Message) }
     function global:Write-Log { param([string]$Message, [switch]$Error) }
-    
+    function Invoke-ResetProxyScript {
+        param(
+            [switch] $ShowLogs = $false,
+            [switch] $EncodeStructuredOutput,
+            [string] $MessageType
+        )
+
+        $invokeParams = @{
+            ShowLogs = $ShowLogs
+        }
+        if ($EncodeStructuredOutput) {
+            $invokeParams.EncodeStructuredOutput = $true
+        }
+        if (-not [string]::IsNullOrWhiteSpace($MessageType)) {
+            $invokeParams.MessageType = $MessageType
+        }
+
+        & ([scriptblock]::Create($scriptContent)) @invokeParams
+    }
+
     Mock -CommandName Import-Module { }
     Mock -CommandName Initialize-Logging { }
 }
@@ -38,20 +61,24 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-K2sHosts { return @('localhost') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Get-ConfiguredIPControlPlane { return '172.19.1.100' }
+            Mock -CommandName Get-DefaultUserNameControlPlane { return 'remote' }
+            Mock -CommandName Test-Connection { return $false }
+            Mock -CommandName Remove-ProxySettingsOnKubenode { }
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
         
         It 'runs without parameters' {
-            { & $scriptPath } | Should -Not -Throw
+            { Invoke-ResetProxyScript } | Should -Not -Throw
         }
 
         It 'accepts ShowLogs switch parameter' {
-            { & $scriptPath -ShowLogs } | Should -Not -Throw
+            { Invoke-ResetProxyScript -ShowLogs } | Should -Not -Throw
         }
 
         It 'accepts EncodeStructuredOutput switch parameter' {
-            { & $scriptPath -EncodeStructuredOutput -MessageType 'Test' } | Should -Not -Throw
+            { Invoke-ResetProxyScript -EncodeStructuredOutput -MessageType 'Test' } | Should -Not -Throw
         }
     }
 
@@ -65,12 +92,16 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-K2sHosts { return @('localhost') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Get-ConfiguredIPControlPlane { return '172.19.1.100' }
+            Mock -CommandName Get-DefaultUserNameControlPlane { return 'remote' }
+            Mock -CommandName Test-Connection { return $false }
+            Mock -CommandName Remove-ProxySettingsOnKubenode { }
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
         
         It 'imports infra module' {
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Import-Module -ParameterFilter {
                 $Name -like '*k2s.infra.module.psm1'
@@ -78,7 +109,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'imports node module' {
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Import-Module -ParameterFilter {
                 $Name -like '*k2s.node.module.psm1'
@@ -86,7 +117,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'initializes logging' {
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Initialize-Logging -Exactly 1
         }
@@ -101,6 +132,10 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-K2sHosts { return @('localhost') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Get-ConfiguredIPControlPlane { return '172.19.1.100' }
+            Mock -CommandName Get-DefaultUserNameControlPlane { return 'remote' }
+            Mock -CommandName Test-Connection { return $false }
+            Mock -CommandName Remove-ProxySettingsOnKubenode { }
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
@@ -108,7 +143,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         It 'calls Reset-ProxyConfig' {
             Mock -CommandName Reset-ProxyConfig { }
             
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Reset-ProxyConfig -Exactly 1
         }
@@ -116,7 +151,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         It 'stops WinHttpProxy service' {
             Mock -CommandName Reset-ProxyConfig { }
             
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Stop-WinHttpProxy -Exactly 1
         }
@@ -124,7 +159,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         It 'retrieves updated proxy configuration after reset' {
             Mock -CommandName Reset-ProxyConfig { }
             
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Get-ProxyConfig -Exactly 1
         }
@@ -132,7 +167,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         It 'retrieves K2s hosts for NoProxy configuration' {
             Mock -CommandName Reset-ProxyConfig { }
             
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Get-K2sHosts -Exactly 1
         }
@@ -146,6 +181,10 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
                 return [PSCustomObject]@{ HttpProxy = ''; NoProxy = @() }
             }
             Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Get-ConfiguredIPControlPlane { return '172.19.1.100' }
+            Mock -CommandName Get-DefaultUserNameControlPlane { return 'remote' }
+            Mock -CommandName Test-Connection { return $false }
+            Mock -CommandName Remove-ProxySettingsOnKubenode { }
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
@@ -154,7 +193,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-K2sHosts { return @('localhost', '127.0.0.1', '.local') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
                 $Proxy -eq '' -and
@@ -168,7 +207,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-K2sHosts { return @('localhost') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Start-WinHttpProxy -Exactly 1
         }
@@ -177,7 +216,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-K2sHosts { return @('172.19.1.100', '172.19.1.1') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
                 ($ProxyOverrides | Measure-Object).Count -eq 2 -and
@@ -197,13 +236,17 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-K2sHosts { return @('localhost') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Get-ConfiguredIPControlPlane { return '172.19.1.100' }
+            Mock -CommandName Get-DefaultUserNameControlPlane { return 'remote' }
+            Mock -CommandName Test-Connection { return $false }
+            Mock -CommandName Remove-ProxySettingsOnKubenode { }
             Mock -CommandName Write-Log { }
         }
         
         It 'sends structured output when EncodeStructuredOutput is set' {
             Mock -CommandName Send-ToCli { }
             
-            & $scriptPath -EncodeStructuredOutput -MessageType 'ResetProxyResult'
+            Invoke-ResetProxyScript -EncodeStructuredOutput -MessageType 'ResetProxyResult'
             
             Should -Invoke Send-ToCli -Exactly 1 -ParameterFilter {
                 $MessageType -eq 'ResetProxyResult' -and
@@ -214,9 +257,50 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         It 'does not send structured output by default' {
             Mock -CommandName Send-ToCli { }
             
-            & $scriptPath
+            Invoke-ResetProxyScript
             
             Should -Invoke Send-ToCli -Exactly 0
+        }
+    }
+
+    Context 'Linux proxy cleanup' {
+        BeforeEach {
+            Mock -CommandName Reset-ProxyConfig { }
+            Mock -CommandName Stop-WinHttpProxy { }
+            Mock -CommandName Get-ProxyConfig {
+                return [PSCustomObject]@{ HttpProxy = ''; NoProxy = @() }
+            }
+            Mock -CommandName Get-K2sHosts { return @('localhost') }
+            Mock -CommandName Set-ProxyConfigInHttpProxy { }
+            Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Get-ConfiguredIPControlPlane { return '172.19.1.100' }
+            Mock -CommandName Get-DefaultUserNameControlPlane { return 'remote' }
+            Mock -CommandName Send-ToCli { }
+            Mock -CommandName Write-Log { }
+        }
+
+        It 'removes Linux proxy settings when control plane is reachable' {
+            Mock -CommandName Test-Connection { return $true }
+            Mock -CommandName Remove-ProxySettingsOnKubenode { }
+
+            Invoke-ResetProxyScript
+
+            Should -Invoke Remove-ProxySettingsOnKubenode -Exactly 1 -ParameterFilter {
+                $IpAddress -eq '172.19.1.100' -and
+                $UserName -eq 'remote'
+            }
+        }
+
+        It 'skips Linux proxy cleanup when control plane is unreachable' {
+            Mock -CommandName Test-Connection { return $false }
+            Mock -CommandName Remove-ProxySettingsOnKubenode { }
+
+            Invoke-ResetProxyScript
+
+            Should -Invoke Remove-ProxySettingsOnKubenode -Exactly 0
+            Should -Invoke Write-Log -ParameterFilter {
+                $Message -eq "[Proxy] Skip Linux proxy cleanup because control plane '172.19.1.100' is not reachable"
+            }
         }
     }
 
@@ -229,6 +313,10 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-K2sHosts { return @('localhost') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             Mock -CommandName Start-WinHttpProxy { }
+            Mock -CommandName Get-ConfiguredIPControlPlane { return '172.19.1.100' }
+            Mock -CommandName Get-DefaultUserNameControlPlane { return 'remote' }
+            Mock -CommandName Test-Connection { return $false }
+            Mock -CommandName Remove-ProxySettingsOnKubenode { }
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
@@ -236,35 +324,35 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         It 'throws exception when Reset-ProxyConfig fails' {
             Mock -CommandName Reset-ProxyConfig { throw 'Configuration reset failed' }
             
-            { & $scriptPath } | Should -Throw '*Configuration reset failed*'
+            { Invoke-ResetProxyScript } | Should -Throw '*Configuration reset failed*'
         }
 
         It 'throws exception when Stop-WinHttpProxy fails' {
             Mock -CommandName Reset-ProxyConfig { }
             Mock -CommandName Stop-WinHttpProxy { throw 'Service stop failed' }
             
-            { & $scriptPath } | Should -Throw '*Service stop failed*'
+            { Invoke-ResetProxyScript } | Should -Throw '*Service stop failed*'
         }
 
         It 'throws exception when Get-ProxyConfig fails' {
             Mock -CommandName Reset-ProxyConfig { }
             Mock -CommandName Get-ProxyConfig { throw 'Failed to read config' }
             
-            { & $scriptPath } | Should -Throw '*Failed to read config*'
+            { Invoke-ResetProxyScript } | Should -Throw '*Failed to read config*'
         }
 
         It 'throws exception when Set-ProxyConfigInHttpProxy fails' {
             Mock -CommandName Reset-ProxyConfig { }
             Mock -CommandName Set-ProxyConfigInHttpProxy { throw 'Configuration update failed' }
             
-            { & $scriptPath } | Should -Throw '*Configuration update failed*'
+            { Invoke-ResetProxyScript } | Should -Throw '*Configuration update failed*'
         }
 
         It 'throws exception when Start-WinHttpProxy fails' {
             Mock -CommandName Reset-ProxyConfig { }
             Mock -CommandName Start-WinHttpProxy { throw 'Service start failed' }
             
-            { & $scriptPath } | Should -Throw '*Service start failed*'
+            { Invoke-ResetProxyScript } | Should -Throw '*Service start failed*'
         }
     }
 }
