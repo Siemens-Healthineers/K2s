@@ -15,10 +15,16 @@ Kubernetes world
 Several Go-built executables (`devgon.exe`, `cloudinitisobuilder.exe`, `httpproxy.exe`, `yaml2json.exe`, `zap.exe`) are placed in this directory by the build system but are **not committed to git**. After cloning the repository, build them with:
 
 ```console
-bgo -BuildAll
+bgow
 ```
 
-See `bgo.cmd` in this directory (shortcut for `BuildGoExe.ps1`).
+For Linux cross-compilation:
+
+```console
+bgol
+```
+
+See `bgow.cmd` / `bgol.cmd` in this directory (shortcuts to build all Go executables for Windows / Linux respectively). For building individual executables, use `bgo.cmd` (shortcut for `BuildGoExe.ps1`).
 
 ## Usage
 

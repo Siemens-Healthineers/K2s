@@ -28,7 +28,10 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Build all K2s executables with assumption all are under single git repository')]
     [switch] $BuildAll,
     [parameter(Mandatory = $false, HelpMessage = 'Proxy URL for Go operations (e.g., http://proxy.example.com:8080)')]
-    [string] $Proxy
+    [string] $Proxy,
+    [parameter(Mandatory = $false, HelpMessage = 'Target OS for cross-compilation (windows or linux)')]
+    [ValidateSet('windows', 'linux')]
+    [string] $TargetOS = 'windows'
 )
 
 # load global settings
@@ -60,6 +63,9 @@ $appsOutputMapping = @{
     'zap'                 = $binDir
     'cplauncher'          = $cniBinDir
 }
+
+# Apps that only build for Windows (have //go:build windows constraint)
+$windowsOnlyApps = @('bridge', 'l4proxy', 'devgon', 'vfprules', 'zap', 'cplauncher')
 
 if ($ProjectDir -eq '') {
     $ProjectDir = [IO.Path]::Combine($appsDir, 'k2s')
@@ -119,6 +125,10 @@ $goExecutables = @()
 
 if ($BuildAll -eq $true) {
     foreach ($appMapping in $appsOutputMapping.GetEnumerator()) {
+        if ($TargetOS -ne 'windows' -and $windowsOnlyApps -contains $appMapping.Name) {
+            Write-Output "Skipping $($appMapping.Name) (Windows-only) for target OS '$TargetOS'"
+            continue
+        }
         $inputDir = [IO.Path]::Combine($appsDir, $appMapping.Name)
         $goExecutables += Add-GoExecutableToList $inputDir $appMapping.Value
     }
@@ -134,8 +144,21 @@ for ($i = 0; $i -lt $goExecutables.Count; $i++) {
     Write-Output "Building GO executable under folder path: $($goExecutable.InDir) ..."
     Set-Location $($goExecutable.InDir)
 
+    # Determine output path: for non-Windows targets, specify the full file path
+    # to avoid collisions with directories of the same name (e.g. k2s/ vs k2s binary)
+    $outPath = $goExecutable.OutDir
+    if ($TargetOS -ne 'windows') {
+        $appName = Split-Path $goExecutable.InDir -Leaf
+        $candidatePath = [IO.Path]::Combine($goExecutable.OutDir, $appName)
+        if (Test-Path -Path $candidatePath -PathType Container) {
+            $outPath = "${candidatePath}.${TargetOS}"
+        } else {
+            $outPath = $candidatePath
+        }
+    }
+
     # GO BUILD
-    $Env:GOOS = 'windows'
+    $Env:GOOS = $TargetOS
     $Env:GOARCH = 'amd64'
     go build -ldflags "-s -w  `
     -X github.com/siemens-healthineers/k2s/internal/version.version=$($Version) `
@@ -144,14 +167,14 @@ for ($i = 0; $i -lt $goExecutables.Count; $i++) {
     -X github.com/siemens-healthineers/k2s/internal/version.gitTag=$($GIT_TAG) `
     -X github.com/siemens-healthineers/k2s/internal/version.gitTreeState=$($GIT_TREE_STATE)" `
         -gcflags=all="-l -B" `
-        -o "$($goExecutable.OutDir)" `
+        -o "$outPath" `
 
     if (!$?) {
         Set-Location $currentLocation
         throw 'Build failed!'
     }
 
-    Write-Output "ExeOutDir: `"$($goExecutable.OutDir)`""
+    Write-Output "ExeOutDir: `"$outPath`""
 }
 
 Set-Location $currentLocation

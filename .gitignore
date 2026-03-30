@@ -117,12 +117,11 @@ addons/hooks
 /bin/cni/l4proxy.exe
 /bin/cni/cplauncher.exe
 
-# Linux binaries built via cross-compilation
-/k2s/cloudinitisobuilder
-/k2s/httpproxy
-/k2s/pause
-/k2s/yaml2json
-/k2s/k2s
+# Linux binaries built via cross-compilation (bgol)
+/bin/cloudinitisobuilder
+/bin/httpproxy
+/bin/yaml2json
+/k2s.linux
 
 tmp/**/*
 
