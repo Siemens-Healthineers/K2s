@@ -192,13 +192,6 @@ function Get-EnabledAddons {
 		$alreadyExistingAddon = $enabledAddons | Where-Object { $_.Name -eq $addon.Name }
 		if ($alreadyExistingAddon) {
 			$alreadyExistingAddon.Implementations.Add($addon.Implementation) | Out-Null
-			$enabledAddons = $enabledAddons | Where-Object { $_ -ne $addon.Name }
-			if ($enableAddons) {
-				$enabledAddons.Add($alreadyExistingAddon) | Out-Null
-			}
-			else {
-				$enabledAddons = [System.Collections.ArrayList]@($enabledAddons)
-			}
 		}
 		else {
 			if ($null -eq $addon.Implementation) {

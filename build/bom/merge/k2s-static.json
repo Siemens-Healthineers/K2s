@@ -258,9 +258,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.0.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.1.zip",
       "name": "dockerd",
-      "version": "v29.3.0",
+      "version": "v29.3.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -277,13 +277,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.3.0",
+      "purl": "pkg:github/moby/moby@29.3.1",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.0.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.1.zip",
       "name": "docker",
-      "version": "v29.3.0",
+      "version": "v29.3.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -300,13 +300,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.3.0",
+      "purl": "pkg:github/moby/moby@29.3.1",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.0.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.1.zip",
       "name": "docker-proxy",
-      "version": "v29.3.0",
+      "version": "v29.3.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -323,13 +323,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.3.0",
+      "purl": "pkg:github/moby/moby@29.3.1",
       "type": "application"
     },
     {
-      "group": "https://github.com/flannel-io/flannel/releases/download/0.28.1/flanneld.exe",
+      "group": "https://github.com/flannel-io/flannel/releases/download/0.28.2/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.28.1",
+      "version": "v0.28.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -346,7 +346,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.28.1",
+      "purl": "pkg:github/flannel-io/flannel@v0.28.2",
       "type": "application"
     },
     {

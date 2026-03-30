@@ -168,10 +168,11 @@ func (p *linuxAddonProvider) Status(cfg AddonStatusConfig) (*AddonStatusResult, 
 				for _, entry := range strings.Split(string(output), ",") {
 					parts := strings.SplitN(entry, "=", 2)
 					if len(parts) == 2 {
+						isRunning := parts[1] == "Running"
 						info.Props = append(info.Props, AddonStatusProp{
 							Name:  parts[0],
 							Value: parts[1],
-							Okay:  parts[1] == "Running",
+							Okay:  &isRunning,
 						})
 					}
 				}
@@ -192,6 +193,18 @@ func (p *linuxAddonProvider) Export(_ AddonExportConfig) error {
 func (p *linuxAddonProvider) Import(_ AddonImportConfig) error {
 	return NotSupportedError("addons import",
 		"addon import on Linux hosts is not yet implemented")
+}
+
+func (p *linuxAddonProvider) RunCommand(cfg AddonRunCommandConfig) error {
+	switch cfg.CommandName {
+	case "enable":
+		return p.Enable(AddonEnableConfig{Name: cfg.AddonName, ShowOutput: cfg.ShowOutput})
+	case "disable":
+		return p.Disable(AddonDisableConfig{Name: cfg.AddonName, ShowOutput: cfg.ShowOutput})
+	default:
+		return NotSupportedError(fmt.Sprintf("addon %s", cfg.CommandName),
+			fmt.Sprintf("addon '%s' command on Linux hosts is not yet implemented", cfg.CommandName))
+	}
 }
 
 // isAddonDeployed checks if an addon has any pods deployed in the cluster.

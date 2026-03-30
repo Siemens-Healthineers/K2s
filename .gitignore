@@ -104,12 +104,24 @@ addons/hooks
 # apps in /k2s exclude 
 /k2s/**/*.exe
 
-# Linux binaries built via cross-compilation
-/k2s/cloudinitisobuilder
-/k2s/httpproxy
-/k2s/pause
-/k2s/yaml2json
-/k2s/k2s
+# Go-built binaries (built via BuildGoExe.ps1 / bgo -BuildAll)
+# These are no longer committed to git — build locally after clone.
+/k2s.exe
+/bin/cloudinitisobuilder.exe
+/bin/devgon.exe
+/bin/httpproxy.exe
+/bin/yaml2json.exe
+/bin/zap.exe
+/bin/cni/bridge.exe
+/bin/cni/vfprules.exe
+/bin/cni/l4proxy.exe
+/bin/cni/cplauncher.exe
+
+# Linux binaries built via cross-compilation (bgol)
+/bin/cloudinitisobuilder
+/bin/httpproxy
+/bin/yaml2json
+/k2s.linux
 
 tmp/**/*
 

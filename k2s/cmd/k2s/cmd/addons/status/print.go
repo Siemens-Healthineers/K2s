@@ -88,14 +88,8 @@ func (s *JsonPrinter) PrintStatus(addonName string, implementation string, loadF
 	}
 
 	var deferredErr error
-	if loadedStatus.Failure == nil {
-		printStatus.Enabled = loadedStatus.Enabled
-		printStatus.Props = loadedStatus.Props
-	} else {
-		printStatus.Error = &loadedStatus.Failure.Code
-		loadedStatus.Failure.SuppressCliOutput = true
-		deferredErr = loadedStatus.Failure
-	}
+	printStatus.Enabled = loadedStatus.Enabled
+	printStatus.Props = loadedStatus.Props
 
 	slog.Info("Marhalling", "status", printStatus)
 
@@ -125,10 +119,6 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, implementation strin
 
 	if err != nil {
 		return err
-	}
-
-	if status.Failure != nil {
-		return status.Failure
 	}
 
 	if status.Enabled == nil {
