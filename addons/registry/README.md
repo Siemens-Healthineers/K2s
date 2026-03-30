@@ -36,6 +36,10 @@ _Note:_ The above command shall enable the ingress traefik addon if it is not en
 
 ## Access to registry
 
+The local registry is a single shared registry exposed inside the cluster as `k2s.registry.local`. When an extended node pushes to that endpoint, the image data is stored in the shared registry repository used by the registry instance, regardless of which node initiated the push.
+
+As a result, listing images from the local registry shows the shared registry catalog rather than per-node image ownership.
+
 ### Ingress
 
 In order to push container images to the local registry during `k2s image build -p` by using an ingress tagging must look like the following:

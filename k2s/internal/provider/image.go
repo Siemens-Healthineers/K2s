@@ -62,6 +62,7 @@ type ContainerImage struct {
 type PushedImage struct {
 	Name string
 	Tag  string
+	Node string
 }
 
 // ImagePullConfig holds parameters for pulling a container image.

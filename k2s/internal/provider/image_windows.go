@@ -63,6 +63,7 @@ func (p *windowsImageProvider) List(cfg ImageListConfig) (*ImageListResult, erro
 		PushedImages      []struct {
 			Name string `json:"name"`
 			Tag  string `json:"tag"`
+			Node string `json:"node"`
 		} `json:"pushedimages"`
 	}
 
@@ -93,6 +94,7 @@ func (p *windowsImageProvider) List(cfg ImageListConfig) (*ImageListResult, erro
 		listResult.PushedImages = append(listResult.PushedImages, PushedImage{
 			Name: img.Name,
 			Tag:  img.Tag,
+			Node: img.Node,
 		})
 	}
 

@@ -340,6 +340,25 @@ function Get-PushedContainerImages  {
 
     $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.local' }
 
+    $registryNodeName = ''
+    try {
+        $kubectlExe = "$kubeBinPath\kubectl.exe"
+        if (Test-Path $kubectlExe) {
+            $registryNodeName = (& $kubectlExe -n registry get pod -l app=registry -o jsonpath='{.items[0].spec.nodeName}' 2>$null) | Out-String
+            $registryNodeName = $registryNodeName.Trim()
+        }
+    }
+    catch {
+        Write-Log "[ImageList] Unable to detect registry pod node, using control-plane node name fallback"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($registryNodeName)) {
+        $registryNodeName = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
+        if ([string]::IsNullOrWhiteSpace($registryNodeName)) {
+            $registryNodeName = 'kubemaster'
+        }
+    }
+
     $isNodePort = $registryName -match ':'
 
     if (!$isNodePort) {
@@ -364,6 +383,7 @@ function Get-PushedContainerImages  {
             $pushedimage = [PushedImage]@{
                 Name = "$registryName/" + $image
                 Tag  = $tag
+                Node = $registryNodeName
             }
             $pushedContainerImages += $pushedimage
         }

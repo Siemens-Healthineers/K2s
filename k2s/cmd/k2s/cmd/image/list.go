@@ -171,6 +171,7 @@ func listImages(cmd *cobra.Command, args []string) error {
 			loaded.PushedImages = append(loaded.PushedImages, pushedImage{
 				Name: img.Name,
 				Tag:  img.Tag,
+				Node: img.Node,
 			})
 		}
 		return loaded, nil
