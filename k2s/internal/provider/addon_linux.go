@@ -168,10 +168,11 @@ func (p *linuxAddonProvider) Status(cfg AddonStatusConfig) (*AddonStatusResult, 
 				for _, entry := range strings.Split(string(output), ",") {
 					parts := strings.SplitN(entry, "=", 2)
 					if len(parts) == 2 {
+						isRunning := parts[1] == "Running"
 						info.Props = append(info.Props, AddonStatusProp{
 							Name:  parts[0],
 							Value: parts[1],
-							Okay:  parts[1] == "Running",
+							Okay:  &isRunning,
 						})
 					}
 				}
