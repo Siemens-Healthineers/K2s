@@ -17,7 +17,7 @@ import (
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -200,12 +200,13 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 		pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
 	}
 
-	psCmd, params, err := buildPsCmd(cmd.Flags(), (*implementation.Commands)[cmdName], addon.Directory)
+	cmdConfig := (*implementation.Commands)[cmdName]
+	_, params, err := buildPsCmd(cmd.Flags(), cmdConfig, addon.Directory)
 	if err != nil {
 		return err
 	}
 
-	slog.Debug("PS command created", "command", psCmd, "params", params)
+	slog.Debug("Addon command prepared", "command", cmdName, "addon", addon.Metadata.Name, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -223,13 +224,16 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 		return err
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
+	err = context.Providers().Addon.RunCommand(provider.AddonRunCommandConfig{
+		AddonName:      addon.Metadata.Name,
+		CommandName:    cmdName,
+		AddonDirectory: addon.Directory,
+		ScriptSubPath:  cmdConfig.Script.SubPath,
+		Params:         params,
+		ShowOutput:     cmd.Flags().Lookup(common.OutputFlagName) != nil && cmd.Flags().Lookup(common.OutputFlagName).Value.String() == "true",
+	})
 	if err != nil {
 		return err
-	}
-
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
 	}
 
 	cmdSession.Finish()
