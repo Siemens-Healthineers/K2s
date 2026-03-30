@@ -261,9 +261,9 @@ Substitute placeholders and apply:
 
 ```powershell
 $k2sInstallDir = (kubectl get configmap addon-sync-config -n k2s-addon-sync -o jsonpath='{.data.K2S_INSTALL_DIR}').Trim()
-$addonName     = '<ADDON_NAME>' # addon folder name
-$registryHost  = '<REGISTRY_HOST>'
-$insecure      = 'true'
+$addonName     = '<ADDON_NAME>'                 # <-- change to your addon folder name
+$registryHost  = '<REGISTRY_HOST>'              # <-- e.g. k2s.registry.local:30500
+$insecure      = 'true'                         # <-- set to 'false' for TLS registries
 
 $templateDir = Join-Path $k2sInstallDir 'addons\common\manifests\addon-sync\fluxcd\per-addon'
 

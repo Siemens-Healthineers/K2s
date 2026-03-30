@@ -19,7 +19,8 @@ const PsCmd = "pwsh"
 // if PowerShell Core (pwsh) is installed. Commands that support Linux hosts have
 // native Go implementations and never reach this code path.
 func platformGuard() error {
-	return fmt.Errorf("this command is not yet available on Linux hosts. " +
+	return fmt.Errorf("this operation requires Windows PowerShell and is not available on Linux hosts. " +
 		"Supported commands on Linux: install, uninstall, start, stop, status, version, " +
-		"node connect/exec/copy")
+		"addons enable/disable/ls/status, image build/clean/export/import/list/pull/push/remove/tag, " +
+		"node add/remove, system dump/reset/reset-network/cert-renew")
 }
