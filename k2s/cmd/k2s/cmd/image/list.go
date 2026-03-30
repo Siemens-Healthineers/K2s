@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package image
@@ -6,8 +6,8 @@ package image
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -18,7 +18,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/json"
@@ -53,28 +52,43 @@ type containerImage struct {
 type pushedImage struct {
 	Name string `json:"name"`
 	Tag  string `json:"tag"`
+	Node string `json:"node"`
 }
 
 const (
 	includeK8sImages = "include-k8s-images"
+	nodeFlagName     = "node"
+	nodesFlagName    = "nodes"
 	outputFlagName   = "output"
 	jsonOption       = "json"
 
 	cmdExample = `
-  # List all the container images from the K2s cluster
+  # List images from the default nodes (Linux control-plane and local Windows host)
   k2s image ls
 
-  # List all the container images including kubernetes container images from the K2s cluster
+  # List images including Kubernetes system images from the default nodes
   k2s image ls -A
 
-  # List all the container images in JSON output format
+  # List images in JSON output format
   k2s image ls -o json
+
+  # List images in JSON output format from a specific worker node only
+  k2s image ls --node worker-1 -o json
+
+  # List images in JSON output format from multiple specific nodes only
+  k2s image ls --nodes worker-1,worker-2 -o json
+
+  # List images from a specific worker node only
+  k2s image ls --node worker-1
+
+  # List images from multiple specific nodes only
+  k2s image ls --nodes worker-1,worker-2
 `
 )
 
 var (
 	containerImagesTableHeaders = []string{"ImageId", "Repository", "Tag", "Node", "Size"}
-	pushedImagesTableHeaders    = []string{"Name", "Tag"}
+	pushedImagesTableHeaders    = []string{"Name", "Tag", "Node"}
 
 	listCmd = &cobra.Command{
 		Use:     "ls",
@@ -86,6 +100,8 @@ var (
 
 func init() {
 	listCmd.Flags().BoolP(includeK8sImages, "A", false, "Include kubernetes container images if specified")
+	listCmd.Flags().String(nodeFlagName, "", "Node name to list images from (e.g. worker-1)")
+	listCmd.Flags().String(nodesFlagName, "", "Comma-separated node names to list images from (e.g. worker-1,worker-2)")
 	listCmd.Flags().StringP(common.OutputFlagName, common.OutputFlagShorthand, "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
 	listCmd.Flags().SortFlags = false
 	listCmd.Flags().PrintDefaults()
@@ -106,30 +122,33 @@ func listImages(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	nodesOption, err := cmd.Flags().GetString(nodesFlagName)
+	if err != nil {
+		return err
+	}
+
+	nodeOption, err := cmd.Flags().GetString(nodeFlagName)
+	if err != nil {
+		return err
+	}
+
+	nodeSelector := strings.TrimSpace(nodesOption)
+	if nodeSelector == "" {
+		nodeSelector = strings.TrimSpace(nodeOption)
+	}
+
 	terminalPrinter := terminal.NewTerminalPrinter()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	_, err = config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
-			if outputOption == jsonOption {
-				return printSystemErrJson(terminalPrinter.Println, cconfig.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
-			}
-			return common.CreateSystemInCorruptedStateCmdFailure()
-		}
-		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
-			if outputOption == jsonOption {
-				return printSystemErrJson(terminalPrinter.Println, cconfig.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
-			}
-			return common.CreateSystemNotInstalledCmdFailure()
-		}
-
-		return err
+		return handleListImagesRuntimeConfigErr(err, outputOption, terminalPrinter.Println)
 	}
 
 	getImagesFunc := func() (*LoadedImages, error) {
 		result, err := context.Providers().Image.List(provider.ImageListConfig{
 			IncludeK8sImages: includeK8sImages,
+			Nodes:            nodeSelector,
 		})
 		if err != nil {
 			return nil, err
@@ -161,6 +180,23 @@ func listImages(cmd *cobra.Command, args []string) error {
 		return printImagesAsJson(getImagesFunc, terminalPrinter.Println)
 	}
 	return printImagesToUser(getImagesFunc, terminalPrinter)
+}
+
+func handleListImagesRuntimeConfigErr(err error, outputOption string, printlnFunc func(m ...any)) error {
+	if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
+		if outputOption == jsonOption {
+			return printSystemErrJson(printlnFunc, cconfig.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
+		}
+		return common.CreateSystemInCorruptedStateCmdFailure()
+	}
+	if errors.Is(err, cconfig.ErrSystemNotInstalled) {
+		if outputOption == jsonOption {
+			return printSystemErrJson(printlnFunc, cconfig.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
+		}
+		return common.CreateSystemNotInstalledCmdFailure()
+	}
+
+	return err
 }
 
 func printImagesAsJson(getImagesFunc func() (*LoadedImages, error), printlnFunc func(m ...any)) error {
@@ -246,12 +282,16 @@ func printImagesToUser(getImagesFunc func() (*LoadedImages, error), printer term
 	return nil
 }
 
-func getImages(includeK8sImages bool) (*LoadedImages, error) {
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Get-Images.ps1"))
+func getImages(includeK8sImages bool, nodes string) (*LoadedImages, error) {
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
 
 	var params []string
 	if includeK8sImages {
 		params = []string{"-IncludeK8sImages"}
+	}
+
+	if strings.TrimSpace(nodes) != "" {
+		params = append(params, "-Nodes "+utils.EscapeWithSingleQuotes(nodes))
 	}
 
 	return powershell.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", common.NewPtermWriter(), params...)
@@ -273,7 +313,7 @@ func printAvailableImagesInContainerRegistry(terminalPrinter terminal.TerminalPr
 
 	pushedImagesTable := [][]string{pushedImagesTableHeaders}
 	for _, pushedImage := range pushedImages {
-		row := []string{pushedImage.Name, pushedImage.Tag}
+		row := []string{pushedImage.Name, pushedImage.Tag, pushedImage.Node}
 		pushedImagesTable = append(pushedImagesTable, row)
 	}
 	terminalPrinter.PrintTableWithHeaders(pushedImagesTable)

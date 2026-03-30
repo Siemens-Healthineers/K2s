@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package image
@@ -20,12 +20,33 @@ import (
 var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Remove container images from all nodes",
-	RunE:  cleanImages,
+	Example: `
+  # Remove user images from the default nodes (Linux control-plane and local Windows host)
+  k2s image clean
+
+  # Remove user images from a specific worker node only
+  k2s image clean --node worker-1
+
+  # Remove user images from multiple specific nodes only
+  k2s image clean --nodes worker-1,worker-2
+`,
+	RunE: cleanImages,
+}
+
+func init() {
+	addNodeSelectionFlags(cleanCmd)
+	cleanCmd.Flags().SortFlags = false
+	cleanCmd.Flags().PrintDefaults()
 }
 
 func cleanImages(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Cleaning container images..")
+
+	nodeSelector, err := parseNodeSelector(cmd)
+	if err != nil {
+		return err
+	}
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
@@ -49,6 +70,7 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := context.Providers().Image.Clean(provider.ImageCleanConfig{
+		Nodes:      nodeSelector,
 		ShowOutput: showOutput,
 	}); err != nil {
 		return err

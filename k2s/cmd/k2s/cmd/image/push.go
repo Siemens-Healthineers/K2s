@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package image
@@ -23,9 +23,15 @@ import (
 
 var (
 	pushCommandExample = `
-  # Push image 'myimage:v1' into 'k2s.registry.local' registry
+  # Push image to registry; image is looked up on default nodes (Linux control-plane and local Windows host)
   k2s image push -n k2s.registry.local/myimage:v1
   k2s image push --id 7ca25e0fabd39
+
+  # Push image that resides on a specific worker node
+  k2s image push -n k2s.registry.local/myimage:v1 --node worker-1
+
+  # Push image from multiple specific nodes
+  k2s image push -n k2s.registry.local/myimage:v1 --nodes worker-1,worker-2
 `
 	pushCmd = &cobra.Command{
 		Use:     "push",
@@ -38,6 +44,7 @@ var (
 func init() {
 	pushCmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
 	pushCmd.Flags().StringP(imageNameFlagName, "n", "", "Name of the container image including tag")
+	addNodeSelectionFlags(pushCmd)
 	pushCmd.Flags().SortFlags = false
 	pushCmd.Flags().PrintDefaults()
 }
@@ -81,9 +88,15 @@ func pushImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
+	nodeSelector, err := parseNodeSelector(cmd)
+	if err != nil {
+		return err
+	}
+
 	if err := context.Providers().Image.Push(provider.ImagePushConfig{
 		ImageId:    imageId,
 		ImageName:  imageName,
+		Nodes:      nodeSelector,
 		ShowOutput: showOutput,
 	}); err != nil {
 		return err
@@ -118,6 +131,12 @@ func buildPushPsCmd(cmd *cobra.Command) (psCmd string, params []string, err erro
 	if imageName != "" {
 		params = append(params, " -ImageName "+imageName)
 	}
+
+	nodeSelector, err := parseNodeSelector(cmd)
+	if err != nil {
+		return "", nil, err
+	}
+	params = appendNodesParam(params, nodeSelector)
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {

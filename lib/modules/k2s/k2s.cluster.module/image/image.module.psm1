@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $registryFunctionsModule = "$PSScriptRoot\registry\registry.module.psm1"
@@ -8,8 +8,9 @@ $configModule = "$PSScriptRoot\..\..\k2s.infra.module\config\config.module.psm1"
 $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
 $pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
 $vmNodeModule = "$PSScriptRoot\..\..\k2s.node.module\vmnode\vmnode.module.psm1"
+$clusterConfigModule = "$PSScriptRoot\..\..\k2s.infra.module\config\cluster.config.module.psm1"
 
-Import-Module $configModule, $k8sApiModule, $registryFunctionsModule, $vmModule, $statusModule, $pathModule, $vmNodeModule
+Import-Module $configModule, $k8sApiModule, $registryFunctionsModule, $vmModule, $statusModule, $pathModule, $vmNodeModule, $clusterConfigModule
 
 $kubernetesImagesJson = Get-KubernetesImagesFilePath
 $windowsPauseImageRepository = 'shsk2s.azurecr.io/pause-win'
@@ -30,6 +31,7 @@ class ContainerImage {
 class PushedImage {
     [string]$Name
     [string]$Tag
+    [string]$Node
 }
 
 $headers = @(
@@ -86,25 +88,69 @@ function Get-FilteredImages([ContainerImage[]]$ContainerImages, [ContainerImage[
     return $filteredImages
 }
 
-function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
+function Convert-ImageCommandOutputToLines {
+    param(
+        [Parameter(Mandatory = $false)]
+        $Output
+    )
+
+    if ($null -eq $Output) {
+        return @()
+    }
+
+    $lines = @()
+    foreach ($item in @($Output)) {
+        if ($null -eq $item) {
+            continue
+        }
+
+        $itemLines = @(("$item" -split "`r?`n") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($itemLines.Count -gt 0) {
+            $lines += $itemLines
+        }
+    }
+
+    return @($lines)
+}
+
+function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false, [string]$IpAddress = '', [string]$UserName = '', [string]$NodeName = '') {
     $setupFilePath = Get-SetupConfigFilePath
     $hostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
+    if (-not [string]::IsNullOrWhiteSpace($NodeName)) {
+        $hostname = $NodeName
+    }
     $KubernetesImages = Get-KubernetesImagesFromJson
     $linuxContainerImages = @()
-    $output = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images').Output
+    if ([string]::IsNullOrWhiteSpace($IpAddress)) {
+        $output = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images').Output
+    }
+    else {
+        $resolvedUser = $UserName
+        if ([string]::IsNullOrWhiteSpace($resolvedUser)) {
+            $resolvedUser = Get-DefaultUserNameControlPlane
+        }
+        $output = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo buildah images' -IpAddress $IpAddress -UserName $resolvedUser).Output
+    }
+
+    $outputLines = @(Convert-ImageCommandOutputToLines -Output $output)
 
     Write-Log "[ImageList] Raw output type = $($output.GetType().Name)"
-    Write-Log "[ImageList] Raw output count = $($output.Count)"
-    if ($output -is [array]) {
-        Write-Log "[ImageList] Output is array with $($output.Length) elements"
-        for ($i = 0; $i -lt [Math]::Min($output.Length, 10); $i++) {
-            Write-Log "[ImageList]   Line[$i]: '$($output[$i])'"
+    Write-Log "[ImageList] Normalized output line count = $($outputLines.Count)"
+    if ($outputLines.Count -gt 0) {
+        Write-Log "[ImageList] Output is normalized to $($outputLines.Length) line(s)"
+        for ($i = 0; $i -lt [Math]::Min($outputLines.Length, 10); $i++) {
+            Write-Log "[ImageList]   Line[$i]: '$($outputLines[$i])'"
         }
     } else {
         Write-Log "[ImageList] Output is single value: '$output'"
     }
 
-    foreach ($line in $output[1..($output.Count - 1)]) {
+    if ($outputLines.Count -le 1) {
+        Write-Log '[ImageList] No image rows found in Linux image command output'
+        return @()
+    }
+
+    foreach ($line in $outputLines[1..($outputLines.Count - 1)]) {
         $words = $($line -replace '\s+', ' ').split()
         Write-Log "[ImageList] Parsing line: '$line' -> words count=$($words.Count)"
         if ($words.Count -lt 3) {
@@ -127,22 +173,77 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false, [bool]
         Get-FilteredImages -ContainerImages $linuxContainerImages -ContainerImagesToBeCleaned $KubernetesImages
         Write-Log "[ImageList] Total images after K8s filter = $($linuxContainerImages.Count)"
     }
-
     # Filter addon images and deduplicate
     $linuxContainerImages = Invoke-ImageFilteringAndDeduplication -ContainerImages $linuxContainerImages -ExcludeAddonImages $ExcludeAddonImages -NodeType 'Linux'
 
     return $linuxContainerImages
 }
 
-function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
-    $output = &$crictlExe --config $kubeBinPath\crictl.yaml images 2> $null
-    $node = $env:ComputerName.ToLower()
+function Get-RemoteWindowsNodeImageOutput {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$VmName
+    )
+
+    $session = $null
+    try {
+        $session = Open-RemoteSession -VmName $VmName -VmPwd (Get-DefaultTempPwd) -NoLog
+        $output = Invoke-Command -Session $session -ScriptBlock {
+            $remoteCrictlPath = "$using:kubeBinPath\crictl.exe"
+            if (-not (Test-Path $remoteCrictlPath)) {
+                $remoteCrictlPath = (Get-Command crictl.exe -ErrorAction Stop).Path
+            }
+
+            $remoteConfigPath = "$using:kubeBinPath\crictl.yaml"
+            if (-not (Test-Path $remoteConfigPath)) {
+                $remoteConfigPath = Join-Path (Split-Path $remoteCrictlPath -Parent) 'crictl.yaml'
+            }
+
+            & $remoteCrictlPath --config $remoteConfigPath images 2>$null
+        }
+
+        return @($output)
+    }
+    finally {
+        if ($null -ne $session) {
+            Remove-PSSession -Session $session -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false, [string]$NodeName = '', [string]$NodeType = '') {
+    $localNodeName = $env:ComputerName.ToLower()
+    $node = $localNodeName
+    $output = @()
+
+    if (-not [string]::IsNullOrWhiteSpace($NodeName)) {
+        $requestedNode = $NodeName.ToLower()
+        if ($requestedNode -ne $localNodeName) {
+            if ($NodeType -in @('VM-NEW', 'VM-EXISTING')) {
+                Write-Log "[ImageFilter] Collecting Windows images from remote VM node '$NodeName'"
+                $output = @(Get-RemoteWindowsNodeImageOutput -VmName $NodeName)
+                $node = $requestedNode
+            }
+            else {
+                Write-Log "[ImageFilter] Node '$NodeName' is a non-local Windows HOST node; remote Windows image listing is not implemented"
+                return @()
+            }
+        }
+        else {
+            $output = @(&$crictlExe --config $kubeBinPath\crictl.yaml images 2> $null)
+            $node = $requestedNode
+        }
+    }
+    else {
+        $output = @(&$crictlExe --config $kubeBinPath\crictl.yaml images 2> $null)
+    }
 
     $KubernetesImages = Get-KubernetesImagesFromJson
+    $outputLines = @(Convert-ImageCommandOutputToLines -Output $output)
 
     $windowsContainerImages = @()
-    if ($output.Count -gt 1) {
-        foreach ( $line in $output[1..($output.Count - 1)]) {
+    if ($outputLines.Count -gt 1) {
+        foreach ( $line in $outputLines[1..($outputLines.Count - 1)]) {
             $words = $($line -replace '\s+', ' ').split()
             $containerImage = [ContainerImage]@{
                 ImageId    = $words[2]
@@ -163,7 +264,6 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
     }
     return $windowsContainerImages
 }
-
 
 function Invoke-ImageFilteringAndDeduplication {
     param(
@@ -207,7 +307,30 @@ function Invoke-ImageFilteringAndDeduplication {
     return $ContainerImages
 }
 
-function Get-PushedContainerImages() {
+function Invoke-RegistryQueryOnLinuxNode {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$NodeInfo,
+        [Parameter(Mandatory = $true)]
+        [string]$Command
+    )
+
+    if ($NodeInfo.Kind -eq 'ControlPlane') {
+        return (Invoke-CmdOnControlPlaneViaSSHKey $Command -IgnoreErrors -Timeout 30).Output | Out-String
+    }
+
+    if ($NodeInfo.Kind -eq 'LinuxWorker') {
+        return (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 30).Output | Out-String
+    }
+
+    return ''
+}
+
+function Get-PushedContainerImages  {
+      param(
+        [Parameter(Mandatory = $false)]
+        [hashtable[]]$NodeInfos = @()
+    ) 
     $setupFilePath = Get-SetupConfigFilePath
     $enableAddons = Get-ConfigValue -Path $setupFilePath -Key 'EnabledAddons'
     $isRegistryAddonEnabled = $enableAddons | Select-Object -ExpandProperty Name | Where-Object { $_ -eq 'registry' }
@@ -216,11 +339,6 @@ function Get-PushedContainerImages() {
     }
 
     $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.local' }
-    # $auth = Get-RegistryAuthToken $registryName
-    # if (!$auth) {
-    #     Write-Error "Can't find authentication token for $registryName."
-    #     return
-    # }
 
     $isNodePort = $registryName -match ':'
 
@@ -254,13 +372,145 @@ function Get-PushedContainerImages() {
     return $pushedContainerImages
 }
 
+function Remove-ImageOnLinuxViaSSH {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ImageId,
+        [Parameter(Mandatory = $true)]
+        [string]$ImageReference,
+        [Parameter(Mandatory = $true)]
+        [string]$NodeName,
+        [Parameter(Mandatory = $false)]
+        [string]$IpAddress = '',
+        [Parameter(Mandatory = $false)]
+        [string]$UserName = '',
+        [Parameter(Mandatory = $false)]
+        [switch]$Force,
+        [Parameter(Mandatory = $false)]
+        [switch]$IsControlPlane
+    )
+
+    $invokeCmd = if ($IsControlPlane) {
+        { param($cmd) (Invoke-CmdOnControlPlaneViaSSHKey $cmd -NoLog -IgnoreErrors) }
+    }
+    else {
+        $resolvedUser = if ([string]::IsNullOrWhiteSpace($UserName)) { Get-DefaultUserNameControlPlane } else { $UserName }
+        { param($cmd) (Invoke-CmdOnVmViaSSHKey -CmdToExecute $cmd -IpAddress $IpAddress -UserName $resolvedUser -NoLog -IgnoreErrors) }
+    }
+
+    if ($Force) {
+        $containersResult = & $invokeCmd "sudo crictl ps -a -q --image $ImageId 2>/dev/null"
+        $containersOutput = @($containersResult.Output)
+        foreach ($containerId in @($containersOutput)) {
+            if (![string]::IsNullOrWhiteSpace($containerId)) {
+                Write-Log "[ImageRm] Stopping container $containerId on '$NodeName'"
+                & $invokeCmd "sudo crictl stop $containerId 2>/dev/null" | Out-Null
+                & $invokeCmd "sudo crictl rm $containerId 2>/dev/null" | Out-Null
+            }
+        }
+        $podsResult = & $invokeCmd 'sudo crictl pods -q 2>/dev/null'
+        $podsOutput = @($podsResult.Output)
+        foreach ($podId in @($podsOutput)) {
+            if (![string]::IsNullOrWhiteSpace($podId)) {
+                $podContainers = & $invokeCmd "sudo crictl ps -a -q -p $podId --image $ImageId 2>/dev/null"
+                if ($podContainers) {
+                    Write-Log "[ImageRm] Stopping pod $podId on '$NodeName'"
+                    & $invokeCmd "sudo crictl stopp $podId 2>/dev/null" | Out-Null
+                    & $invokeCmd "sudo crictl rmp $podId 2>/dev/null" | Out-Null
+                }
+            }
+        }
+    }
+
+    # Remove by explicit image reference (repo:tag) to correctly untag when multiple names share one ID.
+    $removeResult = & $invokeCmd "sudo buildah rmi '$ImageReference' 2>&1"
+    if (-not $removeResult.Success) {
+        return "__K2S_IMAGE_DELETE_FAILED__`n$($removeResult.Output | Out-String)"
+    }
+
+    return ($removeResult.Output | Out-String)
+}
+
+function Remove-ImageOnWindowsVm {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ImageId,
+        [Parameter(Mandatory = $true)]
+        [string]$VmName,
+        [Parameter(Mandatory = $false)]
+        [switch]$Force
+    )
+
+    $session = $null
+    try {
+        $session = Open-RemoteSession -VmName $VmName -VmPwd (Get-DefaultTempPwd) -NoLog
+
+        $output = Invoke-Command -Session $session -ArgumentList $ImageId, [bool]$Force, $kubeBinPath -ScriptBlock {
+            param($remoteImageId, $remoteForce, $remoteKubeBinPath)
+
+            $remoteCrictlPath = "$remoteKubeBinPath\crictl.exe"
+            if (-not (Test-Path $remoteCrictlPath)) {
+                $remoteCrictlPath = (Get-Command crictl.exe -ErrorAction Stop).Path
+            }
+
+            $remoteConfigPath = "$remoteKubeBinPath\crictl.yaml"
+            if (-not (Test-Path $remoteConfigPath)) {
+                $remoteConfigPath = Join-Path (Split-Path $remoteCrictlPath -Parent) 'crictl.yaml'
+            }
+
+            if ($remoteForce) {
+                $containersOutput = & $remoteCrictlPath --config $remoteConfigPath ps -a -q --image $remoteImageId 2>$null
+                foreach ($containerId in @($containersOutput)) {
+                    if (![string]::IsNullOrWhiteSpace($containerId)) {
+                        & $remoteCrictlPath --config $remoteConfigPath stop $containerId 2>$null | Out-Null
+                        & $remoteCrictlPath --config $remoteConfigPath rm $containerId 2>$null | Out-Null
+                    }
+                }
+
+                $podsOutput = & $remoteCrictlPath --config $remoteConfigPath pods -q 2>$null
+                foreach ($podId in @($podsOutput)) {
+                    if (![string]::IsNullOrWhiteSpace($podId)) {
+                        $podContainers = & $remoteCrictlPath --config $remoteConfigPath ps -a -q -p $podId --image $remoteImageId 2>$null
+                        if ($podContainers) {
+                            & $remoteCrictlPath --config $remoteConfigPath stopp $podId 2>$null | Out-Null
+                            & $remoteCrictlPath --config $remoteConfigPath rmp $podId 2>$null | Out-Null
+                        }
+                    }
+                }
+            }
+
+            & $remoteCrictlPath --config $remoteConfigPath rmi $remoteImageId 2>&1
+        }
+
+        return @($output)
+    }
+    finally {
+        if ($null -ne $session) {
+            Remove-PSSession -Session $session -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Remove-Image([ContainerImage]$ContainerImage, [switch]$Force) {
     $output = ''
     $imageId = $ContainerImage.ImageId
+    $imageReference = "$($ContainerImage.Repository):$($ContainerImage.Tag)"
+    $nodeName = $ContainerImage.Node.ToLower()
 
-    if ($ContainerImage.Node -eq $env:ComputerName.ToLower()) {
+    # Resolve control-plane node name from setup.json
+    $setupFilePath = Get-SetupConfigFilePath
+    $controlPlaneNodeName = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
+    if ([string]::IsNullOrWhiteSpace($controlPlaneNodeName)) {
+        $controlPlaneNodeName = 'kubemaster'
+    }
+    $controlPlaneNodeNameLower = $controlPlaneNodeName.ToLower()
+    $localWindowsNodeName = $env:ComputerName.ToLower()
+
+    Write-Log "[ImageRm] Removing image '$imageId' from node '$nodeName'"
+
+    if ($nodeName -eq $localWindowsNodeName) {
+        # ── Windows host node ────────────────────────────────────────────
         if ($Force) {
-            # Stop and remove any containers using this image first (including terminated ones)
             $containersOutput = $(&$crictlExe --config $kubeBinPath\crictl.yaml ps -a -q --image $imageId 2>&1)
             if ($containersOutput) {
                 foreach ($containerId in $containersOutput) {
@@ -271,15 +521,13 @@ function Remove-Image([ContainerImage]$ContainerImage, [switch]$Force) {
                     }
                 }
             }
-            # Also remove any pod sandboxes that might be holding references
             $podsOutput = $(&$crictlExe --config $kubeBinPath\crictl.yaml pods -q 2>&1)
             if ($podsOutput) {
                 foreach ($podId in $podsOutput) {
                     if (![string]::IsNullOrWhiteSpace($podId)) {
-                        # Check if this pod has containers using our image
                         $podContainers = $(&$crictlExe --config $kubeBinPath\crictl.yaml ps -a -q -p $podId --image $imageId 2>&1)
                         if ($podContainers) {
-                            Write-Log "[ImageRm] Stopping and removing pod $podId that has containers using image $imageId"
+                            Write-Log "[ImageRm] Stopping and removing pod $podId that uses image $imageId"
                             $(&$crictlExe --config $kubeBinPath\crictl.yaml stopp $podId 2>&1) | Out-Null
                             $(&$crictlExe --config $kubeBinPath\crictl.yaml rmp $podId 2>&1) | Out-Null
                         }
@@ -287,38 +535,55 @@ function Remove-Image([ContainerImage]$ContainerImage, [switch]$Force) {
                 }
             }
         }
-        $output = $(&$crictlExe --config $kubeBinPath\crictl.yaml rmi $imageId 2>&1)
+        $output = $(&$crictlExe --config $kubeBinPath\crictl.yaml rmi $imageReference 2>&1)
+        if (!$?) {
+            $output = "__K2S_IMAGE_DELETE_FAILED__`n$($output | Out-String)"
+        }
+
+    }
+    elseif ($nodeName -eq $controlPlaneNodeNameLower) {
+        # ── Linux control-plane node ─────────────────────────────────────
+        $output = Remove-ImageOnLinuxViaSSH -ImageId $imageId -ImageReference $imageReference -NodeName $nodeName -Force:$Force -IsControlPlane
+
     }
     else {
-        if ($Force) {
-            # Stop and remove any containers using this image first (including terminated ones)
-            $containersResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl ps -a -q --image $imageId"
-            if ($containersResult.Output) {
-                foreach ($containerId in $containersResult.Output) {
-                    if (![string]::IsNullOrWhiteSpace($containerId)) {
-                        Write-Log "[ImageRm] Stopping and removing container $containerId that uses image $imageId"
-                        Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl stop $containerId" | Out-Null
-                        Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rm $containerId" | Out-Null
-                    }
-                }
+        # ── Remote node (Linux/Windows) from cluster descriptor ──────────
+        $clusterNode = Get-NodeConfig -NodeName $nodeName
+        if ($null -eq $clusterNode) {
+            $errMsg = "Cannot remove image '$imageId': node '$nodeName' not found in cluster descriptor"
+            Write-Log "[ImageRm] $errMsg"
+            return $errMsg
+        }
+
+        $nodeOs = "$($clusterNode.OS)".ToLower()
+        if ($nodeOs -eq 'linux') {
+            if ([string]::IsNullOrWhiteSpace($clusterNode.IpAddress)) {
+                $errMsg = "Cannot remove image '$imageId': node '$nodeName' has no IpAddress in cluster descriptor"
+                Write-Log "[ImageRm] $errMsg"
+                return $errMsg
             }
-            # Also remove any pod sandboxes that might be holding references
-            $podsResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl pods -q"
-            if ($podsResult.Output) {
-                foreach ($podId in $podsResult.Output) {
-                    if (![string]::IsNullOrWhiteSpace($podId)) {
-                        # Check if this pod has containers using our image
-                        $podContainersResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl ps -a -q -p $podId --image $imageId"
-                        if ($podContainersResult.Output) {
-                            Write-Log "[ImageRm] Stopping and removing pod $podId that has containers using image $imageId"
-                            Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl stopp $podId" | Out-Null
-                            Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmp $podId" | Out-Null
-                        }
-                    }
-                }
+
+            $output = Remove-ImageOnLinuxViaSSH -ImageId $imageId -ImageReference $imageReference -NodeName $nodeName `
+                -IpAddress $clusterNode.IpAddress -UserName $clusterNode.Username `
+                -Force:$Force
+        }
+        elseif ($nodeOs -eq 'windows') {
+            $nodeType = "$($clusterNode.NodeType)"
+            if ($nodeType -in @('VM-NEW', 'VM-EXISTING')) {
+                Write-Log "[ImageRm] Removing image '$imageId' on remote Windows VM node '$nodeName'"
+                $output = Remove-ImageOnWindowsVm -ImageId $imageId -VmName $nodeName -Force:$Force
+            }
+            else {
+                $errMsg = "Cannot remove image '$imageId': node '$nodeName' is a non-local Windows HOST node; remote deletion is not implemented"
+                Write-Log "[ImageRm] $errMsg"
+                return $errMsg
             }
         }
-        $output = (Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmi $imageId").Output
+        else {
+            $errMsg = "Cannot remove image '$imageId': node '$nodeName' has unsupported OS '$nodeOs'"
+            Write-Log "[ImageRm] $errMsg"
+            return $errMsg
+        }
     }
 
     $errorString = Get-ErrorMessageIfImageDeletionFailed -Output $output
@@ -407,26 +672,100 @@ function Get-RegistryAuthToken($registryName) {
     return $auth
 }
 
-function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false) {
-    $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages
-    Write-Log "[ImageFilter] Found $($linuxContainerImages.Count) Linux image(s)"
-    $linuxContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Linux: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" }
+function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false, [string]$Nodes = '') {
+    $setupFilePath = Get-SetupConfigFilePath
+    $linuxNodeName = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
+    if ([string]::IsNullOrWhiteSpace($linuxNodeName)) {
+        $linuxNodeName = 'kubemaster'
+    }
 
-    $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages
-    Write-Log "[ImageFilter] Found $($windowsContainerImages.Count) Windows image(s)"
-    $windowsContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Windows: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" }
-    $allContainerImages = @($linuxContainerImages) + @($windowsContainerImages)
-    return $allContainerImages
+    $linuxNodeNameLower = $linuxNodeName.ToLower()
+    $windowsNodeName = $env:ComputerName.ToLower()
+    $requestedNodes = @()
+
+    if (-not [string]::IsNullOrWhiteSpace($Nodes)) {
+        $requestedNodes = @($Nodes -split ',' | ForEach-Object { $_.Trim().ToLower() } | Where-Object { $_ -ne '' } | Select-Object -Unique)
+        Write-Log "[ImageFilter] Node filter requested: $($requestedNodes -join ', ')"
+    }
+
+    if ($requestedNodes.Count -eq 0) {
+        $linuxContainerImages = @(Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages)
+        Write-Log "[ImageFilter] Found $($linuxContainerImages.Count) Linux image(s)"
+        $linuxContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Linux: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" }
+
+        $windowsContainerImages = @(Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages)
+        Write-Log "[ImageFilter] Found $($windowsContainerImages.Count) Windows image(s)"
+        $windowsContainerImages | ForEach-Object { Write-Log "[ImageFilter]   Windows: $($_.Repository):$($_.Tag) (ID: $($_.ImageId), Node: $($_.Node), Size: $($_.Size))" }
+
+        return @($linuxContainerImages) + @($windowsContainerImages)
+    }
+
+    $allContainerImages = @()
+
+    foreach ($requestedNode in $requestedNodes) {
+        if ($requestedNode -eq $linuxNodeNameLower) {
+            $linuxImages = @(Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages -NodeName $requestedNode)
+            Write-Log "[ImageFilter] Found $($linuxImages.Count) Linux image(s) for node '$requestedNode'"
+            $allContainerImages += $linuxImages
+            continue
+        }
+
+        if ($requestedNode -eq $windowsNodeName) {
+            $windowsImages = @(Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages -NodeName $requestedNode -NodeType 'HOST')
+            Write-Log "[ImageFilter] Found $($windowsImages.Count) Windows image(s) for node '$requestedNode'"
+            $allContainerImages += $windowsImages
+            continue
+        }
+
+        $clusterNode = Get-NodeConfig -NodeName $requestedNode
+        if ($null -eq $clusterNode) {
+            Write-Log "[ImageFilter] Requested node '$requestedNode' not found in cluster descriptor"
+            continue
+        }
+
+        $nodeOs = "$($clusterNode.OS)".ToLower()
+        if ($nodeOs -eq 'linux') {
+            if ([string]::IsNullOrWhiteSpace($clusterNode.IpAddress) -or [string]::IsNullOrWhiteSpace($clusterNode.Username)) {
+                Write-Log "[ImageFilter] Node '$requestedNode' is linux but missing IpAddress/Username in cluster.json"
+                continue
+            }
+
+            $linuxImages = @(Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages -IpAddress $clusterNode.IpAddress -UserName $clusterNode.Username -NodeName $requestedNode)
+            Write-Log "[ImageFilter] Found $($linuxImages.Count) Linux image(s) for node '$requestedNode'"
+            $allContainerImages += $linuxImages
+            continue
+        }
+
+        if ($nodeOs -eq 'windows') {
+            $windowsImages = @(Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages -NodeName $requestedNode -NodeType "$($clusterNode.NodeType)")
+            Write-Log "[ImageFilter] Found $($windowsImages.Count) Windows image(s) for node '$requestedNode'"
+            $allContainerImages += $windowsImages
+            continue
+        }
+
+        Write-Log "[ImageFilter] Node '$requestedNode' has unsupported OS '$nodeOs' in cluster.json"
+    }
+
+    Write-Log "[ImageFilter] Total images after node filter: $($allContainerImages.Count)"
+    return @($allContainerImages)
 }
 
 function Get-ErrorMessageIfImageDeletionFailed([string]$Output) {
+    if ([string]::IsNullOrWhiteSpace($Output)) {
+        return $null
+    }
+
+    if ($output.Contains('__K2S_IMAGE_DELETE_FAILED__')) {
+        return 'Unable to delete the image on target node.'
+    }
+
     if ($output.Contains('image is in use by a container')) {
         return 'Unable to delete the image as it is in use by a container.'
     }
     elseif ($output.Contains('context deadline exceeded')) {
         return 'Unable to delete the image as the operation timed-out.'
     }
-    elseif ($output.Contains('no such image')) {
+    elseif ($output.Contains('no such image') -or $output.Contains('image not known') -or $output.Contains('ImageUnknown')) {
         return 'Unable to delete the image as it was not found.'
     }
     else {

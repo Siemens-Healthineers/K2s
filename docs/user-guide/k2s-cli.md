@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -215,6 +215,8 @@ k2s image pull <image> [flags]
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--windows` | `-w` | Pull onto the Windows node |
+| `--node` | | Target a single node |
+| `--nodes` | | Target multiple nodes (comma-separated) |
 
 ### image push
 
@@ -228,6 +230,8 @@ k2s image push [flags]
 |------|-------|-------------|
 | `--id` | | Image ID |
 | `--image-name` | `-n` | Image name including tag |
+| `--node` | | Target a single node |
+| `--nodes` | | Target multiple nodes (comma-separated) |
 
 ### image tag
 
@@ -242,6 +246,8 @@ k2s image tag [flags]
 | `--id` | | Image ID |
 | `--image-name` | `-n` | Current image name including tag |
 | `--target-name` | `-t` | New image name including tag |
+| `--node` | | Target a single node |
+| `--nodes` | | Target multiple nodes (comma-separated) |
 
 ### image export
 
@@ -328,18 +334,30 @@ k2s image registry add <registry-url> [flags]
 | `--password` | `-p` | Registry password |
 | `--skip-verify` | | Skip HTTPS certificate verification |
 | `--plain-http` | | Allow plain HTTP fallback |
+| `--node` | | Target a single node |
+| `--nodes` | | Target multiple nodes (comma-separated) |
 
 #### image registry rm
 
 ```console
-k2s image registry rm <registry-url>
+k2s image registry rm <registry-url> [flags]
 ```
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--node` | | Target a single node |
+| `--nodes` | | Target multiple nodes (comma-separated) |
 
 #### image registry ls
 
 ```console
-k2s image registry ls
+k2s image registry ls [flags]
 ```
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--node` | | Target a single node |
+| `--nodes` | | Target multiple nodes (comma-separated) |
 
 ---
 
