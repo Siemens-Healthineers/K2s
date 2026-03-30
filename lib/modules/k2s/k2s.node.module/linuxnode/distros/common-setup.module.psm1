@@ -1,5 +1,4 @@
-
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -1790,6 +1789,31 @@ function New-WslRootfsForControlPlaneNode {
     Convert-VhdxToRootfs @vhdxToRootfsCreationParams
 }
 
+function Invoke-CmdOnVmWithSSHPwd {
+    param (
+        [string]$Command = $(throw 'Argument missing: Command'),
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string]$UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$ExecutionTimeoutSeconds = 0,
+        [Parameter(Mandatory = $false)]
+        [switch]$IgnoreErrors = $false,
+        [Parameter(Mandatory = $false)]
+        [uint16]$Retries = 0
+    )
+    # Dispatches via password auth (plink.exe) when UserPwd is provided, SSH key auth (ssh.exe) otherwise.
+    # ExecutionTimeoutSeconds only applies to the SSH key path.
+    if (![string]::IsNullOrWhiteSpace($UserPwd)) {
+        $remoteUser = "$UserName@$IpAddress"
+        return Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors:$IgnoreErrors -Retries $Retries
+    }
+    else {
+        return Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -ExecutionTimeoutSeconds $ExecutionTimeoutSeconds -IgnoreErrors:$IgnoreErrors -Retries $Retries
+    }
+}
+
 function Set-ProxySettingsOnKubenode {
     param (
         [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
@@ -1812,13 +1836,20 @@ function Set-ProxySettingsOnKubenode {
 function Remove-ProxySettingsOnKubenode {
     param (
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw 'Argument missing: UserName')
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string] $UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$CommandExecutionTimeoutSeconds = 0
     )
 
     $proxySettings = ''
-    Set-ProxySettingsForApt -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
-    Set-ProxySettingsForContainerRuntime -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
-    Set-ProxySettingsForContainers -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
+    Set-ProxySettingsForApt -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -CommandExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds
+    Set-ProxySettingsForContainerRuntime -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -CommandExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds
+    Set-ProxySettingsForContainers -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -CommandExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds
+
+    (Invoke-CmdOnVmWithSSHPwd -Command 'sudo systemctl daemon-reload' -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
+    (Invoke-CmdOnVmWithSSHPwd -Command 'sudo systemctl restart crio' -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
 }
 
 function Set-ProxySettingsForApt {
@@ -1828,7 +1859,11 @@ function Set-ProxySettingsForApt {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw 'Argument missing: UserName')
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string] $UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$CommandExecutionTimeoutSeconds = 0
 
     )
 
@@ -1840,7 +1875,7 @@ function Set-ProxySettingsForApt {
     # packages
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for package tool'
-        (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmWithSSHPwd -Command 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf' -UserName $UserName -IpAddress $IpAddress -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
     }
     else {
         Write-Log 'Set proxy settings for package tool'
@@ -1861,7 +1896,11 @@ function Set-ProxySettingsForContainerRuntime {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw 'Argument missing: UserName')
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string] $UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$CommandExecutionTimeoutSeconds = 0
 
     )
 
@@ -1873,7 +1912,7 @@ function Set-ProxySettingsForContainerRuntime {
     # Container runtime
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for container runtime'
-        (Invoke-CmdOnVmViaSSHKey 'sudo rm -fr /etc/systemd/system/crio.service.d' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmWithSSHPwd -Command 'sudo rm -fr /etc/systemd/system/crio.service.d' -UserName $UserName -IpAddress $IpAddress -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
     }
     else {
         Write-Log 'Set proxy settings for container runtime'
@@ -1895,7 +1934,11 @@ function Set-ProxySettingsForContainers {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw 'Argument missing: UserName')
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string] $UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$CommandExecutionTimeoutSeconds = 0
 
     )
 
@@ -1907,7 +1950,7 @@ function Set-ProxySettingsForContainers {
     # Containers
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for containers'
-        (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/containers/containers.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmWithSSHPwd -Command 'sudo rm -f /etc/containers/containers.conf' -UserName $UserName -IpAddress $IpAddress -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
     }
     else {
         Write-Log 'Set proxy settings for containers'
