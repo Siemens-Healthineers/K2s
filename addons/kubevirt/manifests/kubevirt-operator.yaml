@@ -429,6 +429,14 @@ spec:
                           https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio
                           Defaults to 10
                         type: integer
+                      disabledFeatureGates:
+                        description: |-
+                          DisabledFeatureGates specifies a list of experimental feature gates to disable.
+                          A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       diskVerification:
                         description: DiskVerification holds container disks verification
                           limits
@@ -443,11 +451,13 @@ spec:
                         - memoryLimit
                         type: object
                       featureGates:
-                        description: FeatureGates is the list of experimental features
-                          to enable. Defaults to none
+                        description: |-
+                          FeatureGates specifies a list of experimental feature gates to enable. Defaults to none.
+                          A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       logVerbosity:
                         description: LogVerbosity sets log verbosity level of  various
                           components
@@ -554,6 +564,25 @@ spec:
                             type: object
                         type: object
                     type: object
+                  hypervisors:
+                    description: Hypervisors holds information regarding the hypervisor
+                      configurations supported on this cluster.
+                    items:
+                      description: HypervisorConfiguration holds information regarding
+                        the hypervisor present on cluster nodes.
+                      properties:
+                        name:
+                          description: |-
+                            Name is the name of the hypervisor.
+                            Supported values are: "kvm", "hyperv-direct".
+                          enum:
+                          - kvm
+                          - hyperv-direct
+                          type: string
+                      type: object
+                    maxItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   imagePullPolicy:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
@@ -665,6 +694,12 @@ spec:
                     description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
+                      enabled:
+                        description: |-
+                          Enable the creation and removal of mediated devices by virt-handler
+                          Replaces the deprecated DisableMDEVConfiguration feature gate
+                          Defaults to true
+                        type: boolean
                       mediatedDeviceTypes:
                         items:
                           type: string
@@ -797,8 +832,16 @@ spec:
                           UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
                           indicates the migration will be unsafe to the guest. Defaults to false
                         type: boolean
+                      utilityVolumesTimeout:
+                        description: |-
+                          UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+                          for utility volumes to be detached. If utility volumes are still present after this timeout,
+                          the migration will be marked as Failed. Defaults to 150
+                        format: int64
+                        type: integer
                     type: object
                   minCPUModel:
+                    description: deprecated
                     type: string
                   network:
                     description: NetworkConfiguration holds network options
@@ -971,6 +1014,18 @@ spec:
                         type: array
                         x-kubernetes-list-type: atomic
                     type: object
+                  roleAggregationStrategy:
+                    description: |-
+                      RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated
+                      to the default Kubernetes roles (admin, edit, view).
+                      When set to "AggregateToDefault" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
+                      When set to "Manual", the labels are not added, and roles will not be aggregated to the default roles.
+                      Setting this field to "Manual" requires the OptOutRoleAggregation feature gate to be enabled.
+                      This is an Alpha feature and subject to change.
+                    enum:
+                    - AggregateToDefault
+                    - Manual
+                    type: string
                   seccompConfiguration:
                     description: SeccompConfiguration holds Seccomp configuration
                       for Kubevirt components
@@ -1084,6 +1139,17 @@ spec:
                         - VersionTLS12
                         - VersionTLS13
                         type: string
+                    type: object
+                  virtTemplateDeployment:
+                    description: VirtTemplateDeployment controls the deployment of
+                      virt-template components
+                    nullable: true
+                    properties:
+                      enabled:
+                        description: Enabled controls the deployment of virt-template
+                          resources, defaults to True when feature gate is enabled.
+                        nullable: true
+                        type: boolean
                     type: object
                   virtualMachineInstancesPerNode:
                     type: integer
@@ -1816,8 +1882,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -2889,8 +2955,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -3809,6 +3875,14 @@ spec:
                           https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio
                           Defaults to 10
                         type: integer
+                      disabledFeatureGates:
+                        description: |-
+                          DisabledFeatureGates specifies a list of experimental feature gates to disable.
+                          A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       diskVerification:
                         description: DiskVerification holds container disks verification
                           limits
@@ -3823,11 +3897,13 @@ spec:
                         - memoryLimit
                         type: object
                       featureGates:
-                        description: FeatureGates is the list of experimental features
-                          to enable. Defaults to none
+                        description: |-
+                          FeatureGates specifies a list of experimental feature gates to enable. Defaults to none.
+                          A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       logVerbosity:
                         description: LogVerbosity sets log verbosity level of  various
                           components
@@ -3934,6 +4010,25 @@ spec:
                             type: object
                         type: object
                     type: object
+                  hypervisors:
+                    description: Hypervisors holds information regarding the hypervisor
+                      configurations supported on this cluster.
+                    items:
+                      description: HypervisorConfiguration holds information regarding
+                        the hypervisor present on cluster nodes.
+                      properties:
+                        name:
+                          description: |-
+                            Name is the name of the hypervisor.
+                            Supported values are: "kvm", "hyperv-direct".
+                          enum:
+                          - kvm
+                          - hyperv-direct
+                          type: string
+                      type: object
+                    maxItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   imagePullPolicy:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
@@ -4045,6 +4140,12 @@ spec:
                     description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
+                      enabled:
+                        description: |-
+                          Enable the creation and removal of mediated devices by virt-handler
+                          Replaces the deprecated DisableMDEVConfiguration feature gate
+                          Defaults to true
+                        type: boolean
                       mediatedDeviceTypes:
                         items:
                           type: string
@@ -4177,8 +4278,16 @@ spec:
                           UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
                           indicates the migration will be unsafe to the guest. Defaults to false
                         type: boolean
+                      utilityVolumesTimeout:
+                        description: |-
+                          UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+                          for utility volumes to be detached. If utility volumes are still present after this timeout,
+                          the migration will be marked as Failed. Defaults to 150
+                        format: int64
+                        type: integer
                     type: object
                   minCPUModel:
+                    description: deprecated
                     type: string
                   network:
                     description: NetworkConfiguration holds network options
@@ -4351,6 +4460,18 @@ spec:
                         type: array
                         x-kubernetes-list-type: atomic
                     type: object
+                  roleAggregationStrategy:
+                    description: |-
+                      RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated
+                      to the default Kubernetes roles (admin, edit, view).
+                      When set to "AggregateToDefault" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
+                      When set to "Manual", the labels are not added, and roles will not be aggregated to the default roles.
+                      Setting this field to "Manual" requires the OptOutRoleAggregation feature gate to be enabled.
+                      This is an Alpha feature and subject to change.
+                    enum:
+                    - AggregateToDefault
+                    - Manual
+                    type: string
                   seccompConfiguration:
                     description: SeccompConfiguration holds Seccomp configuration
                       for Kubevirt components
@@ -4464,6 +4585,17 @@ spec:
                         - VersionTLS12
                         - VersionTLS13
                         type: string
+                    type: object
+                  virtTemplateDeployment:
+                    description: VirtTemplateDeployment controls the deployment of
+                      virt-template components
+                    nullable: true
+                    properties:
+                      enabled:
+                        description: Enabled controls the deployment of virt-template
+                          resources, defaults to True when feature gate is enabled.
+                        nullable: true
+                        type: boolean
                     type: object
                   virtualMachineInstancesPerNode:
                     type: integer
@@ -5196,8 +5328,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -6269,8 +6401,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -6839,6 +6971,7 @@ rules:
   resourceNames:
   - kubevirt-ca
   - kubevirt-export-ca
+  - kubevirt-backup-ca
   - kubevirt-virt-handler-certs
   - kubevirt-virt-handler-server-certs
   - kubevirt-virt-handler-migration-client-certs
@@ -6849,6 +6982,9 @@ rules:
   - kubevirt-exportproxy-certs
   - kubevirt-synchronization-controller-certs
   - kubevirt-synchronization-controller-server-certs
+  - kubevirt-virt-template-api-certs
+  - kubevirt-virt-template-webhook-certs
+  - kubevirt-virt-template-controller-metrics-certs
   resources:
   - secrets
   verbs:
@@ -7179,6 +7315,45 @@ rules:
   - watch
   - patch
 - apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates
+  - virtualmachinetemplaterequests
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates/status
+  - virtualmachinetemplaterequests/status
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates/finalizers
+  - virtualmachinetemplaterequests/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests/source
+  verbs:
+  - create
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+- apiGroups:
   - ""
   resources:
   - pods
@@ -7265,6 +7440,22 @@ rules:
   - virtualmachinesnapshots
   - virtualmachinerestores
   - virtualmachinesnapshotcontents
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackuptrackers
   verbs:
   - get
   - list
@@ -7459,6 +7650,33 @@ rules:
   - delete
   - patch
 - apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  - virtualmachinebackups/status
+  - virtualmachinebackups/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackuptrackers
+  - virtualmachinebackuptrackers/status
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+- apiGroups:
   - pool.kubevirt.io
   resources:
   - virtualmachinepools
@@ -7492,6 +7710,8 @@ rules:
   - virtualmachines/stop
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/backup
+  - virtualmachineinstances/redefine-checkpoint
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/reset
@@ -7506,12 +7726,6 @@ rules:
   - '*'
   verbs:
   - '*'
-- apiGroups:
-  - k8s.cni.cncf.io
-  resources:
-  - network-attachment-definitions
-  verbs:
-  - get
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -7616,6 +7830,12 @@ rules:
   - watch
   - get
 - apiGroups:
+  - k8s.cni.cncf.io
+  resources:
+  - network-attachment-definitions
+  verbs:
+  - get
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstances
@@ -7672,6 +7892,15 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackuptrackers
+  - virtualmachinebackuptrackers/status
+  verbs:
+  - list
+  - watch
+  - patch
 - apiGroups:
   - apps
   resources:
@@ -7850,6 +8079,20 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  - virtualmachinebackuptrackers
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
+- apiGroups:
   - export.kubevirt.io
   resources:
   - virtualmachineexports
@@ -8008,6 +8251,19 @@ rules:
   - list
   - watch
 - apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  - virtualmachinebackuptrackers
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+- apiGroups:
   - export.kubevirt.io
   resources:
   - virtualmachineexports
@@ -8117,6 +8373,15 @@ rules:
   - virtualmachinesnapshots
   - virtualmachinesnapshotcontents
   - virtualmachinerestores
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  - virtualmachinebackuptrackers
   verbs:
   - get
   - list
@@ -8283,14 +8548,14 @@ spec:
         - virt-operator
         env:
         - name: VIRT_OPERATOR_IMAGE
-          value: quay.io/kubevirt/virt-operator:v1.7.2
+          value: quay.io/kubevirt/virt-operator:v1.8.0
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.targetNamespaces']
         - name: KUBEVIRT_VERSION
-          value: v1.7.2
-        image: quay.io/kubevirt/virt-operator:v1.7.2
+          value: v1.8.0
+        image: quay.io/kubevirt/virt-operator:v1.8.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

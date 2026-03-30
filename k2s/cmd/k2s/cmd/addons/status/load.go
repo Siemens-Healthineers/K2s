@@ -4,17 +4,12 @@
 package status
 
 import (
-	"path/filepath"
+	"fmt"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-
-	"github.com/siemens-healthineers/k2s/internal/powershell"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
 type LoadedAddonStatus struct {
-	common.CmdResult
 	Enabled *bool             `json:"enabled"`
 	Props   []AddonStatusProp `json:"props"`
 }
@@ -26,15 +21,35 @@ type AddonStatusProp struct {
 	Name    string  `json:"name"`
 }
 
-func LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error) {
-	scriptPath := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "addons", "Get-Status.ps1"))
+func LoadAddonStatus(addonProv provider.AddonProvider, addonName string, addonDirectory string) (*LoadedAddonStatus, error) {
+	result, err := addonProv.Status(provider.AddonStatusConfig{
+		Name:      addonName,
+		Directory: addonDirectory,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not load addon status for '%s': %w", addonName, err)
+	}
 
-	return powershell.ExecutePsWithStructuredResult[*LoadedAddonStatus](
-		scriptPath,
-		"Status",
-		common.NewPtermWriter(),
-		"-Name",
-		addonName,
-		"-Directory",
-		utils.EscapeWithSingleQuotes(addonDirectory))
+	// Map provider result to LoadedAddonStatus
+	for _, a := range result.Addons {
+		if a.Name == addonName {
+			enabled := a.Enabled
+			loaded := &LoadedAddonStatus{
+				Enabled: &enabled,
+			}
+			for _, p := range a.Props {
+				loaded.Props = append(loaded.Props, AddonStatusProp{
+					Name:    p.Name,
+					Value:   p.Value,
+					Okay:    p.Okay,    // preserve nil for informational props
+					Message: p.Message, // preserve optional display message
+				})
+			}
+			return loaded, nil
+		}
+	}
+
+	// Addon not found in status result
+	enabled := false
+	return &LoadedAddonStatus{Enabled: &enabled}, nil
 }

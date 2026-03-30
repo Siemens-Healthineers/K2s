@@ -60,35 +60,24 @@ func (p *windowsAddonProvider) Disable(cfg AddonDisableConfig) error {
 }
 
 func (p *windowsAddonProvider) List(cfg AddonListConfig) (*AddonListResult, error) {
-	scriptPath := utils.FormatScriptFilePath(filepath.Join(p.installDir, "addons", "Get-Status.ps1"))
+	scriptPath := utils.FormatScriptFilePath(filepath.Join(p.installDir, "addons", "Get-EnabledAddons.ps1"))
 
-	type psAddon struct {
-		Name    string `json:"name"`
-		Enabled bool   `json:"enabled"`
-	}
-	type psResult struct {
-		psCmdResult
-		Addons []psAddon `json:"addons"`
+	type psEnabledAddon struct {
+		Name            string   `json:"name"`
+		Implementations []string `json:"implementations"`
 	}
 
-	var params string
-	if cfg.ShowOutput {
-		params = " -ShowLogs"
-	}
-
-	result, err := powershell.ExecutePsWithStructuredResult[*psResult](scriptPath+params, "CmdResult", p.stdWriter)
+	result, err := powershell.ExecutePsWithStructuredResult[[]psEnabledAddon](scriptPath, "EnabledAddons", p.stdWriter)
 	if err != nil {
-		return nil, err
-	}
-	if err := result.checkFailure(); err != nil {
 		return nil, err
 	}
 
 	listResult := &AddonListResult{}
-	for _, a := range result.Addons {
+	for _, a := range result {
 		listResult.Addons = append(listResult.Addons, AddonInfo{
-			Name:    a.Name,
-			Enabled: a.Enabled,
+			Name:            a.Name,
+			Enabled:         true,
+			Implementations: a.Implementations,
 		})
 	}
 
@@ -98,52 +87,61 @@ func (p *windowsAddonProvider) List(cfg AddonListConfig) (*AddonListResult, erro
 func (p *windowsAddonProvider) Status(cfg AddonStatusConfig) (*AddonStatusResult, error) {
 	scriptPath := utils.FormatScriptFilePath(filepath.Join(p.installDir, "addons", "Get-Status.ps1"))
 
+	// The PS Get-Status.ps1 returns: {enabled: bool, props: [...], error: {severity, code, message}}
 	type psProp struct {
-		Name  string `json:"name"`
-		Value string `json:"value"`
-		Okay  bool   `json:"okay"`
+		Name    string  `json:"name"`
+		Value   any     `json:"value"`
+		Okay    *bool   `json:"okay"`
+		Message *string `json:"message"`
 	}
-	type psAddon struct {
-		Name    string   `json:"name"`
-		Enabled bool     `json:"enabled"`
+	type psError struct {
+		Severity int    `json:"severity"`
+		Code     string `json:"code"`
+		Message  string `json:"message"`
+	}
+	type psStatus struct {
+		Enabled *bool    `json:"enabled"`
 		Props   []psProp `json:"props"`
-	}
-	type psResult struct {
-		psCmdResult
-		Addons []psAddon `json:"addons"`
+		Error   *psError `json:"error"`
 	}
 
-	var params string
-	if cfg.Name != "" {
-		params += " -Name " + cfg.Name
-	}
-	if cfg.ShowOutput {
-		params += " -ShowLogs"
+	params := " -Name " + cfg.Name
+	if cfg.Directory != "" {
+		params += " -Directory " + utils.EscapeWithSingleQuotes(cfg.Directory)
 	}
 
-	result, err := powershell.ExecutePsWithStructuredResult[*psResult](scriptPath+params, "CmdResult", p.stdWriter)
+	result, err := powershell.ExecutePsWithStructuredResult[*psStatus](scriptPath+params, "Status", p.stdWriter)
 	if err != nil {
-		return nil, err
-	}
-	if err := result.checkFailure(); err != nil {
 		return nil, err
 	}
 
 	statusResult := &AddonStatusResult{}
-	for _, a := range result.Addons {
-		info := AddonStatusInfo{
-			Name:    a.Name,
-			Enabled: a.Enabled,
+
+	if result.Error != nil {
+		// Return as a provider failure instead of silently ignoring
+		return nil, &ProviderFailure{
+			Severity: FailureSeverity(result.Error.Severity),
+			Code:     result.Error.Code,
+			Message:  result.Error.Message,
 		}
-		for _, prop := range a.Props {
-			info.Props = append(info.Props, AddonStatusProp{
-				Name:  prop.Name,
-				Value: prop.Value,
-				Okay:  prop.Okay,
-			})
-		}
-		statusResult.Addons = append(statusResult.Addons, info)
 	}
+
+	info := AddonStatusInfo{
+		Name: cfg.Name,
+	}
+	if result.Enabled != nil {
+		info.Enabled = *result.Enabled
+	}
+	for _, prop := range result.Props {
+		sp := AddonStatusProp{
+			Name:    prop.Name,
+			Value:   prop.Value,   // preserve native type (bool, string, etc.)
+			Okay:    prop.Okay,    // preserve nil for informational props
+			Message: prop.Message, // preserve optional display message
+		}
+		info.Props = append(info.Props, sp)
+	}
+	statusResult.Addons = append(statusResult.Addons, info)
 
 	return statusResult, nil
 }
@@ -184,6 +182,15 @@ func (p *windowsAddonProvider) Import(cfg AddonImportConfig) error {
 	}
 
 	result, err := powershell.ExecutePsWithStructuredResult[*psCmdResult](scriptPath+params, "CmdResult", p.stdWriter)
+	if err != nil {
+		return err
+	}
+	return result.checkFailure()
+}
+
+func (p *windowsAddonProvider) RunCommand(cfg AddonRunCommandConfig) error {
+	scriptPath := utils.FormatScriptFilePath(filepath.Join(cfg.AddonDirectory, cfg.ScriptSubPath))
+	result, err := powershell.ExecutePsWithStructuredResult[*psCmdResult](scriptPath, "CmdResult", p.stdWriter, cfg.Params...)
 	if err != nil {
 		return err
 	}
