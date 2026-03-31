@@ -232,17 +232,20 @@ The Go CLI uses a **provider pattern** to abstract all platform-specific operati
 
 ### Building Tools from Source
 
-All Go tools can be built locally using the build script:
+All Go tools can be built locally using the build script. **After cloning the repository, building is mandatory** — Go-built binaries are not committed to git:
 
 ```console
+# Build all Go executables for Windows (required after clone)
+bgow
+
+# Build all Go executables for Linux
+bgol
+
 # Build k2s.exe only
 bgo
 
 # Build a specific tool
 bgo -ProjectDir "k2s\cmd\httpproxy" -ExeOutDir "bin"
-
-# Build all Go executables
-bgo -BuildAll
 ```
 
 See [Building Locally](contributing/building-locally.md) for prerequisites.

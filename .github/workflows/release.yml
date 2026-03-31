@@ -9,6 +9,9 @@ on:
 #    tags:
 #      - 'v1.*'
 
+env:
+  GOVERSION: "1.26.0"
+
 jobs:
   build_release:
     name: build_release
@@ -20,7 +23,18 @@ jobs:
         with:
           fetch-depth: 0
 
-        # get the version from the k2s cli
+        # Go-built binaries are no longer committed to git — build them first
+      - name: Set up Golang
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{env.GOVERSION}}
+          cache-dependency-path: "**/*.sum"
+
+      - name: Build all k2s executables
+        run: |
+          .\smallsetup\common\BuildGoExe.ps1 -BuildAll
+
+        # get the version from the freshly-built k2s cli
       - name: version
         run: echo "version=$((.\k2s.exe version).Split()[1].Substring(0, 6))" >> $env:GITHUB_OUTPUT
         id: version
