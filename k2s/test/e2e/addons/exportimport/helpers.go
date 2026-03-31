@@ -413,9 +413,14 @@ func VerifyImportedImages(ctx context.Context, suite *framework.K2sTestSuite, k2
 		GinkgoWriter.Printf("[ImportedImages]   [%d] %s\n", i, img)
 	}
 
-	images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(*impl)
+	allImages, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(*impl)
 	Expect(err).To(BeNil(), "[ImportedImages] Failed to get expected images from manifest")
-	GinkgoWriter.Printf("[ImportedImages] Expected images from manifest: %d\n", len(images))
+	GinkgoWriter.Printf("[ImportedImages] Images from manifest (before K8s filter): %d\n", len(allImages))
+
+	// Filter out K8s base images (same filtering as GetNonK8sImagesFromNodes) so that
+	// images already present in the base cluster setup are excluded from the expected list.
+	images := k2sDsl.FilterOutK8sImages(allImages)
+	GinkgoWriter.Printf("[ImportedImages] Expected images after K8s filter: %d\n", len(images))
 
 	for i, image := range images {
 		contains := slices.ContainsFunc(importedImages, func(imported string) bool {
