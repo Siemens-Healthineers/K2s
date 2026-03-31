@@ -92,10 +92,21 @@ function Invoke-LinuxNodeDetailsCollection(
         (Invoke-CmdOnControlPlaneViaSSHKey 'cat /proc/version').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ cat /proc/version'
 
         $linuxProcessesDumpFile = Join-Path $NodeDetailsDirectory "$($linuxNodeName)-processes.txt"
-        (Invoke-CmdOnControlPlaneViaSSHKey 'ps aux --sort=-%mem').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxProcessesDumpFile -Description 'KubeMaster~$ ps aux --sort=-%mem'
+        $rawProcesses = (Invoke-CmdOnControlPlaneViaSSHKey 'ps -eo pid,user,%cpu,%mem,rss,cmd --sort=-%mem').Output
+        $trimmedProcesses = $rawProcesses | ForEach-Object {
+            if ($_ -match '^(\s*\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+)(.*)$') {
+                $prefix = $Matches[1]
+                $cmd = if ($Matches[2].Length -gt 50) { $Matches[2].Substring(0, 50) + '...' } else { $Matches[2] }
+                "$prefix$cmd"
+            } else { $_ }
+        }
+        $trimmedProcesses | Out-String -Width 250 | Write-OutputIntoDumpFile -DumpFilePath $linuxProcessesDumpFile -Description 'Kubemaster processes'
 
         $linuxSystemdDumpFile = Join-Path $NodeDetailsDirectory "$($linuxNodeName)-systemd-units.txt"
-        (Invoke-CmdOnControlPlaneViaSSHKey 'systemctl list-units --type=service --all').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxSystemdDumpFile -Description 'KubeMaster~$ systemctl list-units --type=service --all'
+        $systemdRaw = (Invoke-CmdOnControlPlaneViaSSHKey 'LC_ALL=C SYSTEMD_COLORS=0 systemctl list-units --type=service --all --no-pager --full').Output
+        $systemdClean = $systemdRaw | ForEach-Object { $_ -replace '[^\x00-\x7F]', '*' }
+        $systemdLegend = @('', '---', '* = unit not found or failed')
+        ($systemdClean + $systemdLegend) | Out-String -Width 250 | Write-OutputIntoDumpFile -DumpFilePath $linuxSystemdDumpFile -Description 'Kubemaster systemd services'
     }
 }
 
@@ -183,7 +194,10 @@ function Invoke-HostDiagnosticsCollection(
     $msinfoFile = Join-Path $HostDiagnosticsDir "$env:COMPUTERNAME`_MSINFO32.NFO"
     Start-Process -FilePath "MSINFO32.exe" -ArgumentList "/nfo $msinfoFile /categories +all" -Wait
     Write-Log '[HostDiag] Collecting running processes...'
-    Get-Process | Format-Table -AutoSize Id, ProcessName, CPU, WorkingSet64, Path | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir "processes.txt") -Description "Get-Process"
+    Get-Process | Select-Object Id, ProcessName,
+        @{N='CPU(s)'; E={ [math]::Round($_.CPU, 2) }},
+        @{N='Mem(MB)'; E={ [math]::Round($_.WorkingSet64 / 1MB, 1) }},
+        Path | Format-Table -AutoSize | Out-String -Width 512 | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir 'processes.txt') -Description 'Host processes'
     Write-Log '[HostDiag] Host diagnostics collection finished.'
 }
 
