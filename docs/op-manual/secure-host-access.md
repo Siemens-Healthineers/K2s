@@ -116,22 +116,8 @@ The example below shows how to forward requests to two different ingress endpoin
 </configuration>
 ```
 
-!!! question "Open Point"
-    It seems that *IIS Application Request Routing* has an issue with URLs ending with a space character (as this is forbidden) - although *NGINX* is tolerant with this.
-
-    The dashboard web application makes calls to APIs, and in many of them the namespace is used as REST API resource ID, e.g. all *Pods* of namespace `kubernetes-dashboard` are retrieved with this API call:
-
-    `http://k2s.cluster.local/dashboard/api/v1/pod/kubernetes-dashboard?query=value&...`
-
-    But when the user selects `All Namespaces` in the User Interface, the same URL is invoked with a space character (`%20`) as the name of the resource - it seems as this is the convention the developers of the *Dashboard* made:
-
-    `http://k2s.cluster.local/dashboard/api/v1/pod/%20?query=value&...`
-
-    The HTTP specs forbid to have a space at the end on an URL, but it works for some reasons. However, when the rewrite rules kick in, it seems they drop the space and the application is not working with `All Namespaces` selected.
-
-    This line in the *Kubernetes* dashboard sources is causing the issue (the space character):
-
-    [`return this.namespace_.isMultiNamespace(currentNamespace) ? ' ' : currentNamespace;`](https://github.com/kubernetes/dashboard/blob/master/modules/web/src/common/services/resource/resource.ts#L69){target="_blank"}
+!!! note
+    The `dashboard` addon now uses **Headlamp** (kubernetes-sigs/headlamp) which serves the UI at port 4466 (HTTP). When exposed via ingress at `/dashboard/`, the `--base-url=/dashboard` flag ensures Headlamp constructs all relative URLs correctly. No special namespace URL encoding workarounds are required.
 
 ## Base `href`
 When configuring reverse proxies, special attention and test effort must be spent to ensure that URLs are properly handled, in case they are pointing to the services being re-directed to.
@@ -142,4 +128,5 @@ But when the application is accessed through the secure URL at e.g. `my-host.my-
 
 This is solved for `my-product` by outbound rules, which inspects the responses and make the necessary changes for the `<base href.../>`.
 
-For the dashboard, no change is necessary, because it detects and sets the base `href` dynamically, [see the code](https://github.com/kubernetes/dashboard/blob/dde23c41c6ee7e85194dc897cf73ee0f781f7d99/modules/web/src/index.html#L32){target="_blank"}.
+For Headlamp, the base URL is configured via the `--base-url=/dashboard` flag passed by the Helm chart values, so no outbound rewrite rules are necessary.
+
