@@ -18,6 +18,10 @@ spec:
     required:
       nodeSelectorTerms:
       - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - kubemaster
         - key: kubernetes.io/os
           operator: In
           values:

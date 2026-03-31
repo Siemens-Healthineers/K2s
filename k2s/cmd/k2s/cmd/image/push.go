@@ -30,8 +30,6 @@ var (
   # Push image that resides on a specific worker node
   k2s image push -n k2s.registry.local/myimage:v1 --node worker-1
 
-  # Push image from multiple specific nodes
-  k2s image push -n k2s.registry.local/myimage:v1 --nodes worker-1,worker-2
 `
 	pushCmd = &cobra.Command{
 		Use:     "push",
