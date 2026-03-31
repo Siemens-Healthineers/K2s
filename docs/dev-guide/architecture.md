@@ -235,8 +235,11 @@ The Go CLI uses a **provider pattern** to abstract all platform-specific operati
 All Go tools can be built locally using the build script. **After cloning the repository, building is mandatory** — Go-built binaries are not committed to git:
 
 ```console
-# Build all Go executables (required after clone)
-bgo -BuildAll
+# Build all Go executables for Windows (required after clone)
+bgow
+
+# Build all Go executables for Linux
+bgol
 
 # Build k2s.exe only
 bgo

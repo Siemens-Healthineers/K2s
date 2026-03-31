@@ -75,8 +75,9 @@ func (p *windowsAddonProvider) List(cfg AddonListConfig) (*AddonListResult, erro
 	listResult := &AddonListResult{}
 	for _, a := range result {
 		listResult.Addons = append(listResult.Addons, AddonInfo{
-			Name:    a.Name,
-			Enabled: true,
+			Name:            a.Name,
+			Enabled:         true,
+			Implementations: a.Implementations,
 		})
 	}
 

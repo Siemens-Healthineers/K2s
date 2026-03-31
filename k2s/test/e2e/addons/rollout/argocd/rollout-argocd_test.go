@@ -143,6 +143,10 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
 
+		It("displays rollout argocd implementation in addon list", func(ctx context.Context) {
+			expectListToDisplayImplementation(ctx)
+		})
+
 		It("prints the status", func(ctx context.Context) {
 			expectStatusToBePrinted(ctx)
 		})
@@ -303,6 +307,41 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 		})
 	})
 })
+
+func expectListToDisplayImplementation(ctx context.Context) {
+	output := suite.K2sCli().MustExec(ctx, "addons", "ls")
+	Expect(output).To(MatchRegexp(`(?s)Enabled.*rollout.*argocd`))
+
+	jsonOutput := suite.K2sCli().MustExec(ctx, "addons", "ls", "-o", "json")
+
+	type implEntry struct {
+		Name string `json:"name"`
+	}
+	type addonEntry struct {
+		Name            string      `json:"name"`
+		Implementations []implEntry `json:"implementations"`
+	}
+	type listResult struct {
+		EnabledAddons  []addonEntry `json:"enabledAddons"`
+		DisabledAddons []addonEntry `json:"disabledAddons"`
+	}
+
+	var result listResult
+	Expect(json.Unmarshal([]byte(jsonOutput), &result)).To(Succeed())
+
+	Expect(result.EnabledAddons).To(ContainElement(
+		SatisfyAll(
+			HaveField("Name", "rollout"),
+			HaveField("Implementations", ContainElement(HaveField("Name", "argocd"))),
+		),
+	))
+	Expect(result.DisabledAddons).ToNot(ContainElement(
+		SatisfyAll(
+			HaveField("Name", "rollout"),
+			HaveField("Implementations", ContainElement(HaveField("Name", "argocd"))),
+		),
+	))
+}
 
 func expectStatusToBePrinted(ctx context.Context) {
 	output := suite.K2sCli().MustExec(ctx, "addons", "status", "rollout", "argocd")
