@@ -23,7 +23,7 @@ var suite *framework.K2sTestSuite
 
 func TestNodeImage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Node Image Acceptance Tests", Label("cluster", "node-image", "acceptance", "setup-required", "system-running"))
+	RunSpecs(t, "Cluster Node Image Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running", "node-image"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
