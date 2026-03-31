@@ -128,6 +128,7 @@ else {
 }
 
 $deletionfailed = $false
+$deletionFailureMessages = @()
 if ($foundImages.Count -eq 0) {
     $errMsg = 'Image was not found. Please ensure that you have specified the right image details to be deleted'
     if ($EncodeStructuredOutput -eq $true) {
@@ -153,6 +154,14 @@ else {
             $deletionExitCode = Show-ImageDeletionStatus -ContainerImage $imageToBeDeleted -ErrorMessage $errorString
             if($deletionExitCode -eq 1) {
                 $deletionfailed = $true
+                $imageRef = $imageToBeDeleted.Repository + ':' + $imageToBeDeleted.Tag
+                $nodeRef = $imageToBeDeleted.Node
+                if ([string]::IsNullOrWhiteSpace($errorString)) {
+                    $deletionFailureMessages += "Failed to delete image $imageRef from $nodeRef"
+                }
+                else {
+                    $deletionFailureMessages += "Failed to delete image $imageRef from $nodeRef. Reason: $errorString"
+                }
             }
         }
         else {
@@ -165,8 +174,15 @@ else {
 }
 
 if ($deletionfailed) {
+    $errMsg = "Image couldn't be deleted!"
+    if ($deletionFailureMessages.Count -gt 0) {
+        $errMsg = $deletionFailureMessages[0]
+        if (-not $Force -and $errMsg -match 'in use by a container') {
+            $errMsg += ' Use --force to stop/remove dependent containers first.'
+        }
+    }
+
     if ($EncodeStructuredOutput -eq $true) {
-        $errMsg = "Image couldn't be deleted!"
         $err = New-Error -Severity Warning -Code 'image-rm-failed' -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return

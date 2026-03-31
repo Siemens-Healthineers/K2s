@@ -335,17 +335,27 @@ function Get-PushedContainerImages  {
     $enableAddons = Get-ConfigValue -Path $setupFilePath -Key 'EnabledAddons'
     $isRegistryAddonEnabled = $enableAddons | Select-Object -ExpandProperty Name | Where-Object { $_ -eq 'registry' }
     if (!$isRegistryAddonEnabled) {
-        return
+        return @()
     }
 
     $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.local' }
+    if ([string]::IsNullOrWhiteSpace($registryName)) {
+        Write-Log '[ImageList] Registry addon enabled, but no k2s.registry.local entry found in setup config'
+        return @()
+    }
 
     $registryNodeName = ''
     try {
         $kubectlExe = "$kubeBinPath\kubectl.exe"
         if (Test-Path $kubectlExe) {
-            $registryNodeName = (& $kubectlExe -n registry get pod -l app=registry -o jsonpath='{.items[0].spec.nodeName}' 2>$null) | Out-String
-            $registryNodeName = $registryNodeName.Trim()
+            $registryPodsJson = (& $kubectlExe -n registry get pod -l app=registry -o json 2>$null) | Out-String
+            if (-not [string]::IsNullOrWhiteSpace($registryPodsJson)) {
+                $registryPods = $registryPodsJson | ConvertFrom-Json
+                if ($null -ne $registryPods -and $null -ne $registryPods.items -and $registryPods.items.Count -gt 0) {
+                    $registryNodeName = [string]$registryPods.items[0].spec.nodeName
+                    $registryNodeName = $registryNodeName.Trim()
+                }
+            }
         }
     }
     catch {
@@ -361,23 +371,61 @@ function Get-PushedContainerImages  {
 
     $isNodePort = $registryName -match ':'
 
-    if (!$isNodePort) {
-        $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
+    $catalog = $null
+    try {
+        if (!$isNodePort) {
+            $catalogRaw = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/_catalog) 2> $null | Out-String
+        }
+        else {
+            $catalogRaw = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog) 2> $null | Out-String
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($catalogRaw)) {
+            $catalog = $catalogRaw | ConvertFrom-Json
+        }
     }
-    else {
-        $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
+    catch {
+        Write-Log "[ImageList] Failed to query registry catalog from '$registryName': $($_.Exception.Message)"
+        return @()
     }
-    $images = $catalog.psobject.properties['repositories'].value
+
+    if ($null -eq $catalog -or $null -eq $catalog.repositories) {
+        Write-Log "[ImageList] Registry catalog is empty or invalid for '$registryName'"
+        return @()
+    }
+
+    $images = @($catalog.repositories)
+    if ($images.Count -eq 0) {
+        return @()
+    }
 
     $pushedContainerImages = @()
     foreach ($image in $images) {
-        if (!$isNodePort) {
-            $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+        $imageWithTags = $null
+        try {
+            if (!$isNodePort) {
+                $imageWithTagsRaw = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/$image/tags/list 2> $null | Out-String
+            }
+            else {
+                $imageWithTagsRaw = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list 2> $null | Out-String
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($imageWithTagsRaw)) {
+                $imageWithTags = $imageWithTagsRaw | ConvertFrom-Json
+            }
         }
-        else {
-            $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+        catch {
+            Write-Log "[ImageList] Failed to query tags for image '$image' from '$registryName': $($_.Exception.Message)"
+            continue
         }
-        $tags = $imageWithTags.psobject.properties['tags'].value
+
+        $tags = @()
+        if ($null -ne $imageWithTags -and $null -ne $imageWithTags.tags) {
+            $tags = @($imageWithTags.tags)
+        }
+        if ($tags.Count -eq 0) {
+            continue
+        }
 
         foreach ($tag in $tags) {
             $pushedimage = [PushedImage]@{
@@ -419,36 +467,79 @@ function Remove-ImageOnLinuxViaSSH {
     }
 
     if ($Force) {
-        $containersResult = & $invokeCmd "sudo crictl ps -a -q --image $ImageId 2>/dev/null"
-        $containersOutput = @($containersResult.Output)
-        foreach ($containerId in @($containersOutput)) {
-            if (![string]::IsNullOrWhiteSpace($containerId)) {
-                Write-Log "[ImageRm] Stopping container $containerId on '$NodeName'"
+        $imageSelectors = @($ImageId)
+        if (-not [string]::IsNullOrWhiteSpace($ImageReference) -and $ImageReference -ne $ImageId) {
+            $imageSelectors += $ImageReference
+        }
+
+        foreach ($imageSelector in $imageSelectors) {
+            $containersResult = & $invokeCmd "sudo crictl ps -a -q --image '$imageSelector' 2>/dev/null"
+            $containersOutput = @($containersResult.Output)
+            foreach ($containerId in @($containersOutput | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)) {
+                Write-Log "[ImageRm] Stopping container $containerId on '$NodeName' (selector='$imageSelector')"
                 & $invokeCmd "sudo crictl stop $containerId 2>/dev/null" | Out-Null
                 & $invokeCmd "sudo crictl rm $containerId 2>/dev/null" | Out-Null
             }
-        }
-        $podsResult = & $invokeCmd 'sudo crictl pods -q 2>/dev/null'
-        $podsOutput = @($podsResult.Output)
-        foreach ($podId in @($podsOutput)) {
-            if (![string]::IsNullOrWhiteSpace($podId)) {
-                $podContainers = & $invokeCmd "sudo crictl ps -a -q -p $podId --image $ImageId 2>/dev/null"
-                if ($podContainers) {
-                    Write-Log "[ImageRm] Stopping pod $podId on '$NodeName'"
+
+            $podsResult = & $invokeCmd 'sudo crictl pods -q 2>/dev/null'
+            $podsOutput = @($podsResult.Output)
+            foreach ($podId in @($podsOutput | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+                $podContainersResult = & $invokeCmd "sudo crictl ps -a -q -p $podId --image '$imageSelector' 2>/dev/null"
+                $podContainers = @($podContainersResult.Output)
+                if ($podContainers.Count -gt 0) {
+                    Write-Log "[ImageRm] Stopping pod $podId on '$NodeName' (selector='$imageSelector')"
                     & $invokeCmd "sudo crictl stopp $podId 2>/dev/null" | Out-Null
                     & $invokeCmd "sudo crictl rmp $podId 2>/dev/null" | Out-Null
                 }
             }
         }
+
+        # Give kubelet/runtime a short grace period after container/pod removals.
+        Start-Sleep -Seconds 2
     }
 
-    # Remove by explicit image reference (repo:tag) to correctly untag when multiple names share one ID.
-    $removeResult = & $invokeCmd "sudo buildah rmi '$ImageReference' 2>&1"
-    if (-not $removeResult.Success) {
-        return "__K2S_IMAGE_DELETE_FAILED__`n$($removeResult.Output | Out-String)"
+    # OS-specific backend fallback for Linux nodes:
+    # 1) buildah by reference (aligns with Linux listing)
+    # 2) crictl by reference
+    # 3) crictl by image id
+    $attemptLogs = @()
+
+    $buildahExists = & $invokeCmd 'command -v buildah >/dev/null 2>&1'
+    if ($buildahExists.Success) {
+        $buildahRemoveCmd = if ($Force) {
+            "sudo buildah rmi -f '$ImageReference' 2>&1"
+        }
+        else {
+            "sudo buildah rmi '$ImageReference' 2>&1"
+        }
+
+        $buildahRemoveResult = & $invokeCmd $buildahRemoveCmd
+        if ($buildahRemoveResult.Success) {
+            return ($buildahRemoveResult.Output | Out-String)
+        }
+
+        $attemptLogs += "buildah(reference=$ImageReference): $($buildahRemoveResult.Output | Out-String)"
+        Write-Log "[ImageRm] buildah remove failed on '$NodeName', trying crictl fallback"
+    }
+    else {
+        $attemptLogs += 'buildah: not available'
     }
 
-    return ($removeResult.Output | Out-String)
+    $crictlRefResult = & $invokeCmd "sudo crictl rmi '$ImageReference' 2>&1"
+    if ($crictlRefResult.Success) {
+        return ($crictlRefResult.Output | Out-String)
+    }
+    $attemptLogs += "crictl(reference=$ImageReference): $($crictlRefResult.Output | Out-String)"
+
+    if ($ImageReference -ne $ImageId) {
+        $crictlIdResult = & $invokeCmd "sudo crictl rmi '$ImageId' 2>&1"
+        if ($crictlIdResult.Success) {
+            return ($crictlIdResult.Output | Out-String)
+        }
+        $attemptLogs += "crictl(id=$ImageId): $($crictlIdResult.Output | Out-String)"
+    }
+
+    return "__K2S_IMAGE_DELETE_FAILED__`n$($attemptLogs -join "`n")"
 }
 
 function Remove-ImageOnWindowsVm {
@@ -776,6 +867,23 @@ function Get-ErrorMessageIfImageDeletionFailed([string]$Output) {
     }
 
     if ($output.Contains('__K2S_IMAGE_DELETE_FAILED__')) {
+        $details = $output.Replace('__K2S_IMAGE_DELETE_FAILED__', '').Trim()
+
+        if ($details.Contains('image is in use by a container')) {
+            return 'Unable to delete the image as it is in use by a container.'
+        }
+        if ($details.Contains('context deadline exceeded')) {
+            return 'Unable to delete the image as the operation timed-out.'
+        }
+        if ($details.Contains('no such image') -or $details.Contains('image not known') -or $details.Contains('ImageUnknown')) {
+            return 'Unable to delete the image as it was not found.'
+        }
+
+        $firstLine = (($details -split "`r?`n") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1)
+        if (-not [string]::IsNullOrWhiteSpace($firstLine)) {
+            return "Unable to delete the image on target node. Details: $firstLine"
+        }
+
         return 'Unable to delete the image on target node.'
     }
 
