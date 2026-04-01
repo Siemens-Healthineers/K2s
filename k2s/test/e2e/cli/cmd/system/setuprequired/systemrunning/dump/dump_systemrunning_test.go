@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package dump
@@ -58,6 +58,7 @@ var _ = Describe("system dump", func() {
 		defer r.Close()
 
 		var foundSetupJson, foundClusterDir, foundHostDir bool
+		var foundHostProcesses, foundKubemasterProcesses, foundKubemasterSystemdUnits bool
 		for _, f := range r.File {
 			GinkgoWriter.Printf("Found file in zip: %s\n", f.Name)
 			if strings.HasSuffix(f.Name, "/config/setup.json") || strings.HasSuffix(f.Name, "\\config\\setup.json") {
@@ -69,9 +70,21 @@ var _ = Describe("system dump", func() {
 			if strings.HasSuffix(f.Name, "/host/ipconfig-allcompartments.txt") || strings.HasSuffix(f.Name, "\\host\\ipconfig-allcompartments.txt") {
 				foundHostDir = true
 			}
+			if strings.HasSuffix(f.Name, "/host/processes.txt") || strings.HasSuffix(f.Name, "\\host\\processes.txt") {
+				foundHostProcesses = true
+			}
+			if strings.HasSuffix(f.Name, "-processes.txt") && (strings.Contains(f.Name, "/node/") || strings.Contains(f.Name, "\\node\\")) {
+				foundKubemasterProcesses = true
+			}
+			if strings.HasSuffix(f.Name, "-systemd-units.txt") && (strings.Contains(f.Name, "/node/") || strings.Contains(f.Name, "\\node\\")) {
+				foundKubemasterSystemdUnits = true
+			}
 		}
 		Expect(foundSetupJson).To(BeTrue(), "setup.json not found in config folder of dump zip")
 		Expect(foundClusterDir).To(BeTrue(), "cluster folder not found in dump zip")
 		Expect(foundHostDir).To(BeTrue(), "host folder not found in dump zip")
+		Expect(foundHostProcesses).To(BeTrue(), "processes.txt not found in host folder of dump zip")
+		Expect(foundKubemasterProcesses).To(BeTrue(), "processes.txt not found in node folder of dump zip for kubemaster")
+		Expect(foundKubemasterSystemdUnits).To(BeTrue(), "systemd-units.txt not found in node folder of dump zip for kubemaster")
 	})
 })
