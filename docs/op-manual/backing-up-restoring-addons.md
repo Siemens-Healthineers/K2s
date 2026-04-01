@@ -124,7 +124,7 @@ The following table shows at a glance what each addon's backup contains.
 | Addon | Backup Type | What Gets Backed Up | Notes |
 |-------|-------------|---------------------|-------|
 | **autoscaling** | Config | ConfigMaps in `autoscaling` namespace | `EnableForRestore.ps1` with best-effort pod readiness |
-| **dashboard** | Metadata | Ingress type, metrics-addon-enabled flag | Restore calls `Update.ps1`; may re-enable metrics addon |
+| **dashboard** | Metadata | Ingress type, metrics-addon-enabled flag | Headlamp (Headlamp replaces retired kubernetes/dashboard); restore calls `Update.ps1`; may re-enable metrics addon |
 | **dicom** | Config | Orthanc ConfigMap, ingress resources, Traefik middlewares | Restarts deployment after config restore |
 | **gpu-node** | Metadata | Nothing (infrastructure-only) | Re-enable fully restores functionality |
 | **ingress nginx** | Config | Controller ConfigMap, cluster-local Ingress | Waits for controller pod readiness |
@@ -159,7 +159,9 @@ The following table shows at a glance what each addon's backup contains.
 
 **Backup:** Metadata-only — records the active ingress type (`none`, `nginx`, `traefik`, or `nginx-gw`) and whether the metrics addon was enabled. No Kubernetes resources are exported.
 
-**Restore:** Re-enables the metrics addon if it was enabled at backup time. Ensures the correct ingress addon is enabled. Calls `Update.ps1` to regenerate authentication wiring. Waits for dashboard pod availability.
+**Restore:** Re-enables the metrics addon if it was enabled at backup time. Ensures the correct ingress addon is enabled. Calls `Update.ps1` to re-apply ingress integration and Linkerd service-mesh patches. Waits for the Headlamp pod availability.
+
+> **Note:** This addon uses [Headlamp](https://headlamp.dev) (kubernetes-sigs) as the Kubernetes dashboard. The previous `kubernetes/dashboard` (Kong proxy architecture) has been retired.
 
 ### dicom
 
