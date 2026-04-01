@@ -44,7 +44,7 @@ Deploying individual workloads (e.g., manually installing an ingress controller,
 | Addon | Description |
 |-------|-------------|
 | **autoscaling** | Horizontal workload scaling based on external events with KEDA |
-| **dashboard** | Kubernetes Dashboard for cluster visualization |
+| **dashboard** | Headlamp - Kubernetes Dashboard (kubernetes-sigs) |
 | **dicom** | DICOM server based on Orthanc |
 | **gpu-node** | GPU access for the control plane node |
 | **ingress** | Ingress controllers (nginx, nginx-gw, traefik implementations) |

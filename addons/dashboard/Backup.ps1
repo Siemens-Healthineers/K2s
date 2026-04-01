@@ -6,21 +6,10 @@
 
 <#[
 .SYNOPSIS
-Backs up dashboard configuration (metadata-only)
-
-.DESCRIPTION
-Captures the dashboard addon restore-relevant configuration without exporting Helm-managed resources.
-Currently this is metadata-only and records:
-- selected ingress integration (none/nginx/traefik/nginx-gw)
-- whether the metrics addon is enabled
-
-The CLI wraps the staging folder into a zip archive.
+Backs up dashboard addon configuration (metadata-only: ingress integration, metrics enabled state).
 
 .PARAMETER BackupDir
 Destination directory for backup artifacts.
-
-.EXAMPLE
-powershell <installation folder>\addons\dashboard\Backup.ps1 -BackupDir C:\Temp\dashboard-backup
 #>
 Param(
     [parameter(Mandatory = $true, HelpMessage = 'Directory where backup files will be written')]
@@ -55,7 +44,7 @@ function Fail([string]$errMsg, [string]$code = 'addon-backup-failed') {
     exit 1
 }
 
-Write-Log "[DashboardBackup] Backing up addon 'dashboard'" -Console
+Write-Log "[DashboardBackup] Backing up addon 'dashboard' (Headlamp)" -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {

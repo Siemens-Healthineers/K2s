@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -24,6 +24,8 @@ Param (
     [string] $Id,
     [parameter(Mandatory = $false, HelpMessage = 'Name of the image to be pushed.')]
     [string] $ImageName,
+    [parameter(Mandatory = $false, HelpMessage = 'Comma-separated node names to target')]
+    [string] $Nodes = '',
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -32,26 +34,319 @@ Param (
     [string] $MessageType
 )
 
-$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-Import-Module $nodeModule, $infraModule, $clusterModule
+$imageCommonModule = "$PSScriptRoot/Image-Common.module.psm1"
+Import-Module $imageCommonModule
 
-Initialize-Logging -ShowLogs:$ShowLogs
+if (-not (Initialize-ImageScriptContext -ShowLogs:$ShowLogs -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType)) {
+    return
+}
 
-$systemError = Test-SystemAvailability -Structured
-if ($systemError) {
+function Send-PushError {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Code,
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        [Parameter(Mandatory = $false)]
+        [string]$Severity = 'Warning'
+    )
+
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        $err = New-Error -Severity $Severity -Code $Code -Message $Message
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
-    Write-Log $systemError.Message -Error
+    Write-Log $Message -Error
     exit 1
 }
 
-$linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
-$windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $true
+function Normalize-ImageNameForLocalRegistryAlias {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Image
+    )
+
+    # Support local alias k2s.local/<repo>:<tag> by normalizing to canonical host.
+    if ($Image -match '^k2s\.local(:\d+)?/(.+)$') {
+        $aliasPort = $Matches[1]
+        $imagePath = $Matches[2]
+        $canonicalHost = if ([string]::IsNullOrWhiteSpace($aliasPort)) { 'k2s.registry.local' } else { "k2s.registry.local$aliasPort" }
+        $normalizedImage = "$canonicalHost/$imagePath"
+        Write-Log "[Push] Normalized local registry alias '$Image' to '$normalizedImage'" -Console
+        return $normalizedImage
+    }
+
+    return $Image
+}
+
+function Get-PushFailureSummary {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$Output = ''
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Output)) {
+        return ''
+    }
+
+    $lines = @($Output -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+    if ($lines.Count -eq 0) {
+        return ''
+    }
+
+    $preferred = @($lines | Where-Object { $_ -match '(?i)error:|failed|invalid|denied|unauthorized|x509|timeout' } | Select-Object -First 1)
+    if ($preferred.Count -gt 0) {
+        return $preferred[0]
+    }
+
+    return $lines[0]
+}
+
+function Get-NodeInfoByName {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable[]]$NodeInfos,
+        [Parameter(Mandatory = $true)]
+        [string]$NodeName
+    )
+
+    $nodeNameLower = $NodeName.ToLower()
+    return @($NodeInfos | Where-Object { $_.Name -eq $nodeNameLower } | Select-Object -First 1)[0]
+}
+
+function Get-LinuxPushCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Image
+    )
+
+    if ($Image -match '^k2s\.registry\.local(:\d+)?/') {
+        return "sudo buildah push --tls-verify=false $Image 2>&1"
+    }
+
+    return "sudo buildah push $Image 2>&1"
+}
+
+function Get-LinuxPushFallbackDestination {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Image
+    )
+
+    if ($Image -notmatch '^k2s\.registry\.local(:\d+)?/(.+)$') {
+        return ''
+    }
+
+    $imagePath = $Matches[2]
+    $registryHostIp = Get-RegistryHostIp
+    if ([string]::IsNullOrWhiteSpace($registryHostIp)) {
+        return ''
+    }
+
+    return "docker://$registryHostIp`:30500/$imagePath"
+}
+
+function Get-RegistryHostIp {
+    $controlPlaneIp = Get-ConfiguredIPControlPlane
+
+    $registryNodeName = ''
+    try {
+        $kubeToolsPath = Get-KubeToolsPath
+        $kubectlExe = "$kubeToolsPath\kubectl.exe"
+        if (Test-Path $kubectlExe) {
+            $registryNodeName = (& $kubectlExe -n registry get pod -l app=registry -o jsonpath='{.items[0].spec.nodeName}' 2>$null) | Out-String
+            $registryNodeName = $registryNodeName.Trim()
+        }
+    }
+    catch {
+        Write-Log "[Push] Unable to detect registry pod node, using control-plane IP fallback" 
+    }
+
+    if ([string]::IsNullOrWhiteSpace($registryNodeName)) {
+        return $controlPlaneIp
+    }
+
+    $setupFilePath = Get-SetupConfigFilePath
+    $controlPlaneHostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
+    if ([string]::IsNullOrWhiteSpace($controlPlaneHostname)) {
+        $controlPlaneHostname = 'kubemaster'
+    }
+
+    if ($registryNodeName.ToLower() -eq $controlPlaneHostname.ToLower()) {
+        return $controlPlaneIp
+    }
+
+    $registryNodeConfig = Get-NodeConfig -NodeName $registryNodeName
+    if ($null -ne $registryNodeConfig -and -not [string]::IsNullOrWhiteSpace($registryNodeConfig.IpAddress)) {
+        return $registryNodeConfig.IpAddress
+    }
+
+    return $controlPlaneIp
+}
+
+function Ensure-LinuxRegistryHostResolution {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$NodeInfo,
+        [Parameter(Mandatory = $true)]
+        [string]$RegistryHost
+    )
+
+    $registryHostIp = Get-RegistryHostIp
+    if ([string]::IsNullOrWhiteSpace($registryHostIp)) {
+        return
+    }
+
+    $ensureCmd = "if ! getent hosts $RegistryHost >/dev/null 2>&1; then echo '$registryHostIp $RegistryHost' | sudo tee -a /etc/hosts >/dev/null; fi"
+
+    if ($NodeInfo.Kind -eq 'ControlPlane') {
+        (Invoke-CmdOnControlPlaneViaSSHKey $ensureCmd -IgnoreErrors -Timeout 30).Output | Out-Null
+        return
+    }
+
+    if ($NodeInfo.Kind -eq 'LinuxWorker') {
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $ensureCmd -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 30).Output | Out-Null
+    }
+}
+
+function Invoke-PushOnNode {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$NodeInfo,
+        [Parameter(Mandatory = $true)]
+        [string]$Image
+    )
+
+    if ($NodeInfo.OS -eq 'linux') {
+        if ($NodeInfo.Kind -eq 'LinuxWorker' -and $Image -match '^k2s\.registry\.local(:\d+)?/') {
+            Write-Log "[Push] Ensuring '$($NodeInfo.Name)' can resolve k2s.registry.local via control-plane IP" -Console
+            Ensure-LinuxRegistryHostResolution -NodeInfo $NodeInfo -RegistryHost 'k2s.registry.local'
+        }
+
+        $linuxPushCmd = Get-LinuxPushCommand -Image $Image
+
+        if ($NodeInfo.Kind -eq 'ControlPlane') {
+            $result = Invoke-CmdOnControlPlaneViaSSHKey $linuxPushCmd -Retries 5 -Timeout 600 -IgnoreErrors
+            if (-not $result.Success) {
+                $resultOutput = ($result.Output | Out-String)
+                $fallbackDestination = Get-LinuxPushFallbackDestination -Image $Image
+                if (-not [string]::IsNullOrWhiteSpace($fallbackDestination) -and $resultOutput -match 'lookup k2s\.registry\.local|Temporary failure in name resolution|invalid status code from registry 404|x509|connection refused|dial tcp .*:80: connect: connection refused') {
+                    Write-Log "[Push] Retrying Linux push via control-plane NodePort destination '$fallbackDestination'" -Console
+                    $fallbackCmd = "sudo buildah push --tls-verify=false $Image $fallbackDestination 2>&1"
+                    $result = Invoke-CmdOnControlPlaneViaSSHKey $fallbackCmd -Retries 5 -Timeout 600 -IgnoreErrors
+                }
+            }
+
+            return @{
+                Success = [bool]$result.Success
+                Output  = ($result.Output | Out-String)
+            }
+        }
+
+        if ($NodeInfo.Kind -eq 'LinuxWorker') {
+            $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $linuxPushCmd -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 600
+            if (-not $result.Success) {
+                $resultOutput = ($result.Output | Out-String)
+                $fallbackDestination = Get-LinuxPushFallbackDestination -Image $Image
+                if (-not [string]::IsNullOrWhiteSpace($fallbackDestination) -and $resultOutput -match 'lookup k2s\.registry\.local|Temporary failure in name resolution|invalid status code from registry 404|x509|connection refused|dial tcp .*:80: connect: connection refused') {
+                    Write-Log "[Push] Retrying Linux push from '$($NodeInfo.Name)' via control-plane NodePort destination '$fallbackDestination'" -Console
+                    $fallbackCmd = "sudo buildah push --tls-verify=false $Image $fallbackDestination 2>&1"
+                    $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $fallbackCmd -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 600
+                }
+            }
+
+            return @{
+                Success = [bool]$result.Success
+                Output  = ($result.Output | Out-String)
+            }
+        }
+    }
+
+    if ($NodeInfo.OS -eq 'windows') {
+        if ($NodeInfo.Kind -eq 'LocalWindows') {
+            $kubeBinPath = Get-KubeBinPath
+            $nerdctlExe = "$kubeBinPath\nerdctl.exe"
+            $retries = 5
+            $lastOutput = ''
+
+            while ($retries -gt 0) {
+                $retries--
+                $currentOutput = (&$nerdctlExe -n="k8s.io" --insecure-registry image push $Image --allow-nondistributable-artifacts --quiet 2>&1) | Out-String
+                $lastOutput = $currentOutput
+                if ($LASTEXITCODE -eq 0) {
+                    return @{
+                        Success = $true
+                        Output  = $currentOutput
+                    }
+                }
+                Start-Sleep 1
+            }
+
+            return @{
+                Success = $false
+                Output  = $lastOutput
+            }
+        }
+
+        if ($NodeInfo.Kind -eq 'WindowsWorker') {
+            $session = $null
+            try {
+                $session = Open-RemoteSession -VmName $NodeInfo.Name -VmPwd (Get-DefaultTempPwd) -NoLog
+                $remoteResult = Invoke-Command -Session $session -ArgumentList $Image -ScriptBlock {
+                    param($imageName)
+
+                    $nerdctlCmd = Get-Command nerdctl.exe -ErrorAction SilentlyContinue
+                    $nerdctlExe = if ($nerdctlCmd) { $nerdctlCmd.Path } else { 'nerdctl.exe' }
+                    $retries = 5
+                    $lastErr = ''
+
+                    while ($retries -gt 0) {
+                        $retries--
+                        $pushOutput = (& $nerdctlExe -n='k8s.io' --insecure-registry image push $imageName --allow-nondistributable-artifacts --quiet 2>&1) | Out-String
+                        $lastErr = $pushOutput
+                        if ($LASTEXITCODE -eq 0) {
+                            return @{
+                                Success = $true
+                                Output  = $pushOutput
+                            }
+                        }
+                        Start-Sleep 1
+                    }
+
+                    return @{
+                        Success = $false
+                        Output  = $lastErr
+                    }
+                }
+
+                return @{
+                    Success = [bool]$remoteResult.Success
+                    Output  = [string]$remoteResult.Output
+                }
+            }
+            finally {
+                if ($null -ne $session) {
+                    Remove-PSSession -Session $session -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+
+    return @{
+        Success = $false
+        Output  = "Unsupported node kind '$($NodeInfo.Kind)' for OS '$($NodeInfo.OS)'"
+    }
+}
+
+$selectionResult = Get-ImagesByNodeSelection -Nodes $Nodes -IncludeK8sImages $true -LogPrefix 'Push'
+$targetNodeInfos = @($selectionResult.NodeInfos)
+$linuxContainerImages = @($selectionResult.LinuxImages)
+$windowsContainerImages = @($selectionResult.WindowsImages)
+
+if (-not [string]::IsNullOrWhiteSpace($ImageName)) {
+    $ImageName = Normalize-ImageNameForLocalRegistryAlias -Image $ImageName
+}
 
 $foundLinuxImages = @()
 if ($Id -ne '') {
@@ -87,25 +382,13 @@ else {
 
 if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
     If ($Id -ne '') {
-        $errMsg = "Image with Id ${Id} not found!"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-        Write-Log $errMsg -Error
-        exit 1
+        Send-PushError -Code 'image-not-found' -Message "Image with Id ${Id} not found!"
+        return
     }
 
     If ($ImageName -ne '') {
-        $errMsg = "Image '$ImageName' not found"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'image-tag-failed' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-        Write-Log $errMsg -Error
-        exit 1
+        Send-PushError -Code 'image-push-failed' -Message "Image '$ImageName' not found"
+        return
     }
 }
 
@@ -114,12 +397,8 @@ $pushWindowsImage = $false
 $linuxAndWindowsImageFound = $false
 
 if ($foundLinuxImages.Count -gt 1 -or $foundWindowsImages.Count -gt 1) {
-    $errMsg = "More than one image has the id: $Id. Please use --name to identify the image instead or delete the other image/s"
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Severity Warning -Code 'two-images-found' -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
+    Send-PushError -Code 'two-images-found' -Message "More than one image has the id: $Id. Please use --name to identify the image instead or delete the other image/s"
+    return
 }
 
 if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
@@ -151,18 +430,27 @@ if ((($foundLinuxImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $push
     $imageTag = $image.Tag
     $imageName = $image.Repository
     $ImageName = "${imageName}:${imageTag}"
-    Write-Log "Pushing Linux image $ImageName" -Console
-    $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push $ImageName 2>&1" -Retries 5).Success
-    if (!$success) {
-        $errMsg = "Error pushing image '$ImageName'"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'image-push-failed' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
+    $targetNode = Get-NodeInfoByName -NodeInfos $targetNodeInfos -NodeName $image.Node
+    if ($null -eq $targetNode) {
+        Send-PushError -Code 'nodes-not-found' -Message "Unable to resolve target node '$($image.Node)' for image '$ImageName'"
+        return
+    }
+
+    Write-Log "Pushing Linux image $ImageName on node '$($targetNode.Name)'" -Console
+    $pushResult = Invoke-PushOnNode -NodeInfo $targetNode -Image $ImageName
+    if (-not $pushResult.Success) {
+        $failureSummary = Get-PushFailureSummary -Output $pushResult.Output
+        if (-not [string]::IsNullOrWhiteSpace($pushResult.Output)) {
+            Write-Log "[Push] Linux push command output on '$($targetNode.Name)': $($pushResult.Output.Trim())" -Console
         }
-    
-        Write-Log $errMsg -Error
-        exit 1
+
+        $errMsg = "Error pushing image '$ImageName' on node '$($targetNode.Name)'"
+        if (-not [string]::IsNullOrWhiteSpace($failureSummary)) {
+            $errMsg = "$errMsg. Reason: $failureSummary"
+        }
+
+        Send-PushError -Code 'image-push-failed' -Message $errMsg
+        return
     }
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -177,32 +465,28 @@ if ((($foundWindowsImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $pu
     $imageTag = $image.Tag
     $imageName = $image.Repository
     $ImageName = "${imageName}:${imageTag}"
-    Write-Log "Pushing Windows image $ImageName" -Console
-    $kubeBinPath = Get-KubeBinPath
-    $nerdctlExe = "$kubeBinPath\nerdctl.exe"
-    $retries = 5
-    $success = $false
-    while ($retries -gt 0) {
-        $retries--
-        $(&$nerdctlExe -n="k8s.io" --insecure-registry image push $ImageName --allow-nondistributable-artifacts --quiet 2>&1) | Out-String
-
-        if ($?) {
-            $success = $true
-            break
-        }
-        Start-Sleep 1
+    $targetNode = Get-NodeInfoByName -NodeInfos $targetNodeInfos -NodeName $image.Node
+    if ($null -eq $targetNode) {
+        Send-PushError -Code 'nodes-not-found' -Message "Unable to resolve target node '$($image.Node)' for image '$ImageName'"
+        return
     }
 
-    if (!$success) {
-        $errMsg = "Error pushing image '$ImageName'"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'image-push-failed' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
+    Write-Log "Pushing Windows image $ImageName on node '$($targetNode.Name)'" -Console
+    $pushResult = Invoke-PushOnNode -NodeInfo $targetNode -Image $ImageName
+
+    if (-not $pushResult.Success) {
+        $failureSummary = Get-PushFailureSummary -Output $pushResult.Output
+        if (-not [string]::IsNullOrWhiteSpace($pushResult.Output)) {
+            Write-Log "[Push] Windows push command output on '$($targetNode.Name)': $($pushResult.Output.Trim())" -Console
         }
-    
-        Write-Log $errMsg -Error
-        exit 1
+
+        $errMsg = "Error pushing image '$ImageName' on node '$($targetNode.Name)'"
+        if (-not [string]::IsNullOrWhiteSpace($failureSummary)) {
+            $errMsg = "$errMsg. Reason: $failureSummary"
+        }
+
+        Send-PushError -Code 'image-push-failed' -Message $errMsg
+        return
     }
 
     if ($EncodeStructuredOutput -eq $true) {
