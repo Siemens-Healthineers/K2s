@@ -40,6 +40,44 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 
+<#
+.SYNOPSIS
+Resolves the base addon folder name and optional implementation subdirectory
+from the OCI annotation values stored during export.
+
+Export.ps1 stores:
+  vnd.k2s.addon.name           = $manifest.metadata.name   (e.g. "dashboard", "ingress")
+  vnd.k2s.addon.implementation = $implementation.name       (e.g. "dashboard", "nginx")
+
+Import rule (mirrors Export.ps1 $dirPath logic):
+  - name == implementation  -> single-implementation addon
+      BaseAddonName      = name        (destination: addons/<name>)
+      ImplementationName = $null
+  - name != implementation  -> multi-implementation addon
+      BaseAddonName      = name        (destination: addons/<name>/<implementation>)
+      ImplementationName = implementation
+#>
+function Resolve-AddonImportPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AddonName,
+        [Parameter(Mandatory = $false)]
+        [string]$AddonImplementation
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AddonImplementation) -or $AddonImplementation -eq $AddonName) {
+        return [PSCustomObject]@{
+            BaseAddonName      = $AddonName
+            ImplementationName = $null
+        }
+    }
+
+    return [PSCustomObject]@{
+        BaseAddonName      = $AddonName
+        ImplementationName = $AddonImplementation
+    }
+}
+
 $tmpDir = "$env:TEMP\$(Get-Date -Format ddMMyyyy-HHmmss)-tmp-extracted-addons"
 $extractionFolder = $tmpDir
 
