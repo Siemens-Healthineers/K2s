@@ -3357,7 +3357,7 @@ SPDX-License-Identifier: MIT
 <td><strong>dashboard</strong></td>
 <td>Metadata</td>
 <td>Ingress type, metrics-addon-enabled flag</td>
-<td>Restore calls <code>Update.ps1</code>; may re-enable metrics addon</td>
+<td>Headlamp (Headlamp replaces retired kubernetes/dashboard); restore calls <code>Update.ps1</code>; may re-enable metrics addon</td>
 </tr>
 <tr>
 <td><strong>dicom</strong></td>
@@ -3463,7 +3463,10 @@ SPDX-License-Identifier: MIT
 <p><strong>Restore:</strong> Uses <code>EnableForRestore.ps1</code> which applies the KEDA manifest with best-effort readiness checks, allowing restore to proceed even if the keda-operator pod is temporarily unhealthy. Applies backed-up ConfigMaps with server-side apply fallback on conflict. Waits for KEDA pods (admission-webhooks, metrics-apiserver, operator).</p>
 <h3 id="dashboard">dashboard</h3>
 <p><strong>Backup:</strong> Metadata-only — records the active ingress type (<code>none</code>, <code>nginx</code>, <code>traefik</code>, or <code>nginx-gw</code>) and whether the metrics addon was enabled. No Kubernetes resources are exported.</p>
-<p><strong>Restore:</strong> Re-enables the metrics addon if it was enabled at backup time. Ensures the correct ingress addon is enabled. Calls <code>Update.ps1</code> to regenerate authentication wiring. Waits for dashboard pod availability.</p>
+<p><strong>Restore:</strong> Re-enables the metrics addon if it was enabled at backup time. Ensures the correct ingress addon is enabled. Calls <code>Update.ps1</code> to re-apply ingress integration and Linkerd service-mesh patches. Waits for the Headlamp pod availability.</p>
+<blockquote>
+<p><strong>Note:</strong> This addon uses <a href="https://headlamp.dev">Headlamp</a> (kubernetes-sigs) as the Kubernetes dashboard. The previous <code>kubernetes/dashboard</code> (Kong proxy architecture) has been retired.</p>
+</blockquote>
 <h3 id="dicom">dicom</h3>
 <p><strong>Backup:</strong> Exports the Orthanc <code>json-configmap</code> ConfigMap (required), plus optional ingress resources: nginx Ingress, traefik Ingress (including <code>correct1</code>/<code>correct2</code> variants), nginx-gw HTTPRoutes (http + https), and Traefik middlewares (<code>strip-prefix</code>, <code>cors-header</code>, <code>oauth2-proxy-auth</code>). Resources are exported as minimal <abbr title="JavaScript Object Notation">JSON</abbr> with server-managed fields stripped.</p>
 <p><strong>Restore:</strong> Detects the active ingress controller and skips non-matching ingress resources. Waits for DICOM deployments, applies resources, restarts the DICOM deployment if configuration was restored, then runs <code>Update.ps1</code>.</p>

@@ -2681,16 +2681,9 @@ This setup is commonly used in local development environments where the Kubernet
 <a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="w">  </span><span class="nt">&lt;/system.webServer&gt;</span>
 <a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="nt">&lt;/configuration&gt;</span>
 </code></pre></div>
-<div class="admonition question">
-<p class="admonition-title">Open Point</p>
-<p>It seems that <em><abbr title="Internet Information Services">IIS</abbr> Application Request Routing</em> has an issue with URLs ending with a space character (as this is forbidden) - although <em>NGINX</em> is tolerant with this.</p>
-<p>The dashboard web application makes calls to APIs, and in many of them the namespace is used as <abbr title="Representational State Transfer">REST</abbr> <abbr title="Application Programming Interface">API</abbr> resource <abbr title="Identifier">ID</abbr>, e.g. all <em>Pods</em> of namespace <code>kubernetes-dashboard</code> are retrieved with this <abbr title="Application Programming Interface">API</abbr> call:</p>
-<p><code>http://k2s.cluster.local/dashboard/api/v1/pod/kubernetes-dashboard?query=value&amp;...</code></p>
-<p>But when the user selects <code>All Namespaces</code> in the User Interface, the same <abbr title="Uniform Resource Locator">URL</abbr> is invoked with a space character (<code>%20</code>) as the name of the resource - it seems as this is the convention the developers of the <em>Dashboard</em> made:</p>
-<p><code>http://k2s.cluster.local/dashboard/api/v1/pod/%20?query=value&amp;...</code></p>
-<p>The <abbr title="Hypertext Transfer Protocol">HTTP</abbr> specs forbid to have a space at the end on an <abbr title="Uniform Resource Locator">URL</abbr>, but it works for some reasons. However, when the rewrite rules kick in, it seems they drop the space and the application is not working with <code>All Namespaces</code> selected.</p>
-<p>This line in the <em>Kubernetes</em> dashboard sources is causing the issue (the space character):</p>
-<p><a href="https://github.com/kubernetes/dashboard/blob/master/modules/web/src/common/services/resource/resource.ts#L69" target="_blank" rel="noopener"><code>return this.namespace_.isMultiNamespace(currentNamespace) ? ' ' : currentNamespace;</code></a></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code>dashboard</code> addon now uses <strong>Headlamp</strong> (kubernetes-sigs/headlamp) which serves the <abbr title="User Interface">UI</abbr> at port 4466 (<abbr title="Hypertext Transfer Protocol">HTTP</abbr>). When exposed via ingress at <code>/dashboard/</code>, the <code>--base-url=/dashboard</code> flag ensures Headlamp constructs all relative URLs correctly. No special namespace <abbr title="Uniform Resource Locator">URL</abbr> encoding workarounds are required.</p>
 </div>
 <h2 id="base-href">Base <code>href</code></h2>
 <p>When configuring reverse proxies, special attention and test effort must be spent to ensure that URLs are properly handled, in case they are pointing to the services being re-directed to.</p>
@@ -2698,7 +2691,7 @@ This setup is commonly used in local development environments where the Kubernet
 The app is designed to work e.g. at <code>my-product.local/</code>, and encodes the <code>&lt;base href="/"&gt;</code>.
 But when the application is accessed through the secure <abbr title="Uniform Resource Locator">URL</abbr> at e.g. <code>my-host.my-domain.com/my-product</code>, the base <abbr title="Uniform Resource Locator">URL</abbr> must be rewritten to <code>&lt;base href="/my-product/"&gt;</code>.</p>
 <p>This is solved for <code>my-product</code> by outbound rules, which inspects the responses and make the necessary changes for the <code>&lt;base href.../&gt;</code>.</p>
-<p>For the dashboard, no change is necessary, because it detects and sets the base <code>href</code> dynamically, <a href="https://github.com/kubernetes/dashboard/blob/dde23c41c6ee7e85194dc897cf73ee0f781f7d99/modules/web/src/index.html#L32" target="_blank" rel="noopener">see the code</a>.</p>
+<p>For Headlamp, the base <abbr title="Uniform Resource Locator">URL</abbr> is configured via the <code>--base-url=/dashboard</code> flag passed by the Helm chart values, so no outbound rewrite rules are necessary.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
