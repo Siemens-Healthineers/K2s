@@ -7,7 +7,7 @@ module github.com/siemens-healthineers/k2s
 go 1.26.1
 
 require (
-	github.com/Microsoft/hcsshim v0.13.0
+	github.com/Microsoft/hcsshim v0.14.0
 	github.com/Microsoft/windows-container-networking v0.3.3
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/cloudflare/cfssl v1.6.5
