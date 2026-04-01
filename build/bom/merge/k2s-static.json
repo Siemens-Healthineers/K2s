@@ -444,7 +444,7 @@
     {
       "group": "https://github.com/prometheus-community/windows_exporter",
       "name": "windows_exporter",
-      "version": "v0.31.5",
+      "version": "v0.31.6",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -461,7 +461,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/prometheus-community/windows_exporter@v0.31.5",
+      "purl": "pkg:github/prometheus-community/windows_exporter@v0.31.6",
       "type": "application"
     },
     {
