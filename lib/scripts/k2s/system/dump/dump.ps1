@@ -45,7 +45,8 @@ if ($Trace) {
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-Import-Module $infraModule, $nodeModule
+$runningStateModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/runningstate/runningstate.module.psm1"
+Import-Module $infraModule, $nodeModule, $runningStateModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 Reset-LogFile -AppendLogFile
@@ -83,8 +84,14 @@ function Invoke-k2sConfigCollection(
 function Invoke-LinuxNodeDetailsCollection(
     [string] $NodeDetailsDirectory
 ) {
-    $isLinuxVMRunning = Get-IsControlPlaneRunning
     $linuxNodeName = Get-ConfigControlPlaneNodeHostname
+    $isWsl = Get-ConfigWslFlag
+    if ($isWsl) {
+        $isLinuxVMRunning = Get-IsWslRunning -Name $linuxNodeName
+    }
+    else {
+        $isLinuxVMRunning = Get-IsControlPlaneRunning
+    }
     Write-Log "Node name: $linuxNodeName"
     if ($isLinuxVMRunning) {
         $linuxNodeDumpFile = Join-Path $NodeDetailsDirectory "$($linuxNodeName)-node.txt"
