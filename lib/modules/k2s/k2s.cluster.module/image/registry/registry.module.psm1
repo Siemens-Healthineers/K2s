@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
@@ -104,10 +104,16 @@ function Remove-RegistryAuthToContainerdConfigToml {
     $dockerConfig = $authJson | ConvertFrom-Json
     $dockerAuth = $dockerConfig.psobject.properties['auths'].value
     $authk2s = $dockerAuth.psobject.properties["$registryName"].value
-    $auth = $authk2s.psobject.properties['auth'].value
-
-    (Get-Content $containerdConfig | Select-String "$registryName"".auth]" -notmatch) | Set-Content $containerdConfig
-    (Get-Content $containerdConfig | Select-String "auth = ""$auth""" -notmatch) | Set-Content $containerdConfig
+    
+    # Only proceed if auth entry exists for this registry
+    if ($null -ne $authk2s) {
+        $auth = $authk2s.psobject.properties['auth'].value
+        (Get-Content $containerdConfig | Select-String "$registryName"".auth]" -notmatch) | Set-Content $containerdConfig
+        (Get-Content $containerdConfig | Select-String "auth = ""$auth""" -notmatch) | Set-Content $containerdConfig
+    }
+    else {
+        Write-Log "[Registry] No auth entry found for '$registryName' in auth.json, skipping containerd config update"
+    }
 }
 
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -32,6 +32,8 @@ Param (
     [string] $ImageName,
     [parameter(Mandatory = $true, HelpMessage = 'New image name')]
     [string] $TargetImageName,
+    [parameter(Mandatory = $false, HelpMessage = 'Comma-separated node names to target')]
+    [string] $Nodes = '',
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -40,92 +42,248 @@ Param (
     [string] $MessageType
 )
 
-$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-Import-Module $nodeModule, $infraModule, $clusterModule
+$imageCommonModule = "$PSScriptRoot/Image-Common.module.psm1"
+Import-Module $imageCommonModule
 
-Initialize-Logging -ShowLogs:$ShowLogs
+if (-not (Initialize-ImageScriptContext -ShowLogs:$ShowLogs -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType)) {
+    return
+}
 
-$systemError = Test-SystemAvailability -Structured
-if ($systemError) {
+function Send-TagError {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Code,
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        [Parameter(Mandatory = $false)]
+        [string]$Severity = 'Warning'
+    )
+
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        $err = New-Error -Severity $Severity -Code $Code -Message $Message
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
-    Write-Log $systemError.Message -Error
+    Write-Log $Message -Error
     exit 1
 }
 
-$linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
-$windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $true
+function Get-NodeInfoByName {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable[]]$NodeInfos,
+        [Parameter(Mandatory = $true)]
+        [string]$NodeName
+    )
 
-$foundLinuxImages = @()
-if ($Id -ne '') {
-    $foundLinuxImages = @($linuxContainerImages | Where-Object { $_.ImageId -eq $Id })
-}
-else {
-    if ($ImageName -eq '') {
-        Write-Error 'Image Name or ImageId is not provided. Cannot tag image.'
-    }
-    else {
-        $foundLinuxImages = @($linuxContainerImages | Where-Object {
-                $retrievedName = $_.Repository + ':' + $_.Tag
-                return ($retrievedName -eq $ImageName)
-            })
-    }
+    $nodeNameLower = $NodeName.ToLower()
+    return @($NodeInfos | Where-Object { $_.Name -eq $nodeNameLower } | Select-Object -First 1)[0]
 }
 
-$foundWindowsImages = @()
-if ($Id -ne '') {
-    $foundWindowsImages = @($windowsContainerImages | Where-Object { $_.ImageId -eq $Id })
-}
-else {
-    if ($ImageName -eq '') {
-        Write-Error 'Image Name or ImageId is not provided. Cannot tag image.'
-    }
-    else {
-        $foundWindowsImages = @($windowsContainerImages | Where-Object {
-                $retrievedName = $_.Repository + ':' + $_.Tag
-                return ($retrievedName -eq $ImageName)
-            })
+function Invoke-TagOnNode {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$NodeInfo,
+        [Parameter(Mandatory = $true)]
+        [string]$SourceImage,
+        [Parameter(Mandatory = $true)]
+        [string]$TargetImage
+    )
 
+    if ($NodeInfo.OS -eq 'linux') {
+        if ($NodeInfo.Kind -eq 'ControlPlane') {
+            return (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah tag $SourceImage $TargetImage 2>&1" -Retries 5).Success
+        }
+        if ($NodeInfo.Kind -eq 'LinuxWorker') {
+            return (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo buildah tag $SourceImage $TargetImage 2>&1" -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors).Success
+        }
     }
+
+    if ($NodeInfo.OS -eq 'windows') {
+        if ($NodeInfo.Kind -eq 'LocalWindows') {
+            $kubeBinPath = Get-KubeBinPath
+            $nerdctlExe = "$kubeBinPath\nerdctl.exe"
+            $retries = 5
+            while ($retries -gt 0) {
+                $retries--
+                &$nerdctlExe -n="k8s.io" tag $SourceImage $TargetImage
+                if ($?) {
+                    return $true
+                }
+                Start-Sleep 1
+            }
+            return $false
+        }
+
+        if ($NodeInfo.Kind -eq 'WindowsWorker') {
+            $session = $null
+            try {
+                $session = Open-RemoteSession -VmName $NodeInfo.Name -VmPwd (Get-DefaultTempPwd) -NoLog
+                $remoteResult = Invoke-Command -Session $session -ArgumentList $SourceImage, $TargetImage -ScriptBlock {
+                    param($sourceImage, $targetImage)
+
+                    $nerdctlCmd = Get-Command nerdctl.exe -ErrorAction SilentlyContinue
+                    $nerdctlExe = if ($nerdctlCmd) { $nerdctlCmd.Path } else { 'nerdctl.exe' }
+
+                    $retries = 5
+                    while ($retries -gt 0) {
+                        $retries--
+                        & $nerdctlExe -n='k8s.io' tag $sourceImage $targetImage 2>$null | Out-Null
+                        if ($LASTEXITCODE -eq 0) {
+                            return $true
+                        }
+                        Start-Sleep 1
+                    }
+
+                    return $false
+                }
+
+                return [bool]$remoteResult
+            }
+            finally {
+                if ($null -ne $session) {
+                    Remove-PSSession -Session $session -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+
+    return $false
 }
+
+function Get-MatchingTagImages {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Images,
+        [Parameter(Mandatory = $false)]
+        [string]$SearchId = '',
+        [Parameter(Mandatory = $false)]
+        [string]$SearchName = ''
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($SearchId)) {
+        return @($Images | Where-Object { $_.ImageId -eq $SearchId })
+    }
+
+    if ([string]::IsNullOrWhiteSpace($SearchName)) {
+        return @()
+    }
+
+    $searchNameHasTag = $SearchName.Contains(':')
+
+    return @($Images | Where-Object {
+            $retrievedName = $_.Repository + ':' + $_.Tag
+            if ($searchNameHasTag) {
+                return $retrievedName -eq $SearchName
+            }
+
+            return $_.Repository -eq $SearchName
+        })
+}
+
+function Select-PreferredTagImages {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Images
+    )
+
+    if ($null -eq $Images -or $Images.Count -eq 0) {
+        return @()
+    }
+
+    $selectedImages = @()
+    $imageGroupsByNode = $Images | Group-Object -Property Node
+    foreach ($group in $imageGroupsByNode) {
+        $taggedImages = @($group.Group | Where-Object { $_.Tag -ne '<none>' -and $_.Repository -ne '<none>' })
+        if ($taggedImages.Count -ge 1) {
+            $selectedImages += $taggedImages[0]
+        }
+        elseif ($group.Group.Count -ge 1) {
+            $selectedImages += $group.Group[0]
+        }
+    }
+
+    return @($selectedImages)
+}
+
+$selectionResult = Get-ImagesByNodeSelection -Nodes $Nodes -IncludeK8sImages $true -LogPrefix 'Tag'
+$targetNodeInfos = @($selectionResult.NodeInfos)
+$linuxContainerImages = @($selectionResult.LinuxImages)
+$windowsContainerImages = @($selectionResult.WindowsImages)
+
+if ([string]::IsNullOrWhiteSpace($Id) -and [string]::IsNullOrWhiteSpace($ImageName)) {
+    Send-TagError -Code 'image-tag-failed' -Message 'Image Name or ImageId is not provided. Cannot tag image.'
+    return
+}
+
+$foundLinuxImages = @(Get-MatchingTagImages -Images $linuxContainerImages -SearchId $Id -SearchName $ImageName)
+$foundWindowsImages = @(Get-MatchingTagImages -Images $windowsContainerImages -SearchId $Id -SearchName $ImageName)
+
+$selectedNodes = Resolve-NodeList -Nodes $Nodes
+if ($selectedNodes.Count -gt 0) {
+    $imagesToTag = @()
+    $imagesToTag += @(Select-PreferredTagImages -Images $foundLinuxImages)
+    $imagesToTag += @(Select-PreferredTagImages -Images $foundWindowsImages)
+
+    if ($imagesToTag.Count -eq 0) {
+        if ($Id -ne '') {
+            Send-TagError -Code 'image-not-found' -Message "Image with Id ${Id} not found on selected node(s)!"
+            return
+        }
+
+        Send-TagError -Code 'image-tag-failed' -Message "Image '$ImageName' not found on selected node(s)"
+        return
+    }
+
+    $failedNodes = @()
+    foreach ($image in $imagesToTag) {
+        $sourceImage = "$($image.Repository):$($image.Tag)"
+        $targetNode = Get-NodeInfoByName -NodeInfos $targetNodeInfos -NodeName $image.Node
+        if ($null -eq $targetNode) {
+            $failedNodes += $image.Node
+            Write-Log "[Tag] Unable to resolve target node '$($image.Node)'" -Console
+            continue
+        }
+
+        Write-Log "Tagging image '$sourceImage' as '$TargetImageName' on node '$($targetNode.Name)'" -Console
+        $success = Invoke-TagOnNode -NodeInfo $targetNode -SourceImage $sourceImage -TargetImage $TargetImageName
+        if (-not $success) {
+            $failedNodes += $targetNode.Name
+        }
+    }
+
+    if ($failedNodes.Count -gt 0) {
+        Send-TagError -Code 'image-tag-failed' -Message "Tagging failed on node(s): $($failedNodes -join ', ')"
+        return
+    }
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+
+    return
+}
+
+$foundLinuxImages = @(Select-PreferredTagImages -Images $foundLinuxImages)
+$foundWindowsImages = @(Select-PreferredTagImages -Images $foundWindowsImages)
 
 
 if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
     If ($Id -ne '') {
-        $errMsg = "Image with Id ${Id} not found!"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-        Write-Log $errMsg -Error
-        exit 1
+        Send-TagError -Code 'image-not-found' -Message "Image with Id ${Id} not found!"
+        return
     }
 
     If ($ImageName -ne '') {
-        $errMsg = "Image '$ImageName' not found"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'image-tag-failed' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-        Write-Log $errMsg -Error
-        exit 1
+        Send-TagError -Code 'image-tag-failed' -Message "Image '$ImageName' not found"
+        return
     }
 }
 
 if ($foundLinuxImages.Count -gt 1 -or $foundWindowsImages.Count -gt 1) {
-    $errMsg = "More than one image has the id: $Id. Please use --name to identify the image instead or delete the other image/s"
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Severity Warning -Code 'two-images-found' -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
+    Send-TagError -Code 'two-images-found' -Message "More than one image has the id: $Id. Please use --name to identify the image instead or delete the other image/s"
+    return
 }
 
 $tagLinuxImage = $false
@@ -161,18 +319,17 @@ if ((($foundLinuxImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $tagL
     $imageTag = $image.Tag
     $imageName = $image.Repository
     $ImageName = "${imageName}:${imageTag}"
-    Write-Log "Tagging Linux image '$ImageName' as '$TargetImageName'" -Console
-    $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah tag $ImageName $TargetImageName 2>&1" -Retries 5).Success
+    $targetNode = Get-NodeInfoByName -NodeInfos $targetNodeInfos -NodeName $image.Node
+    if ($null -eq $targetNode) {
+        Send-TagError -Code 'nodes-not-found' -Message "Unable to resolve target node '$($image.Node)' for image '$ImageName'"
+        return
+    }
+
+    Write-Log "Tagging Linux image '$ImageName' as '$TargetImageName' on node '$($targetNode.Name)'" -Console
+    $success = Invoke-TagOnNode -NodeInfo $targetNode -SourceImage $ImageName -TargetImage $TargetImageName
     if (!$success) {
-        $errMsg = "Error tagging image '$ImageName' as '$TargetImageName'"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'image-tag-failed' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-    
-        Write-Log $errMsg -Error
-        exit 1
+        Send-TagError -Code 'image-tag-failed' -Message "Error tagging image '$ImageName' as '$TargetImageName' on node '$($targetNode.Name)'"
+        return
     }
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -187,32 +344,18 @@ if ((($foundWindowsImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $ta
     $imageTag = $image.Tag
     $imageName = $image.Repository
     $ImageName = "${imageName}:${imageTag}"
-    Write-Log "Tagging Windows image '$ImageName' as '$TargetImageName'" -Console
-    $kubeBinPath = Get-KubeBinPath
-    $nerdctlExe = "$kubeBinPath\nerdctl.exe"
-    $retries = 5
-    $success = $false
-    while ($retries -gt 0) {
-        $retries--
-        &$nerdctlExe -n="k8s.io" tag $ImageName $TargetImageName
-
-        if ($?) {
-            $success = $true
-            break
-        }
-        Start-Sleep 1
+    $targetNode = Get-NodeInfoByName -NodeInfos $targetNodeInfos -NodeName $image.Node
+    if ($null -eq $targetNode) {
+        Send-TagError -Code 'nodes-not-found' -Message "Unable to resolve target node '$($image.Node)' for image '$ImageName'"
+        return
     }
 
+    Write-Log "Tagging Windows image '$ImageName' as '$TargetImageName' on node '$($targetNode.Name)'" -Console
+    $success = Invoke-TagOnNode -NodeInfo $targetNode -SourceImage $ImageName -TargetImage $TargetImageName
+
     if (!$success) {
-        $errMsg = "Error tagging image '$ImageName' as '$TargetImageName'"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'image-tag-failed' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-    
-        Write-Log $errMsg -Error
-        exit 1
+        Send-TagError -Code 'image-tag-failed' -Message "Error tagging image '$ImageName' as '$TargetImageName' on node '$($targetNode.Name)'"
+        return
     }
 
     if ($EncodeStructuredOutput -eq $true) {

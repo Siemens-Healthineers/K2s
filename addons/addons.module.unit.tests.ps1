@@ -1264,8 +1264,6 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
-        Mock -ModuleName $moduleName Get-CAIssuerName { return 'K2s Self-Signed CA' }
-        Mock -ModuleName $moduleName Get-ChildItem { return @() }
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = $script:b64 } }
         Mock -ModuleName $moduleName Import-Certificate { }
         Mock -CommandName New-TemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
@@ -1361,8 +1359,6 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
 
 Describe 'Get-CertManagerStatusProperties' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
-        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'cert-manager' } }
-        Mock -ModuleName $moduleName Test-Path { return $true }
         Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
         Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $false }
     }
@@ -1584,81 +1580,251 @@ Describe 'Assert-IngressTlsCertificate' -Tag 'unit', 'ci', 'addon' {
     }
 }
 
-Describe 'Resolve-AddonImportPath' -Tag 'unit', 'ci', 'addon' {
-    Context 'single-implementation addon without hyphen' {
-        It 'returns the addon name as base with no implementation' {
-            InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'dashboard' -AddonImplementation 'dashboard'
+Describe 'Remove-IngressForNginx' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+    }
 
-                $result.BaseAddonName | Should -Be 'dashboard'
-                $result.ImplementationName | Should -BeNullOrEmpty
+    Context 'when nginx ingress resource exists in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'get') { return [pscustomobject]@{ Output = 'dashboard-nginx-cluster-local' } }
+                return [pscustomobject]@{ Output = '' }
+            }
+        }
+
+        It 'deletes the standard nginx config directory' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-nginx' -and ($Params -join ' ') -notmatch 'ingress-nginx-secure'
+                }
+            }
+        }
+
+        It 'deletes the secure nginx config directory' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-nginx-secure'
+                }
+            }
+        }
+
+        It 'calls kubectl delete exactly twice (both standard and secure)' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'writes Deleting nginx ingress manifest to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting nginx ingress manifest'
+                }
             }
         }
     }
 
-    Context 'single-implementation addon with hyphen in name (gpu-node bug)' {
-        It 'preserves the full hyphenated name as base folder' {
-            InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'gpu-node' -AddonImplementation 'gpu-node'
-
-                $result.BaseAddonName | Should -Be 'gpu-node'
-                $result.ImplementationName | Should -BeNullOrEmpty
+    Context 'when nginx ingress resource does NOT exist in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = '' }
             }
         }
-    }
 
-    Context 'multi-implementation addon (ingress-nginx)' {
-        It 'splits into base addon and implementation' {
-            InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'ingress-nginx' -AddonImplementation 'nginx'
-
-                $result.BaseAddonName | Should -Be 'ingress'
-                $result.ImplementationName | Should -Be 'nginx'
+        It 'does not call kubectl delete' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
             }
         }
-    }
 
-    Context 'multi-implementation addon (ingress-traefik)' {
-        It 'splits into base addon and implementation' {
-            InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'ingress-traefik' -AddonImplementation 'traefik'
-
-                $result.BaseAddonName | Should -Be 'ingress'
-                $result.ImplementationName | Should -Be 'traefik'
-            }
-        }
-    }
-
-    Context 'single-implementation addon with multiple hyphens' {
-        It 'preserves the full name when name equals implementation' {
-            InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'my-cool-addon' -AddonImplementation 'my-cool-addon'
-
-                $result.BaseAddonName | Should -Be 'my-cool-addon'
-                $result.ImplementationName | Should -BeNullOrEmpty
-            }
-        }
-    }
-
-    Context 'addon with no implementation annotation' {
-        It 'returns the addon name as base with no implementation' {
-            InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'metrics'
-
-                $result.BaseAddonName | Should -Be 'metrics'
-                $result.ImplementationName | Should -BeNullOrEmpty
-            }
-        }
-    }
-
-    Context 'addon with empty implementation annotation' {
-        It 'returns the addon name as base with no implementation' {
-            InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'gpu-node' -AddonImplementation ''
-
-                $result.BaseAddonName | Should -Be 'gpu-node'
-                $result.ImplementationName | Should -BeNullOrEmpty
+        It 'does not write Deleting... to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting'
+                }
             }
         }
     }
 }
+
+Describe 'Remove-IngressForTraefik' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+    }
+
+    Context 'when traefik ingress resource exists in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'get') { return [pscustomobject]@{ Output = 'dashboard-traefik-cluster-local' } }
+                return [pscustomobject]@{ Output = '' }
+            }
+        }
+
+        It 'deletes the standard traefik config directory' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-traefik' -and ($Params -join ' ') -notmatch 'ingress-traefik-secure'
+                }
+            }
+        }
+
+        It 'deletes the secure traefik config directory' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-traefik-secure'
+                }
+            }
+        }
+
+        It 'calls kubectl delete exactly twice (both standard and secure)' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'writes Deleting traefik ingress manifest to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting traefik ingress manifest'
+                }
+            }
+        }
+    }
+
+    Context 'when traefik ingress resource does NOT exist in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = '' }
+            }
+        }
+
+        It 'does not call kubectl delete' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'does not write Deleting... to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting'
+                }
+            }
+        }
+    }
+}
+
+Describe 'Remove-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+    }
+
+    Context 'when nginx-gw HTTPRoute resource exists in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'get') { return [pscustomobject]@{ Success = $true; Output = 'dashboard-nginx-gw-cluster-local' } }
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'deletes the standard gateway kustomization' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-nginx-gw' -and ($Params -join ' ') -notmatch 'ingress-nginx-gw-secure'
+                }
+            }
+        }
+
+        It 'deletes the secure gateway kustomization' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-nginx-gw-secure'
+                }
+            }
+        }
+
+        It 'calls kubectl delete exactly twice (both standard and secure)' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'writes Deleting gateway manifest to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting gateway manifest'
+                }
+            }
+        }
+    }
+
+    Context 'when nginx-gw HTTPRoute resource does NOT exist in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'does not call kubectl delete' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'does not write Deleting... to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting'
+                }
+            }
+        }
+    }
+
+    Context 'when nginx-gw HTTPRoute CRD is not installed (kubectl returns error exit code)' {
+        BeforeAll {
+            # Simulates: kubectl exits non-zero because the HTTPRoute CRD does not exist
+            # (nginx-gw addon not installed). Output contains error text but Success=false.
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $false; Output = "error: the server doesn't have a resource type 'httproute'" }
+            }
+        }
+
+        It 'does not call kubectl delete when CRD is missing' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'does not write Deleting... to console when CRD is missing' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting'
+                }
+            }
+        }
+    }
+}
+
