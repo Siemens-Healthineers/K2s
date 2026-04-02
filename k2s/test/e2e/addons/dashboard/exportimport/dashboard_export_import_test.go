@@ -70,6 +70,11 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if suite == nil {
+		GinkgoWriter.Println(">>> TEST: AfterSuite - suite is nil (BeforeSuite failed), skipping cleanup")
+		return
+	}
+
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
@@ -185,6 +190,7 @@ var _ = Describe("dashboard addon export and import", Ordered, func() {
 				"Update.ps1",
 				"README.md",
 				"dashboard.module.psm1",
+				"dashboard.module.unit.tests.ps1",
 			}
 			exportimport.VerifyImportedAddonFiles(dashboardImplDir, expectedFiles)
 		})

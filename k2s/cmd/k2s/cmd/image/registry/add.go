@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package registry
@@ -27,6 +27,8 @@ const (
 	passwordFlag   = "password"
 	skipVerifyFlag = "skip-verify"
 	plainHttpFlag  = "plain-http"
+	nodeFlag       = "node"
+	nodesFlag      = "nodes"
 )
 
 var (
@@ -34,11 +36,31 @@ var (
 	# Add registry in K2s (enter credentials afterwards)
 	k2s image registry add ghcr.io
 
+	# Add registry only on one selected node (enter credentials afterwards)
+	k2s image registry add ghcr.io --node worker-1
+
+	# Add registry on multiple selected nodes (enter credentials afterwards)
+	k2s image registry add ghcr.io --nodes worker-1,worker-2
+
 	# Add registry in K2s (enter credentials afterwards) and configure as insecure registry (skips verifying HTTPS certs, and allows falling back to plain HTTP)
 	k2s image registry add ghcr.io --skip-verify --plain-http
 
+	# Add registry on one selected node (enter credentials afterwards) and configure as insecure registry (skips verifying HTTPS certs, and allows falling back to plain HTTP)
+	k2s image registry add ghcr.io --node worker-1 --skip-verify --plain-http
+
+	# Add registry on multiple selected nodes (enter credentials afterwards) and configure as insecure registry (skips verifying HTTPS certs, and allows falling back to plain HTTP)
+	k2s image registry add ghcr.io --nodes worker-1,worker-2 --skip-verify --plain-http
+
 	# Add registry with username and password in K2s 
 	k2s image registry add ghcr.io -u testuser -p testpassword
+
+	# Add registry with username and password on one selected node
+	k2s image registry add ghcr.io --node worker-1 -u testuser -p testpassword
+
+	# Add registry with username and password on multiple selected nodes
+	k2s image registry add ghcr.io --nodes worker-1,worker-2 -u testuser -p testpassword
+
+
 `
 
 	addCmd = &cobra.Command{
@@ -54,6 +76,8 @@ func init() {
 	addCmd.Flags().StringP(passwordFlag, "p", "", passwordFlag)
 	addCmd.Flags().Bool(skipVerifyFlag, false, "Skips verifying HTTPS certs")
 	addCmd.Flags().Bool(plainHttpFlag, false, "Allows falling back to plain HTTP")
+	addCmd.Flags().String(nodeFlag, "", "Node name to target (e.g. worker-1)")
+	addCmd.Flags().String(nodesFlag, "", "Comma-separated node names to target (e.g. worker-1,worker-2)")
 	addCmd.Flags().SortFlags = false
 	addCmd.Flags().PrintDefaults()
 }
@@ -112,27 +136,27 @@ func buildAddPsCmd(registryName string, cmd *cobra.Command) (psCmd string, param
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", common.OutputFlagName, err)
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, common.OutputFlagName, err)
 	}
 
 	username, err := cmd.Flags().GetString(usernameFlag)
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", usernameFlag, err)
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, usernameFlag, err)
 	}
 
 	password, err := cmd.Flags().GetString(passwordFlag)
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", passwordFlag, err)
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, passwordFlag, err)
 	}
 
 	skipVerify, err := strconv.ParseBool(cmd.Flags().Lookup(skipVerifyFlag).Value.String())
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", skipVerifyFlag, err)
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, skipVerifyFlag, err)
 	}
 
 	plainHttp, err := strconv.ParseBool(cmd.Flags().Lookup(plainHttpFlag).Value.String())
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", plainHttpFlag, err)
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, plainHttpFlag, err)
 	}
 
 	if plainHttp {
@@ -145,6 +169,25 @@ func buildAddPsCmd(registryName string, cmd *cobra.Command) (psCmd string, param
 
 	if showOutput {
 		params = append(params, " -ShowLogs")
+	}
+
+	nodesSelection, err := cmd.Flags().GetString(nodesFlag)
+	if err != nil {
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, nodesFlag, err)
+	}
+
+	nodeSelection, err := cmd.Flags().GetString(nodeFlag)
+	if err != nil {
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, nodeFlag, err)
+	}
+
+	nodesParam := nodesSelection
+	if nodesParam == "" {
+		nodesParam = nodeSelection
+	}
+
+	if nodesParam != "" {
+		params = append(params, " -Nodes "+utils.EscapeWithSingleQuotes(nodesParam))
 	}
 
 	params = append(params,
