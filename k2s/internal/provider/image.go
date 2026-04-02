@@ -38,6 +38,7 @@ type ImageProvider interface {
 // ImageListConfig holds parameters for listing container images.
 type ImageListConfig struct {
 	IncludeK8sImages bool
+	Nodes            string
 	ShowOutput       bool
 }
 
@@ -61,22 +62,25 @@ type ContainerImage struct {
 type PushedImage struct {
 	Name string
 	Tag  string
+	Node string
 }
 
 // ImagePullConfig holds parameters for pulling a container image.
 type ImagePullConfig struct {
 	ImageName  string
 	Windows    bool
+	Nodes      string
 	ShowOutput bool
 }
 
 // ImageRemoveConfig holds parameters for removing a container image.
 type ImageRemoveConfig struct {
-	ImageId       string
-	ImageName     string
-	FromRegistry  bool
-	Force         bool
-	ShowOutput    bool
+	ImageId      string
+	ImageName    string
+	Nodes        string
+	FromRegistry bool
+	Force        bool
+	ShowOutput   bool
 }
 
 // ImageBuildConfig holds parameters for building a container image.
@@ -96,6 +100,7 @@ type ImageImportConfig struct {
 	TarPath       string
 	DirPath       string
 	Windows       bool
+	Nodes         string
 	DockerArchive bool
 	ShowOutput    bool
 }
@@ -104,6 +109,7 @@ type ImageImportConfig struct {
 type ImageExportConfig struct {
 	ImageId       string
 	ImageName     string
+	Nodes         string
 	OutputPath    string
 	DockerArchive bool
 	ShowOutput    bool
@@ -113,6 +119,7 @@ type ImageExportConfig struct {
 type ImageTagConfig struct {
 	ImageId         string
 	ImageName       string
+	Nodes           string
 	TargetImageName string
 	ShowOutput      bool
 }
@@ -121,10 +128,12 @@ type ImageTagConfig struct {
 type ImagePushConfig struct {
 	ImageId    string
 	ImageName  string
+	Nodes      string
 	ShowOutput bool
 }
 
 // ImageCleanConfig holds parameters for cleaning container images.
 type ImageCleanConfig struct {
+	Nodes      string
 	ShowOutput bool
 }
