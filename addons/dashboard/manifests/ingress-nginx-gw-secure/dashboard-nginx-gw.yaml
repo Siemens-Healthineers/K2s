@@ -2,21 +2,20 @@
 #
 # SPDX-License-Identifier: MIT
 
-# The kubernetes-dashboard service exposes an angular application on port 443
-# The angular application is designed in such a way that it constructs the
-# relative paths based on the value stored in the X-Forwarded-Prefix header
-# of the request. So if the application is exposed on another path than root,
-# this header must have as value that path.
+# Headlamp service exposes the dashboard on port 4466 (HTTP, no TLS).
+# Headlamp is configured with --base-url=/dashboard so it correctly
+# constructs relative paths when served under the /dashboard/ prefix.
+#
+# Secure variant (with security/OIDC addon active).
+# No bearer-token injection needed — Headlamp handles OIDC authentication natively.
+# No BackendTLSPolicy needed — Headlamp uses plain HTTP (no TLS on backend).
+# No path rewriting is needed: the /dashboard/ prefix is preserved when
+# forwarding to Headlamp because Headlamp expects it via --base-url.
 
 # This HTTPRoute attaches to the nginx-cluster-local Gateway provided in:
 # addons/ingress/nginx/manifests/cluster-local-ingress.yaml
-# and exposes the kubernetes-dashboard angular application on:
+# and exposes the Headlamp dashboard on:
 # https://k2s.cluster.local/dashboard/
-# The certificate is taken from k8s secret 'k2s.cluster.local-tls'
-# (see addons/ingress/nginx/manifests/cluster-local-ingress.yaml)
-# The URLRewrite filter strips the /dashboard prefix and replaces it with /
-# while the RequestHeaderModifier adds X-Forwarded-Prefix: /dashboard/
-# This secure version does NOT inject bearer token 
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
@@ -49,23 +48,8 @@ spec:
     - path:
         type: PathPrefix
         value: /dashboard/
-    filters:
-    # URLRewrite filter strips /dashboard prefix and replaces it with /
-    # This is equivalent to Traefik's stripPrefix middleware
-    - type: URLRewrite
-      urlRewrite:
-        path:
-          type: ReplacePrefixMatch
-          replacePrefixMatch: /
-    # RequestHeaderModifier adds the X-Forwarded-Prefix header
-    # so the Angular app knows it's being served under /dashboard/
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        add:
-        - name: X-Forwarded-Prefix
-          value: /dashboard/
     backendRefs:
-    - name: kubernetes-dashboard-kong-proxy
-      port: 443
+    - name: headlamp
+      port: 4466
 status:
   parents: []
