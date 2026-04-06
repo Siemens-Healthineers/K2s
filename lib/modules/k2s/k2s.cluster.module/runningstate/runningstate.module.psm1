@@ -16,12 +16,13 @@ function Get-IsWslRunning {
 
     Write-Log "detecting if WSL is running.."
 
+    $prevEncoding = [Console]::OutputEncoding
+    [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
     $output = wsl -l --running
+    [Console]::OutputEncoding = $prevEncoding
 
     foreach ($line in $output) {
-        # CLI session encoding issue; check current encoding with [System.Console]::OutputEncoding
-        # optional: remove byte replacement and set encoding with [System.Console]::OutputEncoding = [System.Text.Encoding]::Unicode
-        if ($line -replace '\x00', '' -match $Name) {
+        if ($line.Trim() -ne '' -and $line -match $Name) {
             Write-Log "WSL is running"
             return $true
         }
