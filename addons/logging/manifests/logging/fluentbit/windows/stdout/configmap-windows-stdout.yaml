@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
+#
+# NOTE: This file is a copy of ../configmap-windows.yaml with ONLY the [OUTPUT] section changed to 'stdout'
+# and log_level changed to 'info'. If you modify [INPUT] or [FILTER] sections in ../configmap-windows.yaml,
+# mirror those changes here to avoid drift.
 
 kind: ConfigMap
 apiVersion: v1
