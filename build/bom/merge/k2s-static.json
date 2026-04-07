@@ -166,9 +166,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/nerdctl/releases/download/v2.2.1/nerdctl-2.2.1-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/nerdctl/releases/download/v2.2.2/nerdctl-2.2.2-windows-amd64.tar.gz",
       "name": "nerdctl",
-      "version": "v2.2.1",
+      "version": "v2.2.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -185,7 +185,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/nerdctl@v2.2.1",
+      "purl": "pkg:github/containerd/nerdctl@v2.2.2",
       "type": "application"
     },
     {
@@ -444,7 +444,7 @@
     {
       "group": "https://github.com/prometheus-community/windows_exporter",
       "name": "windows_exporter",
-      "version": "v0.31.5",
+      "version": "v0.31.6",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -461,7 +461,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/prometheus-community/windows_exporter@v0.31.5",
+      "purl": "pkg:github/prometheus-community/windows_exporter@v0.31.6",
       "type": "application"
     },
     {
