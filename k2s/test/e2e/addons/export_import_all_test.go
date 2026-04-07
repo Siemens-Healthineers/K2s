@@ -437,6 +437,16 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				}
 			}
 			GinkgoWriter.Println("[BeforeAll] Debian packages cleanup completed")
+
+			// Run fstrim once after all images and packages have been removed.
+			// This notifies the Hyper-V hypervisor which VHDX blocks are now free so the
+			// VHDX does not stay at its high-water mark going into the import phase.
+			// Without this, the import phase writes against a large, fragmented virtual disk
+			// causing I/O slowdown identical to that observed between testrun1/3 and testrun2.
+			GinkgoWriter.Println("[BeforeAll] Running fstrim to notify hypervisor of freed VHDX blocks...")
+			suite.K2sCli().Exec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", "sudo fstrim -v /")
+			GinkgoWriter.Println("[BeforeAll] fstrim completed")
+
 			GinkgoWriter.Println("=== CLEAN UP ALL ADDONS RESOURCES - BeforeAll END ===")
 		})
 
