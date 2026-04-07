@@ -84,6 +84,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	k2s = dsl.NewK2s(suite)
 
+	// Run fstrim before the export phase so the Hyper-V hypervisor is notified of
+	// all free VHDX blocks upfront. Without this, the VHDX sits at its high-water
+	// mark going into the large export write operations, causing I/O slowdown that
+	// can stretch the export phase from ~20 minutes to ~57 minutes on machines with
+	// a full/fragmented virtual disk. Trimming here benefits BOTH the export and the
+	// import phases, whereas the previous placement (in the "clean up" BeforeAll)
+	// only benefited the import phase.
+	GinkgoWriter.Println("[Setup] Running fstrim to notify hypervisor of freed VHDX blocks before export...")
+	suite.K2sCli().Exec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", "sudo fstrim -v /")
+	GinkgoWriter.Println("[Setup] fstrim completed")
+
 	GinkgoWriter.Println("[Setup] Setup complete")
 	GinkgoWriter.Println("========================================")
 })
@@ -437,6 +448,8 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				}
 			}
 			GinkgoWriter.Println("[BeforeAll] Debian packages cleanup completed")
+
+
 			GinkgoWriter.Println("=== CLEAN UP ALL ADDONS RESOURCES - BeforeAll END ===")
 		})
 
