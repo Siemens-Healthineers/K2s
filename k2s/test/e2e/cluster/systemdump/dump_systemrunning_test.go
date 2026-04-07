@@ -22,9 +22,8 @@ import (
 var suite *framework.K2sTestSuite
 
 func TestSystemDump(t *testing.T) {
-	os.Setenv("SYSTEM_TEST_TIMEOUT", "10m")
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster System Dump Acceptance Tests", Label("core", "acceptance", "setup-required", "system-running", "system-dump"))
+	RunSpecs(t, "Cluster System Dump Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running", "system-dump"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
