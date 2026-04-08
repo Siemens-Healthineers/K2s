@@ -352,10 +352,6 @@ func VerifyOciManifest(extractedArtifactsDir string, expectedDirName string) {
 }
 
 // CleanAddonResources cleans up resources for a specific addon implementation.
-// After removing images and debian packages it runs fstrim on the control plane VM so
-// the Hyper-V hypervisor learns which VHDX blocks are now free. Without fstrim the
-// VHDX stays at its high-water mark and subsequent image pulls suffer progressively
-// worse I/O throughput as the virtual disk metadata grows with each addon export cycle.
 func CleanAddonResources(ctx context.Context, suite *framework.K2sTestSuite, k2sDsl *dsl.K2s, impl *addons.Implementation, controlPlaneIP string) {
 	GinkgoWriter.Println("=== CLEAN ADDON RESOURCES START ===")
 	GinkgoWriter.Printf("[Clean] Implementation: %s\n", impl.Name)
@@ -370,14 +366,6 @@ func CleanAddonResources(ctx context.Context, suite *framework.K2sTestSuite, k2s
 	GinkgoWriter.Printf("[Clean] Removing debian packages with command: %s\n", rmCmd)
 	suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", rmCmd)
 	GinkgoWriter.Println("[Clean] Debian packages removed")
-
-	// Run fstrim so the hypervisor learns which VHDX blocks were freed by the rm and
-	// image-clean above. This keeps the VHDX from staying at its high-water mark and
-	// prevents I/O slowdown on the next addon's pull/export cycle (observed as up to
-	// 13x slower tar copy times across runs when fstrim is omitted).
-	GinkgoWriter.Println("[Clean] Running fstrim to notify hypervisor of freed VHDX blocks...")
-	suite.K2sCli().Exec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", "sudo fstrim -v /")
-	GinkgoWriter.Println("[Clean] fstrim completed")
 
 	GinkgoWriter.Println("=== CLEAN ADDON RESOURCES END ===")
 }
