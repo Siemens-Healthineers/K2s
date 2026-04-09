@@ -747,6 +747,106 @@ function Add-HostEntries {
 	}
 }
 
+<#
+.SYNOPSIS
+    Adds a static host entry to the CoreDNS hosts block.
+.DESCRIPTION
+    Injects "ipAddress hostname" into the CoreDNS ConfigMap hosts {} block,
+    anchored after the existing k2s.cluster.local line. Idempotent: no-op when
+    the hostname is already present.
+#>
+function Add-CoreDNSHostEntry {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $Hostname
+    )
+    $ipAddress = Get-ConfiguredIPControlPlane
+    Write-Log "Adding '$ipAddress $Hostname' to CoreDNS hosts block.." -Console
+
+    $result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
+    if (-not $result.Success) {
+        throw "[CoreDNS] Failed to read CoreDNS ConfigMap: $($result.Output)"
+    }
+
+    $corefile = $result.Output -replace "`r", ''
+    if ($corefile -match [regex]::Escape($Hostname)) {
+        Write-Log "[CoreDNS] '$Hostname' already in CoreDNS hosts block, skipping"
+        return
+    }
+
+    $injected = $false
+    $newLines = foreach ($line in ($corefile -split "`n")) {
+        $line
+        if (-not $injected -and $line -match [regex]::Escape('k2s.cluster.local')) {
+            "    $ipAddress $Hostname"
+            $injected = $true
+        }
+    }
+
+    if (-not $injected) {
+        throw "[CoreDNS] Anchor 'k2s.cluster.local' not found in CoreDNS Corefile; cannot add entry"
+    }
+
+    $newCorefile = $newLines -join "`n"
+    $patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
+    $patchFile = [System.IO.Path]::GetTempFileName()
+    try {
+        [System.IO.File]::WriteAllText($patchFile, $patch, [System.Text.Encoding]::UTF8)
+        $patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', "--patch-file=$patchFile"
+        if (-not $patchResult.Success) {
+            throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+        }
+    }
+    finally {
+        Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
+    }
+    Write-Log "'$ipAddress $Hostname' added to CoreDNS hosts block" -Console
+}
+
+<#
+.SYNOPSIS
+    Removes a static host entry from the CoreDNS hosts block.
+.DESCRIPTION
+    Deletes the line containing Hostname from the CoreDNS ConfigMap hosts {} block.
+    Reverse operation of Add-CoreDNSHostEntry; intended to be called on addon disable.
+    Uses kubectl patch --type=merge so the update is atomic. Idempotent: no-op when the
+    hostname is not present.
+#>
+function Remove-CoreDNSHostEntry {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $Hostname
+    )
+    Write-Log "Removing '$Hostname' from CoreDNS hosts block.." -Console
+
+    $result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
+    if (-not $result.Success) {
+        throw "[CoreDNS] Failed to read CoreDNS ConfigMap: $($result.Output)"
+    }
+
+    $corefile = $result.Output -replace "`r", ''
+    if ($corefile -notmatch [regex]::Escape($Hostname)) {
+        Write-Log "[CoreDNS] '$Hostname' not found in CoreDNS hosts block, skipping"
+        return
+    }
+
+    $newCorefile = ($corefile -split "`n" | Where-Object { $_ -notmatch [regex]::Escape($Hostname) }) -join "`n"
+
+    $patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
+    $patchFile = [System.IO.Path]::GetTempFileName()
+    try {
+        [System.IO.File]::WriteAllText($patchFile, $patch, [System.Text.Encoding]::UTF8)
+        $patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', "--patch-file=$patchFile"
+        if (-not $patchResult.Success) {
+            throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+        }
+    }
+    finally {
+        Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
+    }
+    Write-Log "'$Hostname' removed from CoreDNS hosts block" -Console
+}
+
 function Update-Addons {
 	param (
 		[Parameter(Mandatory = $false)]
@@ -1368,6 +1468,29 @@ function Get-AddonNameFromFolderPath {
 	}
 }
 
+function Resolve-AddonImportPath {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$AddonName,
+        [Parameter(Mandatory = $false)]
+        [string]$AddonImplementation
+    )
+
+    $implementationName = $null
+    $isMultiImpl = $AddonImplementation -and $AddonImplementation -ne $AddonName
+    $baseAddonName = if ($isMultiImpl -and $AddonName -match '^([^-]+)-(.+)$') {
+        $implementationName = $matches[2]
+        $matches[1]
+    } else {
+        $AddonName
+    }
+
+    return @{
+        BaseAddonName      = $baseAddonName
+        ImplementationName = $implementationName
+    }
+}
+
 <#
 .DESCRIPTION
 Gets the location of traefik secure ingress yaml
@@ -1950,24 +2073,60 @@ return $isIngressRunningProp, $certManagerProps
 function Get-CertManagerStatusProperties {
     [CmdletBinding()]
     param()
-    
-    $certManagerAvailable = Wait-ForCertManagerAvailable
-    $certManagerProp = @{
-        Name = 'IsCertManagerAvailable'
-        Value = $certManagerAvailable
-        Okay = $certManagerAvailable
-        Message = if ($certManagerAvailable) { 'The cert-manager API is ready' } else { 'The cert-manager API is not ready. Please use cmctl.exe for further diagnostics.' }
+
+    try {
+        # Check if cert-manager is installed by probing the namespace
+        $certManagerNs = (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output
+        if (-not (Test-Path $cmctlExe) -or [string]::IsNullOrWhiteSpace($certManagerNs)) {
+            $certManagerProp = @{
+                Name    = 'IsCertManagerAvailable'
+                Value   = $false
+                Okay    = $false
+                Message = 'The cert-manager is not installed (omitted during addon enablement).'
+            }
+            $caRootCertificateProp = @{
+                Name    = 'IsCaRootCertificateAvailable'
+                Value   = $false
+                Okay    = $false
+                Message = 'The CA root certificate is not available (cert-manager was omitted).'
+            }
+            return $certManagerProp, $caRootCertificateProp
+        }
+
+        $certManagerAvailable = Wait-ForCertManagerAvailable
+        $certManagerProp = @{
+            Name    = 'IsCertManagerAvailable'
+            Value   = $certManagerAvailable
+            Okay    = $certManagerAvailable
+            Message = if ($certManagerAvailable) { 'The cert-manager API is ready' } else { 'The cert-manager API is not ready. Please use cmctl.exe for further diagnostics.' }
+        }
+
+        $caRootCertificateAvailable = Wait-ForCARootCertificate
+        $caRootCertificateProp = @{
+            Name    = 'IsCaRootCertificateAvailable'
+            Value   = $caRootCertificateAvailable
+            Okay    = $caRootCertificateAvailable
+            Message = if ($caRootCertificateAvailable) { 'The CA root certificate is available' } else { "The CA root certificate is not available ('ca-issuer-root-secret' not created)." }
+        }
+
+        return $certManagerProp, $caRootCertificateProp
     }
-    
-    $caRootCertificateAvailable = Wait-ForCARootCertificate
-    $caRootCertificateProp = @{
-        Name = 'IsCaRootCertificateAvailable'
-        Value = $caRootCertificateAvailable
-        Okay = $caRootCertificateAvailable
-        Message = if ($caRootCertificateAvailable) { 'The CA root certificate is available' } else { "The CA root certificate is not available ('ca-issuer-root-secret' not created)." }
+    catch {
+        Write-Log "[CertManager] Error checking cert-manager status: $($_.Exception.Message)" -Console
+        $certManagerProp = @{
+            Name    = 'IsCertManagerAvailable'
+            Value   = $false
+            Okay    = $false
+            Message = 'The cert-manager is not installed (omitted during addon enablement).'
+        }
+        $caRootCertificateProp = @{
+            Name    = 'IsCaRootCertificateAvailable'
+            Value   = $false
+            Okay    = $false
+            Message = 'The CA root certificate is not available (cert-manager was omitted).'
+        }
+        return $certManagerProp, $caRootCertificateProp
     }
-    
-    return $certManagerProp, $caRootCertificateProp
 }
 
 <#
@@ -2085,9 +2244,9 @@ Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-Ad
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound, Get-ErrCodeInvalidParameter,
-Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
-Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
-Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
+Add-HostEntries, Add-CoreDNSHostEntry, Remove-CoreDNSHostEntry, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
+Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory,
+Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, Resolve-AddonImportPath,
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
 Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
