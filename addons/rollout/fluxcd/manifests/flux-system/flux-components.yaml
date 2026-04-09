@@ -7327,7 +7327,11 @@ spec:
               secretRef:
                 description: |-
                   SecretRef specifies the Secret containing the token used
-                  to validate the payload authenticity.
+                  to validate the payload authenticity. The Secret must contain a 'token'
+                  key. For GCR receivers, the Secret must also contain an 'email' key
+                  with the IAM service account email configured on the Pub/Sub push
+                  subscription, and may optionally contain an 'audience' key with the
+                  expected OIDC token audience.
                 properties:
                   name:
                     description: Name of the referent.
@@ -8318,7 +8322,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/kustomize-controller:v1.8.2
+        image: ghcr.io/fluxcd/kustomize-controller:v1.8.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -8406,7 +8410,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/notification-controller:v1.8.2
+        image: ghcr.io/fluxcd/notification-controller:v1.8.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -8506,7 +8510,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/source-controller:v1.8.1
+        image: ghcr.io/fluxcd/source-controller:v1.8.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

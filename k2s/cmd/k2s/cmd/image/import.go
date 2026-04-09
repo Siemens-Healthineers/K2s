@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package image
@@ -36,23 +36,42 @@ var (
 	}
 
 	importCommandExample = `
-  # Import an linux image from an oci tar archive
+  # Import a Linux image onto the Linux control-plane (default)
   k2s image import -t C:\tmp\image.tar
 
-  # Import an linux image from an docker tar archive
+  # Import a Linux image from a docker tar archive onto the Linux control-plane (default)
   k2s image import -t C:\tmp\dockerimage.tar --docker-archive
 
-  # Import linux images from a directory
-  k2s image import -d C:\tmp\images 
+  # Import Linux images from a directory onto the Linux control-plane (default)
+  k2s image import -d C:\tmp\images
 
-  # Import an windows image from a tar archive
+  # Import a Windows image onto the local Windows host (default)
   k2s image import -t C:\tmp\image.tar -w
+
+  # Import a Linux image onto a specific worker node
+  k2s image import --node worker-1 -t C:\tmp\image.tar 
+
+  # Import a Linux image onto multiple specific nodes 
+  k2s image import --nodes worker-1,worker-2 -t C:\tmp\image.tar 
+
+  # Import a Linux image from a docker tar archive onto a specific worker node
+  k2s image import --node worker-1 -t C:\tmp\image.tar --docker-archive
+
+  # Import a Linux image from a docker tar archive onto multiple specific nodes 
+  k2s image import --nodes worker-1,worker-2 -t C:\tmp\image.tar --docker-archive 
+
+  # Import a Windows image onto a specific Windows worker node
+  k2s image import --node winworker-1 -t C:\tmp\image.tar -w 
+
+  # Import a Windows image onto multiple specific Windows worker nodes 
+  k2s image import --nodes winworker-1,winworker-2 -t C:\tmp\image.tar -w 
 `
 )
 
 func init() {
 	importCmd.Flags().StringP(tarFlag, "t", "", "oci archive (tar)")
 	importCmd.Flags().StringP(dirFlag, "d", "", "Path to directory with oci archives (tar) to import")
+	addNodeSelectionFlags(importCmd)
 	importCmd.Flags().BoolP(windowsFlag, "w", false, "Windows image")
 	importCmd.Flags().Bool(dockerArchiveFlag, false, "Import Linux image from docker-archive tar (default: oci-archive)")
 	importCmd.Flags().SortFlags = false
@@ -106,10 +125,16 @@ func importImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
+	nodeSelector, err := parseNodeSelector(cmd)
+	if err != nil {
+		return err
+	}
+
 	if err := context.Providers().Image.Import(provider.ImageImportConfig{
 		TarPath:       imagePath,
 		DirPath:       dir,
 		Windows:       isWindowsImage,
+		Nodes:         nodeSelector,
 		DockerArchive: isDockerArchive,
 		ShowOutput:    showOutput,
 	}); err != nil {
@@ -153,6 +178,12 @@ func buildImportPsCmd(cmd *cobra.Command, isWindowsImage bool) (psCmd string, pa
 	if err != nil {
 		return "", nil, err
 	}
+
+	nodeSelector, err := parseNodeSelector(cmd)
+	if err != nil {
+		return "", nil, err
+	}
+	params = appendNodesParam(params, nodeSelector)
 
 	if showOutput {
 		params = append(params, " -ShowLogs")

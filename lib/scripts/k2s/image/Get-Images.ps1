@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -23,6 +23,12 @@ If set to true, will list K8s images as well
 .PARAMETER ExcludeAddonImages
 If set to true, will exclude addon images from excluded namespaces (for system backup)
 
+.PARAMETER Nodes
+Optional comma-separated node names to fetch images from (e.g. "worker-1,worker-2")
+
+.PARAMETER Node
+Optional single node name to fetch images from (e.g. "worker-1")
+
 .EXAMPLE
 # Outputs all container images present in K2s
 PS> .\Get-Images.ps1
@@ -44,33 +50,37 @@ Param (
     [parameter(Mandatory = $false)]
     [switch] $IncludeK8sImages,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will exclude addon images from excluded namespaces')]
-    [switch] $ExcludeAddonImages
+    [switch] $ExcludeAddonImages,
+    [parameter(Mandatory = $false, HelpMessage = 'Optional single node name to fetch images from (e.g. worker-1)')]
+    [string] $Node = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Optional comma-separated node names to fetch images from (e.g. worker-1,worker-2)')]
+    [string] $Nodes = ''
 )
-$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-
-Import-Module $infraModule, $clusterModule
-
-Initialize-Logging
+$imageCommonModule = "$PSScriptRoot/Image-Common.module.psm1"
+Import-Module $imageCommonModule
 
 $script = $MyInvocation.MyCommand.Name
 
-Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages' and ExcludeAddonImages='$ExcludeAddonImages'"
+Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages' and ExcludeAddonImages='$ExcludeAddonImages' and Node='$Node' and Nodes='$Nodes'"
 
 try {
-    $systemError = Test-SystemAvailability -Structured
-    if ($systemError) {
-        if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
-            return
-        }
-    
-        Write-Log $systemError.Message -Error
-        exit 1
+    if (-not (Initialize-ImageScriptContext -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType)) {
+        return
     }
 
+    $imageSelection = Get-ImagesByNodeSelection `
+        -Nodes $Nodes `
+        -Node $Node `
+        -IncludeK8sImages $IncludeK8sImages `
+        -ExcludeAddonImages $ExcludeAddonImages `
+        -LogPrefix $script
+
+    $allImages = @($imageSelection.AllImages)
+
+    Write-Log "[$script] Total images collected: $($allImages.Count)"
+
     $images = @{Error = $null }
-    $images.ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages)
+    $images.ContainerImages = $allImages
     $images.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.*' }
     $images.PushedImages = @(Get-PushedContainerImages)
 
