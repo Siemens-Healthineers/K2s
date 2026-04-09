@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package image
@@ -6,6 +6,7 @@ package image
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strconv"
 
@@ -30,13 +31,26 @@ const (
 
 var (
 	pullCommandExample = `
-  # Pull a Linux image onto the Linux node
+  # Pull a Linux image onto the Linux control-plane (default)
   k2s image pull nginx:latest
 
-  # Pull a Windows image onto a Windows 10 node
-  k2s image pull mcr.microsoft.com/windows:20H2 --windows 
+  # Pull a Linux image onto a specific Linux worker node
+  k2s image pull nginx:latest --node worker-1
+
+  # Pull a Linux image onto multiple specific Linux worker nodes
+  k2s image pull nginx:latest --node worker-1,worker-2
+
+  # Pull a Windows image onto the local Windows host (default)
+  k2s image pull mcr.microsoft.com/windows:20H2 --windows
+  k2s image pull mcr.microsoft.com/windows/nanoserver:ltsc2022 --windows
   OR
   k2s image pull mcr.microsoft.com/windows:20H2 -w
+
+  # Pull a Windows image onto a specific Windows worker node
+  k2s image pull mcr.microsoft.com/windows:20H2 -w --node winworker-1
+
+  # Pull a Windows image onto multiple specific Windows worker nodes
+  k2s image pull mcr.microsoft.com/windows:20H2 -w --node winworker-1,winworker-2
 `
 	pullCmd = &cobra.Command{
 		Use:     "pull",
@@ -48,6 +62,7 @@ var (
 
 func init() {
 	pullCmd.Flags().BoolP(pullForWindowsFlag, pullForWindowsFlagShorthand, pullForWindowsDefault, pullForWindowsFlagDesc)
+	addNodeSelectionFlags(pullCmd)
 	pullCmd.Flags().SortFlags = false
 	pullCmd.Flags().PrintDefaults()
 }
@@ -73,6 +88,15 @@ func pullImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	nodeSelector, err := parseNodeSelector(cmd)
+	if err != nil {
+		return err
+	}
+
+	psCmd, params := buildPullPsCmd(imageToPull, pullForWindows, showOutput, nodeSelector)
+
+	slog.Debug("PS command created", "command", psCmd, "params", params)
+
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
@@ -92,6 +116,7 @@ func pullImage(cmd *cobra.Command, args []string) error {
 	if err := context.Providers().Image.Pull(provider.ImagePullConfig{
 		ImageName:  imageToPull,
 		Windows:    pullForWindows,
+		Nodes:      nodeSelector,
 		ShowOutput: showOutput,
 	}); err != nil {
 		return err
@@ -118,10 +143,11 @@ func getImageToPull(args []string) string {
 	return args[0]
 }
 
-func buildPullPsCmd(imageToPull string, pullForWindows bool, showOutput bool) (psCmd string, params []string) {
+func buildPullPsCmd(imageToPull string, pullForWindows bool, showOutput bool, nodeSelector string) (psCmd string, params []string) {
 	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Pull-Image.ps1"))
 
 	params = append(params, " -ImageName "+imageToPull)
+	params = appendNodesParam(params, nodeSelector)
 
 	if pullForWindows {
 		params = append(params, " -Windows")

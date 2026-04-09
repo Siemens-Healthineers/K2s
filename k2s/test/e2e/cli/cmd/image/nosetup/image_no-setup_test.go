@@ -53,6 +53,28 @@ var _ = Describe("image", func() {
 		Entry("rm", "image", "rm", "--id", "non-existent"),
 	)
 
+	DescribeTable("with node selection flags: print system-not-installed message and exits with non-zero",
+		func(ctx context.Context, args ...string) {
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, args...)
+
+			Expect(output).To(ContainSubstring("not installed"))
+		},
+		Entry("export --node", "image", "export", "--node", "worker-1", "-n", "non-existent", "-t", "non-existent"),
+		Entry("export --nodes", "image", "export", "--nodes", "worker-1,worker-2", "-n", "non-existent", "-t", "non-existent"),
+		Entry("import --node", "image", "import", "--node", "worker-1", "-t", "non-existent"),
+		Entry("import --nodes", "image", "import", "--nodes", "worker-1,worker-2", "-t", "non-existent"),
+		Entry("ls --node", "image", "ls", "--node", "worker-1"),
+		Entry("ls --nodes", "image", "ls", "--nodes", "worker-1,worker-2"),
+		Entry("pull --node", "image", "pull", "non-existent", "--node", "worker-1"),
+		Entry("pull --nodes", "image", "pull", "non-existent", "--nodes", "worker-1,worker-2"),
+		Entry("push --node", "image", "push", "-n", "non-existent", "--node", "worker-1"),
+		Entry("push --nodes", "image", "push", "-n", "non-existent", "--nodes", "worker-1,worker-2"),
+		Entry("rm --node", "image", "rm", "--id", "non-existent", "--node", "worker-1"),
+		Entry("rm --nodes", "image", "rm", "--id", "non-existent", "--nodes", "worker-1,worker-2"),
+		Entry("tag --node", "image", "tag", "-n", "non-existent", "-t", "non-existent", "--node", "worker-1"),
+		Entry("tag --nodes", "image", "tag", "-n", "non-existent", "-t", "non-existent", "--nodes", "worker-1,worker-2"),
+	)
+
 	Describe("ls JSON output", Ordered, func() {
 		var images image.PrintImages
 
