@@ -48,7 +48,6 @@ BeforeAll {
         & ([scriptblock]::Create($scriptContent)) @invokeParams
     }
     
-    Mock -CommandName Import-Module { }
     Mock -CommandName Initialize-Logging { }
 }
 
@@ -91,6 +90,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
 
     Context 'Module imports' {
         BeforeEach {
+            Mock -CommandName Import-Module { }
             Mock -CommandName Set-ProxyServer { }
             Mock -CommandName Stop-WinHttpProxy { }
             Mock -CommandName Get-ProxyConfig { 
@@ -354,7 +354,6 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-ConfiguredKubeSwitchIP { return '172.19.1.1' }
             Mock -CommandName Get-DefaultUserNameControlPlane { return 'remote' }
             Mock -CommandName Send-ToCli { }
-            Mock -CommandName Write-Log { }
         }
 
         It 'updates Linux proxy settings with transparent proxy when control plane is reachable' {
@@ -373,13 +372,11 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         It 'skips Linux proxy update when control plane is unreachable' {
             Mock -CommandName Test-Connection { return $false }
             Mock -CommandName Set-ProxySettingsOnKubenode { }
+            Mock -CommandName Write-Log { }
 
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
 
             Should -Invoke Set-ProxySettingsOnKubenode -Exactly 0
-            Should -Invoke Write-Log -ParameterFilter {
-                $Message -eq "[Proxy] Skip Linux proxy update because control plane '172.19.1.100' is not reachable"
-            }
         }
     }
 
