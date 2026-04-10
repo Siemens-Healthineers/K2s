@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -28,6 +28,9 @@ A delta package contains:
 | Contains | All K2s files | Only changed files |
 | Requires | Nothing | Specific source version |
 | Use case | Fresh installs, major upgrades | Minor/patch upgrades |
+
+!!! tip "Node packages also support delta mode"
+    In addition to cluster-level delta packages, *K2s* supports node-specific packages (full and delta) for upgrading bare-metal or VM-based Linux worker nodes independently of the control plane. See [Node Packages](#node-packages).
 
 ## Creating a Delta Package
 
@@ -147,6 +150,109 @@ The `delta-manifest.json` file describes the changes between versions. A typical
    ```console
    k2s system status
    ```
+
+## Node Packages
+
+Node packages contain the Linux packages and container images required to run *K2s* worker nodes (kubelet, kubeadm, kubectl, CRI-O, buildah). They are independent of the control-plane installation, allowing you to upgrade bare-metal or VM-based Linux worker nodes without touching the cluster control plane.
+
+Both full node packages and node delta packages are created with the `--node-package` flag.
+
+### Full Node Package
+
+A full node package bundles everything needed for a fresh node installation or a full node upgrade.
+
+```console
+k2s system package --node-package --os debian12 `
+    -d C:\packages `
+    -n debian12-node-v1.8.0.zip
+```
+
+#### Full Node Package Parameters
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--node-package` | Yes | Selects node package mode |
+| `--os` | Yes | Target Linux distribution (e.g. `debian12`, `debian13`) |
+| `-d, --target-dir` | Yes | Output directory |
+| `-n, --name` | Yes | Output ZIP file name |
+| `-o, --output` | No | Show log output in terminal |
+
+### Node Delta Package
+
+A node delta package contains only the Debian packages and container images that changed between two node package versions — significantly reducing transfer size for incremental upgrades.
+
+```console
+k2s system package --node-package --delta-package `
+    --package-version-from C:\packages\debian12-node-v1.7.0.zip `
+    --package-version-to C:\packages\debian12-node-v1.8.0.zip `
+    -d C:\packages `
+    -n debian12-node-delta-v1.7.0-to-v1.8.0.zip
+```
+
+The `--os` flag is optional in delta mode — the OS folder is auto-detected from the ZIP structure. Specify it explicitly only when both input ZIPs contain multiple OS directories.
+
+#### Node Delta Package Parameters
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--node-package` | Yes | Selects node package mode |
+| `--delta-package` | Yes | Enables delta (diff) mode |
+| `--package-version-from` | Yes | Path to the older (base) node package ZIP |
+| `--package-version-to` | Yes | Path to the newer (target) node package ZIP |
+| `-d, --target-dir` | Yes | Output directory |
+| `-n, --name` | Yes | Output ZIP file name |
+| `--os` | No | OS folder override (e.g. `debian12`); auto-detected if omitted |
+| `-o, --output` | No | Show log output in terminal |
+
+### Node Delta Package Contents
+
+```
+deb12-node-delta-v1.7.0-to-v1.8.0.zip
+├── delta-manifest.json      # Metadata and file lists (DeltaType: "node-package")
+├── Apply-Delta.ps1          # Manual application helper (Windows host)
+├── apply-node-delta.sh      # Manual application helper (Linux node)
+├── packages/
+│   └── debian12/            # Changed and added .deb files only
+│       ├── kubelet_1.35.2-1.1_amd64.deb
+│       └── ...
+├── images/                  # Changed and added container image archives
+│   ├── pause.tar
+│   └── ...
+├── packages.removed         # (Optional) Removed .deb filenames, one per line
+└── images.removed           # (Optional) Removed image tar filenames, one per line
+```
+
+The `delta-manifest.json` uses `ManifestVersion: "2.0"` and `DeltaType: "node-package"` to distinguish it from a cluster delta manifest.
+
+### Applying a Node Upgrade
+
+Use `k2s system upgrade --node` to upgrade a worker node. The upgrade mode is **auto-detected** from the ZIP contents:
+
+- ZIP contains `delta-manifest.json` with `DeltaType: "node-package"` → **delta upgrade**  
+  (installs only changed/added packages; purges removed ones)
+- No `delta-manifest.json` present → **full upgrade**  
+  (installs all packages present in the ZIP)
+
+```console
+k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-delta-v1.7.0-to-v1.8.0.zip" -o
+```
+
+The same command works for full node packages:
+
+```console
+k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-v1.8.0.zip" -o
+```
+
+#### `k2s system upgrade --node` Flags
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `-n, --node` | Yes | Worker node name as registered in the cluster |
+| `--path` | Yes | Path to the node package ZIP (full or delta) |
+| `-o, --output` | No | Show detailed log output |
+
+!!! note "`--node` and `--path` are paired flags"
+    Both flags must always be specified together. Omitting one while providing the other results in an error.
 
 ## Best Practices
 
