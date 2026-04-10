@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -1222,16 +1222,21 @@ function PrepareClusterUpgrade {
 			try {
 				Write-Log "Starting image backup process..." -Console
 				$imagesBackupPath.Value = Join-Path $BackupDir 'images'
-				
+
+				# Resolve crictl from PATH (installed cluster's bin is still on PATH at upgrade time).
+				$upgradeCrictlExe = Get-CrictlExePath
+				$upgradeCrictlConfig = Join-Path (Split-Path $upgradeCrictlExe -Parent) 'crictl.yaml'
+				Write-Log "[ImageBackup] Using crictl: $upgradeCrictlExe" -Console
+
 				# Check disk space before proceeding
-				$userImages = Get-K2sImageList
+				$userImages = Get-K2sImageList -CrictlExePath $upgradeCrictlExe -CrictlConfigPath $upgradeCrictlConfig
 				if ($userImages.Count -gt 0) {
 					$hasSufficientSpace = Test-BackupDiskSpace -BackupDirectory $imagesBackupPath.Value -Images $userImages
 					if (-not $hasSufficientSpace) {
 						Write-Log "Warning: Insufficient disk space for image backup. Skipping image backup." -Console
 					} else {
 						Write-Log "Starting backup of $($userImages.Count) user images..." -Console
-						$imageBackupResult = Backup-K2sImages -BackupDirectory $imagesBackupPath.Value -Images $userImages
+						$imageBackupResult = Backup-K2sImages -BackupDirectory $imagesBackupPath.Value -Images $userImages -CrictlExePath $upgradeCrictlExe -CrictlConfigPath $upgradeCrictlConfig
 						
 						if ($imageBackupResult.Success) {
 							Write-Log "Image backup completed successfully" -Console
@@ -1529,10 +1534,15 @@ function Invoke-ImageBackup {
     Write-Log "Starting image backup..." -Console
 
     try {
+        # Resolve crictl from PATH (installed cluster's bin is still on PATH at upgrade time).
+        $upgradeCrictlExe = Get-CrictlExePath
+        $upgradeCrictlConfig = Join-Path (Split-Path $upgradeCrictlExe -Parent) 'crictl.yaml'
+        Write-Log "[ImageBackup] Using crictl: $upgradeCrictlExe" -Console
+
         # Get images based on filtering options
         # System images are already excluded by default
         # ExcludeAddonImages further filters out addon namespace images for system backup
-        $images = Get-K2sImageList -ExcludeAddonImages:$ExcludeAddonImages
+        $images = Get-K2sImageList -ExcludeAddonImages:$ExcludeAddonImages -CrictlExePath $upgradeCrictlExe -CrictlConfigPath $upgradeCrictlConfig
 
         if ($images.Count -eq 0) {
             Write-Log "No images found to backup" -Console
@@ -1557,7 +1567,7 @@ function Invoke-ImageBackup {
         }
 
         # Perform backup
-        $backupResult = Backup-K2sImages -BackupDirectory $BackupDirectory -Images $images
+        $backupResult = Backup-K2sImages -BackupDirectory $BackupDirectory -Images $images -CrictlExePath $upgradeCrictlExe -CrictlConfigPath $upgradeCrictlConfig
 
         return $backupResult
     }
