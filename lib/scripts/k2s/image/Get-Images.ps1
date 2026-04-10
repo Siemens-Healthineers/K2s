@@ -29,6 +29,12 @@ Optional comma-separated node names to fetch images from (e.g. "worker-1,worker-
 .PARAMETER Node
 Optional single node name to fetch images from (e.g. "worker-1")
 
+.PARAMETER CrictlExePath
+Optional path to crictl.exe; overrides the module-scope default (use during upgrade to supply the installed cluster path)
+
+.PARAMETER CrictlConfigPath
+Optional path to crictl.yaml config; overrides the module-scope default (use during upgrade to supply the installed cluster path)
+
 .EXAMPLE
 # Outputs all container images present in K2s
 PS> .\Get-Images.ps1
@@ -54,14 +60,19 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Optional single node name to fetch images from (e.g. worker-1)')]
     [string] $Node = '',
     [parameter(Mandatory = $false, HelpMessage = 'Optional comma-separated node names to fetch images from (e.g. worker-1,worker-2)')]
-    [string] $Nodes = ''
+    [string] $Nodes = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Optional path to crictl.exe; overrides the module-scope default (use during upgrade to supply the installed cluster path)')]
+    [string] $CrictlExePath = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Optional path to crictl.yaml config; overrides the module-scope default (use during upgrade to supply the installed cluster path)')]
+    [string] $CrictlConfigPath = ''
 )
 $imageCommonModule = "$PSScriptRoot/Image-Common.module.psm1"
 Import-Module $imageCommonModule
 
 $script = $MyInvocation.MyCommand.Name
 
-Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages' and ExcludeAddonImages='$ExcludeAddonImages' and Node='$Node' and Nodes='$Nodes'"
+$crictlOverride = if ($CrictlExePath -ne '') { " and CrictlExePath='$CrictlExePath' and CrictlConfigPath='$CrictlConfigPath'" } else { '' }
+Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages' and ExcludeAddonImages='$ExcludeAddonImages' and Node='$Node' and Nodes='$Nodes'$crictlOverride"
 
 try {
     if (-not (Initialize-ImageScriptContext -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType)) {
@@ -73,7 +84,9 @@ try {
         -Node $Node `
         -IncludeK8sImages $IncludeK8sImages `
         -ExcludeAddonImages $ExcludeAddonImages `
-        -LogPrefix $script
+        -LogPrefix $script `
+        -CrictlExePath $CrictlExePath `
+        -CrictlConfigPath $CrictlConfigPath
 
     $allImages = @($imageSelection.AllImages)
 
