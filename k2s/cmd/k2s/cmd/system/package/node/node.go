@@ -22,6 +22,10 @@ const (
 
 	OSFlagName  = "os"
 	OSFlagUsage = "Target Linux distribution and version combined (e.g. debian12, debian13)"
+
+	DeltaPackageFlagName       = "delta-package"
+	PackageVersionFromFlagName = "package-version-from"
+	PackageVersionToFlagName   = "package-version-to"
 )
 
 // RegisterFlags registers the node-package specific flags on the given command.
@@ -39,6 +43,30 @@ func IsSet(flags *pflag.FlagSet) bool {
 // Validate checks that --os is provided and is in the supported list when --node-package is set.
 // supportedOS is the list read from cfg/config.json (supportedWorkerOS[].os).
 func Validate(flags *pflag.FlagSet, supportedOS []string) error {
+	deltaRequested, _ := flags.GetBool(DeltaPackageFlagName)
+
+	if deltaRequested {
+		from, _ := flags.GetString(PackageVersionFromFlagName)
+		to, _ := flags.GetString(PackageVersionToFlagName)
+		if from == "" {
+			return fmt.Errorf("--%s is required when --%s and --%s are set", PackageVersionFromFlagName, NodePackageFlagName, DeltaPackageFlagName)
+		}
+		if to == "" {
+			return fmt.Errorf("--%s is required when --%s and --%s are set", PackageVersionToFlagName, NodePackageFlagName, DeltaPackageFlagName)
+		}
+
+		os, _ := flags.GetString(OSFlagName)
+		if os == "" {
+			return nil
+		}
+		for _, s := range supportedOS {
+			if s == os {
+				return nil
+			}
+		}
+		return fmt.Errorf("--%s value '%s' is not supported. Supported: %s", OSFlagName, os, strings.Join(supportedOS, ", "))
+	}
+
 	os, _ := flags.GetString(OSFlagName)
 	if os == "" {
 		return fmt.Errorf("--%s is required when --%s is set", OSFlagName, NodePackageFlagName)
@@ -62,14 +90,37 @@ func BuildCmd(flags *pflag.FlagSet, out bool, targetDir, zipName, proxy string) 
 	}
 
 	os := flags.Lookup(OSFlagName).Value.String()
+	deltaRequested, _ := flags.GetBool(DeltaPackageFlagName)
 
 	params := []string{}
 	if out {
 		params = append(params, " -ShowLogs")
 	}
-	params = append(params, " -OS "+utils.EscapeWithSingleQuotes(os))
 	params = append(params, " -TargetDirectory "+utils.EscapeWithSingleQuotes(targetDir))
 	params = append(params, " -ZipPackageFileName "+utils.EscapeWithSingleQuotes(zipName))
+
+	if deltaRequested {
+		from := flags.Lookup(PackageVersionFromFlagName).Value.String()
+		to := flags.Lookup(PackageVersionToFlagName).Value.String()
+		if from == "" {
+			return "", nil, fmt.Errorf("required flag(s) \"%s\" not set", PackageVersionFromFlagName)
+		}
+		if to == "" {
+			return "", nil, fmt.Errorf("required flag(s) \"%s\" not set", PackageVersionToFlagName)
+		}
+		params = append(params, " -InputPackageOne "+utils.EscapeWithSingleQuotes(from))
+		params = append(params, " -InputPackageTwo "+utils.EscapeWithSingleQuotes(to))
+		if os != "" {
+			params = append(params, " -OS "+utils.EscapeWithSingleQuotes(os))
+		}
+
+		scriptPath := utils.FormatScriptFilePath(
+			filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sNodeDeltaPackage.ps1"),
+		)
+		return scriptPath, params, nil
+	}
+
+	params = append(params, " -OS "+utils.EscapeWithSingleQuotes(os))
 	if proxy != "" {
 		params = append(params, " -Proxy "+proxy)
 	}

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package upgrade
@@ -28,7 +28,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
-var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade or in-place delta update)"
+var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade, in-place delta update, or worker node upgrade)"
 
 var upgradeCommandLongDescription = `
 Upgrades the installed K2s cluster to this version.
@@ -66,6 +66,18 @@ DELTA UPDATE:
   4. Update all Debian packages from delta (if cluster is running)
   5. Update all container images from delta
   6. Automatically stop and restart the cluster if it was running
+
+NODE UPGRADE:
+  Upgrades a single Linux worker node without touching the control plane.
+  Both full node packages and node delta packages are supported.
+  The upgrade mode is auto-detected from the ZIP contents:
+    - ZIP contains delta-manifest.json with DeltaType=node-package → DELTA mode
+      (installs only changed/added packages; purges removed Debian packages)
+    - No delta-manifest.json present → FULL mode
+      (installs all packages present in the ZIP)
+
+  Required flags: --node <node-name> --path <node-package.zip>
+  Both flags must always be specified together.
 `
 
 var upgradeCommandExample = `
@@ -82,6 +94,12 @@ var upgradeCommandExample = `
   Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
   cd .\delta
   .\k2s.exe system upgrade
+
+  # Node upgrade: Apply a full node package to a worker node
+  k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-v1.8.0.zip" -o
+
+  # Node upgrade: Apply a node delta package to a worker node (mode auto-detected)
+  k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-delta-v1.7.0-to-v1.8.0.zip" -o
 `
 
 const (
@@ -94,6 +112,8 @@ const (
 	backupDir          = "backup-dir"
 	force              = "force"
 	defaultBackupDir   = ""
+	nodeNameFlag       = "node"
+	nodePackageFlag    = "path"
 )
 
 var UpgradeCmd = &cobra.Command{
@@ -117,6 +137,8 @@ func AddInitFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolP(skipImagesFlag, "i", false, "Skip takeover of container images from old cluster to new cluster")
 	cmd.Flags().BoolP(force, "f", false, "Forces the upgrade, even if the previous and current versions are not consecutive")
 	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
+	cmd.Flags().StringP(nodeNameFlag, "n", "", "Name of the worker node to upgrade (requires --path)")
+	cmd.Flags().String(nodePackageFlag, "", "Path to node package zip for offline node upgrade (requires --node)")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }
@@ -159,6 +181,12 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
 	backupDirVal := cmd.Flags().Lookup(backupDir).Value.String()
 	forceVal, _ := cmd.Flags().GetBool(force)
+	nodeNameVal, _ := cmd.Flags().GetString(nodeNameFlag)
+	nodePackageVal, _ := cmd.Flags().GetString(nodePackageFlag)
+
+	if (nodeNameVal == "") != (nodePackageVal == "") {
+		return errors.New("--node and --path must be specified together")
+	}
 
 	switchToUpgradeLogFile(showLog, context.Logger())
 
@@ -171,6 +199,8 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		BackupDir:          backupDirVal,
 		AdditionalHooksDir: additionalHooksDir,
 		Force:              forceVal,
+		NodeName:           nodeNameVal,
+		NodePackagePath:    nodePackageVal,
 		ShowOutput:         showLog,
 	})
 
