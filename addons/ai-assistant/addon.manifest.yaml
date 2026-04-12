@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: AddonManifest
+metadata:
+  name: ai-assistant
+  description: AI Assistant for K2s — Ollama LLM + HolmesGPT agent + Headlamp plugin
+spec:
+  implementations:
+    - name: ai-assistant
+      description: Deploys Ollama (local LLM runtime), HolmesGPT (Kubernetes AI agent) and injects the AI Assistant plugin into the Headlamp dashboard
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages:
+            - ollama/ollama:0.9.1
+            - shsk2s.azurecr.io/headlamp-plugin-ai-assistant:0.2.0-alpha
+          additionalImagesFiles:
+            - manifests/ollama/ollama.yaml
+            - manifests/holmesgpt/holmesgpt.yaml
+        windows:
+          curl: []
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: model
+                default: llama3.2
+                description: Ollama model to pull and use (e.g. llama3.2, mistral, phi3, llama3.1)
+              - name: gpu
+                default: false
+                description: Enable GPU acceleration for Ollama (requires a GPU node with label gpu=true)
+            examples:
+              - cmd: k2s addons enable ai-assistant
+                comment: Enable AI Assistant with the default Ollama model (llama3.2)
+              - cmd: k2s addons enable ai-assistant --model mistral
+                comment: Enable AI Assistant using the Mistral model
+              - cmd: k2s addons enable ai-assistant --model phi3 --gpu
+                comment: Enable AI Assistant with GPU acceleration
+          script:
+            subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: model
+                scriptParameterName: Model
+              - cliFlagName: gpu
+                scriptParameterName: Gpu
+        disable:
+          cli:
+            flags:
+              - name: keep-model-data
+                default: false
+                description: Preserve the Ollama model PVC so downloaded models survive a re-enable
+            examples:
+              - cmd: k2s addons disable ai-assistant
+                comment: Disable the AI Assistant addon (removes all resources including model data)
+              - cmd: k2s addons disable ai-assistant --keep-model-data
+                comment: Disable addon but keep downloaded Ollama models
+          script:
+            subPath: Disable.ps1
+            parameterMappings:
+              - cliFlagName: keep-model-data
+                scriptParameterName: KeepModelData
+        update:
+          cli:
+            examples:
+              - cmd: k2s addons update ai-assistant
+                comment: Re-wire HolmesGPT proxy Endpoints and re-sync Headlamp plugin (e.g. after cluster reinstall)
+          script:
+            subPath: Update.ps1
+

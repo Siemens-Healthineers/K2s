@@ -1,0 +1,233 @@
+﻿# SPDX-FileCopyrightText: Â© 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# HolmesGPT - AI agent with Kubernetes cluster awareness for the AI Assistant addon.
+# AG-UI server is enabled so Headlamp's holmesClient.ts can connect via SSE.
+#
+# IMPORTANT - namespace layout:
+#   - Deployment + ServiceAccount + ClusterRole are in 'ai-assistant' namespace.
+#   - The Service 'holmesgpt-holmes' is created in 'ai-assistant' namespace (this file).
+#   - A proxy Service 'holmesgpt-holmes' + nginx Deployment are created in 'default'
+#     namespace by Set-HolmesProxyEndpoints (ai-assistant.module.psm1) at enable time.
+#     K8s 1.35 apiserver proxy requires a selector-based Service backed by real pods;
+#     selectorless ClusterIP services are rejected with 404 by the proxy handler.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: holmesgpt
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: holmesgpt
+    app.kubernetes.io/part-of: ai-assistant
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: holmesgpt-reader
+  labels:
+    app.kubernetes.io/name: holmesgpt
+    app.kubernetes.io/part-of: ai-assistant
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - pods/status
+      - events
+      - nodes
+      - namespaces
+      - services
+      - endpoints
+      - persistentvolumes
+      - persistentvolumeclaims
+      - configmaps
+      - replicationcontrollers
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: holmesgpt-reader
+  labels:
+    app.kubernetes.io/name: holmesgpt
+    app.kubernetes.io/part-of: ai-assistant
+subjects:
+  - kind: ServiceAccount
+    name: holmesgpt
+    namespace: ai-assistant
+roleRef:
+  kind: ClusterRole
+  name: holmesgpt-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+# LiteLLM model config â€“ MODEL_PLACEHOLDER is substituted by Enable.ps1 at deploy time.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: holmesgpt-model-config
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: holmesgpt
+    app.kubernetes.io/part-of: ai-assistant
+data:
+  model_config.yaml: |
+    model_list:
+      - model_name: ollama-default
+        litellm_params:
+          model: "openai/MODEL_PLACEHOLDER"
+          api_base: "http://172.19.1.1:11434/v1"
+          api_key: "ollama"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: holmesgpt-holmes
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: holmesgpt
+    app.kubernetes.io/part-of: ai-assistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: holmesgpt
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: holmesgpt
+        app.kubernetes.io/name: holmesgpt
+        app.kubernetes.io/part-of: ai-assistant
+    spec:
+      serviceAccountName: holmesgpt
+      nodeSelector:
+        kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: holmes
+          # Originally robustadev/holmes:0.19.1 â€“ retag shsk2s.azurecr.io/holmesgpt:0.19.1
+          # is used for offline/air-gapped K2s packages once the image is pushed to the registry.
+          # Fall back to the upstream public image for online development/testing.
+          image: robustadev/holmes:0.19.1
+          imagePullPolicy: IfNotPresent
+          # AG-UI server mode â€“ required by holmesClient.ts in the Headlamp AI Assistant plugin.
+          command: ["python3", "-u", "/app/experimental/ag-ui/server-agui.py"]
+          ports:
+            - name: agui
+              containerPort: 80
+              protocol: TCP
+          env:
+            # Bind Holmes to port 80 so the K8s apiserver proxy (/services/svc:80/proxy/...)
+            # can find it via Endpoints. HOLMES_PORT / HOLMES_HOST are read by server-agui.py.
+            - name: HOLMES_PORT
+              value: "80"
+            - name: HOLMES_HOST
+              value: "0.0.0.0"
+            # Holmes config.load_from_env() reads MODEL / API_BASE / API_KEY (upper-cased).
+            # Setting MODEL suppresses the Robusta AI fallback (see LLMModelRegistry._should_load_robusta_ai).
+            # Use openai/ prefix — Ollama's /v1/chat/completions endpoint is OpenAI-compatible
+            # and correctly returns tool_calls as structured fields (not as raw JSON in content).
+            # Verified: Ollama v0.20.5 + qwen2.5:7b properly sets finish_reason=tool_calls and
+            # populates the tool_calls array in the response, enabling the Holmes agent loop.
+            # NOTE: llama3.2:3b (3B) fails with 26 tools — returns JSON in content, not tool_calls.
+            #       qwen2.5:7b (7.6B, Q4_K_M) handles 26 tools correctly. Minimum recommended: 7B.
+            - name: MODEL
+              value: "openai/MODEL_PLACEHOLDER"
+            # openai provider requires the /v1 base URL — LiteLLM appends /chat/completions.
+            - name: API_BASE
+              value: "http://172.19.1.1:11434/v1"
+            - name: API_KEY
+              value: "ollama"
+            - name: HOLMES_ALLOW_INSECURE_LLM
+              value: "true"
+            # Raise LiteLLM timeout to 10 min to cover GPU inference latency
+            - name: LLM_REQUEST_TIMEOUT
+              value: "600"
+            # Context window and max output tokens — suppresses litellm warnings.
+            # qwen2.5:7b supports 128k context; keeping same values as llama3.2 is safe.
+            - name: OVERRIDE_MAX_CONTENT_SIZE
+              value: "131072"
+            - name: OVERRIDE_MAX_OUTPUT_TOKEN
+              value: "4096"
+            # Disable structured output — without this, Holmes asks the LLM to format tool
+            # selections as structured JSON, which causes small models to return JSON in the
+            # content field instead of populating tool_calls. Standard OpenAI function calling
+            # (tools array) is used instead; Ollama /v1 handles this correctly.
+            - name: REQUEST_STRUCTURED_OUTPUT_FROM_LLM
+              value: "false"
+            # Keep LITELLM_CONFIG_PATH for reference / future use
+            - name: LITELLM_CONFIG_PATH
+              value: "/etc/holmes/model_config.yaml"
+          livenessProbe:
+            tcpSocket:
+              port: agui
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 5
+          readinessProbe:
+            tcpSocket:
+              port: agui
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: model-config
+              mountPath: /etc/holmes
+              readOnly: true
+      volumes:
+        - name: model-config
+          configMap:
+            name: holmesgpt-model-config
+---
+# Service in ai-assistant namespace (internal use / health checks)
+apiVersion: v1
+kind: Service
+metadata:
+  name: holmesgpt-holmes
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: holmesgpt
+    app.kubernetes.io/part-of: ai-assistant
+spec:
+  type: ClusterIP
+  selector:
+    app: holmesgpt
+  ports:
+    - name: agui
+      port: 80
+      targetPort: 80
+      protocol: TCP
+# NOTE: The proxy Service + nginx deployment in 'default' namespace are NOT part of
+# this manifest. They are deployed by Set-HolmesProxyEndpoints (ai-assistant.module.psm1)
+# at enable/update time, after the HolmesGPT pod is running.
+# K8s 1.35 apiserver proxy requires a real selector-based Service backed by pods;
+# selectorless ClusterIP services are rejected with 404 by the proxy handler.

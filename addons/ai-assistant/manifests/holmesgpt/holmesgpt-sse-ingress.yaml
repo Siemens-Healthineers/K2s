@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# SSE Direct-Route Ingress for HolmesGPT
+#
+# PURPOSE
+#   The Headlamp AI Assistant plugin communicates with HolmesGPT via
+#   Server-Sent Events (SSE). The default path through:
+#     ingress-nginx → Headlamp backend → K8s apiserver proxy → HolmesGPT
+#   breaks SSE streaming because the K8s apiserver service proxy buffers the
+#   entire response body before forwarding it.
+#
+#   This Ingress intercepts the HolmesGPT proxy path at the ingress-nginx layer
+#   and routes it DIRECTLY to the holmesgpt-holmes Service in ai-assistant
+#   namespace, bypassing Headlamp + the K8s apiserver proxy entirely.
+#
+# PATH PATTERN (ImplementationSpecific regex)
+#   /dashboard/clusters/[^/]+/api/v1/namespaces/default/services/holmesgpt-holmes:80/proxy(/|$)(.*)
+#
+#   - /dashboard        — Headlamp base URL (from -base-url=/dashboard arg)
+#   - /clusters/[^/]+   — any Headlamp cluster name (default K2s: "main")
+#                         The [^/]+ wildcard avoids hardcoding "main" so the
+#                         ingress works if the cluster is ever renamed.
+#   - /proxy(/|$)(.*)   — captures the sub-path; rewrite-target strips the
+#                         Headlamp prefix and forwards only /$2 to HolmesGPT
+#
+# SSE ANNOTATIONS
+#   proxy-buffering off + proxy-http-version 1.1 + X-Accel-Buffering no
+#   ensure nginx does not buffer the SSE event stream. Without these the
+#   browser receives a "network error" when Holmes starts streaming tokens.
+#
+# BACKEND
+#   Routes directly to holmesgpt-holmes.ai-assistant (port 80).
+#   The holmesgpt-holmes Service in ai-assistant has spec.selector: app=holmesgpt
+#   so requests reach the HolmesGPT pod without any intermediate hop.
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: holmesgpt-sse-direct
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: holmesgpt
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+  annotations:
+    # Strip the Headlamp path prefix; forward only the Holmes sub-path to the pod.
+    # Capture group $2 is the part after /proxy — e.g. "api/agui/chat".
+    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
+
+    # ── SSE streaming — critical for HolmesGPT AG-UI event stream ────────────
+    # Disable nginx response buffering so SSE events flush to the browser immediately.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    # Keep connections alive long enough for slow LLM inference (up to 10 min).
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    # HTTP/1.1 required for chunked transfer / SSE keep-alive.
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    # Suppress any upstream X-Accel-Buffering that might re-enable buffering,
+    # and clear the Connection header so upstream keep-alive works correctly.
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Connection "";
+      add_header X-Accel-Buffering no always;
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          # Regex path — ImplementationSpecific lets ingress-nginx treat it as a
+          # location regex. [^/]+ matches any cluster name, not just "main".
+          - path: /dashboard/clusters/[^/]+/api/v1/namespaces/default/services/holmesgpt-holmes:80/proxy(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: holmesgpt-holmes
+                port:
+                  number: 80
+

@@ -42,8 +42,9 @@ $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infr
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -177,6 +178,9 @@ if ($AddonSync) {
 Write-Log 'Flux CD is now installed in the rollout namespace' -Console
 Write-Log 'To use Flux, configure GitRepository and Kustomization CRDs' -Console
 Write-Log 'Example: kubectl apply -f <your-flux-resources>.yaml' -Console
+
+Write-Log '[Rollout] Syncing Headlamp plugins...' -Console
+Sync-HeadlampPlugins
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

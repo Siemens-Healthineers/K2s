@@ -475,3 +475,224 @@ Describe 'Linkerd annotation null-safety logic (Update.ps1 guard pattern)' -Tag 
         }
     }
 }
+
+Describe 'New-PluginInitContainer' -Tag 'unit', 'ci', 'addon', 'dashboard' {
+    It 'returns a hashtable with required keys' {
+        InModuleScope $moduleName {
+            $result = New-PluginInitContainer -Name 'test-plugin' -Image 'example.azurecr.io/test:1.0'
+            $result | Should -BeOfType [hashtable]
+            $result.name | Should -Be 'test-plugin'
+            $result.image | Should -Be 'example.azurecr.io/test:1.0'
+            $result.imagePullPolicy | Should -Be 'IfNotPresent'
+            $result.command | Should -Not -BeNullOrEmpty
+            $result.volumeMounts | Should -Not -BeNullOrEmpty
+            $result.securityContext | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'mounts to /headlamp-plugins' {
+        InModuleScope $moduleName {
+            $result = New-PluginInitContainer -Name 'x' -Image 'img:tag'
+            $result.volumeMounts[0].mountPath | Should -Be '/headlamp-plugins'
+        }
+    }
+
+    It 'copies plugins with cp -r command' {
+        InModuleScope $moduleName {
+            $result = New-PluginInitContainer -Name 'x' -Image 'img:tag'
+            ($result.command -join ' ') | Should -Match 'cp -r'
+        }
+    }
+
+    It 'sets allowPrivilegeEscalation to false' {
+        InModuleScope $moduleName {
+            $result = New-PluginInitContainer -Name 'x' -Image 'img:tag'
+            $result.securityContext.allowPrivilegeEscalation | Should -Be $false
+        }
+    }
+}
+
+Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard' {
+
+    Context 'empty InitContainers — no prior injection in live deployment' {
+        BeforeAll {
+            # Live deployment has no headlamp-plugins volume → early return, no kubectl patch
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{
+                    Output  = '{"spec":{"template":{"spec":{"volumes":[{"name":"tmp","emptyDir":{}}]}}}}'
+                    Success = $true
+                }
+            }
+            Mock -ModuleName $moduleName Write-Log {}
+        }
+
+        It 'skips all kubectl patch calls when no prior injection exists' {
+            InModuleScope $moduleName {
+                # Should not throw and should call Invoke-Kubectl only once (the live deployment GET)
+                { Apply-HeadlampPluginPatch -InitContainers @() } | Should -Not -Throw
+                # Only the initial GET call should happen (params include 'get')
+                Should -Invoke Invoke-Kubectl -ModuleName $moduleName -ParameterFilter {
+                    $Params -contains 'get'
+                } -Times 1 -Scope It
+                Should -Invoke Invoke-Kubectl -ModuleName $moduleName -ParameterFilter {
+                    $Params -contains 'patch'
+                } -Times 0 -Scope It
+            }
+        }
+    }
+
+    Context 'empty InitContainers — headlamp-plugins volume already present' {
+        BeforeAll {
+            # Live deployment already has the headlamp-plugins volume → cleanup patches run
+            $script:patchCallCount = 0
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'get') {
+                    return [pscustomobject]@{
+                        Output  = '{"spec":{"template":{"spec":{"volumes":[{"name":"headlamp-plugins","emptyDir":{}},{"name":"tmp","emptyDir":{}}]}}}}'
+                        Success = $true
+                    }
+                }
+                return [pscustomobject]@{ Output = ''; Success = $true }
+            }
+            Mock -ModuleName $moduleName Write-Log {}
+        }
+
+        It 'runs cleanup patches when prior injection is detected' {
+            InModuleScope $moduleName {
+                { Apply-HeadlampPluginPatch -InitContainers @() } | Should -Not -Throw
+                # Expect at least the GET call and both cleanup patch calls
+                Should -Invoke Invoke-Kubectl -ModuleName $moduleName -ParameterFilter {
+                    $Params -contains 'patch'
+                } -Times 2 -Scope It
+            }
+        }
+    }
+
+    Context 'single-element InitContainers array' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = ''; Success = $true }
+            }
+            Mock -ModuleName $moduleName Write-Log {}
+        }
+
+        It 'serialises a single-element array correctly (stays an array in JSON)' {
+            InModuleScope $moduleName {
+                $c = New-PluginInitContainer -Name 'x' -Image 'img:tag'
+                $arr = @($c)
+                $initJson = $arr | ConvertTo-Json -Depth 20 -Compress
+                $parsed = $initJson | ConvertFrom-Json
+                @($parsed).Count | Should -Be 1
+            }
+        }
+
+        It 'calls both kubectl patch operations' {
+            InModuleScope $moduleName {
+                $c = New-PluginInitContainer -Name 'x' -Image 'img:tag'
+                { Apply-HeadlampPluginPatch -InitContainers @($c) } | Should -Not -Throw
+                Should -Invoke Invoke-Kubectl -ModuleName $moduleName -ParameterFilter {
+                    $Params -contains 'patch'
+                } -Times 2 -Scope It
+            }
+        }
+    }
+
+    Context 'two-element InitContainers array' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = ''; Success = $true }
+            }
+            Mock -ModuleName $moduleName Write-Log {}
+        }
+
+        It 'serialises two elements as a JSON array with two entries' {
+            InModuleScope $moduleName {
+                $c1 = New-PluginInitContainer -Name 'p1' -Image 'img:1'
+                $c2 = New-PluginInitContainer -Name 'p2' -Image 'img:2'
+                $arr = @($c1, $c2)
+                $initJson = $arr | ConvertTo-Json -Depth 20 -Compress
+                $parsed = $initJson | ConvertFrom-Json
+                @($parsed).Count | Should -Be 2
+            }
+        }
+    }
+
+    Context 'kubectl patch failure throws' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = 'error: something'; Success = $false }
+            }
+            Mock -ModuleName $moduleName Write-Log {}
+        }
+
+        It 'throws when the first patch call fails' {
+            InModuleScope $moduleName {
+                $c = New-PluginInitContainer -Name 'x' -Image 'img:tag'
+                { Apply-HeadlampPluginPatch -InitContainers @($c) } | Should -Throw '*headlamp plugin patch (initContainers) failed*'
+            }
+        }
+    }
+}
+
+Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard' {
+    Context 'Headlamp deployment not present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = ''; Success = $true }
+            }
+            Mock -ModuleName $moduleName Apply-HeadlampPluginPatch {}
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
+        }
+
+        It 'skips Apply-HeadlampPluginPatch when headlamp deployment is absent' {
+            InModuleScope $moduleName {
+                # Invoke-Kubectl returns empty output → headlamp not present
+                Sync-HeadlampPlugins
+                Should -Invoke Apply-HeadlampPluginPatch -Times 0 -ModuleName $moduleName
+            }
+        }
+    }
+
+    Context 'Headlamp deployment present, no plugin addons enabled' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = 'headlamp   1/1   Running'; Success = $true }
+            }
+            Mock -ModuleName $moduleName Apply-HeadlampPluginPatch {}
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
+        }
+
+        It 'calls Apply-HeadlampPluginPatch with empty containers' {
+            InModuleScope $moduleName {
+                Sync-HeadlampPlugins
+                Should -Invoke Apply-HeadlampPluginPatch -Times 1 -ModuleName $moduleName -ParameterFilter {
+                    $InitContainers.Count -eq 0
+                }
+            }
+        }
+    }
+
+    Context 'Headlamp present, ai-assistant enabled' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = 'headlamp   1/1   Running'; Success = $true }
+            }
+            Mock -ModuleName $moduleName Apply-HeadlampPluginPatch {}
+            Mock -ModuleName $moduleName Test-IsAddonEnabled {
+                param($Addon)
+                return ($Addon.Name -eq 'ai-assistant')
+            }
+        }
+
+        It 'calls Apply-HeadlampPluginPatch with 1 init-container' {
+            InModuleScope $moduleName {
+                Sync-HeadlampPlugins
+                Should -Invoke Apply-HeadlampPluginPatch -Times 1 -ModuleName $moduleName -ParameterFilter {
+                    $InitContainers.Count -eq 1 -and $InitContainers[0].name -eq 'ai-assistant-plugin'
+                }
+            }
+        }
+    }
+}
+
