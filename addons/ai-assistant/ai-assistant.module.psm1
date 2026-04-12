@@ -99,69 +99,87 @@ function Set-HolmesProxyEndpoints {
     (Invoke-Kubectl -Params 'delete', 'configmap', 'holmesgpt-nginx-conf', '-n', 'default', '--ignore-not-found').Output | Write-Log
 
     # ── Strict system prompt injected into every Holmes chat request ──────────
-    # This constrains Holmes to deterministic, single-tool-call behaviour:
-    #   - No autonomous multi-step planning (no TodoWrite)
-    #   - No chaining multiple tool calls in one response
-    #   - Return ONLY the tool result, no extra commentary
-    #   - Never send empty text chunks (prevents pydantic validation errors)
+    # This constrains Holmes to use real tool calls for all data queries and
+    # prevents hallucination, multi-step loops, and empty delta chunks.
     $strictSystemPrompt = @'
-STRICT CONTROLLED ASSISTANT MODE — APPLY GLOBALLY.
+KUBERNETES ASSISTANT — STRICT EXECUTION MODE
 
-PRIMARY OBJECTIVE: For every user request, execute exactly ONE relevant tool call, return ONLY the final result, then STOP.
+CRITICAL RULE — MANDATORY TOOL USE:
+You MUST call a kubectl tool for ANY question about cluster state (pods, nodes, namespaces, services, deployments, etc.).
+NEVER answer from memory or generate example data. ALL answers MUST come from real tool output.
+If you answer without calling a tool, you are violating this rule.
 
-EXECUTION RULES (MANDATORY):
+EXECUTION PROTOCOL (follow exactly):
+1. Receive user request about Kubernetes resources.
+2. Call EXACTLY ONE appropriate kubectl tool to retrieve real data.
+3. Return the tool result directly — no modification, no commentary.
+4. STOP. Do not call additional tools.
 
-Rule 1 — Single Tool Call Only:
-- Call AT MOST ONE tool per user request.
-- Do NOT chain multiple tool calls.
-- Do NOT retry automatically.
-- If the first tool result is insufficient → return it as-is.
+TOOL SELECTION (use the SIMPLEST tool for the job):
+- List resources → kubernetes_tabular_query with appropriate kubectl get command
+- Count resources → kubernetes_count
+- Describe a resource → kubernetes_tabular_query with kubectl describe
 
-Rule 2 — No Autonomous Behavior. You MUST NOT:
-- Use TodoWrite.
-- Create tasks, to-do lists, or investigation plans.
-- Suggest next steps unprompted.
-- Continue execution after answering.
-
-Rule 3 — No Reasoning Output. Do NOT output:
-- Thought process or internal reasoning.
-- Analysis beyond the direct answer.
-- Debug explanations.
-
-Rule 4 — Output Format:
-- If tool returns tabular/list data: return ONLY the clean result table.
-- If tool returns structured data: convert to simple readable format (no raw JSON unless necessary).
-- NEVER return raw JSON tool instructions or internal schemas.
-- NEVER return duplicate responses.
-- ALWAYS ensure output is non-empty; never send empty text chunks.
-
-Rule 5 — Accuracy:
-- Use ONLY tool output. Do NOT infer missing data. Do NOT guess.
+OUTPUT RULES:
+- Return ONLY the raw tool output as a clean table or list.
 - If tool result is empty → return exactly: No data found
-- If tool fails → return exactly: Unable to determine from available data
+- If tool execution fails → return exactly: Unable to execute tool
+- NEVER add explanations, next steps, or commentary after the result.
+- NEVER generate example pod names, node names, or namespace names.
+- NEVER output "(Call tool ...)" — actually EXECUTE the tool.
+- NEVER duplicate the response.
+- Output MUST be non-empty (never send empty text).
 
-Rule 6 — No Re-execution: Do NOT call the tool again. Do NOT refine the query.
-
-Rule 7 — No Context Carryover: Treat each query independently.
-
-Rule 8 — Streaming Safety: Final response MUST contain valid non-empty text.
-
-FORBIDDEN: TodoWrite, multi-step reasoning, auto-debugging, cluster-wide analysis, recommendations, follow-up questions.
+FORBIDDEN BEHAVIORS:
+- Answering without calling a tool first.
+- Generating fake/example cluster data (e.g., "example-pod-1", "node1").
+- Multi-step tool chains (more than 1 tool per request).
+- Appending "No data found" after real tool output.
+- Suggesting follow-up actions or next steps.
+- Autonomous investigation or root cause analysis unless explicitly requested.
 '@
 
     # ── Python proxy script ───────────────────────────────────────────────────
     # Reads HOLMES_BACKEND_URL from env (set in the Deployment).
-    # For POST /api/agui/chat: injects additional_system_prompt into the JSON body.
-    # For SSE responses: filters lines where data.delta == "" to prevent pydantic errors.
+    # For POST /api/agui/chat:
+    #   REQUEST side: injects the strict system prompt via the ag_ui context field.
+    #   RESPONSE side: _SseOutputFilter buffers TEXT_MESSAGE groups and at END:
+    #     - Tool-result messages (delta starts with wrench emoji / " result:\n"):
+    #       forwarded unchanged — these contain the raw kubectl output.
+    #     - LLM-commentary messages: _filter_commentary() extracts only lines that
+    #       match kubectl tabular output patterns; everything else (analysis,
+    #       recommendations, "Next steps:", markdown) is silently dropped.
+    #     - If nothing survives the filter: entire message is suppressed.
+    # For SSE responses: also drops empty delta="" chunks (pydantic guard).
     # All other paths: transparent proxy.
     $proxyScript = @'
 #!/usr/bin/env python3
 """
 HolmesGPT strict-mode proxy.
-Injects additional_system_prompt into every POST /api/agui/chat request so that
-Holmes operates in deterministic single-tool-call mode regardless of what the
-Headlamp plugin sends.  Also strips empty SSE delta chunks that cause pydantic
-validation errors (TextMessageContentEvent: delta must have >= 1 character).
+
+REQUEST side:
+  Injects strict system prompt via the ag_ui context field so Holmes
+  operates in deterministic single-tool-call mode.
+
+RESPONSE side (SSE delta filter):
+  For every TEXT_MESSAGE_CONTENT SSE event on /api/agui/chat responses:
+    1. Parse the JSON envelope (never emit raw text).
+    2. Extract the "delta" string.
+    3. If delta is empty -> skip event (pydantic guard).
+    4. Apply _filter_delta() to the delta string:
+       - Detects whether this delta is a tool-result line (starts with wrench
+         emoji or contains "result:" near the start) -> pass through unchanged.
+       - Otherwise strips commentary lines (analysis, "Next steps:", markdown,
+         etc.) while KEEPING all lines that look like kubectl output OR simple
+         plain-text list entries (one identifier per line, no prose).
+    5. If filtered delta is non-empty -> re-emit the original JSON with only
+       the delta field replaced. ALL other fields (type, messageId, ...) are
+       preserved exactly.
+    6. If filtered delta is empty -> skip the event entirely.
+  TEXT_MESSAGE_START / TEXT_MESSAGE_END and all other event types are always
+  forwarded unchanged.
+
+JSON envelope is NEVER broken. Only the delta string value is modified.
 """
 import json
 import logging
@@ -198,49 +216,174 @@ except OSError as _e:
 
 CHAT_PATH_RE = re.compile(r"^/api/agui/chat(/.*)?$")
 
+# ── Delta filtering ────────────────────────────────────────────────────────────
+
+# Prose lines to always drop (case-insensitive prefix match)
+_NOISE_RE = re.compile(
+    r"(?i)^(it looks like|next steps?|let'?s |you can|you may|you should|"
+    r"to (fix|resolve|investigate|check)|additionally|furthermore|note:|tip:|"
+    r"warning:|#+\s|```|---+|\*\s|\d+\.\s+[A-Za-z]|>\s|"
+    r"this (means|indicates|suggests)|the (above|following|output|result))"
+)
+
+# Lines that are clearly kubectl tabular output:
+#   header: "NAME   STATUS   AGE" (all-caps tokens separated by 2+ spaces)
+#   data:   any line with 2+ consecutive spaces (kubectl column padding)
+_KUBECTL_MULTI_COL_RE = re.compile(r"\s{2,}")
+
+# Lines that are clearly a tool_call_metadata prefix (strip entirely)
+_TOOL_META_RE = re.compile(r"^tool_call_metadata=\{.*?\}")
+
+
+def _strip_tool_meta(text: str) -> str:
+    """Remove leading tool_call_metadata={...} prefix if present."""
+    return _TOOL_META_RE.sub("", text, count=1).lstrip()
+
+
+def _is_tool_marker(text: str) -> bool:
+    """
+    Returns True if this delta is a Holmes tool-announcement or tool-result
+    prefix emitted by server-agui.py. These are forwarded unchanged.
+    """
+    # Tool announcement: "🔧 Using Agent tool: `...`..."
+    # Tool result:       "🔧 tool_name result:\n..."
+    t = text.strip()
+    return (
+        t.startswith("\U0001f527")  # 🔧 wrench
+        or t.startswith("\u2261")   # ≡ triple-bar
+        or " result:\n" in text[:120]
+        or " result:\r\n" in text[:120]
+        or "Using Agent tool:" in text[:80]
+    )
+
+
+def _filter_delta(delta: str) -> str:
+    """
+    Filter the delta string of a TEXT_MESSAGE_CONTENT event.
+
+    Returns the filtered delta (may be empty string to signal suppression).
+    The JSON envelope is handled by the caller — this function only
+    works on the plain text content of the delta field.
+
+    Rules:
+    - tool_call_metadata={...} prefix is stripped silently.
+    - If the result after stripping contains a tool-result marker -> pass through.
+    - Otherwise keep lines that are:
+        a) kubectl multi-column rows (contain 2+ consecutive spaces)
+        b) plain identifiers / names (word chars + common k8s chars: -./_ no spaces)
+           These represent kubectl list output: one namespace/pod/node per line.
+    - Drop lines that match _NOISE_RE (prose analysis, commentary).
+    - If nothing remains -> return "".
+    """
+    cleaned = _strip_tool_meta(delta)
+
+    if _is_tool_marker(cleaned):
+        return delta  # forward tool markers unchanged (don't strip metadata prefix though)
+
+    kept = []
+    for raw_line in cleaned.splitlines():
+        line = raw_line.rstrip()
+        stripped = line.strip()
+
+        if not stripped:
+            continue  # skip blank lines
+
+        if _NOISE_RE.match(stripped):
+            continue  # drop commentary
+
+        if _KUBECTL_MULTI_COL_RE.search(stripped):
+            # Has 2+ spaces between tokens -> kubectl tabular row or header
+            kept.append(line)
+            continue
+
+        # Single-token lines: keep if they look like a k8s identifier
+        # (letters, digits, hyphens, dots, slashes, underscores — NO spaces)
+        if re.match(r"^[A-Za-z0-9][A-Za-z0-9\-\./\_]*$", stripped):
+            kept.append(stripped)
+            continue
+
+        # Anything else (prose sentences, multi-word lines without column spacing) -> drop
+
+    result = "\n".join(kept)
+    return result
+
 
 def _is_chat_endpoint(path: str) -> bool:
     return bool(CHAT_PATH_RE.match(path.split("?")[0]))
 
 
 def _inject_prompt(body_bytes: bytes) -> bytes:
-    """Inject STRICT_PROMPT into the additional_system_prompt field."""
+    """Inject STRICT_PROMPT via the context field of RunAgentInput."""
     if not STRICT_PROMPT:
         return body_bytes
     try:
         data = json.loads(body_bytes.decode("utf-8"))
-        existing = data.get("additional_system_prompt") or ""
-        if existing:
-            data["additional_system_prompt"] = STRICT_PROMPT + "\n\n" + existing
+        rules_ctx = {"description": "assistant_behavioral_rules", "value": STRICT_PROMPT}
+        existing = data.get("context")
+        if isinstance(existing, list):
+            data["context"] = [rules_ctx] + existing
         else:
-            data["additional_system_prompt"] = STRICT_PROMPT
+            data["context"] = [rules_ctx]
+        logging.info("Injected strict rules via context field (%d chars)", len(STRICT_PROMPT))
         return json.dumps(data).encode("utf-8")
     except Exception as exc:
         logging.warning("Could not inject system prompt: %s", exc)
         return body_bytes
 
 
-def _filter_sse_line(line: bytes) -> bytes | None:
+def _process_sse_line(raw_line: bytes) -> bytes | None:
     """
-    Return the line unchanged, or None to drop it.
-    Drops SSE data lines where the JSON delta field is an empty string —
-    these cause pydantic validation errors in the Headlamp plugin.
+    Process one SSE line (stripped of trailing CR/LF).
+
+    Returns:
+      - The original raw_line bytes unchanged (pass-through).
+      - A new bytes line with a modified delta (same JSON envelope, delta replaced).
+      - None to suppress the line entirely.
+
+    JSON structure is ALWAYS preserved. Only the "delta" string value is changed.
     """
-    if not line.startswith(b"data:"):
-        return line
-    payload = line[5:].strip()
+    if not raw_line.startswith(b"data:"):
+        return raw_line
+
+    payload = raw_line[5:].strip()
     if not payload or payload == b"[DONE]":
-        return line
+        return raw_line
+
     try:
         obj = json.loads(payload)
-        # TextMessageContentEvent / similar: drop if delta is empty string
-        if obj.get("type") in ("TEXT_MESSAGE_CONTENT", "text_message_content"):
-            delta = obj.get("delta", None)
-            if delta is not None and isinstance(delta, str) and len(delta) == 0:
-                return None
     except Exception:
-        pass
-    return line
+        return raw_line  # not valid JSON -> pass through unchanged
+
+    ev_type = obj.get("type", "")
+    if ev_type not in ("TEXT_MESSAGE_CONTENT", "text_message_content"):
+        return raw_line  # non-content events pass through unchanged
+
+    delta = obj.get("delta", "")
+    if not isinstance(delta, str):
+        return raw_line
+
+    # Drop empty deltas (pydantic guard)
+    if len(delta) == 0:
+        return None
+
+    # Apply delta filter
+    filtered = _filter_delta(delta)
+
+    if filtered == delta:
+        return raw_line  # nothing changed -> return original bytes (no re-serialisation)
+
+    if not filtered:
+        logging.info("OutputFilter: suppressed delta (%d chars): %r", len(delta), delta[:80])
+        return None  # suppress this event entirely
+
+    # Reconstruct the same JSON object with only delta replaced
+    obj["delta"] = filtered
+    new_payload = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+    logging.info(
+        "OutputFilter: filtered delta %d->%d chars",
+        len(delta), len(filtered),
+    )
+    return b"data: " + new_payload
 
 
 class ProxyHandler(BaseHTTPRequestHandler):
@@ -250,7 +393,11 @@ class ProxyHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # noqa: N802
         logging.info("%-4s %s", self.command, self.path)
 
-    def _forward(self, body: bytes | None = None):
+    def _write_chunk(self, data: bytes) -> None:
+        hex_len = format(len(data), "x").encode() + b"\r\n"
+        self.wfile.write(hex_len + data + b"\r\n")
+
+    def _forward(self, body: bytes | None = None, filter_output: bool = False):
         target = BACKEND + self.path
         headers = {
             k: v
@@ -283,15 +430,15 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.end_headers()
             try:
                 for raw_line in resp:
-                    filtered = _filter_sse_line(raw_line.rstrip(b"\r\n"))
-                    if filtered is None:
-                        continue
-                    line = filtered + b"\n"
-                    hex_len = format(len(line), "x").encode() + b"\r\n"
-                    self.wfile.write(hex_len + line + b"\r\n")
-                    self.wfile.flush()
-                # Final chunk
-                self.wfile.write(b"0\r\n\r\n")
+                    line_stripped = raw_line.rstrip(b"\r\n")
+                    if filter_output:
+                        out = _process_sse_line(line_stripped)
+                    else:
+                        out = line_stripped
+                    if out is not None:
+                        self._write_chunk(out + b"\n")
+                        self.wfile.flush()
+                self._write_chunk(b"")  # terminal chunk
                 self.wfile.flush()
             except Exception as exc:
                 logging.warning("SSE stream interrupted: %s", exc)
@@ -307,9 +454,10 @@ class ProxyHandler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length) if length else b""
-        if _is_chat_endpoint(self.path):
+        is_chat = _is_chat_endpoint(self.path)
+        if is_chat:
             body = _inject_prompt(body)
-        self._forward(body)
+        self._forward(body, filter_output=is_chat)
 
     def do_DELETE(self):  # noqa: N802
         self._forward()
@@ -342,7 +490,350 @@ class ThreadingHTTPServer(HTTPServer):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PROXY_PORT", 80))
-    logging.info("HolmesGPT proxy listening on :%d → %s", port, BACKEND)
+    logging.info("HolmesGPT proxy listening on :%d -> %s", port, BACKEND)
+    srv = ThreadingHTTPServer(("0.0.0.0", port), ProxyHandler)
+    srv.serve_forever()
+'@
+    - If accumulated text starts with the tool-result prefix => FORWARD as-is
+      (these carry the actual kubectl output)
+    - Otherwise strip LLM commentary:
+      * Keep lines that look like kubectl tabular output (NAME/STATUS/AGE columns,
+        or list items)
+      * Drop everything else (analysis, recommendations, markdown headings, etc.)
+      * If the stripped result is non-empty => send it as a single new message
+      * If nothing survives the filter => suppress the whole message silently
+
+  Non-TEXT_MESSAGE events (RUN_STARTED, RUN_FINISHED, RUN_ERROR, TOOL_CALL_*)
+  are always forwarded unchanged.
+
+Also strips empty SSE delta="" chunks that cause pydantic validation errors
+(TextMessageContentEvent: delta must have >= 1 character).
+"""
+import json
+import logging
+import os
+import re
+import sys
+import threading
+import uuid
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s proxy %(levelname)s %(message)s",
+    stream=sys.stdout,
+)
+
+BACKEND = os.environ.get(
+    "HOLMES_BACKEND_URL",
+    "http://holmesgpt-holmes.ai-assistant.svc.cluster.local:80",
+).rstrip("/")
+
+SYSTEM_PROMPT_FILE = os.environ.get(
+    "HOLMES_STRICT_PROMPT_FILE", "/etc/holmes-proxy/strict_system_prompt.txt"
+)
+
+try:
+    with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as _f:
+        STRICT_PROMPT = _f.read().strip()
+    logging.info("Loaded strict system prompt (%d chars)", len(STRICT_PROMPT))
+except OSError as _e:
+    logging.warning("Could not load strict system prompt from %s: %s", SYSTEM_PROMPT_FILE, _e)
+    STRICT_PROMPT = ""
+
+CHAT_PATH_RE = re.compile(r"^/api/agui/chat(/.*)?$")
+
+# Lines that look like raw kubectl output:
+#   - table header/data rows: at least two whitespace-separated tokens, first is
+#     an identifier (upper or mixed case, may include / - _)
+#   - namespace lines, event lines, etc.
+# We accept a line if it contains a tab or 2+ consecutive spaces between tokens
+# (kubectl always uses multi-space column alignment) OR if it is a header row
+# (all-caps first word: NAME, NAMESPACE, STATUS, NODE, etc.).
+_KUBECTL_HEADER_RE = re.compile(
+    r"^[A-Z][A-Z0-9_\-/]*(\s{2,}[A-Z][A-Z0-9_\-/]*)+$"
+)
+_KUBECTL_DATA_ROW_RE = re.compile(
+    r"^\S.*(\s{2,}|\t)\S"
+)
+# Lines we always drop regardless of anything else
+_NOISE_LINE_RE = re.compile(
+    r"(?i)^(it looks like|next steps?|you can|check|ensure|note:|tip:|"
+    r"warning:|error:|#+\s|```|---|\* |> |\d+\.\s+[A-Z])"
+)
+
+
+def _is_chat_endpoint(path: str) -> bool:
+    return bool(CHAT_PATH_RE.match(path.split("?")[0]))
+
+
+def _inject_prompt(body_bytes: bytes) -> bytes:
+    """Inject STRICT_PROMPT via the context field of RunAgentInput."""
+    if not STRICT_PROMPT:
+        return body_bytes
+    try:
+        data = json.loads(body_bytes.decode("utf-8"))
+        rules_ctx = {"description": "assistant_behavioral_rules", "value": STRICT_PROMPT}
+        existing = data.get("context")
+        if isinstance(existing, list):
+            data["context"] = [rules_ctx] + existing
+        else:
+            data["context"] = [rules_ctx]
+        logging.info("Injected strict rules via context field (%d chars)", len(STRICT_PROMPT))
+        return json.dumps(data).encode("utf-8")
+    except Exception as exc:
+        logging.warning("Could not inject system prompt: %s", exc)
+        return body_bytes
+
+
+def _filter_commentary(text: str) -> str:
+    """
+    Given the accumulated delta text of a single TEXT_MESSAGE group,
+    return only the lines that look like raw kubectl output.
+    Returns empty string if nothing survives.
+    """
+    kept = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            # Preserve blank lines between table sections
+            if kept and kept[-1] != "":
+                kept.append("")
+            continue
+        if _NOISE_LINE_RE.match(stripped):
+            continue
+        if _KUBECTL_HEADER_RE.match(stripped) or _KUBECTL_DATA_ROW_RE.match(stripped):
+            kept.append(line)
+        # Everything else (prose sentences, short words, etc.) is dropped
+    # Trim trailing blank lines
+    while kept and kept[-1] == "":
+        kept.pop()
+    return "\n".join(kept)
+
+
+def _is_tool_result_message(text: str) -> bool:
+    """
+    Tool-result messages emitted by server-agui.py always start with the
+    rocket/wrench emoji prefix: "=F tool_name result:\n..."
+    We detect these and forward them unchanged (the kubectl output is already
+    inside the text after the first line).
+    """
+    return bool(text) and (
+        text.startswith("\U0001f527")   # wrench emoji
+        or text.startswith("\u2261")    # triple-bar (fallback rendering)
+        or text.startswith("=F")        # ASCII fallback in some terminals
+        or " result:\n" in text[:120]   # content-based fallback
+        or " result:\r\n" in text[:120]
+    )
+
+
+def _sse_event(obj: dict) -> bytes:
+    return b"data: " + json.dumps(obj, ensure_ascii=False).encode("utf-8") + b"\n"
+
+
+def _build_text_message_events(mid: str, text: str) -> list[bytes]:
+    """Emit a complete START / CONTENT / END triplet for the given text."""
+    return [
+        _sse_event({"type": "TEXT_MESSAGE_START", "messageId": mid, "role": "assistant"}),
+        _sse_event({"type": "TEXT_MESSAGE_CONTENT", "messageId": mid, "delta": text}),
+        _sse_event({"type": "TEXT_MESSAGE_END", "messageId": mid}),
+    ]
+
+
+class _SseOutputFilter:
+    """
+    Stateful per-request SSE output filter.
+
+    Buffers TEXT_MESSAGE groups (START → N×CONTENT → END).
+    At END decides whether to forward the raw buffered events, replace them
+    with a filtered version, or suppress them entirely.
+    All other event types pass through immediately.
+    """
+
+    def __init__(self):
+        self._pending_id: str | None = None        # messageId currently buffering
+        self._pending_raw: list[bytes] = []        # raw SSE lines for current group
+        self._pending_text: str = ""               # accumulated delta text
+
+    def feed(self, raw_line: bytes) -> list[bytes]:
+        """
+        Feed one raw SSE line (already stripped of trailing newline).
+        Returns a list of SSE line bytes to emit (may be empty).
+        """
+        if not raw_line.startswith(b"data:"):
+            return [raw_line]
+
+        payload = raw_line[5:].strip()
+        if not payload or payload == b"[DONE]":
+            return [raw_line]
+
+        try:
+            obj = json.loads(payload)
+        except Exception:
+            return [raw_line]
+
+        ev_type = obj.get("type", "")
+
+        # ── TEXT_MESSAGE_START ────────────────────────────────────────────────
+        if ev_type in ("TEXT_MESSAGE_START", "text_message_start"):
+            self._pending_id = obj.get("messageId")
+            self._pending_raw = [raw_line]
+            self._pending_text = ""
+            return []   # hold until END
+
+        # ── TEXT_MESSAGE_CONTENT ──────────────────────────────────────────────
+        if ev_type in ("TEXT_MESSAGE_CONTENT", "text_message_content"):
+            delta = obj.get("delta", "")
+            if not isinstance(delta, str) or len(delta) == 0:
+                return []   # drop empty deltas (pydantic guard)
+            self._pending_raw.append(raw_line)
+            self._pending_text += delta
+            return []   # hold until END
+
+        # ── TEXT_MESSAGE_END ──────────────────────────────────────────────────
+        if ev_type in ("TEXT_MESSAGE_END", "text_message_end"):
+            self._pending_raw.append(raw_line)
+            text = self._pending_text
+            mid = self._pending_id or str(uuid.uuid4())
+            raw_events = list(self._pending_raw)
+            self._pending_id = None
+            self._pending_raw = []
+            self._pending_text = ""
+
+            # Tool-announcement messages ("=F Using Agent tool: `...`...")
+            # and tool-result messages: forward as-is
+            if _is_tool_result_message(text):
+                logging.debug("OutputFilter: forwarding tool-result message (%d chars)", len(text))
+                return raw_events
+
+            # Everything else: try to extract kubectl table lines
+            filtered = _filter_commentary(text)
+            if filtered:
+                logging.info(
+                    "OutputFilter: replaced LLM commentary (%d chars) with kubectl output (%d chars)",
+                    len(text), len(filtered),
+                )
+                return _build_text_message_events(mid, filtered)
+            else:
+                logging.info(
+                    "OutputFilter: suppressed LLM commentary (%d chars): %r",
+                    len(text), text[:120],
+                )
+                return []   # suppress entirely
+
+        # ── All other events (RUN_STARTED, RUN_FINISHED, RUN_ERROR, TOOL_CALL_*) ──
+        return [raw_line]
+
+
+class ProxyHandler(BaseHTTPRequestHandler):
+    server_version = "HolmesProxy/1.0"
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, fmt, *args):  # noqa: N802
+        logging.info("%-4s %s", self.command, self.path)
+
+    def _write_chunk(self, data: bytes) -> None:
+        hex_len = format(len(data), "x").encode() + b"\r\n"
+        self.wfile.write(hex_len + data + b"\r\n")
+
+    def _forward(self, body: bytes | None = None, filter_output: bool = False):
+        target = BACKEND + self.path
+        headers = {
+            k: v
+            for k, v in self.headers.items()
+            if k.lower() not in ("host", "content-length", "transfer-encoding")
+        }
+        if body is not None:
+            headers["Content-Length"] = str(len(body))
+
+        req = Request(target, data=body, headers=headers, method=self.command)
+        try:
+            resp = urlopen(req, timeout=620)
+        except URLError as exc:
+            logging.error("Backend error: %s", exc)
+            self.send_response(502)
+            self.end_headers()
+            return
+
+        self.send_response(resp.status)
+        is_sse = False
+        for k, v in resp.headers.items():
+            if k.lower() == "transfer-encoding":
+                continue
+            if k.lower() == "content-type" and "text/event-stream" in v:
+                is_sse = True
+            self.send_header(k, v)
+
+        if is_sse:
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            output_filter = _SseOutputFilter() if filter_output else None
+            try:
+                for raw_line in resp:
+                    line_stripped = raw_line.rstrip(b"\r\n")
+                    if output_filter is not None:
+                        out_lines = output_filter.feed(line_stripped)
+                    else:
+                        out_lines = [line_stripped]
+                    for out in out_lines:
+                        chunk = out + b"\n"
+                        self._write_chunk(chunk)
+                        self.wfile.flush()
+                self._write_chunk(b"")   # terminal chunk
+                self.wfile.flush()
+            except Exception as exc:
+                logging.warning("SSE stream interrupted: %s", exc)
+        else:
+            resp_body = resp.read()
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+
+    def do_GET(self):  # noqa: N802
+        self._forward()
+
+    def do_POST(self):  # noqa: N802
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length else b""
+        is_chat = _is_chat_endpoint(self.path)
+        if is_chat:
+            body = _inject_prompt(body)
+        self._forward(body, filter_output=is_chat)
+
+    def do_DELETE(self):  # noqa: N802
+        self._forward()
+
+    def do_PUT(self):  # noqa: N802
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length else b""
+        self._forward(body)
+
+    def do_PATCH(self):  # noqa: N802
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length else b""
+        self._forward(body)
+
+
+class ThreadingHTTPServer(HTTPServer):
+    def process_request(self, request, client_address):
+        t = threading.Thread(target=self._handle, args=(request, client_address))
+        t.daemon = True
+        t.start()
+
+    def _handle(self, request, client_address):
+        try:
+            self.finish_request(request, client_address)
+        except Exception:
+            self.handle_error(request, client_address)
+        finally:
+            self.shutdown_request(request)
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PROXY_PORT", 80))
+    logging.info("HolmesGPT proxy listening on :%d -> %s", port, BACKEND)
     srv = ThreadingHTTPServer(("0.0.0.0", port), ProxyHandler)
     srv.serve_forever()
 '@

@@ -180,11 +180,11 @@ spec:
             # Keep LITELLM_CONFIG_PATH for reference / future use
             - name: LITELLM_CONFIG_PATH
               value: "/etc/holmes/model_config.yaml"
-            # Limit the maximum number of tool-call iterations per request.
-            # The smart proxy injects strict mode instructions, but capping steps
-            # provides a hard ceiling against runaway agent loops on small models.
+            # Cap tool-call iterations: 3 allows tool call (step 1) + result processing (step 2)
+            # + one safety step. MAX_STEPS=1 breaks tool execution (LLM has no step to process
+            # the tool result and generate the final response).
             - name: MAX_STEPS
-              value: "5"
+              value: "3"
           livenessProbe:
             tcpSocket:
               port: agui
@@ -208,10 +208,87 @@ spec:
             - name: model-config
               mountPath: /etc/holmes
               readOnly: true
+            # Override built-in Jinja2 prompt templates to enforce strict single-tool-call mode.
+            # subPath mounts replace only the specific files — other templates are unaffected.
+            - name: prompt-overrides
+              mountPath: /app/holmes/plugins/prompts/generic_ask_conversation.jinja2
+              subPath: generic_ask_conversation.jinja2
+              readOnly: true
+            - name: prompt-overrides
+              mountPath: /app/holmes/plugins/prompts/_general_instructions.jinja2
+              subPath: _general_instructions.jinja2
+              readOnly: true
       volumes:
         - name: model-config
           configMap:
             name: holmesgpt-model-config
+        - name: prompt-overrides
+          configMap:
+            name: holmesgpt-prompt-overrides
+---
+# Strict-mode prompt overrides — replaces Holmes's built-in Jinja2 templates so the
+# LLM operates in deterministic single-tool-call mode instead of the default
+# autonomous investigation mode (TodoWrite, multi-step, root-cause chains).
+#
+# Two files are overridden via subPath volume mounts:
+#   generic_ask_conversation.jinja2  — main system prompt for chat sessions
+#   _general_instructions.jinja2     — shared instructions partial (strips TodoWrite rules)
+#
+# Why this approach:
+#   The proxy context[] injection is silenced by Holmes's own system prompt.
+#   Replacing the template files at load time gives us full control over what
+#   instructions the LLM actually receives, with no competition from the original prompt.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: holmesgpt-prompt-overrides
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: holmesgpt
+    app.kubernetes.io/part-of: ai-assistant
+data:
+  generic_ask_conversation.jinja2: |
+    You are a Kubernetes assistant. You MUST use tools to answer every question.
+
+    STRICT RULES — follow exactly:
+    1. For EVERY user request about cluster resources, call EXACTLY ONE kubectl tool.
+    2. Return the raw tool output directly. No modifications.
+    3. STOP after one tool call. Do not call more tools.
+    4. Do not add explanations, analysis, next steps, or commentary.
+    5. Do not use TodoWrite. Do not create task lists. Do not plan.
+    6. Do not suggest follow-up actions or ask clarifying questions.
+    7. If tool output is empty, return: No resources found.
+    8. If the tool fails, return: Tool execution failed.
+
+    TOOL SELECTION:
+    - List resources (pods, nodes, namespaces, etc.) → kubernetes_tabular_query
+    - Count resources → kubernetes_count
+    - Describe a resource → kubernetes_tabular_query with kubectl describe
+
+    OUTPUT FORMAT:
+    - Return ONLY the raw table or list from the tool.
+    - No headers, no footers, no status summaries.
+    - No "(Call tool ...)" text — actually execute the tool.
+
+    FORBIDDEN:
+    - Answering without calling a tool first.
+    - Multiple tool calls per request.
+    - TodoWrite or investigation task lists.
+    - "Next steps:", "Let's investigate", or any follow-up suggestions.
+    - Autonomous root cause analysis unless explicitly requested.
+    - Fake/example data (example-pod-1, node1, node2).
+
+  _general_instructions.jinja2: |
+    # Instructions
+
+    {% if cluster_name -%}
+    * You are running on cluster {{ cluster_name }}.
+    {%- endif %}
+    * Use EXACTLY ONE tool call per user request.
+    * Return tool output directly without commentary.
+    * Do not investigate further unless the user explicitly asks.
+    * Do not use TodoWrite under any circumstances.
+
 ---
 # Service in ai-assistant namespace (internal use / health checks)
 apiVersion: v1
