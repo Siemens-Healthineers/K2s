@@ -180,6 +180,11 @@ spec:
             # Keep LITELLM_CONFIG_PATH for reference / future use
             - name: LITELLM_CONFIG_PATH
               value: "/etc/holmes/model_config.yaml"
+            # Limit the maximum number of tool-call iterations per request.
+            # The smart proxy injects strict mode instructions, but capping steps
+            # provides a hard ceiling against runaway agent loops on small models.
+            - name: MAX_STEPS
+              value: "5"
           livenessProbe:
             tcpSocket:
               port: agui

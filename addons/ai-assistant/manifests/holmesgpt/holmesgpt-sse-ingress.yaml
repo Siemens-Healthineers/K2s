@@ -12,28 +12,49 @@
 #   entire response body before forwarding it.
 #
 #   This Ingress intercepts the HolmesGPT proxy path at the ingress-nginx layer
-#   and routes it DIRECTLY to the holmesgpt-holmes Service in ai-assistant
-#   namespace, bypassing Headlamp + the K8s apiserver proxy entirely.
+#   and routes it through the Python smart-proxy (holmesgpt-proxy-bridge →
+#   holmesgpt-holmes.default), which injects the strict system prompt before
+#   forwarding to the real HolmesGPT pod.
 #
 # PATH PATTERN (ImplementationSpecific regex)
 #   /dashboard/clusters/[^/]+/api/v1/namespaces/default/services/holmesgpt-holmes:80/proxy(/|$)(.*)
 #
 #   - /dashboard        — Headlamp base URL (from -base-url=/dashboard arg)
 #   - /clusters/[^/]+   — any Headlamp cluster name (default K2s: "main")
-#                         The [^/]+ wildcard avoids hardcoding "main" so the
-#                         ingress works if the cluster is ever renamed.
 #   - /proxy(/|$)(.*)   — captures the sub-path; rewrite-target strips the
 #                         Headlamp prefix and forwards only /$2 to HolmesGPT
 #
 # SSE ANNOTATIONS
 #   proxy-buffering off + proxy-http-version 1.1 + X-Accel-Buffering no
-#   ensure nginx does not buffer the SSE event stream. Without these the
-#   browser receives a "network error" when Holmes starts streaming tokens.
+#   ensure nginx does not buffer the SSE event stream.
 #
 # BACKEND
-#   Routes directly to holmesgpt-holmes.ai-assistant (port 80).
-#   The holmesgpt-holmes Service in ai-assistant has spec.selector: app=holmesgpt
-#   so requests reach the HolmesGPT pod without any intermediate hop.
+#   Routes to holmesgpt-proxy-bridge (ExternalName → holmesgpt-holmes.default).
+#   The Python proxy in 'default' injects the strict system prompt into every
+#   POST /api/agui/chat request and filters empty SSE delta chunks.
+---
+# ExternalName Service that bridges the ai-assistant Ingress to the Python proxy
+# in the 'default' namespace.  The SSE ingress routes to this service so that
+# all /api/agui/chat requests (including streamed SSE responses) pass through the
+# strict-mode proxy which injects additional_system_prompt before forwarding to
+# the real HolmesGPT pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: holmesgpt-proxy-bridge
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: holmesgpt
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  type: ExternalName
+  externalName: holmesgpt-holmes.default.svc.cluster.local
+  ports:
+    - name: agui
+      port: 80
+      targetPort: 80
+      protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -45,7 +66,7 @@ metadata:
     app.kubernetes.io/part-of: ai-assistant
     app.kubernetes.io/managed-by: k2s
   annotations:
-    # Strip the Headlamp path prefix; forward only the Holmes sub-path to the pod.
+    # Strip the Headlamp path prefix; forward only the Holmes sub-path to the proxy.
     # Capture group $2 is the part after /proxy — e.g. "api/agui/chat".
     nginx.ingress.kubernetes.io/rewrite-target: "/$2"
 
@@ -74,7 +95,7 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: holmesgpt-holmes
+                name: holmesgpt-proxy-bridge
                 port:
                   number: 80
 

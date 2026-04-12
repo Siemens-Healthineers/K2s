@@ -56,7 +56,7 @@ function Set-HolmesModelConfig {
 
 <#
 .SYNOPSIS
-Deploys a lightweight nginx reverse-proxy pod + selector-based Service in the 'default'
+Deploys a Python-based smart proxy pod + selector-based Service in the 'default'
 namespace that forwards to the real HolmesGPT service in 'ai-assistant'.
 
 BACKGROUND
@@ -70,13 +70,19 @@ K8s 1.35 apiserver proxy validation requires:
      Endpoints namespace — cross-namespace pod refs are rejected.
 
 The only correct cross-namespace proxy approach is therefore a real pod running in
-'default' that relays traffic to 'ai-assistant'. We use nginx:alpine (already present
-on every K2s node as part of the ingress addon image set).
+'default' that relays traffic to 'ai-assistant'.
+
+The proxy is implemented in Python (python:alpine image) so it can:
+  1. Intercept POST /api/agui/chat requests and inject the strict system prompt
+     into the 'additional_system_prompt' field of the JSON body — controlling
+     Holmes behaviour without modifying the Headlamp plugin or the Holmes image.
+  2. Filter empty SSE delta chunks that cause pydantic validation errors in the
+     plugin (TextMessageContentEvent: 'delta' must have at least 1 character).
 
 Architecture:
   Headlamp plugin
     → K8s apiserver proxy (/namespaces/default/services/holmesgpt-holmes:80/proxy/...)
-    → nginx pod in 'default' (selector: app=holmesgpt-proxy)
+    → Python proxy pod in 'default' (selector: app=holmesgpt-proxy)
     → holmesgpt-holmes.ai-assistant.svc.cluster.local:80
     → HolmesGPT pod in 'ai-assistant'
 #>
@@ -84,43 +90,278 @@ function Set-HolmesProxyEndpoints {
     [CmdletBinding()]
     Param()
 
-    Write-Log '[AI-Assistant] Deploying HolmesGPT nginx reverse-proxy in default namespace...' -Console
+    Write-Log '[AI-Assistant] Deploying HolmesGPT smart proxy in default namespace...' -Console
 
     # Clean up legacy resources from older versions
     (Invoke-Kubectl -Params 'delete', 'endpointslice', 'holmesgpt-holmes-k2s', '-n', 'default', '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', 'endpoints',     'holmesgpt-holmes',     '-n', 'default', '--ignore-not-found').Output | Write-Log
+    # Remove old nginx ConfigMap from previous versions
+    (Invoke-Kubectl -Params 'delete', 'configmap', 'holmesgpt-nginx-conf', '-n', 'default', '--ignore-not-found').Output | Write-Log
 
-    # nginx.conf — proxy_pass to the HolmesGPT service in ai-assistant namespace.
-    # Variables written with single-quoted string to avoid PowerShell interpolation.
-    $nginxConf  = 'events {}' + [System.Environment]::NewLine
-    $nginxConf += 'http {' + [System.Environment]::NewLine
-    $nginxConf += '  server {' + [System.Environment]::NewLine
-    $nginxConf += '    listen 80;' + [System.Environment]::NewLine
-    $nginxConf += '    location / {' + [System.Environment]::NewLine
-    $nginxConf += '      proxy_pass http://holmesgpt-holmes.ai-assistant.svc.cluster.local:80;' + [System.Environment]::NewLine
-    $nginxConf += '      proxy_http_version 1.1;' + [System.Environment]::NewLine
-    $nginxConf += '      proxy_set_header Host $host;' + [System.Environment]::NewLine
-    $nginxConf += '      proxy_set_header X-Real-IP $remote_addr;' + [System.Environment]::NewLine
-    $nginxConf += '      proxy_set_header Connection "";' + [System.Environment]::NewLine
-    $nginxConf += '      proxy_buffering off;' + [System.Environment]::NewLine
-    $nginxConf += '      proxy_read_timeout 600s;' + [System.Environment]::NewLine
-    $nginxConf += '      proxy_send_timeout 600s;' + [System.Environment]::NewLine
-    $nginxConf += '    }' + [System.Environment]::NewLine
-    $nginxConf += '  }' + [System.Environment]::NewLine
-    $nginxConf += '}'
+    # ── Strict system prompt injected into every Holmes chat request ──────────
+    # This constrains Holmes to deterministic, single-tool-call behaviour:
+    #   - No autonomous multi-step planning (no TodoWrite)
+    #   - No chaining multiple tool calls in one response
+    #   - Return ONLY the tool result, no extra commentary
+    #   - Never send empty text chunks (prevents pydantic validation errors)
+    $strictSystemPrompt = @'
+STRICT CONTROLLED ASSISTANT MODE — APPLY GLOBALLY.
 
-    $tmpConf = [System.IO.Path]::GetTempFileName() + '.conf'
-    [System.IO.File]::WriteAllText($tmpConf, $nginxConf, [System.Text.Encoding]::ASCII)
+PRIMARY OBJECTIVE: For every user request, execute exactly ONE relevant tool call, return ONLY the final result, then STOP.
 
-    # Create/update the ConfigMap from the conf file
-    $cmResult = Invoke-Kubectl -Params 'create', 'configmap', 'holmesgpt-nginx-conf',
+EXECUTION RULES (MANDATORY):
+
+Rule 1 — Single Tool Call Only:
+- Call AT MOST ONE tool per user request.
+- Do NOT chain multiple tool calls.
+- Do NOT retry automatically.
+- If the first tool result is insufficient → return it as-is.
+
+Rule 2 — No Autonomous Behavior. You MUST NOT:
+- Use TodoWrite.
+- Create tasks, to-do lists, or investigation plans.
+- Suggest next steps unprompted.
+- Continue execution after answering.
+
+Rule 3 — No Reasoning Output. Do NOT output:
+- Thought process or internal reasoning.
+- Analysis beyond the direct answer.
+- Debug explanations.
+
+Rule 4 — Output Format:
+- If tool returns tabular/list data: return ONLY the clean result table.
+- If tool returns structured data: convert to simple readable format (no raw JSON unless necessary).
+- NEVER return raw JSON tool instructions or internal schemas.
+- NEVER return duplicate responses.
+- ALWAYS ensure output is non-empty; never send empty text chunks.
+
+Rule 5 — Accuracy:
+- Use ONLY tool output. Do NOT infer missing data. Do NOT guess.
+- If tool result is empty → return exactly: No data found
+- If tool fails → return exactly: Unable to determine from available data
+
+Rule 6 — No Re-execution: Do NOT call the tool again. Do NOT refine the query.
+
+Rule 7 — No Context Carryover: Treat each query independently.
+
+Rule 8 — Streaming Safety: Final response MUST contain valid non-empty text.
+
+FORBIDDEN: TodoWrite, multi-step reasoning, auto-debugging, cluster-wide analysis, recommendations, follow-up questions.
+'@
+
+    # ── Python proxy script ───────────────────────────────────────────────────
+    # Reads HOLMES_BACKEND_URL from env (set in the Deployment).
+    # For POST /api/agui/chat: injects additional_system_prompt into the JSON body.
+    # For SSE responses: filters lines where data.delta == "" to prevent pydantic errors.
+    # All other paths: transparent proxy.
+    $proxyScript = @'
+#!/usr/bin/env python3
+"""
+HolmesGPT strict-mode proxy.
+Injects additional_system_prompt into every POST /api/agui/chat request so that
+Holmes operates in deterministic single-tool-call mode regardless of what the
+Headlamp plugin sends.  Also strips empty SSE delta chunks that cause pydantic
+validation errors (TextMessageContentEvent: delta must have >= 1 character).
+"""
+import json
+import logging
+import os
+import re
+import sys
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s proxy %(levelname)s %(message)s",
+    stream=sys.stdout,
+)
+
+BACKEND = os.environ.get(
+    "HOLMES_BACKEND_URL",
+    "http://holmesgpt-holmes.ai-assistant.svc.cluster.local:80",
+).rstrip("/")
+
+SYSTEM_PROMPT_FILE = os.environ.get(
+    "HOLMES_STRICT_PROMPT_FILE", "/etc/holmes-proxy/strict_system_prompt.txt"
+)
+
+try:
+    with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as _f:
+        STRICT_PROMPT = _f.read().strip()
+    logging.info("Loaded strict system prompt (%d chars)", len(STRICT_PROMPT))
+except OSError as _e:
+    logging.warning("Could not load strict system prompt from %s: %s", SYSTEM_PROMPT_FILE, _e)
+    STRICT_PROMPT = ""
+
+CHAT_PATH_RE = re.compile(r"^/api/agui/chat(/.*)?$")
+
+
+def _is_chat_endpoint(path: str) -> bool:
+    return bool(CHAT_PATH_RE.match(path.split("?")[0]))
+
+
+def _inject_prompt(body_bytes: bytes) -> bytes:
+    """Inject STRICT_PROMPT into the additional_system_prompt field."""
+    if not STRICT_PROMPT:
+        return body_bytes
+    try:
+        data = json.loads(body_bytes.decode("utf-8"))
+        existing = data.get("additional_system_prompt") or ""
+        if existing:
+            data["additional_system_prompt"] = STRICT_PROMPT + "\n\n" + existing
+        else:
+            data["additional_system_prompt"] = STRICT_PROMPT
+        return json.dumps(data).encode("utf-8")
+    except Exception as exc:
+        logging.warning("Could not inject system prompt: %s", exc)
+        return body_bytes
+
+
+def _filter_sse_line(line: bytes) -> bytes | None:
+    """
+    Return the line unchanged, or None to drop it.
+    Drops SSE data lines where the JSON delta field is an empty string —
+    these cause pydantic validation errors in the Headlamp plugin.
+    """
+    if not line.startswith(b"data:"):
+        return line
+    payload = line[5:].strip()
+    if not payload or payload == b"[DONE]":
+        return line
+    try:
+        obj = json.loads(payload)
+        # TextMessageContentEvent / similar: drop if delta is empty string
+        if obj.get("type") in ("TEXT_MESSAGE_CONTENT", "text_message_content"):
+            delta = obj.get("delta", None)
+            if delta is not None and isinstance(delta, str) and len(delta) == 0:
+                return None
+    except Exception:
+        pass
+    return line
+
+
+class ProxyHandler(BaseHTTPRequestHandler):
+    server_version = "HolmesProxy/1.0"
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, fmt, *args):  # noqa: N802
+        logging.info("%-4s %s", self.command, self.path)
+
+    def _forward(self, body: bytes | None = None):
+        target = BACKEND + self.path
+        headers = {
+            k: v
+            for k, v in self.headers.items()
+            if k.lower() not in ("host", "content-length", "transfer-encoding")
+        }
+        if body is not None:
+            headers["Content-Length"] = str(len(body))
+
+        req = Request(target, data=body, headers=headers, method=self.command)
+        try:
+            resp = urlopen(req, timeout=620)
+        except URLError as exc:
+            logging.error("Backend error: %s", exc)
+            self.send_response(502)
+            self.end_headers()
+            return
+
+        self.send_response(resp.status)
+        is_sse = False
+        for k, v in resp.headers.items():
+            if k.lower() == "transfer-encoding":
+                continue
+            if k.lower() == "content-type" and "text/event-stream" in v:
+                is_sse = True
+            self.send_header(k, v)
+
+        if is_sse:
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            try:
+                for raw_line in resp:
+                    filtered = _filter_sse_line(raw_line.rstrip(b"\r\n"))
+                    if filtered is None:
+                        continue
+                    line = filtered + b"\n"
+                    hex_len = format(len(line), "x").encode() + b"\r\n"
+                    self.wfile.write(hex_len + line + b"\r\n")
+                    self.wfile.flush()
+                # Final chunk
+                self.wfile.write(b"0\r\n\r\n")
+                self.wfile.flush()
+            except Exception as exc:
+                logging.warning("SSE stream interrupted: %s", exc)
+        else:
+            resp_body = resp.read()
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+
+    def do_GET(self):  # noqa: N802
+        self._forward()
+
+    def do_POST(self):  # noqa: N802
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length else b""
+        if _is_chat_endpoint(self.path):
+            body = _inject_prompt(body)
+        self._forward(body)
+
+    def do_DELETE(self):  # noqa: N802
+        self._forward()
+
+    def do_PUT(self):  # noqa: N802
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length else b""
+        self._forward(body)
+
+    def do_PATCH(self):  # noqa: N802
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length else b""
+        self._forward(body)
+
+
+class ThreadingHTTPServer(HTTPServer):
+    def process_request(self, request, client_address):
+        t = threading.Thread(target=self._handle, args=(request, client_address))
+        t.daemon = True
+        t.start()
+
+    def _handle(self, request, client_address):
+        try:
+            self.finish_request(request, client_address)
+        except Exception:
+            self.handle_error(request, client_address)
+        finally:
+            self.shutdown_request(request)
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PROXY_PORT", 80))
+    logging.info("HolmesGPT proxy listening on :%d → %s", port, BACKEND)
+    srv = ThreadingHTTPServer(("0.0.0.0", port), ProxyHandler)
+    srv.serve_forever()
+'@
+
+    # Write the strict system prompt to a temp file, then create a ConfigMap
+    $tmpPrompt = [System.IO.Path]::GetTempFileName() + '.txt'
+    [System.IO.File]::WriteAllText($tmpPrompt, $strictSystemPrompt, [System.Text.Encoding]::UTF8)
+    $tmpScript = [System.IO.Path]::GetTempFileName() + '.py'
+    [System.IO.File]::WriteAllText($tmpScript, $proxyScript, [System.Text.Encoding]::ASCII)
+
+    $cmResult = Invoke-Kubectl -Params 'create', 'configmap', 'holmesgpt-proxy-config',
         '-n', 'default',
-        "--from-file=nginx.conf=$tmpConf",
+        "--from-file=strict_system_prompt.txt=$tmpPrompt",
+        "--from-file=proxy.py=$tmpScript",
         '--dry-run=client', '-o', 'yaml'
     $tmpYaml = [System.IO.Path]::GetTempFileName() + '.yaml'
     $cmResult.Output | Set-Content $tmpYaml -Encoding UTF8
     (Invoke-Kubectl -Params 'apply', '-f', $tmpYaml).Output | Write-Log
-    Remove-Item $tmpYaml, $tmpConf -Force -ErrorAction SilentlyContinue
+    Remove-Item $tmpYaml, $tmpPrompt, $tmpScript -Force -ErrorAction SilentlyContinue
 
     # Deployment + Service manifests
     $manifest = @"
@@ -147,26 +388,35 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       containers:
-        - name: nginx
-          image: nginx:alpine
+        - name: proxy
+          image: python:3.11-alpine
           imagePullPolicy: IfNotPresent
+          command: ["python3", "/etc/holmes-proxy/proxy.py"]
           ports:
             - containerPort: 80
+          env:
+            - name: HOLMES_BACKEND_URL
+              value: "http://holmesgpt-holmes.ai-assistant.svc.cluster.local:80"
+            - name: HOLMES_STRICT_PROMPT_FILE
+              value: "/etc/holmes-proxy/strict_system_prompt.txt"
+            - name: PROXY_PORT
+              value: "80"
           volumeMounts:
-            - name: nginx-conf
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
+            - name: proxy-config
+              mountPath: /etc/holmes-proxy
+              readOnly: true
           resources:
             requests:
               cpu: 10m
-              memory: 16Mi
+              memory: 32Mi
             limits:
-              cpu: 100m
-              memory: 64Mi
+              cpu: 200m
+              memory: 128Mi
       volumes:
-        - name: nginx-conf
+        - name: proxy-config
           configMap:
-            name: holmesgpt-nginx-conf
+            name: holmesgpt-proxy-config
+            defaultMode: 0755
 ---
 apiVersion: v1
 kind: Service
@@ -201,11 +451,11 @@ spec:
     }
 
     Write-Log '[AI-Assistant] Waiting for HolmesGPT proxy pod to be ready...' -Console
-    $ready = Wait-ForPodCondition -Condition Ready -Label 'app=holmesgpt-proxy' -Namespace 'default' -TimeoutSeconds 60
+    $ready = Wait-ForPodCondition -Condition Ready -Label 'app=holmesgpt-proxy' -Namespace 'default' -TimeoutSeconds 90
     if (-not $ready) {
-        Write-Log '[AI-Assistant] Warning: HolmesGPT proxy pod did not become ready within 60s. Check: kubectl get pods -n default -l app=holmesgpt-proxy' -Console
+        Write-Log '[AI-Assistant] Warning: HolmesGPT proxy pod did not become ready within 90s. Check: kubectl get pods -n default -l app=holmesgpt-proxy' -Console
     } else {
-        Write-Log '[AI-Assistant] HolmesGPT nginx reverse-proxy is ready.' -Console
+        Write-Log '[AI-Assistant] HolmesGPT smart proxy is ready.' -Console
     }
 
     # ── SSE Direct-Route Ingress ───────────────────────────────────────────────
@@ -225,17 +475,20 @@ spec:
 
 <#
 .SYNOPSIS
-Removes the nginx reverse-proxy pod/Service for HolmesGPT from the 'default' namespace.
+Removes the Python smart proxy pod/Service for HolmesGPT from the 'default' namespace.
 #>
 function Remove-HolmesProxyEndpoints {
     [CmdletBinding()]
     Param()
     Write-Log '[AI-Assistant] Removing HolmesGPT proxy resources from default namespace...' -Console
-    (Invoke-Kubectl -Params 'delete', 'deployment',  'holmesgpt-proxy',      '-n', 'default', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'configmap',   'holmesgpt-nginx-conf', '-n', 'default', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'service',     'holmesgpt-holmes',     '-n', 'default', '--ignore-not-found').Output | Write-Log
-    # Remove the SSE direct-route ingress
-    (Invoke-Kubectl -Params 'delete', 'ingress', 'holmesgpt-sse-direct', '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'deployment',  'holmesgpt-proxy',       '-n', 'default', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'configmap',   'holmesgpt-proxy-config','-n', 'default', '--ignore-not-found').Output | Write-Log
+    # Also remove legacy nginx ConfigMap from older versions
+    (Invoke-Kubectl -Params 'delete', 'configmap',   'holmesgpt-nginx-conf',  '-n', 'default', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'service',     'holmesgpt-holmes',      '-n', 'default', '--ignore-not-found').Output | Write-Log
+    # Remove the SSE direct-route ingress and the bridge service
+    (Invoke-Kubectl -Params 'delete', 'ingress', 'holmesgpt-sse-direct',    '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'service', 'holmesgpt-proxy-bridge',  '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
     # Also clean up legacy resources from older versions
     (Invoke-Kubectl -Params 'delete', 'endpointslice', 'holmesgpt-holmes-k2s', '-n', 'default', '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', 'endpoints',     'holmesgpt-holmes',     '-n', 'default', '--ignore-not-found').Output | Write-Log

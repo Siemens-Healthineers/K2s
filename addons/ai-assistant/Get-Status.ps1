@@ -38,10 +38,14 @@ $isHolmesRunningProp.Message = if ($holmesReady) {
 
 # ── Proxy pod (default namespace) ─────────────────────────────────────────────
 # K8s 1.35 apiserver proxy requires a selector-based Service backed by real pods.
-# We deploy an nginx reverse-proxy pod in 'default' that forwards to HolmesGPT
-# in 'ai-assistant'. Check that the deployment is available.
-$proxyReady = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available',
-    '-n', 'default', 'deployment/holmesgpt-proxy', '--ignore-not-found').Success
+# We deploy a Python smart-proxy pod in 'default' that injects the strict system
+# prompt and forwards to HolmesGPT in 'ai-assistant'. Check that the deployment
+# is available.
+$proxyExists = -not [string]::IsNullOrWhiteSpace(
+    (Invoke-Kubectl -Params 'get', 'deployment', 'holmesgpt-proxy', '-n', 'default', '--ignore-not-found', '-o', 'name').Output
+)
+$proxyReady = $proxyExists -and (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available',
+    '-n', 'default', 'deployment/holmesgpt-proxy').Success
 $proxyWired = $proxyReady
 
 $isProxyWiredProp = @{
@@ -50,7 +54,7 @@ $isProxyWiredProp = @{
     Okay  = $proxyWired
 }
 $isProxyWiredProp.Message = if ($proxyWired) {
-    'HolmesGPT nginx reverse-proxy is running in default namespace'
+    'HolmesGPT smart proxy is running in default namespace (strict mode active)'
 } else {
     "HolmesGPT proxy pod missing in default namespace. Fix: k2s addons update ai-assistant"
 }

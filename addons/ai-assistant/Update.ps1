@@ -17,7 +17,11 @@ k2s addons update ai-assistant
 
 Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 
 $clusterModule      = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -35,13 +39,23 @@ Write-Log '[AI-Assistant] Running Update...' -Console
 # ── Pre-flight: cluster must be available ─────────────────────────────────────
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
     Write-Log $systemError.Message -Error
     exit 1
 }
 
 # ── Pre-flight: addon must be enabled ─────────────────────────────────────────
 if ((Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ai-assistant'})) -ne $true) {
-    Write-Log "[AI-Assistant] Addon 'ai-assistant' is not enabled. Run: k2s addons enable ai-assistant" -Error
+    $errMsg = "[AI-Assistant] Addon 'ai-assistant' is not enabled. Run: k2s addons enable ai-assistant"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
     exit 1
 }
 
@@ -50,8 +64,13 @@ $holmesSvc = (Invoke-Kubectl -Params 'get', 'svc', 'holmesgpt-holmes',
     '-n', 'ai-assistant', '--ignore-not-found', '-o', 'name').Output
 
 if ([string]::IsNullOrWhiteSpace($holmesSvc)) {
-    Write-Log '[AI-Assistant] HolmesGPT service not found in ai-assistant namespace.' -Error
-    Write-Log '[AI-Assistant] The pod may still be starting up. Check: kubectl get pods -n ai-assistant -l app=holmesgpt' -Console
+    $errMsg = '[AI-Assistant] HolmesGPT service not found in ai-assistant namespace. Check: kubectl get pods -n ai-assistant -l app=holmesgpt'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
     Write-Log '[AI-Assistant] If the service is permanently missing, re-enable the addon: k2s addons disable ai-assistant; k2s addons enable ai-assistant' -Console
     exit 1
 }
@@ -62,7 +81,13 @@ try {
     Set-HolmesProxyEndpoints
 }
 catch {
-    Write-Log "[AI-Assistant] Failed to re-wire proxy Endpoints: $($_.Exception.Message)" -Error
+    $errMsg = "[AI-Assistant] Failed to re-wire proxy Endpoints: $($_.Exception.Message)"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
     exit 1
 }
 
@@ -71,3 +96,7 @@ Write-Log '[AI-Assistant] Re-syncing Headlamp plugin injection...' -Console
 Sync-HeadlampPlugins
 
 Write-Log '[AI-Assistant] Update complete. The AI Assistant should now be reachable in Headlamp.' -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
