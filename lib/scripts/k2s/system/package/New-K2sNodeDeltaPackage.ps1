@@ -138,7 +138,7 @@ function Get-HashMap {
 
     foreach ($item in $items) {
         $rel = $item.FullName.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
-        $hash = (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash
+              $hash = (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash
         $map[$rel] = [pscustomobject]@{
             Path = $item.FullName
             Hash = $hash
@@ -363,61 +363,23 @@ try {
         Set-Content -LiteralPath (Join-Path $stageDir 'images.removed') -Value ($imageDiff.Removed -join "`n") -Encoding ASCII
     }
 
-    $applyLinuxScript = @'
-#!/usr/bin/env bash
-set -euo pipefail
+    $scriptsSourceDir = Join-Path $PSScriptRoot 'scripts'
 
-if [[ $EUID -ne 0 ]]; then
-  echo "Run as root" >&2
-  exit 1
-fi
+    $applyScriptSource = Join-Path $scriptsSourceDir 'apply-node-delta.sh'
+    $applyPath = Join-Path $stageDir 'apply-node-delta.sh'
+    if (Test-Path -LiteralPath $applyScriptSource) {
+        Copy-Item -LiteralPath $applyScriptSource -Destination $applyPath -Force
+    } else {
+        throw "Required script not found: $applyScriptSource"
+    }
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT_DIR"
-
-if [[ ! -d "packages" ]]; then
-  echo "No packages directory found"
-  exit 1
-fi
-
-OS_DIR="${1:-}"
-if [[ -z "$OS_DIR" ]]; then
-  OS_DIR="$(find packages -mindepth 1 -maxdepth 1 -type d | head -n1 | xargs -r basename)"
-fi
-
-if [[ -z "$OS_DIR" || ! -d "packages/$OS_DIR" ]]; then
-  echo "No OS directory found under packages/"
-  exit 1
-fi
-
-echo "[node-delta] Applying Debian package updates from packages/$OS_DIR"
-shopt -s globstar nullglob
-DEBS=(packages/$OS_DIR/**/*.deb)
-if [[ ${#DEBS[@]} -gt 0 ]]; then
-  dpkg -i "${DEBS[@]}" || true
-  apt-get -y --no-install-recommends install -f || true
-else
-  echo "[node-delta] No .deb files to apply"
-fi
-
-if [[ -f "packages.removed" ]]; then
-  echo "[node-delta] Purging removed packages listed in packages.removed"
-  xargs -r dpkg --purge < packages.removed || true
-fi
-
-if [[ -d "images" ]]; then
-  TARFILES=(images/*.tar)
-  if [[ ${#TARFILES[@]} -gt 0 ]]; then
-    echo "[node-delta] Importing ${#TARFILES[@]} image archive(s)"
-    for tarfile in "${TARFILES[@]}"; do
-      buildah pull "oci-archive:${tarfile}" || true
-    done
-  fi
-fi
-
-echo "[node-delta] Completed"
-'@
-    Set-Content -LiteralPath (Join-Path $stageDir 'apply-node-delta.sh') -Value $applyLinuxScript -Encoding ASCII
+    $verifyScriptSource = Join-Path $scriptsSourceDir 'verify-node-delta.sh'
+    $verifyPath = Join-Path $stageDir 'verify-node-delta.sh'
+    if (Test-Path -LiteralPath $verifyScriptSource) {
+        Copy-Item -LiteralPath $verifyScriptSource -Destination $verifyPath -Force
+    } else {
+        throw "Required script not found: $verifyScriptSource"
+    }
 
     $applyPs1 = @'
 # SPDX-FileCopyrightText: (c) 2026 Siemens Healthineers AG
