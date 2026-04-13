@@ -118,13 +118,50 @@ function Get-NodePodCIDRFromKubectl {
     return $null
 }
 
+function Get-GatewayFromCidr {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cidr
+    )
+
+    # Validate format and extract IP/Prefix
+    if ($Cidr -match '^(\d{1,3}(?:\.\d{1,3}){3})/(\d{1,2})$') {
+        $ipStr = $Matches[1]
+        $prefix = [int]$Matches[2]
+        
+        try {
+            $ipBytes = [System.Net.IPAddress]::Parse($ipStr).GetAddressBytes()
+            # Reverse bytes for BigEndian to host order conversion if necessary, 
+            # but manual bit-shifting as you did is often clearer in PS.
+            [uint32]$ipInt = [System.BitConverter]::ToUInt32($ipBytes[3..0], 0)
+
+            # Create Mask: Shift 1s into place, then flip to get the host bits
+            [uint32]$mask = [uint32]::MaxValue -shl (32 - $prefix)
+            
+            # Calculate Network Address + 1
+            [uint32]$gatewayInt = ($ipInt -band $mask) + 1
+            
+            # Convert back to IP string using IPAddress constructor
+            $gatewayBytes = [System.BitConverter]::GetBytes($gatewayInt)
+            [Array]::Reverse($gatewayBytes) # Ensure correct octet order
+            return ([System.Net.IPAddress]::new($gatewayBytes)).IPAddressToString
+        }
+        catch {
+            return $null
+        }
+    }
+    return $null
+}
+
 function New-ExternalSwitch {
     param (
         [Parameter()]
         [string] $adapterName,
-        [string] $PodSubnetworkNumber = '1'
+        [string] $PodSubnetworkNumber = '1',
+        [switch] $UsePodCIDRAsGateway
     )
-
+    
+    Write-Log "Creating external switch with adapter '$adapterName', PodSubnetworkNumber '$PodSubnetworkNumber', UsePodCIDRAsGateway '$UsePodCIDRAsGateway'"    
     # if the L2 bridge is already found we don't need to create it again
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
     $found = Invoke-HNSCommand -Command { 
@@ -214,9 +251,8 @@ function New-ExternalSwitch {
     # build string for DNS server
     $dnsserver = $($adr -join ',')
 
-    # start of external switch
-    $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
-
+    
+  
     # Prefer the PodCIDR actually assigned to this node by kubeadm/kube-controller-manager.
     # Encapsulate kubectl logic in a helper and fall back to configured template when needed.
     $nodeName = $env:COMPUTERNAME.ToLower()
@@ -227,6 +263,18 @@ function New-ExternalSwitch {
         Write-Log "[ExternalSwitch] Falling back to configured cluster CIDR: $podNetworkCIDR"
     }
 
+    # start of external switch
+    $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
+    if ($UsePodCIDRAsGateway -and $podNetworkCIDR) {
+        $derivedGw = Get-GatewayFromCidr -Cidr $podNetworkCIDR
+        if ($derivedGw) {
+            $gatewayIpAddress = $derivedGw
+            Write-Log "[ExternalSwitch] Using gateway derived from PodCIDR: $gatewayIpAddress"
+        }
+        else {
+            Write-Log "[ExternalSwitch] Failed to derive gateway from PodCIDR '$podNetworkCIDR', using configured gateway: $gatewayIpAddress"
+        }
+    }
     Write-Log "Create l2 bridge network with subnet: $podNetworkCIDR, switch name: $l2BridgeSwitchName, DNS server: $dnsserver, gateway: $gatewayIpAddress, NAT exceptions: $clusterCIDRNatExceptions, adapter name: $adapterName"
     
     # Check if network already exists from previous failed setup and remove it

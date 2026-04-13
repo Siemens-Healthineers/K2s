@@ -311,8 +311,14 @@ function Start-WindowsWorkerNode {
     Write-Log '[NodeStart] Starting windows services' -Console
     Start-Service -Name 'vmcompute'
     Start-Service -Name 'hns'
-
-    New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
+    if ([string]::IsNullOrWhiteSpace($PhysicalAdapterName)) {
+        Write-Log "[NodeStart] PhysicalAdapterName is not set, creating external switch" -Console
+        New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber -UsePodCIDRAsGateway
+    }
+    else {
+            Write-Log "[NodeStart] PhysicalAdapterName is set, creating external switch with UsePodCIDRAsGateway=$true" -Console
+        New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber -UsePodCIDRAsGateway:$true
+    }
 
     Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
