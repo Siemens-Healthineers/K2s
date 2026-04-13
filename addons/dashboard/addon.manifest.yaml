@@ -11,6 +11,16 @@ spec:
   implementations:
     - name: dashboard
       description: Headlamp - Kubernetes Dashboard (kubernetes-sigs)
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages: []
+          additionalImagesFiles:
+            - manifests/headlamp/headlamp.yaml
+        windows:
+          curl: []
       commands:
         enable:
           cli:
