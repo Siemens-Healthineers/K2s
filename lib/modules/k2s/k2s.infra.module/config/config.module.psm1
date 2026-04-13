@@ -333,6 +333,7 @@ function Set-ConfigProductVersion {
 }
 
 function Get-ConfigUsedStorageLocalDriveLetter {
+    Write-Log "Get-ConfigUsedStorageLocalDriveLetter: $SetupJsonFile" -Console
     return Get-ConfigValue -Path $SetupJsonFile -Key 'UsedStorageLocalDriveLetter'
 }
 

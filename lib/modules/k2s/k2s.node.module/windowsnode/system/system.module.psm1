@@ -150,29 +150,38 @@ function Get-StorageLocalDrive {
     $storageLocalDriveLetter = ''
 
     $usedStorageLocalDriveLetter = Get-ConfigUsedStorageLocalDriveLetter
+    Write-Log "usedStorageLocalDriveLetter: $usedStorageLocalDriveLetter"
     if (!([string]::IsNullOrWhiteSpace($usedStorageLocalDriveLetter))) {
         $storageLocalDriveLetter = $usedStorageLocalDriveLetter
+        Write-Log "Using cached drive letter: $storageLocalDriveLetter"
     }
     else {
         $configuredStorageLocalDriveLetter = Get-ConfiguredStorageLocalDriveLetter
+        Write-Log "configuredStorageLocalDriveLetter: $configuredStorageLocalDriveLetter"
         $searchAvailableFixedLogicalDrives = {
             $fixedHardDrives = Get-CimInstance -ClassName Win32_DiskDrive | Where-Object { $_.Mediatype -eq 'Fixed hard disk media' }
+            Write-Log "fixedHardDrives: $($fixedHardDrives | Out-String)"
             $partitionsOnFixedHardDrives = $fixedHardDrives | Foreach-Object { Get-CimInstance -Query "ASSOCIATORS OF {Win32_DiskDrive.DeviceID=`"$($_.DeviceID.Replace('\','\\'))`"} WHERE AssocClass = Win32_DiskDriveToDiskPartition" }
+            Write-Log "partitionsOnFixedHardDrives: $($partitionsOnFixedHardDrives | Out-String)"
             $fixedLogicalDrives = $partitionsOnFixedHardDrives | Foreach-Object { Get-CimInstance -Query "ASSOCIATORS OF {Win32_DiskPartition.DeviceID=`"$($_.DeviceID)`"} WHERE AssocClass = Win32_LogicalDiskToPartition" }
+            Write-Log "fixedLogicalDrives: $($fixedLogicalDrives | Out-String)"
             return $fixedLogicalDrives | Sort-Object $_.DeviceID
         }
         if ([string]::IsNullOrWhiteSpace($configuredStorageLocalDriveLetter)) {
             $fixedLogicalDrives = $searchAvailableFixedLogicalDrives.Invoke()
-            # no drive letter is configured --> use the local drive with the most space available
+            Write-Log "fixedLogicalDrives: $($fixedLogicalDrives | Out-String)"
             $fixedLogicalDriveWithMostSpaceAvailable = $($fixedLogicalDrives | Sort-Object -Property FreeSpace -Descending | Select-Object -Property DeviceID -First 1).DeviceID
+            Write-Log "fixedLogicalDriveWithMostSpaceAvailable: $fixedLogicalDriveWithMostSpaceAvailable"
             $storageLocalDriveLetter = $fixedLogicalDriveWithMostSpaceAvailable.Substring(0, 1)
         }
         else {
+            Write-Log "Checking configured drive letter: $configuredStorageLocalDriveLetter"
             if ($configuredStorageLocalDriveLetter -match '^[a-zA-Z]$') {
                 $storageLocalDriveLetter = $configuredStorageLocalDriveLetter
                 $searchedLogicalDeviceID = $storageLocalDriveLetter + ':'
                 $fixedLogicalDrives = $searchAvailableFixedLogicalDrives.Invoke()
                 $foundFixedLogicalDrive = $fixedLogicalDrives | Where-Object { $_.DeviceID -eq $searchedLogicalDeviceID }
+                Write-Log "foundFixedLogicalDrive: $($foundFixedLogicalDrive | Out-String)"
                 if ($null -eq $foundFixedLogicalDrive) {
                     $availableFixedLogicalDrives = (($fixedLogicalDrives | Select-Object -Property DeviceID) | ForEach-Object { $_.DeviceID.Substring(0, 1) }) -join ', '
                     throw "The configured local drive letter '$configuredStorageLocalDriveLetter' is not a local fixed drive or is not available in your system.`nYour available local fixed drives are: $availableFixedLogicalDrives. Please choose one of them."
@@ -190,6 +199,7 @@ function Get-StorageLocalDrive {
         throw 'The local drive letter for the storage could not be determined'
     }
 
+    Write-Log "Returning storageLocalDriveLetter: $storageLocalDriveLetter"
     return $storageLocalDriveLetter + ':'
 }
 

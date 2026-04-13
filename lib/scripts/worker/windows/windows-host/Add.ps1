@@ -107,6 +107,17 @@ Write-Host "Extracting zip file on the remote machine: $extractPath"
 $extractCmd = "powershell -Command `"Expand-Archive -Path '$remoteZipPath' -DestinationPath '$extractPath' -Force`""
 Invoke-CmdOnVmViaSSHKey -CmdToExecute $extractCmd -IpAddress $IpAddress -UserName $UserName
 
+
+# Copy the kubeconfig file to the remote machine as C:\k2s\config
+$localKubeConfig = "C:\k2s\config"
+$remoteKubeConfig = "C:\k2s\config"
+if (Test-Path $localKubeConfig) {
+    Write-Host "Copying kubeconfig to remote machine: $remoteKubeConfig"
+    scp.exe -o StrictHostKeyChecking=no -i $key "$localKubeConfig" "${UserName}@${IpAddress}:$remoteKubeConfig"
+} else {
+    Write-Warning "Kubeconfig file not found at $localKubeConfig. Skipping copy."
+}
+
 # Copy the corrected InstallNode.ps1 file to override the one from the zip
 Write-Host "Copying corrected InstallNode.ps1 to remote machine"
 $localInstallNodeScript = "$PSScriptRoot\InstallNode.ps1"
@@ -127,9 +138,13 @@ $remoteJoinCommandFile = "C:\Temp\join-command.txt"
 Write-Host "Copying join command file to remote machine"
 scp.exe -o StrictHostKeyChecking=no -i $key "$joinCommandFile" "${UserName}@${IpAddress}:$remoteJoinCommandFile"
 
-# Execute InstallNode.ps1 directly on the remote machine
-Write-Host "Executing InstallNode.ps1 on remote machine: $IpAddress"
-$executeScriptCmd = "powershell -ExecutionPolicy Bypass -File `"C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1`" -ShowLogs -IpAddress $IpAddress"
+
+if ($WindowsHostIpAddress -eq '') {
+    $loopbackAdapter = Get-L2BridgeName
+    $WindowsHostIpAddress = Get-HostPhysicalIp -ExcludeNetworkInterfaceName $loopbackAdapter
+}
+Write-Host "Executing InstallNode.ps1 on remote machine: $IpAddress with HostIpAddress $WindowsHostIpAddress"
+$executeScriptCmd = "powershell -ExecutionPolicy Bypass -File `"C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1`" -ShowLogs -IpAddress $IpAddress -HostIpAddress $WindowsHostIpAddress"
 
 $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $executeScriptCmd -IpAddress $IpAddress -UserName $UserName
 

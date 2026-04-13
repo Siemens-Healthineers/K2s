@@ -368,12 +368,14 @@ function Install-WinNodeArtifacts {
         [bool] $SkipClusterSetup = $false,
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
         [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-        [string] $K8sBinsPath = ''
+        [string] $K8sBinsPath = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Indicates if a loopback adapter is required for the installation')]
+        [bool] $IsLoopBackAdapterRequired = $true
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
 
-    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -PodSubnetworkNumber $PodSubnetworkNumber
+    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -PodSubnetworkNumber $PodSubnetworkNumber -IsLoopBackAdapterRequired $IsLoopBackAdapterRequired
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
@@ -389,7 +391,7 @@ function Install-WinNodeArtifacts {
         Invoke-DeployCniPlugins $windowsNodeArtifactsDirectory
         Invoke-DeployCniFlannelArtifacts $windowsNodeArtifactsDirectory
 
-        Install-WinFlannel
+        Install-WinFlannel -IsLoopBackAdapterRequired $IsLoopBackAdapterRequired
         Install-WinKubeProxy
 
     }

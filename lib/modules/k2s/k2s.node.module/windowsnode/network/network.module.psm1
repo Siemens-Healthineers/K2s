@@ -53,6 +53,7 @@ function Get-ConfiguredClusterCIDRHost_2 {
 
 function Get-ConfiguredClusterCIDRForFlannel{
 
+    Write-Log "Returning cluster CIDR for Flannel: $clusterCIDRForFlannel"
     return $clusterCIDRForFlannel
 }
 
@@ -72,6 +73,49 @@ function Get-ConfiguredClusterCIDRGateway {
     # $gateway = $clusterCIDRGateway.Replace('__SUBNETWORK_NUMBER__', $PodSubnetworkNumber)
     # return $gateway
     return $clusterCIDRGateway
+}
+
+# Query the local kubectl to obtain this node's PodCIDR (returns null on failure)
+function Get-NodePodCIDRFromKubectl {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$NodeName
+    )
+
+    # 1. Find kubectl once
+    $kubectlCmd = (Get-Command kubectl -ErrorAction SilentlyContinue).Source
+    if (-not $kubectlCmd -and (Test-Path 'C:\k2s\bin\kubectl.exe')) { 
+        $kubectlCmd = 'C:\k2s\bin\kubectl.exe' 
+    }
+
+    if (-not $kubectlCmd) {
+        Write-Log "[ExternalSwitch] kubectl not found."
+        return $null
+    }
+
+    try {
+        # 2. Execute without merging error stream into the result
+        $raw = & $kubectlCmd get node $NodeName -o jsonpath='{.spec.podCIDR}' 2>$null
+        
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            Write-Log "[ExternalSwitch] No PodCIDR property found for $NodeName (Check CNI config)"
+            return $null
+        }
+
+        $cidr = $raw.Trim("'`" ")
+        # 3. Improved Regex to ensure it's a valid CIDR
+        if ($cidr -match '^\d{1,3}(\.\d{1,3}){3}/\d{1,2}$') {
+            Write-Log "[ExternalSwitch] Found PodCIDR: $cidr"
+            return $cidr
+        } else {
+            Write-Log "[ExternalSwitch] Invalid CIDR format returned: '$cidr'"
+        }
+    }
+    catch {
+        Write-Log "[ExternalSwitch] Exception querying kube API: $($_.Exception.Message)"
+    }
+
+    return $null
 }
 
 function New-ExternalSwitch {
@@ -99,14 +143,69 @@ function New-ExternalSwitch {
         Write-Log "Using card: '$adapterName' with $ipaddress and $dhcp"
     }
     else {
-        Write-Log 'FAILURE: no NIC found which is appropriate !'
-        throw 'Fatal: no network interface found which works for K2s Setup!'
+        # Fallback: use .NET to find IP address for the adapter when CIM/WMI is broken
+        Write-Log "[ExternalSwitch] Get-NetIPAddress failed for '$adapterName'. Attempting .NET fallback."
+        try {
+            $dotNetNic = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
+                Where-Object { $_.Name -eq $adapterName -and $_.OperationalStatus -eq 'Up' } |
+                Select-Object -First 1
+            if ($dotNetNic) {
+                $ipProps = $dotNetNic.GetIPProperties()
+                $unicast = $ipProps.UnicastAddresses | Where-Object {
+                    $_.Address.AddressFamily -eq 'InterNetwork' -and
+                    $_.Address.ToString() -notmatch '^169\.254\.'
+                } | Select-Object -First 1
+                if ($unicast) {
+                    $ipaddress = $unicast.Address.ToString()
+                    $dhcp = 'Unknown'
+                    Write-Log "[ExternalSwitch] Found IP '$ipaddress' for adapter '$adapterName' via .NET fallback"
+                    # Build a minimal object so downstream code can use InterfaceIndex-dependent logic
+                    $nic = [PSCustomObject]@{
+                        IPv4Address    = $ipaddress
+                        IPAddress      = $ipaddress
+                        PrefixOrigin   = $dhcp
+                        InterfaceIndex = $null
+                        InterfaceAlias = $adapterName
+                    }
+                }
+            }
+        }
+        catch {
+            Write-Log "[ExternalSwitch] .NET fallback also failed: $($_.Exception.Message)"
+        }
+
+        if ($null -eq $nic) {
+            Write-Log 'FAILURE: no NIC found which is appropriate !'
+            throw 'Fatal: no network interface found which works for K2s Setup!'
+        }
     }
 
     # get DNS server from NIC
-    $dnsServers = @(Get-DnsClientServerAddress -InterfaceIndex $nic.InterfaceIndex -AddressFamily IPv4)
-    $adr = $()
-    if ( $dnsServers) {
+    $dnsServers = $null
+    $adr = @()
+    if ($null -ne $nic.InterfaceIndex) {
+        $dnsServers = @(Get-DnsClientServerAddress -InterfaceIndex $nic.InterfaceIndex -AddressFamily IPv4)
+    }
+    if ($null -eq $dnsServers -or $dnsServers.Count -eq 0) {
+        # Fallback: try to get DNS servers via .NET
+        Write-Log '[ExternalSwitch] Resolving DNS servers via .NET'
+        try {
+            $dotNetNicForDns = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
+                Where-Object { $_.Name -eq $adapterName -and $_.OperationalStatus -eq 'Up' } |
+                Select-Object -First 1
+            if ($dotNetNicForDns) {
+                $dnsAddresses = $dotNetNicForDns.GetIPProperties().DnsAddresses |
+                    Where-Object { $_.AddressFamily -eq 'InterNetwork' }
+                $adr = @($dnsAddresses | ForEach-Object { $_.ToString() })
+                Write-Log "[ExternalSwitch] DNS servers via .NET: '$($adr -join ',')'"
+            }
+        }
+        catch {
+            Write-Log "[ExternalSwitch] .NET DNS lookup failed: $($_.Exception.Message)"
+            $adr = @()
+        }
+    }
+    else {
         if ($dnsServers.ServerAddresses) {
             $adr = $dnsServers.ServerAddresses
         }
@@ -117,7 +216,17 @@ function New-ExternalSwitch {
 
     # start of external switch
     $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
-    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+
+    # Prefer the PodCIDR actually assigned to this node by kubeadm/kube-controller-manager.
+    # Encapsulate kubectl logic in a helper and fall back to configured template when needed.
+    $nodeName = $env:COMPUTERNAME.ToLower()
+    $podNetworkCIDR = Get-NodePodCIDRFromKubectl -NodeName $nodeName
+    if (-not $podNetworkCIDR) {
+        # fallback to configured template
+        $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+        Write-Log "[ExternalSwitch] Falling back to configured cluster CIDR: $podNetworkCIDR"
+    }
+
     Write-Log "Create l2 bridge network with subnet: $podNetworkCIDR, switch name: $l2BridgeSwitchName, DNS server: $dnsserver, gateway: $gatewayIpAddress, NAT exceptions: $clusterCIDRNatExceptions, adapter name: $adapterName"
     
     # Check if network already exists from previous failed setup and remove it
@@ -699,12 +808,29 @@ function Set-KubeSwitchToPrivate {
     Write-Log 'Kubeswitch check finished.'
 }
 
-Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
-Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,Get-ConfiguredClusterCIDRHost_2,Get-ConfiguredClusterCIDRForFlannel,
-New-ExternalSwitch, Remove-ExternalSwitch,
-Set-InterfacePrivate,
-Get-L2BridgeSwitchName,
-Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
-Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
-Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand,
-Wait-ForServiceStopped
+Export-ModuleMember -Function `
+    Set-IndexForDefaultSwitch, `
+    Get-L2BridgeSwitchName, `
+    Get-ConfiguredClusterCIDRHost, `
+    Get-ConfiguredClusterCIDRHost_2, `
+    Get-ConfiguredClusterCIDRForFlannel, `
+    Get-ConfiguredClusterCIDRNextHop, `
+    Get-ConfiguredClusterCIDRGateway, `
+    Get-NodePodCIDRFromKubectl, `
+    New-ExternalSwitch, `
+    Remove-ExternalSwitch, `
+    Set-InterfacePrivate, `
+    Set-IPAddressAndDnsClientServerAddress, `
+    Set-WSLSwitch, `
+    Get-VfpRulesFilePath, `
+    Add-VfpRulesToWindowsNode, `
+    Remove-VfpRulesFromWindowsNode, `
+    Add-VfpRoute, `
+    Remove-VfpRoute, `
+    Get-VirtualSwitchName, `
+    Set-KubeSwitchToPrivate, `
+    Restart-NlaSvc, `
+    Restart-HNSService, `
+    Invoke-HNSCommand, `
+    Wait-ForServiceRunning, `
+    Wait-ForServiceStopped

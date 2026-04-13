@@ -628,6 +628,10 @@ function Convert-BytesToGB {
 }
 
 function Test-ExistingExternalSwitch {
+    if (-not (Get-Command 'Get-VMSwitch' -ErrorAction SilentlyContinue)) {
+        Write-Log '[ExternalSwitch] Get-VMSwitch not available (Hyper-V not installed). Skipping external switch check.'
+        return
+    }
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
     $externalSwitches = Get-VMSwitch | Where-Object { $_.SwitchType -eq 'External' -and $_.Name -ne $l2BridgeSwitchName}
     if ($externalSwitches) {

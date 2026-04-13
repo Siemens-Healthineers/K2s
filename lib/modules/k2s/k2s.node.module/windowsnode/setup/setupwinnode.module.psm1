@@ -52,14 +52,14 @@ function Initialize-Networking {
         New-NetFirewallRule -DisplayName $kubeVMFirewallRuleName -Group 'k2s' -Description 'Allow inbound traffic from the Linux VM on ports above 8000' -RemoteAddress $ipControlPlane -RemotePort '8000-32000' -Enabled True -Direction Inbound -Protocol TCP -Action Allow | Out-Null
     }
 
-    $adapterName = Get-L2BridgeName
-    Write-Log "Using network adapter '$adapterName'"
-    $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
-    if (!$ipaddresses) {
-        throw 'No IP address found which can be used for setting up K2s Setup !'
-    }
-    $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
-    Write-Log "Using local IP $ipaddress for setup of CNI"
+    # $adapterName = Get-L2BridgeName
+    # Write-Log "Using network adapter '$adapterName'"
+    # $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
+    # if (!$ipaddresses) {
+    #     throw 'No IP address found which can be used for setting up K2s Setup !'
+    # }
+    # $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
+    # Write-Log "Using local IP $ipaddress for setup of CNI"
 
     $clusterCIDRHost = Get-ConfiguredClusterCIDRForFlannel
     Write-Log "Using IP $clusterCIDRHost for setup of flannel net-conf.json"
@@ -122,7 +122,9 @@ function Initialize-WinNode {
         [boolean] $SkipClusterSetup = $false,
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
         [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-        [string] $K8sBinsPath = ''
+        [string] $K8sBinsPath = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Indicates if a loopback adapter is required for the installation')]
+        [bool] $IsLoopBackAdapterRequired = $true
     )
 
     if (!(Test-Path "$kubeToolsPath")) {
@@ -150,7 +152,7 @@ function Initialize-WinNode {
         Write-Log 'Skipping networking setup on windows node'
     }
 
-    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -PodSubnetworkNumber $PodSubnetworkNumber -K8sBinsPath $K8sBinsPath
+    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -PodSubnetworkNumber $PodSubnetworkNumber -K8sBinsPath $K8sBinsPath -IsLoopBackAdapterRequired $IsLoopBackAdapterRequired
 
     if (! $SkipClusterSetup) {
         Reset-WinServices
