@@ -211,6 +211,7 @@ deb12-node-delta-v1.7.0-to-v1.8.0.zip
 ├── delta-manifest.json      # Metadata and file lists (DeltaType: "node-package")
 ├── Apply-Delta.ps1          # Manual application helper (Windows host)
 ├── apply-node-delta.sh      # Manual application helper (Linux node)
+├── verify-node-delta.sh     # Manual verification helper (Linux node)
 ├── packages/
 │   └── debian12/            # Changed and added .deb files only
 │       ├── kubelet_1.35.2-1.1_amd64.deb
