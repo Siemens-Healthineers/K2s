@@ -281,7 +281,7 @@ else {
 
     # change linux kernel
     $prefix = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux-advanced.*\' /boot/grub/grub.cfg | tr -d `"\'`"").Output
-    $kernel = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux.*microsoft-standard-WSL2.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"").Output
+    $kernel = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -io \'gnulinux.*microsoft-standard-wsl2.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"").Output
     if ([string]::IsNullOrWhiteSpace($kernel)) {
         $errMsg = 'Could not locate microsoft-standard-WSL2 kernel entry in /boot/grub/grub.cfg. The kernel package was installed but GRUB did not register it as expected. Re-run the enable or inspect grub.cfg manually on the VM.'
         if ($EncodeStructuredOutput -eq $true) {
