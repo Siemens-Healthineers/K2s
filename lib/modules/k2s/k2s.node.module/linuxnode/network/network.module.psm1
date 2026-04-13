@@ -33,18 +33,50 @@ function Add-DnsServer($switchname) {
     Create switch to KubeMaster VM.
 #>
 function New-KubeSwitch() {
-    # create new switch for debian VM
-    Write-Log "Create internal switch $controlPlaneSwitchName"
-    New-VMSwitch -Name $controlPlaneSwitchName -SwitchType Internal -MinimumBandwidthMode Weight | Out-Null
-    Wait-ForNetIpInterface -SwitchName "vEthernet ($controlPlaneSwitchName)"
-    New-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -InterfaceAlias "vEthernet ($controlPlaneSwitchName)" | Out-Null
+    $maxRetries = 3
+    $retryDelaySeconds = 5
+    $switchAlias = "vEthernet ($controlPlaneSwitchName)"
+
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        try {
+            Write-Log "[KubeSwitch] Create internal switch $controlPlaneSwitchName (attempt $attempt of $maxRetries)"
+            New-VMSwitch -Name $controlPlaneSwitchName -SwitchType Internal -MinimumBandwidthMode Weight | Out-Null
+
+            # allow Windows networking stack to register the virtual adapter
+            Start-Sleep -Seconds 2
+
+            Wait-ForNetIpInterface -SwitchName $switchAlias
+
+            # switch is available, proceed with configuration
+            break
+        }
+        catch {
+            Write-Log "[KubeSwitch] Attempt $attempt failed: $_"
+
+            # clean up partially-created switch before retrying
+            $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
+            if ($sw) {
+                Write-Log "[KubeSwitch] Removing partially-created switch before retry ..."
+                Remove-VMSwitch -Name $controlPlaneSwitchName -Force
+            }
+
+            if ($attempt -ge $maxRetries) {
+                throw "[KubeSwitch] Failed to create switch '$controlPlaneSwitchName' after $maxRetries attempts. Last error: $_"
+            }
+
+            Write-Log "[KubeSwitch] Retrying in $retryDelaySeconds seconds ..."
+            Start-Sleep -Seconds $retryDelaySeconds
+        }
+    }
+
+    New-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -InterfaceAlias $switchAlias | Out-Null
     # set connection to private because of firewall rules
-    Set-NetConnectionProfile -InterfaceAlias "vEthernet ($controlPlaneSwitchName)" -NetworkCategory Private -ErrorAction SilentlyContinue
+    Set-NetConnectionProfile -InterfaceAlias $switchAlias -NetworkCategory Private -ErrorAction SilentlyContinue
     # enable forwarding
-    netsh int ipv4 set int "vEthernet ($controlPlaneSwitchName)" forwarding=enabled | Out-Null
+    netsh int ipv4 set int $switchAlias forwarding=enabled | Out-Null
     # change index in order to have the Ethernet card as first card (also for much better DNS queries)
     $ipindex1 = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$controlPlaneSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-    Write-Log "Index for interface $controlPlaneSwitchName : ($ipindex1) -> metric 100"
+    Write-Log "[KubeSwitch] Index for interface $controlPlaneSwitchName : ($ipindex1) -> metric 100"
     Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 100
 }
 
@@ -193,16 +225,24 @@ function Wait-ForNetIpInterface {
     )
     # wait for switch
     $switchName = $SwitchName
-    Write-Log "Wait for NetIpInterface '$switchName' to be available ..."
-    $maxWaitTime = 30  # 30 seconds
+    Write-Log "[KubeSwitch] Wait for NetIpInterface '$switchName' to be available ..."
+    $maxWaitTime = 60
     $startTime = Get-Date
+    $lastProgressTime = $startTime
     while (!(Get-NetIPInterface -InterfaceAlias $switchName -AddressFamily IPv4 -ErrorAction SilentlyContinue)) {
-        if ((Get-Date) -gt $startTime.AddSeconds($maxWaitTime)) {
+        $elapsed = (Get-Date) - $startTime
+        if ($elapsed.TotalSeconds -ge $maxWaitTime) {
+            $availableInterfaces = (Get-NetIPInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty InterfaceAlias) -join ', '
+            Write-Log "[KubeSwitch] Available IPv4 interfaces: $availableInterfaces"
             throw "Switch '$switchName' not available after $maxWaitTime seconds"
+        }
+        if (((Get-Date) - $lastProgressTime).TotalSeconds -ge 10) {
+            Write-Log "[KubeSwitch] Still waiting for '$switchName' ($([int]$elapsed.TotalSeconds)s elapsed) ..."
+            $lastProgressTime = Get-Date
         }
         Start-Sleep -Seconds 1
     }
-    Write-Log "NetIpInterface '$switchName' is available"
+    Write-Log "[KubeSwitch] NetIpInterface '$switchName' is available"
 }
 
 
