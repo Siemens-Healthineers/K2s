@@ -366,6 +366,7 @@ func CleanAddonResources(ctx context.Context, suite *framework.K2sTestSuite, k2s
 	GinkgoWriter.Printf("[Clean] Removing debian packages with command: %s\n", rmCmd)
 	suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", rmCmd)
 	GinkgoWriter.Println("[Clean] Debian packages removed")
+
 	GinkgoWriter.Println("=== CLEAN ADDON RESOURCES END ===")
 }
 
