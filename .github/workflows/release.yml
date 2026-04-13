@@ -10,7 +10,7 @@ on:
 #      - 'v1.*'
 
 env:
-  GOVERSION: "1.26.0"
+  GOVERSION: "1.26.2"
 
 jobs:
   build_release:

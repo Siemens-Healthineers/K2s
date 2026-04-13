@@ -166,9 +166,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/nerdctl/releases/download/v2.2.1/nerdctl-2.2.1-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/nerdctl/releases/download/v2.2.2/nerdctl-2.2.2-windows-amd64.tar.gz",
       "name": "nerdctl",
-      "version": "v2.2.1",
+      "version": "v2.2.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -185,7 +185,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/nerdctl@v2.2.1",
+      "purl": "pkg:github/containerd/nerdctl@v2.2.2",
       "type": "application"
     },
     {
@@ -258,9 +258,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.0.zip",
       "name": "dockerd",
-      "version": "v29.3.1",
+      "version": "v29.4.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -277,13 +277,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.3.1",
+      "purl": "pkg:github/moby/moby@29.4.0",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.0.zip",
       "name": "docker",
-      "version": "v29.3.1",
+      "version": "v29.4.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -300,13 +300,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.3.1",
+      "purl": "pkg:github/moby/moby@29.4.0",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.0.zip",
       "name": "docker-proxy",
-      "version": "v29.3.1",
+      "version": "v29.4.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -323,7 +323,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.3.1",
+      "purl": "pkg:github/moby/moby@29.4.0",
       "type": "application"
     },
     {
@@ -444,7 +444,7 @@
     {
       "group": "https://github.com/prometheus-community/windows_exporter",
       "name": "windows_exporter",
-      "version": "v0.31.5",
+      "version": "v0.31.6",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -461,7 +461,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/prometheus-community/windows_exporter@v0.31.5",
+      "purl": "pkg:github/prometheus-community/windows_exporter@v0.31.6",
       "type": "application"
     },
     {
@@ -580,9 +580,9 @@
       "type": "application"
     },
     {
-      "group": "https://get.helm.sh/helm-v4.1.3-windows-amd64.zip",
+      "group": "https://get.helm.sh/helm-v4.1.4-windows-amd64.zip",
       "name": "helm",
-      "version": "v4.1.3",
+      "version": "v4.1.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -599,8 +599,31 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/helm/helm@v4.1.3",
+      "purl": "pkg:github/helm/helm@v4.1.4",
       "type": "application"
+    },
+    {
+      "group": "https://github.com/headlamp-k8s/headlamp",
+      "name": "headlamp",
+      "version": "v0.41.0",
+      "description": "Kubernetes web UI addon for K2s dashboard",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/headlamp-k8s/headlamp/blob/main/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:addon:dashboard"
+        }
+      ],
+      "purl": "pkg:github/headlamp-k8s/headlamp@v0.41.0",
+      "type": "container"
     }
   ],
   "dependencies": [],
