@@ -148,6 +148,22 @@ In order to secure your workload please use the following annotation:
 
 This is the only mandatory annotation to use, please check other annotations from the linkerd documenetation.
 
+#### Resource limits for Linkerd sidecars
+
+Linkerd automatically injects two sidecar containers into every annotated pod:
+
+- `linkerd-proxy` — the data-plane proxy (Rust-based) that handles all mTLS traffic
+- `linkerd-init` — an init container that configures iptables routing rules
+
+Both containers are configured with the following resource constraints:
+
+| Container | CPU Request | CPU Limit | Memory Limit |
+|-----------|-------------|-----------|--------------|
+| `linkerd-proxy` | `100m` | `100m` | `100Mi` |
+| `linkerd-init` | `100m` | `100m` | `20Mi` |
+
+This ensures compatibility with Kubernetes `ResourceQuota` policies that require CPU limits and requests on all containers in a namespace. If your workloads require higher proxy throughput, re-enable the addon after adjusting the limits in `Enable.ps1`.
+
 For using the linkerd dashboard please first install the dashboard resources:
 
 ```cmd
