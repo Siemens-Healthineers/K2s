@@ -35,6 +35,8 @@ Param (
     [parameter(Mandatory = $false)]
     [string] $ImageName = '',
     [parameter(Mandatory = $false)]
+    [string] $Nodes = '',
+    [parameter(Mandatory = $false)]
     [switch] $FromRegistry,
     [parameter(Mandatory = $false, HelpMessage = 'Force removal by first removing any containers using the image')]
     [switch] $Force,
@@ -46,21 +48,11 @@ Param (
     [string] $MessageType
 )
 
-$clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-Import-Module $clusterModule, $infraModule
+$imageCommonModule = "$PSScriptRoot/Image-Common.module.psm1"
+Import-Module $imageCommonModule
 
-Initialize-Logging -ShowLogs:$ShowLogs
-
-$systemError = Test-SystemAvailability -Structured
-if ($systemError) {
-    if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
-        return
-    }
-
-    Write-Log $systemError.Message -Error
-    exit 1
+if (-not (Initialize-ImageScriptContext -ShowLogs:$ShowLogs -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType)) {
+    return
 }
 
 if ($FromRegistry) {
@@ -76,6 +68,7 @@ if ($FromRegistry) {
         exit 1
     }
 
+    $imageSelection = Get-ImagesByNodeSelection -Nodes '' -IncludeK8sImages $false -LogPrefix 'ImageRm'
     $pushedimages = Get-PushedContainerImages
     if ($ImageName -eq '') {
         $errMsg = 'ImageName incl. Tag is needed to remove image from registry. Cannot remove image.'
@@ -108,7 +101,8 @@ if ($FromRegistry) {
     exit 1
 }
 
-$allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
+$imageSelection = Get-ImagesByNodeSelection -Nodes $Nodes -IncludeK8sImages $false -LogPrefix 'ImageRm'
+$allContainerImages = @($imageSelection.AllImages)
 $foundImages = @()
 if ($ImageId -ne '') {
     $foundImages = @($allContainerImages | Where-Object { $_.ImageId -eq $ImageId })
@@ -134,6 +128,7 @@ else {
 }
 
 $deletionfailed = $false
+$deletionFailureMessages = @()
 if ($foundImages.Count -eq 0) {
     $errMsg = 'Image was not found. Please ensure that you have specified the right image details to be deleted'
     if ($EncodeStructuredOutput -eq $true) {
@@ -145,31 +140,49 @@ if ($foundImages.Count -eq 0) {
     exit 1
 }
 else {
-    $deletedImages = @()
+    # Dedup key is 'ImageId::Node' so the same image ID on different nodes is
+    # each removed independently, but duplicate entries for the same ID+node are skipped.
+    $deletedImageKeys = @()
     foreach ($imageToBeDeleted in $foundImages) {
-        $alreadyDeleted = $deletedImages | Where-Object { $imageToBeDeleted.ImageId -eq $_ }
+        $dedupKey = "$($imageToBeDeleted.ImageId)::$($imageToBeDeleted.Node)"
+        $alreadyDeleted = $deletedImageKeys | Where-Object { $_ -eq $dedupKey }
         if ($alreadyDeleted.Count -eq 0) {
             $errorString = Remove-Image -ContainerImage $imageToBeDeleted -Force:$Force
             if ($null -eq $errorString) {
-                $deletedImages += $imageToBeDeleted.ImageId
+                $deletedImageKeys += $dedupKey
             }
             $deletionExitCode = Show-ImageDeletionStatus -ContainerImage $imageToBeDeleted -ErrorMessage $errorString
             if($deletionExitCode -eq 1) {
                 $deletionfailed = $true
+                $imageRef = $imageToBeDeleted.Repository + ':' + $imageToBeDeleted.Tag
+                $nodeRef = $imageToBeDeleted.Node
+                if ([string]::IsNullOrWhiteSpace($errorString)) {
+                    $deletionFailureMessages += "Failed to delete image $imageRef from $nodeRef"
+                }
+                else {
+                    $deletionFailureMessages += "Failed to delete image $imageRef from $nodeRef. Reason: $errorString"
+                }
             }
         }
         else {
             $image = $imageToBeDeleted.Repository + ':' + $imageToBeDeleted.Tag
             $imageId = $imageToBeDeleted.ImageId
-            $message = "No Action required for $image as Image Id $imageId is already deleted."
+            $message = "No Action required for $image (id=$imageId) on node '$($imageToBeDeleted.Node)' - already deleted."
             Write-Log $message
         }
     }
 }
 
 if ($deletionfailed) {
+    $errMsg = "Image couldn't be deleted!"
+    if ($deletionFailureMessages.Count -gt 0) {
+        $errMsg = $deletionFailureMessages[0]
+        if (-not $Force -and $errMsg -match 'in use by a container') {
+            $errMsg += ' Use --force to stop/remove dependent containers first.'
+        }
+    }
+
     if ($EncodeStructuredOutput -eq $true) {
-        $errMsg = "Image couldn't be deleted!"
         $err = New-Error -Severity Warning -Code 'image-rm-failed' -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return

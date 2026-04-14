@@ -1,5 +1,4 @@
-
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -770,7 +769,28 @@ function Get-FlannelImages {
     Write-Log 'Get images used by flannel'
 
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.0-flannel1'
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.28.1'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.28.2'
+}
+
+function Get-ClusterIPWebhookImages {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    }
+
+    Write-Log 'Get images used by clusterip-webhook'
+
+    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.1.0'
+    &$executeRemoteCommand 'sudo crictl pull registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.7'
 }
 
 function AddRegistryMirrors {
@@ -958,6 +978,78 @@ The IP address of the the cni network interface in the VM.
 .PARAMETER Hook
 A script block that will get executed at the end of the set-up process (can be used for e.g. to install custom tools).
 #>
+
+Function Deploy-ClusterIPWebhook {
+    param(
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = '',
+        [ScriptBlock]$ExecuteRemoteCommand = $(throw 'Argument missing: ExecuteRemoteCommand')
+    )
+
+    $manifestDir = (Resolve-Path "$PSScriptRoot\..\..\..\..\..\manifests\clusterip-webhook").Path
+    $remoteDir = '/tmp/clusterip-webhook'
+    $remoteUserPwd = $UserPwd
+
+    Write-Log '[ClusterIP-Webhook] Deploying clusterip-webhook components' -Console
+
+    &$ExecuteRemoteCommand "mkdir -p $remoteDir"
+
+    $manifestFiles = @(
+        'namespace.yaml',
+        'rbac.yaml',
+        'webhook-config.yaml',
+        'deployment.yaml',
+        'certgen-create-job.yaml',
+        'certgen-patch-job.yaml'
+    )
+
+    foreach ($file in $manifestFiles) {
+        $localPath = Join-Path $manifestDir $file
+        Write-Log "[ClusterIP-Webhook] Copying $file to master node"
+        if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+            Copy-ToRemoteComputerViaSshKey -Source $localPath -Target "$remoteDir/$file" -UserName $UserName -IpAddress $IpAddress
+        }
+        else {
+            Copy-ToRemoteComputerViaUserAndPwd -Source $localPath -Target "$remoteDir/$file" -UserName $UserName -UserPwd $remoteUserPwd -IpAddress $IpAddress
+        }
+    }
+
+    Write-Log '[ClusterIP-Webhook] Waiting for node to be ready before deploying webhook'
+    &$ExecuteRemoteCommand 'kubectl wait --for=condition=Ready node --all --timeout=120s' -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Applying namespace and RBAC'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/namespace.yaml" -Retries 3
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/rbac.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Running TLS certificate create job'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Waiting for cert-create job to complete'
+    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-webhook --timeout=120s' -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Running TLS certificate patch job'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-patch-job.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Waiting for cert-patch job to complete'
+    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-webhook --timeout=120s' -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
+    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/deployment.yaml" -Retries 3
+
+    Write-Log '[ClusterIP-Webhook] Waiting for webhook deployment to be ready'
+    &$ExecuteRemoteCommand 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s' -Retries 3
+
+    &$ExecuteRemoteCommand "rm -rf $remoteDir" -IgnoreErrors
+
+    Write-Log '[ClusterIP-Webhook] ClusterIP webhook deployed successfully' -Console
+}
+
 Function Set-UpMasterNode {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -1147,6 +1239,9 @@ failCgroupV1: false
     # change config map to forward all non cluster DNS request to proxy (dnsmasq) running on master
     &$executeRemoteCommand "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $networkInterfaceCni0IP|' | kubectl apply -f -" -IgnoreErrors
 
+
+    Write-Log 'Deploy ClusterIP mutating webhook'
+    Deploy-ClusterIPWebhook -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -ExecuteRemoteCommand $executeRemoteCommand
 
     Write-Log 'Run setup hook'
     &$Hook
@@ -1439,6 +1534,7 @@ function New-VmImageForKubernetesNode {
             Install-DnsServer -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
             Install-Tools -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd -Proxy $Proxy
             Get-FlannelImages -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
+            Get-ClusterIPWebhookImages -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
             Add-SupportForWSL -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
         }
 
@@ -1790,6 +1886,31 @@ function New-WslRootfsForControlPlaneNode {
     Convert-VhdxToRootfs @vhdxToRootfsCreationParams
 }
 
+function Invoke-CmdOnVmWithSSHPwd {
+    param (
+        [string]$Command = $(throw 'Argument missing: Command'),
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string]$UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$ExecutionTimeoutSeconds = 0,
+        [Parameter(Mandatory = $false)]
+        [switch]$IgnoreErrors = $false,
+        [Parameter(Mandatory = $false)]
+        [uint16]$Retries = 0
+    )
+    # Dispatches via password auth (plink.exe) when UserPwd is provided, SSH key auth (ssh.exe) otherwise.
+    # ExecutionTimeoutSeconds only applies to the SSH key path.
+    if (![string]::IsNullOrWhiteSpace($UserPwd)) {
+        $remoteUser = "$UserName@$IpAddress"
+        return Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors:$IgnoreErrors -Retries $Retries
+    }
+    else {
+        return Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -ExecutionTimeoutSeconds $ExecutionTimeoutSeconds -IgnoreErrors:$IgnoreErrors -Retries $Retries
+    }
+}
+
 function Set-ProxySettingsOnKubenode {
     param (
         [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
@@ -1812,13 +1933,20 @@ function Set-ProxySettingsOnKubenode {
 function Remove-ProxySettingsOnKubenode {
     param (
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw 'Argument missing: UserName')
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string] $UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$CommandExecutionTimeoutSeconds = 0
     )
 
     $proxySettings = ''
-    Set-ProxySettingsForApt -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
-    Set-ProxySettingsForContainerRuntime -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
-    Set-ProxySettingsForContainers -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
+    Set-ProxySettingsForApt -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -CommandExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds
+    Set-ProxySettingsForContainerRuntime -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -CommandExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds
+    Set-ProxySettingsForContainers -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -CommandExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds
+
+    (Invoke-CmdOnVmWithSSHPwd -Command 'sudo systemctl daemon-reload' -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
+    (Invoke-CmdOnVmWithSSHPwd -Command 'sudo systemctl restart crio' -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
 }
 
 function Set-ProxySettingsForApt {
@@ -1828,7 +1956,11 @@ function Set-ProxySettingsForApt {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw 'Argument missing: UserName')
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string] $UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$CommandExecutionTimeoutSeconds = 0
 
     )
 
@@ -1840,7 +1972,7 @@ function Set-ProxySettingsForApt {
     # packages
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for package tool'
-        (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmWithSSHPwd -Command 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf' -UserName $UserName -IpAddress $IpAddress -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
     }
     else {
         Write-Log 'Set proxy settings for package tool'
@@ -1861,7 +1993,11 @@ function Set-ProxySettingsForContainerRuntime {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw 'Argument missing: UserName')
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string] $UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$CommandExecutionTimeoutSeconds = 0
 
     )
 
@@ -1873,7 +2009,7 @@ function Set-ProxySettingsForContainerRuntime {
     # Container runtime
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for container runtime'
-        (Invoke-CmdOnVmViaSSHKey 'sudo rm -fr /etc/systemd/system/crio.service.d' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmWithSSHPwd -Command 'sudo rm -fr /etc/systemd/system/crio.service.d' -UserName $UserName -IpAddress $IpAddress -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
     }
     else {
         Write-Log 'Set proxy settings for container runtime'
@@ -1895,7 +2031,11 @@ function Set-ProxySettingsForContainers {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw 'Argument missing: UserName')
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [Parameter(Mandatory = $false)]
+        [string] $UserPwd,
+        [Parameter(Mandatory = $false)]
+        [uint16]$CommandExecutionTimeoutSeconds = 0
 
     )
 
@@ -1907,7 +2047,7 @@ function Set-ProxySettingsForContainers {
     # Containers
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for containers'
-        (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/containers/containers.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmWithSSHPwd -Command 'sudo rm -f /etc/containers/containers.conf' -UserName $UserName -IpAddress $IpAddress -UserPwd $UserPwd -ExecutionTimeoutSeconds $CommandExecutionTimeoutSeconds).Output | Write-Log
     }
     else {
         Write-Log 'Set proxy settings for containers'

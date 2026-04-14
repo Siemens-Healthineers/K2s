@@ -4,89 +4,113 @@ SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# *K2s* Addons
-*K2s* provides a rich set of addons that offer optional, pre-configured 3rd-party open-source OTS in a plugin-like manner for rapid prototyping, testing and OTS evaluation. They can also be used in product scenarios, check yourself if they fit well to your needs.
+# dashboard
 
-<span style="color:orange;font-size:medium">**⚠** </span> The 3rd-party software versions and configurations provided by these addons are partially taken from other open source projects. Please check yourself if these configurations are appropriate.
+## Introduction
 
-## Addons List
-The following addons will be deployed with **K2s**:
+The `dashboard` addon provides **Headlamp** — a lightweight, extensible Kubernetes web UI developed under the `kubernetes-sigs` organization (CNCF sandbox project). It allows users to browse and manage cluster resources, inspect workloads, view logs, and troubleshoot containerized applications.
 
-<!-- GENERATED! Use the script Update-Readme.ps1 to update the following section -->
-<!-- addons-list-start -->
-|Addon|Description|
-|---|---|
-| [autoscaling](./autoscaling/README.md) | Horizontally scale workloads based on external events or triggers with KEDA (Kubernetes Event-Driven Autoscaling) | 
-| [dashboard](./dashboard/README.md) | Dashboard for Kubernetes | 
-| [gpu-node](./gpu-node/README.md) | Configure the control plane node to utilize GPUs for direct GPU access and high-performance computing tasks. | 
-| [ingress nginx](./ingress/nginx/README.md) | Ingress Controller for external access that uses nginx as a reverse proxy | 
-| [ingress nginx-gw](./ingress/nginx-gw/README.md) | Gateway API controller for external access that uses NGINX Gateway Fabric as a reverse proxy | 
-| [ingress traefik](./ingress/traefik/README.md) | Ingress Controller for external access that uses traefik as a reverse proxy | 
-| [kubevirt](./kubevirt/README.md) | Manage VM workloads with k2s | 
-| [logging](./logging/README.md) | Dashboard for Kubernetes container logs | 
-| [metrics](./metrics/README.md) | Kubernetes metrics server for API Access to service metrics | 
-| [monitoring](./monitoring/README.md) | Dashboard for cluster resource monitoring and logging | 
-| [registry](./registry/README.md) | Private image registry running in the Kubernetes cluster exposed on k2s.registry.local | 
-| [rollout](./rollout/README.md) | Automating the deployment/updating of applications | 
-| [security](./security/README.md) | Enables secure communication into and inside the cluster | 
-| [storage smb](./storage/smb/README.md) | StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux) | 
-| [dicom](./dicom/README.md) | Dicom server based on Orthanc |
-| [viewer](./viewer/README.md)                   | Private clinical image viewer running in the Kubernetes 
-<!-- addons-list-end -->
+> **Note:** The previous `kubernetes/dashboard` project has been retired and archived at `github.com/kubernetes-retired/dashboard`. Headlamp is the recommended replacement.
 
-## Command line options
+## Getting started
 
-On command line you can get all the addons available in your setup:
-```
-k2s addons ls                                         - lists all the available addons
-```
-Enabling one addon (in this example the **ingress** addon with **nginx** implementation):
-```
-k2s addons enable ingress nginx                       - enables the ingress nginx ingress controller
-```
-Disabling the same addon:
-```
-k2s addons disable ingress nginx                      - disables the ingress nginx ingress controller
-```
-Exporting addons for the offline usage afterwards:
-```
-k2s addons export -d d:\                              - exports all addons to a specific location 
-k2s addons export "ingress nginx" -d d:\              - exports implementation 'nginx' of addon 'ingress' to a specific location 
-k2s addons export ingress -d d:\                      - exports all implementations of addon 'ingress' to a specific location 
-```
-Importing all addons from an previously exported file:
-```
-k2s addons import -f d:\addons.oci.tar                    - imports all addons from a specific archive
-k2s addons import "ingress nginx" -f d:\addons.oci.tar    - imports implementation 'nginx' of addon 'ingress' from a specific archive
-k2s addons import ingress -f d:\addons.oci.tar            - imports all implementations of addon 'ingress' from a specific archive
-```
-Backing up addon data:
-```
-k2s addons backup registry -f d:\registry-backup.zip           - creates a backup zip for addon 'registry'
-k2s addons backup "ingress nginx" -f d:\ingress-nginx.zip      - creates a backup zip for implementation 'nginx' of addon 'ingress'
-k2s addons backup "ingress nginx"                              - creates a backup in the default backup folder
-```
-Restoring addon data from backup:
-```
-k2s addons restore registry -f d:\registry-backup.zip          - restores addon 'registry' from backup zip
-k2s addons restore "ingress nginx" -f d:\ingress-nginx.zip     - restores implementation 'nginx' of addon 'ingress' from backup zip
-k2s addons restore "ingress nginx"                             - restores from latest matching backup in default backup folder
-```
-Showing status of single addons:
-```
-k2s addons status ingress nginx                       - shows the status of the implementation 'nginx' of addon 'ingress'
+The Headlamp dashboard can be enabled using the k2s CLI:
+
+```console
+k2s addons enable dashboard
 ```
 
-## Contributing
-To add a new addon to this repo, the following steps are necessary:
-1. create a **new addon folder** next to the [existing addon folders](./)
-2. create a **addon.manifest.yaml** inside that folder containing at least the mandatory addon metadata
-   - this metadata must comply with the [addon.manifest.schema.json](addon.manifest.schema.json) file
-   - this metadata gets validated against the [addon.manifest.schema.json](addon.manifest.schema.json) file when addon-related commands are executed via *K2s.exe*, e.g. `k2s addons ls` or even `k2s addons -h`
-   - refer to existing addon manifests for examples, e.g. [dashboard addon manifest](./dashboard/addon.manifest.yaml) or [ingress addon manifest](./ingress/addon.manifest.yaml)
-   - the CLI flags and *PowerShell* parameters can differ in names (hence the parameter mapping config in the manifest file), but not in values, meaning e.g. if the CLI flag value for *SMB* host type is *windows*, it must be also *windows* for the *PowerShell* parameter value
-   - for additional documentation on addons metadata refer to the [addon.manifest.schema.json](addon.manifest.schema.json) file
-3. create mandatory ***PowerShell* scripts** (see existing addons) -> support import/export/upgrade, etc.
-4. create mandatory **README.md** file
-5. **run [Update-Readme.ps1](./Update-Readme.ps1)** to update [this list](#addons-list)
-6. optional: add addon-specific code/config files
+### Integration with metrics addon
+
+By enabling the metrics addon, Headlamp can display resource usage metrics (CPU/memory) for pods and nodes.
+
+```console
+k2s addons enable metrics
+k2s addons enable dashboard
+```
+
+Or enable both together:
+
+```console
+k2s addons enable dashboard --enable-metrics
+```
+
+### Integration with ingress addons
+
+The dashboard addon can be integrated with the ingress nginx, ingress traefik, or ingress nginx-gw addon to expose Headlamp outside the cluster.
+
+```console
+k2s addons enable dashboard --ingress traefik
+```
+
+```console
+k2s addons enable dashboard --ingress nginx
+```
+
+```console
+k2s addons enable dashboard --ingress nginx-gw
+```
+
+_Note:_ The above commands will enable the respective ingress addon if it is not already enabled.
+
+## Accessing the dashboard
+
+### Access using ingress
+
+Once an ingress addon is enabled, the Headlamp UI is accessible at:
+
+```
+https://k2s.cluster.local/dashboard/
+```
+
+_Note:_ If a proxy server is configured in Windows Proxy settings, add `k2s.cluster.local` as a proxy override.
+
+### Access using port-forwarding
+
+```console
+kubectl port-forward svc/headlamp -n dashboard 4466:4466
+```
+
+The Headlamp UI will be accessible at: <http://localhost:4466/dashboard/>
+
+_Note:_ Any available local port can be substituted for `4466`.
+
+### Authentication
+
+When you open Headlamp for the first time, a **token login screen is displayed — this is expected and normal**. Headlamp requires a bearer token for cluster access.
+
+To generate a ServiceAccount token and log in:
+
+```console
+kubectl -n dashboard create token headlamp --duration 24h
+```
+
+Copy the printed token and paste it into the Headlamp login screen, then click **Authenticate**.
+
+> **Tip:** The `headlamp` ServiceAccount has `cluster-admin` rights, so it can see all cluster resources.
+
+## Disable dashboard
+
+```console
+k2s addons disable dashboard
+```
+
+_Note:_ Only the dashboard addon is disabled. Other addons enabled alongside it (e.g. ingress) are not disabled.
+
+## Backup and restore
+
+The dashboard addon supports backup and restore via the `k2s` CLI.
+
+Backup stores restore-relevant metadata:
+- Selected ingress integration (`none`/`nginx`/`traefik`/`nginx-gw`)
+- Whether the `metrics` addon was enabled
+
+```console
+k2s addons backup dashboard
+k2s addons restore dashboard -f C:\Temp\k2s\Addons\dashboard_backup_YYYYMMDD_HHMMSS.zip
+```
+
+## Further Reading
+
+- Headlamp Documentation: <https://headlamp.dev/docs/latest/>
+- Headlamp GitHub: <https://github.com/kubernetes-sigs/headlamp>

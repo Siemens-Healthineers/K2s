@@ -5,6 +5,7 @@ package core
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -370,6 +373,52 @@ var _ = Describe("Cluster Core", func() {
 
 				suite.Cluster().ExpectInternetToBeReachableFromPodOfDeployment("albums-win2", namespace, proxy, ctx)
 			})
+		})
+	})
+
+	Describe("ClusterIP Subnet Assignment", func() {
+		It("Windows service albums-win1 has a ClusterIP in the Windows subnet", func(ctx SpecContext) {
+			if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+				Skip("Linux-only")
+			}
+
+			clientSet, err := kubernetes.NewForConfig(suite.Cluster().Client().Resources().GetConfig())
+			Expect(err).NotTo(HaveOccurred())
+
+			svc, err := clientSet.CoreV1().Services(namespace).Get(ctx, "albums-win1", metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred(), "failed to get service albums-win1")
+
+			Expect(svc.Spec.ClusterIP).NotTo(BeEmpty(), "albums-win1 has no ClusterIP")
+			Expect(strings.HasPrefix(svc.Spec.ClusterIP, "172.21.1.")).To(BeTrue(),
+				"albums-win1 ClusterIP %s is not in the Windows subnet 172.21.1.0/24", svc.Spec.ClusterIP)
+		})
+
+		It("Windows service albums-win2 has a ClusterIP in the Windows subnet", func(ctx SpecContext) {
+			if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+				Skip("Linux-only")
+			}
+
+			clientSet, err := kubernetes.NewForConfig(suite.Cluster().Client().Resources().GetConfig())
+			Expect(err).NotTo(HaveOccurred())
+
+			svc, err := clientSet.CoreV1().Services(namespace).Get(ctx, "albums-win2", metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred(), "failed to get service albums-win2")
+
+			Expect(svc.Spec.ClusterIP).NotTo(BeEmpty(), "albums-win2 has no ClusterIP")
+			Expect(strings.HasPrefix(svc.Spec.ClusterIP, "172.21.1.")).To(BeTrue(),
+				"albums-win2 ClusterIP %s is not in the Windows subnet 172.21.1.0/24", svc.Spec.ClusterIP)
+		})
+
+		It("Linux service albums-linux1 has a ClusterIP in the Linux subnet", func(ctx SpecContext) {
+			clientSet, err := kubernetes.NewForConfig(suite.Cluster().Client().Resources().GetConfig())
+			Expect(err).NotTo(HaveOccurred())
+
+			svc, err := clientSet.CoreV1().Services(namespace).Get(ctx, "albums-linux1", metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred(), "failed to get service albums-linux1")
+
+			Expect(svc.Spec.ClusterIP).NotTo(BeEmpty(), "albums-linux1 has no ClusterIP")
+			Expect(strings.HasPrefix(svc.Spec.ClusterIP, "172.21.0.")).To(BeTrue(),
+				"albums-linux1 ClusterIP %s is not in the Linux subnet 172.21.0.0/24", svc.Spec.ClusterIP)
 		})
 	})
 })
