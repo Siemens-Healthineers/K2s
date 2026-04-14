@@ -75,6 +75,34 @@ if ([string]::IsNullOrWhiteSpace($holmesSvc)) {
     exit 1
 }
 
+# ── Re-apply HolmesGPT manifest (updates prompt-overrides ConfigMap) ──────────
+Write-Log '[AI-Assistant] Re-applying HolmesGPT manifest to refresh prompt ConfigMaps...' -Console
+
+# Snapshot the live MODEL value BEFORE applying. Use Set-HolmesModelConfig so that
+# MODEL_PLACEHOLDER is substituted correctly — never apply the raw manifest directly.
+$liveModelResult = Invoke-Kubectl -Params 'get', 'deployment', 'holmesgpt-holmes',
+    '-n', 'ai-assistant',
+    '-o', 'jsonpath={.spec.template.spec.containers[0].env[?(@.name=="MODEL")].value}'
+$liveModel = if ($liveModelResult.Output) { $liveModelResult.Output.Trim() } else { '' }
+
+# Strip the "openai/" LiteLLM prefix to get the bare Ollama model name for Set-HolmesModelConfig.
+# If the live value is missing or still the placeholder, fall back to qwen2.5:7b.
+$bareModel = $liveModel -replace '^openai/', ''
+if ([string]::IsNullOrWhiteSpace($bareModel) -or $bareModel -eq 'MODEL_PLACEHOLDER') {
+    $bareModel = 'qwen2.5:7b'
+}
+Write-Log "[AI-Assistant] Using model for re-apply: $bareModel (live was: $liveModel)" -Console
+
+try {
+    Set-HolmesModelConfig -Model $bareModel
+    # Restart HolmesGPT pod so it picks up any updated ConfigMap data
+    (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment/holmesgpt-holmes', '-n', 'ai-assistant').Output | Write-Log
+    Write-Log '[AI-Assistant] HolmesGPT deployment restarted to apply updated ConfigMaps.' -Console
+}
+catch {
+    Write-Log "[AI-Assistant] Warning: Failed to re-apply HolmesGPT manifest: $($_.Exception.Message). Prompt config may be outdated." -Console
+}
+
 # ── Re-wire proxy Endpoints ───────────────────────────────────────────────────
 Write-Log '[AI-Assistant] Re-wiring HolmesGPT proxy Endpoints...' -Console
 try {

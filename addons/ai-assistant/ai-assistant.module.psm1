@@ -56,35 +56,34 @@ function Set-HolmesModelConfig {
 
 <#
 .SYNOPSIS
-Deploys a Python-based smart proxy pod + selector-based Service in the 'default'
-namespace that forwards to the real HolmesGPT service in 'ai-assistant'.
+Deploys a Python-based smart proxy pod + selector-based Service in the default
+namespace that forwards to the real HolmesGPT service in ai-assistant.
 
 BACKGROUND
-The Headlamp AI Assistant plugin hardcodes HOLMES_SERVICE_NAMESPACE='default' and uses
+The Headlamp AI Assistant plugin hardcodes HOLMES_SERVICE_NAMESPACE=default and uses
 the K8s API server proxy path:
   /api/v1/namespaces/default/services/holmesgpt-holmes:80/proxy/...
 
-K8s 1.35 apiserver proxy validation requires:
-  1. The Service must have a spec.selector (selectorless ClusterIP → NotFound).
+K8s apiserver proxy validation requires:
+  1. The Service must have a spec.selector (selectorless ClusterIP -> NotFound).
   2. Endpoint addresses must have a valid targetRef whose namespace matches the
-     Endpoints namespace — cross-namespace pod refs are rejected.
+     Endpoints namespace - cross-namespace pod refs are rejected.
 
-The only correct cross-namespace proxy approach is therefore a real pod running in
-'default' that relays traffic to 'ai-assistant'.
-
-The proxy is implemented in Python (python:alpine image) so it can:
-  1. Intercept POST /api/agui/chat requests and inject the strict system prompt
-     into the 'additional_system_prompt' field of the JSON body — controlling
-     Holmes behaviour without modifying the Headlamp plugin or the Holmes image.
-  2. Filter empty SSE delta chunks that cause pydantic validation errors in the
-     plugin (TextMessageContentEvent: 'delta' must have at least 1 character).
+The only correct cross-namespace approach is a real pod in default relaying to
+ai-assistant. The Python proxy (python:3.11-alpine) adds two behaviours:
+  1. REQUEST  - injects the strict system prompt into the ag_ui context[] field
+               so Holmes operates in deterministic single-tool-call mode.
+  2. RESPONSE - filters each TEXT_MESSAGE_CONTENT SSE event: modifies only the
+               delta string (never the JSON envelope), stripping LLM commentary
+               while preserving kubectl tabular output and identifier lists.
+               Empty delta="" events are also dropped (pydantic guard).
 
 Architecture:
   Headlamp plugin
-    → K8s apiserver proxy (/namespaces/default/services/holmesgpt-holmes:80/proxy/...)
-    → Python proxy pod in 'default' (selector: app=holmesgpt-proxy)
-    → holmesgpt-holmes.ai-assistant.svc.cluster.local:80
-    → HolmesGPT pod in 'ai-assistant'
+    -> K8s apiserver proxy (/namespaces/default/services/holmesgpt-holmes:80/proxy/...)
+    -> Python proxy pod in default (selector: app=holmesgpt-proxy)
+    -> holmesgpt-holmes.ai-assistant.svc.cluster.local:80
+    -> HolmesGPT pod in ai-assistant
 #>
 function Set-HolmesProxyEndpoints {
     [CmdletBinding()]
@@ -104,54 +103,59 @@ function Set-HolmesProxyEndpoints {
     $strictSystemPrompt = @'
 KUBERNETES ASSISTANT — STRICT EXECUTION MODE
 
-CRITICAL RULE — MANDATORY TOOL USE:
-You MUST call a kubectl tool for ANY question about cluster state (pods, nodes, namespaces, services, deployments, etc.).
-NEVER answer from memory or generate example data. ALL answers MUST come from real tool output.
-If you answer without calling a tool, you are violating this rule.
+ABSOLUTE RULE — NO EXCEPTIONS:
+Every single user message requires a REAL tool call. No matter what.
+NEVER answer from memory, conversation history, or prior tool results.
+NEVER generate, guess, or invent resource names (node1, pod1, etc.).
+Cluster state changes constantly — always fetch fresh data with a tool.
 
 EXECUTION PROTOCOL (follow exactly):
 1. Receive user request about Kubernetes resources.
-2. Call EXACTLY ONE appropriate kubectl tool to retrieve real data.
-3. Return the tool result directly — no modification, no commentary.
+2. Call EXACTLY ONE appropriate kubectl tool to retrieve REAL live data.
+3. After the tool returns, write a final text response with the REAL tool output.
 4. STOP. Do not call additional tools.
 
-TOOL SELECTION (use the SIMPLEST tool for the job):
+CRITICAL — ALWAYS WRITE A FINAL TEXT RESPONSE:
+- After EVERY tool call you MUST emit a final text message to the user.
+- The final text MUST contain the actual tool result.
+- NEVER stop after tool execution without sending a text response.
+- If the tool returned data → write it out as your final response.
+- If the tool returned empty → write exactly: No data found
+- If the tool failed → write exactly: Unable to execute tool
+
+TOOL SELECTION:
 - List resources → kubernetes_tabular_query with appropriate kubectl get command
 - Count resources → kubernetes_count
 - Describe a resource → kubernetes_tabular_query with kubectl describe
 
 OUTPUT RULES:
-- Return ONLY the raw tool output as a clean table or list.
-- If tool result is empty → return exactly: No data found
-- If tool execution fails → return exactly: Unable to execute tool
-- NEVER add explanations, next steps, or commentary after the result.
-- NEVER generate example pod names, node names, or namespace names.
-- NEVER output "(Call tool ...)" — actually EXECUTE the tool.
-- NEVER duplicate the response.
+- Return ONLY the real tool output. No explanations, no commentary, no next steps.
+- NEVER generate or invent pod names, node names, or namespace names.
 - Output MUST be non-empty (never send empty text).
 
 FORBIDDEN BEHAVIORS:
-- Answering without calling a tool first.
-- Generating fake/example cluster data (e.g., "example-pod-1", "node1").
+- Answering without calling a tool (using memory or conversation history instead).
+- Generating fake/example cluster data (node1, node2, pod1, pod2, example-pod-1).
+- Stopping after tool execution without writing a final text response.
 - Multi-step tool chains (more than 1 tool per request).
-- Appending "No data found" after real tool output.
 - Suggesting follow-up actions or next steps.
 - Autonomous investigation or root cause analysis unless explicitly requested.
 '@
 
     # ── Python proxy script ───────────────────────────────────────────────────
     # Reads HOLMES_BACKEND_URL from env (set in the Deployment).
-    # For POST /api/agui/chat:
-    #   REQUEST side: injects the strict system prompt via the ag_ui context field.
-    #   RESPONSE side: _SseOutputFilter buffers TEXT_MESSAGE groups and at END:
-    #     - Tool-result messages (delta starts with wrench emoji / " result:\n"):
-    #       forwarded unchanged — these contain the raw kubectl output.
-    #     - LLM-commentary messages: _filter_commentary() extracts only lines that
-    #       match kubectl tabular output patterns; everything else (analysis,
-    #       recommendations, "Next steps:", markdown) is silently dropped.
-    #     - If nothing survives the filter: entire message is suppressed.
-    # For SSE responses: also drops empty delta="" chunks (pydantic guard).
-    # All other paths: transparent proxy.
+    #
+    # REQUEST  — POST /api/agui/chat: injects the strict system prompt via the
+    #            ag_ui context[] field (server-agui.py inserts it as a system
+    #            message).  Keeps the ask field clean; no broken planning calls.
+    #
+    # RESPONSE — Each TEXT_MESSAGE_CONTENT SSE event is processed individually:
+    #            the "delta" string is filtered in-place (JSON envelope untouched).
+    #            tool_call_metadata={} prefix is stripped; tool markers pass through;
+    #            kubectl multi-column rows and single k8s identifiers are kept;
+    #            prose commentary is dropped.  Empty delta="" events are suppressed.
+    #
+    # All other HTTP paths and SSE event types: transparent proxy.
     $proxyScript = @'
 #!/usr/bin/env python3
 """
@@ -167,11 +171,11 @@ RESPONSE side (SSE delta filter):
     2. Extract the "delta" string.
     3. If delta is empty -> skip event (pydantic guard).
     4. Apply _filter_delta() to the delta string:
-       - Detects whether this delta is a tool-result line (starts with wrench
-         emoji or contains "result:" near the start) -> pass through unchanged.
-       - Otherwise strips commentary lines (analysis, "Next steps:", markdown,
-         etc.) while KEEPING all lines that look like kubectl output OR simple
-         plain-text list entries (one identifier per line, no prose).
+       - If delta is a tool-result block (starts with wrench emoji AND contains
+         "result:") -> extract the table, format it, return header + formatted.
+       - If delta is a tool-announcement line -> pass through unchanged.
+       - Otherwise strip commentary lines while keeping kubectl output lines
+         and plain k8s identifier lists.
     5. If filtered delta is non-empty -> re-emit the original JSON with only
        the delta field replaced. ALL other fields (type, messageId, ...) are
        preserved exactly.
@@ -216,28 +220,367 @@ except OSError as _e:
 
 CHAT_PATH_RE = re.compile(r"^/api/agui/chat(/.*)?$")
 
-# ── Delta filtering ────────────────────────────────────────────────────────────
+# When RAW_OUTPUT=true the formatter is bypassed and raw kubectl text is returned.
+RAW_OUTPUT = os.environ.get("RAW_OUTPUT", "false").strip().lower() == "true"
 
-# Prose lines to always drop (case-insensitive prefix match)
+# ── Regex helpers ──────────────────────────────────────────────────────────────
+
+# Lines that are clearly kubectl tabular output: 2+ consecutive spaces between tokens.
+_KUBECTL_MULTI_COL_RE = re.compile(r"\S  +\S")
+
+# Prose lines to always drop (case-insensitive prefix match).
 _NOISE_RE = re.compile(
-    r"(?i)^(it looks like|next steps?|let'?s |you can|you may|you should|"
+    r"(?i)^("
+    r"here (are|is)|the (pods?|nodes?|services?|namespaces?|deployments?) "
+    r"(in|for|of|are|is)|pods? in |nodes? in |services? in |namespaces? in |"
+    r"(pods?|nodes?|services?|namespaces?|deployments?):\s*$|"
+    r"this (means|indicates|suggests)|the (above|following|output|result)|"
     r"to (fix|resolve|investigate|check)|additionally|furthermore|note:|tip:|"
-    r"warning:|#+\s|```|---+|\*\s|\d+\.\s+[A-Za-z]|>\s|"
-    r"this (means|indicates|suggests)|the (above|following|output|result))"
+    r"next steps?|follow[- ]up|investigation|analysis|root cause|"
+    r"i (found|see|notice|recommend|suggest)|you (can|should|may|might)|"
+    r"please |running |#+ |\* |\d+\. "
+    r")"
 )
 
-# Lines that are clearly kubectl tabular output:
-#   header: "NAME   STATUS   AGE" (all-caps tokens separated by 2+ spaces)
-#   data:   any line with 2+ consecutive spaces (kubectl column padding)
-_KUBECTL_MULTI_COL_RE = re.compile(r"\s{2,}")
+# ── Table helpers ──────────────────────────────────────────────────────────────
 
-# Lines that are clearly a tool_call_metadata prefix (strip entirely)
-_TOOL_META_RE = re.compile(r"^tool_call_metadata=\{.*?\}")
+# Column headers that indicate the resource type when present.
+# Both NAME+STATUS+ROLES+AGE+VERSION (nodes) and NAME+READY+STATUS+RESTARTS+AGE (pods)
+# before READY — both variants must be listed so _detect_resource_type() can match.
+_TYPE_HINTS = {
+    frozenset(["NAME", "STATUS", "ROLES", "AGE", "VERSION"]): "Nodes",
+    frozenset(["NAME", "OS", "VERSION"]): "Nodes",            # simplified node columns (no array JSONPath)
+    frozenset(["NAME", "READY", "STATUS", "RESTARTS", "AGE"]): "Pods",
+    frozenset(["NAME", "NAMESPACE", "READY", "STATUS", "RESTARTS", "AGE"]): "Pods",  # wide/all-ns
+    frozenset(["NAME", "TYPE", "CLUSTER-IP", "EXTERNAL-IP", "PORT(S)", "AGE"]): "Services",
+    frozenset(["NAME", "READY", "UP-TO-DATE", "AVAILABLE", "AGE"]): "Deployments",
+    frozenset(["NAME", "COMPLETIONS", "DURATION", "AGE"]): "Jobs",
+}
+
+# Which column (by header name) holds the primary status/state value.
+_STATUS_COLS = {"STATUS", "READY", "PHASE"}
+# Which column is the "name" column.
+_NAME_COL = "NAME"
+
+# Known kubectl column-header tokens — used to detect "header-only" output
+# that carries no real data (e.g. LLM echoing "NAME  STATUS" without rows).
+_KNOWN_HEADER_TOKENS = frozenset([
+    "NAME", "NAMESPACE", "STATUS", "READY", "RESTARTS", "AGE", "VERSION",
+    "ROLES", "TYPE", "CLUSTER-IP", "EXTERNAL-IP", "PORT", "PORT(S)",
+    "OS", "COMPLETIONS", "DURATION", "UP-TO-DATE", "AVAILABLE", "PHASE",
+    "SELECTOR", "CAPACITY", "ACCESS", "MODES", "RECLAIM", "POLICY",
+    "STORAGECLASS", "REASON", "MESSAGE", "HOST", "NODE", "NOMINATED",
+    "READINESS", "GATES", "IP", "CONTAINERS", "IMAGES", "LABELS",
+])
+
+
+def _is_header_only_text(lines: list) -> bool:
+    """
+    Return True when every non-empty token in the given lines is a known kubectl
+    column-header word (all-caps).  This detects "NAME  STATUS" echoed by the LLM
+    with no actual data rows — output that is not useful to show.
+    """
+    tokens = []
+    for line in lines:
+        tokens.extend(line.strip().split())
+    if not tokens:
+        return False
+    # All tokens must be known header words (uppercase)
+    return all(t.upper() in _KNOWN_HEADER_TOKENS for t in tokens)
+
+
+def _is_valid_table_header(headers: list) -> bool:
+    """
+    Return True only when the header looks like a genuine kubectl table:
+      - Must contain "NAME"
+      - Must contain at least one of STATUS / READY / PHASE / ROLES / TYPE / VERSION / OS
+      - Must have >= 2 columns
+    This prevents treating a partial chunk (e.g. just "NAME") as a full table.
+    """
+    if len(headers) < 2:
+        return False
+    hu = {h.upper() for h in headers}
+    return "NAME" in hu and bool(hu & {"STATUS", "READY", "PHASE", "ROLES", "TYPE", "VERSION", "OS"})
+
+
+def _detect_resource_type(headers: list) -> str:
+    """Detect the Kubernetes resource type label from table headers."""
+    try:
+        hset = frozenset(h.upper() for h in headers)
+        for key, label in _TYPE_HINTS.items():
+            if key.issubset(hset):
+                return label
+        # Fallback: use first column name to guess
+        first = headers[0].upper() if headers else ""
+        if first == "NAMESPACE":
+            return "Namespaces"
+        return "Resources"
+    except Exception:
+        return "Resources"
+
+
+def _split_table(lines: list) -> tuple:
+    """
+    Split kubectl tabular output into (headers, data_rows).
+    Returns ([], []) on any error.
+    """
+    try:
+        if not lines:
+            return [], []
+        headers = lines[0].split()
+        if not headers:
+            return [], []
+        data_rows = []
+        for line in lines[1:]:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            parts = stripped.split()
+            if parts:
+                data_rows.append(parts)
+        return headers, data_rows
+    except Exception as exc:
+        logging.warning("Formatter: _split_table error: %s", exc)
+        return [], []
+
+
+def _format_kubectl_output(text: str) -> str:
+    """
+    Convert raw kubectl tabular text (or simple identifier list) into a
+    readable ASCII list.
+
+    Examples:
+      Pods:
+      - coredns-774b6dc6fc-t75h9  Running
+      - kube-apiserver-kubemaster  Running
+
+      Nodes:
+      - imw1030228c  Ready  windows
+      - kubemaster  Ready  linux
+
+      Namespaces:
+      - ai-assistant
+      - cert-manager
+
+    Safety rules:
+    - If parsing fails OR produces empty output -> return ORIGINAL text unchanged.
+    - Only attempts formatting when a header row exists AND >= 1 data row.
+    - Uses only ASCII characters and plain newlines for broad terminal compatibility.
+    - Uses "-" instead of special Unicode bullets to avoid rendering as "?".
+    - Replaces "<none>" tokens with "-" to prevent ReactMarkdown treating them
+      as unknown HTML tags (which renders as empty string in the UI).
+    """
+    try:
+        original = text  # keep for fallback
+        # Replace <none> with "-" everywhere to avoid Markdown HTML-tag rendering
+        text = text.replace("<none>", "-")
+        lines = [l.rstrip() for l in text.splitlines() if l.strip()]
+        if not lines:
+            logging.info("Formatter: skipped (empty input)")
+            return original
+
+        # Check whether there is at least one multi-column line (table format)
+        has_table = any(_KUBECTL_MULTI_COL_RE.search(l) for l in lines)
+
+        if not has_table:
+            # ── Identifier list path ──────────────────────────────────────────
+            # Simple identifier list — one item per line (e.g. namespace names)
+            # Only format if every line looks like a k8s identifier (no spaces)
+            valid_ids = all(
+                re.match(r"^[A-Za-z0-9][A-Za-z0-9\-\./\_]*$", l.strip())
+                for l in lines
+            )
+            if not valid_ids:
+                logging.info("Formatter: skipped (no table, not pure identifiers)")
+                return original
+
+            # Guard: need at least 2 items; single token could be a partial chunk
+            if len(lines) < 2:
+                logging.info("Formatter: skipped (single-token input — possible partial chunk)")
+                return original
+
+            label = "Namespaces" if all(
+                re.match(r"^[a-z][a-z0-9\-]*$", l.strip()) for l in lines
+            ) else "Items"
+            out = [label + ":"] + ["- " + l.strip() for l in lines]
+            result = "\n".join(out)
+            if not result.strip():
+                logging.info("Formatter: skipped (fallback - empty identifier result)")
+                return original
+            return result
+
+        # ── Table path ────────────────────────────────────────────────────────
+        headers, rows = _split_table(lines)
+
+        # STRICT: header must look like a real kubectl header (NAME + status col)
+        if not _is_valid_table_header(headers):
+            # ── Headerless data rows path (jq output: "name  Ready  linux") ──
+            # When all lines look like "k8s-name  status  os" data rows with no
+            # header row, format them as a Nodes list directly.
+            all_data_rows = all(
+                re.match(r"^[a-z0-9][a-z0-9\-\.]*\s", l.strip())
+                for l in lines
+            )
+            if all_data_rows and len(lines) >= 1:
+                out = ["Nodes:"]
+                for line in lines:
+                    parts = line.strip().split()
+                    if parts:
+                        out.append("- " + "  ".join(parts))
+                result = "\n".join(out)
+                if "- " in result:
+                    logging.info("Formatter: headerless rows formatted as Nodes list (%d lines)", len(lines))
+                    return result
+            logging.info("Formatter: skipped (fallback - header failed validation: %s)", headers)
+            return original
+
+        resource_type = _detect_resource_type(headers)
+        headers_upper = [h.upper() for h in headers]
+
+        name_idx = next(
+            (i for i, h in enumerate(headers_upper) if h == _NAME_COL), 0
+        )
+        status_idx = next(
+            (i for i, h in enumerate(headers_upper) if h == "STATUS"), None
+        )
+        if status_idx is None:
+            status_idx = next(
+                (i for i, h in enumerate(headers_upper) if h in _STATUS_COLS), None
+            )
+        # For nodes with NAME+OS+VERSION (no STATUS col): show OS as primary info
+        if status_idx is None:
+            os_idx = next(
+                (i for i, h in enumerate(headers_upper) if h == "OS"), None
+            )
+            version_idx = next(
+                (i for i, h in enumerate(headers_upper) if h == "VERSION"), None
+            )
+        else:
+            os_idx = None
+            version_idx = None
+        roles_idx = next(
+            (i for i, h in enumerate(headers_upper) if h == "ROLES"), None
+        )
+
+        out = [resource_type + ":"]
+        kept = 0
+        for row in rows:
+            # STRICT: skip rows with fewer than 2 tokens — partial chunk guard
+            if not row or len(row) < 2:
+                logging.info("Formatter: skipping row with <2 tokens: %s", row)
+                continue
+            name = row[name_idx] if name_idx < len(row) else ""
+            if not name:
+                logging.info("Formatter: skipping row — empty name cell")
+                continue
+
+            parts = [name]
+            if status_idx is not None and status_idx < len(row):
+                status = row[status_idx]
+                if status and status not in ("<none>", "-"):
+                    parts.append(status)
+            elif os_idx is not None and os_idx < len(row):
+                # No STATUS col: show OS (linux/windows) as primary info
+                os_val = row[os_idx]
+                if os_val and os_val != "-":
+                    parts.append("(" + os_val + ")")
+                if version_idx is not None and version_idx < len(row):
+                    ver = row[version_idx]
+                    if ver and ver != "-":
+                        parts.append(ver)
+            if roles_idx is not None and roles_idx < len(row):
+                role = row[roles_idx]
+                if role and role not in ("<none>", "-"):
+                    parts.append("(" + role + ")")
+
+            if not parts or len(parts) == 1:
+                # Only name found — append all remaining non-empty, non-dash values
+                extras = [
+                    v for v in row[name_idx + 1:]
+                    if v and v not in ("-", "<none>")
+                ]
+                if extras:
+                    out.append("- " + name + "  " + "  ".join(extras))
+                else:
+                    out.append("- " + name)
+            else:
+                out.append("- " + "  ".join(parts))
+            kept += 1
+
+        if kept == 0 or len(out) <= 1:
+            logging.info("Formatter: skipped (fallback - no valid rows produced)")
+            return original
+
+        # SANITY: if we lost more than 20% of rows -> fallback (data loss guard)
+        if kept < len(rows) * 0.8:
+            logging.warning(
+                "Formatter: fallback triggered — kept %d/%d rows (>20%% loss)", kept, len(rows)
+            )
+            return original
+
+        return "\n".join(out)
+
+    except Exception as exc:
+        logging.warning("Formatter: exception — returning original: %s", exc)
+        return text
+
+
+def _extract_table_from_tool_result(text: str) -> tuple:
+    """
+    Given a tool-result block that starts with a '🔧 ... result:' line, split it
+    into (header_line, table_body).
+
+    The block looks like one of:
+      🔧 kubernetes_tabular_query result:\n<table>
+      🔧 kubernetes_tabular_query result:\n\n<table>   (blank separator)
+
+    Strategy:
+      1. Find the first newline — splits announcement from table body.
+      2. Everything on that first line up to and including "result:" is
+         the announcement header (kept as-is in the UI).
+      3. Everything after the first newline is the table body.
+         Leading blank lines are stripped (optional separator), but the
+         table content is preserved verbatim.
+
+    Returns ("", "") if the block cannot be parsed safely.
+    If the block has no table body, table_body is "".
+    header_line  — the '🔧 tool result:' announcement line (always kept as-is)
+    table_body   — everything after the first blank line (the actual kubectl output)
+    """
+    # Locate first newline — splits announcement from table body
+    nl_pos = text.find("\n")
+    if nl_pos == -1:
+        # No newline: entire delta is just the announcement line, no table yet
+        return text.strip(), ""
+
+    header_line = text[:nl_pos].rstrip()
+    rest = text[nl_pos + 1:]  # everything after the first newline
+
+    # Strip leading blank lines (optional separator between header and table)
+    table_body = rest.lstrip("\r\n")
+
+    # Final trim of trailing whitespace only — DO NOT strip content lines
+    table_body = table_body.rstrip()
+
+    return header_line, table_body
 
 
 def _strip_tool_meta(text: str) -> str:
     """Remove leading tool_call_metadata={...} prefix if present."""
-    return _TOOL_META_RE.sub("", text, count=1).lstrip()
+    if not text.startswith("tool_call_metadata="):
+        return text
+    brace = text.find("{")
+    if brace == -1:
+        return text
+    depth = 0
+    for i, ch in enumerate(text[brace:], brace):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[i + 1:].lstrip()
+    return text
 
 
 def _is_tool_marker(text: str) -> bool:
@@ -252,7 +595,6 @@ def _is_tool_marker(text: str) -> bool:
         t.startswith("\U0001f527")  # 🔧 wrench
         or t.startswith("\u2261")   # ≡ triple-bar
         or " result:\n" in text[:120]
-        or " result:\r\n" in text[:120]
         or "Using Agent tool:" in text[:80]
     )
 
@@ -267,26 +609,86 @@ def _filter_delta(delta: str) -> str:
 
     Rules:
     - tool_call_metadata={...} prefix is stripped silently.
-    - If the result after stripping contains a tool-result marker -> pass through.
+    - If the delta contains a tool-result block (🔧 ... result:\\n<table>):
+        * Keep the '🔧 tool result:' header line.
+        * Extract the embedded kubectl table and run it through _format_kubectl_output().
+        * Return "header_line\\n" + formatted_table.
+        * If the table body cannot be formatted, return the original block unchanged.
+    - Tool-announcement lines (🔧 Using Agent tool: ...) pass through unchanged.
     - Otherwise keep lines that are:
         a) kubectl multi-column rows (contain 2+ consecutive spaces)
         b) plain identifiers / names (word chars + common k8s chars: -./_ no spaces)
-           These represent kubectl list output: one namespace/pod/node per line.
     - Drop lines that match _NOISE_RE (prose analysis, commentary).
     - If nothing remains -> return "".
+    - If RAW_OUTPUT=false (default) -> format kept lines with _format_kubectl_output().
     """
     cleaned = _strip_tool_meta(delta)
 
-    if _is_tool_marker(cleaned):
-        return delta  # forward tool markers unchanged (don't strip metadata prefix though)
+    # ── Tool-result block: contains embedded kubectl table ─────────────────────
+    # Condition: delta starts with 🔧 AND contains "result:" near the start.
+    # Pattern: "🔧 tool_name result:\n<kubectl output>"
+    # We MUST format the table rather than pass the raw block through, otherwise
+    # pods/services/deployments tables are shown as unstyled raw text.
+    is_result_block = (
+        cleaned.strip().startswith("\U0001f527")  # starts with 🔧
+        and "result:" in cleaned[:200]
+    )
 
+    if is_result_block:
+        header_line, table_body = _extract_table_from_tool_result(cleaned)
+        if not table_body:
+            # Only the announcement line arrived (partial SSE chunk) — pass through
+            logging.info("OutputFilter: tool-result block has no table body yet — pass through")
+            return cleaned
+        if RAW_OUTPUT:
+            return cleaned
+        # Validate that the first line of the table body looks like a kubectl header
+        first_table_line = table_body.splitlines()[0] if table_body else ""
+        candidate_headers = first_table_line.split()
+        if not _is_valid_table_header(candidate_headers):
+            logging.info(
+                "OutputFilter: table header failed validation (%s) — returning original block",
+                candidate_headers,
+            )
+            return cleaned  # return full original block, data preserved
+        # Attempt formatting — pass extracted table to _format_kubectl_output()
+        formatted = _format_kubectl_output(table_body)
+        # If formatting succeeds (non-empty and contains "- " list entries):
+        # return: 🔧 tool_name result: <formatted output>
+        # If formatting fails: return original delta (no change)
+        if formatted and formatted.strip() and "- " in formatted:
+            logging.info(
+                "OutputFilter: formatted tool-result table (%d->%d chars)",
+                len(table_body), len(formatted),
+            )
+            return header_line + "\n" + formatted
+        # Fallback: return original cleaned block (data preserved, unformatted)
+        logging.info(
+            "OutputFilter: formatting skipped for tool-result — returning original block "
+            "(formatted_len=%d, body_len=%d)",
+            len(formatted) if formatted else 0, len(table_body),
+        )
+        return cleaned
+
+    # ── Tool-announcement line only (no embedded table) ───────────────────────
+    if _is_tool_marker(cleaned):
+        return delta  # forward unchanged (tool start/end markers)
+
+    # SAFETY: if the original delta contains tool markers (🔧) but was not caught
+    # by is_result_block above (e.g. it's a multi-line chunk that mixes tool text
+    # and prose), always pass it through rather than risk dropping real data.
+    if "\U0001f527" in cleaned:
+        logging.info("OutputFilter: delta contains tool marker but not result block — pass through")
+        return delta
+
+    # ── Regular LLM text: filter line-by-line ─────────────────────────────────
     kept = []
     for raw_line in cleaned.splitlines():
         line = raw_line.rstrip()
         stripped = line.strip()
 
         if not stripped:
-            continue  # skip blank lines
+            continue
 
         if _NOISE_RE.match(stripped):
             continue  # drop commentary
@@ -296,16 +698,55 @@ def _filter_delta(delta: str) -> str:
             kept.append(line)
             continue
 
-        # Single-token lines: keep if they look like a k8s identifier
+        # Single-token: keep only if it looks like a k8s name/identifier
         # (letters, digits, hyphens, dots, slashes, underscores — NO spaces)
         if re.match(r"^[A-Za-z0-9][A-Za-z0-9\-\./\_]*$", stripped):
             kept.append(stripped)
             continue
 
-        # Anything else (prose sentences, multi-word lines without column spacing) -> drop
+        # jq output format: "name (info)" e.g. "imw1030228c (linux)" or "kubemaster (linux)"
+        # Keep lines that start with a k8s identifier followed by a parenthesised annotation.
+        if re.match(r"^[A-Za-z0-9][A-Za-z0-9\-\./\_]*\s+\([A-Za-z0-9][A-Za-z0-9\-\._]*\)$", stripped):
+            kept.append(stripped)
+            continue
 
-    result = "\n".join(kept)
-    return result
+        # Multi-word prose without column spacing -> drop
+
+    if not kept:
+        # SAFETY: if the original delta had substantial content (>20 chars) that we
+        # are about to suppress entirely, return the original rather than an empty
+        # string — data must never silently disappear from the UI.
+        if len(cleaned.strip()) > 20:
+            logging.info(
+                "OutputFilter: all lines filtered from non-empty delta (%d chars) — "
+                "returning original to prevent data loss",
+                len(cleaned),
+            )
+            return delta
+        return ""  # safe to suppress — was only prose/commentary
+
+    # Guard: if every kept line is just known kubectl column-header tokens
+    # (e.g. "NAME  STATUS" or "NAME  STATUS  ROLES  AGE  VERSION"), this is a
+    # header-only chunk — the LLM echoed column headers without data rows.
+    # Suppress it so the UI never shows "Resources:\n- NAME  STATUS" artifacts.
+    if _is_header_only_text(kept):
+        logging.info(
+            "OutputFilter: suppressed header-only chunk (%d kept lines): %r",
+            len(kept), kept[:3],
+        )
+        return ""
+
+    raw_text = "\n".join(kept)
+
+    if RAW_OUTPUT:
+        return raw_text
+
+    # Format into readable output
+    formatted = _format_kubectl_output(raw_text)
+    # SAFETY: if formatter returned empty or same-as-input, use the raw_text
+    if not formatted or not formatted.strip():
+        return raw_text
+    return formatted
 
 
 def _is_chat_endpoint(path: str) -> bool:
@@ -386,345 +827,8 @@ def _process_sse_line(raw_line: bytes) -> bytes | None:
     return b"data: " + new_payload
 
 
-class ProxyHandler(BaseHTTPRequestHandler):
-    server_version = "HolmesProxy/1.0"
-    protocol_version = "HTTP/1.1"
-
-    def log_message(self, fmt, *args):  # noqa: N802
-        logging.info("%-4s %s", self.command, self.path)
-
-    def _write_chunk(self, data: bytes) -> None:
-        hex_len = format(len(data), "x").encode() + b"\r\n"
-        self.wfile.write(hex_len + data + b"\r\n")
-
-    def _forward(self, body: bytes | None = None, filter_output: bool = False):
-        target = BACKEND + self.path
-        headers = {
-            k: v
-            for k, v in self.headers.items()
-            if k.lower() not in ("host", "content-length", "transfer-encoding")
-        }
-        if body is not None:
-            headers["Content-Length"] = str(len(body))
-
-        req = Request(target, data=body, headers=headers, method=self.command)
-        try:
-            resp = urlopen(req, timeout=620)
-        except URLError as exc:
-            logging.error("Backend error: %s", exc)
-            self.send_response(502)
-            self.end_headers()
-            return
-
-        self.send_response(resp.status)
-        is_sse = False
-        for k, v in resp.headers.items():
-            if k.lower() == "transfer-encoding":
-                continue
-            if k.lower() == "content-type" and "text/event-stream" in v:
-                is_sse = True
-            self.send_header(k, v)
-
-        if is_sse:
-            self.send_header("Transfer-Encoding", "chunked")
-            self.end_headers()
-            try:
-                for raw_line in resp:
-                    line_stripped = raw_line.rstrip(b"\r\n")
-                    if filter_output:
-                        out = _process_sse_line(line_stripped)
-                    else:
-                        out = line_stripped
-                    if out is not None:
-                        self._write_chunk(out + b"\n")
-                        self.wfile.flush()
-                self._write_chunk(b"")  # terminal chunk
-                self.wfile.flush()
-            except Exception as exc:
-                logging.warning("SSE stream interrupted: %s", exc)
-        else:
-            resp_body = resp.read()
-            self.send_header("Content-Length", str(len(resp_body)))
-            self.end_headers()
-            self.wfile.write(resp_body)
-
-    def do_GET(self):  # noqa: N802
-        self._forward()
-
-    def do_POST(self):  # noqa: N802
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length) if length else b""
-        is_chat = _is_chat_endpoint(self.path)
-        if is_chat:
-            body = _inject_prompt(body)
-        self._forward(body, filter_output=is_chat)
-
-    def do_DELETE(self):  # noqa: N802
-        self._forward()
-
-    def do_PUT(self):  # noqa: N802
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length) if length else b""
-        self._forward(body)
-
-    def do_PATCH(self):  # noqa: N802
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length) if length else b""
-        self._forward(body)
-
-
-class ThreadingHTTPServer(HTTPServer):
-    def process_request(self, request, client_address):
-        t = threading.Thread(target=self._handle, args=(request, client_address))
-        t.daemon = True
-        t.start()
-
-    def _handle(self, request, client_address):
-        try:
-            self.finish_request(request, client_address)
-        except Exception:
-            self.handle_error(request, client_address)
-        finally:
-            self.shutdown_request(request)
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PROXY_PORT", 80))
-    logging.info("HolmesGPT proxy listening on :%d -> %s", port, BACKEND)
-    srv = ThreadingHTTPServer(("0.0.0.0", port), ProxyHandler)
-    srv.serve_forever()
-'@
-    - If accumulated text starts with the tool-result prefix => FORWARD as-is
-      (these carry the actual kubectl output)
-    - Otherwise strip LLM commentary:
-      * Keep lines that look like kubectl tabular output (NAME/STATUS/AGE columns,
-        or list items)
-      * Drop everything else (analysis, recommendations, markdown headings, etc.)
-      * If the stripped result is non-empty => send it as a single new message
-      * If nothing survives the filter => suppress the whole message silently
-
-  Non-TEXT_MESSAGE events (RUN_STARTED, RUN_FINISHED, RUN_ERROR, TOOL_CALL_*)
-  are always forwarded unchanged.
-
-Also strips empty SSE delta="" chunks that cause pydantic validation errors
-(TextMessageContentEvent: delta must have >= 1 character).
-"""
-import json
-import logging
-import os
-import re
-import sys
-import threading
-import uuid
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.error import URLError
-from urllib.request import Request, urlopen
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s proxy %(levelname)s %(message)s",
-    stream=sys.stdout,
-)
-
-BACKEND = os.environ.get(
-    "HOLMES_BACKEND_URL",
-    "http://holmesgpt-holmes.ai-assistant.svc.cluster.local:80",
-).rstrip("/")
-
-SYSTEM_PROMPT_FILE = os.environ.get(
-    "HOLMES_STRICT_PROMPT_FILE", "/etc/holmes-proxy/strict_system_prompt.txt"
-)
-
-try:
-    with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as _f:
-        STRICT_PROMPT = _f.read().strip()
-    logging.info("Loaded strict system prompt (%d chars)", len(STRICT_PROMPT))
-except OSError as _e:
-    logging.warning("Could not load strict system prompt from %s: %s", SYSTEM_PROMPT_FILE, _e)
-    STRICT_PROMPT = ""
-
-CHAT_PATH_RE = re.compile(r"^/api/agui/chat(/.*)?$")
-
-# Lines that look like raw kubectl output:
-#   - table header/data rows: at least two whitespace-separated tokens, first is
-#     an identifier (upper or mixed case, may include / - _)
-#   - namespace lines, event lines, etc.
-# We accept a line if it contains a tab or 2+ consecutive spaces between tokens
-# (kubectl always uses multi-space column alignment) OR if it is a header row
-# (all-caps first word: NAME, NAMESPACE, STATUS, NODE, etc.).
-_KUBECTL_HEADER_RE = re.compile(
-    r"^[A-Z][A-Z0-9_\-/]*(\s{2,}[A-Z][A-Z0-9_\-/]*)+$"
-)
-_KUBECTL_DATA_ROW_RE = re.compile(
-    r"^\S.*(\s{2,}|\t)\S"
-)
-# Lines we always drop regardless of anything else
-_NOISE_LINE_RE = re.compile(
-    r"(?i)^(it looks like|next steps?|you can|check|ensure|note:|tip:|"
-    r"warning:|error:|#+\s|```|---|\* |> |\d+\.\s+[A-Z])"
-)
-
-
-def _is_chat_endpoint(path: str) -> bool:
-    return bool(CHAT_PATH_RE.match(path.split("?")[0]))
-
-
-def _inject_prompt(body_bytes: bytes) -> bytes:
-    """Inject STRICT_PROMPT via the context field of RunAgentInput."""
-    if not STRICT_PROMPT:
-        return body_bytes
-    try:
-        data = json.loads(body_bytes.decode("utf-8"))
-        rules_ctx = {"description": "assistant_behavioral_rules", "value": STRICT_PROMPT}
-        existing = data.get("context")
-        if isinstance(existing, list):
-            data["context"] = [rules_ctx] + existing
-        else:
-            data["context"] = [rules_ctx]
-        logging.info("Injected strict rules via context field (%d chars)", len(STRICT_PROMPT))
-        return json.dumps(data).encode("utf-8")
-    except Exception as exc:
-        logging.warning("Could not inject system prompt: %s", exc)
-        return body_bytes
-
-
-def _filter_commentary(text: str) -> str:
-    """
-    Given the accumulated delta text of a single TEXT_MESSAGE group,
-    return only the lines that look like raw kubectl output.
-    Returns empty string if nothing survives.
-    """
-    kept = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            # Preserve blank lines between table sections
-            if kept and kept[-1] != "":
-                kept.append("")
-            continue
-        if _NOISE_LINE_RE.match(stripped):
-            continue
-        if _KUBECTL_HEADER_RE.match(stripped) or _KUBECTL_DATA_ROW_RE.match(stripped):
-            kept.append(line)
-        # Everything else (prose sentences, short words, etc.) is dropped
-    # Trim trailing blank lines
-    while kept and kept[-1] == "":
-        kept.pop()
-    return "\n".join(kept)
-
-
-def _is_tool_result_message(text: str) -> bool:
-    """
-    Tool-result messages emitted by server-agui.py always start with the
-    rocket/wrench emoji prefix: "=F tool_name result:\n..."
-    We detect these and forward them unchanged (the kubectl output is already
-    inside the text after the first line).
-    """
-    return bool(text) and (
-        text.startswith("\U0001f527")   # wrench emoji
-        or text.startswith("\u2261")    # triple-bar (fallback rendering)
-        or text.startswith("=F")        # ASCII fallback in some terminals
-        or " result:\n" in text[:120]   # content-based fallback
-        or " result:\r\n" in text[:120]
-    )
-
-
-def _sse_event(obj: dict) -> bytes:
-    return b"data: " + json.dumps(obj, ensure_ascii=False).encode("utf-8") + b"\n"
-
-
-def _build_text_message_events(mid: str, text: str) -> list[bytes]:
-    """Emit a complete START / CONTENT / END triplet for the given text."""
-    return [
-        _sse_event({"type": "TEXT_MESSAGE_START", "messageId": mid, "role": "assistant"}),
-        _sse_event({"type": "TEXT_MESSAGE_CONTENT", "messageId": mid, "delta": text}),
-        _sse_event({"type": "TEXT_MESSAGE_END", "messageId": mid}),
-    ]
-
-
-class _SseOutputFilter:
-    """
-    Stateful per-request SSE output filter.
-
-    Buffers TEXT_MESSAGE groups (START → N×CONTENT → END).
-    At END decides whether to forward the raw buffered events, replace them
-    with a filtered version, or suppress them entirely.
-    All other event types pass through immediately.
-    """
-
-    def __init__(self):
-        self._pending_id: str | None = None        # messageId currently buffering
-        self._pending_raw: list[bytes] = []        # raw SSE lines for current group
-        self._pending_text: str = ""               # accumulated delta text
-
-    def feed(self, raw_line: bytes) -> list[bytes]:
-        """
-        Feed one raw SSE line (already stripped of trailing newline).
-        Returns a list of SSE line bytes to emit (may be empty).
-        """
-        if not raw_line.startswith(b"data:"):
-            return [raw_line]
-
-        payload = raw_line[5:].strip()
-        if not payload or payload == b"[DONE]":
-            return [raw_line]
-
-        try:
-            obj = json.loads(payload)
-        except Exception:
-            return [raw_line]
-
-        ev_type = obj.get("type", "")
-
-        # ── TEXT_MESSAGE_START ────────────────────────────────────────────────
-        if ev_type in ("TEXT_MESSAGE_START", "text_message_start"):
-            self._pending_id = obj.get("messageId")
-            self._pending_raw = [raw_line]
-            self._pending_text = ""
-            return []   # hold until END
-
-        # ── TEXT_MESSAGE_CONTENT ──────────────────────────────────────────────
-        if ev_type in ("TEXT_MESSAGE_CONTENT", "text_message_content"):
-            delta = obj.get("delta", "")
-            if not isinstance(delta, str) or len(delta) == 0:
-                return []   # drop empty deltas (pydantic guard)
-            self._pending_raw.append(raw_line)
-            self._pending_text += delta
-            return []   # hold until END
-
-        # ── TEXT_MESSAGE_END ──────────────────────────────────────────────────
-        if ev_type in ("TEXT_MESSAGE_END", "text_message_end"):
-            self._pending_raw.append(raw_line)
-            text = self._pending_text
-            mid = self._pending_id or str(uuid.uuid4())
-            raw_events = list(self._pending_raw)
-            self._pending_id = None
-            self._pending_raw = []
-            self._pending_text = ""
-
-            # Tool-announcement messages ("=F Using Agent tool: `...`...")
-            # and tool-result messages: forward as-is
-            if _is_tool_result_message(text):
-                logging.debug("OutputFilter: forwarding tool-result message (%d chars)", len(text))
-                return raw_events
-
-            # Everything else: try to extract kubectl table lines
-            filtered = _filter_commentary(text)
-            if filtered:
-                logging.info(
-                    "OutputFilter: replaced LLM commentary (%d chars) with kubectl output (%d chars)",
-                    len(text), len(filtered),
-                )
-                return _build_text_message_events(mid, filtered)
-            else:
-                logging.info(
-                    "OutputFilter: suppressed LLM commentary (%d chars): %r",
-                    len(text), text[:120],
-                )
-                return []   # suppress entirely
-
-        # ── All other events (RUN_STARTED, RUN_FINISHED, RUN_ERROR, TOOL_CALL_*) ──
-        return [raw_line]
+# When DISABLE_FILTER=true the SSE filter is bypassed — raw stream forwarded.
+DISABLE_FILTER = os.environ.get("DISABLE_FILTER", "false").strip().lower() == "true"
 
 
 class ProxyHandler(BaseHTTPRequestHandler):
@@ -769,22 +873,105 @@ class ProxyHandler(BaseHTTPRequestHandler):
         if is_sse:
             self.send_header("Transfer-Encoding", "chunked")
             self.end_headers()
-            output_filter = _SseOutputFilter() if filter_output else None
+            # Disable Nagle's algorithm so each chunk is sent immediately.
             try:
-                for raw_line in resp:
-                    line_stripped = raw_line.rstrip(b"\r\n")
-                    if output_filter is not None:
-                        out_lines = output_filter.feed(line_stripped)
-                    else:
-                        out_lines = [line_stripped]
-                    for out in out_lines:
-                        chunk = out + b"\n"
-                        self._write_chunk(chunk)
+                import socket as _socket
+                self.connection.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
+            except Exception:
+                pass
+
+            chunks_sent = 0
+            chunks_suppressed = 0
+            logging.info("SSE stream started: %s (filter=%s disable_filter=%s)",
+                         self.path, filter_output, DISABLE_FILTER)
+            try:
+                # Read line-by-line preserving original \n endings.
+                # readline(4MB) prevents splitting on very long data: lines.
+                # We do NOT strip newlines — the original SSE framing is kept.
+                #
+                # SSE wire format from HolmesGPT (FastAPI/uvicorn):
+                #   data: {...}\n        <- data line  (ends with \n)
+                #   \n                   <- blank line  (event separator)
+                #   data: {...}\n
+                #   \n
+                #   ...
+                #
+                # Strategy:
+                #   - Blank lines (\n or \r\n): forward as-is — they are the SSE
+                #     event separator and MUST NOT be doubled or dropped.
+                #   - data: lines: strip trailing \n, filter/modify, re-add \n.
+                #   - Other lines (event:, id:, :comment): forward as-is.
+                #   - Suppressed data: lines: also suppress the following blank line
+                #     so the client never sees an orphaned separator.
+                suppress_next_blank = False
+
+                while True:
+                    raw_line = resp.readline(4 * 1024 * 1024)
+                    if not raw_line:
+                        # Backend closed connection — stream complete.
+                        logging.info("SSE stream ended (backend closed): sent=%d suppressed=%d",
+                                     chunks_sent, chunks_suppressed)
+                        break
+
+                    logging.debug("SSE line received: %d bytes", len(raw_line))
+
+                    # Classify the line
+                    stripped = raw_line.rstrip(b"\r\n")
+
+                    # ── Blank line (SSE event separator) ──────────────────────
+                    if not stripped:
+                        if suppress_next_blank:
+                            # The preceding data: line was suppressed — drop
+                            # this separator too so client sees no orphan event.
+                            suppress_next_blank = False
+                            chunks_suppressed += 1
+                            continue
+                        suppress_next_blank = False
+                        self._write_chunk(raw_line)
                         self.wfile.flush()
-                self._write_chunk(b"")   # terminal chunk
+                        chunks_sent += 1
+                        continue
+
+                    # ── data: line — only these are filtered ──────────────────
+                    if stripped.startswith(b"data:") and filter_output and not DISABLE_FILTER:
+                        out = _process_sse_line(stripped)
+                        if out is None:
+                            # Suppressed — also suppress the following blank line.
+                            suppress_next_blank = True
+                            chunks_suppressed += 1
+                            logging.debug("SSE line suppressed")
+                            continue
+                        # Re-emit with original line ending preserved.
+                        ending = raw_line[len(stripped):]  # \n or \r\n
+                        out_line = out + ending
+                        self._write_chunk(out_line)
+                        self.wfile.flush()
+                        chunks_sent += 1
+                        logging.debug("SSE line forwarded (filtered): %d bytes", len(out_line))
+                        suppress_next_blank = False
+                        continue
+
+                    # ── All other lines: forward as-is ─────────────────────────
+                    suppress_next_blank = False
+                    self._write_chunk(raw_line)
+                    self.wfile.flush()
+                    chunks_sent += 1
+                    logging.debug("SSE line forwarded (pass-through): %d bytes", len(raw_line))
+
+                # Chunked transfer terminator
+                self._write_chunk(b"")
                 self.wfile.flush()
+                logging.info("SSE stream completed: sent=%d suppressed=%d",
+                             chunks_sent, chunks_suppressed)
+
             except Exception as exc:
-                logging.warning("SSE stream interrupted: %s", exc)
+                logging.warning("SSE stream interrupted after %d chunks: %s",
+                                chunks_sent, exc)
+                try:
+                    self._write_chunk(b"")
+                    self.wfile.flush()
+                except Exception:
+                    pass
         else:
             resp_body = resp.read()
             self.send_header("Content-Length", str(len(resp_body)))
@@ -892,6 +1079,10 @@ spec:
               value: "/etc/holmes-proxy/strict_system_prompt.txt"
             - name: PROXY_PORT
               value: "80"
+            # RAW_OUTPUT=true returns unformatted kubectl table text instead of
+            # the readable Markdown list. Set to "true" to disable formatting.
+            - name: RAW_OUTPUT
+              value: "false"
           volumeMounts:
             - name: proxy-config
               mountPath: /etc/holmes-proxy
