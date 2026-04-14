@@ -13,7 +13,7 @@ The `logging` addon provides a [Kibana web-based UI](https://github.com/opensear
 ## Getting started
 
 The logging addon can be enabled using the k2s CLI by running the following command:
-```
+```console
 k2s addons enable logging
 ```
 
@@ -22,12 +22,12 @@ k2s addons enable logging
 The logging addon can be integrated with ingress controllers (nginx, nginx-gw, or traefik) to expose the dashboard outside the cluster.
 
 For example, the logging addon can be enabled along with traefik addon using the following command:
-```
+```console
 k2s addons enable logging --ingress traefik
 ```
 
 Or with nginx Gateway Fabric:
-```
+```console
 k2s addons enable logging --ingress nginx-gw
 ```
 
@@ -47,7 +47,7 @@ _Note:_ If a proxy server is configured in the Windows Proxy settings, please ad
 ### Access using port-forwarding
 
 To access logging dashboard via port-forwarding, the following command can be executed:
-```
+```console
 kubectl -n logging port-forward svc/opensearch-dashboards 5601:5601
 ```
 In this case, the logging dashboard UI can be accessed at the following URL: <http://localhost:5601/logging>
@@ -67,21 +67,48 @@ Those logs are added to the same index like all other logs and are visible under
 ## Disable logging
 
 The logging addon can be disabled using the k2s CLI by running the following command:
-```
+```console
 k2s addons disable logging
 ```
 
 _Note:_ The above command will only disable logging addon. If other addons were enabled while enabling the logging addon, they will not be disabled.
 
+## Deploying without OpenSearch (Fluent-bit only mode)
+
+The `--omitOpensearch` flag deploys only the Fluent-bit DaemonSet(s), skipping OpenSearch and OpenSearch Dashboards. This is useful for consuming logs from an external pipeline.
+
+```console
+k2s addons enable logging --omitOpensearch
+```
+
+### Viewing logs
+
+```console
+kubectl logs -n logging -l app.kubernetes.io/name=fluent-bit
+```
+
+**Important notes:**
+
+- No OpenSearch dashboard is available in this mode
+- Fluent-bit outputs logs to stdout in JSON format
+- The `--ingress` flag is ignored when `--omitOpensearch` is set
+- To forward to an external OTEL collector, replace the generated ConfigMap after enabling
+
+### Disabling
+
+```console
+k2s addons disable logging
+```
+
 ## Backup and restore
 
 Create a backup zip (defaults to `C:\Temp\k2s\Addons` on Windows):
-```
+```console
 k2s addons backup logging
 ```
 
 Restore from a backup zip:
-```
+```console
 k2s addons restore logging -f C:\Temp\k2s\Addons\logging_backup_YYYYMMDD_HHMMSS.zip
 ```
 
