@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -638,7 +638,11 @@ function Enable-ClusterIsRunning {
 	if ($clusterState.IsRunning -ne $true) {
 		$argsCall = 'start'
 		if ( $ShowLogs ) { $argsCall += ' -o' }
-		$rt = [Proc.Tools.exec]::runCommand('k2s', $argsCall)
+		$installedK2sExe = "$(Get-ClusterInstalledFolder)\k2s.exe"
+		if (-not (Test-Path $installedK2sExe)) {
+			throw "Error: Installed k2s.exe not found at '$installedK2sExe'. Cannot start cluster before upgrade."
+		}
+		$rt = Invoke-Cmd -Executable $installedK2sExe -Arguments $argsCall
 		if ( $rt -eq 0 ) {
 			Write-Log 'Start call of cluster successfully called'
 		}
@@ -1227,7 +1231,7 @@ function PrepareClusterUpgrade {
 				$upgradeCrictlExe = Get-CrictlExePath
 				$upgradeCrictlConfig = Join-Path (Split-Path $upgradeCrictlExe -Parent) 'crictl.yaml'
 				Write-Log "[ImageBackup] Using crictl: $upgradeCrictlExe" -Console
-
+				
 				# Check disk space before proceeding
 				$userImages = Get-K2sImageList -CrictlExePath $upgradeCrictlExe -CrictlConfigPath $upgradeCrictlConfig
 				if ($userImages.Count -gt 0) {
@@ -1528,21 +1532,30 @@ function Invoke-ImageBackup {
 		[string] $BackupDirectory,
 
 		[Parameter(Mandatory = $false, HelpMessage = 'Exclude addon images from backup')]
-		[switch] $ExcludeAddonImages
+		[switch] $ExcludeAddonImages,
+
+		[Parameter(Mandatory = $false, HelpMessage = 'Path to crictl executable')]
+		[string] $CrictlExePath = '',
+
+		[Parameter(Mandatory = $false, HelpMessage = 'Path to crictl config')]
+		[string] $CrictlConfigPath = ''
 	)
 
     Write-Log "Starting image backup..." -Console
 
     try {
-        # Resolve crictl from PATH (installed cluster's bin is still on PATH at upgrade time).
-        $upgradeCrictlExe = Get-CrictlExePath
-        $upgradeCrictlConfig = Join-Path (Split-Path $upgradeCrictlExe -Parent) 'crictl.yaml'
-        Write-Log "[ImageBackup] Using crictl: $upgradeCrictlExe" -Console
+        # Resolve crictl paths if not provided
+        if ([string]::IsNullOrWhiteSpace($CrictlExePath)) {
+            $CrictlExePath = Get-CrictlExePath
+            $crictlDir = Split-Path $CrictlExePath -Parent
+            $CrictlConfigPath = Join-Path $crictlDir 'crictl.yaml'
+        }
+        Write-Log "Using crictl from: $CrictlExePath" -Console
 
         # Get images based on filtering options
         # System images are already excluded by default
         # ExcludeAddonImages further filters out addon namespace images for system backup
-        $images = Get-K2sImageList -ExcludeAddonImages:$ExcludeAddonImages -CrictlExePath $upgradeCrictlExe -CrictlConfigPath $upgradeCrictlConfig
+        $images = Get-K2sImageList -ExcludeAddonImages:$ExcludeAddonImages -CrictlExePath $CrictlExePath -CrictlConfigPath $CrictlConfigPath
 
         if ($images.Count -eq 0) {
             Write-Log "No images found to backup" -Console
@@ -1567,7 +1580,7 @@ function Invoke-ImageBackup {
         }
 
         # Perform backup
-        $backupResult = Backup-K2sImages -BackupDirectory $BackupDirectory -Images $images -CrictlExePath $upgradeCrictlExe -CrictlConfigPath $upgradeCrictlConfig
+        $backupResult = Backup-K2sImages -BackupDirectory $BackupDirectory -Images $images -CrictlExePath $CrictlExePath -CrictlConfigPath $CrictlConfigPath
 
         return $backupResult
     }
