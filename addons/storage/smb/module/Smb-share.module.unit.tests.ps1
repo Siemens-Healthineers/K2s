@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -202,13 +202,46 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
             Mock -ModuleName $moduleName Write-Log { }
         }
 
-        It 'does nothing' {
-            InModuleScope $moduleName {
-                $config = @{WinShareName = 'test-name' }
+        Context 'SMB user already existing' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Get-LocalUser { return $true }
+                Mock -ModuleName $moduleName Set-LocalUser { }
+            }
 
-                New-SmbHostOnWindowsIfNotExisting -Config $config
+            It 'does nothing except reset password' {
+                InModuleScope $moduleName {
+                    $config = @{WinShareName = 'test-name' }
 
-                Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages -match 'nothing to create' }
+                    New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                    Should -Invoke Write-Log -Scope Context -ParameterFilter { $Messages -match 'nothing to create' }
+                }
+            }
+
+            It 'resets the user password before returning' {
+                InModuleScope $moduleName {
+                    $config = @{WinShareName = 'test-name' }
+
+                    New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                    Should -Invoke Set-LocalUser -Times 1 -Scope Context
+                }
+            }
+        }
+
+        Context 'SMB user non-existent' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Get-LocalUser { return $null }
+            }
+
+            It 'does nothing' {
+                InModuleScope $moduleName {
+                    $config = @{WinShareName = 'test-name' }
+
+                    New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                    Should -Invoke Write-Log -Scope Context -ParameterFilter { $Messages -match 'nothing to create' }
+                }
             }
         }
     }
@@ -225,6 +258,7 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
         Context 'SMB user already existing' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-LocalUser { return $true }
+                Mock -ModuleName $moduleName Set-LocalUser { }
             }
 
             It 'does not create a local SMB user' {
@@ -234,6 +268,16 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
                     New-SmbHostOnWindowsIfNotExisting -Config $config
 
                     Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'User .+ already exists' }
+                }
+            }
+
+            It 'resets the password to keep it in sync with Linux mount credentials' {
+                InModuleScope $moduleName {
+                    $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
+
+                    New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                    Should -Invoke Set-LocalUser -Times 1 -Scope Context
                 }
             }
         }
