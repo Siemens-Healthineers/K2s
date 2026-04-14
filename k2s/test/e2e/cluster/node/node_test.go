@@ -313,8 +313,93 @@ func waitForNodesReady(ctx context.Context, nodeNames []string) {
 	}
 
 	GinkgoWriter.Println("Waiting for discovered nodes to be Ready..", nodeNames)
-	suite.Kubectl().MustExec(ctx, waitArgs...)
+	waitOutput, waitExitCode := suite.Kubectl().Exec(ctx, waitArgs...)
+
+	if waitExitCode != 0 {
+		GinkgoWriter.Println("\n>>> Some nodes failed to reach Ready state. Gathering diagnostics...")
+
+		// Extract nodes that timed out
+		timedOutNodes := extractTimedOutNodes(waitOutput)
+		if len(timedOutNodes) > 0 {
+			printNodeDiagnostics(ctx, timedOutNodes)
+		}
+
+		// Extract other nodes and check their conditions
+		readyNodes := []string{}
+		for _, node := range nodeNames {
+			found := false
+			for _, timedOut := range timedOutNodes {
+				if timedOut == node {
+					found = true
+					break
+				}
+			}
+			if !found {
+				readyNodes = append(readyNodes, node)
+			}
+		}
+
+		if len(readyNodes) > 0 {
+			GinkgoWriter.Println("\n>>> Ready nodes:", readyNodes)
+		}
+
+		// Fail with clear message
+		Fail(fmt.Sprintf("Nodes failed to reach Ready state: %v. See diagnostics above.", timedOutNodes))
+	}
+
 	GinkgoWriter.Println("All discovered nodes are Ready")
+}
+
+func extractTimedOutNodes(waitOutput string) []string {
+	var timedOutNodes []string
+	lines := strings.Split(waitOutput, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "timed out waiting for the condition on nodes/") {
+			parts := strings.Split(line, "nodes/")
+			if len(parts) > 1 {
+				nodeName := strings.TrimSpace(parts[1])
+				if nodeName != "" {
+					timedOutNodes = append(timedOutNodes, nodeName)
+				}
+			}
+		}
+	}
+
+	if len(timedOutNodes) == 0 {
+		return []string{}
+	}
+
+	// Deduplicate
+	seen := make(map[string]bool)
+	unique := []string{}
+	for _, node := range timedOutNodes {
+		if !seen[node] {
+			seen[node] = true
+			unique = append(unique, node)
+		}
+	}
+	return unique
+}
+
+func printNodeDiagnostics(ctx context.Context, nodeNames []string) {
+	for _, nodeName := range nodeNames {
+		GinkgoWriter.Println("\n=============== Node Diagnostics:", nodeName, "===============")
+
+		// Describe node
+		GinkgoWriter.Println("\n>>> kubectl describe node", nodeName)
+		output, _ := suite.Kubectl().Exec(ctx, "describe", "node", nodeName)
+		GinkgoWriter.Println(output)
+
+		// Get node status conditions
+		GinkgoWriter.Println("\n>>> kubectl get node", nodeName, "-o yaml (conditions section)")
+		output, _ = suite.Kubectl().Exec(ctx, "get", "node", nodeName, "-o", "jsonpath={.status.conditions}")
+		GinkgoWriter.Println(output)
+
+		// Check for node events
+		GinkgoWriter.Println("\n>>> Recent events for node", nodeName)
+		output, _ = suite.Kubectl().Exec(ctx, "get", "events", "--field-selector", "involvedObject.name="+nodeName, "-A")
+		GinkgoWriter.Println(output)
+	}
 }
 
 func extractTimedOutDeployments(waitOutput string) []string {
