@@ -47,6 +47,9 @@ func (p *windowsSystemProvider) Dump(cfg SystemDumpConfig) error {
 	if cfg.ShowOutput {
 		params += " -ShowLogs"
 	}
+	if cfg.Nodes != "" {
+		params += " -Nodes " + utils.EscapeWithSingleQuotes(cfg.Nodes)
+	}
 	return powershell.ExecutePs(psCmd+params, p.stdWriter)
 }
 
