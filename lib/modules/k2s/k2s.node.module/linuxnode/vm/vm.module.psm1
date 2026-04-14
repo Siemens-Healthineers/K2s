@@ -41,7 +41,7 @@ function Invoke-SSHWithKey {
         [uint16]$ExecutionTimeoutSeconds = 0
     )
     $userOnRemoteMachine = "$UserName@$IpAddress"
-    $params = '-n', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
+    $params = '-n', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
 
     if ($Nested -eq $true) {
         # omit the "-n" param
@@ -215,7 +215,7 @@ function Invoke-SCPWithKey {
         [uint16]$RetryDelay = 2
     )
 
-    $params = @('-o', 'StrictHostKeyChecking=no', '-i', $key)
+    $params = @('-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=no', '-i', $key)
     if ($Recursive) { $params += '-r' }
     $params += $Source, $Target
 
@@ -813,10 +813,10 @@ function Wait-ForSshPossible {
 
         if ($SshKey -ne '') {
             if ($Nested) {
-                $rawResult = ssh.exe -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $rawResult = ssh.exe -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
             }
             else {
-                $rawResult = ssh.exe -n -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $rawResult = ssh.exe -n -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
             }
             # Filter out SSH socket warnings that can interfere with result matching
             $result = Get-FilteredSSHOutput -RawOutput $rawResult
