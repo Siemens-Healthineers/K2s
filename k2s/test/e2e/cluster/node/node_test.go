@@ -55,7 +55,11 @@ func TestClusterCore(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.ClusterTestStepPollInterval(time.Millisecond*200))
+	suite = framework.Setup(
+		ctx,
+		framework.ClusterTestStepTimeout(10*time.Minute),
+		framework.ClusterTestStepPollInterval(time.Second),
+	)
 	k2s = dsl.NewK2s(suite)
 
 	suite.SetupInfo().LoadClusterConfig()
