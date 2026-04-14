@@ -262,12 +262,16 @@ try {
 		& $clinkerdExe install  `
 --ignore-cluster --disable-heartbeat  `
 --proxy-memory-limit 100Mi  `
+--proxy-cpu-request 100m  `
+--proxy-cpu-limit 100m  `
 --default-inbound-policy "all-authenticated"  `
 --set "identity.externalCA=true"  `
 --set "identity.issuer.scheme=kubernetes.io/tls"  `
 --set "proxy.await=false"  `
 --set "proxy.image.name=shsk2s.azurecr.io/linkerd/proxy"  `
---set "proxyInit.image.name=shsk2s.azurecr.io/linkerd/proxy-init" 2> $null | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8
+--set "proxyInit.image.name=shsk2s.azurecr.io/linkerd/proxy-init"  `
+--set "proxyInit.resources.cpu.request=100m"  `
+--set "proxyInit.resources.cpu.limit=100m" 2> $null | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8
 
 		# cleanup linkerd resources
 		(Get-Content $linkerdYaml\linkerd-crds-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd-crds.yaml
