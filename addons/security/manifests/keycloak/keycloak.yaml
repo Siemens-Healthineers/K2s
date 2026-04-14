@@ -2350,7 +2350,7 @@ spec:
             httpGet:
               path: /keycloak/realms/master
               port: 8080
-            initialDelaySeconds: 30 # Increase delay for production
+            initialDelaySeconds: 50 # Increase delay for production
             periodSeconds: 10
             timeoutSeconds: 5
             successThreshold: 1
