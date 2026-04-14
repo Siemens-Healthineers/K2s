@@ -215,7 +215,7 @@ function Wait-ForKeyCloakAvailable($waiTime = 240) {
 .DESCRIPTION
 Waits for the keycloak postgresqlpods to be available.
 #>
-function Wait-ForKeyCloakPostgresqlAvailable($waiTime = 120) {
+function Wait-ForKeyCloakPostgresqlAvailable($waiTime = 240) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=postgresql' -Namespace 'security' -TimeoutSeconds $waiTime)
 }
 
