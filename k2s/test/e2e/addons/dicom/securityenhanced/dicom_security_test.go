@@ -44,7 +44,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 
 		suite.SetupInfo().ReloadRuntimeConfig()
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
