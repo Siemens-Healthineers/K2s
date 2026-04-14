@@ -52,6 +52,21 @@ function Set-HolmesModelConfig {
     if (-not $result.Success) {
         throw "[AI-Assistant] Failed to apply HolmesGPT manifests with model '$Model'"
     }
+
+    # Explicitly pin the MODEL env var after apply. kubectl client-side apply stores the
+    # full manifest (with MODEL_PLACEHOLDER still in the annotation) so a subsequent apply
+    # would silently revert the live value back to MODEL_PLACEHOLDER. Using 'kubectl set env'
+    # here ensures the correct value wins regardless of annotation state.
+    $envModel = "openai/$Model"
+    $patchResult = Invoke-Kubectl -Params 'set', 'env', 'deployment/holmesgpt-holmes',
+        '-n', 'ai-assistant', "MODEL=$envModel"
+    $patchResult.Output | Write-Log
+    if (-not $patchResult.Success) {
+        Write-Log "[AI-Assistant] Warning: failed to pin MODEL env to '$envModel' after apply — manual check recommended." -Console
+    }
+    else {
+        Write-Log "[AI-Assistant] MODEL env pinned to '$envModel'." -Console
+    }
 }
 
 <#
@@ -111,9 +126,14 @@ Cluster state changes constantly — always fetch fresh data with a tool.
 
 EXECUTION PROTOCOL (follow exactly):
 1. Receive user request about Kubernetes resources.
-2. Call EXACTLY ONE appropriate kubectl tool to retrieve REAL live data.
-3. After the tool returns, write a final text response with the REAL tool output.
-4. STOP. Do not call additional tools.
+2. Call the appropriate kubectl tool(s) to retrieve REAL live data.
+   For 2-step queries (need the exact pod name first):
+     Step 1 — call kubernetes_tabular_query to list ALL pods in the namespace.
+              List all pods — do NOT pass a filter. Pick the right name yourself.
+     Step 2 — call kubectl_describe with the exact pod name from Step 1.
+   Maximum 2 tool calls per request.
+3. After the final tool returns, write a text response with the REAL tool output.
+4. STOP. Do not call additional tools beyond the 2-step maximum.
 
 CRITICAL — ALWAYS WRITE A FINAL TEXT RESPONSE:
 - After EVERY tool call you MUST emit a final text message to the user.
@@ -124,9 +144,17 @@ CRITICAL — ALWAYS WRITE A FINAL TEXT RESPONSE:
 - If the tool failed → write exactly: Unable to execute tool
 
 TOOL SELECTION:
-- List resources → kubernetes_tabular_query with appropriate kubectl get command
-- Count resources → kubernetes_count
-- Describe a resource → kubernetes_tabular_query with kubectl describe
+- List resources        → kubernetes_tabular_query (list ALL, pick matching item yourself)
+- Count resources       → kubernetes_count
+- Why is pod restarting → TWO steps:
+    Step 1: kubernetes_tabular_query kind=pods columns=NAME:.metadata.name,STATUS:.status.phase
+            namespace=<the namespace>
+            List ALL pods — pick the matching name from the full output yourself.
+    Step 2: kubectl_describe kind=pod name=<exact name from Step 1> namespace=<ns>
+    kubectl_describe shows Last State, Reason, Exit Code, Restart Count
+    even when kubectl events returns nothing. Use describe, NOT events.
+- Events for known resource → kubectl_events (resource_type, resource_name, namespace)
+- Describe a resource   → kubectl_describe kind=<kind> name=<name> namespace=<ns>
 
 OUTPUT RULES:
 - Return ONLY the real tool output. No explanations, no commentary, no next steps.
@@ -137,7 +165,8 @@ FORBIDDEN BEHAVIORS:
 - Answering without calling a tool (using memory or conversation history instead).
 - Generating fake/example cluster data (node1, node2, pod1, pod2, example-pod-1).
 - Stopping after tool execution without writing a final text response.
-- Multi-step tool chains (more than 1 tool per request).
+- More than 2 tool calls per request.
+- Using kubectl_events for restart/crash diagnosis — use kubectl_describe instead.
 - Suggesting follow-up actions or next steps.
 - Autonomous investigation or root cause analysis unless explicitly requested.
 '@
@@ -229,6 +258,8 @@ RAW_OUTPUT = os.environ.get("RAW_OUTPUT", "false").strip().lower() == "true"
 _KUBECTL_MULTI_COL_RE = re.compile(r"\S  +\S")
 
 # Prose lines to always drop (case-insensitive prefix match).
+# NOTE: patterns here must NOT match kubectl events/describe output — those
+# contain diagnostic data and must reach the user.
 _NOISE_RE = re.compile(
     r"(?i)^("
     r"here (are|is)|the (pods?|nodes?|services?|namespaces?|deployments?) "
@@ -240,6 +271,37 @@ _NOISE_RE = re.compile(
     r"i (found|see|notice|recommend|suggest)|you (can|should|may|might)|"
     r"please |running |#+ |\* |\d+\. "
     r")"
+)
+
+# kubectl events output lines — always pass through the filter.
+# Format: "LAST SEEN   TYPE     REASON     OBJECT    MESSAGE"
+# or data rows like: "2m   Warning  OOMKilled  pod/x-abc  container exceeded memory"
+_EVENTS_HEADER_RE = re.compile(
+    r"^(LAST[\s_]?SEEN|LAST SEEN)\s+(TYPE|REASON|OBJECT|MESSAGE)",
+    re.IGNORECASE
+)
+_EVENTS_ROW_RE = re.compile(
+    r"^(\d+[smhd]|\d+[smhd]\s+\d+[smhd]|<unknown>)\s+(Normal|Warning)\s+\S",
+    re.IGNORECASE
+)
+
+# kubectl describe output lines — key: value pairs always pass through.
+# kubectl describe uses 0–12 spaces of indentation at various levels:
+#   "Name:             cert-manager-..."   (0 spaces)
+#   "  Reason:         OOMKilled"          (2 spaces)
+#   "    Last State:   Terminated"         (4 spaces)
+#   "      Exit Code:  1"                  (6 spaces)
+_DESCRIBE_KV_RE = re.compile(
+    r"^\s{0,12}[A-Z][A-Za-z0-9\s\-/]+:\s+\S",
+)
+
+# Section headers and diagnostic keywords that must always pass through.
+# e.g. "Last State:", "Conditions:", "Containers:", "Restart Count:"
+_DESCRIBE_SECTION_RE = re.compile(
+    r"^\s{0,12}(Last State|Restart Count|Exit Code|Reason|Message|"
+    r"Ready|State|Conditions|Containers|Volumes|Events|Liveness|"
+    r"Readiness|QoS Class|Node-Selectors|Tolerations|Controlled By)[\s:]+",
+    re.IGNORECASE
 )
 
 # ── Table helpers ──────────────────────────────────────────────────────────────
@@ -688,6 +750,20 @@ def _filter_delta(delta: str) -> str:
         stripped = line.strip()
 
         if not stripped:
+            continue
+
+        # ── kubectl events output — always pass through ────────────────────────
+        # Events header: "LAST SEEN   TYPE   REASON   OBJECT   MESSAGE"
+        # Events row:    "2m   Warning  OOMKilled  pod/x   container exceeded..."
+        if _EVENTS_HEADER_RE.match(stripped) or _EVENTS_ROW_RE.match(stripped):
+            kept.append(line)
+            continue
+
+        # ── kubectl describe key-value lines — always pass through ─────────────
+        # e.g. "  Reason:    OOMKilled"  "  Message:   ..."  "  Node:  kubemaster"
+        # "    Last State:   Terminated"  "      Exit Code:  1"
+        if _DESCRIBE_KV_RE.match(line) or _DESCRIBE_SECTION_RE.match(line):
+            kept.append(line)
             continue
 
         if _NOISE_RE.match(stripped):

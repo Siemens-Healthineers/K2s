@@ -78,12 +78,23 @@ if ([string]::IsNullOrWhiteSpace($holmesSvc)) {
 # ── Re-apply HolmesGPT manifest (updates prompt-overrides ConfigMap) ──────────
 Write-Log '[AI-Assistant] Re-applying HolmesGPT manifest to refresh prompt ConfigMaps...' -Console
 
-# Snapshot the live MODEL value BEFORE applying. Use Set-HolmesModelConfig so that
-# MODEL_PLACEHOLDER is substituted correctly — never apply the raw manifest directly.
+# Snapshot the live MODEL value BEFORE applying. Use ConvertFrom-Json to avoid PowerShell
+# stripping the double-quotes required by the jsonpath filter expression.
 $liveModelResult = Invoke-Kubectl -Params 'get', 'deployment', 'holmesgpt-holmes',
-    '-n', 'ai-assistant',
-    '-o', 'jsonpath={.spec.template.spec.containers[0].env[?(@.name=="MODEL")].value}'
-$liveModel = if ($liveModelResult.Output) { $liveModelResult.Output.Trim() } else { '' }
+    '-n', 'ai-assistant', '-o', 'json'
+$liveModel = ''
+if ($liveModelResult.Success -and $liveModelResult.Output) {
+    try {
+        $deployJson = ($liveModelResult.Output -join '') | ConvertFrom-Json
+        $modelEnv = $deployJson.spec.template.spec.containers[0].env |
+            Where-Object { $_.name -eq 'MODEL' } |
+            Select-Object -First 1
+        $liveModel = if ($modelEnv) { $modelEnv.value } else { '' }
+    }
+    catch {
+        Write-Log "[AI-Assistant] Warning: could not parse deployment JSON to read live MODEL: $($_.Exception.Message)" -Console
+    }
+}
 
 # Strip the "openai/" LiteLLM prefix to get the bare Ollama model name for Set-HolmesModelConfig.
 # If the live value is missing or still the placeholder, fall back to qwen2.5:7b.

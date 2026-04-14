@@ -169,10 +169,11 @@ spec:
             # when structured output is requested. Standard function-calling (tools array) is used.
             - name: REQUEST_STRUCTURED_OUTPUT_FROM_LLM
               value: "false"
-            # MAX_STEPS=3: step 1 = tool call, step 2 = process result, step 3 = safety margin.
+            # MAX_STEPS=5: allows 2-step queries (e.g. list pods to get name → kubectl_events).
+            # Step budget: tool-call-1 + process-1 + tool-call-2 + process-2 + safety = 5.
             # MAX_STEPS=1 breaks tool execution (no step left to process the tool result).
             - name: MAX_STEPS
-              value: "3"
+              value: "5"
           livenessProbe:
             tcpSocket:
               port: agui
@@ -259,8 +260,11 @@ data:
     Cluster state changes constantly — always fetch fresh data with a tool.
 
     STRICT RULES — follow exactly:
-    1. For EVERY user request, call EXACTLY ONE kubectl tool to get REAL data.
-    2. After the tool returns, write a final text response with the REAL tool output.
+    1. For EVERY user request, call kubectl tools to get REAL live data.
+       For 2-step queries (need the exact pod name first), call kubernetes_tabular_query
+       to list pods, then call kubectl_describe with the real pod name from the result.
+       Maximum 2 tool calls per request.
+    2. After the final tool returns, write a response with the REAL tool output.
     3. Do NOT use conversation history as a substitute for calling a tool.
     4. Do NOT generate example or placeholder names (node1, node2, pod1, pod2).
     5. Do not add explanations, analysis, next steps, or commentary.
@@ -286,6 +290,8 @@ data:
     - List pods in a specific namespace → use kubernetes_tabular_query:
         kind=pods
         columns=NAME:.metadata.name,STATUS:.status.phase
+        namespace=<the namespace mentioned by user>
+        List ALL pods — pick the right name from the full output yourself.
 
     - List deployments → use kubernetes_tabular_query:
         kind=deployments
@@ -295,8 +301,32 @@ data:
         kind=services
         columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,TYPE:.spec.type
 
+    - Why is a pod restarting / crashing / failing → TWO steps:
+        Step 1: kubernetes_tabular_query
+            kind=pods
+            columns=NAME:.metadata.name,STATUS:.status.phase
+            namespace=<the namespace mentioned by user>
+            List ALL pods in the namespace — pick the matching pod name yourself.
+        Step 2: kubectl_describe
+            kind=pod
+            name=<exact pod name from Step 1 — copy it character for character>
+            namespace=<same namespace>
+        NEVER fabricate the pod name.
+        kubectl_describe shows Last State, Reason, Exit Code, Restart Count
+        even when kubectl events returns nothing.
+
+    - Get events for a known resource → use kubectl_events directly:
+        resource_type=<pod|deployment|node|service|job>
+        resource_name=<exact resource name>
+        namespace=<namespace>
+
+    - Describe a specific resource → use kubectl_describe:
+        kind=<pod|deployment|service|node|configmap>
+        name=<exact resource name>
+        namespace=<namespace>
+
     OUTPUT FORMAT:
-    - Write ONLY the raw tool output. Nothing else.
+    - Write ONLY the real tool output. Nothing else.
     - NEVER return an empty text response after a tool call.
     - NEVER invent or fabricate any resource names or data.
 
@@ -305,9 +335,11 @@ data:
     - Using kubernetes_tabular_query for nodes — use kubernetes_count with jq.
     - Generating fake/example data (node1, node2, pod1, pod2, example-pod-1).
     - Stopping after a tool call without writing a text response.
-    - Multiple tool calls per request.
+    - More than 2 tool calls per request.
     - TodoWrite, task lists, "Next steps:", "Let's investigate".
     - Autonomous root cause analysis unless explicitly requested.
+    - Fabricating pod names — always fetch real names with kubernetes_tabular_query first.
+    - Using kubectl_events for restart diagnosis — use kubectl_describe instead.
 
   _general_instructions.jinja2: |
     # Instructions
@@ -315,8 +347,11 @@ data:
     {% if cluster_name -%}
     * You are running on cluster {{ cluster_name }}.
     {%- endif %}
-    * Use EXACTLY ONE tool call per user request.
-    * After the tool returns, you MUST write a text response containing the tool output.
+    * Use at most 2 tool calls per user request.
+    * For restart/crash diagnosis: first call kubernetes_tabular_query to list all pods
+      in the namespace (no filtering), pick the matching pod name, then call kubectl_describe.
+    * kubectl_describe shows Last State, Reason, Exit Code even when events are gone.
+    * After the final tool returns, you MUST write a text response containing the tool output.
     * Return tool output directly without commentary.
     * Do not investigate further unless the user explicitly asks.
     * Do not use TodoWrite under any circumstances.
@@ -480,7 +515,7 @@ data:
                             "unknown",
                         ):
                             async for event in _stream_agui_text_message_event(
-                                message=str(chunk.data.get("content", ""))
+                                message=chunk.data.get("content") or ""
                             ):
                                 yield encoder.encode(event)
                         elif event_type == StreamEvents.START_TOOL:
@@ -677,6 +712,13 @@ data:
 
 
     async def _stream_agui_text_message_event(message: str):
+        # ag_ui.core TextMessageContentEvent requires delta to be a non-empty string
+        # (pydantic: "String should have at least 1 character").  When the LLM emits
+        # an empty AI_MESSAGE chunk (e.g. a tool-only step with no text) we skip the
+        # entire Start/Content/End triplet rather than crashing with a validation error
+        # that propagates as a RunErrorEvent shown to the user.
+        if not message or not message.strip():
+            return
         message_id = str(uuid.uuid4())
         yield TextMessageStartEvent(
             type=EventType.TEXT_MESSAGE_START, message_id=message_id, role="assistant"
@@ -968,33 +1010,36 @@ data:
           - name: "kubernetes_tabular_query"
             user_description: "Tabular output of specific fields: kubectl get {{kind}} --all-namespaces -o custom-columns={{columns}}"
             description: >
-              Extract specific fields from Kubernetes resources in tabular format with optional filtering.
+              Extract specific fields from Kubernetes resources in tabular format.
               Memory-efficient way to query large clusters - only requested fields are transmitted.
               Column specification format: HEADER:FIELD_PATH,HEADER2:FIELD_PATH2,...
+              Always fetch ALL resources of the given kind - do NOT filter results here;
+              pick the matching resource from the full output yourself.
 
-              Optional filtering parameter:
-              - filter_pattern: Pattern to match in any column (supports grep regex)
+              Optional parameter:
+              - namespace: limit the query to a single namespace (omit for all namespaces)
 
               Examples:
               - Basic fields: NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName
-              - Filter by status: filter_pattern="Running"
-              - Filter out lines with <none>: filter_pattern="-v '<none>'"
               - Nested fields: CREATED:.metadata.creationTimestamp,IMAGE:.spec.containers[0].image
               - Array fields: LABELS:.metadata.labels,PORTS:.spec.ports[*].port
 
-              Note: Output is tabular text with column headers. Filtering works on the entire line.
+              Note: Output is tabular text with column headers.
               Note: not allowed characters are: ' / ; and newline
             script: |
               #!/bin/bash
               # K2s patch: intercept node queries. kubectl custom-columns returns <none>
               # for .status.conditions[].status because conditions is an array, not a scalar.
               # For node(s) always use `kubectl get nodes -o wide` which returns real STATUS.
+              # filter_pattern is intentionally NOT supported — always return all resources
+              # and let the LLM pick the matching one from the full output.
               KIND="{{ kind }}"
               if [[ "$KIND" == "nodes" || "$KIND" == "node" ]]; then
                 kubectl get nodes -o wide
-              else
-                kubectl get {{ kind }} --all-namespaces -o custom-columns='{{ columns }}'{% if filter_pattern %} | (head -n 1; tail -n +2 | grep {{ filter_pattern }}){% endif %}
-
+              {% if namespace %}elif [[ -n "{{ namespace }}" ]]; then
+                kubectl get {{ kind }} -n '{{ namespace }}' -o custom-columns='{{ columns }}'
+              {% endif %}else
+                kubectl get {{ kind }} --all-namespaces -o custom-columns='{{ columns }}'
               fi
             transformers:
               - name: llm_summarize
