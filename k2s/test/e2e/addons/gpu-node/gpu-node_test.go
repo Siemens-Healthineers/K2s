@@ -45,7 +45,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 		GinkgoWriter.Println("Deleting workloads..")
 
 		suite.Kubectl().MustExec(ctx, "delete", "-k", workloadsPath, "--ignore-not-found")
