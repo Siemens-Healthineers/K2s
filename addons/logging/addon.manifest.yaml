@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -25,16 +25,23 @@ spec:
                     - nginx
                     - nginx-gw
                     - traefik
+              - name: omitOpensearch
+                description: Deploy only Fluent-bit; omit OpenSearch and OpenSearch Dashboards
+                default: false
             examples:
               - cmd: k2s addons enable logging
                 comment: Enable logging in k2s
               - cmd: k2s addons enable logging --ingress traefik
                 comment: Enable logging in k2s with ingress traefik
+              - cmd: k2s addons enable logging --omitOpensearch
+                comment: Enable logging in k2s without OpenSearch (Fluent-bit stdout output only)
           script:
             subPath: Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
+              - cliFlagName: omitOpensearch
+                scriptParameterName: OmitOpensearch
         disable:
           cli:
             examples:
