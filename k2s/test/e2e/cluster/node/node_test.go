@@ -71,6 +71,10 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Found Linux nodes:", linuxNodes, len(linuxNodes))
 	GinkgoWriter.Println("Found Windows nodes:", windowsNodes, len(windowsNodes))
 
+	allNodes := append([]string{}, linuxNodes...)
+	allNodes = append(allNodes, windowsNodes...)
+	waitForNodesReady(ctx, allNodes)
+
 	linuxImage := "shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0"
 	windowsImage := "shsk2s.azurecr.io/example.albums-golang-win:v1.0.0"
 
@@ -268,7 +272,14 @@ func applyDeployments(ctx context.Context) {
 		waitArgs = append(waitArgs, "deployment/"+name)
 	}
 	GinkgoWriter.Println("kubectl wait for", len(deploymentNames), "deployment(s) – single shared timeout..")
-	suite.Kubectl().MustExec(ctx, waitArgs...)
+	waitOutput, waitExitCode := suite.Kubectl().Exec(ctx, waitArgs...)
+	if waitExitCode != 0 {
+		timedOutDeployments := extractTimedOutDeployments(waitOutput)
+		if len(timedOutDeployments) > 0 {
+			printTimedOutDeploymentDiagnostics(ctx, timedOutDeployments)
+		}
+		Expect(waitExitCode).To(Equal(0), "kubectl wait failed with exit code %d. Output:\n%s", waitExitCode, waitOutput)
+	}
 	GinkgoWriter.Println("All deployments ready.")
 }
 
@@ -289,6 +300,93 @@ func getNodes(ctx context.Context, osType string) []string {
 		return []string{}
 	}
 	return strings.Split(output, "\n")
+}
+
+func waitForNodesReady(ctx context.Context, nodeNames []string) {
+	if len(nodeNames) == 0 {
+		return
+	}
+
+	waitArgs := []string{"wait", "--for=condition=Ready", "--timeout=10m"}
+	for _, node := range nodeNames {
+		waitArgs = append(waitArgs, "node/"+node)
+	}
+
+	GinkgoWriter.Println("Waiting for discovered nodes to be Ready..", nodeNames)
+	suite.Kubectl().MustExec(ctx, waitArgs...)
+	GinkgoWriter.Println("All discovered nodes are Ready")
+}
+
+func extractTimedOutDeployments(waitOutput string) []string {
+	lines := strings.Split(waitOutput, "\n")
+	seen := make(map[string]bool)
+	result := make([]string, 0)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if !strings.Contains(line, "timed out waiting for the condition on deployments/") {
+			continue
+		}
+
+		idx := strings.LastIndex(line, "deployments/")
+		if idx < 0 {
+			continue
+		}
+
+		name := strings.TrimSpace(line[idx+len("deployments/"):])
+		if name == "" || seen[name] {
+			continue
+		}
+
+		seen[name] = true
+		result = append(result, name)
+	}
+
+	return result
+}
+
+func printTimedOutDeploymentDiagnostics(ctx context.Context, deploymentNames []string) {
+	GinkgoWriter.Println("[Diagnostics] Timed-out deployments:", deploymentNames)
+
+	describedNodes := make(map[string]bool)
+
+	for _, deploymentName := range deploymentNames {
+		GinkgoWriter.Println("[Diagnostics] --- Deployment diagnostics for <", deploymentName, "> ---")
+		suite.Kubectl().Exec(ctx, "describe", "deployment", deploymentName, "-n", namespace)
+
+		podsOutput, _ := suite.Kubectl().Exec(ctx,
+			"get", "pods", "-n", namespace,
+			"-l", "app="+deploymentName,
+			"-o", "jsonpath={range .items[*]}{.metadata.name}{'\\n'}{end}")
+
+		podNames := make([]string, 0)
+		for _, podName := range strings.Split(strings.TrimSpace(podsOutput), "\n") {
+			podName = strings.TrimSpace(podName)
+			if podName != "" {
+				podNames = append(podNames, podName)
+			}
+		}
+
+		for _, podName := range podNames {
+			GinkgoWriter.Println("[Diagnostics] Describe pod <", podName, "> for deployment <", deploymentName, ">")
+			suite.Kubectl().Exec(ctx, "describe", "pod", podName, "-n", namespace)
+		}
+
+		nodesOutput, _ := suite.Kubectl().Exec(ctx,
+			"get", "pods", "-n", namespace,
+			"-l", "app="+deploymentName,
+			"-o", "jsonpath={range .items[*]}{.spec.nodeName}{'\\n'}{end}")
+
+		for _, nodeName := range strings.Split(strings.TrimSpace(nodesOutput), "\n") {
+			nodeName = strings.TrimSpace(nodeName)
+			if nodeName == "" || describedNodes[nodeName] {
+				continue
+			}
+			describedNodes[nodeName] = true
+			GinkgoWriter.Println("[Diagnostics] Describe node <", nodeName, ">")
+			suite.Kubectl().Exec(ctx, "describe", "node", nodeName)
+		}
+	}
 }
 
 func generateDeployments(outputDir string, nodes []string, image, clusterIPBase string, osType string) {
