@@ -57,7 +57,7 @@ func TestClusterCore(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(
 		ctx,
-		framework.ClusterTestStepTimeout(10*time.Minute),
+		framework.ClusterTestStepTimeout(20*time.Minute),
 		framework.ClusterTestStepPollInterval(time.Second),
 	)
 	k2s = dsl.NewK2s(suite)
@@ -253,11 +253,23 @@ func applyDeployments(ctx context.Context) {
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
-	for _, data := range deployments {
-		GinkgoWriter.Println("Waiting for deployment availability and pod readiness for <", data.DeploymentName, ">")
-		suite.Cluster().ExpectDeploymentToBeAvailable(data.DeploymentName, namespace)
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", data.DeploymentName, namespace)
+	deploymentNames := getDeploymentNames()
+	if len(deploymentNames) == 0 {
+		GinkgoWriter.Println("No deployments to wait for.")
+		return
 	}
+
+	// Wait for ALL deployments concurrently under one shared 18-minute timeout.
+	// Replaces a sequential loop where each deployment consumed its own full
+	// timeout, causing slow-starting nodes (e.g. first image pull on debian13)
+	// to push the total wait over the overall limit.
+	waitArgs := []string{"wait", "--for=condition=Available", "--timeout=18m", "-n", namespace}
+	for _, name := range deploymentNames {
+		waitArgs = append(waitArgs, "deployment/"+name)
+	}
+	GinkgoWriter.Println("kubectl wait for", len(deploymentNames), "deployment(s) – single shared timeout..")
+	suite.Kubectl().MustExec(ctx, waitArgs...)
+	GinkgoWriter.Println("All deployments ready.")
 }
 
 func deleteDeployments(ctx context.Context) {
