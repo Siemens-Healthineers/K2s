@@ -49,7 +49,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 
 		suite.SetupInfo().ReloadRuntimeConfig()
 		suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\..\\nginx\\workloads", "--ignore-not-found")
