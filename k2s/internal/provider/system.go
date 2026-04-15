@@ -40,6 +40,7 @@ type SystemDumpConfig struct {
 	OutputDir    string
 	SkipOpenDump bool
 	ShowOutput   bool
+	Nodes        string
 }
 
 // SystemUpgradeConfig holds parameters for the upgrade operation.
