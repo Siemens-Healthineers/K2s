@@ -327,7 +327,12 @@ func deployWithImage(ctx context.Context, srcPath, name, deploymentName string) 
 	deploymentLabel := fmt.Sprintf("deployment/%s", deploymentName)
 	newImageName := fmt.Sprintf("%s=%s", deploymentName, name)
 
-	suite.Kubectl().MustExec(ctx, "apply", "-f", filepath.Join(srcPath, "weather.yaml"))
+	// Retry weather.yaml apply to handle transient kube-apiserver unavailability
+	// (can occur after heavy k2s image rm workload stresses the API server).
+	Eventually(func(g Gomega) {
+		_, exitCode := suite.Kubectl().Exec(ctx, "apply", "-f", filepath.Join(srcPath, "weather.yaml"))
+		g.Expect(exitCode).To(Equal(0))
+	}).WithContext(ctx).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
 
 	// Retry ing-nginx.yaml apply to handle transient nginx admission webhook unavailability
 	// between test specs (webhook can take several minutes to recover after ingress deletion).
