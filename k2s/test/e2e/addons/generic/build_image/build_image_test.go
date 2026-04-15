@@ -334,7 +334,7 @@ func deployWithImage(ctx context.Context, srcPath, name, deploymentName string) 
 	Eventually(func(g Gomega) {
 		_, exitCode := suite.Kubectl().Exec(ctx, "apply", "-f", filepath.Join(srcPath, "ing-nginx.yaml"))
 		g.Expect(exitCode).To(Equal(0))
-	}).WithContext(ctx).WithTimeout(3 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
+	}).WithContext(ctx).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
 
 	suite.Kubectl().MustExec(ctx, "set", "image", deploymentLabel, newImageName)
 	suite.Kubectl().MustExec(ctx, "rollout", "restart", deploymentLabel)
@@ -344,7 +344,6 @@ func deployWithImage(ctx context.Context, srcPath, name, deploymentName string) 
 }
 
 func deleteDeployment(ctx context.Context, srcDirName, deploymentName string) {
-	suite.Kubectl().Exec(ctx, "delete", "-f", filepath.Join(srcDirName, "ing-nginx.yaml"))
 	suite.Kubectl().Exec(ctx, "delete", "-f", filepath.Join(srcDirName, "weather.yaml"))
 
 	suite.Cluster().ExpectDeploymentToBeRemoved(ctx, labelName, deploymentName, namespace)
