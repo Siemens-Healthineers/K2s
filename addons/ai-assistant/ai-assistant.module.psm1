@@ -127,48 +127,88 @@ Cluster state changes constantly — always fetch fresh data with a tool.
 EXECUTION PROTOCOL (follow exactly):
 1. Receive user request about Kubernetes resources.
 2. Call the appropriate kubectl tool(s) to retrieve REAL live data.
-   For 2-step queries (need the exact pod name first):
-     Step 1 — call kubernetes_tabular_query to list ALL pods in the namespace.
-              List all pods — do NOT pass a filter. Pick the right name yourself.
-     Step 2 — call kubectl_describe with the exact pod name from Step 1.
-   Maximum 2 tool calls per request.
+   Maximum 2 tool calls per request. STOP after the second tool call.
 3. After the final tool returns, write a text response with the REAL tool output.
-4. STOP. Do not call additional tools beyond the 2-step maximum.
+4. STOP. Do not call additional tools beyond the 2-call maximum.
 
 CRITICAL — ALWAYS WRITE A FINAL TEXT RESPONSE:
-- After EVERY tool call you MUST emit a final text message to the user.
+- After EVERY tool call sequence you MUST emit a final text message to the user.
 - The final text MUST contain the actual tool result.
 - NEVER stop after tool execution without sending a text response.
 - If the tool returned data → write it out as your final response.
 - If the tool returned empty → write exactly: No data found
 - If the tool failed → write exactly: Unable to execute tool
 
-TOOL SELECTION:
+════════════════════════════════════════════════════════
+FAILED / CRASHED / ERROR PODS — EXACT PROTOCOL
+════════════════════════════════════════════════════════
+Triggers: "list failed pods", "show crashed pods", "any failing pods",
+          "why is X failing", "what is wrong with X", "pod errors",
+          "CrashLoopBackOff", "Error pods", "problem pods"
+
+STEP 1 — List ALL pods WITH namespace column:
+  Call kubernetes_tabular_query with:
+    kind=pods
+    columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,STATUS:.status.phase
+  This gives you both NAMESPACE and NAME for every pod.
+  Do NOT filter — retrieve all pods.
+
+STEP 2 — Describe the first failed pod:
+  From Step 1 output, find pods where STATUS is NOT "Running" AND NOT "Succeeded".
+  Take the FIRST such pod. Note its exact NAME and NAMESPACE from the Step 1 output.
+  Call kubectl_describe with:
+    kind=pod
+    name=<exact NAME from Step 1>
+    namespace=<exact NAMESPACE from Step 1>
+  CRITICAL: kubectl_describe is the ONLY allowed second tool for this query.
+  DO NOT call kubernetes_tabular_query again.
+  DO NOT call fetch_pod_logs.
+  DO NOT call kubectl_events.
+
+STEP 3 — Write final response:
+  List ALL non-Running/non-Succeeded pods found in Step 1 (name + namespace + status).
+  For the first failed pod, include from Step 2 describe output:
+    - Container name
+    - State / Last State → Reason, Exit Code
+    - Started / Finished timestamps
+    - Message (if present)
+  If NO failed pods found in Step 1 → respond: "All pods are Running or Succeeded — no failures found."
+
+════════════════════════════════════════════════════════
+OTHER QUERY TYPES
+════════════════════════════════════════════════════════
 - List resources        → kubernetes_tabular_query (list ALL, pick matching item yourself)
 - Count resources       → kubernetes_count
 - Why is pod restarting → TWO steps:
-    Step 1: kubernetes_tabular_query kind=pods columns=NAME:.metadata.name,STATUS:.status.phase
-            namespace=<the namespace>
-            List ALL pods — pick the matching name from the full output yourself.
-    Step 2: kubectl_describe kind=pod name=<exact name from Step 1> namespace=<ns>
-    kubectl_describe shows Last State, Reason, Exit Code, Restart Count
-    even when kubectl events returns nothing. Use describe, NOT events.
-- Events for known resource → kubectl_events (resource_type, resource_name, namespace)
-- Describe a resource   → kubectl_describe kind=<kind> name=<name> namespace=<ns>
+    Step 1: kubernetes_tabular_query kind=pods
+            columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,STATUS:.status.phase
+            Scan ALL namespaces. Pick the matching pod name yourself.
+    Step 2: kubectl_describe kind=pod name=<exact name> namespace=<exact namespace from Step 1>
+    kubectl_describe shows Last State, Reason, Exit Code, Restart Count.
+    Use describe, NOT events, NOT fetch_pod_logs.
+- Events for a known resource → kubectl_events (resource_type, resource_name, namespace)
+- Describe a known resource   → kubectl_describe kind=<kind> name=<name> namespace=<ns>
 
-OUTPUT RULES:
+════════════════════════════════════════════════════════
+OUTPUT RULES
+════════════════════════════════════════════════════════
 - Return ONLY the real tool output. No explanations, no commentary, no next steps.
 - NEVER generate or invent pod names, node names, or namespace names.
 - Output MUST be non-empty (never send empty text).
+- For describe output: include Name, Namespace, Status, Container name,
+  State→Reason, Exit Code, Started, Finished, Message. These are DIAGNOSTIC DATA.
 
-FORBIDDEN BEHAVIORS:
-- Answering without calling a tool (using memory or conversation history instead).
-- Generating fake/example cluster data (node1, node2, pod1, pod2, example-pod-1).
+════════════════════════════════════════════════════════
+ABSOLUTELY FORBIDDEN — ZERO TOLERANCE
+════════════════════════════════════════════════════════
+- Calling kubernetes_tabular_query MORE THAN ONCE per request.
+- Calling fetch_pod_logs for crash/failure diagnosis (use kubectl_describe instead).
+- Answering without calling a tool.
+- Generating fake cluster data (node1, pod1, example-pod-1, etc.).
 - Stopping after tool execution without writing a final text response.
 - More than 2 tool calls per request.
-- Using kubectl_events for restart/crash diagnosis — use kubectl_describe instead.
+- Using kubectl_events for restart/crash diagnosis.
 - Suggesting follow-up actions or next steps.
-- Autonomous investigation or root cause analysis unless explicitly requested.
 '@
 
     # ── Python proxy script ───────────────────────────────────────────────────
@@ -286,22 +326,34 @@ _EVENTS_ROW_RE = re.compile(
 )
 
 # kubectl describe output lines — key: value pairs always pass through.
-# kubectl describe uses 0–12 spaces of indentation at various levels:
+# kubectl describe uses 0–16 spaces of indentation at various levels:
 #   "Name:             cert-manager-..."   (0 spaces)
 #   "  Reason:         OOMKilled"          (2 spaces)
 #   "    Last State:   Terminated"         (4 spaces)
 #   "      Exit Code:  1"                  (6 spaces)
+#   "        Message:  ..."                (8 spaces)
 _DESCRIBE_KV_RE = re.compile(
-    r"^\s{0,12}[A-Z][A-Za-z0-9\s\-/]+:\s+\S",
+    r"^\s{0,16}[A-Z][A-Za-z0-9\s\-/]+:\s+\S",
 )
 
 # Section headers and diagnostic keywords that must always pass through.
 # e.g. "Last State:", "Conditions:", "Containers:", "Restart Count:"
 _DESCRIBE_SECTION_RE = re.compile(
-    r"^\s{0,12}(Last State|Restart Count|Exit Code|Reason|Message|"
+    r"^\s{0,16}(Last State|Restart Count|Exit Code|Reason|Message|"
     r"Ready|State|Conditions|Containers|Volumes|Events|Liveness|"
-    r"Readiness|QoS Class|Node-Selectors|Tolerations|Controlled By)[\s:]+",
+    r"Readiness|QoS Class|Node-Selectors|Tolerations|Controlled By|"
+    r"Name|Namespace|Status|Phase|Node|Image|Started|Finished|Signal|"
+    r"Labels|Annotations|IP|IPs|Container ID|Host IP|Pod IP|"
+    r"Init Containers|Ephemeral Containers|Priority|"
+    r"Termination Message|Environment|Mounts)[\s:]+",
     re.IGNORECASE
+)
+
+# Indented continuation lines for multi-line describe values (e.g. Message: body text)
+# These appear as lines with leading whitespace but no colon (not a new key).
+# Example: "      Error from server: ..."  after "  Message:" line
+_DESCRIBE_CONTINUATION_RE = re.compile(
+    r"^\s{4,16}\S"  # 4–16 spaces indent, then non-whitespace (continuation body)
 )
 
 # ── Table helpers ──────────────────────────────────────────────────────────────
@@ -704,10 +756,15 @@ def _filter_delta(delta: str) -> str:
             return cleaned
         if RAW_OUTPUT:
             return cleaned
-        # Validate that the first line of the table body looks like a kubectl header
+        # Validate that the first line of the table body looks like a kubectl header.
+        # kubectl describe output does NOT have a tabular header — pass it through as-is.
         first_table_line = table_body.splitlines()[0] if table_body else ""
         candidate_headers = first_table_line.split()
         if not _is_valid_table_header(candidate_headers):
+            # Could be kubectl describe output — check for key: value pattern
+            if _DESCRIBE_KV_RE.match(first_table_line) or _DESCRIBE_SECTION_RE.match(first_table_line):
+                logging.info("OutputFilter: tool-result block is kubectl describe output — passing through as-is")
+                return cleaned
             logging.info(
                 "OutputFilter: table header failed validation (%s) — returning original block",
                 candidate_headers,
@@ -743,13 +800,31 @@ def _filter_delta(delta: str) -> str:
         logging.info("OutputFilter: delta contains tool marker but not result block — pass through")
         return delta
 
+    # ── Detect kubectl describe block — pass through entirely ─────────────────
+    # If the delta as a whole looks like kubectl describe output (starts with
+    # "Name:" or contains multiple key: value pairs) pass it through unchanged.
+    # This prevents stripping of failure details (Reason, Exit Code, Message).
+    cleaned_lines_for_detect = cleaned.splitlines()
+    describe_kv_count = sum(
+        1 for ln in cleaned_lines_for_detect
+        if _DESCRIBE_KV_RE.match(ln) or _DESCRIBE_SECTION_RE.match(ln)
+    )
+    if describe_kv_count >= 2:
+        logging.info(
+            "OutputFilter: delta looks like kubectl describe output (%d kv lines) — pass through",
+            describe_kv_count,
+        )
+        return cleaned
+
     # ── Regular LLM text: filter line-by-line ─────────────────────────────────
     kept = []
-    for raw_line in cleaned.splitlines():
+    in_describe_block = False  # track whether we are inside a describe key-value section
+    for raw_line in cleaned_lines_for_detect:
         line = raw_line.rstrip()
         stripped = line.strip()
 
         if not stripped:
+            in_describe_block = False
             continue
 
         # ── kubectl events output — always pass through ────────────────────────
@@ -757,6 +832,7 @@ def _filter_delta(delta: str) -> str:
         # Events row:    "2m   Warning  OOMKilled  pod/x   container exceeded..."
         if _EVENTS_HEADER_RE.match(stripped) or _EVENTS_ROW_RE.match(stripped):
             kept.append(line)
+            in_describe_block = False
             continue
 
         # ── kubectl describe key-value lines — always pass through ─────────────
@@ -764,7 +840,17 @@ def _filter_delta(delta: str) -> str:
         # "    Last State:   Terminated"  "      Exit Code:  1"
         if _DESCRIBE_KV_RE.match(line) or _DESCRIBE_SECTION_RE.match(line):
             kept.append(line)
+            in_describe_block = True
             continue
+
+        # ── Continuation lines following a describe key-value line ─────────────
+        # Multi-line field values (e.g. Message body) appear as indented lines
+        # with no colon. Pass them through while inside a describe section.
+        if in_describe_block and _DESCRIBE_CONTINUATION_RE.match(line):
+            kept.append(line)
+            continue
+
+        in_describe_block = False
 
         if _NOISE_RE.match(stripped):
             continue  # drop commentary
@@ -829,18 +915,147 @@ def _is_chat_endpoint(path: str) -> bool:
     return bool(CHAT_PATH_RE.match(path.split("?")[0]))
 
 
+# ── Ask-field rewrite patterns ────────────────────────────────────────────────
+# These detect the user's intent and prepend a hard one-line instruction
+# directly into the `ask` field so Holmes's planner cannot ignore it.
+# The context[] injection is still done as a secondary guard.
+
+_FAILED_PODS_RE = re.compile(
+    r"(?i)(list|show|get|find|any|are there)[\w\s]*(fail|crash|error|broken|problem|bad|not.?running|crashing)",
+)
+_WHY_FAILING_RE = re.compile(
+    r"(?i)(why|what|reason|cause|issue|problem|how).{0,40}(fail|crash|error|broken|not.?running|crashing|restart|killed|exit)",
+)
+_DESCRIBE_POD_RE = re.compile(
+    r"(?i)(describe|inspect|detail|info).{0,30}pod",
+)
+# Short affirmative replies the user sends after AI asks "do you want more details?"
+_AFFIRMATIVE_RE = re.compile(
+    r"(?i)^\s*(yes|yeah|yep|sure|ok|okay|please|go ahead|tell me|more|show me|why|what happened|details?|reason|cause)\s*[!?.]?\s*$",
+)
+# Extract pod names mentioned in text (e.g. "dummy-failed-pod (default)")
+_POD_NAME_IN_TEXT_RE = re.compile(
+    r"([a-z0-9][a-z0-9\-]+)\s+\(([a-z0-9][a-z0-9\-]*)\)",  # "pod-name (namespace)"
+)
+# Detect AI text that offered more details about a failed pod
+_AI_OFFERED_DETAILS_RE = re.compile(
+    r"(?i)(more detailed|more information|specific pod|issues with|failed pod|want.*detail|let me know)",
+)
+
+
+def _extract_failed_pod_from_history(messages: list) -> tuple:
+    """
+    Scan recent conversation messages for a failed pod name + namespace.
+    Returns (pod_name, namespace) or ("", "") if not found.
+    Looks for patterns like "dummy-failed-pod (default)" in AI messages.
+    """
+    # Look at last 6 messages (3 exchanges) in reverse order
+    for msg in reversed(messages[-6:]):
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        if not isinstance(content, str):
+            continue
+        # Only scan AI assistant messages for the pod name it mentioned
+        if role in ("assistant", "ai"):
+            m = _POD_NAME_IN_TEXT_RE.search(content)
+            if m:
+                pod_name = m.group(1)
+                namespace = m.group(2)
+                # Filter out obvious non-pod matches
+                if len(pod_name) > 3 and pod_name not in ("running", "succeeded", "failed"):
+                    logging.info(
+                        "History scan: found failed pod %r in namespace %r",
+                        pod_name, namespace,
+                    )
+                    return pod_name, namespace
+    return "", ""
+
+
+def _build_ask_prefix(ask: str, messages: list = None) -> str:
+    """
+    Return a short hard instruction prefix to prepend to the ask field.
+    This directly shapes what Holmes's planner is told to do.
+
+    For vague affirmatives (yes/ok/sure), scans conversation history to find
+    the failed pod that was being discussed, then injects a direct describe call.
+    Returns "" if no special handling needed.
+    """
+    ask_lower = ask.lower().strip()
+
+    # ── Vague affirmative after AI offered more details ───────────────────────
+    if _AFFIRMATIVE_RE.match(ask) and messages:
+        pod_name, namespace = _extract_failed_pod_from_history(messages)
+        if pod_name and namespace:
+            logging.info(
+                "Affirmative follow-up detected; injecting describe for %r/%r",
+                namespace, pod_name,
+            )
+            return (
+                f"[INSTRUCTION] Use exactly 1 tool call. "
+                f"Call kubectl_describe kind=pod name={pod_name} namespace={namespace}. "
+                f"DO NOT use fetch_pod_logs. DO NOT use TodoWrite. DO NOT use kubernetes_count. "
+                f"DO NOT call kubernetes_tabular_query. "
+                f"Write the describe output (State, Reason, Exit Code, Started, Finished, Message) as your final answer. "
+                f"Original request: "
+            )
+
+    # ── Explicit failed/crash pod listing ────────────────────────────────────
+    if _FAILED_PODS_RE.search(ask) or "failed" in ask_lower or "failing" in ask_lower:
+        return (
+            "[INSTRUCTION] Use exactly 2 tool calls. "
+            "Tool call 1: kubernetes_tabular_query with columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,STATUS:.status.phase to list ALL pods. "
+            "Tool call 2: kubectl_describe kind=pod name=<first non-Running non-Succeeded pod name> namespace=<its namespace from Tool call 1>. "
+            "DO NOT use fetch_pod_logs. DO NOT use TodoWrite. DO NOT use kubernetes_count. "
+            "After tool call 2, write the describe output (Name, Namespace, State, Reason, Exit Code, Started, Finished) as your final answer. "
+            "Original request: "
+        )
+
+    # ── Why is X failing / describe a pod ────────────────────────────────────
+    if _WHY_FAILING_RE.search(ask) or _DESCRIBE_POD_RE.search(ask):
+        return (
+            "[INSTRUCTION] Use exactly 2 tool calls. "
+            "Tool call 1: kubernetes_tabular_query with columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,STATUS:.status.phase to find the pod name and namespace. "
+            "Tool call 2: kubectl_describe kind=pod name=<exact pod name> namespace=<exact namespace from Tool call 1>. "
+            "DO NOT use fetch_pod_logs. DO NOT use TodoWrite. DO NOT use kubernetes_count. "
+            "After tool call 2, write the describe output (Name, Namespace, State, Reason, Exit Code, Started, Finished) as your final answer. "
+            "Original request: "
+        )
+    return ""
+
+
 def _inject_prompt(body_bytes: bytes) -> bytes:
-    """Inject STRICT_PROMPT via the context field of RunAgentInput."""
+    """
+    Two-layer injection:
+    1. context[] field — full strict system prompt (secondary guard).
+    2. ask field prefix — short hard instruction prepended to user's question
+       so Holmes's planner receives it as part of the task itself.
+       For vague affirmatives, scans conversation history to find the pod.
+    """
     if not STRICT_PROMPT:
         return body_bytes
     try:
         data = json.loads(body_bytes.decode("utf-8"))
+
+        # Layer 1: context[] injection (full system prompt)
         rules_ctx = {"description": "assistant_behavioral_rules", "value": STRICT_PROMPT}
         existing = data.get("context")
         if isinstance(existing, list):
             data["context"] = [rules_ctx] + existing
         else:
             data["context"] = [rules_ctx]
+
+        # Layer 2: ask field prefix injection (passes message history for affirmative detection)
+        ask = data.get("ask", "")
+        messages = data.get("messages", [])
+        if isinstance(ask, str) and ask.strip():
+            prefix = _build_ask_prefix(ask, messages)
+            if prefix:
+                data["ask"] = prefix + ask
+                logging.info(
+                    "Injected ask-prefix (%d chars) for ask: %r",
+                    len(prefix), ask[:80],
+                )
+
         logging.info("Injected strict rules via context field (%d chars)", len(STRICT_PROMPT))
         return json.dumps(data).encode("utf-8")
     except Exception as exc:
