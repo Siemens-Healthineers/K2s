@@ -327,8 +327,19 @@ func deployWithImage(ctx context.Context, srcPath, name, deploymentName string) 
 	deploymentLabel := fmt.Sprintf("deployment/%s", deploymentName)
 	newImageName := fmt.Sprintf("%s=%s", deploymentName, name)
 
-	suite.Kubectl().MustExec(ctx, "apply", "-f", filepath.Join(srcPath, "weather.yaml"))
-	suite.Kubectl().MustExec(ctx, "apply", "-f", filepath.Join(srcPath, "ing-nginx.yaml"))
+	// Retry weather.yaml apply to handle transient kube-apiserver unavailability
+	// (can occur after heavy k2s image rm workload stresses the API server).
+	Eventually(func(g Gomega) {
+		_, exitCode := suite.Kubectl().Exec(ctx, "apply", "-f", filepath.Join(srcPath, "weather.yaml"))
+		g.Expect(exitCode).To(Equal(0))
+	}).WithContext(ctx).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
+
+	// Retry ing-nginx.yaml apply to handle transient nginx admission webhook unavailability
+	// between test specs (webhook can take several minutes to recover after ingress deletion).
+	Eventually(func(g Gomega) {
+		_, exitCode := suite.Kubectl().Exec(ctx, "apply", "-f", filepath.Join(srcPath, "ing-nginx.yaml"))
+		g.Expect(exitCode).To(Equal(0))
+	}).WithContext(ctx).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
 
 	suite.Kubectl().MustExec(ctx, "set", "image", deploymentLabel, newImageName)
 	suite.Kubectl().MustExec(ctx, "rollout", "restart", deploymentLabel)
@@ -338,7 +349,6 @@ func deployWithImage(ctx context.Context, srcPath, name, deploymentName string) 
 }
 
 func deleteDeployment(ctx context.Context, srcDirName, deploymentName string) {
-	suite.Kubectl().Exec(ctx, "delete", "-f", filepath.Join(srcDirName, "ing-nginx.yaml"))
 	suite.Kubectl().Exec(ctx, "delete", "-f", filepath.Join(srcDirName, "weather.yaml"))
 
 	suite.Cluster().ExpectDeploymentToBeRemoved(ctx, labelName, deploymentName, namespace)
