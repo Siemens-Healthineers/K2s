@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -638,7 +638,11 @@ function Enable-ClusterIsRunning {
 	if ($clusterState.IsRunning -ne $true) {
 		$argsCall = 'start'
 		if ( $ShowLogs ) { $argsCall += ' -o' }
-		$rt = [Proc.Tools.exec]::runCommand('k2s', $argsCall)
+		$installedK2sExe = "$(Get-ClusterInstalledFolder)\k2s.exe"
+		if (-not (Test-Path $installedK2sExe)) {
+			throw "Error: Installed k2s.exe not found at '$installedK2sExe'. Cannot start cluster before upgrade."
+		}
+		$rt = Invoke-Cmd -Executable $installedK2sExe -Arguments $argsCall
 		if ( $rt -eq 0 ) {
 			Write-Log 'Start call of cluster successfully called'
 		}
