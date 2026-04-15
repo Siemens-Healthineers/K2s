@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: create
-          image: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.7
+          image: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9
           imagePullPolicy: IfNotPresent
           args:
             - create
