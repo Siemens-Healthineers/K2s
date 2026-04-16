@@ -1,6 +1,10 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
+#
+# NOTE: This file is a copy of ../configmap.yaml with ONLY the [OUTPUT] section changed to 'stdout'
+# and Log_Level changed to 'info'. If you modify [INPUT] or [FILTER] sections in ../configmap.yaml,
+# mirror those changes here to avoid drift.
 
 ---
 # Source: fluent-bit/templates/configmap.yaml
@@ -10,10 +14,10 @@ metadata:
   name: fluent-bit
   namespace: logging
   labels:
-    helm.sh/chart: fluent-bit-0.57.2
+    helm.sh/chart: fluent-bit-0.46.7
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "5.0.2"
+    app.kubernetes.io/version: "3.0.4"
     app.kubernetes.io/managed-by: Helm
 data:
   custom_parsers.conf: |
@@ -37,7 +41,7 @@ data:
     [SERVICE]
         Daemon Off
         Flush 1
-        Log_Level debug
+        Log_Level info
         Parsers_File parsers.conf
         Parsers_File custom_parsers.conf
         HTTP_Server On
@@ -120,10 +124,6 @@ data:
         Interval 30s
     
     [OUTPUT]
-        Name opensearch
+        Name  stdout
         Match *
-        Host opensearch-cluster-master.logging.svc.cluster.local
-        Port 9200
-        Index k2s
-        Buffer_Size 10MB
-        Suppress_Type_Name On
+        Format json
