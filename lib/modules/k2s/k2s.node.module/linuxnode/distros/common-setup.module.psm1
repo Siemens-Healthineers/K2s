@@ -1060,7 +1060,7 @@ Function Deploy-ClusterIPWebhook {
     &$ExecuteRemoteCommand 'kubectl wait --for=delete pod -l app.kubernetes.io/component=certgen -n k2s-webhook --timeout=60s 2>/dev/null || true' -IgnoreErrors
     &$ExecuteRemoteCommand 'sudo buildah rmi --force registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9 2>/dev/null || true' -IgnoreErrors
     Write-Log '[ClusterIP-Webhook] Verifying certgen image removal:'
-    &$ExecuteRemoteCommand 'sudo buildah images registry.k8s.io/ingress-nginx/kube-webhook-certgen 2>/dev/null || echo "(image not found — cleanup OK)"' -IgnoreErrors
+    &$ExecuteRemoteCommand 'sudo buildah images registry.k8s.io/ingress-nginx/kube-webhook-certgen 2>/dev/null || echo "(image not found - cleanup OK)"' -IgnoreErrors
 
     Write-Log '[ClusterIP-Webhook] ClusterIP webhook deployed successfully' -Console
 }
