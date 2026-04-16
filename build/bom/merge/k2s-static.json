@@ -30,7 +30,7 @@
     {
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.81.0",
+      "version": "v0.81.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -47,7 +47,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.81.0",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.81.1",
       "type": "application"
     },
     {
@@ -258,9 +258,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.0.zip",
       "name": "dockerd",
-      "version": "v29.3.1",
+      "version": "v29.4.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -277,13 +277,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.3.1",
+      "purl": "pkg:github/moby/moby@29.4.0",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.0.zip",
       "name": "docker",
-      "version": "v29.3.1",
+      "version": "v29.4.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -300,13 +300,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.3.1",
+      "purl": "pkg:github/moby/moby@29.4.0",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.3.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.0.zip",
       "name": "docker-proxy",
-      "version": "v29.3.1",
+      "version": "v29.4.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -323,13 +323,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.3.1",
+      "purl": "pkg:github/moby/moby@29.4.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/flannel-io/flannel/releases/download/0.28.2/flanneld.exe",
+      "group": "https://github.com/flannel-io/flannel/releases/download/0.28.4/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.28.2",
+      "version": "v0.28.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -346,7 +346,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.28.2",
+      "purl": "pkg:github/flannel-io/flannel@v0.28.4",
       "type": "application"
     },
     {
@@ -465,9 +465,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.2/cri-containerd-cni-2.2.2-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.3/cri-containerd-cni-2.2.3-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1.6.9",
-      "version": "v2.2.2",
+      "version": "v2.2.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -484,13 +484,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.2",
+      "purl": "pkg:github/containerd/containerd@v2.2.3",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.2/cri-containerd-cni-2.2.2-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.3/cri-containerd-cni-2.2.3-windows-amd64.tar.gz",
       "name": "containerd-stress",
-      "version": "v2.2.2",
+      "version": "v2.2.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -507,13 +507,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.2",
+      "purl": "pkg:github/containerd/containerd@v2.2.3",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.2/cri-containerd-cni-2.2.2-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.3/cri-containerd-cni-2.2.3-windows-amd64.tar.gz",
       "name": "containerd",
-      "version": "v2.2.2",
+      "version": "v2.2.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -530,13 +530,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.2",
+      "purl": "pkg:github/containerd/containerd@v2.2.3",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.2/cri-containerd-cni-2.2.2-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.2.3/cri-containerd-cni-2.2.3-windows-amd64.tar.gz",
       "name": "ctr",
-      "version": "v2.2.2",
+      "version": "v2.2.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -553,7 +553,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.2",
+      "purl": "pkg:github/containerd/containerd@v2.2.3",
       "type": "application"
     },
     {
@@ -580,9 +580,9 @@
       "type": "application"
     },
     {
-      "group": "https://get.helm.sh/helm-v4.1.3-windows-amd64.zip",
+      "group": "https://get.helm.sh/helm-v4.1.4-windows-amd64.zip",
       "name": "helm",
-      "version": "v4.1.3",
+      "version": "v4.1.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -599,8 +599,31 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/helm/helm@v4.1.3",
+      "purl": "pkg:github/helm/helm@v4.1.4",
       "type": "application"
+    },
+    {
+      "group": "https://github.com/headlamp-k8s/headlamp",
+      "name": "headlamp",
+      "version": "v0.41.0",
+      "description": "Kubernetes web UI addon for K2s dashboard",
+      "scope": "optional",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/headlamp-k8s/headlamp/blob/main/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:addon:dashboard"
+        }
+      ],
+      "purl": "pkg:github/headlamp-k8s/headlamp@v0.41.0",
+      "type": "container"
     }
   ],
   "dependencies": [],
