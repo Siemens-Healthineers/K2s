@@ -1051,11 +1051,16 @@ Function Deploy-ClusterIPWebhook {
     # Write-KubernetesImagesIntoJson. The certgen image shares its repository with
     # the nginx addon's certgen; if recorded as a K8s base image, the addon
     # export-import test filters it out from the actual image list and fails.
-    # We must delete the Jobs first so their completed pods release the image
-    # reference, otherwise crictl rmi silently fails.
+    # We delete Jobs, wait for pods to fully terminate (releasing CRI-O container
+    # references), then use 'buildah rmi --force' because Write-KubernetesImagesIntoJson
+    # snapshots via 'buildah images' (not crictl). crictl rmi can silently fail when
+    # containers still reference the image; buildah --force bypasses that.
     Write-Log '[ClusterIP-Webhook] Cleaning up certgen Jobs and image to avoid K8s-image-list collision with nginx addon'
     &$ExecuteRemoteCommand 'kubectl delete job clusterip-webhook-certgen-create clusterip-webhook-certgen-patch -n k2s-webhook --ignore-not-found' -IgnoreErrors
-    &$ExecuteRemoteCommand 'sudo crictl rmi registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9' -IgnoreErrors
+    &$ExecuteRemoteCommand 'kubectl wait --for=delete pod -l app.kubernetes.io/component=certgen -n k2s-webhook --timeout=60s 2>/dev/null || true' -IgnoreErrors
+    &$ExecuteRemoteCommand 'sudo buildah rmi --force registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9 2>/dev/null || true' -IgnoreErrors
+    Write-Log '[ClusterIP-Webhook] Verifying certgen image removal:'
+    &$ExecuteRemoteCommand 'sudo buildah images registry.k8s.io/ingress-nginx/kube-webhook-certgen 2>/dev/null || echo "(image not found — cleanup OK)"' -IgnoreErrors
 
     Write-Log '[ClusterIP-Webhook] ClusterIP webhook deployed successfully' -Console
 }
