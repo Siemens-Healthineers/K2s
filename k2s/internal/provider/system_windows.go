@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -54,6 +54,17 @@ func (p *windowsSystemProvider) Dump(cfg SystemDumpConfig) error {
 }
 
 func (p *windowsSystemProvider) Upgrade(cfg SystemUpgradeConfig) error {
+	if cfg.NodeName != "" && cfg.NodePackagePath != "" {
+		psCmd := p.scriptPath("upgrade/Upgrade-K2sNode.ps1")
+		var params string
+		params += " -NodeName " + cfg.NodeName
+		params += fmt.Sprintf(" -NodePackagePath '%s'", cfg.NodePackagePath)
+		if cfg.ShowOutput {
+			params += " -ShowLogs"
+		}
+		return powershell.ExecutePs(psCmd+params, p.stdWriter)
+	}
+
 	psCmd := p.scriptPath("upgrade/Start-ClusterUpgrade.ps1")
 	var params string
 	if cfg.ShowOutput {
