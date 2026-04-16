@@ -1047,10 +1047,14 @@ Function Deploy-ClusterIPWebhook {
 
     &$ExecuteRemoteCommand "rm -rf $remoteDir" -IgnoreErrors
 
-    # Clean up the certgen image so it is NOT captured by Write-KubernetesImagesIntoJson.
-    # The certgen image shares its repository with the nginx addon's certgen; if recorded
-    # as a K8s base image, the addon export-import test would filter it out and fail.
-    Write-Log '[ClusterIP-Webhook] Removing certgen image to avoid K8s-image-list collision with nginx addon'
+    # Clean up certgen Jobs and image so the certgen image is NOT captured by
+    # Write-KubernetesImagesIntoJson. The certgen image shares its repository with
+    # the nginx addon's certgen; if recorded as a K8s base image, the addon
+    # export-import test filters it out from the actual image list and fails.
+    # We must delete the Jobs first so their completed pods release the image
+    # reference, otherwise crictl rmi silently fails.
+    Write-Log '[ClusterIP-Webhook] Cleaning up certgen Jobs and image to avoid K8s-image-list collision with nginx addon'
+    &$ExecuteRemoteCommand 'kubectl delete job clusterip-webhook-certgen-create clusterip-webhook-certgen-patch -n k2s-webhook --ignore-not-found' -IgnoreErrors
     &$ExecuteRemoteCommand 'sudo crictl rmi registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9' -IgnoreErrors
 
     Write-Log '[ClusterIP-Webhook] ClusterIP webhook deployed successfully' -Console
