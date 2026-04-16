@@ -69,21 +69,26 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 
 $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
+$addon = [pscustomobject] @{ Name = 'security' }
+if ((Test-IsAddonEnabled -Addon $addon) -ne $true) {
+    Fail "Addon 'security' is not enabled. Run EnableForRestore.ps1 before Restore.ps1." 'addon-not-enabled'
+    return
+}
+
 Write-Log "[SecurityRestore] Restoring addon 'security'" -Console
 
 if ($null -ne $manifest.addon -and "$($manifest.addon)" -ne 'security') {
     Write-Log "[SecurityRestore] Warning: backup.json addon is '$($manifest.addon)' (expected 'security')." -Console
 }
 
-# ── 1. Restore CA root Secret ──────────────────────────────────────────────
+# 1. Restore CA root Secret
 
 $caSecretFile = Join-Path $BackupDir 'ca-issuer-root-secret.yaml'
 if (Test-Path -LiteralPath $caSecretFile) {
     Write-Log '[SecurityRestore] Restoring CA root certificate Secret' -Console
 
     # Replace the auto-generated Secret with the backed-up one to preserve the trust chain.
-    # Use kubectl apply with --force to replace the existing Secret.
-    $applyResult = Invoke-Kubectl -Params 'apply', '--force', '-f', $caSecretFile
+    $applyResult = Invoke-Kubectl -Params 'replace', '--force', '-f', $caSecretFile
     if ($applyResult.Success) {
         Write-Log '[SecurityRestore] CA root Secret restored successfully' -Console
 
@@ -114,7 +119,7 @@ else {
     Write-Log '[SecurityRestore] No CA root Secret backup found; new CA was generated during re-enable. TLS trust chain has been reset.' -Console
 }
 
-# ── 2. Restore Keycloak PostgreSQL database ────────────────────────────────
+# 2. Restore Keycloak PostgreSQL database
 
 $pgDumpFile = Join-Path $BackupDir 'keycloak-db.sql'
 if (Test-Path -LiteralPath $pgDumpFile) {
@@ -126,9 +131,6 @@ if (Test-Path -LiteralPath $pgDumpFile) {
         Write-Log "[SecurityRestore] Warning: PostgreSQL pod not ready, skipping database restore: $($pgReady.Output)" -Console
     }
     else {
-        # Drop and recreate the keycloak database, then restore from dump.
-        # This ensures a clean restore without conflicts from the default import.
-
         # Step 1: Stop Keycloak to release DB connections
         Write-Log '[SecurityRestore] Scaling down Keycloak to release database connections' -Console
         $scaleDown = Invoke-Kubectl -Params 'scale', 'deployment/keycloak', '-n', 'security', '--replicas=0'
@@ -189,7 +191,7 @@ else {
     Write-Log '[SecurityRestore] No Keycloak database dump found; default realm/users will be used' -Console
 }
 
-# ── 3. Restore enhanced security marker ────────────────────────────────────
+# 3. Restore enhanced security marker
 
 $markerFile = Join-Path $BackupDir 'enhancedsecurity.json'
 if (Test-Path -LiteralPath $markerFile) {
@@ -199,7 +201,31 @@ if (Test-Path -LiteralPath $markerFile) {
     Write-Log '[SecurityRestore] Enhanced security marker restored' -Console
 }
 
-# ── 4. Summary ─────────────────────────────────────────────────────────────
+# 4. Restore Kyverno policies
+
+$kyvernoPoliciesFile = Join-Path $BackupDir 'kyverno-policies.yaml'
+if (Test-Path -LiteralPath $kyvernoPoliciesFile) {
+    Write-Log '[SecurityRestore] Waiting for Kyverno to be ready before restoring policies' -Console
+    $kyvernoReady = Wait-ForKyvernoAvailable
+    if ($kyvernoReady) {
+        Write-Log '[SecurityRestore] Restoring Kyverno policies and exceptions' -Console
+        $applyResult = Invoke-Kubectl -Params 'apply', '--server-side', '-f', $kyvernoPoliciesFile
+        if ($applyResult.Success) {
+            Write-Log '[SecurityRestore] Kyverno policies restored successfully' -Console
+        }
+        else {
+            Write-Log "[SecurityRestore] Warning: Failed to restore Kyverno policies: $($applyResult.Output)" -Console
+        }
+    }
+    else {
+        Write-Log '[SecurityRestore] Warning: Kyverno did not become ready in time; skipping policy restore' -Console
+    }
+}
+else {
+    Write-Log '[SecurityRestore] No Kyverno policies backup found; skipping policy restore' -Console
+}
+
+# 5. Summary
 
 Write-Log '[SecurityRestore] Restore completed' -Console
 

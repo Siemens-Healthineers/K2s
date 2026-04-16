@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -144,11 +144,49 @@ Optional flags to customize the security stack:
 | `--omitHydra` | Skip Hydra and the Windows login integration |
 | `--omitKeycloak` | Skip Keycloak and use an external OAuth2 provider |
 | `--omitOAuth2Proxy` | Skip the OAuth2 Proxy deployment |
+| `--omitPolicyEnf` | Skip Kyverno policy enforcement framework |
 
 The `login.exe` tool (bundled in `bin/`) provides Windows-logon-based authentication for the Hydra OAuth2 flow, enabling single sign-on from the Windows host.
 
 !!! tip
     The enhanced security mode with Linkerd also enables the [Compartment Launcher](../dev-guide/architecture.md) (`cplauncher.exe`) for Windows service mesh support.
+
+---
+
+## Policy Enforcement
+
+*K2s* ships [Kyverno](https://kyverno.io/) as a policy enforcement framework within the `security` addon. Kyverno runs as a Kubernetes admission controller in the `kyverno` namespace and can **validate**, **mutate**, and **generate** Kubernetes resources based on declarative policies.
+
+### What ships in Phase 1
+
+- **Framework only.** No default policies are installed. The cluster admission behaviour is unchanged until you add policies. Use `--omitPolicyEnf` to skip Kyverno installation entirely.
+- All webhooks use `failurePolicy: Ignore`. Kyverno being unavailable never blocks cluster operations.
+- Runs in standalone mode (1 replica per controller) suited for K2s single control-plane topology.
+
+### Policy types
+
+| Type | Purpose |
+|------|---------|
+| `ClusterPolicy` | Cluster-wide rules applied to all namespaces |
+| `Policy` | Namespace-scoped rules |
+| `PolicyException` | Exempt specific resources from a policy |
+
+### Audit vs Enforce mode
+
+Policies can run in two modes:
+
+- **`audit`**: violations are reported (via `PolicyReport`) but resources are **not blocked**. Use this to assess impact before enforcing.
+- **`enforce`**: non-compliant resources are **rejected** at admission time.
+
+Set the mode per policy rule with `validationFailureAction: Audit` or `validationFailureAction: Enforce`.
+
+### Opting out
+
+```console
+k2s addons enable security --omitPolicyEnf
+```
+
+For full usage examples, sample policies, and `PolicyException` guidance, see the [Policy Enforcement Guide](policy-enforcement.md).
 
 ---
 
