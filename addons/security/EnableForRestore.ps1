@@ -41,7 +41,7 @@ Import-Module $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-# ── Locate backup.json ────────────────────────────────────────────────────
+# Locate backup.json
 $backupJson = $null
 if ($BackupDir -and (Test-Path -LiteralPath (Join-Path $BackupDir 'backup.json'))) {
     $backupJson = Join-Path $BackupDir 'backup.json'
@@ -80,6 +80,10 @@ if ($backupJson) {
             if ($params.omitOAuth2Proxy -eq $true) {
                 $enableArgs['OmitOAuth2Proxy'] = $true
                 Write-Log '[SecurityRestore] OmitOAuth2Proxy: true' -Console
+            }
+            if ($params.omitPolicyEnf -eq $true) {
+                $enableArgs['OmitPolicyEnf'] = $true
+                Write-Log '[SecurityRestore] OmitPolicyEnf: true' -Console
             }
         }
     }

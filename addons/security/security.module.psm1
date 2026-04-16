@@ -505,3 +505,191 @@ function Remove-ConfigFileForCNI {
         Remove-Item -Path $kubeconfigPath -Force
     }
 }
+
+# Kyverno policy engine helpers
+
+function Install-KyvernoCli {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ManifestPath,
+
+        [Parameter(Mandatory = $true)]
+        [string] $K2sRoot,
+
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy
+    )
+
+    Write-Log '[Kyverno] Checking Kyverno CLI' -Console
+
+    $manifest = Get-FromYamlFile -Path $ManifestPath
+    $impl = $manifest.spec.implementations[0]
+    # Kyverno CLI is listed in the windows curl section (alongside cmctl)
+    $windowsCurlPackages = $impl.offline_usage.windows.curl
+    if (!$windowsCurlPackages) { return }
+
+    foreach ($package in $windowsCurlPackages) {
+        if ($package.url -notmatch 'kyverno') { continue }
+
+        $destination = "$K2sRoot\$($package.destination)"
+        $destination = [System.IO.Path]::GetFullPath($destination)
+
+        if (Test-Path -LiteralPath $destination) {
+            Write-Log "[Kyverno] CLI already present at '$destination'." -Console
+            continue
+        }
+
+        Write-Log "[Kyverno] Downloading Kyverno CLI from '$($package.url)'..." -Console
+        $tmp = Join-Path ([IO.Path]::GetTempPath()) ("k2s-kyverno-{0}" -f [guid]::NewGuid().ToString('N'))
+        try {
+            New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+            $archiveName = [IO.Path]::GetFileName($package.url)
+            $tmpArchive = Join-Path $tmp $archiveName
+
+            Invoke-DownloadFile $tmpArchive $package.url $true -ProxyToUse $Proxy
+            Write-Log '[Kyverno] Download complete. Extracting...'
+
+            if (Get-Command -Name Expand-ZipWithProgress -ErrorAction SilentlyContinue) {
+                Expand-ZipWithProgress -ZipPath $tmpArchive -Destination $tmp
+            }
+            else {
+                Expand-Archive -LiteralPath $tmpArchive -DestinationPath $tmp -Force
+            }
+
+            $exe = Get-ChildItem -Path $tmp -Filter 'kyverno.exe' -Recurse -File | Select-Object -First 1
+            if (-not $exe) { throw 'kyverno.exe not found in downloaded archive.' }
+
+            $destDir = Split-Path -Parent $destination
+            if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+
+            Copy-Item -LiteralPath $exe.FullName -Destination $destination -Force
+            Write-Log "[Kyverno] CLI installed to '$destination'." -Console
+        }
+        finally {
+            Remove-Item -LiteralPath $tmp -Force -Recurse -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Install-Kyverno {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy
+    )
+
+    $kyvernoNamespace = 'kyverno'
+    $charts = @(Get-ChildItem -Path "$PSScriptRoot\manifests\kyverno" -Filter 'kyverno-*.tgz' -ErrorAction SilentlyContinue)
+    if ($charts.Count -eq 0) { throw '[Kyverno] No Helm chart .tgz found in manifests/kyverno/' }
+    $chartPath = $charts[0].FullName
+    $valuesPath = "$PSScriptRoot\manifests\kyverno\values.yaml"
+
+    Write-Log '[Kyverno] Creating namespace' -Console
+    $existingNs = (Invoke-Kubectl -Params 'get', 'namespace', $kyvernoNamespace, '--ignore-not-found', '-o', 'name').Output
+    if (-not $existingNs) {
+        (Invoke-Kubectl -Params 'create', 'namespace', $kyvernoNamespace).Output | Write-Log
+    } else {
+        Write-Log "[Kyverno] Namespace '$kyvernoNamespace' already exists" -Console
+    }
+
+    Write-Log '[Kyverno] Installing via Helm' -Console
+    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--wait', '--timeout', '5m')
+    $result = Invoke-Helm -Params $helmArgs
+    $result.Output | Write-Log
+
+    if ($result.Success -ne $true) {
+        throw "[Kyverno] Helm install failed: $($result.Output)"
+    }
+
+    # Apply bundled/user-provided policies after Helm --wait (webhook is live).
+    $policiesDir = "$PSScriptRoot\manifests\kyverno\policies"
+    $policyFiles = @(Get-ChildItem -Path $policiesDir -Filter '*.yaml' -ErrorAction SilentlyContinue)
+    if ($policyFiles.Count -gt 0) {
+        Write-Log "[Kyverno] Applying $($policyFiles.Count) policy file(s) from policies directory" -Console
+        foreach ($policyFile in $policyFiles) {
+            Write-Log "[Kyverno] Applying policy: $($policyFile.Name)" -Console
+            $applyResult = Invoke-Kubectl -Params 'apply', '--server-side', '-f', $policyFile.FullName
+            $applyResult.Output | Write-Log
+            if (-not $applyResult.Success) {
+                Write-Log "[Kyverno] Warning: failed to apply $($policyFile.Name): $($applyResult.Output)" -Console
+            }
+        }
+    } else {
+        Write-Log '[Kyverno] No policy files in policies directory, skipping' -Console
+    }
+
+    Write-Log '[Kyverno] Installation complete' -Console
+}
+
+function Uninstall-Kyverno {
+    [CmdletBinding()]
+    param()
+
+    $kyvernoNamespace = 'kyverno'
+
+    # Delete policies first while webhook is live; avoids cleanup deadlock.
+    Write-Log '[Kyverno] Removing policies and exceptions first' -Console
+    (Invoke-Kubectl -Params 'delete', 'clusterpolicies', '--all', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'policies', '--all', '--all-namespaces', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'policyexceptions', '--all', '--all-namespaces', '--ignore-not-found').Output | Write-Log
+
+    Write-Log '[Kyverno] Uninstalling via Helm' -Console
+    $result = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--wait', '--timeout', '3m')
+    $result.Output | Write-Log
+
+    Write-Log '[Kyverno] Removing CRDs (Helm does not delete them)' -Console
+    $crds = (Invoke-Kubectl -Params 'get', 'crd', '-o', 'name').Output
+    $kyvernoCrds = if ($crds) { $crds -split "`n" | Where-Object { $_ -match 'kyverno\.io' } } else { @() }
+    foreach ($crd in $kyvernoCrds) {
+        (Invoke-Kubectl -Params 'delete', $crd, '--ignore-not-found').Output | Write-Log
+    }
+
+    Write-Log '[Kyverno] Removing namespace' -Console
+    (Invoke-Kubectl -Params 'delete', 'namespace', $kyvernoNamespace, '--ignore-not-found').Output | Write-Log
+
+    Write-Log '[Kyverno] Uninstallation complete' -Console
+}
+
+function Remove-KyvernoExecutable {
+    $binPath = Get-KubeBinPath
+    if (Test-Path "$binPath\kyverno.exe") {
+        Remove-Item -Path "$binPath\kyverno.exe" -Force
+        Write-Log '[Kyverno] CLI removed' -Console
+    }
+}
+
+<#
+.DESCRIPTION
+Waits for all Kyverno controller pods to become Ready.
+#>
+function Wait-ForKyvernoAvailable {
+    param(
+        [int] $TimeoutSeconds = 300
+    )
+
+    $labels = @(
+        'app.kubernetes.io/component=admission-controller',
+        'app.kubernetes.io/component=background-controller',
+        'app.kubernetes.io/component=cleanup-controller',
+        'app.kubernetes.io/component=reports-controller'
+    )
+
+    foreach ($label in $labels) {
+        $result = Wait-ForPodCondition -Condition Ready -Label $label -Namespace 'kyverno' -TimeoutSeconds $TimeoutSeconds
+        if ($result -ne $true) {
+            Write-Log "[Kyverno] Pods with label '$label' did not become ready within $TimeoutSeconds seconds." -Console
+            return $false
+        }
+    }
+    return $true
+}
+
+<#
+.DESCRIPTION
+Tests if the Kyverno admission controller deployment exists.
+#>
+function Test-KyvernoServiceAvailability {
+    $deployment = (Invoke-Kubectl -Params 'get', 'deployment', '-n', 'kyverno', '-l', 'app.kubernetes.io/component=admission-controller', '--ignore-not-found', '-o', 'name').Output
+    return ($null -ne $deployment -and $deployment -match 'deployment')
+}

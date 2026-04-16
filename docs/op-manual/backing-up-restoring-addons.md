@@ -137,7 +137,7 @@ The following table shows at a glance what each addon's backup contains.
 | **registry** | Data | `tar.gz` of `/registry/repository` from control-plane VM, ConfigMap | Overwrites existing data; SSH to VM |
 | **rollout argocd** | Data | ArgoCD state export, ingress resources, Traefik middleware | Export **contains credentials** (repo creds) |
 | **rollout fluxcd** | Config | All Flux CRs, referenced Secrets, webhook ingress | Secrets backed up (Flux requires them) |
-| **security** | Data | CA root Secret, Keycloak PostgreSQL dump, enhanced-security marker | `EnableForRestore.ps1` reconstructs original enable flags; drops/recreates Keycloak DB |
+| **security** | Data | CA root Secret, Keycloak PostgreSQL dump, Kyverno policies, enhanced-security marker | `EnableForRestore.ps1` reconstructs original enable flags; drops/recreates Keycloak DB; re-applies Kyverno policies after framework is ready |
 | **storage smb** | Data | `SmbStorage.json`, addon config snapshot, SMB share file data | Disable/enable cycle with `-Keep`; works offline |
 | **viewer** | Config | ConfigMap, Service, ingress resources, Traefik middleware | Runs `Update.ps1` after restore |
 
@@ -243,9 +243,9 @@ During restore, the addon re-enable step ensures `bin\\flux.exe` is present on t
 
 ### security
 
-**Backup:** Exports the CA root Secret (`ca-issuer-root-secret` from `cert-manager` namespace), a PostgreSQL dump of the Keycloak database (via `pg_dump` exec into the pod), and the enhanced-security marker file. Detects and records the current enable flags (`--type`, `--ingress`, `--omitKeycloak`, `--omitHydra`, `--omitOAuth2Proxy`).
+**Backup:** Exports the CA root Secret (`ca-issuer-root-secret` from `cert-manager` namespace), a PostgreSQL dump of the Keycloak database (via `pg_dump` exec into the pod), the enhanced-security marker file, and all Kyverno `ClusterPolicy`, `Policy`, and `PolicyException` resources as `kyverno-policies.yaml` (only included if Kyverno is enabled and at least one policy exists). Detects and records the current enable flags (`--type`, `--ingress`, `--omitKeycloak`, `--omitHydra`, `--omitOAuth2Proxy`, `--omitPolicyEnf`).
 
-**Restore:** Uses `EnableForRestore.ps1` which reads `backup.json` to reconstruct the original enable flags and delegates to `Enable.ps1`. Restores the CA Secret with `--force` and restarts cert-manager. For Keycloak: scales down the Keycloak pod, drops and recreates the database, imports the dump via `psql` exec, then scales back up. Restores the enhanced-security marker file.
+**Restore:** Uses `EnableForRestore.ps1` which reads `backup.json` to reconstruct the original enable flags (including `--omitPolicyEnf`) and delegates to `Enable.ps1`. Restores the CA Secret with `--force` and restarts cert-manager. For Keycloak: scales down the Keycloak pod, drops and recreates the database, imports the dump via `psql` exec, then scales back up. Restores the enhanced-security marker file. If `kyverno-policies.yaml` is present in the backup, waits for Kyverno to become available and applies the policies with `--server-side`.
 
 ### storage smb
 
