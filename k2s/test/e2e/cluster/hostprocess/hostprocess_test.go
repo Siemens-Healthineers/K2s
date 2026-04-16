@@ -151,7 +151,9 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if hasFailed {
 		GinkgoWriter.Println("Test failed; dumping system diagnostics")
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
-		return // keep workloads for inspection
+		if !suite.ShouldCleanup(hasFailed) {
+			return // keep workloads for inspection
+		}
 	}
 
 	// dump a kubectl describe of all resources in the k2s namespace for debugging purposes
