@@ -47,6 +47,7 @@ type K2sTestSuite struct {
 	addonsAdditionalInfo *addons.AddonsAdditionalInfo
 	newHttpClientFunc    func(tlsConfig ...*tls.Config) *http.ResilientHttpClient
 	statusChecker        *k2s.StatusChecker
+	keepResourcesOnError bool
 }
 type ClusterTestStepTimeout time.Duration
 type ClusterTestStepPollInterval time.Duration
@@ -73,6 +74,7 @@ const (
 func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	proxy := determineProxy()
 	offlineMode := determineOfflineMode()
+	keepResourcesOnError := determineKeepResourcesOnError()
 	testStepTimeout := determineTestStepTimeout()
 	testStepPollInterval := determineTestStepPollInterval()
 
@@ -128,6 +130,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		setupInfo:            setupInfo,
 		newHttpClientFunc:    newHttpClientFunc,
 		statusChecker:        k2s.NewStatusChecker(newCliFunc, setupInfo),
+		keepResourcesOnError: keepResourcesOnError,
 	}
 
 	if noSetupInstalled {
@@ -206,6 +209,12 @@ func (s *K2sTestSuite) Proxy() string {
 // IsOfflineMode indicates whether the test suite is running in offline mode
 func (s *K2sTestSuite) IsOfflineMode() bool {
 	return s.offlineMode
+}
+
+// ShouldCleanup returns true if test resources should be cleaned up.
+// Cleanup is skipped only when the test failed AND KeepResourcesInCaseOfError is enabled.
+func (s *K2sTestSuite) ShouldCleanup(testFailed bool) bool {
+	return !testFailed || !s.keepResourcesOnError
 }
 
 // RootDir returns the root directory of the K2s installation

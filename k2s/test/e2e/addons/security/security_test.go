@@ -130,7 +130,7 @@ func DeployWorkloads(ctx context.Context) {
 
 func DeleteWorkloads(ctx context.Context) {
 	// for finding out the sporadically failed test runs
-	if !testFailed && manifestDir != "" && workloadCreated {
+	if suite.ShouldCleanup(testFailed) && manifestDir != "" && workloadCreated {
 		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
 		workloadCreated = false
 		GinkgoWriter.Println("Workloads deleted")

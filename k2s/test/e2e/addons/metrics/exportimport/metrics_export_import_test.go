@@ -74,7 +74,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 		exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 	}
 

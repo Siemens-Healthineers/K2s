@@ -48,6 +48,23 @@ func determineOfflineMode() bool {
 	return false
 }
 
+func determineKeepResourcesOnError() bool {
+	value, ok := os.LookupEnv("SYSTEM_TEST_KEEP_RESOURCES_ON_ERROR")
+	if ok {
+		boolValue, err := strconv.ParseBool(value)
+		if err != nil {
+			GinkgoWriter.Println("Error parsing boolean environment variable: %v\n", err)
+		}
+
+		if boolValue {
+			GinkgoWriter.Println("Set to keep resources on error")
+		}
+		return boolValue
+	}
+
+	return false
+}
+
 func determineTestStepTimeout() time.Duration {
 	return determineDurationFromEnv("SYSTEM_TEST_TIMEOUT", "Timeout", defaultTestStepTimeout)
 }
