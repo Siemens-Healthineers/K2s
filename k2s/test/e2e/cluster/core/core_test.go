@@ -108,7 +108,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	}
 
 	// for finding out the sporadically failed test runs
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
 
 		GinkgoWriter.Println("Workloads deleted")

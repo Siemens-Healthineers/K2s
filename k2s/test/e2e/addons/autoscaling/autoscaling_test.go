@@ -43,7 +43,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
 
 		k2s.VerifyAddonIsDisabled("autoscaling")
