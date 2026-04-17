@@ -78,7 +78,7 @@ holmesgpt-holmes-xxxx  1/1   Running
 1. In Headlamp, go to **Settings → Plugins → AI Assistant**
 2. Under **Provider**, select **Local Models**
 3. Set **Base URL** to: `http://ollama.ai-assistant.svc.cluster.local:11434`
-4. Set **Model** to: `llama3.2`
+4. Set **Model** to: `qwen2.5:7b`
 5. Click **Save**
 6. Click the **AI icon** (robot icon) in the top-right app bar
 
@@ -112,7 +112,7 @@ kubectl exec -n ai-assistant deployment/ollama -- ollama list
 ```
 
 - [ ] `deployment/ollama` becomes Available within 5 minutes
-- [ ] `ollama list` shows `llama3.2` in the output
+- [ ] `ollama list` shows `qwen2.5:7b` in the output
 
 ---
 

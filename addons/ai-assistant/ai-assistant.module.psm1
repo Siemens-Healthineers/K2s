@@ -1652,7 +1652,7 @@ Writes post-installation usage notes for the AI Assistant addon.
 function Write-AiAssistantUsageForUser {
     [CmdletBinding()]
     Param(
-        [string] $Model = 'llama3.2'
+        [string] $Model = 'qwen2.5:7b'
     )
     @"
 

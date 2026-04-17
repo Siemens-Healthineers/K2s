@@ -167,15 +167,15 @@ Describe 'Invoke-OllamaModelPull' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
 
         It 'does not throw when model pull succeeds' {
             InModuleScope $moduleName {
-                { Invoke-OllamaModelPull -Model 'llama3.2' } | Should -Not -Throw
+                { Invoke-OllamaModelPull -Model 'qwen2.5:7b' } | Should -Not -Throw
             }
         }
 
         It 'calls kubectl exec with ollama pull' {
             InModuleScope $moduleName {
-                Invoke-OllamaModelPull -Model 'llama3.2'
+                Invoke-OllamaModelPull -Model 'qwen2.5:7b'
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                    $Params -contains 'exec' -and $Params -contains 'pull' -and $Params -contains 'llama3.2'
+                    $Params -contains 'exec' -and $Params -contains 'pull' -and $Params -contains 'qwen2.5:7b'
                 }
             }
         }
@@ -189,7 +189,7 @@ Describe 'Invoke-OllamaModelPull' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
 
         It 'throws when Ollama pod is not ready within timeout' {
             InModuleScope $moduleName {
-                { Invoke-OllamaModelPull -Model 'llama3.2' } | Should -Throw '*Ollama pod did not become ready*'
+                { Invoke-OllamaModelPull -Model 'qwen2.5:7b' } | Should -Throw '*Ollama pod did not become ready*'
             }
         }
     }
@@ -205,7 +205,7 @@ Describe 'Invoke-OllamaModelPull' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
 
         It 'throws when ollama pull returns failure' {
             InModuleScope $moduleName {
-                { Invoke-OllamaModelPull -Model 'llama3.2' } | Should -Throw "*ollama pull llama3.2*failed*"
+                { Invoke-OllamaModelPull -Model 'qwen2.5:7b' } | Should -Throw "*ollama pull qwen2.5:7b*failed*"
             }
         }
     }

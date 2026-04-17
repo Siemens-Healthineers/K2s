@@ -145,7 +145,7 @@ spec:
               value: "0.0.0.0"
             # MODEL: openai/ prefix makes LiteLLM use Ollama's OpenAI-compatible endpoint.
             # MODEL_PLACEHOLDER is substituted by Set-HolmesModelConfig at deploy time.
-            # Minimum recommended model: 7B (qwen2.5:7b). llama3.2:3b fails with 26 tools.
+            # Minimum recommended model: 7B (e.g. qwen2.5:7b). Smaller 3B models are insufficient with 26 tools.
             - name: MODEL
               value: "openai/MODEL_PLACEHOLDER"
             # API_BASE: Ollama via node-local bridge (172.19.1.1 = kubemaster host IP).

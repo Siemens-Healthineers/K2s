@@ -24,12 +24,12 @@ The **AI Assistant** addon brings natural-language Kubernetes assistance directl
 # 1. Enable the dashboard first (if not already done)
 k2s addons enable dashboard
 
-# 2. Enable AI Assistant with the default model (llama3.2)
+# 2. Enable AI Assistant with the default model (qwen2.5:7b)
 k2s addons enable ai-assistant
 
 # 3. Open Headlamp, click the AI icon, configure Local Models provider
 #    Base URL: http://ollama.ai-assistant.svc.cluster.local:11434
-#    Model:    llama3.2
+#    Model:    qwen2.5:7b
 ```
 
 ---
@@ -40,7 +40,7 @@ k2s addons enable ai-assistant
 
 | Flag | Default | Description |
 |---|---|---|
-| `--model` | `llama3.2` | Ollama model to pull on first enable |
+| `--model` | `qwen2.5:7b` | Ollama model to pull on first enable |
 | `--gpu` | `false` | Enable GPU acceleration (requires a node labelled `gpu=true`) |
 
 ```console
@@ -96,7 +96,7 @@ After enabling the addon, open Headlamp → **Settings → AI Assistant**:
 - **Provider**: `Local Models`
 - **Base URL**: `http://ollama.ai-assistant.svc.cluster.local:11434`  
   *(or port-forward: `kubectl port-forward svc/ollama -n ai-assistant 11434:11434` → `http://localhost:11434`)*
-- **Model**: The model name you supplied with `--model` (default: `llama3.2`)
+- **Model**: The model name you supplied with `--model` (default: `qwen2.5:7b`)
 
 The plugin auto-detects HolmesGPT via the K8s service proxy. When the Holmes indicator in the UI shows **Connected**, the agent is reachable and will enhance responses with live cluster diagnostics.
 
