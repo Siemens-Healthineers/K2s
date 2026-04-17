@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -384,6 +384,71 @@ Describe "PerformClusterUpgrade" {
 			$logFilePathBeforeUninstall = [ref]"C:\Backup\logfile.log"
 	
 			{ PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom "C:\K2sPath" -Config "config.yaml" -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall } | Should -Throw "Uninstall failed"
+		}
+	}
+}
+
+
+Describe 'Enable-ClusterIsRunning'{
+	BeforeAll {
+		$log = [System.Collections.ArrayList]@()
+		Mock -ModuleName $moduleName Write-Log { $log.Add($Messages) | Out-Null }
+		Mock -ModuleName $moduleName Get-ClusterInstalledFolder { return 'C:\temp\k2s' }
+		Mock -ModuleName $moduleName Test-Path { return $true }
+		Mock -ModuleName $moduleName Invoke-Cmd { return 0 }
+	}
+
+	It 'does nothing when cluster is already running' {
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $true } }
+			Enable-ClusterIsRunning
+			Should -Invoke -CommandName Get-ClusterInstalledFolder -Times 0 -Exactly
+			Should -Invoke -CommandName Invoke-Cmd -Times 0 -Exactly
+		}
+	}
+
+	It 'throws when installed k2s.exe is not found' {
+		Mock -ModuleName $moduleName Test-Path { return $false }
+
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $false } }
+			{ Enable-ClusterIsRunning } | Should -Throw '*Installed k2s.exe not found*'
+		}
+	}
+
+	It 'starts cluster using installed k2s.exe when cluster is stopped' {
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $false } }
+			Enable-ClusterIsRunning
+			Assert-MockCalled Invoke-Cmd -ParameterFilter {
+				$Executable -eq 'C:\temp\k2s\k2s.exe' -and $Arguments -eq 'start'
+			}
+			Should -Invoke -CommandName Invoke-Cmd -Times 1 -Exactly
+		}
+	}
+
+	It 'throws when start of cluster fails' {
+		Mock -ModuleName $moduleName Invoke-Cmd { return 1 }
+
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $false } }
+			{ Enable-ClusterIsRunning } | Should -Throw '*Not possible to start existing cluster*'
+		}
+	}
+
+	It 'passes -o flag to start command when ShowLogs is set' {
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $false } }
+			Enable-ClusterIsRunning -ShowLogs
+			Assert-MockCalled Invoke-Cmd -ParameterFilter {
+				$Executable -eq 'C:\temp\k2s\k2s.exe' -and $Arguments -eq 'start -o'
+			}
+			Should -Invoke -CommandName Invoke-Cmd -Times 1 -Exactly
 		}
 	}
 }

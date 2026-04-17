@@ -138,7 +138,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 			url := "http://localhost:5601/logging"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--retry-all-errors")
+			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 			Expect(httpStatus).To(ContainSubstring("302"))
 			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
 		})
@@ -211,6 +211,49 @@ var _ = Describe("'logging' addon", Ordered, func() {
 				Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
 			})
 		})
+	})
+})
+
+var _ = Describe("'logging' addon with --omitOpensearch", Ordered, func() {
+	BeforeAll(func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "enable", "logging", "--omitOpensearch", "-o")
+
+		k2s.VerifyAddonIsEnabled("logging")
+
+		expectOmitOpensearchPodsReady(ctx)
+	})
+
+	AfterAll(func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "logging", "-o")
+
+		k2s.VerifyAddonIsDisabled("logging")
+
+		expectOmitOpensearchResourcesRemoved(ctx)
+	})
+
+	It("deploys fluent-bit DaemonSet", func(ctx context.Context) {
+		suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit", "logging", 1, ctx)
+	})
+
+	It("does NOT deploy opensearch StatefulSet", func(ctx context.Context) {
+		output, _ := suite.Kubectl().Exec(ctx, "get", "statefulset", "opensearch-cluster-master", "-n", "logging", "--ignore-not-found")
+		Expect(output).To(BeEmpty())
+	})
+
+	It("does NOT deploy opensearch-dashboards Deployment", func(ctx context.Context) {
+		output, _ := suite.Kubectl().Exec(ctx, "get", "deployment", "opensearch-dashboards", "-n", "logging", "--ignore-not-found")
+		Expect(output).To(BeEmpty())
+	})
+
+	It("reports status without OpenSearch entries", func(ctx context.Context) {
+		expectOmitOpensearchStatusToBePrinted(ctx)
+	})
+
+	It("deploys windows fluent-bit DaemonSet", func(ctx context.Context) {
+		if linuxOnly {
+			Skip("Windows fluent-bit DaemonSet is not available in linux-only setup")
+		}
+		suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
 	})
 })
 
@@ -317,4 +360,55 @@ func expectStatusToBePrinted(ctx context.Context) {
 			HaveField("Okay", gstruct.PointTo(BeTrue())),
 			HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
 	))
+}
+
+func expectOmitOpensearchPodsReady(ctx context.Context) {
+	suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit", "logging", 1, ctx)
+	if !linuxOnly {
+		suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
+	}
+	suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
+	if !linuxOnly {
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit-win", "logging")
+	}
+}
+
+func expectOmitOpensearchResourcesRemoved(ctx context.Context) {
+	suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit", "logging", ctx)
+	if !linuxOnly {
+		suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
+	}
+}
+
+func expectOmitOpensearchStatusToBePrinted(ctx context.Context) {
+	output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
+
+	Expect(output).To(SatisfyAll(
+		MatchRegexp("ADDON STATUS"),
+		MatchRegexp(`Addon .+logging.+ is .+enabled.+`),
+		MatchRegexp("Fluent-bit is working"),
+	))
+	Expect(output).NotTo(ContainSubstring("Opensearch dashboards are working"))
+	Expect(output).NotTo(ContainSubstring("Opensearch is working"))
+
+	output = suite.K2sCli().MustExec(ctx, "addons", "status", "logging", "-o", "json")
+
+	var addonStatus status.AddonPrintStatus
+
+	Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
+
+	Expect(addonStatus.Name).To(Equal("logging"))
+	Expect(addonStatus.Error).To(BeNil())
+	Expect(addonStatus.Enabled).NotTo(BeNil())
+	Expect(*addonStatus.Enabled).To(BeTrue())
+	Expect(addonStatus.Props).NotTo(BeNil())
+	Expect(addonStatus.Props).To(ContainElements(
+		SatisfyAll(
+			HaveField("Name", "AreDaemonsetsRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
+	))
+	Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreDeploymentsRunning")))
+	Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreStatefulsetsRunning")))
 }

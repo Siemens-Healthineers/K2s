@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package provider
@@ -43,6 +43,7 @@ type SystemDumpConfig struct {
 	OutputDir    string
 	SkipOpenDump bool
 	ShowOutput   bool
+	Nodes        string
 }
 
 // SystemUpgradeConfig holds parameters for the upgrade operation.
@@ -52,21 +53,25 @@ type SystemUpgradeConfig struct {
 	Proxy              string
 	BackupDir          string
 	AdditionalHooksDir string
-	SkipImages         bool
-	SkipResources      bool
-	ForceOnline        bool
-	Force              bool
-	ShowOutput         bool
-	DeletePackage      bool
+	// NodeName identifies a specific worker node to upgrade (requires NodePackagePath).
+	NodeName string
+	// NodePackagePath is the path to the node package zip used for an offline node upgrade (requires NodeName).
+	NodePackagePath string
+	SkipImages      bool
+	SkipResources   bool
+	ForceOnline     bool
+	Force           bool
+	ShowOutput      bool
+	DeletePackage   bool
 }
 
 // SystemPackageConfig holds parameters for the package operation.
 type SystemPackageConfig struct {
-	OutputDir          string
-	ForDeltaPackage    bool
-	BasePackagePath    string
-	TargetPackagePath  string
-	ShowOutput         bool
+	OutputDir         string
+	ForDeltaPackage   bool
+	BasePackagePath   string
+	TargetPackagePath string
+	ShowOutput        bool
 }
 
 // SystemResetConfig holds parameters for the reset operation.
