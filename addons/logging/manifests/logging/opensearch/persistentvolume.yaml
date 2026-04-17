@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-=======
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
->>>>>>> origin/main
 #
 # SPDX-License-Identifier: MIT
 
@@ -22,19 +18,12 @@ spec:
     required:
       nodeSelectorTerms:
       - matchExpressions:
-<<<<<<< HEAD
-=======
         - key: kubernetes.io/hostname
           operator: In
           values:
           - kubemaster
->>>>>>> origin/main
         - key: kubernetes.io/os
           operator: In
           values:
           - linux
-<<<<<<< HEAD
 ---
-=======
----
->>>>>>> origin/main

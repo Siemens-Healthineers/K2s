@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-=======
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
->>>>>>> origin/main
 #
 # SPDX-License-Identifier: MIT
 
@@ -24,15 +20,10 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'External access option')]
-<<<<<<< HEAD
-    [ValidateSet('nginx', 'traefik', 'none')]
-    [string] $Ingress = 'none',
-=======
     [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'Omit OpenSearch and OpenSearch Dashboards; Fluent-bit uses stdout output')]
     [switch] $OmitOpensearch = $false,
->>>>>>> origin/main
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -83,95 +74,17 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'logging' })) -eq $tr
     exit 1
 }
 
-<<<<<<< HEAD
-=======
 if ($OmitOpensearch -and $Ingress -ne 'none') {
     Write-Log '--omitOpensearch ignores --ingress (no dashboard to expose); ingress flag will be ignored' -Console
     $Ingress = 'none'
 }
 
->>>>>>> origin/main
 if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
 
-<<<<<<< HEAD
-Write-Log 'Installing fluent-bit and opensearch stack' -Console
-
-# opensearch
-# opensearch dashboards
-# fluent-bit linux
-
-$manifestsPath = "$PSScriptRoot\manifests\logging"
-
-(Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\").Output | Write-Log
-
-# fluent-bit windows
-if ($setupInfo.LinuxOnly -eq $false) {
-    (Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\fluentbit\windows").Output | Write-Log
-}
-
-Write-Log 'Waiting for pods being ready...' -Console
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'logging', '--timeout=600s')
-Write-Log $kubectlCmd.Output
-if (!$kubectlCmd.Success) {
-    $errMsg = 'Opensearch dashboards could not be deployed successfully!'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-
-    Write-Log $errMsg -Error
-    exit 1
-}
-
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'logging', '--timeout=600s')
-Write-Log $kubectlCmd.Output
-if (!$kubectlCmd.Success) {
-    $errMsg = 'Opensearch could not be deployed successfully!'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-
-    Write-Log $errMsg -Error
-    exit 1
-}
-
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=600s')
-Write-Log $kubectlCmd.Output
-if (!$kubectlCmd.Success) {
-    $errMsg = 'Fluent-bit could not be deployed successfully!'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-
-    Write-Log $errMsg -Error
-    exit 1
-}
-
-# Import saved objects 
-$dashboardIP = (Invoke-Kubectl -Params 'get', 'pods', '-l=app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '-o=jsonpath="{.items[0].status.podIP}"').Output
-$dashboardIP = $dashboardIP -replace '"', ''
-
-$importingSavedObjects = curl.exe -X POST --retry 10 --retry-delay 5 --silent --disable --fail --retry-all-errors "http://${dashboardIP}:5601/logging/api/saved_objects/_import?overwrite=true" -H 'osd-xsrf: true' -F "file=@$PSScriptRoot/opensearch-dashboard-saved-objects/k2s-index-pattern.ndjson" 2>$null
-Write-Log $importingSavedObjects
-
-&"$PSScriptRoot\Update.ps1"
-
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
-Write-Log 'Logging Stack installed successfully'
-
-Write-UsageForUser
-Write-BrowserWarningForUser
-=======
 $manifestsPath = "$PSScriptRoot\manifests\logging"
 
 if ($OmitOpensearch) {
@@ -286,7 +199,6 @@ if (-not $OmitOpensearch) {
     Write-UsageForUser
     Write-BrowserWarningForUser
 }
->>>>>>> origin/main
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

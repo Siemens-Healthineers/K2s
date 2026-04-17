@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-=======
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
->>>>>>> origin/main
 #
 # SPDX-License-Identifier: MIT
 
@@ -64,30 +60,6 @@ Write-Log 'Uninstalling Logging Stack' -Console
 
 $manifestsPath = "$PSScriptRoot\manifests\logging"
 
-<<<<<<< HEAD
-Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'logging' })
-Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'logging' })
-
-(Invoke-Kubectl -Params 'delete', '-k', $manifestsPath, '--ignore-not-found', '--wait=false').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-k', "$manifestsPath\fluentbit\windows", '--ignore-not-found', '--wait=false').Output | Write-Log
-
-(Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=opensearch', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=fluent-bit', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=fluent-bit-win', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
-
-if ($PSVersionTable.PSVersion.Major -gt 5) {
-    (Invoke-Kubectl -Params 'patch', 'pv', 'opensearch-cluster-master-pv', '-n', 'logging', '-p', '{"metadata":{"finalizers":null}}').Output | Write-Log
-    (Invoke-Kubectl -Params 'patch', 'pvc', 'opensearch-cluster-master-opensearch-cluster-master-0', '-n', 'logging', '-p', '{"metadata":{"finalizers":null}}').Output | Write-Log
-} else {
-    (Invoke-Kubectl -Params 'patch', 'pv', 'opensearch-cluster-master-pv', '-n', 'logging', '-p', '{\"metadata\":{\"finalizers\":null}}').Output | Write-Log
-    (Invoke-Kubectl -Params 'patch', 'pvc', 'opensearch-cluster-master-opensearch-cluster-master-0', '-n', 'logging', '-p', '{\"metadata\":{\"finalizers\":null}}').Output | Write-Log
-}
-
-(Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--grace-period=0').Output | Write-Log
-
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
-=======
 $loggingConfig = Get-AddonConfig -Name 'logging'
 $omitOpensearch = $loggingConfig.OmitOpensearch -eq $true
 
@@ -141,7 +113,6 @@ else {
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
 }
->>>>>>> origin/main
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
 

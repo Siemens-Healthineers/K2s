@@ -38,11 +38,7 @@ spec:
                 - ALL
             runAsNonRoot: true
             runAsUser: 1000
-<<<<<<< HEAD
-          image: "docker.io/opensearchproject/opensearch-dashboards:2.17.1"
-=======
           image: "docker.io/opensearchproject/opensearch-dashboards:3.6.0"
->>>>>>> origin/main
           imagePullPolicy: "IfNotPresent"
           readinessProbe:
             failureThreshold: 10
@@ -85,16 +81,9 @@ spec:
               protocol: TCP
           resources:
             limits:
-<<<<<<< HEAD
-              cpu: 100m
-              memory: 512M
-            requests:
-              cpu: 100m
-=======
               cpu: 250m
               memory: 512M
             requests:
               cpu: 250m
->>>>>>> origin/main
               memory: 512M
           volumeMounts:
