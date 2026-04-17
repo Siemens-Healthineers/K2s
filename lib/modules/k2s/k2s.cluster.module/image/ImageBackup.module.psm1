@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -379,7 +379,13 @@ function Get-K2sImageList {
         [switch] $IncludeSystemImages,
 
         [Parameter(Mandatory = $false)]
-        [switch] $ExcludeAddonImages
+        [switch] $ExcludeAddonImages,
+
+        [Parameter(Mandatory = $false)]
+        [string] $CrictlExePath = '',
+
+        [Parameter(Mandatory = $false)]
+        [string] $CrictlConfigPath = ''
     )
     
     Write-Log "Discovering images in the cluster..." -Console
@@ -410,19 +416,27 @@ function Get-K2sImageList {
             $resultType = "user application images"
         }
         
+        if (-not [string]::IsNullOrWhiteSpace($CrictlExePath)) {
+            $scriptArgs['CrictlExePath'] = $CrictlExePath
+        }
+        if (-not [string]::IsNullOrWhiteSpace($CrictlConfigPath)) {
+            $scriptArgs['CrictlConfigPath'] = $CrictlConfigPath
+        }
+
         Write-Log "Getting $imageType" -Console
 
-        # Execute script with appropriate arguments
+        if (-not [string]::IsNullOrWhiteSpace($CrictlExePath)) {
+            Import-Module "$PSScriptRoot\image.module.psm1" -Force -Global
+        }
+
         $imageResult = & $getImagesScript @scriptArgs
         
-        # Validate and extract results
         $images = $imageResult.ContainerImages
         if (-not $images) {
             Write-Log "No container images found in cluster" -Console
             return ,@()
         }
         
-        # Log results
         Write-Log "Found $($images.Count) $resultType" -Console
         
         return ,$images
@@ -456,7 +470,13 @@ function Backup-K2sImages {
         
         [Parameter(Mandatory = $false)]
         [AllowEmptyCollection()]
-        [array] $Images = @()
+        [array] $Images = @(),
+
+        [Parameter(Mandatory = $false)]
+        [string] $CrictlExePath = '',
+
+        [Parameter(Mandatory = $false)]
+        [string] $CrictlConfigPath = ''
     )
     
     Write-Log "Starting image backup to directory: $BackupDirectory" -Console
@@ -471,11 +491,17 @@ function Backup-K2sImages {
         
         $imagesDir = Join-Path $BackupDirectory "images"
         
-        # Use Get-K2sExePath (resolves to the package we are upgrading FROM) instead of
-        # Get-ClusterInstalledFolder so that the NEW k2s.exe and its scripts are used.
-        # The old installation's k2s.exe would invoke old Export-Image.ps1 which still
-        # uses nerdctl save – broken in air-gapped environments with nerdctl 2.x.
-        $k2sExe = Get-K2sExePath
+        $exportImageScript = "$PSScriptRoot\..\..\..\..\scripts\k2s\image\Export-Image.ps1"
+        if (-not (Test-Path $exportImageScript)) {
+            throw "Export-Image.ps1 not found at '$exportImageScript'"
+        }
+
+        $resolvedCrictlExe = if ($CrictlExePath -ne '') { $CrictlExePath } else { Get-CrictlExePath }
+        $resolvedCrictlConfig = if ($CrictlConfigPath -ne '') { $CrictlConfigPath } else {
+            Join-Path (Split-Path $resolvedCrictlExe -Parent) 'crictl.yaml'
+        }
+        $resolvedNerdctlExe = if ($CrictlExePath -ne '') { Join-Path (Split-Path $resolvedCrictlExe -Parent) 'nerdctl.exe' } else { "$((Get-KubeBinPath))\nerdctl.exe" }
+        $resolvedCtrExe = if ($CrictlExePath -ne '') { Join-Path (Split-Path $resolvedCrictlExe -Parent) 'containerd\ctr.exe' } else { "$((Get-KubeBinPath))\containerd\ctr.exe" }
         $backupManifest = @{
             BackupTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             BackupDirectory = $BackupDirectory
@@ -497,15 +523,19 @@ function Backup-K2sImages {
                 $safeFileName = "$($image.repository -replace '[/\\:*?"<>|]', '_')-$($image.tag -replace '[/\\:*?"<>|]', '_')"
                 $tarPath = Join-Path $imagesDir "$safeFileName.tar"
 
-                # Export image using k2s image export by name:tag (not by ID to handle multiple tags for same image)
-                $exportArgs = @("image", "export", "-n", "$($image.repository):$($image.tag)", "-t", $tarPath)
+                & $exportImageScript `
+                    -Name "$($image.repository):$($image.tag)" `
+                    -ExportPath $tarPath `
+                    -CrictlExePath $resolvedCrictlExe `
+                    -CrictlConfigPath $resolvedCrictlConfig `
+                    -NerdctlExePath $resolvedNerdctlExe `
+                    -CtrExePath $resolvedCtrExe
+                
+                if (-not (Test-Path $tarPath)) {
+                    throw "Export-Image.ps1 did not produce $tarPath for image $($image.repository):$($image.tag)"
+                }
 
-                Invoke-K2sImageCommand -K2sExecutable $k2sExe -Arguments $exportArgs -ImageName "$($image.repository):$($image.tag)" -ExpectedFile $tarPath
-
-                # Store relative path (images/images/filename.tar) instead of absolute path
-                # This ensures the path works after ZIP extraction
                 $relativeTarPath = "images\images\$safeFileName.tar"
-
                 $imageBackupInfo = @{
                     ImageId = $image.imageid
                     Repository = $image.repository

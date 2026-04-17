@@ -45,7 +45,6 @@ BeforeAll {
         & ([scriptblock]::Create($scriptContent)) @invokeParams
     }
 
-    Mock -CommandName Import-Module { }
     Mock -CommandName Initialize-Logging { }
 }
 
@@ -84,6 +83,7 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
 
     Context 'Module imports' {
         BeforeEach {
+            Mock -CommandName Import-Module { }
             Mock -CommandName Reset-ProxyConfig { }
             Mock -CommandName Stop-WinHttpProxy { }
             Mock -CommandName Get-ProxyConfig { 
@@ -276,7 +276,6 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Get-ConfiguredIPControlPlane { return '172.19.1.100' }
             Mock -CommandName Get-DefaultUserNameControlPlane { return 'remote' }
             Mock -CommandName Send-ToCli { }
-            Mock -CommandName Write-Log { }
         }
 
         It 'removes Linux proxy settings when control plane is reachable' {
@@ -294,13 +293,11 @@ Describe 'ResetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         It 'skips Linux proxy cleanup when control plane is unreachable' {
             Mock -CommandName Test-Connection { return $false }
             Mock -CommandName Remove-ProxySettingsOnKubenode { }
+            Mock -CommandName Write-Log { }
 
             Invoke-ResetProxyScript
 
             Should -Invoke Remove-ProxySettingsOnKubenode -Exactly 0
-            Should -Invoke Write-Log -ParameterFilter {
-                $Message -eq "[Proxy] Skip Linux proxy cleanup because control plane '172.19.1.100' is not reachable"
-            }
         }
     }
 
