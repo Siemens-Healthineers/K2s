@@ -183,7 +183,11 @@ function Get-ImagesOnNode {
         [Parameter(Mandatory = $false)]
         [bool]$IncludeK8sImages = $false,
         [Parameter(Mandatory = $false)]
-        [bool]$ExcludeAddonImages = $false
+        [bool]$ExcludeAddonImages = $false,
+        [Parameter(Mandatory = $false)]
+        [string]$CrictlExePath = '',
+        [Parameter(Mandatory = $false)]
+        [string]$CrictlConfigPath = ''
     )
 
     switch ($NodeInfo.Kind) {
@@ -209,7 +213,9 @@ function Get-ImagesOnNode {
                     -IncludeK8sImages $IncludeK8sImages `
                     -ExcludeAddonImages $ExcludeAddonImages `
                     -NodeName $NodeInfo.Name `
-                    -NodeType 'HOST')
+                    -NodeType 'HOST' `
+                    -CrictlExePath $CrictlExePath `
+                    -CrictlConfigPath $CrictlConfigPath)
         }
         'WindowsWorker' {
             Write-Log "[ImageNode] Executing 'crictl images' on Windows worker '$($NodeInfo.Name)' via remote session"
@@ -217,7 +223,9 @@ function Get-ImagesOnNode {
                     -IncludeK8sImages $IncludeK8sImages `
                     -ExcludeAddonImages $ExcludeAddonImages `
                     -NodeName $NodeInfo.Name `
-                    -NodeType $NodeInfo.NodeType)
+                    -NodeType $NodeInfo.NodeType `
+                    -CrictlExePath $CrictlExePath `
+                    -CrictlConfigPath $CrictlConfigPath)
         }
         default {
             Write-Log "[ImageNode] Unknown node kind '$($NodeInfo.Kind)' for '$($NodeInfo.Name)'; returning empty list"
@@ -272,7 +280,11 @@ function Get-ImagesByNodeSelection {
         [Parameter(Mandatory = $false)]
         [bool]$ExcludeAddonImages = $false,
         [Parameter(Mandatory = $false)]
-        [string]$LogPrefix = 'ImageNode'
+        [string]$LogPrefix = 'ImageNode',
+        [Parameter(Mandatory = $false)]
+        [string]$CrictlExePath = '',
+        [Parameter(Mandatory = $false)]
+        [string]$CrictlConfigPath = ''
     )
 
     $nodeList = Resolve-NodeList -Nodes $Nodes -Node $Node
@@ -298,7 +310,7 @@ function Get-ImagesByNodeSelection {
 
     foreach ($nodeInfo in $targetNodeInfos) {
         Write-Log "[$LogPrefix] Querying images on '$($nodeInfo.Name)' (kind=$($nodeInfo.Kind), os=$($nodeInfo.OS))"
-        $nodeImages = @(Get-ImagesOnNode -NodeInfo $nodeInfo -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages)
+        $nodeImages = @(Get-ImagesOnNode -NodeInfo $nodeInfo -IncludeK8sImages $IncludeK8sImages -ExcludeAddonImages $ExcludeAddonImages -CrictlExePath $CrictlExePath -CrictlConfigPath $CrictlConfigPath)
         if ($nodeInfo.OS -eq 'linux') {
             $linuxContainerImages += $nodeImages
         }

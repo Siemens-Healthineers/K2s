@@ -41,7 +41,6 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-  clusterIP: 172.21.0.203
 
 ---
 apiVersion: networking.k8s.io/v1

@@ -62,7 +62,6 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8081
-  clusterIP: 172.21.1.210
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -123,7 +122,6 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8082
-  clusterIP: 172.21.1.211
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
