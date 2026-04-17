@@ -41,7 +41,6 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-  clusterIP: 172.21.0.200
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -81,5 +80,4 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-  clusterIP: 172.21.0.201
 ---

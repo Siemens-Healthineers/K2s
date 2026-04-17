@@ -404,7 +404,7 @@ try {
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'postgresql', '-n', 'security', '-p', $annotations4).Output | Write-Log
 			# wait for pods to be ready
 			Write-Log 'Waiting for security pods to be ready' -Console
-			(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'security', '--timeout', '120s').Output | Write-Log
+			(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'security', '--timeout', '360s').Output | Write-Log
 		} else {
 			if (-not $OmitHydra -and -not $OmitOAuth2Proxy) {
 				$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
