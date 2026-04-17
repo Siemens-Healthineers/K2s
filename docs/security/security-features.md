@@ -157,9 +157,9 @@ The `login.exe` tool (bundled in `bin/`) provides Windows-logon-based authentica
 
 *K2s* ships [Kyverno](https://kyverno.io/) as a policy enforcement framework within the `security` addon. Kyverno runs as a Kubernetes admission controller in the `kyverno` namespace and can **validate**, **mutate**, and **generate** Kubernetes resources based on declarative policies.
 
-### What ships in Phase 1
+### What currently ships
 
-- **Framework only.** No default policies are installed. The cluster admission behaviour is unchanged until you add policies. Use `--omitPolicyEnf` to skip Kyverno installation entirely.
+- **Framework only.** No default policies are installed. The cluster admission behaviour is unchanged until you add policies. Default policies may be added later based on feedback and further discussion about what works well for K2s users. Use `--omitPolicyEnf` to skip Kyverno installation entirely.
 - All webhooks use `failurePolicy: Ignore`. Kyverno being unavailable never blocks cluster operations.
 - Runs in standalone mode (1 replica per controller) suited for K2s single control-plane topology.
 

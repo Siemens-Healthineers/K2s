@@ -92,7 +92,7 @@ This addon installs workloads needed to secure the network communication by conf
 
 - [oauth2 proxy](https://github.com/oauth2-proxy/oauth2-proxy) - OAuth2 Proxy offloads the burden of implementing authentication logic from your applications.
 
-- [kyverno](https://kyverno.io/) - policy enforcement framework. `kyverno` acts as a Kubernetes admission controller providing validate, mutate, and generate rules for cluster resources. Ships framework-only (no default policies) with `failurePolicy: Ignore` on all webhooks. _(Can be omitted with -OmitPolicyEnf)_
+- [kyverno](https://kyverno.io/) - policy enforcement framework. `kyverno` acts as a Kubernetes admission controller providing validate, mutate, and generate rules for cluster resources. K2s currently includes the framework without default policies, with `failurePolicy: Ignore` on all webhooks. Default policies may be added later based on feedback and further discussion. _(Can be omitted with -OmitPolicyEnf)_
 
 ## How to use it
 
@@ -210,7 +210,7 @@ Unlike traditional identity platforms that bundle user management, Hydra is desi
 
 By default, the security addon installs [Kyverno](https://kyverno.io/) as a policy enforcement framework in the `kyverno` namespace. Kyverno acts as a Kubernetes admission controller that can **validate**, **mutate**, and **generate** resources based on policies.
 
-**Phase 1 ships the framework only. No default policies are installed.** The `addons/security/manifests/kyverno/policies/` folder is ready for your own policies. This means enabling the security addon with Kyverno changes nothing about your cluster's admission behaviour until you add policies.
+**K2s currently adds the framework only. No default policies are installed.** The `addons/security/manifests/kyverno/policies/` folder is ready for your own policies. This means enabling the security addon with Kyverno changes nothing about your cluster's admission behaviour until you add policies. Default policies may be added later based on feedback and further discussion about what works well across environments.
 
 All Kyverno webhooks are configured with `failurePolicy: Ignore`, ensuring the cluster remains operational even if Kyverno is temporarily unavailable (e.g. during a restart or upgrade).
 

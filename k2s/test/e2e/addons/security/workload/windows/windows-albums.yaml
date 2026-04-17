@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -29,6 +29,20 @@ spec:
               value: '8081'
             - name: RESOURCE
               value: 'albums-win1'
+          startupProbe:
+            httpGet:
+              path: /albums-win1
+              port: 8081
+            periodSeconds: 5
+            failureThreshold: 24
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /albums-win1
+              port: 8081
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 2
       nodeSelector:
         kubernetes.io/os: windows
       tolerations:
@@ -76,6 +90,20 @@ spec:
               value: '8082'
             - name: RESOURCE
               value: 'albums-win2'
+          startupProbe:
+            httpGet:
+              path: /albums-win2
+              port: 8082
+            periodSeconds: 5
+            failureThreshold: 24
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /albums-win2
+              port: 8082
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 2
       nodeSelector:
         kubernetes.io/os: windows
       tolerations:

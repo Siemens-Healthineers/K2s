@@ -12,7 +12,7 @@ SPDX-License-Identifier: MIT
 
 Kyverno is a Kubernetes-native admission controller. When a resource is created or updated, Kyverno evaluates it against active policies and either allows, blocks (enforce mode), or reports the violation (audit mode) before the resource is persisted.
 
-**Phase 1 ships the framework only.** No default policies are installed. The cluster admission behaviour is identical to a cluster without Kyverno until you add policies yourself.
+**K2s currently ships the framework only.** No default policies are installed. The cluster admission behaviour is identical to a cluster without Kyverno until you add policies yourself. Default policies may be added later based on feedback and further discussion about what works well across environments.
 
 All Kyverno webhooks are configured with `failurePolicy: Ignore`, meaning Kyverno being unavailable (e.g. during a restart) will never block cluster operations.
 
@@ -42,6 +42,8 @@ Each policy rule has a `validationFailureAction` field:
 **Recommendation:** Always start in `Audit` mode to assess impact. Switch to `Enforce` only after confirming no legitimate workloads are affected.
 
 ## Sample Policies
+
+The Kyverno community commonly starts with three broad categories of policies: pod security hardening, governance and metadata rules, and image or supply-chain controls. The examples below reflect those common starting points.
 
 ### Disallow privileged containers (audit)
 
@@ -92,30 +94,35 @@ spec:
               team: "?*"
 ```
 
-### Restrict hostPath volumes (audit)
+### Require images from approved registries (audit)
 
 ```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: restrict-host-path
+  name: require-approved-registries
 spec:
   validationFailureAction: Audit
   rules:
-    - name: check-hostpath
+    - name: check-image-registry
       match:
         any:
           - resources:
               kinds:
                 - Pod
       validate:
-        message: "HostPath volumes are restricted."
-        deny:
-          conditions:
-            any:
-              - key: "{{ request.object.spec.volumes[].hostPath | length(@) }}"
-                operator: GreaterThan
-                value: "0"
+        message: "Images must come from approved registries."
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.image }}"
+                    operator: AnyNotIn
+                    value:
+                      - "ghcr.io/*"
+                      - "registry.k8s.io/*"
+                      - "shsk2s.azurecr.io/*"
 ```
 
 ## Applying Policies
@@ -148,32 +155,36 @@ kubectl get clusterpolicyreport
 Use a `PolicyException` to exempt specific resources from a policy without modifying the policy itself:
 
 ```yaml
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
-  name: allow-privileged-monitoring
+  name: allow-monitoring-agent
   namespace: monitoring
 spec:
   exceptions:
-    - policyName: disallow-privileged-containers
+    - policyName: disallow-host-namespaces
       ruleNames:
-        - check-privileged
+        - host-namespaces
+        - autogen-host-namespaces
   match:
     any:
       - resources:
           kinds:
             - Pod
+            - Deployment
           namespaces:
             - monitoring
           names:
-            - node-exporter-*
+            - monitoring-agent*
 ```
 
-This exempts pods matching `node-exporter-*` in the `monitoring` namespace from the `disallow-privileged-containers` policy.
+This exempts a specific monitoring workload in the `monitoring` namespace from a policy that disallows host namespaces. This is a common pattern for infrastructure agents and other operational components that sometimes need tighter exceptions than application workloads.
+
+Note: `PolicyException` support must be enabled in Kyverno before these resources are accepted.
 
 ## Linkerd Compatibility
 
-When running Kyverno alongside Linkerd (enhanced security mode), be aware that Linkerd injects sidecar containers via its own admission webhook. If you write policies that validate container counts or specific container names, add a `PolicyException` for the `linkerd` namespace and any meshed namespaces, or scope your policies to exclude `linkerd.io/inject: enabled` pods until Phase 2 provides pre-built exceptions.
+When running Kyverno alongside Linkerd (enhanced security mode), be aware that Linkerd injects sidecar containers via its own admission webhook. If you write policies that validate container counts or specific container names, add a `PolicyException` for the `linkerd` namespace and any meshed namespaces, or scope your policies to exclude `linkerd.io/inject: enabled` pods until you have confirmed the policy behaves as expected for meshed workloads.
 
 ## Further Reading
 
