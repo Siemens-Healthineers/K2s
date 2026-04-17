@@ -852,6 +852,45 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How it works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#service-create" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service CREATE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workload-create-deployment-statefulset-daemonset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workload CREATE (Deployment / StatefulSet / DaemonSet)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2539,6 +2578,45 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How it works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#service-create" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service CREATE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workload-create-deployment-statefulset-daemonset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workload CREATE (Deployment / StatefulSet / DaemonSet)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2570,8 +2648,14 @@ SPDX-License-Identifier: MIT
 -->
 
 <h1 id="assignment-of-cluster-ip-addresses-for-services">Assignment of Cluster <abbr title="Internet Protocol">IP</abbr> Addresses for Services</h1>
+<p><em>K2s</em> includes a <strong>mutating admission webhook</strong> that automatically assigns Cluster IPs to Services based on their target <abbr title="Operating System">OS</abbr>. You no longer need to specify <code>clusterIP</code> manually in your Service manifests.</p>
+<ul>
+<li><strong>Linux</strong> services receive IPs from <code>172.21.0.50–254</code> (subnet <code>172.21.0.0/24</code>)</li>
+<li><strong>Windows</strong> services receive IPs from <code>172.21.1.50–254</code> (subnet <code>172.21.1.0/24</code>)</li>
+<li>IPs up to <code>.49</code> in each subnet are reserved for <em>K2s</em> infrastructure.</li>
+</ul>
 <h2 id="linux-based-workloads"><em>Linux</em>-based workloads</h2>
-<p>In case of services on <em>Linux</em> side please use the subnet <code>172.21.0.0/24</code> starting from <code>172.21.0.50</code> (<em>K2s</em> reserves addresses up to <code>172.21.0.49</code>).</p>
+<p>Linux is the default. Simply create a Service without any special label — the webhook assigns a <code>172.21.0.x</code> Cluster <abbr title="Internet Protocol">IP</abbr> automatically.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">example-service-manifest.yaml</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1"> 1</a></span>
@@ -2584,23 +2668,21 @@ SPDX-License-Identifier: MIT
 <span class="normal"><a href="#__codelineno-0-8"> 8</a></span>
 <span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
 <span class="normal"><a href="#__codelineno-0-10">10</a></span>
-<span class="normal"><a href="#__codelineno-0-11">11</a></span>
-<span class="normal"><a href="#__codelineno-0-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="normal"><a href="#__codelineno-0-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Linux-example</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linux-example</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="nt">selector</span><span class="p">:</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Linux-example</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="nt">ports</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linux-example</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="w">    </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="nt">clusterIP</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">172.21.0.210</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="w">      </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
 </code></pre></div></td></tr></table></div>
 </div>
 <h2 id="windows-based-workloads"><em>Windows</em>-based workloads</h2>
-<p>In case of services on <em>Windows</em> side please use the subnet <code>172.21.1.0/24</code> starting from <code>172.21.1.50</code> (<em>K2s</em> reserves addresses up to <code>172.21.1.49</code>).</p>
+<p>No special label is needed. The webhook automatically detects that the Service targets a Windows workload by inspecting the <code>nodeSelector</code> of matching Deployments, StatefulSets, or DaemonSets. If the workload has <code>kubernetes.io/os: windows</code> in its <code>nodeSelector</code>, the Service receives a <code>172.21.1.x</code> Cluster <abbr title="Internet Protocol">IP</abbr>.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">example-service-manifest.yaml</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-1-1"> 1</a></span>
@@ -2613,20 +2695,43 @@ SPDX-License-Identifier: MIT
 <span class="normal"><a href="#__codelineno-1-8"> 8</a></span>
 <span class="normal"><a href="#__codelineno-1-9"> 9</a></span>
 <span class="normal"><a href="#__codelineno-1-10">10</a></span>
-<span class="normal"><a href="#__codelineno-1-11">11</a></span>
-<span class="normal"><a href="#__codelineno-1-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="normal"><a href="#__codelineno-1-11">11</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Windows-example</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">windows-example</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6"></a><span class="nt">selector</span><span class="p">:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7"></a><span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Windows-example</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8"></a><span class="nt">ports</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6"></a><span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7"></a><span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">windows-example</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11"></a><span class="w">    </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12"></a><span class="nt">clusterIP</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">172.21.1.210</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10"></a><span class="w">      </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11"></a><span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
 </code></pre></div></td></tr></table></div>
+</div>
+<h2 id="how-it-works">How it works</h2>
+<p>The <code>clusterip-webhook</code> runs as a Deployment in the <code>k2s-webhook</code> namespace. It intercepts both <strong>Service</strong> and <strong>workload</strong> (Deployment, StatefulSet, DaemonSet) CREATE requests via two mutating admission webhooks.</p>
+<h3 id="service-create">Service CREATE</h3>
+<ol>
+<li>Checks if the Service already has an explicit <code>clusterIP</code> (or is headless / ExternalName) — if so, it does nothing.</li>
+<li>Checks an <strong>in-memory cache</strong> populated by recent workload admissions (handles the simultaneous-apply case).</li>
+<li>Looks up Deployments, StatefulSets, and DaemonSets in the same namespace whose pod template labels match the Service selector. If the workload has <code>kubernetes.io/os: windows</code> in its <code>nodeSelector</code>, the Windows subnet is used.</li>
+<li>If no matching workload is found, checks running Pods and their Node's <code>kubernetes.io/os</code> label as a fallback.</li>
+<li>Defaults to the Linux subnet if no <abbr title="Operating System">OS</abbr> can be determined.</li>
+<li>Lists existing Services to find which IPs are already in use.</li>
+<li>Picks the first free <abbr title="Internet Protocol">IP</abbr> in the target subnet range (<code>.50</code> – <code>.254</code>).</li>
+<li>Returns a <abbr title="JavaScript Object Notation">JSON</abbr> Patch that sets <code>spec.clusterIP</code> on the Service.</li>
+</ol>
+<h3 id="workload-create-deployment-statefulset-daemonset">Workload CREATE (Deployment / StatefulSet / DaemonSet)</h3>
+<p>When a workload with <code>kubernetes.io/os</code> in its <code>nodeSelector</code> is created, the webhook caches the <abbr title="Operating System">OS</abbr> information for the workload's pod template labels. If the workload targets <strong>Windows</strong>, it additionally:</p>
+<ol>
+<li>Scans existing Services whose selector matches the workload's pod labels.</li>
+<li>If any such Service has a ClusterIP in the Linux subnet (assigned by default before the Windows workload existed), the webhook <strong>deletes and recreates</strong> it without a <code>clusterIP</code>, triggering a new Service admission that now picks the correct Windows <abbr title="Internet Protocol">IP</abbr> from the cache.</li>
+</ol>
+<p>This reconciliation handles the common <code>kubectl apply -k</code> case where Services and Deployments are submitted simultaneously — Kubernetes processes Services first, before the backing workload exists. Workloads without a <code>kubernetes.io/os</code> nodeSelector are ignored since Services default to the Linux subnet anyway.</p>
+<p>TLS certificates for the webhook are generated automatically via init Jobs during cluster setup.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You can still set <code>clusterIP</code> manually if needed (e.g., for infrastructure services in the reserved <code>.0–.49</code> range). The webhook will skip any Service that already has <code>clusterIP</code> set.</p>
 </div>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
