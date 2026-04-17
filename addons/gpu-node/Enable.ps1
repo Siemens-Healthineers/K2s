@@ -260,7 +260,7 @@ else {
 
     # Apply WSL2 Kernel
     Write-Log 'Changing linux kernel' -Console
-    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.1.21.2'
+    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.20.1'
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .microsoft-standard-wsl2').Output | Write-Log
     $command = "container=`$(sudo buildah from $microsoftStandardWSL2 2> /dev/null)  && mountpoint=`$(sudo buildah mount `$container) && sudo find `$mountpoint -iname *.deb | xargs sudo cp -t .microsoft-standard-wsl2 && sudo buildah unmount `$container && sudo buildah rm `$container > /dev/null 2>&1"
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $command).Output | Write-Log
@@ -281,7 +281,7 @@ else {
 
     # change linux kernel
     $prefix = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux-advanced.*\' /boot/grub/grub.cfg | tr -d `"\'`"").Output
-    $kernel = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux.*microsoft-standard-WSL2.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"").Output
+    $kernel = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -io \'gnulinux.*microsoft-standard-wsl2.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"").Output
     if ([string]::IsNullOrWhiteSpace($kernel)) {
         $errMsg = 'Could not locate microsoft-standard-WSL2 kernel entry in /boot/grub/grub.cfg. The kernel package was installed but GRUB did not register it as expected. Re-run the enable or inspect grub.cfg manually on the VM.'
         if ($EncodeStructuredOutput -eq $true) {
@@ -380,7 +380,7 @@ try {
         Write-Log '[gpu-node] Pre-pulling images via SSH tunnel (buildah)' -Console
 
         $images = @(
-            'nvcr.io/nvidia/k8s-device-plugin:v0.18.2'
+            'nvcr.io/nvidia/k8s-device-plugin:v0.19.0'
             'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
         )
         foreach ($image in $images) {

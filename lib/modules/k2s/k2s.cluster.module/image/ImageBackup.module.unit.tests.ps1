@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -Modules Pester
@@ -7,7 +7,7 @@ BeforeAll {
     # Import required modules
     Import-Module "$PSScriptRoot\..\..\k2s.infra.module\k2s.infra.module.psm1" -Force
     $modulePath = "$PSScriptRoot\ImageBackup.module.psm1"
-    Import-Module $modulePath -Force
+    $script:moduleName = (Import-Module $modulePath -PassThru -Force).Name
 }
 
 Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
@@ -172,9 +172,90 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
             $logContent | Should -Match "Original Backup Date: 2024-01-01 12:00:00"
             }
         }
-    } 
+    }
+
+    Describe "Get-K2sImageList" -Tag 'unit', 'ci' {
+        Context 'script not found' {
+            It 'returns empty array when Get-Images.ps1 does not exist' {
+                InModuleScope $script:moduleName {
+                    Mock Write-Log {}
+                    Mock Test-Path { $false }
+
+                    $result = Get-K2sImageList -CrictlExePath 'C:\k\bin\crictl.exe' -CrictlConfigPath 'C:\k\bin\crictl.yaml'
+
+                    $result.Count | Should -Be 0
+                }
+            }
+        }
+
+        Context 'resolves crictl paths from installed cluster folder' {
+            It 'accepts explicit crictl paths and returns empty array when script not found' {
+                InModuleScope $script:moduleName {
+                    Mock Write-Log {}
+                    Mock Test-Path { $false }
+
+                    $result = Get-K2sImageList -CrictlExePath 'C:\k\bin\crictl.exe' -CrictlConfigPath 'C:\k\bin\crictl.yaml'
+
+                    $result.Count | Should -Be 0
+                }
+            }
+
+            It 'accepts a non-default install folder path' {
+                InModuleScope $script:moduleName {
+                    Mock Write-Log {}
+                    Mock Test-Path { $false }
+
+                    $result = Get-K2sImageList -CrictlExePath 'D:\custom-k2s\bin\crictl.exe' -CrictlConfigPath 'D:\custom-k2s\bin\crictl.yaml'
+
+                    $result.Count | Should -Be 0
+                }
+            }
+        }
+    }
+
+    Describe "Backup-K2sImages" -Tag 'unit', 'ci' {
+        Context 'empty images list' {
+            It 'returns empty backup result without invoking Export-Image.ps1' {
+                InModuleScope $script:moduleName {
+                    Mock Write-Log {}
+                    Mock New-EmptyBackupResult { @{ BackupDirectory = 'C:\backup'; Images = @(); Success = $true } }
+
+                    $result = Backup-K2sImages -BackupDirectory 'C:\backup' -Images @()
+
+                    $result.Success | Should -Be $true
+                    $result.Images.Count | Should -Be 0
+                    Should -Invoke New-EmptyBackupResult -Exactly 1
+                }
+            }
+        }
+
+        Context 'explicit crictl paths bypass default resolution' {
+            It 'does not call Get-CrictlExePath when CrictlExePath is supplied' {
+                InModuleScope $script:moduleName {
+                    Mock Write-Log {}
+                    Mock New-BackupDirectoryStructure {}
+                    Mock Get-CrictlExePath { 'C:\default\bin\crictl.exe' }
+                    Mock Get-KubeBinPath { 'C:\default\bin' }
+                    Mock Test-Path { $true }
+                    Mock Invoke-Expression {}
+                    Mock Out-File {}
+                    Mock New-ImageProcessingLog {}
+
+                    $images = @(@{ repository = 'nginx'; tag = 'latest'; imageid = 'abc123'; node = 'win'; size = '100MB' })
+
+                    Backup-K2sImages `
+                        -BackupDirectory 'TestDrive:\backup' `
+                        -Images $images `
+                        -CrictlExePath 'C:\old\bin\crictl.exe' `
+                        -CrictlConfigPath 'C:\old\bin\crictl.yaml'
+
+                    Should -Invoke Get-CrictlExePath -Exactly 0
+                }
+            }
+        }
+    }
 }
 
 AfterAll {
-    Remove-Module ImageBackup -Force -ErrorAction SilentlyContinue
+    Remove-Module $script:moduleName -Force -ErrorAction SilentlyContinue
 }

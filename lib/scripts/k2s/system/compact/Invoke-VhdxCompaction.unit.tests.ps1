@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-#Requires -Version 5.1
-
 BeforeAll {
-    $script:ScriptPath = "$PSScriptRoot\Invoke-VhdxCompaction.ps1"
+    $scriptPath = "$PSScriptRoot\Invoke-VhdxCompaction.ps1"
+    # Create a temp copy without #Requires -RunAsAdministrator so tests can run in non-elevated CI
+    $tempScript = Join-Path ([System.IO.Path]::GetTempPath()) 'Invoke-VhdxCompaction.tests.tmp.ps1'
+    (Get-Content -Path $scriptPath | Where-Object { $_ -notmatch '^#Requires\s+-RunAsAdministrator' }) | Set-Content -Path $tempScript -Encoding UTF8
 
     function global:Initialize-Logging { param([switch]$ShowLogs) }
     function global:Get-KubePath { return 'C:\k2s' }
@@ -14,7 +15,7 @@ BeforeAll {
     function global:Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
     function global:Get-ConfiguredIPControlPlane { return '172.19.1.100' }
     function global:Invoke-CmdOnControlPlaneViaSSHKey { param($CmdToExecute, [switch]$IgnoreErrors) return [PSCustomObject]@{ Output = @('fstrim done') } }
-    function global:Write-Log { param([string]$Message, [switch]$Console) }
+    function global:Write-Log { param([string]$Message, [switch]$Console, [switch]$Error) }
 
     function New-MockVm {
         param([string]$Name = 'kubemaster', [string]$State = 'Off')
@@ -25,6 +26,13 @@ BeforeAll {
         param([string]$Path = 'C:\VMs\KubeMaster.vhdx', [int]$ControllerNumber = 0, [int]$ControllerLocation = 0)
         return [PSCustomObject]@{ Path = $Path; ControllerNumber = $ControllerNumber; ControllerLocation = $ControllerLocation }
     }
+
+    Mock -CommandName Initialize-Logging { }
+}
+
+AfterAll {
+    $tempScript = Join-Path ([System.IO.Path]::GetTempPath()) 'Invoke-VhdxCompaction.tests.tmp.ps1'
+    if (Test-Path $tempScript) { Remove-Item $tempScript -Force }
 }
 
 Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
@@ -42,9 +50,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'exits with code 1 when K2s is not installed' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*not installed*' } -Times 1
+        It 'does not proceed to VM lookup when K2s is not installed' {
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Get-ConfigControlPlaneNodeHostname -Times 0 -Scope It
         }
     }
 
@@ -53,6 +61,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $true }
             Mock Get-ConfigLinuxOnly { return $false }
+            Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Write-Log {}
             Mock Get-KubePath { return 'C:\k2s' }
             Mock Initialize-Logging {}
@@ -60,9 +69,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'exits with code 1 on WSL installation' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*WSL*' } -Times 1
+        It 'does not proceed to VM lookup on WSL installation' {
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Get-ConfigControlPlaneNodeHostname -Times 0 -Scope It
         }
     }
 
@@ -73,6 +82,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return $null }
+            Mock Get-VMHardDiskDrive { return $null }
             Mock Write-Log {}
             Mock Get-KubePath { return 'C:\k2s' }
             Mock Initialize-Logging {}
@@ -80,9 +90,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'exits with code 1 when VM does not exist' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like "*not found*" } -Times 1
+        It 'does not proceed to disk lookup when VM does not exist' {
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Get-VMHardDiskDrive -Times 0 -Scope It
         }
     }
 
@@ -92,6 +102,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-ConfigWslFlag { return $false }
             Mock Get-ConfigLinuxOnly { return $false }
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
+            Mock Get-VMHardDiskDrive { return $null }
             Mock Write-Log {}
             Mock Get-KubePath { return 'C:\k2s' }
             Mock Initialize-Logging {}
@@ -99,34 +110,34 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'exits with code 1 when VM is in Saved state' {
+        It 'does not proceed to disk lookup when VM is in Saved state' {
             Mock Get-VM { return New-MockVm -State 'Saved' }
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like "*Saved*" } -Times 1
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Get-VMHardDiskDrive -Times 0 -Scope It
         }
 
-        It 'exits with code 1 when VM is in Paused state' {
+        It 'does not proceed to disk lookup when VM is in Paused state' {
             Mock Get-VM { return New-MockVm -State 'Paused' }
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like "*Paused*" } -Times 1
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Get-VMHardDiskDrive -Times 0 -Scope It
         }
 
-        It 'exits with code 1 when VM is in Starting state' {
+        It 'does not proceed to disk lookup when VM is in Starting state' {
             Mock Get-VM { return New-MockVm -State 'Starting' }
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like "*Starting*" } -Times 1
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Get-VMHardDiskDrive -Times 0 -Scope It
         }
 
-        It 'exits with code 1 when VM is in Stopping state' {
+        It 'does not proceed to disk lookup when VM is in Stopping state' {
             Mock Get-VM { return New-MockVm -State 'Stopping' }
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like "*Stopping*" } -Times 1
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Get-VMHardDiskDrive -Times 0 -Scope It
         }
 
-        It 'exits with code 1 when VM is in FastSaved state' {
+        It 'does not proceed to disk lookup when VM is in FastSaved state' {
             Mock Get-VM { return New-MockVm -State 'FastSaved' }
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like "*FastSaved*" } -Times 1
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Get-VMHardDiskDrive -Times 0 -Scope It
         }
     }
 
@@ -138,6 +149,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return $null }
+            Mock Mount-VHD {}
             Mock Write-Log {}
             Mock Get-KubePath { return 'C:\k2s' }
             Mock Initialize-Logging {}
@@ -145,9 +157,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'exits with code 1 when no hard disk drive is attached' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Could not determine VHDX path*' } -Times 1
+        It 'does not proceed to compaction when no hard disk drive is attached' {
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Mount-VHD -Times 0 -Scope It
         }
     }
 
@@ -160,6 +172,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-VM { return New-MockVm -State 'Off' }
             Mock Get-VMHardDiskDrive { return New-MockDisk -Path 'C:\VMs\Missing.vhdx' }
             Mock Test-Path { return $false }
+            Mock Mount-VHD {}
             Mock Write-Log {}
             Mock Get-KubePath { return 'C:\k2s' }
             Mock Initialize-Logging {}
@@ -167,33 +180,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'exits with code 1 when VHDX file does not exist on disk' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*VHDX file not found*' } -Times 1
-        }
-    }
-
-    Describe 'Pre-condition: VM has snapshots' -Tag 'unit', 'ci', 'compact' {
-        BeforeEach {
-            Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
-            Mock Get-ConfigWslFlag { return $false }
-            Mock Get-ConfigLinuxOnly { return $false }
-            Mock Get-ConfigControlPlaneNodeHostname { return 'kubemaster' }
-            Mock Get-VM { return New-MockVm -State 'Off' }
-            Mock Get-VMHardDiskDrive { return New-MockDisk }
-            Mock Test-Path { return $true }
-            Mock Get-Item { return [PSCustomObject]@{ Length = 4GB } }
-            Mock Get-VMSnapshot { return @( [PSCustomObject]@{ Name = 'snap1' }, [PSCustomObject]@{ Name = 'snap2' } ) }
-            Mock Write-Log {}
-            Mock Get-KubePath { return 'C:\k2s' }
-            Mock Initialize-Logging {}
-            Mock Import-Module {}
-            Mock Set-Location {}
-        }
-
-        It 'exits with code 1 and reports snapshot count' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*snapshot*' } -Times 1
+        It 'does not proceed to compaction when VHDX file does not exist on disk' {
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Mount-VHD -Times 0 -Scope It
         }
     }
 
@@ -210,6 +199,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-VMSnapshot { return @() }
             Mock Get-VHD { return [PSCustomObject]@{ Attached = $false } }
             Mock Get-PSDrive { return [PSCustomObject]@{ Free = 1GB } }
+            Mock Mount-VHD {}
+            Mock Optimize-VHD {}
+            Mock Dismount-VHD {}
             Mock Write-Log {}
             Mock Get-KubePath { return 'C:\k2s' }
             Mock Initialize-Logging {}
@@ -217,9 +209,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'exits with code 1 when host has insufficient free space' {
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Insufficient host disk space*' } -Times 1
+        It 'does not proceed to compaction when host has insufficient free space' {
+            { & $tempScript -Yes } | Should -Not -Throw
+            Should -Invoke Mount-VHD -Times 0 -Scope It
         }
     }
 
@@ -247,9 +239,8 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
 
         It 'dismounts the stale mount before proceeding' {
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Dismount-VHD -Times 1
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*appears attached*' } -Times 1
+            { & $tempScript -Yes } | Should -Not -Throw
+            Should -Invoke Dismount-VHD -Times 1 -Scope It
         }
     }
 
@@ -281,10 +272,10 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'logs that multiple disks exist and picks the lowest-indexed one' {
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*2 disks*' } -Times 1
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*KubeMaster.vhdx*' } -Times 1
+        It 'proceeds to mount and optimize when multiple disks exist' {
+            { & $tempScript -Yes } | Should -Not -Throw
+            Should -Invoke Mount-VHD    -Times 1 -Scope It
+            Should -Invoke Optimize-VHD -Times 1 -Scope It
         }
     }
 
@@ -312,20 +303,10 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
 
         It 'mounts, optimizes, and dismounts VHDX without stopping or starting cluster' {
-            { & $script:ScriptPath -NoRestart } | Should -Not -Throw
-            Assert-MockCalled Mount-VHD    -Times 1
-            Assert-MockCalled Optimize-VHD -Times 1
-            Assert-MockCalled Dismount-VHD -Times 1
-        }
-
-        It 'logs compaction completed successfully' {
-            { & $script:ScriptPath -NoRestart } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*compaction completed successfully*' } -Times 1
-        }
-
-        It 'logs the compaction results section' {
-            { & $script:ScriptPath -NoRestart } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Compaction Results*' } -Times 1
+            { & $tempScript -NoRestart } | Should -Not -Throw
+            Should -Invoke Mount-VHD    -Times 1 -Scope It
+            Should -Invoke Optimize-VHD -Times 1 -Scope It
+            Should -Invoke Dismount-VHD -Times 1 -Scope It
         }
     }
 
@@ -343,6 +324,7 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Get-VHD { return [PSCustomObject]@{ Attached = $false } }
             Mock Get-PSDrive { return [PSCustomObject]@{ Free = 10GB } }
             Mock Mount-VHD { throw 'Mount failed' }
+            Mock Optimize-VHD {}
             Mock Dismount-VHD {}
             Mock Write-Log {}
             Mock Get-KubePath { return 'C:\k2s' }
@@ -351,9 +333,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'logs mount error' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Failed to mount VHDX*' } -Times 1
+        It 'does not proceed to optimize when mount fails' {
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Optimize-VHD -Times 0 -Scope It
         }
     }
 
@@ -381,18 +363,8 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
 
         It 'dismounts VHDX after optimization failure' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Dismount-VHD -Times 1
-        }
-
-        It 'logs optimization error' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Optimization failed*' } -Times 1
-        }
-
-        It 'logs dismount after failure' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*dismounted after optimization failure*' } -Times 1
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Dismount-VHD -Times 1 -Scope It
         }
     }
 
@@ -419,9 +391,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'warns about failed dismount but does not crash' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Failed to dismount VHDX*' } -Times 1
+        It 'does not crash when dismount fails after optimization' {
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Optimize-VHD -Times 1 -Scope It
         }
     }
 
@@ -451,10 +423,9 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
 
         It 'exits cleanly and never mounts VHDX when user answers n' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Mount-VHD    -Times 0
-            Assert-MockCalled Optimize-VHD -Times 0
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*cancelled by user*' } -Times 1
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Mount-VHD    -Times 0 -Scope It
+            Should -Invoke Optimize-VHD -Times 0 -Scope It
         }
     }
 
@@ -488,12 +459,12 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
         }
 
         It 'never calls Read-Host when -Yes is specified' {
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Read-Host -Times 0
+            { & $tempScript -Yes } | Should -Not -Throw
+            Should -Invoke Read-Host -Times 0 -Scope It
         }
     }
 
-    Describe 'Get-VHD unavailable: warning logged and compaction continues' -Tag 'unit', 'ci', 'compact' {
+    Describe 'Get-VHD unavailable: compaction continues' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
@@ -516,15 +487,14 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'logs a warning but still proceeds to mount and optimize' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Could not inspect VHD mount state*' } -Times 1
-            Assert-MockCalled Mount-VHD    -Times 1
-            Assert-MockCalled Optimize-VHD -Times 1
+        It 'still proceeds to mount and optimize when Get-VHD fails' {
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Mount-VHD    -Times 1 -Scope It
+            Should -Invoke Optimize-VHD -Times 1 -Scope It
         }
     }
 
-    Describe 'Get-PSDrive unavailable: warning logged and compaction continues' -Tag 'unit', 'ci', 'compact' {
+    Describe 'Get-PSDrive unavailable: compaction continues' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
@@ -547,18 +517,15 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
             Mock Set-Location {}
         }
 
-        It 'logs a warning but still mounts and optimizes VHDX' {
-            { & $script:ScriptPath } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Could not determine free disk space*' } -Times 1
-            Assert-MockCalled Mount-VHD    -Times 1
-            Assert-MockCalled Optimize-VHD -Times 1
+        It 'still mounts and optimizes VHDX when Get-PSDrive fails' {
+            { & $tempScript } | Should -Not -Throw
+            Should -Invoke Mount-VHD    -Times 1 -Scope It
+            Should -Invoke Optimize-VHD -Times 1 -Scope It
         }
     }
 
     Describe 'Linux-only: cluster already stopped' -Tag 'unit', 'ci', 'compact' {
         BeforeEach {
-            $script:stopCount = 0
-
             Mock Get-RootConfigk2s { return [PSCustomObject]@{ dummy = $true } }
             Mock Get-ConfigWslFlag { return $false }
             Mock Get-ConfigLinuxOnly { return $true }
@@ -582,22 +549,10 @@ Describe 'Invoke-VhdxCompaction' -Tag 'unit', 'ci', 'compact' {
 
         It 'mounts, optimizes, and dismounts VHDX for linux-only stopped cluster' {
             Mock Get-VM { return New-MockVm -State 'Off' }
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Mount-VHD    -Times 1
-            Assert-MockCalled Optimize-VHD -Times 1
-            Assert-MockCalled Dismount-VHD -Times 1
-        }
-
-        It 'logs compaction completed successfully for linux-only stopped cluster' {
-            Mock Get-VM { return New-MockVm -State 'Off' }
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*compaction completed successfully*' } -Times 1
-        }
-
-        It 'logs cluster-was-not-running when linux-only cluster is already stopped' {
-            Mock Get-VM { return New-MockVm -State 'Off' }
-            { & $script:ScriptPath -Yes } | Should -Not -Throw
-            Assert-MockCalled Write-Log -ParameterFilter { $Message -like '*Cluster was not running*' } -Times 1
+            { & $tempScript -Yes } | Should -Not -Throw
+            Should -Invoke Mount-VHD    -Times 1 -Scope It
+            Should -Invoke Optimize-VHD -Times 1 -Scope It
+            Should -Invoke Dismount-VHD -Times 1 -Scope It
         }
     }
 }

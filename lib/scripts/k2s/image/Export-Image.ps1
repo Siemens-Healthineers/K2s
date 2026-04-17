@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -51,7 +51,15 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Optional path to crictl.exe; overrides the module-scope default (use during upgrade to supply the installed cluster path)')]
+    [string] $CrictlExePath = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Optional path to crictl.yaml config; overrides the module-scope default (use during upgrade to supply the installed cluster path)')]
+    [string] $CrictlConfigPath = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Optional path to nerdctl.exe; overrides the module-scope default (use during upgrade)')]
+    [string] $NerdctlExePath = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Optional path to ctr.exe; overrides the module-scope default (use during upgrade)')]
+    [string] $CtrExePath = ''
 )
 $imageCommonModule = "$PSScriptRoot/Image-Common.module.psm1"
 Import-Module $imageCommonModule
@@ -62,7 +70,7 @@ if (-not (Initialize-ImageScriptContext -ShowLogs:$ShowLogs -EncodeStructuredOut
 
 Write-Log "[ImageExport] Looking for image with Id='$Id' Name='$Name'"
 
-$imageSelection = Get-ImagesByNodeSelection -Nodes $Nodes -IncludeK8sImages $true -LogPrefix 'ImageExport'
+$imageSelection = Get-ImagesByNodeSelection -Nodes $Nodes -IncludeK8sImages $true -LogPrefix 'ImageExport' -CrictlExePath $CrictlExePath -CrictlConfigPath $CrictlConfigPath
 $linuxContainerImages = @($imageSelection.LinuxImages)
 $windowsContainerImages = @($imageSelection.WindowsImages)
 
@@ -270,8 +278,8 @@ if ($foundWindowsImages.Count -eq 1) {
         $finalExportPath = $path + '\' + $newFileName
     }
 
-    $binPath = Get-KubeBinPath
-    $nerdctlExe = "$binPath\nerdctl.exe"
+    $nerdctlExe = if ($NerdctlExePath -ne '') { $NerdctlExePath } else { "$((Get-KubeBinPath))\nerdctl.exe" }
+    $resolvedCtrExe = if ($CtrExePath -ne '') { $CtrExePath } else { "$((Get-KubeBinPath))\containerd\ctr.exe" }
 
     # Set up proxy env vars so nerdctl can reach the registry (mirrors addons/Export.ps1 pattern)
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
@@ -282,7 +290,6 @@ if ($foundWindowsImages.Count -eq 1) {
     try {
         $env:http_proxy = $proxyUrl
         $env:https_proxy = $proxyUrl
-        Write-Log "[ImageExport] Proxy configured for nerdctl: $proxyUrl"
 
         Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
         $pullOutput = &$nerdctlExe -n 'k8s.io' pull $imageFullName --all-platforms 2>&1 | Out-String
@@ -291,11 +298,11 @@ if ($foundWindowsImages.Count -eq 1) {
         if ($pullExitCode -ne 0) {
             Write-Log "Not able to pull all platform layers for image '$imageFullName' (exit code: $pullExitCode)" -Console
             Write-Log "Exporting image '$imageFullName' only for current platform" -Console
-            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', $finalExportPath, $imageFullName
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', $finalExportPath, $imageFullName -CtrExePath $resolvedCtrExe
         }
         else {
             Write-Log "Exporting image '$imageFullName' for all platforms" -Console
-            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', '--all-platforms', $finalExportPath, $imageFullName
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', '--all-platforms', $finalExportPath, $imageFullName -CtrExePath $resolvedCtrExe
         }
 
         if ($exportSuccess) {

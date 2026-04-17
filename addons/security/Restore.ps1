@@ -121,7 +121,7 @@ if (Test-Path -LiteralPath $pgDumpFile) {
     Write-Log '[SecurityRestore] Restoring Keycloak PostgreSQL database' -Console
 
     # Verify PostgreSQL pod is ready
-    $pgReady = Invoke-Kubectl -Params 'wait', '--timeout=120s', '--for=condition=Ready', '-n', 'security', '-l', 'app=postgresql', 'pod'
+    $pgReady = Invoke-Kubectl -Params 'wait', '--timeout=360s', '--for=condition=Ready', '-n', 'security', '-l', 'app=postgresql', 'pod'
     if (-not $pgReady.Success) {
         Write-Log "[SecurityRestore] Warning: PostgreSQL pod not ready, skipping database restore: $($pgReady.Output)" -Console
     }

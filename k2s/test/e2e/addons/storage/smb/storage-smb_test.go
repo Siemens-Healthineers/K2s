@@ -112,7 +112,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 		GinkgoWriter.Println("Deleting namespace <", namespace, "> on cluster..")
 
 		suite.Kubectl().MustExec(ctx, "delete", "-f", namespaceManifestPath)

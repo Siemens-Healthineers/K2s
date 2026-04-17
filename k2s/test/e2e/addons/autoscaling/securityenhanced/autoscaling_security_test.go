@@ -40,7 +40,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
