@@ -125,7 +125,7 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
         }
 
         Write-Log "Export image '$sandboxImageName' to '$tarFilePath'"
-        $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', '--all-platforms', $tarFilePath, $sandboxImageName
+      $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', '--all-platforms', $tarFilePath, $sandboxImageName
         if (-not $exportSuccess) {
             throw "The image '$sandboxImageName' could not be exported"
         }
@@ -159,7 +159,7 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
         $retryDelay = 2
         $success = $false
         
-        for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+         for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
             $importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', "$file"
             if ($importSuccess) {
                 $success = $true
@@ -367,12 +367,14 @@ function Install-WinNodeArtifacts {
         [bool] $SkipClusterSetup = $false,
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
         [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-        [string] $K8sBinsPath = ''
+        [string] $K8sBinsPath = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Indicates if a loopback adapter is required for the installation')]
+        [bool] $IsLoopBackAdapterRequired = $true
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
 
-    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -PodSubnetworkNumber $PodSubnetworkNumber
+    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -PodSubnetworkNumber $PodSubnetworkNumber -IsLoopBackAdapterRequired $IsLoopBackAdapterRequired
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
@@ -388,7 +390,7 @@ function Install-WinNodeArtifacts {
         Invoke-DeployCniPlugins $windowsNodeArtifactsDirectory
         Invoke-DeployCniFlannelArtifacts $windowsNodeArtifactsDirectory
 
-        Install-WinFlannel
+        Install-WinFlannel -IsLoopBackAdapterRequired $IsLoopBackAdapterRequired
         Install-WinKubeProxy
 
     }
