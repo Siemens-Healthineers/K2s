@@ -8,7 +8,6 @@ $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.p
 
 Import-Module $infraModule, $clusterModule
 
-
 function Add-WindowsWorkerNodeOnWindowsHost {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
@@ -20,21 +19,27 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
         [switch] $ForceOnlineInstallation = $false,
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
-        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand'),
+        [string] $JoinCommand,
         [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-        [string] $K8sBinsPath = ''
+        [string] $K8sBinsPath = '',
+        [parameter(Mandatory = $false, HelpMessage = 'IP address of the remote machine')]
+        [string] $IpAddress = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Indicates if a loopback adapter is required for the installation')]
+        [bool] $IsLoopBackAdapterRequired = $true
     )
     Stop-InstallIfNoMandatoryServiceIsRunning
 
     Write-Log 'Starting installation of K2s worker node on Windows host.'
 
-    # Install loopback adapter for l2bridge
-    New-DefaultLoopbackAdapter
+    if ($IsLoopBackAdapterRequired) {
+        # Install loopback adapter for l2bridge
+        New-DefaultLoopbackAdapter
 
-    Write-Log 'Add vfp rules'
-    $rootConfiguration = Get-RootConfigk2s
-    $vfpRoutingRules = $rootConfiguration.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
-    Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
+        Write-Log 'Add vfp rules'
+        $rootConfiguration = Get-RootConfigk2s
+        $vfpRoutingRules = $rootConfiguration.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
+        Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
+    }
 
     $kubernetesVersion = Get-DefaultK8sVersion
 
@@ -44,13 +49,20 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
         -ForceOnlineInstallation $ForceOnlineInstallation `
         -PodSubnetworkNumber $PodSubnetworkNumber `
-        -K8sBinsPath $K8sBinsPath
+        -K8sBinsPath $K8sBinsPath `
+        -IsLoopBackAdapterRequired $IsLoopBackAdapterRequired
 
+    # Add Kubernetes binaries to PATH for kubeadm join command
+    Write-Log "Adding Kubernetes binaries to PATH for kubeadm join"
+    Set-EnvVars
 
     # join the cluster
     Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
-
-    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -PodSubnetworkNumber $PodSubnetworkNumber -JoinCommand $JoinCommand
+    # if JoinCommand is empty, then don't invoke Initialize-KubernetesCluster
+    if ([string]::IsNullOrWhiteSpace($JoinCommand)) {
+        return
+    }
+    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -PodSubnetworkNumber $PodSubnetworkNumber -JoinCommand $JoinCommand -IpAddress $IpAddress 
 }
 
 function Start-WindowsWorkerNodeOnWindowsHost {
@@ -64,16 +76,103 @@ function Start-WindowsWorkerNodeOnWindowsHost {
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
         [switch] $SkipHeaderDisplay = $false,
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
-        [string] $DnsServers = $(throw 'Argument missing: DnsServers')
+        [string] $DnsServers = $(throw 'Argument missing: DnsServers'),
+        [bool] $IsRemoteNode = $false
     )
 
     $smallsetup = Get-RootConfigk2s
+    if(!$IsRemoteNode) {
     $vfpRoutingRules = $smallsetup.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
     Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
-
+    }
     Set-RoutesToWindowsWorkloads
 
     Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -PodSubnetworkNumber $PodSubnetworkNumber
+
+    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+    Add-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
+
+    Update-NodeLabelsAndTaints -WorkerMachineName $env:computername
+
+    Set-KubeSwitchToPrivate
+}
+
+function Start-RemoteWindowsWorkerNode {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'Do a full reset of the HNS network at start')]
+        [switch] $ResetHns = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+        [string] $AdditionalHooksDir = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Use cached vSwitches')]
+        [switch] $UseCachedK2sVSwitches,
+        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
+        [switch] $SkipHeaderDisplay = $false,
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [string] $DnsServers = $(throw 'Argument missing: DnsServers'),
+        [parameter(Mandatory = $false, HelpMessage = 'IP address of the remote machine')]
+        [string] $IpAddress = ''
+    )
+
+    Set-RoutesToWindowsWorkloads
+
+    # Determine the physical IP of this node
+    $physicalIp = $null
+    if (-not [string]::IsNullOrWhiteSpace($IpAddress)) {
+        $physicalIp = $IpAddress
+        Write-Log "[RemoteWorkerNode] Using provided IP address: $physicalIp"
+    }
+    else {
+        $physicalIp = Get-HostPhysicalIp
+        Write-Log "[RemoteWorkerNode] Detected host physical IP: $physicalIp"
+    }
+
+    # Resolve the network adapter name from the IP address
+    $networkAdapterName = $null
+    if (-not [string]::IsNullOrWhiteSpace($physicalIp)) {
+        $ipAddrObj = Get-NetIPAddress -IPAddress $physicalIp -ErrorAction SilentlyContinue
+        if ($ipAddrObj) {
+            $networkAdapterName = $ipAddrObj.InterfaceAlias
+            Write-Log "[RemoteWorkerNode] Resolved adapter name: '$networkAdapterName' for IP $physicalIp"
+        }
+    }
+
+    # Fallback: find adapter using .NET if Get-NetIPAddress also failed
+    if ([string]::IsNullOrWhiteSpace($networkAdapterName)) {
+        Write-Log '[RemoteWorkerNode] Could not resolve adapter via Get-NetIPAddress. Using .NET fallback.'
+        try {
+            $nics = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
+                Where-Object {
+                    $_.OperationalStatus -eq 'Up' -and
+                    $_.NetworkInterfaceType -ne 'Loopback' -and
+                    $_.Description -notmatch 'Hyper-V|Virtual|Loopback|vEthernet'
+                }
+            foreach ($nic in $nics) {
+                $ipProps = $nic.GetIPProperties()
+                $match = $ipProps.UnicastAddresses | Where-Object {
+                    $_.Address.AddressFamily -eq 'InterNetwork' -and
+                    (
+                        [string]::IsNullOrWhiteSpace($physicalIp) -or
+                        $_.Address.ToString() -eq $physicalIp
+                    ) -and
+                    $_.Address.ToString() -notmatch '^169\.254\.'
+                } | Select-Object -First 1
+                if ($match) {
+                    $networkAdapterName = $nic.Name
+                    Write-Log "[RemoteWorkerNode] Found adapter '$networkAdapterName' via .NET (IP: $($match.Address))"
+                    break
+                }
+            }
+        }
+        catch {
+            Write-Log "[RemoteWorkerNode] .NET adapter lookup failed: $($_.Exception.Message)"
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($networkAdapterName)) {
+        throw "[RemoteWorkerNode] Fatal: Could not determine network adapter for remote worker node (IP: $physicalIp)"
+    }
+
+    Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -PodSubnetworkNumber $PodSubnetworkNumber -PhysicalAdapterName $networkAdapterName
 
     $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
     Add-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
@@ -100,7 +199,7 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
 
     $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
     Remove-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
-
+    
     Stop-WindowsWorkerNode -PodSubnetworkNumber $PodSubnetworkNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$CacheK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
 
     # Remove routes
@@ -156,7 +255,8 @@ function Start-WindowsWorkerNode {
         [switch] $UseCachedK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [string] $PhysicalAdapterName = ''
     )
 
     function Get-NeedsStopFirst () {
@@ -170,7 +270,7 @@ function Start-WindowsWorkerNode {
 
     $startTime = Get-Date
 
-    Write-Log 'Ensuring service log directories exists'
+    Write-Log '[NodeStart] Ensuring service log directories exists'
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
@@ -186,23 +286,29 @@ function Start-WindowsWorkerNode {
     Import-Module "$kubePath\smallsetup\hns.v2.psm1" -WarningAction:SilentlyContinue -Force
 
     if (Get-NeedsStopFirst) {
-        Write-Log 'Stopping existing K8s system...'
+        Write-Log '[NodeStart] Stopping existing K8s system...'
         Stop-WindowsWorkerNode -PodSubnetworkNumber $PodSubnetworkNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
         Start-Sleep 10
     }
 
     if ($ResetHns) {
-        Write-Log 'Doing a full reset of the HNS network'
+        Write-Log '[NodeStart] Doing a full reset of the HNS network'
         Get-HNSNetwork | Remove-HNSNetwork
     }
 
     Test-ExistingExternalSwitch
 
-    $adapterName = Get-L2BridgeName
-    Write-Log "Using network adapter '$adapterName'"
-    Enable-LoopbackAdapter
+    # Adapter selection logic: prefer explicit, else fallback to Get-L2BridgeName
+    if ([string]::IsNullOrWhiteSpace($PhysicalAdapterName)) {
+        $adapterName = Get-L2BridgeName
+        Write-Log "[NodeStart] Using network adapter from Get-L2BridgeName: '$adapterName'"
+        Enable-LoopbackAdapter
+    } else {
+        $adapterName = $PhysicalAdapterName
+        Write-Log "[NodeStart] Using provided physical adapter: '$adapterName'"
+    }
 
-    Write-Log 'Starting windows services' -Console
+    Write-Log '[NodeStart] Starting windows services' -Console
     Start-Service -Name 'vmcompute'
     Start-Service -Name 'hns'
 
@@ -210,17 +316,24 @@ function Start-WindowsWorkerNode {
 
     Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
-    Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
-    
-    Write-Log 'Starting Kubernetes services on the Windows node' -Console
+    # If a physical adapter name was explicitly provided by the caller, tell the
+    # loopback helper to treat it as a physical interface. This avoids unnecessary
+    # probing for vEthernet/loopback interfaces on remote nodes that only have a
+    # physical NIC.
+    if ([string]::IsNullOrWhiteSpace($PhysicalAdapterName)) {   
+        Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
+    }
+    else {
+        Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers -IsPhysical
+    }
+
+    Write-Log '[NodeStart] Starting Kubernetes services on the Windows node' -Console
     Start-ServiceAndSetToAutoStart -Name 'containerd'
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
+    if ([string]::IsNullOrWhiteSpace($PhysicalAdapterName)) {
     Confirm-LoopbackAdapterIP
-    # Flanneld must remain SERVICE_DEMAND_START. It creates cbr0 L2Bridge when it
-    # doesn't find one, which races with Start-System.ps1 after unclean reboots.
-    # Start it explicitly here (after cbr0 is created) without changing the start type.
-    Start-Service 'flanneld' -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-    Write-Log "Service 'flanneld' started"
+    }
+    Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
     Start-ServiceAndSetToAutoStart -Name 'kubelet'
     Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
 
@@ -230,7 +343,7 @@ function Start-WindowsWorkerNode {
 
     $endTime = Get-Date
     $durationSeconds = Get-DurationInSeconds -StartTime $startTime -EndTime $endTime
-    Write-Log "K8s services started on the Windows node after $iteration attempts, total duration: ${durationSeconds} seconds"
+    Write-Log "[NodeStart] K8s services started on the Windows node, total duration: ${durationSeconds} seconds"
 
     Invoke-Hook -HookName 'AfterStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 }
@@ -353,7 +466,7 @@ function Stop-WindowsWorkerNode {
         Start-ServiceProcess 'docker'
     }
 
-    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost_2 -PodSubnetworkNumber $PodSubnetworkNumber
     # Remove routes
     route delete $podNetworkCIDR >$null 2>&1
 
@@ -476,6 +589,7 @@ Export-ModuleMember -Function Add-WindowsWorkerNodeOnWindowsHost,
 Remove-WindowsWorkerNodeOnWindowsHost,
 Start-WindowsWorkerNodeOnWindowsHost,
 Stop-WindowsWorkerNodeOnWindowsHost,
+Start-RemoteWindowsWorkerNode,
 Wait-NetworkL2BridgeReady,
 Repair-K2sRoutes,
 Set-RoutesToKubemaster,

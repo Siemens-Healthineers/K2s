@@ -14,6 +14,7 @@ $setupConfigRoot = Get-RootConfigk2s
 $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
 $clusterCIDRGateway = $setupConfigRoot.psobject.properties['cbr0Gateway'].value
 $clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
+$clusterCIDRHost_2 = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
 $clusterCIDRNatExceptions = $setupConfigRoot.psobject.properties['clusterCIDRNatExceptions'].value
 
 $global:HNSRestarted = $false
@@ -35,9 +36,18 @@ function Get-ConfiguredClusterCIDRHost {
     param (
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-    # $podNetworkCIDR = $clusterCIDRHost.Replace('__SUBNETWORK_NUMBER__', $PodSubnetworkNumber)
-    # return $podNetworkCIDR
+    #$podNetworkCIDR = $clusterCIDRHost.Replace('X', $PodSubnetworkNumber)
+    #return $podNetworkCIDR
     return $clusterCIDRHost
+}
+
+function Get-ConfiguredClusterCIDRHost_2 {
+    param (
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+    $podNetworkCIDR = $clusterCIDRHost_2.Replace('X', $PodSubnetworkNumber)
+    return $podNetworkCIDR
+    
 }
 
 function Get-ConfiguredClusterCIDRNextHop {
@@ -58,13 +68,50 @@ function Get-ConfiguredClusterCIDRGateway {
     return $clusterCIDRGateway
 }
 
+function Get-GatewayFromCidr {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cidr
+    )
+
+    # Validate format and extract IP/Prefix
+    if ($Cidr -match '^(\d{1,3}(?:\.\d{1,3}){3})/(\d{1,2})$') {
+        $ipStr = $Matches[1]
+        $prefix = [int]$Matches[2]
+        
+        try {
+            $ipBytes = [System.Net.IPAddress]::Parse($ipStr).GetAddressBytes()
+            # Reverse bytes for BigEndian to host order conversion if necessary, 
+            # but manual bit-shifting as you did is often clearer in PS.
+            [uint32]$ipInt = [System.BitConverter]::ToUInt32($ipBytes[3..0], 0)
+
+            # Create Mask: Shift 1s into place, then flip to get the host bits
+            [uint32]$mask = [uint32]::MaxValue -shl (32 - $prefix)
+
+            # Calculate Network Address + 1
+            [uint32]$gatewayInt = ($ipInt -band $mask) + 1
+
+            # Convert back to IP string using IPAddress constructor
+            $gatewayBytes = [System.BitConverter]::GetBytes($gatewayInt)
+            [Array]::Reverse($gatewayBytes) # Ensure correct octet order
+            return ([System.Net.IPAddress]::new($gatewayBytes)).IPAddressToString
+        }
+        catch {
+            return $null
+        }
+    }
+    return $null
+}
+
 function New-ExternalSwitch {
     param (
         [Parameter()]
         [string] $adapterName,
-        [string] $PodSubnetworkNumber = '1'
+        [string] $PodSubnetworkNumber = '1',
+        [switch] $UsePodCIDRAsGateway
     )
-
+    
+    Write-Log "Creating external switch with adapter '$adapterName', PodSubnetworkNumber '$PodSubnetworkNumber', UsePodCIDRAsGateway '$UsePodCIDRAsGateway'"
     # if the L2 bridge is already found we don't need to create it again
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
     $found = Invoke-HNSCommand -Command { 
@@ -99,9 +146,29 @@ function New-ExternalSwitch {
     # build string for DNS server
     $dnsserver = $($adr -join ',')
 
+    
+  
+    # Prefer the PodCIDR actually assigned to this node by kubeadm/kube-controller-manager.
+    # Encapsulate kubectl logic in a helper and fall back to configured template when needed.
+    $nodeName = $env:COMPUTERNAME.ToLower()
+    $podNetworkCIDR = Get-NodePodCIDRFromKubectl -NodeName $nodeName
+    if (-not $podNetworkCIDR) {
+        $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+        Write-Log "[ExternalSwitch] Falling back to configured cluster CIDR: $podNetworkCIDR"
+    }
+
     # start of external switch
     $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
-    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+    if ($UsePodCIDRAsGateway -and $podNetworkCIDR) {
+        $derivedGw = Get-GatewayFromCidr -Cidr $podNetworkCIDR
+        if ($derivedGw) {
+            $gatewayIpAddress = $derivedGw
+            Write-Log "[ExternalSwitch] Using gateway derived from PodCIDR: $gatewayIpAddress"
+        }
+        else {
+            Write-Log "[ExternalSwitch] Failed to derive gateway from PodCIDR '$podNetworkCIDR', using configured gateway: $gatewayIpAddress"
+        }
+    }
     Write-Log "Create l2 bridge network with subnet: $podNetworkCIDR, switch name: $l2BridgeSwitchName, DNS server: $dnsserver, gateway: $gatewayIpAddress, NAT exceptions: $clusterCIDRNatExceptions, adapter name: $adapterName"
     
     # Check if network already exists from previous failed setup and remove it
@@ -682,7 +749,7 @@ function Set-KubeSwitchToPrivate {
 }
 
 Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
-Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
+Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost, Get-ConfiguredClusterCIDRHost_2,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Set-InterfacePrivate,
 Get-L2BridgeSwitchName,
