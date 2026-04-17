@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
-#Requires -RunAsAdministrator
+
 
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of Linux VM')]
