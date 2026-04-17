@@ -21,6 +21,9 @@ func TestNodePackage(t *testing.T) {
 func newTestCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "test"}
 	RegisterFlags(cmd)
+	cmd.Flags().Bool(DeltaPackageFlagName, false, "")
+	cmd.Flags().String(PackageVersionFromFlagName, "", "")
+	cmd.Flags().String(PackageVersionToFlagName, "", "")
 	return cmd
 }
 
@@ -66,6 +69,35 @@ var _ = Describe("nodepackage", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("ubuntu22"))
 			Expect(err.Error()).To(ContainSubstring("debian12"))
+		})
+
+		It("returns nil for node-delta mode without --os", func() {
+			cmd := newTestCmd()
+			cmd.Flags().Set(DeltaPackageFlagName, "true")
+			cmd.Flags().Set(PackageVersionFromFlagName, "C:\\old-node.zip")
+			cmd.Flags().Set(PackageVersionToFlagName, "C:\\new-node.zip")
+
+			Expect(Validate(cmd.Flags(), supportedOS)).To(Succeed())
+		})
+
+		It("returns error for node-delta mode without --package-version-from", func() {
+			cmd := newTestCmd()
+			cmd.Flags().Set(DeltaPackageFlagName, "true")
+			cmd.Flags().Set(PackageVersionToFlagName, "C:\\new-node.zip")
+
+			err := Validate(cmd.Flags(), supportedOS)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(PackageVersionFromFlagName))
+		})
+
+		It("returns error for node-delta mode without --package-version-to", func() {
+			cmd := newTestCmd()
+			cmd.Flags().Set(DeltaPackageFlagName, "true")
+			cmd.Flags().Set(PackageVersionFromFlagName, "C:\\old-node.zip")
+
+			err := Validate(cmd.Flags(), supportedOS)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(PackageVersionToFlagName))
 		})
 	})
 
@@ -173,6 +205,19 @@ var _ = Describe("nodepackage", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(script).ToNot(ContainSubstring("New-K2sPackage.ps1"))
 			Expect(script).ToNot(ContainSubstring("New-K2sDeltaPackage.ps1"))
+		})
+
+		It("routes node-delta mode to New-K2sNodeDeltaPackage.ps1", func() {
+			cmd := newTestCmd()
+			cmd.Flags().Set(DeltaPackageFlagName, "true")
+			cmd.Flags().Set(PackageVersionFromFlagName, "C:\\old-node.zip")
+			cmd.Flags().Set(PackageVersionToFlagName, "C:\\new-node.zip")
+
+			script, params, err := BuildCmd(cmd.Flags(), false, "C:\\output", "node-delta.zip", "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(script).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sNodeDeltaPackage.ps1")))
+			Expect(params).To(ContainElement(" -InputPackageOne 'C:\\old-node.zip'"))
+			Expect(params).To(ContainElement(" -InputPackageTwo 'C:\\new-node.zip'"))
 		})
 	})
 })
