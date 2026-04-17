@@ -138,7 +138,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 			url := "http://localhost:5601/logging"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--retry-all-errors")
+			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-D", "-", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 			Expect(httpStatus).To(ContainSubstring("302"))
 			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
 		})

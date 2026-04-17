@@ -73,7 +73,6 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-  clusterIP: 172.21.0.230
 
 ---
 apiVersion: v1
@@ -88,7 +87,6 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-  clusterIP: 172.21.0.231
 
 ---
 # ReferenceGrant allows HTTPRoute in ingress-nginx-gw-test namespace to reference Gateway in nginx-gw namespace
