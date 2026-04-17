@@ -33,6 +33,9 @@ type SystemProvider interface {
 
 	// CertificateRenew renews the Kubernetes certificates.
 	CertificateRenew(config SystemCertRenewConfig) error
+
+	// CertificateAutoRotation manages kubelet certificate auto-rotation configuration.
+	CertificateAutoRotation(config SystemCertAutoRotationConfig) error
 }
 
 // SystemDumpConfig holds parameters for the dump operation.
@@ -107,3 +110,12 @@ type SystemCertRenewConfig struct {
 	Force      bool
 	ShowOutput bool
 }
+
+// SystemCertAutoRotationConfig holds parameters for kubelet certificate auto-rotation management.
+type SystemCertAutoRotationConfig struct {
+	Enable     bool
+	Disable    bool
+	ShowStatus bool
+	ShowOutput bool
+}
+
