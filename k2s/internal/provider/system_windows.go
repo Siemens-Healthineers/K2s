@@ -195,3 +195,20 @@ func (p *windowsSystemProvider) CertificateRenew(cfg SystemCertRenewConfig) erro
 	}
 	return p.execPS(psCmd, params...)
 }
+
+func (p *windowsSystemProvider) CertificateAutoRotation(cfg SystemCertAutoRotationConfig) error {
+	psCmd := p.scriptPath("certificate/autorotation.ps1")
+	var params []string
+	if cfg.Enable {
+		params = append(params, "-Enable")
+	} else if cfg.Disable {
+		params = append(params, "-Disable")
+	} else {
+		params = append(params, "-Status")
+	}
+	if cfg.ShowOutput {
+		params = append(params, "-ShowLogs")
+	}
+	return p.execPS(psCmd, params...)
+}
+

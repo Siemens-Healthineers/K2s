@@ -1,0 +1,211 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
+#Requires -RunAsAdministrator
+
+<#
+.SYNOPSIS
+Manages kubelet certificate auto-rotation in the K2s cluster.
+.DESCRIPTION
+Enables, disables, or reports the current status of kubelet certificate auto-rotation.
+When enabled, the kubelet automatically requests and picks up a new certificate before
+the current one expires (at approximately 80% of its lifetime), without administrator
+intervention.
+.PARAMETER Enable
+Enables kubelet certificate auto-rotation by setting rotateCertificates: true in the
+kubelet configuration and restarting the kubelet service.
+.PARAMETER Disable
+Disables kubelet certificate auto-rotation by setting rotateCertificates: false in the
+kubelet configuration and restarting the kubelet service.
+.PARAMETER Status
+Shows the current kubelet certificate auto-rotation configuration.
+.EXAMPLE
+PS> .\autorotation.ps1 -Enable
+PS> .\autorotation.ps1 -Disable
+PS> .\autorotation.ps1 -Status
+#>
+
+param (
+    [parameter(Mandatory = $false, HelpMessage = 'Enables kubelet certificate auto-rotation.')]
+    [switch] $Enable,
+
+    [parameter(Mandatory = $false, HelpMessage = 'Disables kubelet certificate auto-rotation.')]
+    [switch] $Disable,
+
+    [parameter(Mandatory = $false, HelpMessage = 'Shows current kubelet certificate auto-rotation status.')]
+    [switch] $Status,
+
+    [Parameter(Mandatory = $false, HelpMessage = 'If set to $true, then the logs are written into the console with more verbosity.')]
+    [switch] $ShowLogs,
+
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send the result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to true.')]
+    [string] $MessageType
+)
+
+$infraModule =   "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$nodeModule =    "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+
+Import-Module $infraModule, $nodeModule, $clusterModule
+
+Initialize-Logging -ShowLogs:$ShowLogs
+
+$global:isControlPlaneStartedByMe = $false
+$global:isControlPlaneSwitchCreatedByMe = $false
+$global:isWsl = Get-ConfigWslFlag
+$global:controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
+$global:controlPlaneVMHostNameLower = $global:controlPlaneVMHostName.ToLower()
+$global:controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
+
+$kubeletConfigPath = '/var/lib/kubelet/config.yaml'
+$kubeletConfigBackupPath = '/var/lib/kubelet/config.yaml.autorotation.bak'
+
+function Start-ControlPlaneIfNotRunning {
+    if ($global:isWsl) {
+        if ((Get-IsWslRunning -Name $global:controlPlaneVMHostName) -ne $true) {
+            Write-Log "Starting control plane WSL instance '$global:controlPlaneVMHostName'..."
+            Start-WSL
+            Wait-ForSSHConnectionToLinuxVMViaSshKey
+            $global:isControlPlaneStartedByMe = $true
+        }
+    } else {
+        if ((Get-IsVmRunning -Name $global:controlPlaneVMHostName) -ne $true) {
+            Write-Log "Starting control plane VM '$global:controlPlaneVMHostName'..."
+            $switchExists = Get-VMSwitch -Name "vEthernet($global:controlPlaneSwitchName)" -ErrorAction SilentlyContinue
+            if (-not $switchExists) {
+                Write-Log "vEthernet switch '$global:controlPlaneSwitchName' does not exist. Creating it..."
+                New-KubeSwitch -Name $global:controlPlaneSwitchName
+                Connect-KubeSwitch
+                $global:isControlPlaneSwitchCreatedByMe = $true
+            }
+            Start-VM -Name $global:controlPlaneVMHostName
+            Wait-ForSSHConnectionToLinuxVMViaSshKey
+            $global:isControlPlaneStartedByMe = $true
+        } else {
+            Write-Log "Control plane VM '$global:controlPlaneVMHostName' is already running."
+        }
+    }
+}
+
+function Stop-ControlPlaneIfStartedByThisScript {
+    if ($global:isWsl -and $global:isControlPlaneStartedByMe) {
+        Write-Log "Stopping control plane WSL instance '$global:controlPlaneVMHostName' as it was started by the command..."
+        wsl --shutdown
+    }
+    if ($global:isControlPlaneStartedByMe -and -not $global:isWsl) {
+        Write-Log "Stopping control plane VM '$global:controlPlaneVMHostName' as it was started by the command..."
+        Stop-VM -Name $global:controlPlaneVMHostName
+    }
+    if ($global:isControlPlaneSwitchCreatedByMe) {
+        Write-Log "Removing vEthernet switch '$global:controlPlaneSwitchName' as it was created by the command..."
+        Remove-KubeSwitch
+    }
+}
+
+function Invoke-PatchKubeletConfig {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Value   # 'true' or 'false'
+    )
+    # Step 1: backup kubelet config
+    $backupCmd = "sudo cp $kubeletConfigPath $kubeletConfigBackupPath"
+    $backupResult = Invoke-CmdOnControlPlaneViaSSHKey $backupCmd
+    $backupResult.Output | Write-Log
+    if ($backupResult.ExitCode -ne 0) {
+        throw "[AutoRotation] Failed to back up kubelet config before patching."
+    }
+
+    # Step 2: patch using sed (no python3 required) — update existing key or append
+    $patchScript = @"
+if sudo grep -q 'rotateCertificates' $kubeletConfigPath; then
+    sudo sed -i 's/rotateCertificates:.*/rotateCertificates: $Value/' $kubeletConfigPath
+else
+    echo 'rotateCertificates: $Value' | sudo tee -a $kubeletConfigPath > /dev/null
+fi
+"@
+    $patchResult = Invoke-CmdOnControlPlaneViaSSHKey $patchScript
+    $patchResult.Output | Write-Log
+    if ($patchResult.ExitCode -ne 0) {
+        Write-Log "[AutoRotation] Patch failed. Restoring backup..." -Console
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo cp $kubeletConfigBackupPath $kubeletConfigPath").Output | Write-Log
+        throw "[AutoRotation] Failed to patch kubelet config. Backup restored."
+    }
+
+    # Step 3: restart kubelet
+    Write-Log "[AutoRotation] Restarting kubelet service to apply the change..." -Console
+    $restartResult = Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart kubelet'
+    $restartResult.Output | Write-Log
+    if ($restartResult.ExitCode -ne 0) {
+        throw "[AutoRotation] Failed to restart kubelet after patching config."
+    }
+}
+
+function Get-KubeletAutoRotationStatus {
+    Write-Log "[AutoRotation] Reading kubelet config from control plane node..." -Console
+
+    # Verify config file exists before reading
+    $checkResult = Invoke-CmdOnControlPlaneViaSSHKey "test -f $kubeletConfigPath && echo 'exists' || echo 'missing'"
+    if (($checkResult.Output | Where-Object { $_ -match 'missing' })) {
+        Write-Log "[AutoRotation] Kubelet config file not found at $kubeletConfigPath" -Console
+        return 'unknown (config file missing)'
+    }
+
+    $statusScript = @"
+if sudo grep -q 'rotateCertificates: true' $kubeletConfigPath; then
+    echo 'enabled'
+elif sudo grep -q 'rotateCertificates' $kubeletConfigPath; then
+    echo 'disabled'
+else
+    echo 'disabled (key not present)'
+fi
+"@
+    $result = Invoke-CmdOnControlPlaneViaSSHKey $statusScript
+    $statusValue = ($result.Output | Where-Object { $_ -match 'enabled|disabled|unknown' } | Select-Object -First 1)
+    if ([string]::IsNullOrWhiteSpace($statusValue)) {
+        $statusValue = 'disabled (key not present)'
+    }
+    Write-Log "[AutoRotation] Kubelet certificate auto-rotation is: $statusValue" -Console
+    return $statusValue
+}
+
+function Enable-KubeletAutoRotation {
+    Write-Log "[AutoRotation] Enabling kubelet certificate auto-rotation on control plane node..." -Console
+    Invoke-PatchKubeletConfig -Value 'true'
+    Write-Log "[AutoRotation] Kubelet certificate auto-rotation has been enabled." -Console
+}
+
+function Disable-KubeletAutoRotation {
+    Write-Log "[AutoRotation] Disabling kubelet certificate auto-rotation on control plane node..." -Console
+    Invoke-PatchKubeletConfig -Value 'false'
+    Write-Log "[AutoRotation] Kubelet certificate auto-rotation has been disabled." -Console
+}
+
+$noErrorsOccurred = $true
+
+try {
+    Start-ControlPlaneIfNotRunning
+
+    if ($Enable) {
+        Enable-KubeletAutoRotation
+    } elseif ($Disable) {
+        Disable-KubeletAutoRotation
+    } else {
+        # Default: show status (also handles explicit -Status flag)
+        Get-KubeletAutoRotationStatus | Out-Null
+    }
+
+    if ($EncodeStructuredOutput -and $noErrorsOccurred) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null}
+    }
+} catch {
+    Write-ErrorMessage "An error occurred during certificate auto-rotation management: $_"
+    $noErrorsOccurred = $false
+    if ($EncodeStructuredOutput) {
+        Send-ErrorToCli -ErrorMessage $_.ToString()
+    }
+} finally {
+    Stop-ControlPlaneIfStartedByThisScript
+}
