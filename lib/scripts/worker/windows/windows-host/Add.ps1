@@ -143,6 +143,34 @@ if ($WindowsHostIpAddress -eq '') {
     $loopbackAdapter = Get-L2BridgeName
     $WindowsHostIpAddress = Get-HostPhysicalIp -ExcludeNetworkInterfaceName $loopbackAdapter
 }
+
+# Add the remote node's subnet to httpproxy's allowed-cidr so it can use the proxy for image pulls
+Write-Log "Checking if httpproxy needs to allow the remote node's subnet" -Console
+$remoteSubnet = ($IpAddress -replace '\.\d+$', '.0') + '/24'
+$httpproxyService = Get-Service -Name 'httpproxy' -ErrorAction SilentlyContinue
+if ($httpproxyService) {
+    # Read AppParameters from registry since nssm get doesn't handle multi-word values properly
+    $regPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\httpproxy\Parameters'
+    $currentParams = (Get-ItemProperty -Path $regPath -Name AppParameters -ErrorAction SilentlyContinue).AppParameters
+    
+    if ($currentParams -and $currentParams -ne '-' -and $currentParams -match '--allowed-cidr') {
+        if (-not ($currentParams -match [regex]::Escape($remoteSubnet))) {
+            Write-Log "[Proxy] Adding subnet $remoteSubnet to httpproxy allowed-cidr" -Console
+            $newParams = "$currentParams --allowed-cidr $remoteSubnet"
+            & nssm set httpproxy AppParameters $newParams
+            Write-Log "[Proxy] Restarting httpproxy service" -Console
+            Restart-Service -Name 'httpproxy' -Force
+            Start-Sleep -Seconds 2
+            Write-Log "[Proxy] httpproxy service restarted with new allowed-cidr" -Console
+        } else {
+            Write-Log "[Proxy] Subnet $remoteSubnet already in httpproxy allowed-cidr" -Console
+        }
+    } else {
+        Write-Log "[Proxy] httpproxy has no allowed-cidr restrictions, skipping update" -Console
+    }
+} else {
+    Write-Log "[Proxy] httpproxy service not found, skipping allowed-cidr update" -Console
+}
 Write-Host "Executing InstallNode.ps1 on remote machine: $IpAddress with HostIpAddress $WindowsHostIpAddress"
 $executeScriptCmd = "powershell -ExecutionPolicy Bypass -File `"C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1`" -ShowLogs -IpAddress $IpAddress -HostIpAddress $WindowsHostIpAddress"
 

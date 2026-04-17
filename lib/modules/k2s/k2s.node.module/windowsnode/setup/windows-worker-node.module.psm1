@@ -317,7 +317,7 @@ function Start-WindowsWorkerNode {
     }
     else {
             Write-Log "[NodeStart] PhysicalAdapterName is set, creating external switch with UsePodCIDRAsGateway=$true" -Console
-        New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber -UsePodCIDRAsGateway:$true
+        #New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber -UsePodCIDRAsGateway:$true
     }
 
     Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
@@ -328,7 +328,7 @@ function Start-WindowsWorkerNode {
     # physical NIC.
     if ([string]::IsNullOrWhiteSpace($PhysicalAdapterName)) {   
         Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
-    }
+    }                               
     else {
         Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers -IsPhysical
     }

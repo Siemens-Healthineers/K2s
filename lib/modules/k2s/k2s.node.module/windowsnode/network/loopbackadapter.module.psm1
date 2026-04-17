@@ -376,8 +376,14 @@ function Set-LoopbackAdapterExtendedProperties {
         [switch] $IsPhysical
     )
     $adapterName = $AdapterName
-    Write-Log "Figuring out IPv4DefaultGateway for $adapterName"
-    $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue
+    
+    # After external switch creation, the IP interface moves from base adapter to vEthernet adapter
+    $vEthernetName = "vEthernet ($adapterName)"
+    $vEthernetAdapter = Get-NetAdapter -Name $vEthernetName -ErrorAction SilentlyContinue
+    $interfaceToQuery = if ($null -ne $vEthernetAdapter) { $vEthernetName } else { $adapterName }
+    
+    Write-Log "Figuring out IPv4DefaultGateway for $interfaceToQuery"
+    $if = Get-NetIPConfiguration -InterfaceAlias "$interfaceToQuery" -ErrorAction SilentlyContinue
     Write-Log "Get-NetIPConfiguration executed for $if"
     $gw = Get-LoopbackAdapterGateway
     if ( $if -and $if.IPv4DefaultGateway -and $if.IPv4DefaultGateway.NextHop ) {
