@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 <#
@@ -20,15 +20,17 @@ The arguments to pass to ctr.exe (e.g. '-n', 'k8s.io', 'images', 'import', $path
 function Invoke-Ctr {
     param(
         [Parameter(Mandatory)]
-        [string[]]$Arguments
+        [string[]]$Arguments,
+        [Parameter(Mandatory = $false)]
+        [string]$CtrExePath = ''
     )
 
-    $ctrExePath = "$(Get-KubeBinPath)\containerd\ctr.exe"
+    $resolvedCtrExe = if ($CtrExePath -ne '') { $CtrExePath } else { "$(Get-KubeBinPath)\containerd\ctr.exe" }
 
     $prevEAP = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $output = & $ctrExePath @Arguments 2>&1
+        $output = & $resolvedCtrExe @Arguments 2>&1
         $ctrExitCode = $LASTEXITCODE
     }
     finally {
