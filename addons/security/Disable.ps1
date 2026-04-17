@@ -83,7 +83,6 @@ if (Test-KyvernoServiceAvailability) {
     Write-Log 'Uninstalling Kyverno policy enforcement engine' -Console
     Uninstall-Kyverno
 }
-Remove-KyvernoExecutable
 
 $needsGatewayApiCrds = $hasNginxGwIngress -or $hasTraefikIngress
 if ($needsGatewayApiCrds) {

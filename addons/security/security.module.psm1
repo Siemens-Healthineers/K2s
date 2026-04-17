@@ -508,6 +508,47 @@ function Remove-ConfigFileForCNI {
 
 # Kyverno policy engine helpers
 
+function Get-KyvernoVersionFromUrl {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Url
+    )
+
+    $match = [regex]::Match($Url, '/download/(?<version>v?\d+\.\d+\.\d+)/')
+    if (-not $match.Success) {
+        return $null
+    }
+
+    return $match.Groups['version'].Value.TrimStart('v')
+}
+
+function Get-InstalledKyvernoCliVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ExecutablePath
+    )
+
+    if (-not (Test-Path -LiteralPath $ExecutablePath)) {
+        return $null
+    }
+
+    try {
+        $versionOutput = & $ExecutablePath version 2>&1 | Out-String
+    }
+    catch {
+        Write-Log "[Kyverno] Failed to query CLI version from '$ExecutablePath': $_" -Console
+        return $null
+    }
+
+    $match = [regex]::Match($versionOutput, 'v?(?<version>\d+\.\d+\.\d+)')
+    if (-not $match.Success) {
+        Write-Log "[Kyverno] Could not parse CLI version output from '$ExecutablePath'." -Console
+        return $null
+    }
+
+    return $match.Groups['version'].Value
+}
+
 function Install-KyvernoCli {
     [CmdletBinding()]
     param(
@@ -534,10 +575,24 @@ function Install-KyvernoCli {
 
         $destination = "$K2sRoot\$($package.destination)"
         $destination = [System.IO.Path]::GetFullPath($destination)
+        $expectedVersion = Get-KyvernoVersionFromUrl -Url $package.url
 
         if (Test-Path -LiteralPath $destination) {
-            Write-Log "[Kyverno] CLI already present at '$destination'." -Console
-            continue
+            $installedVersion = Get-InstalledKyvernoCliVersion -ExecutablePath $destination
+            if ($expectedVersion -and $installedVersion -eq $expectedVersion) {
+                Write-Log "[Kyverno] CLI already present at '$destination' with expected version '$installedVersion'." -Console
+                continue
+            }
+
+            if ($expectedVersion -and $installedVersion) {
+                Write-Log "[Kyverno] Refreshing CLI from version '$installedVersion' to '$expectedVersion'." -Console
+            }
+            elseif ($expectedVersion) {
+                Write-Log "[Kyverno] Refreshing CLI because the cached binary version could not be verified; expected '$expectedVersion'." -Console
+            }
+            else {
+                Write-Log '[Kyverno] Refreshing CLI because the expected version could not be determined from the manifest URL.' -Console
+            }
         }
 
         Write-Log "[Kyverno] Downloading Kyverno CLI from '$($package.url)'..." -Console
@@ -634,9 +689,16 @@ function Uninstall-Kyverno {
     (Invoke-Kubectl -Params 'delete', 'policies', '--all', '--all-namespaces', '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', 'policyexceptions', '--all', '--all-namespaces', '--ignore-not-found').Output | Write-Log
 
+    Write-Log '[Kyverno] Removing webhook configurations' -Console
+    (Invoke-Kubectl -Params 'delete', 'mutatingwebhookconfiguration', '-l', 'webhook.kyverno.io/managed-by=kyverno', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'validatingwebhookconfiguration', '-l', 'webhook.kyverno.io/managed-by=kyverno', '--ignore-not-found').Output | Write-Log
+
     Write-Log '[Kyverno] Uninstalling via Helm' -Console
-    $result = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--wait', '--timeout', '3m')
+    $result = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--no-hooks')
     $result.Output | Write-Log
+    if ($result.Success -ne $true) {
+        Write-Log "[Kyverno] Helm uninstall returned a non-success result: $($result.Output)" -Console
+    }
 
     Write-Log '[Kyverno] Removing CRDs (Helm does not delete them)' -Console
     $crds = (Invoke-Kubectl -Params 'get', 'crd', '-o', 'name').Output
@@ -649,15 +711,7 @@ function Uninstall-Kyverno {
     (Invoke-Kubectl -Params 'delete', 'namespace', $kyvernoNamespace, '--ignore-not-found').Output | Write-Log
 
     Write-Log '[Kyverno] Uninstallation complete' -Console
-}
-
-function Remove-KyvernoExecutable {
-    $binPath = Get-KubeBinPath
-    if (Test-Path "$binPath\kyverno.exe") {
-        Remove-Item -Path "$binPath\kyverno.exe" -Force
-        Write-Log '[Kyverno] CLI removed' -Console
     }
-}
 
 <#
 .DESCRIPTION
