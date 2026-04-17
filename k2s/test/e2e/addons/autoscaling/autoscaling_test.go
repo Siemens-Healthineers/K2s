@@ -100,6 +100,8 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 		k2s.VerifyAddonIsEnabled("autoscaling")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "autoscaling")
+        suite.Cluster().ExpectDeploymentToBeAvailable("keda-metrics-apiserver", "autoscaling")
+        suite.Cluster().ExpectDeploymentToBeAvailable("keda-operator", "autoscaling")
 
 		suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
 	})
