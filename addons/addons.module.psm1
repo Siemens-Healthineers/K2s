@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,6 +11,7 @@ Import-Module $infraModule, $clusterModule, $nodeModule
 $ConfigKey_EnabledAddons = 'EnabledAddons'
 $hooksDir = "$PSScriptRoot\hooks"
 $backupFileName = 'backup_addons.json'
+$cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
 
 function Get-FileName {
 	param (
@@ -191,13 +192,6 @@ function Get-EnabledAddons {
 		$alreadyExistingAddon = $enabledAddons | Where-Object { $_.Name -eq $addon.Name }
 		if ($alreadyExistingAddon) {
 			$alreadyExistingAddon.Implementations.Add($addon.Implementation) | Out-Null
-			$enabledAddons = $enabledAddons | Where-Object { $_ -ne $addon.Name }
-			if ($enableAddons) {
-				$enabledAddons.Add($alreadyExistingAddon) | Out-Null
-			}
-			else {
-				$enabledAddons = [System.Collections.ArrayList]@($enabledAddons)
-			}
 		}
 		else {
 			if ($null -eq $addon.Implementation) {
@@ -753,6 +747,106 @@ function Add-HostEntries {
 	}
 }
 
+<#
+.SYNOPSIS
+    Adds a static host entry to the CoreDNS hosts block.
+.DESCRIPTION
+    Injects "ipAddress hostname" into the CoreDNS ConfigMap hosts {} block,
+    anchored after the existing k2s.cluster.local line. Idempotent: no-op when
+    the hostname is already present.
+#>
+function Add-CoreDNSHostEntry {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $Hostname
+    )
+    $ipAddress = Get-ConfiguredIPControlPlane
+    Write-Log "Adding '$ipAddress $Hostname' to CoreDNS hosts block.." -Console
+
+    $result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
+    if (-not $result.Success) {
+        throw "[CoreDNS] Failed to read CoreDNS ConfigMap: $($result.Output)"
+    }
+
+    $corefile = $result.Output -replace "`r", ''
+    if ($corefile -match [regex]::Escape($Hostname)) {
+        Write-Log "[CoreDNS] '$Hostname' already in CoreDNS hosts block, skipping"
+        return
+    }
+
+    $injected = $false
+    $newLines = foreach ($line in ($corefile -split "`n")) {
+        $line
+        if (-not $injected -and $line -match [regex]::Escape('k2s.cluster.local')) {
+            "    $ipAddress $Hostname"
+            $injected = $true
+        }
+    }
+
+    if (-not $injected) {
+        throw "[CoreDNS] Anchor 'k2s.cluster.local' not found in CoreDNS Corefile; cannot add entry"
+    }
+
+    $newCorefile = $newLines -join "`n"
+    $patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
+    $patchFile = [System.IO.Path]::GetTempFileName()
+    try {
+        [System.IO.File]::WriteAllText($patchFile, $patch, [System.Text.Encoding]::UTF8)
+        $patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', "--patch-file=$patchFile"
+        if (-not $patchResult.Success) {
+            throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+        }
+    }
+    finally {
+        Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
+    }
+    Write-Log "'$ipAddress $Hostname' added to CoreDNS hosts block" -Console
+}
+
+<#
+.SYNOPSIS
+    Removes a static host entry from the CoreDNS hosts block.
+.DESCRIPTION
+    Deletes the line containing Hostname from the CoreDNS ConfigMap hosts {} block.
+    Reverse operation of Add-CoreDNSHostEntry; intended to be called on addon disable.
+    Uses kubectl patch --type=merge so the update is atomic. Idempotent: no-op when the
+    hostname is not present.
+#>
+function Remove-CoreDNSHostEntry {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $Hostname
+    )
+    Write-Log "Removing '$Hostname' from CoreDNS hosts block.." -Console
+
+    $result = Invoke-Kubectl -Params 'get', 'configmap', 'coredns', '-n', 'kube-system', '-o', 'jsonpath={.data.Corefile}'
+    if (-not $result.Success) {
+        throw "[CoreDNS] Failed to read CoreDNS ConfigMap: $($result.Output)"
+    }
+
+    $corefile = $result.Output -replace "`r", ''
+    if ($corefile -notmatch [regex]::Escape($Hostname)) {
+        Write-Log "[CoreDNS] '$Hostname' not found in CoreDNS hosts block, skipping"
+        return
+    }
+
+    $newCorefile = ($corefile -split "`n" | Where-Object { $_ -notmatch [regex]::Escape($Hostname) }) -join "`n"
+
+    $patch = [ordered]@{ data = [ordered]@{ Corefile = $newCorefile } } | ConvertTo-Json -Compress -Depth 5
+    $patchFile = [System.IO.Path]::GetTempFileName()
+    try {
+        [System.IO.File]::WriteAllText($patchFile, $patch, [System.Text.Encoding]::UTF8)
+        $patchResult = Invoke-Kubectl -Params 'patch', 'configmap', 'coredns', '-n', 'kube-system', '--type=merge', "--patch-file=$patchFile"
+        if (-not $patchResult.Success) {
+            throw "[CoreDNS] Failed to patch CoreDNS ConfigMap: $($patchResult.Output)"
+        }
+    }
+    finally {
+        Remove-Item -Path $patchFile -Force -ErrorAction SilentlyContinue
+    }
+    Write-Log "'$Hostname' removed from CoreDNS hosts block" -Console
+}
+
 function Update-Addons {
 	param (
 		[Parameter(Mandatory = $false)]
@@ -822,15 +916,23 @@ function Update-IngressForAddon {
 
 	if (Test-NginxIngressControllerAvailability) {
 		Remove-IngressForTraefik -Addon $Addon
+		Remove-IngressForNginxGateway -Addon $Addon
 		Update-IngressForNginx -Addon $Addon
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
 		Remove-IngressForNginx -Addon $Addon
+		Remove-IngressForNginxGateway -Addon $Addon
 		Update-IngressForTraefik -Addon $Addon
+	}
+	elseif( Test-NginxGatewayAvailability) {
+		Remove-IngressForTraefik -Addon $Addon
+		Remove-IngressForNginx -Addon $Addon
+		Update-IngressForNginxGateway -Addon $Addon
 	}
 	else {
 		Remove-IngressForNginx -Addon $Addon
 		Remove-IngressForTraefik -Addon $Addon
+		Remove-IngressForNginxGateway -Addon $Addon
 	}
 }
 
@@ -853,6 +955,18 @@ Determines if Traefik ingress controller is deployed in the cluster
 function Test-TraefikIngressControllerAvailability {
 	$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
 	if ("$existingServices" -match '.*traefik.*') {
+		return $true
+	}
+	return $false
+}
+
+<#
+.DESCRIPTION
+Determines if Nginx gateway controller is deployed in the cluster
+#>
+function Test-NginxGatewayAvailability {
+	$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'nginx-gw', '-o', 'yaml').Output
+	if ("$existingServices" -match '.*nginx.*') {
 		return $true
 	}
 	return $false
@@ -916,9 +1030,88 @@ function Enable-IngressAddon([string]$Ingress) {
 			&"$PSScriptRoot\ingress\nginx\Enable.ps1"
 			break
 		}
+		'nginx-gw' {
+			&"$PSScriptRoot\ingress\nginx-gw\Enable.ps1"
+			break
+		}
 		'traefik' {
 			&"$PSScriptRoot\ingress\traefik\Enable.ps1"
 			break
+		}
+	}
+}
+
+<#
+.DESCRIPTION
+Creates a CA certificate ConfigMap for nginx-gw BackendTLSPolicy validation.
+This function extracts the self-signed certificate from a backend service pod 
+and creates a ConfigMap that can be referenced by BackendTLSPolicy.
+.PARAMETER Namespace
+The namespace where the pod and ConfigMap should be created
+.PARAMETER PodLabel
+The label selector to find the pod (e.g., 'app.kubernetes.io/name=kong')
+.PARAMETER Port
+The port number where the service is running with TLS (e.g., 8443)
+.PARAMETER ConfigMapName
+The name of the ConfigMap to create (e.g., 'kong-ca-cert','argocd-ca-cert')
+#>
+function New-BackendCACertConfigMap {
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]$Namespace,
+		[Parameter(Mandatory = $true)]
+		[string]$PodLabel,
+		[Parameter(Mandatory = $true)]
+		[int]$Port,
+		[Parameter(Mandatory = $true)]
+		[string]$ConfigMapName
+	)
+	
+	Write-Log "Extracting CA certificate for BackendTLSPolicy from pod with label '$PodLabel' in namespace '$Namespace'" -Console
+	
+	# Wait for pod to be ready
+	$waitResult = Wait-ForPodCondition -Label $PodLabel -Namespace $Namespace -Condition 'Ready' -TimeoutSeconds 60
+	if (-not $waitResult) {
+		throw "Pod with label '$PodLabel' in namespace '$Namespace' did not become ready within 60 seconds. Please use kubectl describe for more details."
+	}
+	
+	# Get pod name
+	$pod = (Invoke-Kubectl -Params 'get', 'pods', '-n', $Namespace, '-l', $PodLabel, '-o', 'jsonpath={.items[0].metadata.name}').Output
+	
+	if ($pod) {
+		try {
+			# Extract certificate from pod
+			$certPath = [System.IO.Path]::GetTempPath() + "$ConfigMapName.crt"
+			$extractCmd = "echo | openssl s_client -connect localhost:$Port 2>&1 | openssl x509 -outform PEM"
+			
+			# Get container name from pod spec (first container that's not linkerd-proxy or linkerd-init)
+			$containerResult = (Invoke-Kubectl -Params 'get', 'pod', $pod, '-n', $Namespace, '-o', "jsonpath={.spec.containers[?(@.name!='linkerd-proxy')].name}")
+			$containerName = if ($containerResult.Success -and $containerResult.Output) { 
+				($containerResult.Output -split '\s+')[0] 
+			} else { 
+				$null 
+			}
+			
+			if ($containerName) {
+				Write-Log "Using container '$containerName' from pod '$pod'" -Console
+				$cert = (Invoke-Kubectl -Params 'exec', '-n', $Namespace, $pod, '-c', $containerName, '--', 'sh', '-c', $extractCmd).Output
+			} else {
+				# Fallback to not specifying container (single container pods)
+				$cert = (Invoke-Kubectl -Params 'exec', '-n', $Namespace, $pod, '--', 'sh', '-c', $extractCmd).Output
+			}
+			
+			$cert | Out-File -FilePath $certPath -Encoding ascii
+			
+			# Create ConfigMap with the certificate
+			(Invoke-Kubectl -Params 'create', 'configmap', $ConfigMapName, '-n', $Namespace, "--from-file=ca.crt=$certPath", '--dry-run=client', '-o', 'yaml').Output | & kubectl apply -f -
+			
+			# Clean up temp file
+			Remove-Item -Path $certPath -ErrorAction SilentlyContinue
+			
+			Write-Log "CA certificate ConfigMap '$ConfigMapName' created successfully in namespace '$Namespace'" -Console
+		}
+		catch {
+			Write-Log "Warning: Could not extract certificate from pod '$pod': $_" -Console
 		}
 	}
 }
@@ -945,6 +1138,23 @@ function Get-IngressNginxConfigDirectory {
 		[string]$Directory = $(throw 'Directory of the ingress nginx config')
 	)
 	return "$PSScriptRoot\$Directory\manifests\ingress-nginx"
+}
+
+<#
+.DESCRIPTION
+Gets the location of nginx ingress gateway yaml
+#>
+function Get-IngressNginxGatewayConfig {
+	return 'ingress-nginx-gw'
+}
+
+
+<#
+.DESCRIPTION
+Gets the location of nginx secure ingress yaml
+#>
+function Get-IngressNginxGatewaySecureConfig {
+	return 'ingress-nginx-gw-secure'
 }
 
 <#
@@ -992,16 +1202,36 @@ function Update-IngressForNginx {
 		$kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
 		# check if $kustomizationDir does not exist
 		if (!(Test-Path -Path $kustomizationDir)) {
-			Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+			Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
 			$kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
 		}
 	}
 	else {
-		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+		Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
 		$kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
 	}
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir 
+	# Retry logic: the admission webhook may transiently reject the ingress if the
+	# controller has not yet fully loaded the ConfigMap (e.g. annotations-risk-level).
+	$maxRetries = 3
+	$retryDelay = 10
+	$applied = $false
+	for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+		$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
+		if ($result.Success) {
+			Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+			$applied = $true
+			break
+		}
+		Write-Log "  WARNING: Failed to apply ingress manifest for $($props.Name) (attempt $attempt/$maxRetries): $($result.Output)" -Console
+		if ($attempt -lt $maxRetries) {
+			Write-Log "  Retrying in $retryDelay seconds..." -Console
+			Start-Sleep -Seconds $retryDelay
+		}
+	}
+	if (-not $applied) {
+		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name) after $maxRetries attempts" -Console
+	}
 }
 
 <#
@@ -1015,11 +1245,26 @@ function Remove-IngressForNginx {
 	)
 
 	$props = Get-AddonProperties -Addon $Addon
-	
-	Write-Log "  Deleting nginx ingress manifest for $($props.Name)..." -Console
-	# SecureNginxConfig is a superset of NginsConfig, so we delete that:
-	$kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
-	Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
+
+	# Check whether the nginx Ingress resource is actually deployed in the cluster.
+	# The source manifest directories always exist on disk, so Test-Path on the
+	# kustomization folder is not a reliable indicator — we must query the cluster.
+	$nginxIngressExists = (Invoke-Kubectl -Params 'get', 'ingress', 'dashboard-nginx-cluster-local', '-n', 'dashboard', '--ignore-not-found').Output
+	if ($nginxIngressExists) {
+		# Both the standard (ingress-nginx) and secure (ingress-nginx-secure) variants
+		# deploy an Ingress with the identical name 'dashboard-nginx-cluster-local'.
+		# Delete both kustomizations with --ignore-not-found — whichever was applied will
+		# be removed; the other delete is a safe no-op.
+		$standardNginxConfig = Get-IngressNginxConfigDirectory -Directory $props.Directory
+		$secureNginxConfig = Get-IngressNginxSecureConfig -Directory $props.Directory
+
+		Write-Log "  Deleting nginx ingress manifest for $($props.Name)..." -Console
+		Invoke-Kubectl -Params 'delete', '-k', $standardNginxConfig, '--ignore-not-found' | Out-Null
+		Invoke-Kubectl -Params 'delete', '-k', $secureNginxConfig, '--ignore-not-found' | Out-Null
+	}
+	else {
+		Write-Log "  No nginx ingress resource found for $($props.Name) in cluster, skipping delete."
+	}
 }
 
 <#
@@ -1035,30 +1280,34 @@ function Update-IngressForTraefik {
 	$props = Get-AddonProperties -Addon $Addon
 	$kustomizationDir = ''
 
-	# Store each result separately for debugging
 	$keycloakAvailable = Test-KeyCloakServiceAvailability
-	Write-Log "KeyCloak available: $keycloakAvailable" -Console
-	
-	# Always evaluate Hydra availability
+	Write-Log "KeyCloak available: $keycloakAvailable"
+
 	$hydraAvailable = Test-HydraAvailability
-	Write-Log "Hydra available: $hydraAvailable" -Console
+	Write-Log "Hydra available: $hydraAvailable"
 
 	if ($keycloakAvailable -or $hydraAvailable) {
-		Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
+		Write-Log "  Applying secure traefik ingress manifest for $($props.Name)..." -Console
 		$kustomizationDir = Get-IngressTraefikSecureConfig -Directory $props.Directory
 		# check if $kustomizationDir does not exist
 		if (!(Test-Path -Path $kustomizationDir)) {
-			Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+			Write-Log "  Applying traefik ingress manifest for $($props.Name)..." -Console
 			$kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
 		}
 	}
 	else {
-		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+		Write-Log "  Applying traefik ingress manifest for $($props.Name)..." -Console
 		$kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
 	}
 
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
+	$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
+	if ($result.Success) {
+		Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+	}
+	else {
+		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name): $($result.Output)" -Console
+	}
 }
 
 <#
@@ -1073,17 +1322,115 @@ function Remove-IngressForTraefik {
 
 	$props = Get-AddonProperties -Addon $Addon
 
-	Write-Log "  Deleting traefik ingress manifest for $($props.Name)..." -Console
-	$ingressTraefikConfig = Get-IngressTraefikConfig -Directory $props.Directory
-	
-	Invoke-Kubectl -Params 'delete', '-k', $ingressTraefikConfig | Out-Null
+	# Check whether the traefik Ingress resource is actually deployed in the cluster.
+	# The source manifest directories always exist on disk, so Test-Path on the
+	# kustomization folder is not a reliable indicator — we must query the cluster.
+	$traefikIngressExists = (Invoke-Kubectl -Params 'get', 'ingress', 'dashboard-traefik-cluster-local', '-n', 'dashboard', '--ignore-not-found').Output
+	if ($traefikIngressExists) {
+		# Both the standard (ingress-traefik) and secure (ingress-traefik-secure) variants
+		# deploy an Ingress with the identical name 'dashboard-traefik-cluster-local'.
+		# We cannot reliably determine which variant was applied by checking disk paths
+		# (both directories always exist in the repo).
+		# Solution: delete both kustomizations with --ignore-not-found — whichever was
+		# applied will be removed; the other delete is a safe no-op.
+		$standardTraefikConfig = Get-IngressTraefikConfig -Directory $props.Directory
+		$secureTraefikConfig = Get-IngressTraefikSecureConfig -Directory $props.Directory
 
-	$kustomizationDir = Get-IngressTraefikSecureConfig -Directory $props.Directory
-	if (!(Test-Path -Path $kustomizationDir)) {
-		Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
-		$kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
+		Write-Log "  Deleting traefik ingress manifest for $($props.Name)..." -Console
+		Invoke-Kubectl -Params 'delete', '-k', $standardTraefikConfig, '--ignore-not-found' | Out-Null
+		Invoke-Kubectl -Params 'delete', '-k', $secureTraefikConfig, '--ignore-not-found' | Out-Null
 	}
-	Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
+	else {
+		Write-Log "  No traefik ingress resource found for $($props.Name) in cluster, skipping delete."
+	}
+}
+
+<#
+.DESCRIPTION
+Deploys the addon's ingress manifest for ingress nginx gateway controller
+#>
+function Update-IngressForNginxGateway {
+	param (
+		[Parameter(Mandatory = $false)]
+		[pscustomobject]$Addon = $(throw 'Please specify the addon.')
+	)
+
+	$props = Get-AddonProperties -Addon $Addon
+	$kustomizationDir = ''
+
+	$keycloakAvailable = Test-KeyCloakServiceAvailability
+	Write-Log "KeyCloak available: $keycloakAvailable"
+
+	$hydraAvailable = Test-HydraAvailability
+	Write-Log "Hydra available: $hydraAvailable"
+
+	if ($keycloakAvailable -or $hydraAvailable) {
+		Write-Log "  Applying secure nginx ingress gateway manifest for $($props.Name)..." -Console
+		$ingressDir = Get-IngressNginxGatewaySecureConfig
+		$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
+		# check if $kustomizationDir does not exist
+		if (!(Test-Path -Path $kustomizationDir)) {
+			Write-Log "  Applying nginx ingress gateway manifest for $($props.Name)..." -Console
+			$ingressDir = Get-IngressNginxGatewayConfig
+			$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
+		}
+	}
+	else {
+		Write-Log "  Applying nginx ingress gateway manifest for $($props.Name)..." -Console
+		$ingressDir = Get-IngressNginxGatewayConfig
+		$kustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$ingressDir"
+	}
+
+	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
+	$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
+	if ($result.Success) {
+		Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+	}
+	else {
+		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name): $($result.Output)" -Console
+	}
+}
+
+<#
+.DESCRIPTION
+Delete the addon's ingress manifest for Gateway fabric controller
+#>
+function Remove-IngressForNginxGateway {
+	param (
+		[Parameter(Mandatory = $false)]
+		[pscustomobject]$Addon = $(throw 'Please specify the addon.')
+	)
+
+	$props = Get-AddonProperties -Addon $Addon
+
+	# Check whether the nginx-gw HTTPRoute resource is actually deployed in the cluster.
+	# The source manifest directories always exist on disk, so Test-Path on the
+	# kustomization folder is not a reliable indicator — we must query the cluster.
+	# IMPORTANT: HTTPRoute is a CRD; when nginx-gw is NOT installed the CRD itself does
+	# not exist and kubectl exits with a non-zero code, writing an error like
+	# "the server doesn't have a resource type 'httproute'" to stderr (merged via 2>&1
+	# into .Output).  We must therefore check BOTH Success=true AND non-empty Output to
+	# avoid treating an API-discovery error as "resource exists".
+	$gwRouteResult = Invoke-Kubectl -Params 'get', 'httproute', 'dashboard-nginx-gw-cluster-local', '-n', 'dashboard', '--ignore-not-found'
+	if ($gwRouteResult.Success -and $gwRouteResult.Output) {
+		# Both the standard (ingress-nginx-gw) and secure (ingress-nginx-gw-secure) variants
+		# deploy resources with identical names (HTTPRoute + ReferenceGrant).
+		# We cannot reliably determine which variant was applied by checking disk paths
+		# (both directories always exist in the repo).
+		# Solution: delete both kustomizations with --ignore-not-found — whichever was
+		# applied will be removed; the other delete is a safe no-op.
+		$standardIngressDir = Get-IngressNginxGatewayConfig
+		$standardKustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$standardIngressDir"
+		$secureIngressDir = Get-IngressNginxGatewaySecureConfig
+		$secureKustomizationDir = "$PSScriptRoot\$($props.Directory)\manifests\$secureIngressDir"
+
+		Write-Log "  Deleting gateway manifest for $($props.Name)..." -Console
+		Invoke-Kubectl -Params 'delete', '-k', $standardKustomizationDir, '--ignore-not-found' | Out-Null
+		Invoke-Kubectl -Params 'delete', '-k', $secureKustomizationDir, '--ignore-not-found' | Out-Null
+	}
+	else {
+		Write-Log "  No nginx gateway route resource found for $($props.Name) in cluster, skipping delete."
+	}
 }
 
 <#
@@ -1119,6 +1466,29 @@ function Get-AddonNameFromFolderPath {
 		Write-Error "'addons' folder not found or no folder after 'addons'."
 		return $null
 	}
+}
+
+function Resolve-AddonImportPath {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$AddonName,
+        [Parameter(Mandatory = $false)]
+        [string]$AddonImplementation
+    )
+
+    $implementationName = $null
+    $isMultiImpl = $AddonImplementation -and $AddonImplementation -ne $AddonName
+    $baseAddonName = if ($isMultiImpl -and $AddonName -match '^([^-]+)-(.+)$') {
+        $implementationName = $matches[2]
+        $matches[1]
+    } else {
+        $AddonName
+    }
+
+    return @{
+        BaseAddonName      = $baseAddonName
+        ImplementationName = $implementationName
+    }
 }
 
 <#
@@ -1233,12 +1603,652 @@ function Remove-VersionlessImages {
     return $result
 }
 
+<#
+.SYNOPSIS
+Gets the path to cert-manager manifest file.
+.DESCRIPTION
+Returns the absolute path to the cert-manager YAML manifest in the common addon folder.
+#>
+function Get-CertManagerConfig {
+    return "$PSScriptRoot\common\manifests\certmanager\cert-manager.yaml"
+}
+
+<#
+.SYNOPSIS
+Gets the path to CA ClusterIssuer manifest file.
+.DESCRIPTION
+Returns the absolute path to the CA ClusterIssuer YAML manifest in the common addon folder.
+#>
+function Get-CAIssuerConfig {
+    return "$PSScriptRoot\common\manifests\certmanager\ca-issuer.yaml"
+}
+
+<#
+.SYNOPSIS
+Downloads cmctl.exe CLI tool for cert-manager.
+.DESCRIPTION
+Downloads the cmctl.exe binary from the URL specified in addon.manifest.yaml.
+Skips download if file already exists.
+.PARAMETER ManifestPath
+Path to the addon manifest YAML file containing download specifications.
+.PARAMETER K2sRoot
+Root directory of the K2s installation.
+.PARAMETER Proxy
+Optional proxy server to use for download.
+#>
+function Install-CmctlCli {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ManifestPath,
+        
+        [Parameter(Mandatory = $true)]
+        [string] $K2sRoot,
+        
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy
+    )
+    Write-Log 'Downloading cert-manager CLI tools' -Console
+    
+    $manifest = Get-FromYamlFile -Path $ManifestPath
+    
+    # Get the first implementation (nginx) which contains the cmctl download specification
+    $windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
+    
+    if (!$windowsCurlPackages) {
+        return
+    }
+    foreach ($package in $windowsCurlPackages) {
+        $destination = $package.destination
+        $destination = "$K2sRoot\$destination"
+        # Normalize path to ensure Test-Path works correctly
+        $destination = [System.IO.Path]::GetFullPath($destination)
+        
+        if (Test-Path $destination) {
+            Write-Log "File $destination already exists. Skipping download." -Console
+            continue
+        }
+        $url = $package.url
+        Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
+    }
+}
+
+<#
+.SYNOPSIS
+Installs cert-manager controllers in the cluster.
+.DESCRIPTION
+Applies cert-manager YAML manifest, waits for API readiness, and ensures
+CRDs are fully established before returning. Throws on failure.
+#>
+function Install-CertManagerControllers {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Installing cert-manager' -Console
+    $certManagerConfig = Get-CertManagerConfig
+    (Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
+
+    Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
+    $certManagerStatus = Wait-ForCertManagerAvailable
+    
+    if ($certManagerStatus -ne $true) {
+        throw "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'cert-manager' failed."
+    }
+
+    Write-Log '[CertManager] Waiting for cert-manager CRDs to be fully established' -Console
+    $crdWaitResult = Invoke-Kubectl -Params 'wait', '--for=condition=Established', 'crd/clusterissuers.cert-manager.io', 'crd/certificates.cert-manager.io', '--timeout=120s'
+    if ($crdWaitResult.Success -ne $true) {
+        Write-Log "[CertManager] CRD wait output: $($crdWaitResult.Output)" -Console
+        $crdStatus = (Invoke-Kubectl -Params 'get', 'crd', 'clusterissuers.cert-manager.io', 'certificates.cert-manager.io', '-o=wide').Output
+        Write-Log "[CertManager] CRD status: $crdStatus" -Console
+        throw "cert-manager CRDs did not become Established within 120s. CRD status: $crdStatus"
+    }
+    Write-Log '[CertManager] cert-manager CRDs are established' -Console
+
+    # kubectl caches API discovery and HTTP responses locally. Even after CRDs
+    # are Established, the cache will lack cert-manager.io/v1. Clear cache before
+    # EACH probe because if the API server discovery hasn't updated yet when kubectl
+    # re-fetches, the fresh-but-incomplete response gets cached again.
+    Write-Log '[CertManager] Waiting for kubectl to recognize cert-manager CRDs' -Console
+    $discoveryReady = $false
+    for ($d = 1; $d -le 30; $d++) {
+        Clear-KubectlDiscoveryCache
+        $probe = Invoke-Kubectl -Params 'get', 'clusterissuers', '--no-headers', '--ignore-not-found'
+        if ($probe.Success -eq $true) {
+            Write-Log '[CertManager] kubectl can see cert-manager CRDs' -Console
+            $discoveryReady = $true
+            break
+        }
+        Write-Log "[CertManager] Discovery probe attempt $d/30 failed, retrying in 2s..." -Console
+        Start-Sleep -Seconds 2
+    }
+    if (-not $discoveryReady) {
+        Write-Log '[CertManager] WARNING: kubectl could not discover cert-manager CRDs within 60s' -Console
+    }
+}
+
+<#
+.SYNOPSIS
+Initializes CA ClusterIssuer for cert-manager.
+.DESCRIPTION
+Applies CA ClusterIssuer manifest with retry logic, waits for root certificate creation,
+and renews all existing certificates using the new CA.
+#>
+function Initialize-CACertificateIssuer {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Configuring CA ClusterIssuer' -Console
+    $caIssuerConfig = Get-CAIssuerConfig
+
+    $maxRetries = 5
+    $retryDelay = 10
+    $applied = $false
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        Write-Log "[CertManager] Applying CA issuer manifest (attempt $attempt/$maxRetries)" -Console
+        # Clear kubectl cache before each attempt so stale cached discovery
+        # responses don't prevent recognition of cert-manager CRD types
+        Clear-KubectlDiscoveryCache
+        $result = Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $caIssuerConfig
+        Write-Log "[CertManager] kubectl apply output: $($result.Output)"
+        if ($result.Success -eq $true) {
+            $applied = $true
+            break
+        }
+        Write-Log "[CertManager] kubectl apply failed (attempt $attempt/$maxRetries): $($result.Output)" -Console
+        if ($attempt -lt $maxRetries) {
+            Start-Sleep -Seconds $retryDelay
+        }
+    }
+
+    if (-not $applied) {
+        throw "Failed to apply CA issuer manifest after $maxRetries attempts. Last output: $($result.Output)"
+    }
+
+    Write-Log 'Waiting for CA root certificate to be created' -Console
+    $caCreated = Wait-ForCARootCertificate
+    
+    if ($caCreated -ne $true) {
+        throw "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'cert-manager' failed."
+    }
+
+    # Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
+    Update-CertificateResources
+}
+
+<#
+.DESCRIPTION
+Waits for the cert-manager API to be available.
+#>
+function Wait-ForCertManagerAvailable {
+    $out = &$cmctlExe check api --wait=3m
+    if ($out -match 'The cert-manager API is ready') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
+Marks all cert-manager Certificate resources for renewal.
+#>
+function Update-CertificateResources {
+    &$cmctlExe renew --all --all-namespaces
+}
+
+<#
+.DESCRIPTION
+Waits for the kubernetes secret 'ca-issuer-root-secret' in the namespace 'cert-manager' to be created.
+#>
+function Wait-ForCARootCertificate(
+    [int]$SleepDurationInSeconds = 10,
+    [int]$NumberOfRetries = 30) {
+    for (($i = 1); $i -le $NumberOfRetries; $i++) {
+        $out = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o=jsonpath="{.metadata.name}"', '--ignore-not-found').Output
+        if ($out -match 'ca-issuer-root-secret') {
+            Write-Log "'ca-issuer-root-secret' created and ready for use."
+            return $true
+        }
+        Write-Log "Retry {$i}: 'ca-issuer-root-secret' not yet created. Will retry after $SleepDurationInSeconds Seconds" -Console
+        Start-Sleep -Seconds $SleepDurationInSeconds
+    }
+
+    # Dump diagnostics on failure
+    Write-Log '[CertManager] ca-issuer-root-secret was not created. Collecting diagnostics...' -Console
+    $certStatus = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'certificates', 'k2s-self-signed-ca', '-o=yaml', '--ignore-not-found').Output
+    Write-Log "[CertManager] Certificate resource status: $certStatus" -Console
+    $issuerStatus = (Invoke-Kubectl -Params 'get', 'clusterissuers', 'k2s-boot-strapper-issuer', '-o=yaml', '--ignore-not-found').Output
+    Write-Log "[CertManager] ClusterIssuer status: $issuerStatus" -Console
+    $cmPods = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'pods', '-o=wide').Output
+    Write-Log "[CertManager] cert-manager pods: $cmPods" -Console
+    $cmEvents = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'events', '--sort-by=.lastTimestamp').Output
+    Write-Log "[CertManager] cert-manager events: $cmEvents" -Console
+
+    return $false
+}
+
+function Remove-Cmctl {
+    Write-Log "Removing $cmctlExe.."
+    Remove-Item -Path $cmctlExe -Force -ErrorAction SilentlyContinue
+}
+
+function Get-TrustedRootStoreLocation {
+    return 'Cert:\LocalMachine\Root'
+}
+
+function Get-CAIssuerName {
+    return 'K2s Self-Signed CA'
+}
+
+
+<#
+.SYNOPSIS
+Imports CA certificate to Windows trusted root store.
+.DESCRIPTION
+Extracts CA certificate from Kubernetes secret and imports it to
+Windows trusted certificate authorities.
+#>
+function Import-CACertificateToWindowsStore {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
+    
+    $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
+    $tempFile = New-TemporaryFile
+    $certLocationStore = Get-TrustedRootStoreLocation
+    
+    [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
+    
+    $params = @{
+        FilePath          = $tempFile.FullName
+        CertStoreLocation = $certLocationStore
+    }
+    Import-Certificate @params
+    Remove-Item -Path $tempFile.FullName -Force
+}
+
+<#
+.DESCRIPTION
+Orchestrates complete cert-manager installation:
+- Downloads cmctl.exe CLI tool
+- Installs cert-manager controllers
+- Configures CA ClusterIssuer
+- Imports CA certificate to Windows trust store
+
+Handles all errors internally and exits on failure.
+.PARAMETER Proxy
+Optional proxy server to use for downloads.
+.PARAMETER EncodeStructuredOutput
+Whether to encode error output for CLI consumption.
+.PARAMETER MessageType
+Message type for structured CLI output.
+.EXAMPLE
+Enable-CertManager -Proxy 'http://proxy.example.com:8080'
+#>
+function Enable-CertManager {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy,
+        [Parameter(Mandatory = $false)]
+        [switch] $EncodeStructuredOutput,
+        [Parameter(Mandatory = $false)]
+        [string] $MessageType
+    )
+    try {
+   
+		$manifestPath = "$PSScriptRoot\ingress\addon.manifest.yaml"
+        $k2sRoot = "$PSScriptRoot\.."
+        
+        Install-CmctlCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
+        Install-CertManagerControllers
+        
+        Initialize-CACertificateIssuer
+        
+        Import-CACertificateToWindowsStore
+
+        Write-Log 'cert-manager installation completed successfully' -Console
+    }
+    catch {
+        $errMsg = "cert-manager installation failed: $($_.Exception.Message)"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            exit 1
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+}
+
+<#
+.SYNOPSIS
+Creates a standardized status property object for addon status reporting.
+.DESCRIPTION
+Provides consistent status property format across all addons with Name, Value, Okay, and Message fields.
+.PARAMETER Name
+The name of the status property (e.g., 'IsCertManagerAvailable').
+.PARAMETER Value
+The boolean value indicating the status (typically result from a test function).
+.PARAMETER SuccessMessage
+The message to display when Value is $true.
+.PARAMETER FailureMessage
+The message to display when Value is $false.
+.EXAMPLE
+$certManagerProp = New-AddonStatusProperty `
+    -Name 'IsCertManagerAvailable' `
+    -Value (Wait-ForCertManagerAvailable) `
+    -SuccessMessage 'The cert-manager API is ready' `
+    -FailureMessage 'The cert-manager API is not ready. Please use cmctl.exe for diagnostics.'
+#>
+function New-AddonStatusProperty {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Name,
+        [Parameter(Mandatory = $true)]
+        [bool] $Value,
+        [Parameter(Mandatory = $true)]
+        [string] $SuccessMessage,
+        [Parameter(Mandatory = $true)]
+        [string] $FailureMessage
+    )
+    return @{
+        Name = $Name
+        Value = $Value
+        Okay = $Value
+        Message = if ($Value) { $SuccessMessage } else { $FailureMessage }
+    }
+}
+
+<#
+.SYNOPSIS
+Clears the kubectl API discovery cache from disk.
+.DESCRIPTION
+Deletes the kubectl discovery cache directory (~/.kube/cache/discovery/) so that
+subsequent kubectl commands re-fetch the API server's discovery document.
+This is required after installing new CRDs because kubectl's cached discovery
+has a long TTL and will not pick up newly registered API groups/versions
+automatically. Without this, commands like 'kubectl apply' and 'kubectl get'
+fail with 'no matches for kind' errors for CRD-based resources.
+.EXAMPLE
+Clear-KubectlDiscoveryCache
+#>
+function Clear-KubectlDiscoveryCache {
+    [CmdletBinding()]
+    param()
+
+    $kubeCacheDir = Join-Path (Join-Path $env:USERPROFILE '.kube') 'cache'
+    if (Test-Path $kubeCacheDir) {
+        Write-Log '[kubectl] Clearing kubectl cache to pick up newly registered CRDs' -Console
+        Remove-Item -Recurse -Force $kubeCacheDir -ErrorAction SilentlyContinue
+    }
+}
+
+<#
+.SYNOPSIS
+Gets the path to Gateway API CRDs manifest file.
+.DESCRIPTION
+Returns the absolute path to the Gateway API v1.4.1 CRDs YAML manifest in the common addon folder.
+#>
+function Get-GatewayApiCrdsConfig {
+    return "$PSScriptRoot\common\manifests\crds\gateway-crds\gateway-api-v1.4.1.yaml"
+}
+
+<#
+.SYNOPSIS
+Installs Gateway API CRDs in the cluster.
+.DESCRIPTION
+Applies Gateway API v1.4.1 Custom Resource Definitions (GatewayClass, Gateway, HTTPRoute, etc.)
+used by ingress controllers like nginx-gw and traefik.
+.EXAMPLE
+Install-GatewayApiCrds
+#>
+function Install-GatewayApiCrds {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Installing Gateway API CRDs' -Console
+    $gatewayApiCrds = Get-GatewayApiCrdsConfig
+    # Use --server-side to avoid oversized last-applied annotations on large CRDs
+    (Invoke-Kubectl -Params 'apply', '--server-side', '-f', $gatewayApiCrds).Output | Write-Log
+
+    # Wait for Gateway CRD to be fully established before clearing cache
+    Write-Log '[GatewayAPI] Waiting for Gateway API CRDs to be fully established' -Console
+    $gwCrdWait = Invoke-Kubectl -Params 'wait', '--for=condition=Established', 'crd/gateways.gateway.networking.k8s.io', '--timeout=120s'
+    if ($gwCrdWait.Success -ne $true) {
+        Write-Log "[GatewayAPI] CRD wait output: $($gwCrdWait.Output)" -Console
+        Write-Log '[GatewayAPI] WARNING: Gateway API CRDs may not be fully established' -Console
+    }
+
+    # Clear stale kubectl discovery cache and verify Gateway type is visible
+    Clear-KubectlDiscoveryCache
+    Write-Log '[GatewayAPI] Waiting for kubectl discovery cache to include Gateway API CRDs' -Console
+    $gwDiscoveryReady = $false
+    for ($d = 1; $d -le 15; $d++) {
+        $probe = Invoke-Kubectl -Params 'get', 'gateways.gateway.networking.k8s.io', '--no-headers', '--ignore-not-found', '-A'
+        if ($probe.Success -eq $true) {
+            Write-Log '[GatewayAPI] kubectl discovery cache is up-to-date' -Console
+            $gwDiscoveryReady = $true
+            break
+        }
+        Write-Log "[GatewayAPI] Discovery probe attempt $d/15 failed, retrying in 2s..." -Console
+        Start-Sleep -Seconds 2
+    }
+    if (-not $gwDiscoveryReady) {
+        Write-Log '[GatewayAPI] WARNING: kubectl discovery cache did not refresh within 30s' -Console
+    }
+}
+
+<#
+.SYNOPSIS
+Uninstalls Gateway API CRDs from the cluster.
+.DESCRIPTION
+Removes Gateway API v1.4.1 Custom Resource Definitions from the cluster.
+Warning: This will fail if any Gateway, HTTPRoute, or other Gateway API resources still exist.
+.EXAMPLE
+Uninstall-GatewayApiCrds
+#>
+function Uninstall-GatewayApiCrds {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Uninstalling Gateway API CRDs' -Console
+    $gatewayApiCrds = Get-GatewayApiCrdsConfig
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $gatewayApiCrds).Output | Write-Log
+}
+
+<#
+.SYNOPSIS
+Gets cert-manager status properties for addon status reporting.
+.DESCRIPTION
+Returns two status properties:
+1. IsCertManagerAvailable - checks if cert-manager API is ready
+2. IsCaRootCertificateAvailable - checks if CA root certificate secret exists
+.EXAMPLE
+$certManagerProps = Get-CertManagerStatusProperties
+return $isIngressRunningProp, $certManagerProps
+#>
+function Get-CertManagerStatusProperties {
+    [CmdletBinding()]
+    param()
+
+    try {
+        # Check if cert-manager is installed by probing the namespace
+        $certManagerNs = (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output
+        if (-not (Test-Path $cmctlExe) -or [string]::IsNullOrWhiteSpace($certManagerNs)) {
+            $certManagerProp = @{
+                Name    = 'IsCertManagerAvailable'
+                Value   = $false
+                Okay    = $false
+                Message = 'The cert-manager is not installed (omitted during addon enablement).'
+            }
+            $caRootCertificateProp = @{
+                Name    = 'IsCaRootCertificateAvailable'
+                Value   = $false
+                Okay    = $false
+                Message = 'The CA root certificate is not available (cert-manager was omitted).'
+            }
+            return $certManagerProp, $caRootCertificateProp
+        }
+
+        $certManagerAvailable = Wait-ForCertManagerAvailable
+        $certManagerProp = @{
+            Name    = 'IsCertManagerAvailable'
+            Value   = $certManagerAvailable
+            Okay    = $certManagerAvailable
+            Message = if ($certManagerAvailable) { 'The cert-manager API is ready' } else { 'The cert-manager API is not ready. Please use cmctl.exe for further diagnostics.' }
+        }
+
+        $caRootCertificateAvailable = Wait-ForCARootCertificate
+        $caRootCertificateProp = @{
+            Name    = 'IsCaRootCertificateAvailable'
+            Value   = $caRootCertificateAvailable
+            Okay    = $caRootCertificateAvailable
+            Message = if ($caRootCertificateAvailable) { 'The CA root certificate is available' } else { "The CA root certificate is not available ('ca-issuer-root-secret' not created)." }
+        }
+
+        return $certManagerProp, $caRootCertificateProp
+    }
+    catch {
+        Write-Log "[CertManager] Error checking cert-manager status: $($_.Exception.Message)" -Console
+        $certManagerProp = @{
+            Name    = 'IsCertManagerAvailable'
+            Value   = $false
+            Okay    = $false
+            Message = 'The cert-manager is not installed (omitted during addon enablement).'
+        }
+        $caRootCertificateProp = @{
+            Name    = 'IsCaRootCertificateAvailable'
+            Value   = $false
+            Okay    = $false
+            Message = 'The CA root certificate is not available (cert-manager was omitted).'
+        }
+        return $certManagerProp, $caRootCertificateProp
+    }
+}
+
+<#
+.SYNOPSIS
+Disables and uninstalls cert-manager from the cluster.
+.DESCRIPTION
+Removes cert-manager components:
+- Deletes CA ClusterIssuer
+- Uninstalls cert-manager controllers
+- Removes cmctl.exe CLI tool
+- Removes CA certificate from Windows trusted root store
+.EXAMPLE
+Uninstall-CertManager
+#>
+function Uninstall-CertManager {
+    [CmdletBinding()]
+    param()
+
+    Write-Log 'Uninstalling cert-manager' -Console
+    
+    $certManagerConfig = Get-CertManagerConfig
+    $caIssuerConfig = Get-CAIssuerConfig
+
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $caIssuerConfig).Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $certManagerConfig).Output | Write-Log
+
+    Write-Log 'Removing CA issuer certificate from trusted root' -Console
+    $caIssuerName = Get-CAIssuerName
+    $trustedRootStoreLocation = Get-TrustedRootStoreLocation
+    Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
+}
+
+function Wait-ForK8sSecret {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$SecretName,
+        [Parameter(Mandatory = $true)]
+        [string]$Namespace,
+        [int]$TimeoutSeconds = 60,
+        [int]$CheckIntervalSeconds = 4
+    )
+
+    $startTime = Get-Date
+    $endTime = $startTime.AddSeconds($TimeoutSeconds)
+
+    $kubeToolsPath = Get-KubeToolsPath
+    while ((Get-Date) -lt $endTime) {
+        try {
+            $secret = &"$kubeToolsPath\kubectl.exe" get secret $SecretName -n $Namespace --ignore-not-found
+            if ($secret) {
+                Write-Log "Secret '$SecretName' is available." -Console
+                return $true
+            }
+        }
+        catch {
+            Write-Log "Error checking for secret: $_" -Console
+        }
+
+        Start-Sleep -Seconds $CheckIntervalSeconds
+    }
+
+    Write-Log "Timed out waiting for secret '$SecretName' in namespace '$Namespace'." -Console
+    return $false
+}
+<#
+.SYNOPSIS
+Asserts TLS certificate exists in ingress namespace.
+.DESCRIPTION
+Checks if k2s-cluster-local-tls secret exists in the ingress namespace.
+If not found, re-applies the Certificate manifest to trigger cert-manager creation.
+.PARAMETER IngressType
+Type of ingress controller (nginx, traefik, or nginx-gw).
+.PARAMETER CertificateManifestPath
+Optional path to the Certificate manifest. If not provided, derived from ingress type.
+.EXAMPLE
+Assert-IngressTlsCertificate -IngressType 'nginx'
+#>
+function Assert-IngressTlsCertificate {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('nginx', 'traefik', 'nginx-gw')]
+        [string] $IngressType,
+
+        [Parameter(Mandatory = $false)]
+        [string] $CertificateManifestPath
+    )
+
+    $namespace = switch ($IngressType) {
+        'nginx' { 'ingress-nginx' }
+        'traefik' { 'ingress-traefik' }
+        'nginx-gw' { 'nginx-gw' }
+    }
+
+    Write-Log "Verifying TLS certificate exists in $namespace namespace" -Console
+    $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 30
+
+    if (-not $certExists) {
+        Write-Log "Certificate not found, applying Certificate manifest to trigger creation" -Console
+        (Invoke-Kubectl -Params 'apply', '-f', $CertificateManifestPath).Output | Write-Log
+        $certExists = Wait-ForK8sSecret -SecretName 'k2s-cluster-local-tls' -Namespace $namespace -TimeoutSeconds 60
+
+        if (-not $certExists) {
+            Write-Log "Warning: TLS certificate still not available after applying manifest" -Console
+        }
+    }
+    else {
+        Write-Log "TLS certificate already exists in $namespace namespace" -Console
+    }
+
+    return $certExists
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound, Get-ErrCodeInvalidParameter,
-Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
-Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
-Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
+Add-HostEntries, Add-CoreDNSHostEntry, Remove-CoreDNSHostEntry, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
+Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory,
+Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, Resolve-AddonImportPath,
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
-Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages
+Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
+Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
+Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret, New-BackendCACertConfigMap,
+Clear-KubectlDiscoveryCache

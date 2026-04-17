@@ -45,12 +45,11 @@ var _ = Describe("addons", Ordered, func() {
 	Describe("import", Label("import"), func() {
 		When("addon name is invalid", func() {
 			It("prints addon-invalid message and exits with non-zero", func(ctx context.Context) {
-				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", "invalid-addon-name", "-z", "test-dir")
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "import", "invalid-addon-name", "-f", "test-dir")
 
 				Expect(output).To(Or(
-					ContainSubstring("Invalid format for addon"),
 					ContainSubstring("is not available in Linux-only"),
-					ContainSubstring("Unknown artifact format. Supported formats: .oci.tar, .zip"),
+					ContainSubstring("Unknown artifact format. Supported formats: .oci.tar"),
 				))
 			})
 		})

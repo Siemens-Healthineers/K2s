@@ -9,12 +9,32 @@ All the prerequisites mentioned in [Installation Prerequisites](../../op-manual/
 
 * Install [*Go*](https://go.dev/dl/){target="_blank"} for *Windows*.
 
+## First Step After Clone
+
+Go-built binaries are **not committed** to the git repository. After cloning the repo, you **must** build them locally before using *K2s*:
+
+```console
+C:\ws\k2s\bin\bgow
+```
+
+This builds all 10 Go executables for Windows (`k2s.exe`, `bridge.exe`, `cloudinitisobuilder.exe`, `devgon.exe`, `httpproxy.exe`, `l4proxy.exe`, `vfprules.exe`, `yaml2json.exe`, `zap.exe`, `cplauncher.exe`) and places them in their expected locations (`bin/`, `bin/cni/`, and the repo root).
+
+For Linux cross-compilation, use:
+
+```console
+C:\ws\k2s\bin\bgol
+```
+
+!!! warning
+    Without this step, `k2s.exe` and supporting tools will be missing and *K2s* will not function.
+
 ## Build *Go* projects
 Building *Go* based projects is done through [BuildGoExe.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/common/BuildGoExe.ps1){target="_blank"}
 
 !!! tip
-    `bgo.cmd` is a shortcut command to invoke the script `BuildGoExe.ps1`.<br/>
-    If you have not installed *K2s* yet, then your `PATH` is not updated with the required locations. In this case, look for bgo.cmd and invoke the build command.
+    `bgow.cmd` / `bgol.cmd` are shortcut commands to build all Go executables for Windows / Linux respectively.<br/>
+    `bgo.cmd` is a shortcut for `BuildGoExe.ps1` to build individual executables.<br/>
+    If you have not installed *K2s* yet, then your `PATH` is not updated with the required locations. In this case, look for the `.cmd` files in the `bin/` directory and invoke the build command.
 
 In the below example, `c:\ws\k2s` is the root of the *Git* repo:
 ```console
@@ -35,11 +55,39 @@ C:\ws\k2s\bin\bgo
 
 To build all *Go* executables:
 ```console
-C:\ws\k2s\bin\bgo -BuildAll
+C:\ws\k2s\bin\bgow
+```
+
+To cross-compile all *Go* executables for Linux:
+```console
+C:\ws\k2s\bin\bgol
 ```
 
 If *K2s* is installed then just simply execute the command without the full path:
 ```console
 bgo -ProjectDir "C:\ws\k2s\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"
-bgo -BuildAll
+bgow
+bgol
 ```
+
+## Cross-Compiling for Linux
+
+The *K2s* CLI supports both Windows and Linux hosts. The easiest way to cross-compile all Go executables for Linux is:
+
+```console
+bgol
+```
+
+Alternatively, you can use standard Go tools directly:
+
+```bash
+# Build the Linux binary
+GOOS=linux go build -o k2s ./k2s/cmd/k2s
+
+# Verify the build compiles for both platforms
+GOOS=windows go build ./k2s/cmd/k2s
+GOOS=linux go build ./k2s/cmd/k2s
+```
+
+!!! note
+    On Linux, the CLI uses native Go APIs (kubeadm, kubectl, libvirt/KVM, SSH) instead of PowerShell. The platform-specific logic is encapsulated in the [Provider Architecture](../architecture.md#provider-architecture).

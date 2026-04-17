@@ -62,12 +62,19 @@ data:
     client_secret="1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl"
     cookie_secret="ZzBkN000Wm0pQkVkKUhzMk5YPntQRUw_ME1oMTZZTy0="
     cookie_secure="false"
+    cookie_samesite="lax"
     # Upstream config
     http_address="0.0.0.0:4180"
-    upstreams="file:///dev/null"
     email_domains=["*"]
     oidc_issuer_url="https://k2s.cluster.local/keycloak/realms/demo-app"
     scope="openid"
+    # Skip the intermediate OAuth selection page
+    skip_provider_button=true
+    # Whitelist domains for redirect
+    whitelist_domains=["k2s.cluster.local"]
+    # Use X-Forwarded headers
+    reverse_proxy=true
+    real_client_ip_header="X-Real-IP"
     # token
     pass_access_token=true
     # Redis session store config

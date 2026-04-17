@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package systempackage
@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	nodepackage "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/package/node"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -40,8 +41,13 @@ var (
 	k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation --certificate "path\to\cert.pfx" --password "mycertpassword"
 
 	# Creates a delta package (provide full package zip paths)
-	[EXPERIMENTAL]
 	k2s system package --delta-package --target-dir "C:\tmp" --name "k2s-delta-1.4.0-to-1.4.1.zip" --package-version-from "C:\tmp\k2s-1.4.0.zip" --package-version-to "C:\tmp\k2s-1.4.1.zip"
+
+	# Creates a node package with Linux worker node artifacts for a specific OS
+	k2s system package --node-package --os debian12 --target-dir "C:\output" --name "debian12-node.zip"
+
+	# Creates a node-only delta package (between two node package zips)
+	k2s system package --node-package --delta-package --package-version-from "C:\tmp\debian12-node-v1.7.0.zip" --package-version-to "C:\tmp\debian12-node-v1.8.0.zip" --target-dir "C:\output" --name "debian12-node-delta-v1.7.0-to-v1.8.0.zip"
 
 	Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
 	`
@@ -80,9 +86,9 @@ const (
 	K8sBinsFlagUsage = "Path to directory of locally built Kubernetes binaries (kubelet.exe, kube-proxy.exe, kubeadm.exe, kubectl.exe)"
 
 	// Code signing flags
-	CertificateFlagName = "certificate"
+	CertificateFlagName  = "certificate"
 	CertificateFlagUsage = "Path to code signing certificate (.pfx file)"
-	
+
 	PasswordFlagName  = "password"
 	PasswordFlagUsage = "Password for the code signing certificate"
 
@@ -99,7 +105,7 @@ const (
 	ProfileFlagUsage = "Packaging profile: Dev (default) or Lite (skips optional parts like documentation, source code etc.)"
 
 	AddonsListFlagName  = "addons-list"
-	AddonsListFlagUsage = "Comma-separated list of addons to include (e.g., 'ingress nginx,monitoring,logging'). For ingress, specify implementation: 'ingress nginx' or 'ingress traefik'. Default: all addons"
+	AddonsListFlagUsage = "Comma-separated list of addons to include (e.g., 'ingress nginx,monitoring,logging'). For ingress, specify implementation: 'ingress nginx' or 'ingress traefik'. Use 'none' to exclude all addons. Default: all addons"
 )
 
 func init() {
@@ -112,20 +118,32 @@ func init() {
 	PackageCmd.Flags().Bool(ForOfflineInstallationFlagName, false, ForOfflineInstallationFlagUsage)
 	PackageCmd.Flags().String(K8sBinsFlagName, "", K8sBinsFlagUsage)
 	PackageCmd.Flags().Bool(DeltaPackageFlagName, false, DeltaPackageFlagUsage)
-	PackageCmd.MarkFlagRequired(TargetDirectoryFlagName)
-	PackageCmd.MarkFlagRequired(ZipPackageFileNameFlagName)
-
 	PackageCmd.Flags().String(PackageVersionFromFlagName, "", PackageVersionFromFlagUsage)
 	PackageCmd.Flags().String(PackageVersionToFlagName, "", PackageVersionToFlagUsage)
 	PackageCmd.Flags().Lookup(PackageVersionFromFlagName).NoOptDefVal = ""
 	PackageCmd.Flags().Lookup(PackageVersionToFlagName).NoOptDefVal = ""
 	PackageCmd.Flags().Lookup(DeltaPackageFlagName).NoOptDefVal = "true"
 
+	// Node package flags (delegated to nodepackage sub-package) - register BEFORE setting PreRunE
+	// so that nodepackage.IsSet() works correctly in validation
+	nodepackage.RegisterFlags(PackageCmd)
+
 	// NOTE: We do not mark the version flags as required here because they are only
 	// required when --delta-package is set. Validation is handled in PreRunE below.
 	PackageCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		// Node package is a fully separate mode — skip all other validations.
+		if nodepackage.IsSet(cmd.Flags()) {
+			supportedOS, err := config.ReadSupportedWorkerOS(utils.InstallDir())
+			if err != nil {
+				return fmt.Errorf("failed to read supported OS list: %w", err)
+			}
+			return nodepackage.Validate(cmd.Flags(), supportedOS)
+		}
+
 		profile, _ := cmd.Flags().GetString(ProfileFlagName)
-		if profile == "" { profile = "Dev" }
+		if profile == "" {
+			profile = "Dev"
+		}
 		profile = strings.Title(strings.ToLower(profile))
 		if profile != "Dev" && profile != "Lite" {
 			return fmt.Errorf("--%s must be one of: Dev, Lite (got '%s')", ProfileFlagName, profile)
@@ -138,7 +156,7 @@ func init() {
 		if delta {
 			if from == "" {
 				return fmt.Errorf("--%s is required when --%s is set", PackageVersionFromFlagName, DeltaPackageFlagName)
-			}	
+			}
 			if to == "" {
 				return fmt.Errorf("--%s is required when --%s is set", PackageVersionToFlagName, DeltaPackageFlagName)
 			}
@@ -160,7 +178,7 @@ func init() {
 
 	// Addons list flag
 	PackageCmd.Flags().String(AddonsListFlagName, "", AddonsListFlagUsage)
-	
+
 	PackageCmd.Flags().SortFlags = false
 	PackageCmd.Flags().PrintDefaults()
 }
@@ -174,18 +192,21 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", systemPackageCommand, "params", params)
 
-	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
-	if err != nil {
-		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
-			return common.CreateSystemInCorruptedStateCmdFailure()
+	// Skip system installation check for node-package mode (no installation involved)
+	if !nodepackage.IsSet(cmd.Flags()) {
+		context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+		runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
+		if err != nil {
+			if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
+				return common.CreateSystemInCorruptedStateCmdFailure()
+			}
 		}
-	}
-	if err == nil && runtimeConfig.InstallConfig().SetupName() != "" {
-		return &common.CmdFailure{
-			Severity: common.SeverityWarning,
-			Code:     "system-already-installed",
-			Message:  fmt.Sprintf("'%s' is installed on your system. Please uninstall '%s' first and try again.", runtimeConfig.InstallConfig().SetupName(), runtimeConfig.InstallConfig().SetupName()),
+		if err == nil && runtimeConfig.InstallConfig().SetupName() != "" {
+			return &common.CmdFailure{
+				Severity: common.SeverityWarning,
+				Code:     "system-already-installed",
+				Message:  fmt.Sprintf("'%s' is installed on your system. Please uninstall '%s' first and try again.", runtimeConfig.InstallConfig().SetupName(), runtimeConfig.InstallConfig().SetupName()),
+			}
 		}
 	}
 
@@ -204,17 +225,31 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 }
 
 func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
-	flags.VisitAll(func(f *pflag.Flag) { slog.Debug("Param", "name", f.Name, "value", f.Value) })
-
 	delta, _ := strconv.ParseBool(flags.Lookup(DeltaPackageFlagName).Value.String())
 
 	// Shared params
 	out, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 	targetDir := flags.Lookup(TargetDirectoryFlagName).Value.String()
-	zipName := flags.Lookup(ZipPackageFileNameFlagName).Value.String() // For delta this is the output delta zip
+	zipName := flags.Lookup(ZipPackageFileNameFlagName).Value.String()
+	proxy := flags.Lookup(ProxyFlagName).Value.String()
+
+	// Node package mode — delegate entirely to the node sub-package.
+	if nodepackage.IsSet(flags) {
+		return nodepackage.BuildCmd(flags, out, targetDir, zipName, proxy)
+	}
+
+	// For non-node-package modes, require target-dir and name flags
+	if targetDir == "" {
+		return "", nil, fmt.Errorf("required flag(s) \"%s\" not set", TargetDirectoryFlagName)
+	}
+	if zipName == "" {
+		return "", nil, fmt.Errorf("required flag(s) \"%s\" not set", ZipPackageFileNameFlagName)
+	}
 
 	params := []string{}
-	if out { params = append(params, " -ShowLogs") }
+	if out {
+		params = append(params, " -ShowLogs")
+	}
 	params = append(params, " -TargetDirectory "+utils.EscapeWithSingleQuotes(targetDir))
 	params = append(params, " -ZipPackageFileName "+utils.EscapeWithSingleQuotes(zipName))
 
@@ -222,7 +257,9 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	certPath := flags.Lookup(CertificateFlagName).Value.String()
 	password := flags.Lookup(PasswordFlagName).Value.String()
 	if certPath != "" {
-		if password == "" { return "", nil, fmt.Errorf("password is required when using a certificate") }
+		if password == "" {
+			return "", nil, fmt.Errorf("password is required when using a certificate")
+		}
 		params = append(params, " -CertificatePath "+utils.EscapeWithSingleQuotes(certPath))
 		params = append(params, " -Password "+utils.EscapeWithSingleQuotes(password))
 	} else if password != "" {
@@ -241,14 +278,37 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1"))
 
 	// Only add full-package specific params if not delta
-	proxy := flags.Lookup(ProxyFlagName).Value.String(); if proxy != "" { params = append(params, " -Proxy "+proxy) }
-	cpus := flags.Lookup(ControlPlaneCPUsFlagName).Value.String(); if cpus != "" { params = append(params, " -VMProcessorCount "+cpus) }
-	memory := flags.Lookup(ControlPlaneMemoryFlagName).Value.String(); if memory != "" { params = append(params, " -VMMemoryStartupBytes "+memory) }
-	disksize := flags.Lookup(ControlPlaneDiskSizeFlagName).Value.String(); if disksize != "" { params = append(params, " -VMDiskSize "+disksize) }
-	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String()); if forOfflineInstallation { params = append(params, " -ForOfflineInstallation") }
-	profile := flags.Lookup(ProfileFlagName).Value.String(); if profile != "" { params = append(params, " -Profile "+profile) }
-	k8sBins := flags.Lookup(K8sBinsFlagName).Value.String(); if k8sBins != "" { params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins)) }
-	addonsList := flags.Lookup(AddonsListFlagName).Value.String(); if addonsList != "" { params = append(params, " -AddonsList "+utils.EscapeWithSingleQuotes(addonsList)) }
+	if proxy != "" {
+		params = append(params, " -Proxy "+proxy)
+	}
+	cpus := flags.Lookup(ControlPlaneCPUsFlagName).Value.String()
+	if cpus != "" {
+		params = append(params, " -VMProcessorCount "+cpus)
+	}
+	memory := flags.Lookup(ControlPlaneMemoryFlagName).Value.String()
+	if memory != "" {
+		params = append(params, " -VMMemoryStartupBytes "+memory)
+	}
+	disksize := flags.Lookup(ControlPlaneDiskSizeFlagName).Value.String()
+	if disksize != "" {
+		params = append(params, " -VMDiskSize "+disksize)
+	}
+	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String())
+	if forOfflineInstallation {
+		params = append(params, " -ForOfflineInstallation")
+	}
+	profile := flags.Lookup(ProfileFlagName).Value.String()
+	if profile != "" {
+		params = append(params, " -Profile "+profile)
+	}
+	k8sBins := flags.Lookup(K8sBinsFlagName).Value.String()
+	if k8sBins != "" {
+		params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins))
+	}
+	addonsList := flags.Lookup(AddonsListFlagName).Value.String()
+	if addonsList != "" {
+		params = append(params, " -AddonsList "+utils.EscapeWithSingleQuotes(addonsList))
+	}
 
 	return systemPackageCommand, params, nil
 }

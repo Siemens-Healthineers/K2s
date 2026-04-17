@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -43,6 +43,8 @@ Param (
     [parameter(Mandatory = $false)]
     [string] $ExportPath,
     [parameter(Mandatory = $false)]
+    [string] $Nodes = '',
+    [parameter(Mandatory = $false)]
     [switch] $DockerArchive = $false,
     [parameter(Mandatory = $false)]
     [switch] $ShowLogs = $false,
@@ -51,27 +53,19 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$imageCommonModule = "$PSScriptRoot/Image-Common.module.psm1"
+Import-Module $imageCommonModule
 
-Import-Module $infraModule, $clusterModule, $nodeModule
-
-Initialize-Logging -ShowLogs:$ShowLogs
-
-$systemError = Test-SystemAvailability -Structured
-if ($systemError) {
-    if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
-        return
-    }
-
-    Write-Log $systemError.Message -Error
-    exit 1
+if (-not (Initialize-ImageScriptContext -ShowLogs:$ShowLogs -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType)) {
+    return
 }
 
 Write-Log "[ImageExport] Looking for image with Id='$Id' Name='$Name'"
-$linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
+
+$imageSelection = Get-ImagesByNodeSelection -Nodes $Nodes -IncludeK8sImages $true -LogPrefix 'ImageExport'
+$linuxContainerImages = @($imageSelection.LinuxImages)
+$windowsContainerImages = @($imageSelection.WindowsImages)
+
 Write-Log "[ImageExport] Found $($linuxContainerImages.Count) linux container images"
 $foundLinuxImages = @()
 if ($Id -ne '') {
@@ -104,7 +98,6 @@ else {
     }
 }
 
-$windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $true
 $foundWindowsImages = @()
 if ($Id -ne '') {
     $foundWindowsImages = @($windowsContainerImages | Where-Object { $_.ImageId -eq $Id })
@@ -184,21 +177,62 @@ if ($foundLinuxImages.Count -eq 1) {
         $finalExportPath = $path + '\' + $newFileName
     }
 
-    if (!$DockerArchive) {
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${imageId} oci-archive:/tmp/${imageId}.tar:${imageFullName} 2>&1" -NoLog).Output | Write-Log
+    $linuxNodeName = "$($image.Node)"
+    if ([string]::IsNullOrWhiteSpace($linuxNodeName)) {
+        Write-Log '[ImageExport] Linux image does not have node information. Falling back to control-plane.'
+        $linuxNodeName = (Get-ConfigValue -Path (Get-SetupConfigFilePath) -Key 'ControlPlaneNodeHostname')
+    }
+
+    $linuxNodeInfo = Resolve-ImageNode -NodeName $linuxNodeName
+    if ($null -eq $linuxNodeInfo -or $linuxNodeInfo.OS -ne 'linux') {
+        $errMsg = "Unable to resolve linux node '$linuxNodeName' for image export."
+        Write-Log $errMsg -Error
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'image-export-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        exit 1
+    }
+
+    $archiveFormat = if ($DockerArchive) { 'docker-archive' } else { 'oci-archive' }
+    $remoteTarPath = "/tmp/${imageId}.tar"
+    $exportCmd = "sudo buildah push ${imageId} ${archiveFormat}:${remoteTarPath}:${imageFullName} 2>&1"
+
+    if ($linuxNodeInfo.Kind -eq 'ControlPlane') {
+        $pushResult = Invoke-CmdOnControlPlaneViaSSHKey $exportCmd -NoLog -IgnoreErrors
     }
     else {
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${imageId} docker-archive:/tmp/${imageId}.tar:${imageFullName} 2>&1" -NoLog).Output | Write-Log
+        $pushResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $exportCmd -IpAddress $linuxNodeInfo.IpAddress -UserName $linuxNodeInfo.Username -NoLog -IgnoreErrors
+    }
+    $pushResult.Output | Write-Log
+
+    if (-not $pushResult.Success) {
+        $errMsg = "Failed to export Linux image '${imageFullName}' on node '$($linuxNodeInfo.Name)'."
+        Write-Log $errMsg -Error
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'image-export-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        exit 1
     }
 
-    $exportSuccess = $?
-    Copy-FromControlPlaneViaSSHKey "/tmp/${imageId}.tar" $finalExportPath
-
-    if ($exportSuccess -and $?) {
-        Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
+    if ($linuxNodeInfo.Kind -eq 'ControlPlane') {
+        Copy-FromControlPlaneViaSSHKey $remoteTarPath $finalExportPath
+    }
+    else {
+        Copy-FromRemoteComputerViaSSHKey -Source $remoteTarPath -Target $finalExportPath -IpAddress $linuxNodeInfo.IpAddress -UserName $linuxNodeInfo.Username
     }
 
-    (Invoke-CmdOnControlPlaneViaSSHKey "cd /tmp && sudo rm -rf ${imageId}.tar" -NoLog).Output | Write-Log
+    Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
+
+    if ($linuxNodeInfo.Kind -eq 'ControlPlane') {
+        (Invoke-CmdOnControlPlaneViaSSHKey "cd /tmp && sudo rm -rf ${imageId}.tar" -NoLog -IgnoreErrors).Output | Write-Log
+    }
+    else {
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "cd /tmp && sudo rm -rf ${imageId}.tar" -IpAddress $linuxNodeInfo.IpAddress -UserName $linuxNodeInfo.Username -NoLog -IgnoreErrors).Output | Write-Log
+    }
 }
 
 if ($foundWindowsImages.Count -gt 1) {
@@ -239,20 +273,47 @@ if ($foundWindowsImages.Count -eq 1) {
     $binPath = Get-KubeBinPath
     $nerdctlExe = "$binPath\nerdctl.exe"
 
-    Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
-    $pullOutput = &$nerdctlExe -n 'k8s.io' pull $imageFullName --all-platforms 2>&1 | Out-String
-    if ($pullOutput.Contains('failed to do request')) {
-        Write-Log "Not able to pull all platform layers for image '$imageFullName'" -Console
-        Write-Log "Exporting image '$imageFullName' only for current platform" -Console
-        &$nerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName
-    }
-    else {
-        Write-Log "Exporting image '$imageFullName' for all platforms" -Console
-        &$nerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName --all-platforms
-    }
+    # Set up proxy env vars so nerdctl can reach the registry (mirrors addons/Export.ps1 pattern)
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $proxyUrl = "http://$($windowsHostIpAddress):8181"
+    $previousHttpProxy = $env:http_proxy
+    $previousHttpsProxy = $env:https_proxy
 
-    if ($?) {
-        Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
+    try {
+        $env:http_proxy = $proxyUrl
+        $env:https_proxy = $proxyUrl
+        Write-Log "[ImageExport] Proxy configured for nerdctl: $proxyUrl"
+
+        Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
+        $pullOutput = &$nerdctlExe -n 'k8s.io' pull $imageFullName --all-platforms 2>&1 | Out-String
+        $pullExitCode = $LASTEXITCODE
+
+        if ($pullExitCode -ne 0) {
+            Write-Log "Not able to pull all platform layers for image '$imageFullName' (exit code: $pullExitCode)" -Console
+            Write-Log "Exporting image '$imageFullName' only for current platform" -Console
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', $finalExportPath, $imageFullName
+        }
+        else {
+            Write-Log "Exporting image '$imageFullName' for all platforms" -Console
+            $exportSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'export', '--all-platforms', $finalExportPath, $imageFullName
+        }
+
+        if ($exportSuccess) {
+            Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
+        }
+        else {
+            $errMsg = "Failed to export image '${imageFullName}'"
+            Write-Log $errMsg -Error
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Severity Warning -Code 'image-export-failed' -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+        }
+    }
+    finally {
+        $env:http_proxy = $previousHttpProxy
+        $env:https_proxy = $previousHttpsProxy
     }
 }
 

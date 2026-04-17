@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -92,6 +92,12 @@ function New-SmbHostOnWindowsIfNotExisting {
     )
     Write-Log "Checking if SMB share host with name '$($Config.WinShareName)' already exists.."
 
+    # Reset password on every call so Windows credentials stay in sync with /etc/fstab on KubeMaster.
+    if (Get-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue) {
+        Write-Log "User '$smbUserName' already exists, resetting password to ensure consistency with Linux mount credentials."
+        Set-LocalUser -Name $smbUserName -Password $smbPw -ErrorAction Stop
+    }
+
     $smb = Get-SmbShare -Name $Config.WinShareName -ErrorAction SilentlyContinue
     if ($smb) {
         Write-Log "SMB share host '$($Config.WinShareName)' on Windows already existing, nothing to create."
@@ -100,10 +106,7 @@ function New-SmbHostOnWindowsIfNotExisting {
 
     Write-Log "Setting up '$($Config.WinShareName)' SMB share host on Windows.."
 
-    if (Get-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue) {
-        Write-Log "User '$smbUserName' already exists."
-    }
-    else {
+    if (-not (Get-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue)) {
         New-LocalUser -Name $smbUserName -Password $smbPw -Description 'A K2s user account for SMB access' -ErrorAction Stop | Out-Null # Description max. length seems to be 48 chars ?!
         $RemoteUsersGroup = 'Remote Desktop Users'
         if ((Get-LocalGroup -Name $RemoteUsersGroup -ErrorAction SilentlyContinue).Count -gt 0) {
@@ -360,7 +363,7 @@ function Remove-SharedFolderMountOnLinuxClient {
     $tempUnmountScript = "$(Get-KubePath)\$tempUnmountOnLinuxClientScript"
     Remove-Item $tempUnmountScript -ErrorAction Ignore
     $unmountOnLinuxClientCmd | Out-File -Encoding ascii $tempUnmountScript
-    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/'
+    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/' -Retries 3 -RetryDelay 2
     Remove-Item $tempUnmountScript -ErrorAction Ignore
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxClientScript" -IgnoreErrors).Output | Write-Log
@@ -559,7 +562,7 @@ function Remove-SharedFolderMountOnLinuxHost {
     $tempUnmountScript = "$(Get-KubePath)\$tempUnmountOnLinuxHostScript"
     Remove-Item $tempUnmountScript -ErrorAction Ignore
     $unmountOnLinuxHostCmd | Out-File -Encoding ascii $tempUnmountScript
-    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/'
+    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/' -Retries 3 -RetryDelay 2
     Remove-Item $tempUnmountScript -ErrorAction Ignore
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxHostScript" -IgnoreErrors).Output | Write-Log

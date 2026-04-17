@@ -15,7 +15,7 @@ The "monitoring" addons enables Prometheus/Grafana monitoring features for the k
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [ValidateSet('nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
@@ -77,15 +77,43 @@ $manifestsPath = "$PSScriptRoot\manifests\monitoring"
 
 Write-Log 'Installing Kube Prometheus Stack' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'create', '-f', "$manifestsPath\crds").Output | Write-Log
-(Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
+# Use --server-side for CRDs to avoid oversized last-applied annotations on large CRDs
+(Invoke-Kubectl -Params 'apply', '--server-side', '-f', "$manifestsPath\crds").Output | Write-Log
+
+# Wait for CRDs to be registered by the API server before clearing the discovery cache
+Write-Log '[Monitoring] Waiting for Prometheus Operator CRDs to be fully established' -Console
+$monCrdWait = Invoke-Kubectl -Params 'wait', '--for=condition=Established', 'crd/servicemonitors.monitoring.coreos.com', 'crd/prometheuses.monitoring.coreos.com', '--timeout=120s'
+if ($monCrdWait.Success -ne $true) {
+    Write-Log "[Monitoring] CRD wait output: $($monCrdWait.Output)" -Console
+    Write-Log '[Monitoring] WARNING: Prometheus Operator CRDs may not be fully established' -Console
+}
+
+# Clear stale kubectl discovery cache and verify ServiceMonitor type is visible
+Clear-KubectlDiscoveryCache
+Write-Log '[Monitoring] Waiting for kubectl discovery cache to include Prometheus Operator CRDs' -Console
+$monDiscoveryReady = $false
+for ($d = 1; $d -le 30; $d++) {
+    $probe = Invoke-Kubectl -Params 'get', 'servicemonitors', '--no-headers', '--ignore-not-found', '-A'
+    if ($probe.Success -eq $true) {
+        Write-Log '[Monitoring] kubectl discovery cache is up-to-date' -Console
+        $monDiscoveryReady = $true
+        break
+    }
+    Write-Log "[Monitoring] Discovery probe attempt $d/30 failed, retrying in 2s..." -Console
+    Start-Sleep -Seconds 2
+}
+if (-not $monDiscoveryReady) {
+    Write-Log '[Monitoring] WARNING: kubectl discovery cache did not refresh within 60s' -Console
+}
+
+(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-k', $manifestsPath).Output | Write-Log
 
 Write-Log 'Deploying Windows Exporter for Windows node metrics' -Console
 $windowsExporterPath = "$PSScriptRoot\..\common\manifests\windows-exporter"
 (Invoke-Kubectl -Params 'apply', '-k', $windowsExporterPath).Output | Write-Log
 
 Write-Log 'Waiting for Pods..'
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=180s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=300s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'
@@ -98,7 +126,7 @@ if (!$kubectlCmd.Success) {
     Write-Log $errMsg -Error
     exit 1
 }
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=180s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=300s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'
@@ -138,7 +166,7 @@ if ($allPodsAreUp -ne $true) {
     exit 1  
 }
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=300s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'

@@ -79,6 +79,18 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		}
 	}
 
+	GinkgoWriter.Println("Waiting for DNS entries to be resolvable from host..")
+
+	for _, deploymentName := range linuxDeploymentNames {
+		suite.Cluster().ExpectDNSToBeResolvableFromHost(ctx, deploymentName, namespace)
+	}
+
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		for _, deploymentName := range winDeploymentNames {
+			suite.Cluster().ExpectDNSToBeResolvableFromHost(ctx, deploymentName, namespace)
+		}
+	}
+
 	GinkgoWriter.Println("Deployments ready for testing")
 })
 
@@ -96,7 +108,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	}
 
 	// for finding out the sporadically failed test runs
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
 
 		GinkgoWriter.Println("Workloads deleted")

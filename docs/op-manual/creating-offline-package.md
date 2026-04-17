@@ -21,6 +21,23 @@ To create a fully offline-capable install package, set the `--for-offline-instal
 <repo>\k2s.exe system package -d <path-to-output-packe>.zip --for-offline-installation
 ```
 
+### Addon Selection
+
+By default, all addons are included in the package. To customize which addons are included, use the `--addons-list` flag:
+
+```console
+# Include only specific addons
+k2s system package -d C:\output -n k2s.zip --addons-list "ingress nginx,monitoring,logging"
+
+# Exclude all addons from the package
+k2s system package -d C:\output -n k2s.zip --addons-list none
+```
+
+!!! note
+    For multi-implementation addons like *ingress*, specify the implementation name separated by a space (e.g., `ingress nginx` or `ingress traefik`).
+
+The `--addons-list` flag works with both *Dev* (default) and *Lite* profiles.
+
 When running the aforementioned command and no *K2s* variant has been installed on the current system yet, the [Development-Only Variant](../user-guide/hosting-variants.md#development-only) will be installed in order to create an offline package (which requires an internet connection). If all dependencies are already available locally due to prior installation of *K2s*, the offline package creation does not require internet connection.
 
 ??? info "Offline Package Creation Diagram"
@@ -41,6 +58,50 @@ graph TD
 !!! note
     Omitting the `--for-offline-installation` flag will effectively bundle only repository source files similar to the [*K2s* Releases](https://github.com/Siemens-Healthineers/K2s/releases){target="_blank"}.
 
+## Node Package for Offline Node Add
+
+To add a Linux worker node to an existing cluster without internet access on that node, create a **node package**.
+
+No installed *K2s* cluster is required to create this node package. You can run the command directly from the extracted *K2s* repository or release directory.
+
+Inspect the available options:
+
+```console
+k2s system package -h
+```
+
+Example from a local directory using `k2s.exe` directly:
+
+```console
+.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip"
+```
+
+Create an OS-specific node package ZIP:
+
+```console
+k2s system package --node-package --os debian12 --target-dir C:\output --name debian12-node.zip
+```
+
+Example for Debian 13:
+
+```console
+k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip
+```
+
+Then add the node by passing the package to `k2s node add`:
+
+```console
+k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package C:\output\debian13-node.zip
+```
+
+!!! note
+    The node package is intended for extending an existing cluster with a Linux worker node. It is separate from the full offline installation package used for installing *K2s* itself.
+
+!!! note
+    Creating the node package does not require that *K2s* is already installed on the current machine.
+
+See [Extending K2s cluster](extending-k2s-cluster.md) for the complete node onboarding workflow.
+
 ## Addons Offline Package
 To enable addons without an internet connection being available, the required binaries can be exported to an offline package as well.
 
@@ -60,6 +121,21 @@ Or export all addons:
 k2s addons export -d <export-output-directory>
 ```
 
+To export without container images (produces a lighter artifact):
+```console
+k2s addons export registry -d <export-output-directory> --omit-images
+```
+
+To export without packages (Debian, Linux, and Windows packages):
+```console
+k2s addons export registry -d <export-output-directory> --omit-packages
+```
+
+Both flags can be combined to export only configuration, manifests, and scripts:
+```console
+k2s addons export registry -d <export-output-directory> --omit-images --omit-packages
+```
+
 ### Addons Import
 To inspect all export options, run:
 ```console
@@ -68,15 +144,21 @@ k2s addons import -h
 
 Either specify one or more addons to import from the offline package:
 ```console
-k2s addons import registry -z <directory-containing-addons-archive>\addons.zip
+k2s addons import registry -f <directory-containing-addons-archive>\addons.zip
 ```
 
 Or import all addons from the offline package:
 ```console
-k2s addons import -z <directory-containing-addons-archive>\addons.zip
+k2s addons import -f <directory-containing-addons-archive>\addons.zip
 ```
 
 !!! note
     Importing a specific addon from the offline package does obviously not work when this package does not contain the specified addon.
 
 After importing an addon, it can be enabled without internet connection being available.
+
+## Delta Packages
+
+For bandwidth-efficient upgrades, *K2s* supports creating delta packages that contain only the files changed between two versions. This significantly reduces package size for minor and patch upgrades.
+
+See [Delta Packages](delta-packages.md) for detailed documentation on creating and applying delta packages.

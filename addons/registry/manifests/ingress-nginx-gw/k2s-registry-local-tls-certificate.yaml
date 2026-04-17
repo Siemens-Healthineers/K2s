@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# CA-signed certificate for k2s.registry.local
+# This certificate is used by NGINX Gateway Fabric for TLS termination on the registry hostname
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: k2s-registry-local-tls
+  namespace: nginx-gw
+spec:
+  secretName: k2s-registry-local-tls
+  commonName: k2s.registry.local
+  duration: 2160h # 3 months
+  renewBefore: 720h # 30 days before expiry
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  dnsNames:
+    - k2s.registry.local
+  issuerRef:
+    name: k2s-ca-issuer
+    kind: ClusterIssuer

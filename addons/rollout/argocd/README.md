@@ -1,116 +1,250 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
 
-# Rollout - ArgoCD Implementation
+# Rollout — ArgoCD Implementation
 
 ## Introduction
 
-This is the ArgoCD implementation of the rollout addon. ArgoCD is a declarative, GitOps continuous delivery tool for Kubernetes that automates the deployment of applications by continuously monitoring the live state of applications and comparing it to the desired state defined in a Git repository. New deployments can be created via a CLI or the [ArgoCD web-based UI](https://argo-cd.readthedocs.io/en/stable/getting_started/#creating-apps-via-ui)
+ArgoCD is a declarative GitOps continuous delivery tool with a web UI and CLI. It monitors live cluster state against a desired state defined in Git and reports drift, providing manual or automatic sync. The K2s rollout addon installs ArgoCD into the `rollout` namespace.
 
-## Getting started
+## Enable ArgoCD
 
-The rollout addon with ArgoCD implementation can be enabled using the k2s CLI by running the following command:
+```console
+k2s addons enable rollout argocd
 ```
-k2s addons enable rollout
+
+### Enable with ingress (to expose the ArgoCD dashboard)
+
+```console
+k2s addons enable rollout argocd --ingress traefik
+k2s addons enable rollout argocd --ingress nginx-gw
 ```
 
-### Integration with ingress nginx and ingress traefik addons
+If the specified ingress addon is not already enabled, it will be enabled automatically.
 
-The ArgoCD dashboard can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
+### Skip addon-sync infrastructure
 
-For example, the rollout addon can be enabled along with traefik addon using the following command:
+By default, enabling ArgoCD also deploys the addon-sync infrastructure for OCI-based addon delivery. To skip it:
+
+```console
+k2s addons enable rollout argocd --addon-sync=false
 ```
-k2s addons enable rollout --ingress traefik
+
+## Check Status
+
+```console
+k2s addons status rollout argocd
 ```
-_Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
 
-## Accessing the ArgoCD dashboard
+---
 
-The ArgoCD dashboard can be accessed via the following methods.
+## Access the ArgoCD Dashboard
 
-### Access using ingress
+### Via ingress
 
-To access the ArgoCD dashboard via ingress, the ingress nginx or the ingress traefik addon has to be enabled.
-Once the addons are enabled, then the ArgoCD dashboard can be accessed at the following URL: <https://k2s.cluster.local/rollout>
+Requires ingress nginx, nginx-gw, or traefik to be enabled alongside rollout.
 
-### Access using port-forwarding
-
-To access the ArgoCD dashboard via port-forwarding, the following command can be executed:
 ```
+https://k2s.cluster.local/rollout
+```
+
+### Via port-forwarding
+
+```console
 kubectl -n rollout port-forward svc/argocd-server 8080:443
 ```
-In this case, the ArgoCD dashboard UI can be accessed at the following URL: <https://localhost:8080/rollout>
 
-### Deploy an application with ArgoCD
+Open `https://localhost:8080/rollout`. Accept the self-signed certificate.
 
-There are two ways of deploying applications with ArgoCD, either by using the CLI or web UI:
+---
 
-#### Via CLI
+## Deploy Applications with ArgoCD
 
-Step 1 - Login via the CLI:
-```
+### Via CLI
+
+```console
+# 1. Log in
 argocd login k2s.cluster.local:443 --grpc-web-root-path "rollout"
-```
-Proceed with the username and the password returned by the enable process.
 
-Step 2 - Add a repository 
-```
-argocd repo add https://github.com/argoproj/argocd-example-apps.git
-```
-Here we add a Git repository where our configurations files are located. If the repository is private we can still access it by providing the corresponding credentials with `--username <username> --password <password>`.
+# 2. Add your Git repository
+argocd repo add https://github.com/myorg/myapp.git
 
-Step 3 - Deploy example application
-```
-argocd app create guestbook --repo https://github.com/argoproj/argocd-example-apps.git --path guestbook --dest-server https://kubernetes.default.svc --dest-namespace argocd-test
-```
+# 3. Create an application
+argocd app create myapp \
+  --repo https://github.com/myorg/myapp.git \
+  --path deploy \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace default
 
-Step 4 - Sync application
-After creating an application with ArgoCD (Step 3), the application is not directly deployed in the cluster and has to be synced:
-```
-argocd app sync guestbook
+# 4. Sync
+argocd app sync myapp
 ```
 
-#### Via the web UI
+For private repositories, add credentials: `argocd repo add <url> --username <user> --password <pass>`.
 
-Step 1 - Login via the UI
-Visit `k2s.cluster.local/rollout` and login using the credentials return by the enable process.
+### Via Web UI
 
-Step 2 - Add a repository
-Navigate to Settings -> Repository -> Connect Repo
+1. Visit the dashboard URL (see [Access the ArgoCD Dashboard](#access-the-argocd-dashboard))
+2. **Settings → Repositories → Connect Repo** — add your Git repository
+3. **Applications → New App** — fill in source (repo, path, revision) and destination (cluster, namespace)
+4. Click **Sync** in the application overview to deploy
 
-Fill in the information required information. If the repository is private, either provide your username and password or use the specific keys.
+---
 
-Step 3 - Deploy example application
-Navigate to Applications -> New App 
+## GitOps Addon Delivery (Addon-Sync)
 
-Fill in the required information and create the app in ArgoCD
+Addon-sync provides GitOps-style addon delivery from an OCI registry into the local K2s addon catalog. After sync, addons can be managed with normal `k2s addons` commands.
 
-Step 4 - Sync application
+> **Sync vs. enable:** Sync only makes addon definitions available locally. It does **not** deploy workloads. Use `k2s addons enable <name>` after sync to install or update the addon in the cluster.
 
-In the application overview there should now be the option to sync your application.
+### Prerequisites
 
-## Disable rollout
+- Rollout with ArgoCD enabled
+- Reachable OCI registry for addon artifacts
+- `oras` available to push exported OCI addon artifacts
 
-The rollout addon can be disabled using the k2s CLI by running the following command:
-```
-k2s addons disable rollout
-```
+Placeholders used below:
 
-_Note:_ The above command will only disable rollout addon. If other addons were enabled while enabling the rollout addon, they will not be disabled.
+- `<REGISTRY_HOST>`: OCI registry host (example only: `k2s.registry.local:30500`)
+- `<REGISTRY_URL>`: `oci://<REGISTRY_HOST>`
+- `<ADDON_NAME>`: addon repository name under `addons/` (for example `monitoring`)
 
-## Further Information
-
-If you want to use `argocd admin export` and `argocd admin import` you have to specific the `rollout` namespace: e.g. `argocd admin export -n rollout > backup.yaml`.
-The reason for this is the scoped installation of ArgoCD to the `rollout` namespace.
-
-To import:
-```
- Get-Content -Raw .\backup.yaml | argocd admin import -n rollout -
+```console
+k2s addons enable rollout argocd
 ```
 
+### Minimal workflow
+
+1. Export the addon as OCI layout.
+2. Push the exported artifact to your registry under `addons/<name>:<tag>`.
+3. Wait for addon-sync to detect and pull the new digest.
+4. Enable the addon with K2s.
+
+```console
+# 1) Export
+k2s addons export <ADDON_NAME> -d C:\exports --omit-images --omit-packages
+
+# 2) Push (example)
+oras copy --from-oci-layout C:\exports\<exported-addon>.oci.tar:<tag> <REGISTRY_HOST>/addons/<ADDON_NAME>:<tag>
+
+# 3) Verify it is now available locally
+k2s addons ls
+
+# 4) Deploy workloads
+k2s addons enable <ADDON_NAME>
+```
+
+### Custom registry values (example)
+
+Use your own registry host in the push target. For example:
+
+```console
+set REGISTRY_HOST=registry.example.local:5000
+set REGISTRY_URL=oci://%REGISTRY_HOST%
+oras copy --from-oci-layout C:\exports\<exported-addon>.oci.tar:<tag> %REGISTRY_HOST%/addons/<ADDON_NAME>:<tag>
+```
+
+Use the same `%REGISTRY_URL%` and repository path (`addons/<ADDON_NAME>`) that your addon-sync configuration watches.
+
+### Configurable options
+
+The `addon-sync-config` ConfigMap controls core addon-sync behavior:
+
+- `REGISTRY_URL`: Registry base URL watched by addon-sync.
+- `K2S_INSTALL_DIR`: Windows host K2s installation path.
+- `INSECURE`: HTTP/plain mode (`true` or `false`).
+
+For TLS and authentication, configure the registry and ORAS/runtime credentials according to your chosen registry product.
+
+### Install directory behavior (auto-detected and patched)
+
+When you run `k2s addons enable rollout argocd`, `K2S_INSTALL_DIR` is patched automatically to the detected K2s installation path.
+
+If you apply manifests manually, verify and update `addon-sync-config` so `K2S_INSTALL_DIR` matches your actual installation path.
+
+#### Change the polling interval
+
+```console
+kubectl edit cronjob addon-sync-poller -n k2s-addon-sync
+```
+
+Modify `spec.schedule` (e.g., `*/2 * * * *` for 2-minute polling, `*/10 * * * *` for 10-minute polling).
+
+#### Registry without catalog API
+
+If your registry disables `GET /v2/_catalog` (common with RBAC-restricted Harbor, GHCR, ECR), `oras repo ls` returns no results and the poller skips all addons. Fix this by explicitly listing the addon repositories:
+
+```console
+kubectl patch configmap addon-sync-config -n k2s-addon-sync --type merge \
+  -p '{"data":{"ADDON_REPOS":"monitoring,security,registry"}}'
+```
+
+`Sync-Addons.ps1` reads `ADDON_REPOS` and uses it instead of catalog discovery. Update this list when you add new addons to the registry.
+
+---
+
+### Troubleshooting
+
+- Addon not listed in `k2s addons ls`: confirm artifact path/tag and wait for the next sync cycle.
+- Sync appears stalled: check addon-sync poller/jobs and logs in `k2s-addon-sync` namespace.
+- Addon listed but nothing deployed: run `k2s addons enable <name>` (sync alone does not deploy).
+
+```console
+kubectl get cronjob -n k2s-addon-sync
+kubectl get jobs -n k2s-addon-sync --sort-by=.metadata.creationTimestamp
+kubectl logs -n k2s-addon-sync -l app.kubernetes.io/component=poller --tail=100
+```
+
+
+## Backup and Restore
+
+Backup/restore is **scoped to the `rollout` namespace only**.
+
+### What gets backed up
+
+- `argocd admin export -n rollout` output (applications, projects, repository connections, settings)
+- Optional dashboard ingress resources in namespace `rollout`
+
+> **Note:** The ArgoCD export contains repository credentials. Store the backup archive securely.
+
+### What does not get backed up
+
+- ArgoCD controller manifests and CRDs (re-installed by `k2s addons enable rollout argocd` during restore)
+- Resources outside the `rollout` namespace
+- The `k2s-addon-sync` namespace — re-deployed automatically when rollout is re-enabled
+
+### Commands
+
+```console
+k2s addons backup rollout argocd
+k2s addons restore rollout argocd <path-to-backup-zip>
+```
+
+### Admin import/export
+
+If you need to use `argocd admin export`/`import` directly, specify the `rollout` namespace:
+
+```console
+argocd admin export -n rollout > backup.yaml
+Get-Content -Raw .\backup.yaml | argocd admin import -n rollout -
+```
+
+---
+
+## Disable ArgoCD
+
+```console
+k2s addons disable rollout argocd
+```
+
+Removes ArgoCD from the `rollout` namespace, the `k2s-addon-sync` namespace, and all addon-sync resources. Ingress addons enabled alongside rollout are not disabled.
+
+---
 
 ## Further Reading
-- [ArgoCD](https://argo-cd.readthedocs.io/en/stable/)
+
+- [ArgoCD Documentation](https://argo-cd.readthedocs.io/en/stable/)
+- [GitOps Addon Delivery — Full Operational Guide](../../../docs/op-manual/gitops-addon-delivery.md)

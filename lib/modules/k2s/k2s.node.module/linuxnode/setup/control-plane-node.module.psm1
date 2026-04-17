@@ -14,6 +14,12 @@ function New-ControlPlaneNodeOnNewVM {
         # Main parameters
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of master VM (Linux)')]
         [long] $MasterVMMemory = 8GB,
+        [parameter(Mandatory = $false, HelpMessage = 'Minimum Memory for Dynamic Memory (Linux)')]
+        [long] $MasterVMMemoryMin = 0,
+        [parameter(Mandatory = $false, HelpMessage = 'Maximum Memory for Dynamic Memory (Linux)')]
+        [long] $MasterVMMemoryMax = 0,
+        [parameter(Mandatory = $false, HelpMessage = 'Enable Hyper-V Dynamic Memory')]
+        [switch] $EnableDynamicMemory = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
         [long] $MasterVMProcessorCount = 6,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
@@ -60,6 +66,9 @@ function New-ControlPlaneNodeOnNewVM {
         DnsServers                        = $DnsServers
         VmName                            = 'KubeMaster'
         VMMemoryStartupBytes              = $MasterVMMemory
+        VMMemoryMinBytes                  = $MasterVMMemoryMin
+        VMMemoryMaxBytes                  = $MasterVMMemoryMax
+        EnableDynamicMemory               = $EnableDynamicMemory
         VMProcessorCount                  = $MasterVMProcessorCount
         VMDiskSize                        = $MasterDiskSize
         Proxy                             = $Proxy
@@ -72,7 +81,15 @@ function New-ControlPlaneNodeOnNewVM {
         Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
         Write-Log 'Configuring WSL2'
         Set-WSL -MasterVMMemory $MasterVMMemory -MasterVMProcessorCount $MasterVMProcessorCount
-        New-WslLinuxVmAsControlPlaneNode @controlPlaneParams
+
+        # WSL2 doesn't support Hyper-V dynamic memory - it has its own memory management
+        # Remove dynamic memory parameters before calling WSL function
+        $wslParams = $controlPlaneParams.Clone()
+        $wslParams.Remove('VMMemoryMinBytes')
+        $wslParams.Remove('VMMemoryMaxBytes')
+        $wslParams.Remove('EnableDynamicMemory')
+
+        New-WslLinuxVmAsControlPlaneNode @wslParams
         Start-WSL
         Set-WSLSwitch -IpAddress $($controlPlaneParams.GatewayIpAddress)
     }
@@ -99,6 +116,14 @@ function New-ControlPlaneNodeOnNewVM {
         Write-Host ''
     }
 
+    # Configure transparent proxy on control plane VM before kubeadm init
+    # so that CRI-O can pull images through the Windows host proxy.
+    # This also clears any stale proxy settings baked into the base VHDX.
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    $transparentProxy = "http://$($windowsHostIpAddress):8181"
+    Write-Log "[Proxy] Configuring transparent proxy ($transparentProxy) on control plane before kubeadm init" -Console
+    Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
+
     $clusterName = Get-ClusterName
     Set-InstalledClusterName -Value $clusterName
 
@@ -110,7 +135,7 @@ function New-ControlPlaneNodeOnNewVM {
         ClusterCIDR          = $(Get-ConfiguredClusterCIDR)
         ClusterCIDR_Services = $(Get-ConfiguredClusterCIDRServices)
         KubeDnsServiceIP     = $(Get-ConfiguredKubeDnsServiceIP)
-        IP_NextHop           = $(Get-ConfiguredKubeSwitchIP)
+        IP_NextHop           = $windowsHostIpAddress
         NetworkInterfaceName = $(Get-NetworkInterfaceName)
         Hook                 = $addToControlPlane
         ClusterName          = $clusterName
@@ -455,10 +480,10 @@ function Remove-ControlPlaneNodeOnNewVM {
         if (Test-Path $kubenodeBaseFilePath) {
             Remove-Item $kubenodeBaseFilePath -Force
         }
-        $debianImageFilePath = Get-DebianImageFilePath
-        Write-Log "Delete file '$debianImageFilePath' if existing"
-        if (Test-Path $debianImageFilePath) {
-            Remove-Item $debianImageFilePath -Force
+        $linuxImageFilePath = Get-LinuxImageFilePath
+        Write-Log "Delete file '$linuxImageFilePath' if existing"
+        if (Test-Path $linuxImageFilePath) {
+            Remove-Item $linuxImageFilePath -Force
         }
     }
 

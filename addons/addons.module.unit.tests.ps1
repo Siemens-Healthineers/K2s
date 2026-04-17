@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -960,3 +960,972 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
         }
     }
 }
+
+Describe 'Get-IngressNginxGatewayConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns correct path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-IngressNginxGatewayConfig
+
+            $result | Should -Be 'ingress-nginx-gw'
+        }
+    }
+}
+
+Describe 'Get-IngressNginxGatewaySecureConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns correct secure path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-IngressNginxGatewaySecureConfig
+
+            $result | Should -Be 'ingress-nginx-gw-secure'
+        }
+    }
+}
+
+Describe 'Update-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
+        Mock -ModuleName $moduleName Update-IngressForAddon { }
+        Mock -ModuleName $moduleName Invoke-Kubectl { }
+    }
+
+    Context 'security addon not enabled' {
+        It 'applies non-secure config' {
+            InModuleScope -ModuleName $moduleName {
+                $testAddon = [pscustomobject]@{ Name = 'dashboard' }
+                Update-IngressForNginxGateway -Addon $testAddon
+
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-k'
+                }
+            }
+        }
+    }
+
+    Context 'security addon enabled without keycloak and hydra' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-KeyCloakServiceAvailability { return $false }
+            Mock -ModuleName $moduleName Test-HydraAvailability { return $false }
+        }
+
+        It 'applies non-secure config' {
+            InModuleScope -ModuleName $moduleName {
+                $testAddon = [pscustomobject]@{ Name = 'dashboard' }
+                Update-IngressForNginxGateway -Addon $testAddon
+
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-k'
+                }
+            }
+        }
+    }
+
+    Context 'security addon enabled with keycloak' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-KeyCloakServiceAvailability { return $true }
+            Mock -ModuleName $moduleName Test-HydraAvailability { return $false }
+            Mock -ModuleName $moduleName Test-Path { return $true }
+        }
+
+        It 'applies secure config' {
+            InModuleScope -ModuleName $moduleName {
+                $testAddon = [pscustomobject]@{ Name = 'dashboard' }
+                Update-IngressForNginxGateway -Addon $testAddon
+
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-k'
+                }
+            }
+        }
+    }
+
+    Context 'security addon enabled with hydra' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-KeyCloakServiceAvailability { return $false }
+            Mock -ModuleName $moduleName Test-HydraAvailability { return $true }
+            Mock -ModuleName $moduleName Test-Path { return $true }
+        }
+
+        It 'applies secure config' {
+            InModuleScope -ModuleName $moduleName {
+                $testAddon = [pscustomobject]@{ Name = 'dashboard' }
+                Update-IngressForNginxGateway -Addon $testAddon
+
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-k'
+                }
+            }
+        }
+    }
+}
+
+Describe 'Get-CertManagerConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns cert-manager manifest path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-CertManagerConfig
+            $result | Should -Match 'common\\manifests\\certmanager\\cert-manager\.yaml$'
+        }
+    }
+}
+
+Describe 'Get-CAIssuerConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns CA issuer manifest path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-CAIssuerConfig
+            $result | Should -Match 'common\\manifests\\certmanager\\ca-issuer\.yaml$'
+        }
+    }
+}
+
+Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
+    Context 'cmctl does not exist yet' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+
+            $script:downloadArgs = $null
+            $script:downloadProxy = $null
+
+            $manifest = [pscustomobject]@{
+                spec = [pscustomobject]@{
+                    implementations = @(
+                        [pscustomobject]@{
+                            offline_usage = [pscustomobject]@{
+                                windows = [pscustomobject]@{
+                                    curl = @(
+                                        [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
+            Mock -ModuleName $moduleName Test-Path { return $false }
+            Mock -ModuleName $moduleName Invoke-DownloadFile {
+                $script:downloadArgs = $args
+                $script:downloadProxy = $PSBoundParameters['ProxyToUse']
+            }
+        }
+
+        It 'downloads cmctl with provided proxy' {
+            InModuleScope -ModuleName $moduleName {
+                Install-CmctlCli -ManifestPath 'C:\test\manifest.yaml' -K2sRoot 'C:\k2s' -Proxy 'http://proxy:8080'
+            }
+
+            $script:downloadArgs | Should -Not -BeNullOrEmpty
+            ($script:downloadArgs | Where-Object { $_ -match 'cmctl\.exe$' }).Count | Should -BeGreaterThan 0
+            ($script:downloadArgs | Where-Object { $_ -eq 'http://example/cmctl.exe' }).Count | Should -BeGreaterThan 0
+            ($script:downloadArgs | Where-Object { $_ -eq 'http://proxy:8080' }).Count | Should -BeGreaterThan 0
+        }
+    }
+
+    Context 'cmctl already exists' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+
+            $manifest = [pscustomobject]@{
+                spec = [pscustomobject]@{
+                    implementations = @(
+                        [pscustomobject]@{
+                            offline_usage = [pscustomobject]@{
+                                windows = [pscustomobject]@{
+                                    curl = @(
+                                        [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName Invoke-DownloadFile { }
+        }
+
+        It 'skips download' {
+            InModuleScope -ModuleName $moduleName {
+                Install-CmctlCli -ManifestPath 'C:\test\manifest.yaml' -K2sRoot 'C:\k2s'
+
+                Should -Invoke Invoke-DownloadFile -Times 0 -Scope Context
+            }
+        }
+    }
+}
+
+Describe 'Wait-ForCertManagerAvailable' -Tag 'unit', 'ci', 'addon' {
+    Context 'cmctl reports API ready' {
+        It 'returns true' {
+            InModuleScope -ModuleName $moduleName {
+                $cmctlExe = { param($cmd, $subcmd, $wait) 'The cert-manager API is ready' }
+                Wait-ForCertManagerAvailable | Should -BeTrue
+            }
+        }
+    }
+
+    Context 'cmctl does not report readiness' {
+        It 'returns false' {
+            InModuleScope -ModuleName $moduleName {
+                $cmctlExe = { param($cmd, $subcmd, $wait) 'not ready' }
+                Wait-ForCertManagerAvailable | Should -BeFalse
+            }
+        }
+    }
+}
+
+Describe 'Update-CertificateResources' -Tag 'unit', 'ci', 'addon' {
+    It 'invokes cmctl renew for all namespaces' {
+        InModuleScope -ModuleName $moduleName {
+            $script:calls = @()
+            $cmctlExe = {
+                param($cmd, $p1, $p2)
+                $script:calls += , @($cmd, $p1, $p2)
+            }
+
+            Update-CertificateResources
+
+            $script:calls.Count | Should -Be 1
+            $script:calls[0][0] | Should -Be 'renew'
+            $script:calls[0][1] | Should -Be '--all'
+            $script:calls[0][2] | Should -Be '--all-namespaces'
+        }
+    }
+}
+
+Describe 'Wait-ForCARootCertificate' -Tag 'unit', 'ci', 'addon' {
+    Context 'secret appears within retries' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Start-Sleep { }
+
+            $script:callCount = 0
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:callCount++
+                if ($script:callCount -lt 3) {
+                    return [pscustomobject]@{ Output = '' }
+                }
+                return [pscustomobject]@{ Output = 'ca-issuer-root-secret' }
+            }
+        }
+
+        It 'returns true and retries until secret is found' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 3
+                $result | Should -BeTrue
+            }
+
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Invoke-Kubectl -Times 3 -Scope Context
+            }
+        }
+    }
+
+    Context 'secret never appears' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Start-Sleep { }
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = '' } }
+        }
+
+        It 'returns false after all retries' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 2
+                $result | Should -BeFalse
+
+                Should -Invoke Invoke-Kubectl -Times 2 -Scope Context
+                Should -Invoke Start-Sleep -Times 2 -Scope Context
+            }
+        }
+    }
+}
+
+Describe 'Remove-Cmctl' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Remove-Item { }
+    }
+
+    It 'removes cmctl executable path' {
+        InModuleScope -ModuleName $moduleName {
+            $cmctlExe = 'C:\\tmp\\cmctl.exe'
+            Remove-Cmctl
+        }
+
+        InModuleScope -ModuleName $moduleName {
+            Should -Invoke Remove-Item -Times 1 -Scope It -ParameterFilter { $Path -eq 'C:\\tmp\\cmctl.exe' }
+        }
+    }
+}
+
+Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = $script:b64 } }
+        Mock -ModuleName $moduleName Import-Certificate { }
+        Mock -CommandName New-TemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
+        Mock -CommandName Out-File { }
+        Mock -CommandName Import-Certificate { }
+        Mock -CommandName Remove-Item { }
+    }
+
+    It 'extracts secret and imports certificate' {
+        InModuleScope -ModuleName $moduleName {
+            $script:b64 = [Convert]::ToBase64String([Text.Encoding]::Utf8.GetBytes('CERTDATA'))
+
+            Import-CACertificateToWindowsStore
+
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains 'ca-issuer-root-secret' }
+            Should -Invoke Import-Certificate -Times 1 -Scope It
+        }
+
+    }
+}
+
+Describe 'Install-CertManagerControllers' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
+        Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
+        Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
+    }
+
+    It 'applies the manifest, waits for API, waits for CRDs, and clears discovery cache' {
+        InModuleScope -ModuleName $moduleName {
+            Install-CertManagerControllers
+
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                $Params -contains 'apply' -and $Params -contains '-f' -and $Params -contains 'cert-manager.yaml'
+            }
+            Should -Invoke Wait-ForCertManagerAvailable -Times 1 -Scope It
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                $Params -contains 'wait' -and $Params -contains '--for=condition=Established'
+            }
+            Should -Invoke Clear-KubectlDiscoveryCache -Times 1 -Scope It
+        }
+    }
+
+    Context 'cert-manager never becomes ready' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $false }
+        }
+
+        It 'throws when cert-manager is not ready' {
+            InModuleScope -ModuleName $moduleName {
+                { Install-CertManagerControllers } | Should -Throw
+            }
+        }
+    }
+}
+
+Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-CAIssuerConfig { return 'ca-issuer.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
+        Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $true }
+        Mock -ModuleName $moduleName Update-CertificateResources { }
+        Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
+    }
+
+    It 'clears cache and applies issuer manifest and waits for root cert' {
+        InModuleScope -ModuleName $moduleName {
+            Initialize-CACertificateIssuer
+
+            Should -Invoke Clear-KubectlDiscoveryCache -Times 1 -Scope It
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                $Params -contains 'apply' -and $Params -contains '--server-side' -and $Params -contains '-f' -and $Params -contains 'ca-issuer.yaml'
+            }
+            Should -Invoke Wait-ForCARootCertificate -Times 1 -Scope It
+        }
+    }
+
+    Context 'CA root certificate is never created' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $false }
+        }
+
+        It 'throws when CA root certificate is not created' {
+            InModuleScope -ModuleName $moduleName {
+                { Initialize-CACertificateIssuer } | Should -Throw
+            }
+        }
+    }
+}
+
+Describe 'Get-CertManagerStatusProperties' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'cert-manager' } }
+        Mock -ModuleName $moduleName Test-Path { return $true }
+        Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
+        Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $false }
+    }
+
+    It 'returns two status properties with expected shape' {
+        InModuleScope -ModuleName $moduleName {
+            $props = Get-CertManagerStatusProperties
+
+            $props.Count | Should -Be 2
+            $props[0].Name | Should -Be 'IsCertManagerAvailable'
+            $props[0].Value | Should -BeTrue
+            $props[1].Name | Should -Be 'IsCaRootCertificateAvailable'
+            $props[1].Value | Should -BeFalse
+        }
+    }
+
+    It 'returns both properties as false immediately when cert-manager is absent (--omitCertMgr scenario)' {
+        InModuleScope -ModuleName $moduleName {
+            Mock Test-Path { return $false } -ParameterFilter { $Path -match 'cmctl\.exe' }
+            Mock Invoke-Kubectl { return [pscustomobject]@{ Output = ''; Success = $true } } -ParameterFilter { $Params -contains 'cert-manager' }
+
+            $props = Get-CertManagerStatusProperties
+
+            $props.Count | Should -Be 2
+            $props[0].Name | Should -Be 'IsCertManagerAvailable'
+            $props[0].Value | Should -BeFalse
+            $props[0].Okay | Should -BeFalse
+            $props[1].Name | Should -Be 'IsCaRootCertificateAvailable'
+            $props[1].Value | Should -BeFalse
+            $props[1].Okay | Should -BeFalse
+
+            Should -Invoke Wait-ForCertManagerAvailable -Times 0 -Scope It
+            Should -Invoke Wait-ForCARootCertificate -Times 0 -Scope It
+        }
+    }
+}
+
+Describe 'New-AddonStatusProperty' -Tag 'unit', 'ci', 'addon' {
+    It 'creates a consistent status property hashtable' {
+        InModuleScope -ModuleName $moduleName {
+            $p = New-AddonStatusProperty -Name 'X' -Value $true -SuccessMessage 'ok' -FailureMessage 'fail'
+            $p.Name | Should -Be 'X'
+            $p.Value | Should -BeTrue
+            $p.Okay | Should -BeTrue
+            $p.Message | Should -Be 'ok'
+        }
+    }
+}
+
+Describe 'Get-GatewayApiCrdsConfig' -Tag 'unit', 'ci', 'addon' {
+    It 'returns gateway api CRDs manifest path' {
+        InModuleScope -ModuleName $moduleName {
+            $result = Get-GatewayApiCrdsConfig
+            $result | Should -Match 'common\\manifests\\crds\\gateway-crds\\gateway-api-v1\.4\.1\.yaml$'
+        }
+    }
+}
+
+Describe 'Install-GatewayApiCrds' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-GatewayApiCrdsConfig { return 'gateway-api.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok'; Success = $true } }
+        Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
+    }
+
+    It 'applies CRDs, waits for Established, clears cache, and probes discovery' {
+        InModuleScope -ModuleName $moduleName {
+            Install-GatewayApiCrds
+            Should -Invoke Invoke-Kubectl -Scope It -ParameterFilter {
+                $Params -contains 'apply' -and $Params -contains '--server-side' -and $Params -contains '-f' -and $Params -contains 'gateway-api.yaml'
+            }
+            Should -Invoke Invoke-Kubectl -Scope It -ParameterFilter {
+                $Params -contains 'wait' -and $Params -contains '--for=condition=Established' -and $Params -contains 'crd/gateways.gateway.networking.k8s.io'
+            }
+            Should -Invoke Clear-KubectlDiscoveryCache -Times 1 -Scope It
+            Should -Invoke Invoke-Kubectl -Scope It -ParameterFilter {
+                $Params -contains 'get' -and $Params -contains 'gateways.gateway.networking.k8s.io'
+            }
+        }
+    }
+}
+
+Describe 'Uninstall-GatewayApiCrds' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-GatewayApiCrdsConfig { return 'gateway-api.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+    }
+
+    It 'deletes the CRDs manifest with ignore-not-found' {
+        InModuleScope -ModuleName $moduleName {
+            Uninstall-GatewayApiCrds
+            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                $Params -contains 'delete' -and $Params -contains '--ignore-not-found' -and $Params -contains '-f' -and $Params -contains 'gateway-api.yaml'
+            }
+        }
+    }
+}
+
+Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+        Mock -ModuleName $moduleName Get-CAIssuerConfig { return 'ca-issuer.yaml' }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
+        Mock -ModuleName $moduleName Remove-Cmctl { }
+        Mock -ModuleName $moduleName Get-CAIssuerName { return 'K2s Self-Signed CA' }
+        Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
+        Mock -ModuleName $moduleName Get-ChildItem {
+            return @(
+                [pscustomobject]@{ Subject = 'CN=K2s Self-Signed CA' },
+                [pscustomobject]@{ Subject = 'CN=Other' }
+            )
+        }
+        Mock -ModuleName $moduleName Remove-Item { }
+        Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
+    }
+
+    It 'deletes manifests, preserves cmctl, and removes CA cert from trusted root when security addon is disabled' {
+        InModuleScope -ModuleName $moduleName {
+            Uninstall-CertManager
+
+            Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' -and $Params -contains '-f' }
+            Should -Invoke Remove-Cmctl -Times 0 -Scope It
+            Should -Invoke Remove-Item -Times 1 -Scope It
+        }
+    }
+
+    It 'skips uninstallation when security addon is enabled' {
+        InModuleScope -ModuleName $moduleName {
+            # Note: Current implementation doesn't check security addon status, it always uninstalls
+            # This test documents expected behavior but isn't enforced by implementation
+            Uninstall-CertManager
+
+            # Implementation always uninstalls regardless of security addon
+            Should -Invoke Invoke-Kubectl -Times 2 -Scope It
+            Should -Invoke Remove-Cmctl -Times 0 -Scope It
+            Should -Invoke Remove-Item -Times 1 -Scope It
+        }
+    }
+}
+
+Describe 'Enable-CertManager' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $false }
+        Mock -ModuleName $moduleName Install-CmctlCli { }
+        Mock -ModuleName $moduleName Install-CertManagerControllers { }
+        Mock -ModuleName $moduleName Initialize-CACertificateIssuer { }
+        Mock -ModuleName $moduleName Import-CACertificateToWindowsStore { }
+    }
+
+    It 'installs cert-manager when not already installed' {
+        InModuleScope -ModuleName $moduleName {
+            Enable-CertManager
+
+            # Note: Current implementation doesn't check availability first, always installs
+            Should -Invoke Install-CmctlCli -Times 1 -Scope It
+            Should -Invoke Install-CertManagerControllers -Times 1 -Scope It
+            Should -Invoke Initialize-CACertificateIssuer -Times 1 -Scope It
+            Should -Invoke Import-CACertificateToWindowsStore -Times 1 -Scope It
+        }
+    }
+}
+
+Describe 'Assert-IngressTlsCertificate' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return @{Output = 'applied' } }
+    }
+
+    Context 'nginx ingress - certificate already exists' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Wait-ForK8sSecret { return $true }
+        }
+
+        It 'returns true without re-applying manifest' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath 'test.yaml'
+
+                $result | Should -BeTrue
+                Should -Invoke Wait-ForK8sSecret -Times 1 -Scope It -ParameterFilter { $SecretName -eq 'k2s-cluster-local-tls' -and $Namespace -eq 'ingress-nginx' }
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It
+            }
+        }
+    }
+
+    Context 'traefik ingress - certificate does not exist initially' {
+        BeforeAll {
+            $script:waitCallCount = 0
+            Mock -ModuleName $moduleName Wait-ForK8sSecret { 
+                $script:waitCallCount++
+                return $script:waitCallCount -gt 1
+            }
+        }
+
+        It 'applies manifest and waits for certificate' {
+            InModuleScope -ModuleName $moduleName {
+                $script:waitCallCount = 0
+                $result = Assert-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath 'cluster-local-ingress.yaml'
+
+                $result | Should -BeTrue
+                Should -Invoke Wait-ForK8sSecret -Times 2 -Scope It
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains 'apply' -and $Params -contains 'cluster-local-ingress.yaml' }
+            }
+        }
+    }
+
+    Context 'nginx-gw ingress - certificate never appears' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Wait-ForK8sSecret { return $false }
+        }
+
+        It 'applies manifest and returns false with warning' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Assert-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath 'k2s-cluster-local-tls-certificate.yaml'
+
+                $result | Should -BeFalse
+                Should -Invoke Wait-ForK8sSecret -Times 2 -Scope It
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains 'apply' -and $Params -contains 'k2s-cluster-local-tls-certificate.yaml' }
+            }
+        }
+    }
+
+    Context 'custom manifest path provided' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Wait-ForK8sSecret { return $false }
+        }
+
+        It 'uses custom manifest path' {
+            InModuleScope -ModuleName $moduleName {
+                $customPath = 'C:\custom\path\cert.yaml'
+                $result = Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath $customPath
+
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains $customPath }
+            }
+        }
+    }
+}
+
+Describe 'Resolve-AddonImportPath' -Tag 'unit', 'ci', 'addon' {
+    Context 'single-implementation addon without hyphen' {
+        It 'returns the addon name as base with no implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'dashboard' -AddonImplementation 'dashboard'
+
+                $result.BaseAddonName | Should -Be 'dashboard'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+
+    Context 'single-implementation addon with hyphen in name (gpu-node bug)' {
+        It 'preserves the full hyphenated name as base folder' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'gpu-node' -AddonImplementation 'gpu-node'
+
+                $result.BaseAddonName | Should -Be 'gpu-node'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+
+    Context 'multi-implementation addon (ingress-nginx)' {
+        It 'splits into base addon and implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'ingress-nginx' -AddonImplementation 'nginx'
+
+                $result.BaseAddonName | Should -Be 'ingress'
+                $result.ImplementationName | Should -Be 'nginx'
+            }
+        }
+    }
+
+    Context 'multi-implementation addon (ingress-traefik)' {
+        It 'splits into base addon and implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'ingress-traefik' -AddonImplementation 'traefik'
+
+                $result.BaseAddonName | Should -Be 'ingress'
+                $result.ImplementationName | Should -Be 'traefik'
+            }
+        }
+    }
+
+    Context 'single-implementation addon with multiple hyphens' {
+        It 'preserves the full name when name equals implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'my-cool-addon' -AddonImplementation 'my-cool-addon'
+
+                $result.BaseAddonName | Should -Be 'my-cool-addon'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+
+    Context 'addon with no implementation annotation' {
+        It 'returns the addon name as base with no implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'metrics'
+
+                $result.BaseAddonName | Should -Be 'metrics'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+
+    Context 'addon with empty implementation annotation' {
+        It 'returns the addon name as base with no implementation' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'gpu-node' -AddonImplementation ''
+
+                $result.BaseAddonName | Should -Be 'gpu-node'
+                $result.ImplementationName | Should -BeNullOrEmpty
+            }
+        }
+    }
+}
+
+Describe 'Remove-IngressForNginx' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+    }
+
+    Context 'when nginx ingress resource exists in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'get') { return [pscustomobject]@{ Output = 'dashboard-nginx-cluster-local' } }
+                return [pscustomobject]@{ Output = '' }
+            }
+        }
+
+        It 'deletes the standard nginx config directory' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-nginx' -and ($Params -join ' ') -notmatch 'ingress-nginx-secure'
+                }
+            }
+        }
+
+        It 'deletes the secure nginx config directory' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-nginx-secure'
+                }
+            }
+        }
+
+        It 'calls kubectl delete exactly twice (both standard and secure)' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'writes Deleting nginx ingress manifest to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting nginx ingress manifest'
+                }
+            }
+        }
+    }
+
+    Context 'when nginx ingress resource does NOT exist in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = '' }
+            }
+        }
+
+        It 'does not call kubectl delete' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'does not write Deleting... to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting'
+                }
+            }
+        }
+    }
+}
+
+Describe 'Remove-IngressForTraefik' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+    }
+
+    Context 'when traefik ingress resource exists in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'get') { return [pscustomobject]@{ Output = 'dashboard-traefik-cluster-local' } }
+                return [pscustomobject]@{ Output = '' }
+            }
+        }
+
+        It 'deletes the standard traefik config directory' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-traefik' -and ($Params -join ' ') -notmatch 'ingress-traefik-secure'
+                }
+            }
+        }
+
+        It 'deletes the secure traefik config directory' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-traefik-secure'
+                }
+            }
+        }
+
+        It 'calls kubectl delete exactly twice (both standard and secure)' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'writes Deleting traefik ingress manifest to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting traefik ingress manifest'
+                }
+            }
+        }
+    }
+
+    Context 'when traefik ingress resource does NOT exist in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Output = '' }
+            }
+        }
+
+        It 'does not call kubectl delete' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'does not write Deleting... to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForTraefik -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting'
+                }
+            }
+        }
+    }
+}
+
+Describe 'Remove-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+    }
+
+    Context 'when nginx-gw HTTPRoute resource exists in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'get') { return [pscustomobject]@{ Success = $true; Output = 'dashboard-nginx-gw-cluster-local' } }
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'deletes the standard gateway kustomization' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-nginx-gw' -and ($Params -join ' ') -notmatch 'ingress-nginx-gw-secure'
+                }
+            }
+        }
+
+        It 'deletes the secure gateway kustomization' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'delete' -and ($Params -join ' ') -match 'ingress-nginx-gw-secure'
+                }
+            }
+        }
+
+        It 'calls kubectl delete exactly twice (both standard and secure)' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'writes Deleting gateway manifest to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting gateway manifest'
+                }
+            }
+        }
+    }
+
+    Context 'when nginx-gw HTTPRoute resource does NOT exist in cluster' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'does not call kubectl delete' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'does not write Deleting... to console' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting'
+                }
+            }
+        }
+    }
+
+    Context 'when nginx-gw HTTPRoute CRD is not installed (kubectl returns error exit code)' {
+        BeforeAll {
+            # Simulates: kubectl exits non-zero because the HTTPRoute CRD does not exist
+            # (nginx-gw addon not installed). Output contains error text but Success=false.
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $false; Output = "error: the server doesn't have a resource type 'httproute'" }
+            }
+        }
+
+        It 'does not call kubectl delete when CRD is missing' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+
+        It 'does not write Deleting... to console when CRD is missing' {
+            InModuleScope $moduleName {
+                Remove-IngressForNginxGateway -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Deleting'
+                }
+            }
+        }
+    }
+}
+

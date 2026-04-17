@@ -55,7 +55,11 @@ docker buildx create --name img-builder --use --platform windows/amd64 --driver-
 k2s node copy -i 172.19.1.100 -u remote -s "fluent-bit" -t "/home/remote/"
 
 # Build Dockerfile and export image to tar ball
+<<<<<<< HEAD
 docker buildx build -t shsk2s.azurecr.io/fluent/fluent-bit:3.0.4 --platform=windows/amd64 -o type=docker,dest=- . > out.tar
+=======
+docker buildx build -t shsk2s.azurecr.io/fluent/fluent-bit:5.0.2 --platform=windows/amd64 -o type=docker,dest=- . > out.tar
+>>>>>>> origin/main
 
 # use k2s to export to windows host
 k2s node copy -i 172.19.1.100 -u remote -s fluent-bit/out.tar -t out.tar -r

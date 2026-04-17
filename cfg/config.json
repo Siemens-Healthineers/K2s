@@ -69,10 +69,11 @@
                 "outboundaddressexceptions": ""
             }
         },
-        "upgrade": {
-            "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gateway,gpu-node,ingress-nginx,kubevirt,monitoring,registry",
+        "backup": {
+            "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gateway,gpu-node,ingress-nginx,kubevirt,monitoring,registry,dicom,ingress-traefik,logging,security,viewer,storage-smb,linkerd,cert-manager,dashboard,autoscaling,metrics,rollout",
             "excludednamespacedresources": "endpoints,endpointslices",
-            "excludedclusterresources": "componentstatuses,nodes,csinodes,ipaddresses,certificatesigningrequests,storageclasses,servicecidrs,apiservices,flowschemas,prioritylevelconfigurations,ingressclasses,runtimeclasses,storageclasses"
+            "excludedclusterresources": "componentstatuses,nodes,csinodes,ipaddresses,certificatesigningrequests,storageclasses,servicecidrs,apiservices,flowschemas,prioritylevelconfigurations,ingressclasses,runtimeclasses,storageclasses",
+            "excludedaddonpersistentvolumes": "postgresql-pv-volume,dicom-pv-volume,orthanc-pv,registry-pv,smb-static-pv,opensearch-cluster-master-pv"
         }
     },
     "configDir": {
@@ -81,5 +82,21 @@
         "docker": "~/.docker",
         "k2s": "C:\\ProgramData\\K2s"
     },
-    "clusterName": "k2s-cluster"
+    "clusterName": "k2s-cluster",
+    "supportedWorkerOS": [
+        {
+            "os": "debian12",
+            "cloudImage": {
+                "urlRoot": "https://cloud.debian.org/images/cloud/bookworm/latest",
+                "urlFile": "debian-12-genericcloud-amd64.qcow2"
+            }
+        },
+        {
+            "os": "debian13",
+            "cloudImage": {
+                "urlRoot": "https://cloud.debian.org/images/cloud/trixie/latest",
+                "urlFile": "debian-13-genericcloud-amd64.qcow2"
+            }
+        }
+    ]
 }

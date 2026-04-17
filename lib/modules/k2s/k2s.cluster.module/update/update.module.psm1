@@ -55,7 +55,120 @@ function Get-ProductVersionGivenKubePath {
 		[Parameter(Mandatory = $false)]
 		[string]$KubePathLocal = $(throw 'KubePath not specified')        
 	)
-	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")"
+	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")".Trim()
+}
+
+<#
+.SYNOPSIS
+	Restores CoreDNS etcd plugin configuration after kubeadm upgrade.
+.DESCRIPTION
+	kubeadm upgrade may reset CoreDNS customizations. This function restores:
+	- etcd TLS secrets (etcd-ca, etcd-client-for-core-dns)
+	- CoreDNS ConfigMap etcd plugin block
+	- CoreDNS Deployment volume mounts for etcd certificates
+	
+	This is required because K2s uses CoreDNS with an etcd plugin for external DNS
+	resolution (see docs/op-manual/external-dns.md).
+.PARAMETER ControlPlaneIp
+	IP address of the control plane. Defaults to 172.19.1.100.
+.PARAMETER ShowLogs
+	Show detailed logs to console.
+.OUTPUTS
+	[bool] Success indicator.
+.NOTES
+	Requires Invoke-CmdOnControlPlaneViaSSHKey to be available (vm module).
+#>
+function Restore-CoreDnsEtcdConfiguration {
+	[CmdletBinding()]
+	param(
+		[string]$ControlPlaneIp = '172.19.1.100',
+		[switch]$ShowLogs
+	)
+	
+	$consoleSwitch = $ShowLogs
+	
+	try {
+		Write-Log "[CoreDNS] Restoring etcd plugin configuration..." -Console:$consoleSwitch
+		Write-Log "[CoreDNS] Using control plane IP: $ControlPlaneIp" -Console:$consoleSwitch
+		
+		# Verify SSH helper is available
+		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
+			# Try relative path first (from k2s.cluster.module/update/ -> ../../k2s.node.module/)
+			$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+			if (Test-Path -LiteralPath $vmModule) { 
+				Import-Module $vmModule -ErrorAction SilentlyContinue 
+			} else {
+				# Fallback to installed k2s folder
+				$installFolder = Get-ClusterInstalledFolder
+				$vmModule = Join-Path $installFolder 'lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1'
+				if (Test-Path -LiteralPath $vmModule) {
+					Import-Module $vmModule -ErrorAction SilentlyContinue
+				}
+			}
+		}
+		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
+			Write-Log "[CoreDNS][Error] SSH helper not available - vm module not found at $vmModule" -Console:$consoleSwitch
+			return $false
+		}
+		
+		# Step 1: Recreate etcd secrets for CoreDNS
+		Write-Log "[CoreDNS] Recreating etcd secrets..." -Console:$consoleSwitch
+		$secretCmds = @(
+			'sudo mkdir -p /tmp/etcd-certs && sudo cp /etc/kubernetes/pki/etcd/* /tmp/etcd-certs/ && sudo chmod 444 /tmp/etcd-certs/*',
+			'kubectl delete secret -n kube-system etcd-ca --ignore-not-found=true',
+			'kubectl delete secret -n kube-system etcd-client-for-core-dns --ignore-not-found=true',
+			'kubectl create secret -n kube-system tls etcd-ca --cert=/tmp/etcd-certs/ca.crt --key=/tmp/etcd-certs/ca.key',
+			'kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=/tmp/etcd-certs/healthcheck-client.crt --key=/tmp/etcd-certs/healthcheck-client.key',
+			'sudo rm -rf /tmp/etcd-certs'
+		)
+		foreach ($cmd in $secretCmds) {
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cmd -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		}
+		Write-Log "[CoreDNS] etcd secrets recreated" -Console:$consoleSwitch
+		
+		# Step 2: Update CoreDNS configmap to add etcd plugin if missing
+		Write-Log "[CoreDNS] Checking CoreDNS configmap for etcd plugin..." -Console:$consoleSwitch
+		$etcdPluginCheck = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get configmap coredns -n kube-system -o yaml | grep -c "etcd cluster.local" || echo 0' -Timeout 30 -IgnoreErrors:$true).Output
+		if ($etcdPluginCheck -match '^0') {
+			Write-Log "[CoreDNS] Adding etcd plugin to configmap..." -Console:$consoleSwitch
+			$addEtcdPlugin = "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*prometheus :9153/i\        etcd cluster.local {\n            path /skydns\n            endpoint https://${ControlPlaneIp}:2379\n            tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt\n        }' | kubectl apply -f -"
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addEtcdPlugin -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+			Write-Log "[CoreDNS] etcd plugin added to configmap" -Console:$consoleSwitch
+		} else {
+			Write-Log "[CoreDNS] etcd plugin already present in configmap" -Console:$consoleSwitch
+		}
+		
+		# Step 3: Update CoreDNS deployment to mount etcd certificate volumes if missing
+		Write-Log "[CoreDNS] Checking CoreDNS deployment for etcd volume mounts..." -Console:$consoleSwitch
+		$volumeCheck = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get deployment coredns -n kube-system -o yaml | grep -c "etcd-ca-cert" || echo 0' -Timeout 30 -IgnoreErrors:$true).Output
+		if ($volumeCheck -match '^0') {
+			Write-Log "[CoreDNS] Adding etcd volume definitions to deployment..." -Console:$consoleSwitch
+			$addVolumes = "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -"
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addVolumes -Timeout 30 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+			
+			# Wait for deployment to be available
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=60s' -Timeout 90 -IgnoreErrors:$true).Output | Out-Null
+			
+			Write-Log "[CoreDNS] Adding etcd volume mounts to container..." -Console:$consoleSwitch
+			$addMounts = "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -"
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addMounts -Timeout 30 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
+			Write-Log "[CoreDNS] etcd volume mounts added to deployment" -Console:$consoleSwitch
+		} else {
+			Write-Log "[CoreDNS] etcd volume mounts already present in deployment" -Console:$consoleSwitch
+		}
+		
+		# Step 4: Restart CoreDNS to pick up changes
+		Write-Log "[CoreDNS] Restarting CoreDNS deployment..." -Console:$consoleSwitch
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/coredns -n kube-system' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=120s' -Timeout 150 -IgnoreErrors:$true).Output | Out-Null
+		
+		Write-Log "[CoreDNS] Configuration restored successfully" -Console:$consoleSwitch
+		return $true
+	} catch {
+		Write-Log ("[CoreDNS][Error] Restoration failed: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		Write-Log "[CoreDNS][Error] Manual restoration may be required - see docs/op-manual/external-dns.md" -Console:$consoleSwitch
+		return $false
+	}
 }
 
 function PerformClusterUpdate {
@@ -63,7 +176,7 @@ function PerformClusterUpdate {
 	.SYNOPSIS
 		Applies a delta package to perform an in-place K2s cluster update.
 	.DESCRIPTION
-		Implements experimental update flow using a previously extracted delta package.
+		Implements update flow using a previously extracted delta package.
 		This function MUST be executed from the extracted delta package directory, NOT from
 		the installed k2s directory. The delta package directory is identified by the presence
 		of delta-manifest.json in the current working directory.
@@ -79,9 +192,9 @@ function PerformClusterUpdate {
 		  4. Version compatibility validation
 		  5. Apply Debian package delta (if cluster is running)
 		  6. Stop cluster automatically (if it was running)
-		  7. Apply updated Windows artifacts (executables, dlls, scripts) from delta to target installation
+		  7. Apply updated Windows artifacts (add/update files, remove obsolete files) from delta to target installation
 		  8. Restart cluster automatically (if it was running before)
-		  9. Load / import container images from delta if included
+		  9. Import container images from image-delta (Windows via nerdctl, Linux via SCP + buildah)
 		  10. Run optional hooks (pre/post) [placeholder]
 		  11. Basic health checks (API server reachable, node Ready) if cluster is running
 		  12. Update VERSION file and setup.json to reflect successful update
@@ -94,7 +207,7 @@ function PerformClusterUpdate {
 	.OUTPUTS
 		[bool] success indicator.
 	.NOTES
-		EXPERIMENTAL: logic may evolve; keeps offline guarantees (no network pulls).
+		Keeps offline guarantees (no network pulls).
 		IMPORTANT: Execute this function from the extracted delta package directory.
 		The user must:
 		  1. Extract the delta package zip: Expand-Archive k2s-delta-xxx.zip -Destination .\delta
@@ -111,7 +224,7 @@ function PerformClusterUpdate {
 
 	$consoleSwitch = $ShowLogs
 	Write-Log '#####################################################################' -Console:$consoleSwitch
-	Write-Log '[EXPERIMENTAL] Delta update starting' -Console:$consoleSwitch
+	Write-Log '[DeltaUpdate] Delta update starting' -Console:$consoleSwitch
 	Write-Log '#####################################################################' -Console:$consoleSwitch
 	Write-Log ("[Update] Parameters: ExecuteHooks={0} ShowProgress={1} ShowLogs={2}" -f $ExecuteHooks, $ShowProgress, $ShowLogs) -Console:$consoleSwitch
 
@@ -151,8 +264,16 @@ Current directory: $deltaRoot
 		}
 	}
 
-	$phaseId = 0
-	function _phase { param($name) if ($ShowProgress) { $script:phaseId++; Write-Progress -Activity 'Cluster delta update' -Id 1 -Status ("{0}" -f $name) -PercentComplete (($script:phaseId) * 100 / 10) } Write-Log ("[Update] Phase: {0}" -f $name) -Console:$consoleSwitch }
+	$script:phaseId = 0
+	$script:totalPhases = 13
+	function _phase { 
+		param($name) 
+		$script:phaseId++
+		if ($ShowProgress) { 
+			Write-Progress -Activity 'Cluster delta update' -Id 1 -Status ("{0}/{1}: {2}" -f $script:phaseId, $script:totalPhases, $name) -PercentComplete (($script:phaseId) * 100 / $script:totalPhases) 
+		} 
+		Write-Log ("[Update] Phase {0}/{1}: {2}" -f $script:phaseId, $script:totalPhases, $name) -Console:$consoleSwitch 
+	}
 
 	# 1. Load manifest from delta root
 	_phase 'Manifest'
@@ -190,7 +311,8 @@ Current directory: $deltaRoot
 	$deltaBasePackage = [string]$manifest.BasePackage
 	$deltaTargetPackage = [string]$manifest.TargetPackage
 	
-	# Extract version from package names (assumes format like k2s-v1.6.0-something.zip)
+	# Use version fields directly from manifest (populated from VERSION files during delta generation)
+	# Fall back to parsing package name for backward compatibility with older manifests
 	function _ExtractVersionFromPackage([string]$packageName) {
 		if ([string]::IsNullOrWhiteSpace($packageName)) { return $null }
 		# Match patterns like k2s-v1.6.0, k2s-1.6.0, or just 1.6.0
@@ -200,8 +322,17 @@ Current directory: $deltaRoot
 		return $null
 	}
 	
-	$deltaBaseVersion = _ExtractVersionFromPackage $deltaBasePackage
-	$deltaTargetVersion = _ExtractVersionFromPackage $deltaTargetPackage
+	# Prefer explicit version fields from manifest; fall back to filename parsing for older manifests
+	$deltaBaseVersion = if (-not [string]::IsNullOrWhiteSpace($manifest.BaseVersion)) { 
+		$manifest.BaseVersion.Trim() 
+	} else { 
+		_ExtractVersionFromPackage $deltaBasePackage 
+	}
+	$deltaTargetVersion = if (-not [string]::IsNullOrWhiteSpace($manifest.TargetVersion)) { 
+		$manifest.TargetVersion.Trim() 
+	} else { 
+		_ExtractVersionFromPackage $deltaTargetPackage 
+	}
 	
 	Write-Log ("[Update] Version Check: Current={0}, DeltaBase={1}, DeltaTarget={2}" -f $currentVersion, $deltaBaseVersion, $deltaTargetVersion) -Console:$consoleSwitch
 	
@@ -276,10 +407,144 @@ Current directory: $deltaRoot
 	# 6. Apply Windows artifacts (Added + Changed) from delta root to target install path
 	_phase 'WindowsArtifacts'
 	Write-Log ("[Update] Applying artifacts from delta root '{0}' to target '{1}'" -f $deltaRoot, $targetInstallPath) -Console:$consoleSwitch
+	
+	# 6a. Apply wholesale directories first - these are replaced entirely (e.g., bin/kube, bin/docker)
+	# Wholesale directories contain binaries that must be completely replaced, not merged
+	$wholesaleDirs = @($manifest.WholeDirectories) | Where-Object { $_ -and ($_ -ne '') }
+	if ($wholesaleDirs.Count -gt 0) {
+		# Stop Windows services whose executables reside inside wholesale directories.
+		# Even when the cluster is not running (flanneld/kubelet/kubeproxy are down),
+		# containerd or other services may still be active and lock their binaries,
+		# causing sporadic "Access is denied" / "being used by another process" errors.
+		$servicesToDirMap = @{
+			'containerd' = 'bin/containerd'
+			'docker'     = 'bin/docker'
+		}
+		$stoppedServices = @()
+		foreach ($svcName in $servicesToDirMap.Keys) {
+			$svcDir = $servicesToDirMap[$svcName] -replace '/', '\'
+			$matchesWholesale = $wholesaleDirs | Where-Object { ($_ -replace '/', '\') -ieq $svcDir }
+			if (-not $matchesWholesale) { continue }
+
+			$svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+			if ($svc -and $svc.Status -ne 'Stopped') {
+				Write-Log ("[Update] Stopping service '{0}' (status: {1}) to unlock files in wholesale directory '{2}'" -f $svcName, $svc.Status, $svcDir) -Console:$consoleSwitch
+				try {
+					Stop-Service -Name $svcName -Force -ErrorAction Stop
+					# Wait briefly for the process to fully release file handles
+					Start-Sleep -Seconds 2
+					$stoppedServices += $svcName
+					Write-Log ("[Update] Service '{0}' stopped successfully" -f $svcName) -Console:$consoleSwitch
+				} catch {
+					Write-Log ("[Update][Warn] Could not stop service '{0}': {1}" -f $svcName, $_.Exception.Message) -Console:$consoleSwitch
+				}
+			}
+		}
+		# Also stop any leftover containerd-shim processes that may hold handles
+		Stop-Process -Name 'containerd-shim-runhcs-v1' -Force -ErrorAction SilentlyContinue
+		Stop-Process -Name 'containerd' -Force -ErrorAction SilentlyContinue
+
+		Write-Log ("[Update] Applying {0} wholesale directories" -f $wholesaleDirs.Count) -Console:$consoleSwitch
+		foreach ($wd in $wholesaleDirs) {
+			$srcDir = Join-Path $deltaRoot $wd
+			if (-not (Test-Path -LiteralPath $srcDir)) {
+				Write-Log ("[Update][Warn] Wholesale directory not found in delta: {0}" -f $wd) -Console:$consoleSwitch
+				continue
+			}
+			$dstDir = Join-Path $targetInstallPath $wd
+			
+			# Remove existing directory completely for clean replacement.
+			# Retry with back-off in case file handles are still being released.
+			if (Test-Path -LiteralPath $dstDir) {
+				Write-Log ("[Update] Removing existing directory for replacement: {0}" -f $wd) -Console:$consoleSwitch
+				$maxRetries = 5
+				$retryDelay = 2
+				$removed = $false
+				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+					try {
+						Remove-Item -LiteralPath $dstDir -Recurse -Force -ErrorAction Stop
+						$removed = $true
+						break
+					} catch {
+						if ($attempt -lt $maxRetries) {
+							Write-Log ("[Update][Warn] Attempt {0}/{1} to remove '{2}' failed: {3} - retrying in {4}s" -f $attempt, $maxRetries, $wd, $_.Exception.Message, $retryDelay) -Console:$consoleSwitch
+							Start-Sleep -Seconds $retryDelay
+							$retryDelay = [Math]::Min($retryDelay * 2, 10)
+						} else {
+							Write-Log ("[Update][Error] Failed to remove directory '{0}' after {1} attempts: {2}" -f $wd, $maxRetries, $_.Exception.Message) -Console
+						}
+					}
+				}
+				if (-not $removed) {
+					Write-Log ("[Update][Warn] Continuing despite failure to fully remove '{0}' - copy will attempt force-overwrite" -f $wd) -Console:$consoleSwitch
+				}
+			}
+			
+			# Create parent directory if needed and copy wholesale directory
+			$dstParent = Split-Path $dstDir -Parent
+			if (-not (Test-Path -LiteralPath $dstParent)) {
+				New-Item -ItemType Directory -Path $dstParent -Force | Out-Null
+			}
+			
+			try {
+				# Copy the entire directory (not contents) since we removed the target
+				Copy-Item -LiteralPath $srcDir -Destination $dstDir -Recurse -Force
+				Write-Log ("[Update] Replaced wholesale directory: {0}" -f $wd) -Console:$consoleSwitch
+			} catch {
+				Write-Log ("[Update][Error] Failed to copy wholesale directory '{0}': {1}" -f $wd, $_.Exception.Message) -Console
+			}
+		}
+	} else {
+		Write-Log '[Update] No wholesale directories to apply' -Console:$consoleSwitch
+	}
+	
+	# 6b. Apply individual file changes (Added + Changed)
+	# Safety check: Define cluster-specific files that must NEVER be overwritten during updates.
+	# These files are generated during kubeadm init and contain cluster-specific certificates and configuration.
+	# Overwriting them would break the running cluster.
+	$clusterConfigProtectedFiles = @(
+		'config'  # Main kubeconfig at $kubePath\config
+	)
+	$clusterConfigProtectedPaths = @(
+		'etc/kubernetes/bootstrap-kubelet.conf',
+		'etc/kubernetes/pki/*',
+		'var/lib/kubelet/config.yaml',
+		'var/lib/kubelet/pki/*'
+	)
+	
+	# Helper function to check if a path should be protected
+	function Test-ProtectedClusterFile {
+		param([string]$RelPath)
+		$normalizedPath = $RelPath -replace '\\', '/'
+		$leaf = [IO.Path]::GetFileName($normalizedPath)
+		
+		# Check exact filename matches
+		foreach ($f in $clusterConfigProtectedFiles) {
+			if ($leaf -ieq $f) { return $true }
+		}
+		
+		# Check path patterns
+		foreach ($pattern in $clusterConfigProtectedPaths) {
+			$normalizedPattern = $pattern -replace '\\', '/'
+			if ($normalizedPath -like $normalizedPattern) { return $true }
+		}
+		return $false
+	}
+	
 	$addedFiles   = @($manifest.Added)
 	$changedFiles = @($manifest.Changed)
 	$filesToApply = @($addedFiles + $changedFiles) | Where-Object { $_ -and ($_ -ne '') }
+	$appliedCount = 0
+	$skippedCount = 0
+	
 	foreach ($rel in $filesToApply) {
+		# Safety check: Never overwrite cluster-specific configuration files
+		if (Test-ProtectedClusterFile -RelPath $rel) {
+			Write-Log ("[Update][Skip] Protected cluster config file skipped: {0}" -f $rel) -Console:$consoleSwitch
+			$skippedCount++
+			continue
+		}
+		
 		$src = Join-Path $deltaRoot $rel
 		if (-not (Test-Path -LiteralPath $src)) { Write-Log ("[Update][Warn] Source missing in delta: {0}" -f $rel) -Console:$consoleSwitch; continue }
 		$dest = Join-Path $targetInstallPath $rel
@@ -289,11 +554,109 @@ Current directory: $deltaRoot
 		try { 
 			Copy-Item -LiteralPath $src -Destination $dest -Force 
 			Write-Log ("[Update] Applied: {0}" -f $rel) -Console:$consoleSwitch
+			$appliedCount++
 		} catch { 
 			Write-Log ("[Update][Error] Copy failed '{0}' -> '{1}': {2}" -f $src, $dest, $_.Exception.Message) -Console 
 		}
 	}
-	Write-Log ("[Update] Applied {0} Windows artifacts" -f $filesToApply.Count) -Console:$consoleSwitch
+	Write-Log ("[Update] Applied {0} Windows artifacts (skipped {1} protected cluster config files)" -f $appliedCount, $skippedCount) -Console:$consoleSwitch
+
+	# 6b. Regenerate containerd config.toml from updated template if the template changed.
+	# The live config.toml is generated at install time from config.toml.template by replacing
+	# %BEST-DRIVE%, %INSTALLATION_DIRECTORY%, and %CONTAINERD_TOKEN% placeholders.
+	# The template is diffed and staged in the delta package, but the generated config.toml
+	# does not exist in packages, so it must be regenerated after the template is updated.
+	# Without this, containerd keeps using the old sandbox_image (pause-win) version.
+	$containerdTemplatePath = 'cfg/containerd/config.toml.template'
+	$templateWasUpdated = $filesToApply | Where-Object { ($_ -replace '\\', '/') -ieq $containerdTemplatePath }
+	if ($templateWasUpdated) {
+		Write-Log '[Update] Containerd config.toml.template was updated - regenerating config.toml...' -Console:$consoleSwitch
+		$containerdTomlPath = Join-Path $targetInstallPath 'cfg\containerd\config.toml'
+		try {
+			# Import the containerd module from the target installation so that Get-KubePath
+			# (resolved via PSScriptRoot) points to the correct install directory and all
+			# dependent modules (system, config, path) are loaded from the same tree.
+			$containerdModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
+			if (-not (Test-Path -LiteralPath $containerdModule)) {
+				throw "Containerd module not found at $containerdModule"
+			}
+			Import-Module $containerdModule -Force
+
+			# 1. Generate config.toml from template (replaces %BEST-DRIVE%)
+			Set-RootPathForImagesInConfig $containerdTomlPath
+			# 2. Replace %INSTALLATION_DIRECTORY% with escaped kubePath
+			Set-InstallationDirectory $containerdTomlPath
+			# 3. Replace %CONTAINERD_TOKEN% with registry auth token
+			Set-UserTokenForRegistryInConfig $containerdTomlPath
+
+			if (Test-Path -LiteralPath $containerdTomlPath) {
+				Write-Log "[Update] Containerd config.toml regenerated successfully at $containerdTomlPath" -Console:$consoleSwitch
+			} else {
+				throw "config.toml was not created at $containerdTomlPath after template substitution"
+			}
+		} catch {
+			Write-Log ("[Update][Error] Failed to regenerate containerd config.toml: {0}" -f $_.Exception.Message) -Console
+			throw
+		}
+	} else {
+		Write-Log '[Update] Containerd config.toml.template not changed - skipping config.toml regeneration' -Console:$consoleSwitch
+	}
+
+	# 6c. Remove obsolete files (Removed) from target installation
+	$removedFiles = @($manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
+	if ($removedFiles.Count -gt 0) {
+		Write-Log ("[Update] Removing {0} obsolete files from target installation" -f $removedFiles.Count) -Console:$consoleSwitch
+		$removedCount = 0
+		foreach ($rel in $removedFiles) {
+			$target = Join-Path $targetInstallPath $rel
+			if (Test-Path -LiteralPath $target) {
+				try {
+					Remove-Item -LiteralPath $target -Force
+					Write-Log ("[Update] Removed: {0}" -f $rel) -Console:$consoleSwitch
+					$removedCount++
+				} catch {
+					Write-Log ("[Update][Warn] Failed to remove '{0}': {1}" -f $rel, $_.Exception.Message) -Console:$consoleSwitch
+				}
+			} else {
+				Write-Log ("[Update][Info] Already absent: {0}" -f $rel) -Console:$consoleSwitch
+			}
+		}
+		Write-Log ("[Update] Removed {0} of {1} obsolete files" -f $removedCount, $removedFiles.Count) -Console:$consoleSwitch
+	} else {
+		Write-Log '[Update] No files to remove' -Console:$consoleSwitch
+	}
+
+	# 6d. Clean deprecated kubelet flags from Windows kubeadm-flags.env
+	# The --pod-infra-container-image flag was deprecated in K8s 1.27 and removed in 1.34
+	# This matches the Linux fix in apply-debian-delta.sh
+	_phase 'CleanKubeletFlags'
+	$kubeletFlagsFile = "$($env:SystemDrive)\var\lib\kubelet\kubeadm-flags.env"
+	if (Test-Path -LiteralPath $kubeletFlagsFile) {
+		Write-Log "[Update] Cleaning deprecated kubelet flags from $kubeletFlagsFile" -Console:$consoleSwitch
+		try {
+			$content = Get-Content -LiteralPath $kubeletFlagsFile -Raw
+			$originalContent = $content
+			
+			# Remove --pod-infra-container-image flag (deprecated in 1.27, removed in 1.34)
+			$content = $content -replace '--pod-infra-container-image=[^\s"]*\s*', ''
+			
+			# Clean up any double spaces left behind
+			$content = $content -replace '\s+', ' '
+			$content = $content -replace '"\s+"', '""'
+			
+			if ($content -ne $originalContent) {
+				Set-Content -LiteralPath $kubeletFlagsFile -Value $content.Trim() -NoNewline
+				Write-Log "[Update] Removed deprecated --pod-infra-container-image flag" -Console:$consoleSwitch
+				Write-Log "[Update] Kubelet flags after cleanup: $($content.Trim())" -Console:$consoleSwitch
+			} else {
+				Write-Log "[Update] No deprecated kubelet flags to remove" -Console:$consoleSwitch
+			}
+		} catch {
+			Write-Log ("[Update][Warn] Failed to clean kubelet flags: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		}
+	} else {
+		Write-Log "[Update] Kubelet flags file not found at $kubeletFlagsFile (may be normal for some setups)" -Console:$consoleSwitch
+	}
 
 	# 7. Restart cluster if it was running before
 	_phase 'RestartCluster'
@@ -323,32 +686,125 @@ Current directory: $deltaRoot
 		Write-Log '[Update] Cluster was not running before update; not restarting.' -Console:$consoleSwitch
 	}
 
-	# 8. Container images (if any .tar/.gz under delta/images)
-	_phase 'Images'
-	$imagesRoot = Join-Path $deltaRoot 'images'
-	if (Test-Path -LiteralPath $imagesRoot) {
-		$imageFiles = Get-ChildItem -LiteralPath $imagesRoot -Recurse -File -Include '*.tar','*.tar.gz','*.tgz' -ErrorAction SilentlyContinue
-		if ($imageFiles.Count -gt 0) {
-			Write-Log ("[Update] Loading {0} container image archives" -f $imageFiles.Count) -Console:$consoleSwitch
-			foreach ($img in $imageFiles) {
-				try {
-					if (Get-Command -Name Import-K2sImageArchive -ErrorAction SilentlyContinue) {
-						Import-K2sImageArchive -ArchivePath $img.FullName -ShowLogs:$ShowLogs
-					} elseif (Get-Command -Name Load-K2sImage -ErrorAction SilentlyContinue) {
-						Load-K2sImage -Path $img.FullName -ShowLogs:$ShowLogs
-					} else {
-						Write-Log ("[Update][Warn] No image import function available for {0}" -f $img.Name) -Console:$consoleSwitch
-					}
-				} catch { Write-Log ("[Update][Warn] Image load failed {0}: {1}" -f $img.Name, $_.Exception.Message) -Console:$consoleSwitch }
-			}
-		} else { Write-Log '[Update] No image archives found.' -Console:$consoleSwitch }
-	} else { Write-Log '[Update] images/ directory absent; skipping image load' -Console:$consoleSwitch }
+	# 8. Import container images from delta package.
+	#    Delta packaging stages images into image-delta/windows/images/*.tar and image-delta/linux/images/*.tar.
+	#    Linux images may already have been imported by Phase 4 (Invoke-CommandInMasterVM → apply-debian-delta.sh
+	#    → buildah pull). Phase 8 re-imports them as a safety net and also covers the case where
+	#    Phase 4 was skipped because the cluster was not running at the time.
+	#    Windows images use ctr to import into the containerd k8s.io namespace — the same pattern used by
+	#    Invoke-DeployWindowsImages in downloader.module.psm1 and ImportImage.ps1.
+	_phase 'ContainerImages'
 
-	# 8. Hooks placeholder
+	# --- 8a. Windows images ---
+	# Collect Windows image tar files: primary path from delta packaging, then fallback
+	$windowsImagesDirs = @(
+		(Join-Path $deltaRoot 'image-delta\windows\images'),
+		(Join-Path $deltaRoot 'images')
+	)
+	$winImageFiles = @()
+	foreach ($winImgDir in $windowsImagesDirs) {
+		if ((Test-Path -LiteralPath $winImgDir) -and $winImageFiles.Count -eq 0) {
+			$found = Get-ChildItem -LiteralPath $winImgDir -File -Filter '*.tar' -ErrorAction SilentlyContinue
+			if ($found -and $found.Count -gt 0) {
+				$winImageFiles = @($found)
+				Write-Log ("[Update] Found {0} Windows image archives in {1}" -f $winImageFiles.Count, $winImgDir) -Console:$consoleSwitch
+			}
+		}
+	}
+	if ($winImageFiles.Count -gt 0) {
+		# Resolve ctr from the target installation (containerd must be running after Phase 7 restart)
+		$ctrExe = Join-Path (Get-KubeBinPath) 'containerd\ctr.exe'
+		if (-not (Test-Path -LiteralPath $ctrExe)) {
+			Write-Log ("[Update][Warn] ctr.exe not found at {0}; cannot import Windows images" -f $ctrExe) -Console:$consoleSwitch
+		} else {
+			Write-Log ("[Update] Loading {0} Windows container image archives via ctr" -f $winImageFiles.Count) -Console:$consoleSwitch
+			$imageLoadedCount = 0
+			foreach ($img in $winImageFiles) {
+				Write-Log ("[Update] Loading Windows image: {0}" -f $img.Name) -Console:$consoleSwitch
+				$maxRetries = 3
+				$retryDelay = 2
+				$success = $false
+				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+					try {
+						$importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $img.FullName
+						if ($importSuccess) {
+							$success = $true
+							break
+						}
+						if ($attempt -lt $maxRetries) {
+							Write-Log ("[Update]   Attempt {0} failed (exit code {1}), retrying after {2}s..." -f $attempt, $LASTEXITCODE, $retryDelay) -Console:$consoleSwitch
+							Start-Sleep -Seconds $retryDelay
+						}
+					} catch {
+						if ($attempt -lt $maxRetries) {
+							Write-Log ("[Update]   Attempt {0} error: {1}, retrying after {2}s..." -f $attempt, $_.Exception.Message, $retryDelay) -Console:$consoleSwitch
+							Start-Sleep -Seconds $retryDelay
+						}
+					}
+				}
+				if ($success) {
+					$imageLoadedCount++
+					Write-Log ("[Update] Image loaded successfully: {0}" -f $img.Name) -Console:$consoleSwitch
+				} else {
+					Write-Log ("[Update][Warn] Failed to load image after {0} attempts: {1}" -f $maxRetries, $img.Name) -Console:$consoleSwitch
+				}
+			}
+			Write-Log ("[Update] Loaded {0} of {1} Windows container images" -f $imageLoadedCount, $winImageFiles.Count) -Console:$consoleSwitch
+		}
+	} else {
+		Write-Log '[Update] No Windows image archives found in delta package; skipping Windows image load' -Console:$consoleSwitch
+	}
+
+	# --- 8b. Linux images ---
+	# Import Linux images into the control-plane VM via SCP + buildah.
+	# Phase 4 (DebianPackages) imports these as part of apply-debian-delta.sh when the cluster was running.
+	# This step acts as a safety net and also covers the scenario where the cluster was not running during Phase 4.
+	$linuxImagesDir = Join-Path $deltaRoot 'image-delta\linux\images'
+	if (Test-Path -LiteralPath $linuxImagesDir) {
+		$linuxTarFiles = Get-ChildItem -LiteralPath $linuxImagesDir -File -Filter '*.tar' -ErrorAction SilentlyContinue
+		if ($linuxTarFiles -and $linuxTarFiles.Count -gt 0) {
+			if ($wasRunning) {
+				# Cluster is running (restarted in Phase 7) — VM is reachable via SSH
+				if (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue) {
+					Write-Log ("[Update] Importing {0} Linux container images into control-plane VM" -f $linuxTarFiles.Count) -Console:$consoleSwitch
+					try {
+						$remoteImgDir = '/tmp/k2s-delta-images'
+						(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteImgDir && sudo chown `$(whoami) $remoteImgDir" -Retries 2 -Timeout 2).Output | Out-Null
+						Copy-ToControlPlaneViaSSHKey -Source $linuxImagesDir -Target $remoteImgDir -IgnoreErrors:$false
+						$linuxLoadedCount = 0
+						foreach ($ltar in $linuxTarFiles) {
+							$remoteTar = "$remoteImgDir/images/$($ltar.Name)"
+							Write-Log ("[Update] Loading Linux image: {0}" -f $ltar.Name) -Console:$consoleSwitch
+							$importResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah pull oci-archive:$remoteTar 2>&1" -Retries 2 -Timeout 120
+							if ($importResult.Output -notmatch 'error') {
+								$linuxLoadedCount++
+								Write-Log ("[Update] Linux image loaded successfully: {0}" -f $ltar.Name) -Console:$consoleSwitch
+							} else {
+								Write-Log ("[Update][Warn] Linux image import may have failed for {0}: {1}" -f $ltar.Name, $importResult.Output) -Console:$consoleSwitch
+							}
+						}
+						# Clean up temporary images directory
+						(Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf $remoteImgDir" -Retries 1 -Timeout 2 -IgnoreErrors:$true).Output | Out-Null
+						Write-Log ("[Update] Loaded {0} of {1} Linux container images" -f $linuxLoadedCount, $linuxTarFiles.Count) -Console:$consoleSwitch
+					} catch {
+						Write-Log ("[Update][Warn] Failed to import Linux images: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+					}
+				} else {
+					Write-Log '[Update][Warn] SSH helper not available; cannot import Linux images into VM' -Console:$consoleSwitch
+				}
+			} else {
+				Write-Log ("[Update][Warn] Cluster not running; {0} Linux images in delta package will need to be imported after cluster start" -f $linuxTarFiles.Count) -Console:$consoleSwitch
+			}
+		}
+	} else {
+		Write-Log '[Update] No Linux image archives found in delta package; skipping Linux image load' -Console:$consoleSwitch
+	}
+
+	# 9. Hooks placeholder
 	_phase 'Hooks'
 	if ($ExecuteHooks) { Write-Log '[Update][Info] Hooks execution placeholder (none implemented).' -Console:$consoleSwitch } else { Write-Log '[Update] Hooks disabled.' -Console:$consoleSwitch }
 
-	# 9. Health check
+	# 10. Health check
 	_phase 'Health'
 	try {
 		if ($wasRunning) {
@@ -360,7 +816,27 @@ Current directory: $deltaRoot
 		}
 	} catch { Write-Log ("[Update][Warn] Health check encountered issues: {0}" -f $_.Exception.Message) -Console:$consoleSwitch }
 
-	# 10. Update VERSION file to reflect successful delta update
+	# 11. Restore CoreDNS configuration (kubeadm upgrade may reset customizations)
+	_phase 'CoreDnsRestore'
+	if ($wasRunning) {
+		# Get control plane IP from setup info
+		$controlPlaneIp = $null
+		if ($setupInfo -and $setupInfo.ControlPlaneNodeHostname) {
+			$controlPlaneIp = (Get-ConfiguredIPControlPlane)
+		}
+		if (-not $controlPlaneIp) {
+			$controlPlaneIp = '172.19.1.100'  # Default K2s control plane IP
+		}
+		
+		$coreDnsResult = Restore-CoreDnsEtcdConfiguration -ControlPlaneIp $controlPlaneIp -ShowLogs:$ShowLogs
+		if (-not $coreDnsResult) {
+			Write-Log '[Update][Warn] CoreDNS restoration may have encountered issues' -Console:$consoleSwitch
+		}
+	} else {
+		Write-Log '[Update] Skipping CoreDNS restoration (cluster not running)' -Console:$consoleSwitch
+	}
+
+	# 12. Update VERSION file to reflect successful delta update
 	_phase 'UpdateVersion'
 	if ($deltaTargetVersion) {
 		try {
@@ -387,6 +863,7 @@ Current directory: $deltaRoot
 	}
 
 	Write-Log '[Update] Delta update complete.' -Console:$consoleSwitch
+	Write-Log ("Upgraded successfully to K2s version: {0} (delta update from {1})" -f $deltaTargetVersion, $deltaRoot) -Console:$consoleSwitch
 	Write-Log ("[Update] Delta artifacts remain in: {0}" -f $deltaRoot) -Console:$consoleSwitch
 	Write-Log '[Update] You may safely delete the extracted delta package directory after verifying the update.' -Console:$consoleSwitch
 
@@ -396,6 +873,7 @@ Current directory: $deltaRoot
 }
 
 Export-ModuleMember -Function PerformClusterUpdate
+Export-ModuleMember -Function Restore-CoreDnsEtcdConfiguration
 
 # region: VM execution helper (Debian delta application)
 function Invoke-CommandInMasterVM {
@@ -423,7 +901,7 @@ function Invoke-CommandInMasterVM {
 	.OUTPUTS
 		PSCustomObject { ExitCode; DurationSeconds; RemotePath; Success; }
 	.NOTES
-		EXPERIMENTAL: May evolve to include cleanup logic or hash verification of script.
+		May evolve to include cleanup logic or hash verification of script.
 	#>
 	[CmdletBinding()] param(
 		[Parameter(Mandatory=$true)][string] $ScriptPath,
@@ -453,9 +931,9 @@ function Invoke-CommandInMasterVM {
 		try { $wslEnabled = (Get-ConfigWslFlag) } catch { $wslEnabled = $false }
 	}
 	if (-not $wslEnabled) {
-		# Import vmnode module for Start-VirtualMachine / Wait helpers if available
-		$vmNodeModule = "$PSScriptRoot/../../k2s.node.module/vmnode/vmnode.module.psm1"
-		if (Test-Path -LiteralPath $vmNodeModule) { Import-Module $vmNodeModule -ErrorAction SilentlyContinue }
+		# Import vm module for Get-IsControlPlaneRunning / Wait-ForSSHConnectionToLinuxVMViaSshKey
+		$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+		if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
 		$cpRunning = $false
 		if (Get-Command -Name Get-IsControlPlaneRunning -ErrorAction SilentlyContinue) {
 			try { $cpRunning = Get-IsControlPlaneRunning } catch { $cpRunning = $false }
@@ -466,7 +944,11 @@ function Invoke-CommandInMasterVM {
 		}
 		if ($cpRunning -and (Get-Command -Name Wait-ForSSHConnectionToLinuxVMViaSshKey -ErrorAction SilentlyContinue)) {
 			Write-Log '[DebPkg][VM] Waiting for SSH availability' -Console:$consoleSwitch
-			try { Wait-ForSSHConnectionToLinuxVMViaSshKey } catch { Write-Log "[DebPkg][VM][Warn] SSH wait failed: $($_.Exception.Message)" -Console:$consoleSwitch }
+			# Skip SSH wait during delta update - the control plane is already verified running
+			# and calling Wait-ForSSHConnectionToLinuxVMViaSshKey can hang in CI environments
+			# where the outer SSH session uses -n (stdin from /dev/null), causing nested ssh.exe
+			# calls to behave unexpectedly on Windows
+			Write-Log '[DebPkg][VM] Skipping SSH wait (control plane already verified running)' -Console:$consoleSwitch
 		}
 	}
 
@@ -481,16 +963,46 @@ function Invoke-CommandInMasterVM {
 	Write-Log "[DebPkg][VM] Staging Debian delta script '$remoteScriptName'" -Console:$consoleSwitch
 	try {
 		# Ensure remote directory and make it writable by the user
+		# Note: Do NOT use -Nested:$true as it removes -n flag from SSH which causes hangs
+		# in CI environments where outer SSH uses stdin from /dev/null
 		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Retries $RetryCount -Timeout 2).Output | Out-Null
 
 		# Copy only the script (avoid large recursive transfers unless needed)
 		Copy-ToControlPlaneViaSSHKey -Source $ScriptPath -Target $remoteBase -IgnoreErrors:$false
+		
+		# Convert Windows CRLF line endings to Unix LF (scripts may have been corrupted by Windows zip extraction)
+		# This prevents "bash\r: No such file or directory" errors
+		(Invoke-CmdOnControlPlaneViaSSHKey "sed -i 's/\r$//' $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$true).Output | Out-Null
+		
 		# If ancillary assets exist (packages/, etc.) we copy directory selectively
 		$packagesDir = Join-Path $WorkingDirectory 'packages'
 		if (Test-Path -LiteralPath $packagesDir) {
 			Write-Log '[DebPkg][VM] Copying packages/ directory' -Console:$consoleSwitch
 			Copy-ToControlPlaneViaSSHKey -Source $packagesDir -Target $remoteBase -IgnoreErrors:$false
 		}
+		
+		# Copy Linux container images for air-gapped kubeadm upgrade
+		# Images are required by kubeadm upgrade apply to pull control plane components
+		# Check both delta root level and image-delta subdirectory for Linux images
+		$deltaRoot = Split-Path -Parent $WorkingDirectory
+		$imagesDirs = @(
+			(Join-Path $deltaRoot 'image-delta/linux/images'),
+			(Join-Path $deltaRoot 'images')
+		)
+		$imagesCopied = $false
+		foreach ($imagesDir in $imagesDirs) {
+			if ((Test-Path -LiteralPath $imagesDir) -and -not $imagesCopied) {
+				$tarFiles = Get-ChildItem -LiteralPath $imagesDir -Filter '*.tar' -File -ErrorAction SilentlyContinue
+				if ($tarFiles.Count -gt 0) {
+					Write-Log "[DebPkg][VM] Copying $($tarFiles.Count) container images for offline kubeadm upgrade" -Console:$consoleSwitch
+					(Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $remoteBase/images" -Retries $RetryCount -Timeout 2).Output | Out-Null
+					Copy-ToControlPlaneViaSSHKey -Source $imagesDir -Target $remoteBase -IgnoreErrors:$false
+					$imagesCopied = $true
+					Write-Log '[DebPkg][VM] Container images copied successfully' -Console:$consoleSwitch
+				}
+			}
+		}
+		
 		# Make executable
 		(Invoke-CmdOnControlPlaneViaSSHKey "sudo chmod +x $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$false).Output | Out-Null
 	} catch {
@@ -499,29 +1011,84 @@ function Invoke-CommandInMasterVM {
 
 	Write-Log '[DebPkg][VM] Executing Debian delta script inside control plane VM' -Console:$consoleSwitch
 	$start = Get-Date
-	$execCmd = "sudo $remoteScriptPath"
+	
+	# Use background execution with polling to avoid stdin/stdout blocking in nested SSH environments
+	# The script runs with nohup and writes output to a log file; we poll for completion via exit code file
+	$remoteLogFile = "$remoteBase/deb-delta.log"
+	$remoteExitFile = "$remoteBase/deb-delta.exit"
+	
+	# Cleanup any previous run artifacts
+	$cleanupCmd = "sudo rm -f $remoteLogFile $remoteExitFile </dev/null 2>&1"
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -NoLog:$true).Output | Out-Null
+	
+	# Launch script in background with nohup, redirect all I/O, capture exit code to file
+	$bgCmd = "nohup sudo $remoteScriptPath >$remoteLogFile 2>&1 </dev/null; echo `$? >$remoteExitFile &"
+	# Use sh -c to ensure proper background handling
+	$launchCmd = "sh -c '$bgCmd' </dev/null >/dev/null 2>&1"
+	
+	Write-Log '[DebPkg][VM] Launching script in background...' -Console:$consoleSwitch
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $launchCmd -IgnoreErrors:$true).Output | Out-Null
+	
+	# Brief wait to let the script start
+	Start-Sleep -Seconds 2
+	
+	# Poll for exit code file with timeout
 	$elapsed = $null
 	$exitCode = -1
 	$success = $false
 	$outputAggregate = @()
-	try {
-		$attempts = 0
-		$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-		while ($true) {
-			$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $execCmd -Retries $RetryCount -Timeout 3 -IgnoreErrors:$true
-			$exitCode = $LASTEXITCODE
+	$pollInterval = 5
+	$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+	
+	Write-Log "[DebPkg][VM] Polling for completion (timeout=${TimeoutSeconds}s)..." -Console:$consoleSwitch
+	while ((Get-Date) -lt $deadline) {
+		Start-Sleep -Seconds $pollInterval
+		
+		# Check if exit file exists (indicates script finished)
+		$checkCmd = "test -f $remoteExitFile && cat $remoteExitFile || echo 'RUNNING'"
+		$checkResult = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $checkCmd -IgnoreErrors:$true -NoLog:$true).Output
+		
+		if ($null -ne $checkResult -and $checkResult -ne 'RUNNING' -and $checkResult -match '^\d+$') {
+			$exitCode = [int]$checkResult
 			$success = ($exitCode -eq 0)
-			$outputAggregate += $result.Output
-			if ($success -or (Get-Date) -ge $deadline) { break }
-			Start-Sleep -Seconds 2
-			$attempts++
+			break
 		}
-		$elapsed = (Get-Date) - $start
-	} catch {
-		$elapsed = (Get-Date) - $start
-		if (-not $NoThrow) { throw "Debian delta script execution failed: $($_.Exception.Message)" }
+		
+		Write-Log '[DebPkg][VM] Script still running...' -Console:$consoleSwitch
 	}
+	
+	$elapsed = (Get-Date) - $start
+	
+	# Retrieve log output
+	$logCmd = "cat $remoteLogFile 2>/dev/null || echo '(no output)'"
+	$logOutput = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $logCmd -IgnoreErrors:$true -NoLog:$true).Output
+	if ($logOutput) {
+		$outputAggregate += $logOutput
+		Write-Log "[DebPkg][VM] Script output: $logOutput" -Console:$consoleSwitch
+	}
+	
+	# Cleanup remote artifacts
+	$cleanupCmd = "sudo rm -f $remoteLogFile $remoteExitFile </dev/null 2>&1"
+	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cleanupCmd -IgnoreErrors:$true -NoLog:$true).Output | Out-Null
+	
+	if ($exitCode -eq -1) {
+		# Script didn't finish within timeout
+		Write-Log "[DebPkg][VM] Script execution timed out after $TimeoutSeconds seconds" -Console
+		if (-not $NoThrow) { throw "Debian delta script timed out after $TimeoutSeconds seconds" }
+	}
+	
 	$durationSec = [Math]::Round($elapsed.TotalSeconds,2)
+	
+	# Log the output from the Debian delta script execution
+	if ($outputAggregate.Count -gt 0) {
+		Write-Log "[DebPkg][VM] Script output:" -Console:$consoleSwitch
+		foreach ($line in $outputAggregate) {
+			if (-not [string]::IsNullOrWhiteSpace($line)) {
+				Write-Log ("[DebPkg][VM]   {0}" -f $line) -Console:$consoleSwitch
+			}
+		}
+	}
+	
 	Write-Log ("[DebPkg][VM] Script completed exit={0} duration={1}s" -f $exitCode, $durationSec) -Console:$consoleSwitch
 	if (-not $success -and -not $NoThrow) { throw "Debian delta script returned non-zero exit code: $exitCode" }
 

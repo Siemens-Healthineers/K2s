@@ -7,6 +7,12 @@
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of Control Plane VM (Linux)')]
     [long] $MasterVMMemory = 6GB,
+    [parameter(Mandatory = $false, HelpMessage = 'Minimum Memory for Dynamic Memory (Linux Control Plane VM)')]
+    [long] $MasterVMMemoryMin = 0,
+    [parameter(Mandatory = $false, HelpMessage = 'Maximum Memory for Dynamic Memory (Linux Control Plane VM)')]
+    [long] $MasterVMMemoryMax = 0,
+    [parameter(Mandatory = $false, HelpMessage = 'Enable Hyper-V Dynamic Memory for Control Plane VM')]
+    [switch] $EnableDynamicMemory = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for Control Plane VM (Linux)')]
     [long] $MasterVMProcessorCount = 6,
     [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of Control Plane VM (Linux)')]
@@ -52,6 +58,9 @@ $installationType = 'Build-only'
 Write-Log "Installing $installationType setup"
 
 # Initialize the proxy settings before starting installation.
+Test-ProxyEnvVarsConfiguration
+
+# Initialize the proxy settings before starting installation.
 New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
@@ -63,8 +72,17 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
     $dnsServers = '8.8.8.8,8.8.4.4'
 }
 
+# Auto-enable dynamic memory if min or max are specified
+if ($MasterVMMemoryMin -gt 0 -or $MasterVMMemoryMax -gt 0) {
+    $EnableDynamicMemory = $true
+    Write-Log "Dynamic memory auto-enabled (min or max specified)"
+}
+
 $controlPlaneNodeParams = @{
     MasterVMMemory = $MasterVMMemory
+    MasterVMMemoryMin = $MasterVMMemoryMin
+    MasterVMMemoryMax = $MasterVMMemoryMax
+    EnableDynamicMemory = $EnableDynamicMemory
     MasterVMProcessorCount = $MasterVMProcessorCount
     MasterDiskSize = $MasterDiskSize
     Proxy = $Proxy

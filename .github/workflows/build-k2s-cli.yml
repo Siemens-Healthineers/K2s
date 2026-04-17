@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 # Build k2s Pipeline
-# Responsible for trigerring build for k2s executable when the source is changed.
+# Validates that the k2s CLI builds and tests pass.
+# Go-built binaries are no longer committed to git — they must be built locally after clone.
 
 name: "Build - k2s CLI"
 
@@ -17,7 +18,7 @@ on:
   #     - '!k2s/test/**'
 
 env:
-  GOVERSION: "1.25.6"
+  GOVERSION: "1.26.2"
 
 jobs:
   build-k2s-cli:
@@ -25,31 +26,15 @@ jobs:
     timeout-minutes: 30
     continue-on-error: false
     runs-on: windows-latest
-    env:
-      CI_COMMIT_MESSAGE: "ci: auto-commit k2s cli"
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4      
-      # use an older version since under windows it caues an key verification error
-    - uses: webfactory/ssh-agent@v0.7.0
-      with:
-          ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
+      uses: actions/checkout@v4
 
     - name: Set up Golang
       uses: actions/setup-go@v5
       with:
         go-version: ${{env.GOVERSION}}
         cache-dependency-path: "**/*.sum"
-
-    - name: Configure repo
-      run: |
-        git config --local user.email github-actions@github.com
-        git config --local user.name github-actions
-        git remote -v
-
-    - name: Show all diff
-      run: |
-        git diff --exit-code -- .
 
     - name: Current working directory
       run: |
@@ -65,9 +50,3 @@ jobs:
       run: |
         $ErrorActionPreference = "Continue"
         .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
-
-    - name: Commit k2s cli
-      run: |
-        git add k2s.exe
-        git commit -m  "${{ env.CI_COMMIT_MESSAGE }}"
-        git push

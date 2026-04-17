@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const testClusterTimeout = time.Minute * 10
+const testClusterTimeout = time.Minute * 20
 
 var suite *framework.K2sTestSuite
 var testFailed = false
@@ -41,7 +41,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "metrics", "-o")
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")

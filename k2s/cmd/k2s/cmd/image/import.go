@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package image
@@ -6,7 +6,6 @@ package image
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 
@@ -16,7 +15,7 @@ import (
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -37,23 +36,42 @@ var (
 	}
 
 	importCommandExample = `
-  # Import an linux image from an oci tar archive
+  # Import a Linux image onto the Linux control-plane (default)
   k2s image import -t C:\tmp\image.tar
 
-  # Import an linux image from an docker tar archive
+  # Import a Linux image from a docker tar archive onto the Linux control-plane (default)
   k2s image import -t C:\tmp\dockerimage.tar --docker-archive
 
-  # Import linux images from a directory
-  k2s image import -d C:\tmp\images 
+  # Import Linux images from a directory onto the Linux control-plane (default)
+  k2s image import -d C:\tmp\images
 
-  # Import an windows image from a tar archive
+  # Import a Windows image onto the local Windows host (default)
   k2s image import -t C:\tmp\image.tar -w
+
+  # Import a Linux image onto a specific worker node
+  k2s image import --node worker-1 -t C:\tmp\image.tar 
+
+  # Import a Linux image onto multiple specific nodes 
+  k2s image import --nodes worker-1,worker-2 -t C:\tmp\image.tar 
+
+  # Import a Linux image from a docker tar archive onto a specific worker node
+  k2s image import --node worker-1 -t C:\tmp\image.tar --docker-archive
+
+  # Import a Linux image from a docker tar archive onto multiple specific nodes 
+  k2s image import --nodes worker-1,worker-2 -t C:\tmp\image.tar --docker-archive 
+
+  # Import a Windows image onto a specific Windows worker node
+  k2s image import --node winworker-1 -t C:\tmp\image.tar -w 
+
+  # Import a Windows image onto multiple specific Windows worker nodes 
+  k2s image import --nodes winworker-1,winworker-2 -t C:\tmp\image.tar -w 
 `
 )
 
 func init() {
 	importCmd.Flags().StringP(tarFlag, "t", "", "oci archive (tar)")
 	importCmd.Flags().StringP(dirFlag, "d", "", "Path to directory with oci archives (tar) to import")
+	addNodeSelectionFlags(importCmd)
 	importCmd.Flags().BoolP(windowsFlag, "w", false, "Windows image")
 	importCmd.Flags().Bool(dockerArchiveFlag, false, "Import Linux image from docker-archive tar (default: oci-archive)")
 	importCmd.Flags().SortFlags = false
@@ -67,12 +85,29 @@ func importImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd, params, err := buildImportPsCmd(cmd, isWindowsImage)
+	imagePath, err := cmd.Flags().GetString(tarFlag)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", tarFlag, err)
+	}
+
+	dir, err := cmd.Flags().GetString(dirFlag)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", dirFlag, err)
+	}
+
+	if imagePath == "" && dir == "" {
+		return errors.New("no path to oci archive provided")
+	}
+
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	slog.Debug("PS command created", "command", psCmd, "params", params)
+	isDockerArchive, err := strconv.ParseBool(cmd.Flags().Lookup(dockerArchiveFlag).Value.String())
+	if err != nil {
+		return err
+	}
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -90,13 +125,20 @@ func importImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
+	nodeSelector, err := parseNodeSelector(cmd)
 	if err != nil {
 		return err
 	}
 
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
+	if err := context.Providers().Image.Import(provider.ImageImportConfig{
+		TarPath:       imagePath,
+		DirPath:       dir,
+		Windows:       isWindowsImage,
+		Nodes:         nodeSelector,
+		DockerArchive: isDockerArchive,
+		ShowOutput:    showOutput,
+	}); err != nil {
+		return err
 	}
 
 	cmdSession.Finish()
@@ -136,6 +178,12 @@ func buildImportPsCmd(cmd *cobra.Command, isWindowsImage bool) (psCmd string, pa
 	if err != nil {
 		return "", nil, err
 	}
+
+	nodeSelector, err := parseNodeSelector(cmd)
+	if err != nil {
+		return "", nil, err
+	}
+	params = appendNodesParam(params, nodeSelector)
 
 	if showOutput {
 		params = append(params, " -ShowLogs")

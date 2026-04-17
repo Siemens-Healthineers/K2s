@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -143,6 +143,10 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
 
+		It("displays rollout argocd implementation in addon list", func(ctx context.Context) {
+			expectListToDisplayImplementation(ctx)
+		})
+
 		It("prints the status", func(ctx context.Context) {
 			expectStatusToBePrinted(ctx)
 		})
@@ -153,8 +157,7 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 			url := "https://localhost:8080/rollout/"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "3", "--fail", "--retry-all-errors")
 		})
 	})
 
@@ -219,8 +222,7 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/rollout", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/rollout/"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "3", "--fail", "--retry-all-errors")
 		})
 	})
 
@@ -285,8 +287,7 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/rollout", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/rollout/"
-			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "3", "--fail", "--retry-all-errors")
 		})
 	})
 
@@ -306,6 +307,41 @@ var _ = Describe("'rollout argocd' addon", Ordered, func() {
 		})
 	})
 })
+
+func expectListToDisplayImplementation(ctx context.Context) {
+	output := suite.K2sCli().MustExec(ctx, "addons", "ls")
+	Expect(output).To(MatchRegexp(`(?s)Enabled.*rollout.*argocd`))
+
+	jsonOutput := suite.K2sCli().MustExec(ctx, "addons", "ls", "-o", "json")
+
+	type implEntry struct {
+		Name string `json:"name"`
+	}
+	type addonEntry struct {
+		Name            string      `json:"name"`
+		Implementations []implEntry `json:"implementations"`
+	}
+	type listResult struct {
+		EnabledAddons  []addonEntry `json:"enabledAddons"`
+		DisabledAddons []addonEntry `json:"disabledAddons"`
+	}
+
+	var result listResult
+	Expect(json.Unmarshal([]byte(jsonOutput), &result)).To(Succeed())
+
+	Expect(result.EnabledAddons).To(ContainElement(
+		SatisfyAll(
+			HaveField("Name", "rollout"),
+			HaveField("Implementations", ContainElement(HaveField("Name", "argocd"))),
+		),
+	))
+	Expect(result.DisabledAddons).ToNot(ContainElement(
+		SatisfyAll(
+			HaveField("Name", "rollout"),
+			HaveField("Implementations", ContainElement(HaveField("Name", "argocd"))),
+		),
+	))
+}
 
 func expectStatusToBePrinted(ctx context.Context) {
 	output := suite.K2sCli().MustExec(ctx, "addons", "status", "rollout", "argocd")

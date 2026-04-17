@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package registry
@@ -22,10 +22,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const parseFlagErrorFormat = "unable to parse flag '%s': %w"
+
 var (
 	removeExample = `
 	# Remove registry in K2s
 	k2s image registry rm ghcr.io
+
+	# Remove registry only on one selected node
+	k2s image registry rm ghcr.io --node worker-1
+
+	# Remove registry on multiple selected nodes
+	k2s image registry rm ghcr.io --nodes worker-1,winworker-1
 `
 
 	rmCmd = &cobra.Command{
@@ -37,6 +45,8 @@ var (
 )
 
 func init() {
+	rmCmd.Flags().String(nodeFlag, "", "Node name to target (e.g. worker-1)")
+	rmCmd.Flags().String(nodesFlag, "", "Comma-separated node names to target (e.g. worker-1,worker-2)")
 	rmCmd.Flags().SortFlags = false
 	rmCmd.Flags().PrintDefaults()
 }
@@ -95,11 +105,30 @@ func buildRemovePsCmd(registryName string, cmd *cobra.Command) (psCmd string, pa
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", common.OutputFlagName, err)
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, common.OutputFlagName, err)
 	}
 
 	if showOutput {
 		params = append(params, " -ShowLogs")
+	}
+
+	nodesSelection, err := cmd.Flags().GetString(nodesFlag)
+	if err != nil {
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, nodesFlag, err)
+	}
+
+	nodeSelection, err := cmd.Flags().GetString(nodeFlag)
+	if err != nil {
+		return "", nil, fmt.Errorf(parseFlagErrorFormat, nodeFlag, err)
+	}
+
+	nodesParam := nodesSelection
+	if nodesParam == "" {
+		nodesParam = nodeSelection
+	}
+
+	if nodesParam != "" {
+		params = append(params, " -Nodes "+utils.EscapeWithSingleQuotes(nodesParam))
 	}
 
 	params = append(params, " -RegistryName "+utils.EscapeWithSingleQuotes(registryName))

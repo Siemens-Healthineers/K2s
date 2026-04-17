@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package image
@@ -6,7 +6,6 @@ package image
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 
@@ -16,7 +15,7 @@ import (
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -24,10 +23,19 @@ import (
 
 var (
 	targetImageNameFlagName = "target-name"
+	parseFlagErrorFormatTag = "unable to parse flag '%s': %w"
 	tagCommandExample       = `
-  # Tag image 'k2s.registry.local/myimage:v1' as 'k2s.registry.local/myimage:release'
+  # Tag image on default nodes (Linux control-plane and local Windows host)
   k2s image tag -n k2s.registry.local/myimage:v1 -t k2s.registry.local/myimage:release
   k2s image tag --id 7ca25e0fabd39 -t k2s.registry.local/myimage:release
+
+  # Tag an image on a specific worker node
+  k2s image tag --id 7ca25e0fabd39 -t k2s.registry.local/myimage:release --node worker-1
+  k2s image tag -n k2s.registry.local/myimage:v1 -t k2s.registry.local/myimage:release --node worker-1
+
+  # Tag an image on multiple specific nodes
+  k2s image tag --id 7ca25e0fabd39 -t k2s.registry.local/myimage:release --nodes worker-1,worker-2
+  k2s image tag -n k2s.registry.local/myimage:v1 -t k2s.registry.local/myimage:release --nodes worker-1,worker-2
 `
 	tagCmd = &cobra.Command{
 		Use:     "tag",
@@ -40,6 +48,7 @@ var (
 func init() {
 	tagCmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
 	tagCmd.Flags().StringP(imageNameFlagName, "n", "", "Name of the container image including tag")
+	addNodeSelectionFlags(tagCmd)
 	tagCmd.Flags().StringP(targetImageNameFlagName, "t", "", "New name of the container image including tag")
 	tagCmd.Flags().SortFlags = false
 	tagCmd.Flags().PrintDefaults()
@@ -50,12 +59,29 @@ func tagImage(cmd *cobra.Command, args []string) error {
 
 	pterm.Println("🤖 Tagging container image..")
 
-	psCmd, params, err := buildTagPsCmd(cmd)
+	imageId, err := cmd.Flags().GetString(imageIdFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)
+	}
+
+	imageName, err := cmd.Flags().GetString(imageNameFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", imageNameFlagName, err)
+	}
+
+	targetImageName, err := cmd.Flags().GetString(targetImageNameFlagName)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", targetImageNameFlagName, err)
+	}
+
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	slog.Debug("PS command created", "command", psCmd, "params", params)
+	if imageId == "" && imageName == "" {
+		return errors.New("no image id or image name provided")
+	}
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -73,13 +99,19 @@ func tagImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
+	nodeSelector, err := parseNodeSelector(cmd)
 	if err != nil {
 		return err
 	}
 
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
+	if err := context.Providers().Image.Tag(provider.ImageTagConfig{
+		ImageId:         imageId,
+		ImageName:       imageName,
+		Nodes:           nodeSelector,
+		TargetImageName: targetImageName,
+		ShowOutput:      showOutput,
+	}); err != nil {
+		return err
 	}
 
 	cmdSession.Finish()
@@ -90,17 +122,17 @@ func tagImage(cmd *cobra.Command, args []string) error {
 func buildTagPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
 	imageId, err := cmd.Flags().GetString(imageIdFlagName)
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)
+		return "", nil, fmt.Errorf(parseFlagErrorFormatTag, imageIdFlagName, err)
 	}
 
 	imageName, err := cmd.Flags().GetString(imageNameFlagName)
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageNameFlagName, err)
+		return "", nil, fmt.Errorf(parseFlagErrorFormatTag, imageNameFlagName, err)
 	}
 
 	targetImageName, err := cmd.Flags().GetString(targetImageNameFlagName)
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", targetImageNameFlagName, err)
+		return "", nil, fmt.Errorf(parseFlagErrorFormatTag, targetImageNameFlagName, err)
 	}
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
@@ -120,6 +152,13 @@ func buildTagPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error
 	if imageName != "" {
 		params = append(params, " -ImageName "+imageName)
 	}
+
+	nodeSelector, err := parseNodeSelector(cmd)
+	if err != nil {
+		return "", nil, err
+	}
+	params = appendNodesParam(params, nodeSelector)
+
 	if targetImageName != "" {
 		params = append(params, " -TargetImageName "+targetImageName)
 	}

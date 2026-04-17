@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -26,7 +26,7 @@ For enabling basic or enhanced security please use the parameter:
  -t, --type string (basic or enhanced)
 ```
 
-K2s also has many addons like **dashboard**, **logging**, **monitoring**... which are bringing in also web apps.
+K2s also has many addons like **dashboard**, **logging**, **monitoring**, and ingress options (**nginx**, **traefik**, **nginx-gw**) which are bringing in web apps and external access capabilities.
 By enabling the security addon they will be automatically also secured.
 
 ## Disable security
@@ -55,19 +55,19 @@ Example usage:
 
 ```powershell
 # Omit hydra and login
-k2s addons enable security -OmitHydra
+k2s addons enable security --omitHydra
 
 # Omit keycloak
-k2s addons enable security -OmitKeycloak
+k2s addons enable security --omitKeycloak
 
 # Omit OAuth2 proxy
-k2s addons enable security -OmitOAuth2Proxy
+k2s addons enable security --omitOAuth2Proxy
 
 # Omit all authentication components (cert-manager and linkerd only)
-k2s addons enable security -OmitHydra -OmitKeycloak -OmitOAuth2Proxy
+k2s addons enable security --omitHydra --omitKeycloak --omitOAuth2Proxy
 
 # Omit both
-k2s addons enable security -OmitHydra -OmitKeycloak
+k2s addons enable security --omitHydra --omitKeycloak
 ```
 
 If a component is omitted, the corresponding authentication or user management features will not be available in the cluster, and you must provide your own external solution if needed.
@@ -76,7 +76,7 @@ If a component is omitted, the corresponding authentication or user management f
 
 This addon installs workloads needed to secure the network communication by configuration. This includes (all optional via flags except cert-manager, trust-manager, and linkerd):
 
-- [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
+- [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates. Note: cert-manager is typically created when enabling ingress addons (nginx, traefik, or nginx-gw). The security addon verifies its existence and creates it if not already available.
 
 - [keycloak](https://www.keycloak.org/) - services for identity and access management. `keycloak` provides user federation, strong authentication, user management, fine-grained authorization, and more. _(Can be omitted with -OmitKeycloak)_
 
@@ -90,7 +90,7 @@ This addon installs workloads needed to secure the network communication by conf
 
 ## How to use it
 
-### Certificate Management wit cert-manager
+### Certificate Management with cert-manager
 
 Cert-manager is a powerful and widely-adopted add-on for Kubernetes that automates the management, issuance, and renewal of TLS certificates. It brings the crucial task of securing communication with Transport Layer Security (TLS) directly into the Kubernetes ecosystem, eliminating the need for manual certificate handling and reducing the risk of outages due to expired certificates.
 
@@ -120,8 +120,10 @@ spec:
 
 cert-manager will observe annotations, create a certificate and store it in the secret named 'your-secret-name' so that the ingress class uses it.
 
-If you enable one of `ingress nginx` or `ingress traefik` addon, and also the `dashboard` addon, you can inspect the
+If you enable one of `ingress nginx`, `ingress traefik`, or `ingress nginx-gw` addon, and also the `dashboard` addon, you can inspect the
 server certificate by visiting the dashboard URL in your browser and clicking on the lock icon: <https://k2s.cluster.local>. This is done with [this manifest file](../ingress/nginx/manifests/cluster-local-ingress.yaml).
+
+Note: cert-manager is automatically installed when you enable any ingress addon (nginx, traefik, or nginx-gw). The security addon checks if cert-manager already exists before attempting to create it, ensuring no conflicts or duplications occur.
 
 You can also use the command line interface `cmctl.exe` to interact with cert-manager, it is installed in the `bin` path of your K2s install directory.
 
@@ -145,6 +147,22 @@ In order to secure your workload please use the following annotation:
 ```
 
 This is the only mandatory annotation to use, please check other annotations from the linkerd documenetation.
+
+#### Resource limits for Linkerd sidecars
+
+Linkerd automatically injects two sidecar containers into every annotated pod:
+
+- `linkerd-proxy` — the data-plane proxy (Rust-based) that handles all mTLS traffic
+- `linkerd-init` — an init container that configures iptables routing rules
+
+Both containers are configured with the following resource constraints:
+
+| Container | CPU Request | CPU Limit | Memory Limit |
+|-----------|-------------|-----------|--------------|
+| `linkerd-proxy` | `100m` | `100m` | `100Mi` |
+| `linkerd-init` | `100m` | `100m` | `20Mi` |
+
+This ensures compatibility with Kubernetes `ResourceQuota` policies that require CPU limits and requests on all containers in a namespace. If your workloads require higher proxy throughput, re-enable the addon after adjusting the limits in `Enable.ps1`.
 
 For using the linkerd dashboard please first install the dashboard resources:
 
@@ -180,6 +198,47 @@ Essentially, OAuth2 Proxy offloads the burden of implementing authentication log
 
 Ory Hydra is an open-source implementation of the OAuth 2.0 authorization framework and the OpenID Connect Core 1.0 specifications.
 Unlike traditional identity platforms that bundle user management, Hydra is designed as a "headless" OAuth2 and OIDC provider. This means it focuses solely on the OAuth2 and OIDC protocols, delegating concerns like user login, consent flows, and user data management to separate, customizable components.
+
+## Backup & Restore
+
+The security addon supports backup and restore through the K2s CLI.
+
+### Backup
+
+```console
+k2s addons backup security
+```
+
+**What gets backed up:**
+
+| Artifact | Description |
+|---|---|
+| CA root Secret | The `ca-issuer-root-secret` from the `cert-manager` namespace. Preserving this ensures the entire TLS trust chain (cert-manager → linkerd identity → pod mTLS) can be restored without invalidating existing certificates. |
+| Keycloak PostgreSQL database | A `pg_dump` of the Keycloak database containing realms, users, clients, and sessions. The default `demo-app` realm configuration self-heals from a ConfigMap, but any custom realms, users, or clients are only preserved through the database dump. |
+| Enhanced security marker | The `enhancedsecurity.json` file (if present) that records whether `--type enhanced` was used. |
+| Enable parameters | Detected configuration flags (`--type`, `--ingress`, `--omitKeycloak`, `--omitHydra`, `--omitOAuth2Proxy`) stored in `backup.json` so the addon can be re-enabled with the original settings. |
+
+**What is NOT backed up (self-healing):**
+
+- Linkerd identity certificates — regenerated by cert-manager from the CA root
+- Pod mTLS certificates — re-issued by linkerd from identity certificates
+- Hydra SQLite database — recreated on enable via `client.json` POST
+- OAuth2 Proxy / Redis state — stateless; reconstructed on deploy
+
+### Restore
+
+```console
+k2s addons restore security
+```
+
+The restore flow:
+
+1. The CLI calls `EnableForRestore.ps1` which reads `backup.json` and re-enables the addon with the original flags.
+2. After the addon is running, the CLI calls `Restore.ps1` which:
+   - Replaces the auto-generated CA root Secret with the backed-up one
+   - Restarts cert-manager to reconcile derived certificates
+   - Scales down Keycloak, drops and restores the PostgreSQL database from the dump, then scales Keycloak back up
+   - Restores the enhanced security marker file (if present)
 
 ## Further Reading
 

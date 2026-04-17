@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -70,11 +70,16 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if suite == nil {
+		GinkgoWriter.Println(">>> TEST: AfterSuite - suite is nil (BeforeSuite failed), skipping cleanup")
+		return
+	}
+
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	if !testFailed {
+	if suite.ShouldCleanup(testFailed) {
 		exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 	}
 
@@ -114,21 +119,20 @@ var _ = Describe("dashboard addon export and import", Ordered, func() {
 
 		It("all resources have been exported", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all resources have been exported")
-			expectedDirName := exportimport.GetExpectedDirName("dashboard", "dashboard")
-			addonDir := filepath.Join(exportPath, "artifacts", expectedDirName)
-			GinkgoWriter.Printf("[Test] Addon dir: %s\n", addonDir)
+			extractedArtifactsDir := exportPath
+			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
-			exportimport.VerifyExportedImages(suite, addonDir, impl)
-			exportimport.VerifyExportedPackages(addonDir, impl)
+			exportimport.VerifyExportedImages(suite, extractedArtifactsDir, impl)
+			exportimport.VerifyExportedPackages(extractedArtifactsDir, impl)
 		})
 
-		It("oci-manifest.json contains proper OCI structure", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: oci-manifest.json contains proper OCI structure")
+		It("index.json contains proper OCI structure", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: index.json contains proper OCI structure")
 			expectedDirName := exportimport.GetExpectedDirName("dashboard", "dashboard")
-			addonDir := filepath.Join(exportPath, "artifacts", expectedDirName)
-			GinkgoWriter.Printf("[Test] Addon dir: %s\n", addonDir)
+			extractedArtifactsDir := exportPath
+			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
-			exportimport.VerifyOciManifest(addonDir, expectedDirName)
+			exportimport.VerifyOciManifest(extractedArtifactsDir, expectedDirName)
 		})
 	})
 
@@ -170,6 +174,71 @@ var _ = Describe("dashboard addon export and import", Ordered, func() {
 		It("windows curl packages available after import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
+		})
+
+		It("all addon files present at correct paths after import", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
+			dashboardImplDir := filepath.Join(suite.RootDir(), "addons", "dashboard")
+			GinkgoWriter.Printf("[Test] Dashboard implementation directory: %s\n", dashboardImplDir)
+
+			expectedFiles := []string{
+				"Enable.ps1",
+				"Disable.ps1",
+				"Get-Status.ps1",
+				"Backup.ps1",
+				"Restore.ps1",
+				"Update.ps1",
+				"README.md",
+				"dashboard.module.psm1",
+				"dashboard.module.unit.tests.ps1",
+			}
+			exportimport.VerifyImportedAddonFiles(dashboardImplDir, expectedFiles)
+		})
+	})
+
+	Describe("export and import with relative paths", func() {
+		var (
+			relExportDir    string
+			absRelExportDir string
+			relOciFile      string
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			absRelExportDir = filepath.Join(suite.RootDir(), "tmp", "dashboard-relpath-test")
+			os.MkdirAll(absRelExportDir, 0o755)
+			var err error
+			relExportDir, err = filepath.Rel(suite.RootDir(), absRelExportDir)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterAll(func(ctx context.Context) {
+			exportimport.CleanupExportedFiles(absRelExportDir, relOciFile)
+		})
+
+		It("exports addon using a relative directory path", func(ctx context.Context) {
+			relOciFile = exportimport.ExportAddonRelativePath(ctx, suite, "dashboard", "dashboard", suite.RootDir(), relExportDir)
+			info, err := os.Stat(relOciFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.Size()).To(BeNumerically(">", 0))
+		})
+
+		It("imports addon using a relative file path", func(ctx context.Context) {
+			Expect(relOciFile).NotTo(BeEmpty())
+			relFilePath, err := filepath.Rel(suite.RootDir(), relOciFile)
+			Expect(err).ToNot(HaveOccurred())
+			exportimport.ImportAddonRelativePath(ctx, suite, suite.RootDir(), relFilePath)
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
+		})
+
+		It("imports addon using a parent-relative file path", func(ctx context.Context) {
+			files, err := filepath.Glob(filepath.Join(absRelExportDir, "*.oci.tar"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(files)).To(BeNumerically(">=", 1))
+			subDir := filepath.Join(absRelExportDir, "subdir")
+			os.MkdirAll(subDir, 0o755)
+			parentRelPath := ".." + string(filepath.Separator) + filepath.Base(files[0])
+			exportimport.ImportAddonRelativePath(ctx, suite, subDir, parentRelPath)
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
 		})
 	})
 })

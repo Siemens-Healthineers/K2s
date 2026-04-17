@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package upgrade
@@ -14,7 +14,6 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
@@ -26,10 +25,10 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
-var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade or in-place delta update)"
+var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade, in-place delta update, or worker node upgrade)"
 
 var upgradeCommandLongDescription = `
 Upgrades the installed K2s cluster to this version.
@@ -43,15 +42,18 @@ FULL UPGRADE:
   
   The following tasks will be executed:
   1. Export of current workloads (global resources and all namespaced resources)
-  2. Keeping addons and their persistency to be re-enabled after cluster upgrade
-  3. Uninstall existing cluster
-  4. Install a new cluster based on this version
-  5. Import previously exported workloads
-  6. Enable addons and restore persistency
-  7. Check if all workloads are running
-  8. Finally check K2s cluster availability
+  2. Uninstall existing cluster
+  3. Install a new cluster based on this version
+  4. Import previously exported workloads
+  5. Re-enable previously enabled addons
+  6. Check if all workloads are running
+  7. Finally check K2s cluster availability
 
-DELTA UPDATE (EXPERIMENTAL):
+  ⚠  NOTE: Addon data/persistence is NOT automatically restored during upgrade.
+     To backup and restore addon data, use the separate mechanisms:
+     - k2s addons export / k2s addons import
+
+DELTA UPDATE:
   ⚠  Extract the delta package and call this command from within the extracted directory:
      1. Extract: Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
      2. Navigate: cd .\delta
@@ -64,6 +66,18 @@ DELTA UPDATE (EXPERIMENTAL):
   4. Update all Debian packages from delta (if cluster is running)
   5. Update all container images from delta
   6. Automatically stop and restart the cluster if it was running
+
+NODE UPGRADE:
+  Upgrades a single Linux worker node without touching the control plane.
+  Both full node packages and node delta packages are supported.
+  The upgrade mode is auto-detected from the ZIP contents:
+    - ZIP contains delta-manifest.json with DeltaType=node-package → DELTA mode
+      (installs only changed/added packages; purges removed Debian packages)
+    - No delta-manifest.json present → FULL mode
+      (installs all packages present in the ZIP)
+
+  Required flags: --node <node-name> --path <node-package.zip>
+  Both flags must always be specified together.
 `
 
 var upgradeCommandExample = `
@@ -80,6 +94,12 @@ var upgradeCommandExample = `
   Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
   cd .\delta
   .\k2s.exe system upgrade
+
+  # Node upgrade: Apply a full node package to a worker node
+  k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-v1.8.0.zip" -o
+
+  # Node upgrade: Apply a node delta package to a worker node (mode auto-detected)
+  k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-delta-v1.7.0-to-v1.8.0.zip" -o
 `
 
 const (
@@ -92,6 +112,8 @@ const (
 	backupDir          = "backup-dir"
 	force              = "force"
 	defaultBackupDir   = ""
+	nodeNameFlag       = "node"
+	nodePackageFlag    = "path"
 )
 
 var UpgradeCmd = &cobra.Command{
@@ -115,6 +137,8 @@ func AddInitFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolP(skipImagesFlag, "i", false, "Skip takeover of container images from old cluster to new cluster")
 	cmd.Flags().BoolP(force, "f", false, "Forces the upgrade, even if the previous and current versions are not consecutive")
 	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
+	cmd.Flags().StringP(nodeNameFlag, "n", "", "Name of the worker node to upgrade (requires --path)")
+	cmd.Flags().String(nodePackageFlag, "", "Path to node package zip for offline node upgrade (requires --node)")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }
@@ -149,24 +173,41 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd := createUpgradeCommand(cmd)
+	skip, _ := cmd.Flags().GetBool(skipK8sResources)
+	delete, _ := cmd.Flags().GetBool(deleteFiles)
+	configFile := cmd.Flags().Lookup(configFileFlagName).Value.String()
+	proxyVal := cmd.Flags().Lookup(proxy).Value.String()
+	skipImages, _ := cmd.Flags().GetBool(skipImagesFlag)
+	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+	backupDirVal := cmd.Flags().Lookup(backupDir).Value.String()
+	forceVal, _ := cmd.Flags().GetBool(force)
+	nodeNameVal, _ := cmd.Flags().GetString(nodeNameFlag)
+	nodePackageVal, _ := cmd.Flags().GetString(nodePackageFlag)
 
-	slog.Debug("PS command created", "command", psCmd)
-
-	outputWriter := common.NewPtermWriter()
+	if (nodeNameVal == "") != (nodePackageVal == "") {
+		return errors.New("--node and --path must be specified together")
+	}
 
 	switchToUpgradeLogFile(showLog, context.Logger())
 
-	psErr := powershell.ExecutePs(psCmd, outputWriter)
+	psErr := context.Providers().System.Upgrade(provider.SystemUpgradeConfig{
+		SkipResources:      skip,
+		SkipImages:         skipImages,
+		DeletePackage:      delete,
+		ConfigFile:         configFile,
+		Proxy:              proxyVal,
+		BackupDir:          backupDirVal,
+		AdditionalHooksDir: additionalHooksDir,
+		Force:              forceVal,
+		NodeName:           nodeNameVal,
+		NodePackagePath:    nodePackageVal,
+		ShowOutput:         showLog,
+	})
 
 	switchToDefaultLogFile(showLog, context.Logger())
 
 	if psErr != nil {
 		return psErr
-	}
-
-	if outputWriter.ErrorOccurred {
-		return common.CreateSystemUnableToUpgradeCmdFailure()
 	}
 
 	cmdSession.Finish()
@@ -215,9 +256,6 @@ func copyLegacyConfigFile(legacyDir string, targetDir string) error {
 
 func createUpgradeCommand(cmd *cobra.Command) string {
 	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "upgrade", "Start-ClusterUpgrade.ps1"))
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		slog.Debug("Param", "name", f.Name, "value", f.Value)
-	})
 	out, _ := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if out {
 		psCmd += " -ShowLogs"

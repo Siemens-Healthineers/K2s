@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,22 +6,11 @@
 
 <#
 .SYNOPSIS
-Installs Kubernetes Dashboard UI
-
-.DESCRIPTION
-Dashboard is a web-based Kubernetes user interface. You can use Dashboard to:
-- get an overview of applications running on your cluster
-- deploy containerized applications to a Kubernetes cluster
-- troubleshoot your containerized application
-
-Dashboard also provides information on the state of Kubernetes resources in your cluster and on any errors that may have occurred.
+Installs Headlamp - Kubernetes Dashboard UI
 
 .EXAMPLE
-Enable Dashboard in k2s
-powershell <installation folder>\addons\dashboard\Enable.ps1
-
-Enable Dashboard in k2s with nginx addon and metrics server addon
-powershell <installation folder>\addons\dashboard\Enable.ps1 -Ingress "nginx" -EnableMetricsServer
+k2s addons enable dashboard
+k2s addons enable dashboard --ingress nginx --enable-metrics
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
@@ -29,7 +18,7 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
-    [ValidateSet('nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'Enable metrics addon')]
     [switch] $EnableMetricsServer = $false,
@@ -49,7 +38,7 @@ Import-Module $clusterModule, $infraModule, $addonsModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Write-Log 'Checking cluster status' -Console
+Write-Log '[Dashboard] Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -64,7 +53,7 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne 'k2s') {
-    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'dashboard' can only be enabled for 'k2s' setup type."  
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'dashboard' can only be enabled for 'k2s' setup type."
     Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
 }
@@ -77,7 +66,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' })) -eq $
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
-    
+
     Write-Log $errMsg -Error
     exit 1
 }
@@ -90,20 +79,26 @@ if ($EnableMetricsServer) {
     Enable-MetricsServer
 }
 
-Write-Log 'Installing dashboard from helm chart' -Console
-$dashboardChartDirectory = Get-DashboardChartDirectory
-# create the namespace dashboard
-(Invoke-Kubectl -Params 'create', 'namespace', 'dashboard').Output | Write-Log
+Write-Log '[Dashboard] Installing Headlamp via Helm' -Console
 
-# apply the chart
-$dashboardChart = "$dashboardChartDirectory/kubernetes-dashboard-7.14.0.tgz"
-$dashboardValues = "$dashboardChartDirectory/values.yaml"
-(Invoke-Helm -Params 'install', 'kubernetes-dashboard', $dashboardChart, '--namespace', 'dashboard', '-f', $dashboardValues).Output | Write-Log 
+try {
+    Install-HeadlampViaHelm
+}
+catch {
+    $errMsg = "Failed to install Headlamp via Helm: $($_.Exception.Message)"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
 
-Write-Log 'Checking Dashboard status' -Console
-$dashboardStatus = Wait-ForDashboardAvailable
-if ($dashboardStatus -ne $true) {
-    $errMsg = "All dashboard pods could not become ready. Please use kubectl describe for more details.`nInstallation of Kubernetes dashboard failed."
+Write-Log '[Dashboard] Checking Headlamp status' -Console
+$headlampReady = Wait-ForHeadlampAvailable
+if ($headlampReady -ne $true) {
+    $errMsg = "Headlamp pod could not become ready. Please use kubectl describe for more details.`nInstallation of Headlamp dashboard failed."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -114,18 +109,15 @@ if ($dashboardStatus -ne $true) {
     exit 1
 }
 
-# create the service account
-$dashboardServiceAccount = "$dashboardChartDirectory/dashboard-service-account.yaml"
-(Invoke-Kubectl -Params 'apply' , '-f', $dashboardServiceAccount).Output | Write-Log
 
-&"$PSScriptRoot\Update.ps1"
+&"$PSScriptRoot\Update.ps1" -PreferredIngress $(if ($Ingress -eq 'none') { 'auto' } else { $Ingress })
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
-Write-DashboardUsageForUser
+Write-HeadlampUsageForUser
 Write-BrowserWarningForUser
 
-Write-Log 'Installation of Kubernetes dashboard finished.' -Console
+Write-Log '[Dashboard] Installation of Headlamp dashboard finished.' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

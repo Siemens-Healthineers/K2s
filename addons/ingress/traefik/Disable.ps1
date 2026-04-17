@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -74,6 +74,20 @@ $traefikYamlDir = Get-TraefikYamlDir
 Write-log 'Uninstalling ExternalDNS' -Console
 $externalDnsConfigDir = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'delete', '-k', $externalDnsConfigDir).Output | Write-Log
+
+# Check if security addon is NOT enabled
+if (-not (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' }))) {
+    $certManagerNs = (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output
+    if ([string]::IsNullOrWhiteSpace($certManagerNs)) {
+        Write-Log 'cert-manager is not installed, skipping uninstallation.' -Console
+    }
+    else {
+        Write-Log 'Security addon is not enabled. Proceeding with cert-manager uninstallation.' -Console
+        Uninstall-CertManager
+    }
+}
+
+Uninstall-GatewayApiCrds
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $formattingModule = "$PSScriptRoot/formatting/formatting.module.psm1"
@@ -22,7 +22,7 @@ class Pod {
 $supportedApiVersion = 'v1'
 
 function Get-Now {
-    return [datetime]::Now
+    return [datetime]::UtcNow
 }
 
 function Confirm-ApiVersionIsValid {
@@ -51,7 +51,7 @@ function Get-Age {
     Write-Log "Converting '$Timestamp' to age.."
 
     [datetime]$now = Get-Now
-    [datetime]$then = [datetime]::Parse($Timestamp)
+    [datetime]$then = ([System.DateTimeOffset]::Parse($Timestamp)).UtcDateTime
 
     if ($then -gt $now) {
         throw "timestamp cannot be in the future: '$Timestamp'"
@@ -99,7 +99,7 @@ function Get-NodeStatus {
 
     $result = @{StatusText = $status; IsReady = $isReady }
 
-    Write-Log "returning StatusText='$StatusText' and IsReady='$IsReady'"
+    Write-Log "returning StatusText='$($result.StatusText)' and IsReady='$($result.IsReady)'"
 
     return $result
 }
@@ -251,7 +251,7 @@ function Get-PodStatus {
 
     $result = @{StatusText = $status; IsRunning = $isRunning; Restarts = $restarts; Ready = $ready }
 
-    Write-Log "returning StatusText='$StatusText', IsRunning='$IsRunning', Restarts='$Restarts' and Ready='$Ready'"
+    Write-Log "returning StatusText='$($result.StatusText)', IsRunning='$($result.IsRunning)', Restarts='$($result.Restarts)' and Ready='$($result.Ready)'"
 
     return $result
 }
@@ -728,7 +728,7 @@ function Wait-ForPodCondition {
         $Condition = 'Ready',
         [Parameter(Mandatory = $false)]
         [int]
-        $TimeoutSeconds = 30
+        $TimeoutSeconds = 60
     )
 
     if ($Condition -eq 'Ready') {

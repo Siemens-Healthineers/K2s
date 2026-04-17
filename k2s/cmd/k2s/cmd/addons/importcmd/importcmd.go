@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -24,27 +25,27 @@ import (
 )
 
 var importCommandExample = `
-  # Import addon "registry" and "ingress nginx"  from an exported tar archive
-  k2s addons import registry "ingress nginx" -z C:\tmp\addons.zip
+  # Import multiple addons from an exported OCI artifact
+  k2s addons import registry ingress nginx -f C:\tmp\addons.oci.tar
 
-  # Import all addons from an exported tar archive
-  k2s addons import -z C:\tmp\addons.zip
+  # Import all addons from an exported OCI artifact
+  k2s addons import -f C:\tmp\addons.oci.tar
 `
 
 const (
-	zipLabel   = "zip"
-	defaultZip = ""
+	fileLabel   = "file"
+	defaultFile = ""
 )
 
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "import ADDON",
-		Short:   "Import an addon from a zip file",
+		Short:   "Import an addon from an OCI artifact",
 		Example: importCommandExample,
 		RunE:    runImport,
 	}
 
-	cmd.Flags().StringP(zipLabel, "z", defaultZip, "zip archive of exported addon")
+	cmd.Flags().StringP(fileLabel, "f", defaultFile, "OCI artifact tar file of exported addon")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -98,7 +99,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 }
 
 func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []string, err error) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Import.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "addons", "Import.ps1"))
 
 	if len(addons) > 0 {
 		names := ""
@@ -110,15 +111,20 @@ func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []st
 		params = append(params, " -Names "+names)
 	}
 
-	imagePath, err := cmd.Flags().GetString(zipLabel)
+	imagePath, err := cmd.Flags().GetString(fileLabel)
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag: %s", zipLabel)
+		return "", nil, fmt.Errorf("unable to parse flag: %s", fileLabel)
 	}
 	if imagePath == "" {
-		return "", nil, errors.New("no path to tar archive provided")
+		return "", nil, errors.New("no path to OCI artifact provided")
 	}
 
-	params = append(params, " -Zipfile "+utils.EscapeWithSingleQuotes(imagePath))
+	imagePath, err = filepath.Abs(imagePath)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to resolve absolute path for artifact file: %w", err)
+	}
+
+	params = append(params, " -ArtifactFile "+utils.EscapeWithSingleQuotes(imagePath))
 
 	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {

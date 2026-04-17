@@ -71,7 +71,20 @@ if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'autoscaling'})) -eq $
 
 Write-Log 'Installing KEDA' -Console
 
-(Invoke-Kubectl -Params 'apply', '--server-side','-f', $kedaManifest).Output | Write-Log
+$applyResult = (Invoke-Kubectl -Params 'apply', '--server-side', '-f', $kedaManifest)
+if (-not $applyResult.Success) {
+    $errMsg = "Failed to apply KEDA manifests: $($applyResult.Output)"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+$applyResult.Output | Write-Log
 
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app=keda-operator' -Namespace 'autoscaling' -TimeoutSeconds 120)
 if ($allPodsAreUp -ne $true) {

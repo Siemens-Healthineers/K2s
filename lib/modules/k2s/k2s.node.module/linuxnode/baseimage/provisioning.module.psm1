@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -16,17 +16,17 @@ $kubenodeBaseFileName = 'Kubenode-Base.vhdx'
 $kubeNodeBaseImagePath = "$kubeBinPath\$kubenodeBaseFileName"
 
 $KubemasterVmProvisioningVmName = 'KUBEMASTER_IN_PROVISIONING'
-$RawBaseImageInProvisioningForKubemasterImageName = 'Debian-11-Base-In-Provisioning-For-Kubemaster.vhdx'
+$RawBaseImageInProvisioningForKubemasterImageName = 'Debian-12-Base-In-Provisioning-For-Kubemaster.vhdx'
 $VmProvisioningNatName = 'KubemasterVmProvisioningNat'
 $VmProvisioningSwitchName = 'KubemasterVmProvisioningSwitch'
 
 $KubeworkerVmProvisioningVmName = 'KUBEWORKER_IN_PROVISIONING'
-$RawBaseImageInProvisioningForKubeworkerImageName = 'Debian-11-Base-In-Provisioning-For-Kubeworker.vhdx'
+$RawBaseImageInProvisioningForKubeworkerImageName = 'Debian-12-Base-In-Provisioning-For-Kubeworker.vhdx'
 $KubeworkerVmProvisioningNatName = 'KubeworkerVmProvisioningNat'
 $KubeworkerVmProvisioningSwitchName = 'KubeworkerVmProvisioningSwitch'
 
 $KubenodeVmProvisioningVmName = 'KUBENODE_IN_PROVISIONING'
-$RawBaseImageInProvisioningForKubenodeImageName = 'Debian-11-Base-In-Provisioning-For-Kubenode.vhdx'
+$RawBaseImageInProvisioningForKubenodeImageName = 'Debian-12-Base-In-Provisioning-For-Kubenode.vhdx'
 $KubenodeVmProvisioningNatName = 'KubenodeVmProvisioningNat'
 $KubenodeVmProvisioningSwitchName = 'KubenodeVmProvisioningSwitch'
 
@@ -95,7 +95,7 @@ function New-KubenodeBaseImage {
     $vmParameters.IsoFileName = 'cloud-init-kubenode-provisioning.iso'
     $vmParameters.MemoryStartupBytes = $VMMemoryStartupBytes
     $vmParameters.ProcessorCount = $VMProcessorCount
-    $vmParameters.ProvisionedVhdxFileName = 'Debian-11-Base-Provisioned-For-Kubenode.vhdx'
+    $vmParameters.ProvisionedVhdxFileName = 'Debian-12-Base-Provisioned-For-Kubenode.vhdx'
     $vmParameters.VmName = $KubenodeVmProvisioningVmName
 
     [GuestOsParameters]$guestOsParameters = [GuestOsParameters]::new() 
@@ -514,7 +514,7 @@ function New-ProvisionedBaseImage {
         ProvisioningDirectory = $provisioningTargetDirectory
     }
 
-    New-DebianCloudBasedVirtualMachine -VirtualMachineParams $VirtualMachineParams -NetworkParams $NetworkParams -IsoFileParams $IsoFileParams -WorkingDirectoriesParams $WorkingDirectoriesParams
+    New-LinuxCloudBasedVirtualMachine -VirtualMachineParams $VirtualMachineParams -NetworkParams $NetworkParams -IsoFileParams $IsoFileParams -WorkingDirectoriesParams $WorkingDirectoriesParams
 
     Write-Log "Start the VM $vmName"
     Start-VirtualMachineAndWaitForHeartbeat -Name $vmName
@@ -527,6 +527,9 @@ function New-ProvisionedBaseImage {
     Write-Log "Run role assignment hook"
     &$InstallationHook
     Write-Log "Role assignment finished"
+
+    Write-Log "[Proxy] Remove proxy settings from base image before sealing"
+    Remove-ProxySettingsOnKubenode -IpAddress $vmIP -UserName $userName -UserPwd $userPwd -CommandExecutionTimeoutSeconds 30
 
     Write-Log "Stop the VM $vmName"
     Stop-VirtualMachineForBaseImageProvisioning -Name $vmName
@@ -841,7 +844,10 @@ Export-ModuleMember Clear-ProvisioningArtifacts,
 Get-NetworkInterfaceName, 
 Get-DefaultUserNameKubeNode, 
 Get-DefaultUserPwdKubeNode, 
-Get-VmIpForProvisioningKubeNode, 
+Get-VmIpForProvisioningKubeNode,
+Get-HostIpForProvisioningKubeNode,
+Get-NatIpForProvisioningKubeNode,
+Get-NetworkPrefixLengthForProvisioningKubeNode,
 Remove-KubeNodeBaseImage,
 New-KubenodeBaseImage, 
 New-KubemasterBaseImage, 

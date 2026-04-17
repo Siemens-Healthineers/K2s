@@ -14,7 +14,8 @@ This guide explains how to extend a K2s cluster by adding physical hosts or virt
    - Confirm that the K2s cluster is running and healthy.
 
 2. **New Host or VM Requirements**:
-   - Install a compatible operating system (Linux or Windows, based on your cluster requirements).
+    - Install a compatible operating system (Linux or Windows, based on your cluster requirements).
+    - For Linux worker node onboarding, the currently supported Debian versions are `debian12` and `debian13`.
    - Install an SSH service on the new machine and ensure port 22 is enabled for connectivity.
    - Ensure network connectivity with the K2s node.
    - **IP Address Requirements**:
@@ -24,8 +25,20 @@ This guide explains how to extend a K2s cluster by adding physical hosts or virt
 
 ## Known Limitations
 
-- Adding a new node works only if there is an internet connection on the new node. *(Offline support is in progress.)*
-- Adding a new physical host is currently supported only on **Debian** and **Ubuntu** Linux distributions.
+- Adding a Linux worker node is currently supported for *Debian 12* and *Debian 13*.
+- The supported target can be either a physical host or a virtual machine, as long as SSH access and the OS requirements are met.
+- The node IP address supplied to `k2s node add` must stay stable. Use a static IP address or a DHCP reservation.
+
+---
+
+## Online vs. Offline Node Add
+
+`k2s node add` supports two installation modes for Linux worker nodes on either physical hosts or virtual machines:
+
+- **Online mode**: the target node downloads or receives the required packages during provisioning.
+- **Offline mode**: a prebuilt node package ZIP is supplied with `--node-package`, and *K2s* installs the node from the package contents instead of downloading artifacts from the internet.
+
+Use offline mode when the new node has no internet connectivity, is behind a restricted proxy, or when you want reproducible node onboarding.
 
 ---
 
@@ -99,8 +112,93 @@ else {
 k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection>
 ```
 
+If the node should be installed **offline**, first create a node package and then pass it to `k2s node add`:
+
+```console
+k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package <PathToNodePackageZip>
+```
+
 ### 4. Check new node status
 
 ```cmd
 k2s status -o wide
 ```
+
+## Offline Installation of a Linux Worker Node
+
+The offline workflow has two phases:
+
+1. Build a node package on a machine that has access to the required artifacts.
+2. Use that package while running `k2s node add` against the target machine.
+
+### 1. Create the node package
+
+Generate an OS-specific node package. This step does **not** require an installed *K2s* cluster on the machine where you run the command.
+
+Example using `k2s.exe` directly from a local directory:
+
+```console
+.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip"
+```
+
+You can also generate the package on an existing *K2s* host:
+
+```console
+k2s system package --node-package --os debian12 --target-dir C:\output --name debian12-node.zip
+```
+
+For Debian 13 nodes, create a Debian 13 package instead:
+
+```console
+k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip
+```
+
+!!! note
+    The node package contains Linux worker node artifacts such as `.deb` packages and container images needed during `k2s node add`.
+
+!!! note
+    The `--os` value must match the target node's distribution. Use the package built for the node you are adding.
+
+!!! note
+    The same workflow applies whether the target Linux node is a physical host or an existing VM.
+
+### 2. Prepare SSH access to the target node
+
+Follow the SSH key setup described above:
+
+- Copy `%USERPROFILE%\.ssh\k2s\id_rsa.pub` to the target node.
+- Add it to the authorized SSH keys on the target node.
+
+This step is required in both online and offline mode because `k2s node add` still connects to the node over SSH.
+
+### 3. Add the node using the offline package
+
+Run `k2s node add` and point it to the node package ZIP:
+
+```console
+k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package C:\temp\debian13-node.zip
+```
+
+### 4. Verify the node joined successfully
+
+```console
+k2s status -o wide
+```
+
+You can also use `k2s node connect` or `k2s node exec` to confirm SSH connectivity to the node after provisioning.
+
+## When the Node IP Changes
+
+`k2s node add` stores the node IP address for later management operations. If the node gets a different LAN IP after a reboot or network change, SSH-based operations can fail.
+
+Recommended handling:
+
+1. Configure a static IP address or DHCP reservation for the node.
+2. If the IP already changed, remove and re-add the node with the new IP:
+
+```console
+k2s node remove --name <NodeName>
+k2s node add --ip-addr <NewIpAddress> --username <UserNameForRemoteConnection> --name <NodeName>
+```
+
+If you use offline installation, include `--node-package <PathToNodePackageZip>` again during the re-add operation.

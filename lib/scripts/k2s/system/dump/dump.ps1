@@ -1,4 +1,5 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -22,6 +23,9 @@ If set to $true, then the logs are written into the console with more verbosity.
 .PARAMETER ZipFileName
 Name of the final zip file.
 
+.PARAMETER Nodes
+Comma-separated additional node names to collect diagnostics for.
+
 .EXAMPLE
 PS> .\dump.ps1
 #>
@@ -34,7 +38,10 @@ Param (
     [switch] $ShowLogs,
 
     [Parameter(Mandatory = $false, HelpMessage = 'Name of the final zip file.')]
-    [string] $ZipFileName = ''
+    [string] $ZipFileName = '',
+
+    [Parameter(Mandatory = $false, HelpMessage = 'Comma-separated additional node names to collect diagnostics for.')]
+    [string] $Nodes = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,7 +51,8 @@ if ($Trace) {
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-Import-Module $infraModule, $nodeModule
+$runningStateModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/runningstate/runningstate.module.psm1"
+Import-Module $infraModule, $nodeModule, $runningStateModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 Reset-LogFile -AppendLogFile
@@ -80,15 +88,183 @@ function Invoke-k2sConfigCollection(
 }
 
 function Invoke-LinuxNodeDetailsCollection(
+    [string] $NodeDetailsDirectory,
+    [string] $NodeName = '',
+    [string] $NodeIpAddress = ''
+) {
+    $collectFromControlPlane = [string]::IsNullOrWhiteSpace($NodeIpAddress)
+    $linuxUserName = Get-DefaultUserNameWorkerNode
+
+    if ($collectFromControlPlane) {
+        $NodeName = Get-ConfigControlPlaneNodeHostname
+        Write-Log "Node name: $NodeName"
+        $isWsl = Get-ConfigWslFlag
+        if ($isWsl) {
+            $isLinuxVMRunning = Get-IsWslRunning -Name $linuxNodeName
+        }
+        else {
+            $isLinuxVMRunning = Get-IsControlPlaneRunning
+        }
+        if (-not $isLinuxVMRunning) {
+            return
+        }
+    }
+    elseif ([string]::IsNullOrWhiteSpace($NodeName)) {
+        Write-Log '[NodeDiag] Skipping Linux node details: missing node name.'
+        return
+    }
+
+    if (-not $collectFromControlPlane) {
+        $nodeConfig = Get-NodeConfig -NodeName $NodeName
+        if ($null -ne $nodeConfig -and -not [string]::IsNullOrWhiteSpace($nodeConfig.Username)) {
+            $linuxUserName = $nodeConfig.Username
+        }
+
+        $sshProbe = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'uname -n' -UserName $linuxUserName -IpAddress $NodeIpAddress -IgnoreErrors
+        if (-not $sshProbe.Success) {
+            $sshError = ($sshProbe.Output | Out-String).Trim()
+            if ([string]::IsNullOrWhiteSpace($sshError)) {
+                $sshError = 'SSH key authentication failed or node is unreachable.'
+            }
+
+            $skipMessage = "[NodeDiag] Skipping Linux host diagnostics for '$NodeName' ($NodeIpAddress) using user '$linuxUserName': $sshError"
+            Write-Log $skipMessage
+
+            $linuxNodeDumpFile = Join-Path $NodeDetailsDirectory "$($NodeName)-node.txt"
+            $skipMessage | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description "$NodeName host diagnostics status"
+            return
+        }
+
+        Write-Log "[NodeDiag] Using Linux SSH user '$linuxUserName' for node '$NodeName'."
+    }
+
+    $invokeLinuxCommand = {
+        param(
+            [string] $Command
+        )
+
+        if ($collectFromControlPlane) {
+            return (Invoke-CmdOnControlPlaneViaSSHKey $Command).Output
+        }
+
+        return (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $linuxUserName -IpAddress $NodeIpAddress -IgnoreErrors).Output
+    }
+
+    $nodePrompt = if ($collectFromControlPlane) { 'KubeMaster' } else { $NodeName }
+    $processDescription = if ($collectFromControlPlane) { 'Kubemaster processes' } else { "$NodeName processes" }
+    $systemdDescription = if ($collectFromControlPlane) { 'Kubemaster systemd services' } else { "$NodeName systemd services" }
+
+    $linuxNodeDumpFile = Join-Path $NodeDetailsDirectory "$($NodeName)-node.txt"
+    (& $invokeLinuxCommand 'uname -a') | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description "$nodePrompt~$ uname -a"
+    (& $invokeLinuxCommand 'cat /proc/version') | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description "$nodePrompt~$ cat /proc/version"
+
+    $linuxProcessesDumpFile = Join-Path $NodeDetailsDirectory "$($NodeName)-processes.txt"
+    $rawProcesses = & $invokeLinuxCommand 'ps -eo pid,user,%cpu,%mem,rss,cmd --sort=-%mem'
+    $trimmedProcesses = $rawProcesses | ForEach-Object {
+        if ($_ -match '^(\s*\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+)(.*)$') {
+            $prefix = $Matches[1]
+            $cmd = if ($Matches[2].Length -gt 50) { $Matches[2].Substring(0, 50) + '...' } else { $Matches[2] }
+            "$prefix$cmd"
+        }
+        else {
+            $_
+        }
+    }
+    $trimmedProcesses | Out-String -Width 250 | Write-OutputIntoDumpFile -DumpFilePath $linuxProcessesDumpFile -Description $processDescription
+
+    $linuxSystemdDumpFile = Join-Path $NodeDetailsDirectory "$($NodeName)-systemd-units.txt"
+    $systemdRaw = & $invokeLinuxCommand 'LC_ALL=C SYSTEMD_COLORS=0 systemctl list-units --type=service --all --no-pager --full'
+    $systemdClean = $systemdRaw | ForEach-Object { $_ -replace '[^\x00-\x7F]', '*' }
+    $systemdLegend = @('', '---', '* = unit not found or failed')
+    ($systemdClean + $systemdLegend) | Out-String -Width 250 | Write-OutputIntoDumpFile -DumpFilePath $linuxSystemdDumpFile -Description $systemdDescription
+}
+
+function Get-ClusterNodeInfo(
+    [string] $NodeName
+) {
+    $nodeJsonRaw = (Invoke-CmdOnControlPlaneViaSSHKey "kubectl get node $NodeName -o json" -IgnoreErrors).Output | Out-String
+    if ([string]::IsNullOrWhiteSpace($nodeJsonRaw)) {
+        return $null
+    }
+
+    try {
+        return $nodeJsonRaw | ConvertFrom-Json
+    }
+    catch {
+        Write-Log "[NodeDiag] Failed to parse node metadata for '$NodeName': $($_.Exception.Message)"
+        return $null
+    }
+}
+
+function Invoke-WindowsNodeDetailsViaSsh(
+    [string] $NodeName,
+    [string] $NodeIpAddress,
     [string] $NodeDetailsDirectory
 ) {
-    $isLinuxVMRunning = Get-IsControlPlaneRunning
-    $linuxNodeName = Get-ConfigControlPlaneNodeHostname
-    Write-Log "Node name: $linuxNodeName"
-    if ($isLinuxVMRunning) {
-        $linuxNodeDumpFile = Join-Path $NodeDetailsDirectory "$($linuxNodeName)-node.txt"
-        (Invoke-CmdOnControlPlaneViaSSHKey 'uname -a').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ uname -a'
-        (Invoke-CmdOnControlPlaneViaSSHKey 'cat /proc/version').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ cat /proc/version'
+    if ([string]::IsNullOrWhiteSpace($NodeIpAddress)) {
+        Write-Log "[NodeDiag] Skipping Windows node '$NodeName': missing InternalIP"
+        return
+    }
+
+    Write-Log "[NodeDiag] Collecting Windows host diagnostics for '$NodeName' ($NodeIpAddress) via SSH..."
+
+    $windowsNodeDumpFile = Join-Path $NodeDetailsDirectory "$($NodeName)-node.txt"
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'powershell -NoProfile -Command "[System.Environment]::OSVersion.ToString()"' -IpAddress $NodeIpAddress -IgnoreErrors).Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $windowsNodeDumpFile -Description "$NodeName~$ [System.Environment]::OSVersion.ToString()"
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'cmd /c ver' -IpAddress $NodeIpAddress -IgnoreErrors).Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $windowsNodeDumpFile -Description "$NodeName~$ cmd /c ver"
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'systeminfo' -IpAddress $NodeIpAddress -IgnoreErrors).Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $windowsNodeDumpFile -Description "$NodeName~$ systeminfo"
+
+    $windowsProcessesDumpFile = Join-Path $NodeDetailsDirectory "$($NodeName)-processes.txt"
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'powershell -NoProfile -Command "Get-Process | Select-Object Id, ProcessName, @{N=\'CPU(s)\'; E={ [math]::Round($_.CPU, 2) }}, @{N=\'Mem(MB)\'; E={ [math]::Round($_.WorkingSet64 / 1MB, 1) }}, Path | Format-Table -AutoSize | Out-String -Width 512"' -IpAddress $NodeIpAddress -IgnoreErrors).Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $windowsProcessesDumpFile -Description "$NodeName processes"
+}
+
+function Invoke-AdditionalNodeDetailsCollection(
+    [string] $NodeDetailsDirectory,
+    [string] $AdditionalNodes
+) {
+    if ([string]::IsNullOrWhiteSpace($AdditionalNodes)) {
+        return
+    }
+
+    $selectedNodes = $AdditionalNodes.Split(',') | ForEach-Object { $_.Trim().ToLower() } | Where-Object { $_ -ne '' } | Select-Object -Unique
+    if ($selectedNodes.Count -eq 0) {
+        return
+    }
+
+    $controlPlaneNode = (Get-ConfigControlPlaneNodeHostname).ToLower()
+    foreach ($nodeName in $selectedNodes) {
+        if ($nodeName -eq $controlPlaneNode) {
+            Write-Log "[NodeDiag] Skipping '$nodeName' as it is already collected as control-plane host diagnostics."
+            continue
+        }
+
+        $nodeInfo = Get-ClusterNodeInfo -NodeName $nodeName
+        if ($null -eq $nodeInfo) {
+            Write-Log "[NodeDiag] Skipping '$nodeName': unable to resolve node metadata via kubectl."
+            continue
+        }
+
+        $nodeOs = $nodeInfo.status.nodeInfo.operatingSystem
+        $nodeInternalIp = ($nodeInfo.status.addresses | Where-Object { $_.type -eq 'InternalIP' } | Select-Object -First 1).address
+
+        if ($nodeOs -eq 'linux') {
+            Invoke-LinuxNodeDetailsCollection -NodeDetailsDirectory $NodeDetailsDirectory -NodeName $nodeName -NodeIpAddress $nodeInternalIp
+            continue
+        }
+
+        if ($nodeOs -eq 'windows') {
+            $localHostName = (hostname).ToLower()
+            if ($nodeName -eq $localHostName) {
+                Write-Log "[NodeDiag] '$nodeName' matches current host; reusing local host diagnostics collection."
+                Invoke-HostDetailsCollection -NodeDetailsDirectory $NodeDetailsDirectory
+                Invoke-HostDiagnosticsCollection -HostDiagnosticsDir (Join-Path $NodeDetailsDirectory "$nodeName-host")
+            }
+            else {
+                Invoke-WindowsNodeDetailsViaSsh -NodeName $nodeName -NodeIpAddress $nodeInternalIp -NodeDetailsDirectory $NodeDetailsDirectory
+            }
+            continue
+        }
+
+        Write-Log "[NodeDiag] Skipping '$nodeName': unsupported node OS '$nodeOs'."
     }
 }
 
@@ -115,7 +291,8 @@ function Invoke-HostDetailsCollection(
 }
 
 function Invoke-ClusterDiagnosticsCollection(
-        [string] $ClusterDiagnosticsDir
+    [string] $ClusterDiagnosticsDir,
+    [string] $AdditionalNodes
 ) {
     Write-Log '[ClusterDiag] Starting cluster diagnostics collection...'
 
@@ -153,10 +330,28 @@ function Invoke-ClusterDiagnosticsCollection(
     (Invoke-CmdOnControlPlaneViaSSHKey "kubectl get events -A").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $ClusterDiagnosticsDir "events.txt") -Description "kubectl get events -A"
 
     Write-Log '[ClusterDiag] Collecting node descriptions...'
-    (Invoke-CmdOnControlPlaneViaSSHKey "kubectl describe node kubemaster").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $ClusterDiagnosticsDir "describe-kubemaster.txt") -Description "kubectl describe node kubemaster"
+    $nodeNames = [System.Collections.Generic.List[string]]::new()
+    $nodeNames.Add('kubemaster')
 
     $workerNode = (hostname).ToLower()
-    (Invoke-CmdOnControlPlaneViaSSHKey "kubectl describe node $workerNode").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $ClusterDiagnosticsDir "describe-worker.txt") -Description "kubectl describe node $workerNode"
+    if (-not [string]::IsNullOrWhiteSpace($workerNode) -and $workerNode -ne 'kubemaster') {
+        $nodeNames.Add($workerNode)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($AdditionalNodes)) {
+        $parsedAdditionalNodes = $AdditionalNodes.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+        foreach ($nodeName in $parsedAdditionalNodes) {
+            $nodeNames.Add($nodeName)
+        }
+    }
+
+    $distinctNodeNames = $nodeNames | Select-Object -Unique
+    foreach ($nodeName in $distinctNodeNames) {
+        Write-Log "[ClusterDiag] Collecting node description for $nodeName..."
+        $safeNodeName = $nodeName -replace '[^a-zA-Z0-9._-]', '_'
+        $describeNodeFile = Join-Path $ClusterDiagnosticsDir "describe-$safeNodeName.txt"
+        (Invoke-CmdOnControlPlaneViaSSHKey "kubectl describe node $nodeName").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $describeNodeFile -Description "kubectl describe node $nodeName"
+    }
 
     Write-Log '[ClusterDiag] Cluster diagnostics collection finished.'
 }
@@ -175,6 +370,11 @@ function Invoke-HostDiagnosticsCollection(
     Write-Log '[HostDiag] Collecting MSINFO32...'
     $msinfoFile = Join-Path $HostDiagnosticsDir "$env:COMPUTERNAME`_MSINFO32.NFO"
     Start-Process -FilePath "MSINFO32.exe" -ArgumentList "/nfo $msinfoFile /categories +all" -Wait
+    Write-Log '[HostDiag] Collecting running processes...'
+    Get-Process | Select-Object Id, ProcessName,
+        @{N='CPU(s)'; E={ [math]::Round($_.CPU, 2) }},
+        @{N='Mem(MB)'; E={ [math]::Round($_.WorkingSet64 / 1MB, 1) }},
+        Path | Format-Table -AutoSize | Out-String -Width 512 | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir 'processes.txt') -Description 'Host processes'
     Write-Log '[HostDiag] Host diagnostics collection finished.'
 }
 
@@ -204,12 +404,13 @@ try {
     Write-Log 'Gathering node details..' -Console
     Invoke-HostDetailsCollection -NodeDetailsDirectory $hostInfoDir
     Invoke-LinuxNodeDetailsCollection -NodeDetailsDirectory $hostInfoDir
+    Invoke-AdditionalNodeDetailsCollection -NodeDetailsDirectory $hostInfoDir -AdditionalNodes $Nodes
 
     # Cluster and host diagnostics collection
     $clusterDiagnosticsDir = Join-Path $tempDir 'cluster'
     $hostDiagnosticsDir = Join-Path $tempDir 'host'
     Write-Log 'Gathering cluster diagnostics..' -Console
-    Invoke-ClusterDiagnosticsCollection -ClusterDiagnosticsDir $clusterDiagnosticsDir
+    Invoke-ClusterDiagnosticsCollection -ClusterDiagnosticsDir $clusterDiagnosticsDir -AdditionalNodes $Nodes
     Write-Log 'Gathering host diagnostics..' -Console
     Invoke-HostDiagnosticsCollection -HostDiagnosticsDir $hostDiagnosticsDir
 

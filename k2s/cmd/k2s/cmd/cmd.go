@@ -6,6 +6,9 @@ package cmd
 import (
 	"context"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons"
 	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -23,7 +26,10 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/siemens-healthineers/k2s/internal/json"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -43,24 +49,45 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 				return err
 			}
 
-			logHandlers := []logging.HandlerBuilder{logging.NewFileHandler(bl.GlobalLogFilePath())}
-			if showLog {
-				logHandlers = append(logHandlers, logging.NewCliHandler())
-			}
-			logger.SetHandlers(logHandlers...).SetGlobally()
+			fileHandler := logging.NewFileHandler(bl.GlobalLogFilePath())
 
+			// Log CLI invocation to file only (before adding CLI handler)
+			logger.SetHandlers(fileHandler).SetGlobally()
+			slog.Info("<*********************************>")
+			slog.Info("CLI invocation", "cmd", strings.Join(os.Args, " "))
 			slog.Debug("log level set", "level", verbosity)
+
+			// Set up full handler chain including CLI handler if requested
+			if showLog {
+				logger.SetHandlers(fileHandler, logging.NewCliHandler()).SetGlobally()
+			}
 
 			// TODO: always load setup config and determine PS version?
 
-			config, err := config.ReadK2sConfig(utils.InstallDir())
+			configDir := utils.InstallDir()
+			k2sConfig, err := config.ReadK2sConfig(configDir)
+			if err != nil {
+				// Config not found at executable directory — check if running from a delta
+				// package directory and resolve the actual install dir from setup.json
+				actualDir, resolveErr := resolveInstallDirForDelta(configDir)
+				if resolveErr == nil && actualDir != configDir {
+					slog.Info("Config not found at exe dir, using actual install dir", "exe-dir", configDir, "install-dir", actualDir)
+					k2sConfig, err = config.ReadK2sConfig(actualDir)
+				}
+			}
 			if err != nil {
 				return err
 			}
 
-			slog.Debug("config loaded", "config", config)
+			slog.Debug("config loaded", "config", k2sConfig)
 
-			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyCmdContext, cc.NewCmdContext(config, logger)))
+			registry := provider.NewRegistry(provider.ProviderConfig{
+				InstallDir: utils.InstallDir(),
+				ConfigDir:  k2sConfig.Host().K2sSetupConfigDir(),
+				StdWriter:  cc.NewPtermWriter(),
+			})
+
+			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyCmdContext, cc.NewCmdContext(k2sConfig, logger, registry)))
 
 			return nil
 		},
@@ -87,4 +114,42 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 	persistentFlags.StringVarP(&verbosity, cli.VerbosityFlagName, cli.VerbosityFlagShorthand, verbosity, cli.VerbosityFlagHelp())
 
 	return cmd, nil
+}
+
+// setupJson is the minimal struct for reading InstallFolder from setup.json.
+type setupJson struct {
+	InstallFolder string `json:"InstallFolder"`
+}
+
+// resolveInstallDirForDelta checks if the executable is running from a delta package
+// directory (indicated by delta-manifest.json) and resolves the actual K2s install
+// directory from setup.json at the well-known system location.
+func resolveInstallDirForDelta(exeDir string) (string, error) {
+	deltaManifest := filepath.Join(exeDir, "delta-manifest.json")
+	if _, err := os.Stat(deltaManifest); err != nil {
+		return exeDir, err
+	}
+
+	slog.Info("Delta package detected, resolving actual install directory")
+
+	// Read install folder from setup.json at the well-known ProgramData location,
+	// consistent with Start-ClusterUpdate.ps1 behavior.
+	// Note: must use host.SystemDrive() (returns "C:\") instead of os.Getenv("SystemDrive")
+	// (returns "C:") because Go's filepath.Join does not add a separator after a bare
+	// drive letter — see https://github.com/golang/go/issues/26953
+	setupConfigPath := filepath.Join(host.SystemDrive(), "ProgramData", "k2s", "setup.json")
+
+	setup, err := json.FromFile[setupJson](setupConfigPath)
+	if err != nil {
+		slog.Warn("Could not read setup.json", "path", setupConfigPath, "error", err)
+		return exeDir, err
+	}
+
+	if setup.InstallFolder == "" {
+		slog.Warn("InstallFolder not set in setup.json")
+		return exeDir, nil
+	}
+
+	slog.Info("Resolved actual install directory from setup.json", "install-dir", setup.InstallFolder)
+	return setup.InstallFolder, nil
 }

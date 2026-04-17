@@ -185,12 +185,12 @@ if ( $UseSoftwareVirtualization ) {
 }
 
 # deploy kubevirt
-$VERSION_KV = 'v0.59.2'
+$VERSION_KV = 'v1.8.1'
 Write-Log "deploy kubevirt version $VERSION_KV"
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-operator.yaml").Output | Write-Log
 
 # deploy virtctrl
-$VERSION_VCTRL = 'v0.59.2'
+$VERSION_VCTRL = 'v1.8.1'
 $IMPLICITPROXY = "http://$(Get-ConfiguredKubeSwitchIP):8181"
 Write-Log "deploy virtctl version $VERSION_VCTRL"
 if ( $K8sSetup -eq 'SmallSetup' ) {
@@ -211,7 +211,9 @@ if (!(Test-Path "$binPath\virtctl.exe")) {
 # enable config
 (Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Ready', '-n', 'kube-system', "pod/kube-apiserver-$controlPlaneNodeName").Output | Write-Log
 (Invoke-Kubectl -Params 'wait', '--timeout=30s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-operator').Output | Write-Log
-(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-cr.yaml").Output | Write-Log
+# Clear kubectl discovery cache so KubeVirt CR kind is resolvable after operator CRD installation
+Clear-KubectlDiscoveryCache
+(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', "$PSScriptRoot\manifests\kubevirt-cr.yaml").Output | Write-Log
 
 # for small setup restart VM
 if ( $K8sSetup -eq 'SmallSetup' ) {

@@ -20,7 +20,6 @@ function New-DefaultLoopbackAdapter {
     New-LoopbackAdapter -Name $defaultLoopbackAdapterName -DevConExe $devgonPath | Out-Null
     $AdapterName = Get-L2BridgeName
     Set-LoopbackAdapterProperties -Name $AdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
-    Write-Log "New-DefaultLoopbackAdapter $AdapterName"
 }
 
 function Enable-LoopbackAdapter {
@@ -67,7 +66,6 @@ function Get-L2BridgeName {
         Throw 'More than one Loopback Adapter was found, this is an inconsistency on the system.'
     } # if
     # return the name of the first adapter
-    Write-Log "Get-L2BridgeName: $($Adapter.Name)"
     return $Adapter.Name
 }
 
@@ -138,36 +136,6 @@ function New-LoopbackAdapter {
 
     Return $Adapter
 } # function New-LoopbackAdapter
-
-
-function Get-LoopbackAdapter {
-    [OutputType([Microsoft.Management.Infrastructure.CimInstance[]])]
-    [CmdLetBinding()]
-    param
-    (
-        [Parameter(
-            Position = 0)]
-        [string]
-        $Name
-    )
-    # Check for the existing Loopback Adapter
-    if ($Name) {
-        $Adapter = Get-NetAdapter `
-            -Name $Name `
-            -ErrorAction SilentlyContinue
-
-        if (!$Adapter) {
-            return
-        }
-        if ($Adapter.InterfaceDescription -ne 'Microsoft KM-TEST Loopback Adapter') {
-            Throw "The Network Adapter $Name exists but it is not a Microsoft KM-TEST Loopback Adapter."
-        } # if
-        return $Adapter
-    }
-    else {
-        Get-NetAdapter | Where-Object -Property InterfaceDescription -eq 'Microsoft KM-TEST Loopback Adapter'
-    }
-}
 
 function Remove-LoopbackAdapter {
     [CmdLetBinding()]
@@ -272,7 +240,7 @@ function Confirm-LoopbackAdapterIP {
     if ($null -ne $currentAddresses) {
         foreach ($addr in $currentAddresses) {
             if ($addr.IPAddress -like "169.254.*") {
-                Write-Log "[LoopbackAdapter] WARNING: APIPA address detected: $($addr.IPAddress)" -Warning
+                Write-Log "[LoopbackAdapter] WARNING: APIPA address detected: $($addr.IPAddress)" -Console
             } else {
                 Write-Log "[LoopbackAdapter] Current IP address: $($addr.IPAddress)"
             }
@@ -315,7 +283,7 @@ function Set-LoopbackAdapterProperties {
         [Parameter()]
         [string] $Gateway
     )
-    Write-Log "Set-LoopbackAdapterProperties Start"
+
     $maxRetries = 3
     $retryDelaySeconds = 3
     $stabilizationDelaySeconds = 1
@@ -363,7 +331,6 @@ function Set-LoopbackAdapterProperties {
     else {
         Write-Log "[LoopbackAdapter] No loopback adapter '$Name' found to configure."
     }
-    Write-Log "Set-LoopbackAdapterProperties End"
 }
 
 function Set-LoopbackAdapterExtendedProperties {
@@ -371,68 +338,32 @@ function Set-LoopbackAdapterExtendedProperties {
         [Parameter()]
         [string] $AdapterName,
         [Parameter()]
-        [string] $DnsServers,
-        [Parameter()]
-        [switch] $IsPhysical
+        [string] $DnsServers
     )
     $adapterName = $AdapterName
-    
-    # After external switch creation, the IP interface moves from base adapter to vEthernet adapter
-    $vEthernetName = "vEthernet ($adapterName)"
-    $vEthernetAdapter = Get-NetAdapter -Name $vEthernetName -ErrorAction SilentlyContinue
-    $interfaceToQuery = if ($null -ne $vEthernetAdapter) { $vEthernetName } else { $adapterName }
-    
-    Write-Log "Figuring out IPv4DefaultGateway for $interfaceToQuery"
-    $if = Get-NetIPConfiguration -InterfaceAlias "$interfaceToQuery" -ErrorAction SilentlyContinue
-    Write-Log "Get-NetIPConfiguration executed for $if"
+    Write-Log 'Figuring out IPv4DefaultGateway'
+    $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
     $gw = Get-LoopbackAdapterGateway
-    if ( $if -and $if.IPv4DefaultGateway -and $if.IPv4DefaultGateway.NextHop ) {
+    if ( $if ) {
         $gw = $if.IPv4DefaultGateway.NextHop
         Write-Log "Gateway found (from interface '$adapterName'): $gw"
     }
     Write-Log "The following gateway IP address will be used: $gw"
-
-    $dnsServersAsArray = $DnsServers -split ','
-
-    # If caller knows this is a physical adapter, use it directly and avoid candidate probing.
-    if ($IsPhysical) {
-        Write-Log "IsPhysical flag set: using adapter '$adapterName' directly"
-        $loopbackAdapterAlias = $adapterName
-        $loopbackAdapterIfIndex = (Get-NetIPInterface -InterfaceAlias "$adapterName" -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ifIndex -First 1)
-        if ($null -eq $loopbackAdapterIfIndex) {
-            Write-Log "Physical adapter '$adapterName' not found as an IPv4 interface" -Error
-            Get-NetIPInterface | Write-Log
-            throw "Unable to find physical adapter interface '$adapterName' to configure"
-        }
-
-        Write-Log "Configuring DNS/forwarding on physical interface '$loopbackAdapterAlias' without changing its IP"
-        if ($dnsServersAsArray) {
-            Set-DnsClientServerAddress -InterfaceIndex $loopbackAdapterIfIndex -ServerAddresses $dnsServersAsArray -ErrorAction SilentlyContinue | Out-Null
-        }
-        Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
-        netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
-        Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102  | Out-Null
-        return
-    }
-
-    # Look for the vEthernet endpoint that corresponds to the provided adapter name.
-    # This preserves the original behavior: expect a vEthernet (<AdapterName>) endpoint and fail fast if absent.
-    $loopbackAdapterIfIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -ExpandProperty ifIndex -First 1
-    $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -ExpandProperty InterfaceAlias -First 1
-
+    $loopbackAdapterIfIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex' -First 1
+    $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
     if ($null -eq $loopbackAdapterIfIndex -or $null -eq $loopbackAdapterAlias) {
-        Write-Log 'Unable to find the loopback adapter vEthernet (<AdapterName>)' -Error
-        Write-Log 'Found following interfaces for diagnostics:'
+        Write-Log 'Unable to find the loopback adapter' -Error
+        Write-Log 'Found following interfaces:'
         Get-NetIPInterface | Write-Log
-        throw 'Unable to find the loopback adapter vEthernet (<AdapterName>).'
-    }
-
+        throw 'Unable to find the loopback adapter'
+    }    
     Write-Log "Found Loopback adapter with Alias: '$loopbackAdapterAlias' and ifIndex: '$loopbackAdapterIfIndex'"
     $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
     Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -Dhcp Disabled  | Out-Null
-
-    # Normal loopback/vEthernet configuration: apply the loopback IP and DNS
+    $dnsServersAsArray = $DnsServers -split ','
     Set-IPAddressAndDnsClientServerAddress -IPAddress $ipAddressForLoopbackAdapter -DefaultGateway $gw -Index $loopbackAdapterIfIndex -DnsAddresses $dnsServersAsArray
+    # Removed, not at the end of start cmd
+    # Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
     Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
     netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
     Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102  | Out-Null
@@ -481,7 +412,6 @@ function Set-PrivateNetworkProfileForLoopbackAdapter {
 
 Export-ModuleMember New-LoopbackAdapter
 Export-ModuleMember Remove-LoopbackAdapter
-Export-ModuleMember New-DefaultLoopbackAdaterRemote
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
 Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdapter, Get-L2BridgeName,
 Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath, Set-LoopbackAdapterExtendedProperties,

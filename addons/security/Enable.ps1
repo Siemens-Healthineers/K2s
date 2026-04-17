@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -20,7 +20,7 @@ powershell <installation folder>\addons\security\Enable.ps1
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
 	[parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
-	[ValidateSet('nginx', 'traefik')]
+	[ValidateSet('nginx', 'traefik','nginx-gw')]
 	[string] $Ingress = 'nginx',
 	[parameter(Mandatory = $false, HelpMessage = 'Security type setting')]
 	[ValidateSet('basic', 'enhanced')]
@@ -102,103 +102,36 @@ if (Confirm-EnhancedSecurityOn($Type)) {
 }
 
 try {
-	Write-Log 'Downloading cert-manager files' -Console
-	$manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
-	$k2sRoot = "$PSScriptRoot\..\.."
-	$windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
-	if ($windowsCurlPackages) {
-		foreach ($package in $windowsCurlPackages) {
-			$destination = $package.destination
-			$destination = "$k2sRoot\$destination"
-			if (!(Test-Path $destination)) {
-				$url = $package.url
-				Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
-			}
-			else {
-				Write-Log "File $destination already exists. Skipping download."
-			}
-		}
+
+	# Install cert-manager first (required for TLS certificate generation)
+	Write-Log 'Checking if cert-manager is already installed' -Console
+	$manifestPath = "$PSScriptRoot\addon.manifest.yaml"
+    $k2sRoot = "$PSScriptRoot\..\.."
+    Install-CmctlCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
+	if (Wait-ForCertManagerAvailable) {
+		Write-Log 'cert-manager is already installed and ready' -Console
+	} else {
+		Write-Log 'Installing cert-manager' -Console
+		Enable-CertManager -Proxy $Proxy -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType
 	}
 
-	Write-Log 'Installing cert-manager' -Console
-	$certManagerConfig = Get-CertManagerConfig
-	(Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
-
-	Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
-	$certManagerStatus = Wait-ForCertManagerAvailable
-
-	if ($certManagerStatus -ne $true) {
-		$errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'security' addon failed."
-		if ($EncodeStructuredOutput -eq $true) {
-			$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-			Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-			return
-		}
-
-		Write-Log $errMsg -Error
-		throw $errMsg
-	}
-
-	Write-Log 'Configuring CA ClusterIssuer' -Console
-	$caIssuerConfig = Get-CAIssuerConfig
-	(Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
-
-	Write-Log 'Waiting for CA root certificate to be created' -Console
-	$caCreated = Wait-ForCARootCertificate
-	if ($caCreated -ne $true) {
-		$errMsg = "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'security' addon failed."
-		if ($EncodeStructuredOutput -eq $true) {
-			$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-			Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-			return
-		}
-
-		Write-Log $errMsg -Error
-		throw $errMsg
-	}
-
-	Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
-	Update-CertificateResources
-
-	Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
-	$b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
-	$tempFile = New-TemporaryFile
-	$certLocationStore = Get-TrustedRootStoreLocation
-	[Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
-	$params = @{
-		FilePath          = $tempFile.FullName
-		CertStoreLocation = $certLocationStore
-	}
-	Import-Certificate @params
-	Remove-Item -Path $tempFile.FullName -Force
-
-	Write-Log 'Checking for availability of Ingress Controller' -Console
-	$cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
+	# Check for existing ingress controller or enable one
 	if (Test-NginxIngressControllerAvailability) {
-		$activeIngress = 'nginx'
-		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
-		&$cmctlExe renew k2s-cluster-local-tls -n ingress-nginx
-		
-		# Ensure certificate exists - renew only works if cert already exists
-		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
+		# Ensure certificate exists
+	
+		Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
-		$activeIngress = 'traefik'
-		Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
-		&$cmctlExe renew k2s-cluster-local-tls -n ingress-traefik
-		
-		# Ensure certificate exists - renew only works if cert already exists
-		Ensure-IngressTlsCertificate -IngressType 'traefik' | Out-Null
+		Assert-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
+	}
+	elseif (Test-NginxGatewayAvailability) {
+		Assert-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\k2s-cluster-local-tls-certificate.yaml"
 	}
 	else {
-		#Enable required ingress addon
+		# Enable required ingress addon
 		Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
 		Enable-IngressAddon -Ingress:$Ingress
-		$activeIngress = $Ingress
-		
-		# After enabling ingress, ensure the certificate gets created
-		Write-Log 'Waiting for TLS certificate to be created after ingress enablement' -Console
-		Ensure-IngressTlsCertificate -IngressType 'nginx' | Out-Null
+		Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
 	}
 
 	# Keycloak and Hydra setup (conditional)
@@ -329,12 +262,16 @@ try {
 		& $clinkerdExe install  `
 --ignore-cluster --disable-heartbeat  `
 --proxy-memory-limit 100Mi  `
+--proxy-cpu-request 100m  `
+--proxy-cpu-limit 100m  `
 --default-inbound-policy "all-authenticated"  `
 --set "identity.externalCA=true"  `
 --set "identity.issuer.scheme=kubernetes.io/tls"  `
 --set "proxy.await=false"  `
 --set "proxy.image.name=shsk2s.azurecr.io/linkerd/proxy"  `
---set "proxyInit.image.name=shsk2s.azurecr.io/linkerd/proxy-init" 2> $null | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8
+--set "proxyInit.image.name=shsk2s.azurecr.io/linkerd/proxy-init"  `
+--set "proxyInit.resources.cpu.request=100m"  `
+--set "proxyInit.resources.cpu.limit=100m" 2> $null | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8
 
 		# cleanup linkerd resources
 		(Get-Content $linkerdYaml\linkerd-crds-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd-crds.yaml
@@ -354,10 +291,10 @@ try {
 		Write-Log 'Generate kubeconfig for CNI plugin based on service account' -Console
 		Initialize-ConfigFileForCNI
 
-		# install trust manager
+		# install trust manager (includes Bundle CRD)
 		Write-Log 'Install trust manager' -Console
 		$linkerdYamlTrustManager = Get-LinkerdConfigTrustManager
-		(Invoke-Kubectl -Params 'apply', '-f', $linkerdYamlTrustManager).Output | Write-Log
+		(Invoke-Kubectl -Params 'apply', '--server-side', '-f', $linkerdYamlTrustManager).Output | Write-Log
 		Write-Log 'Waiting for trust manager pods to be available' -Console
 		$trustManagerPodStatus = Wait-ForTrustManagerAvailable
 		if ($trustManagerPodStatus -ne $true) {
@@ -389,12 +326,13 @@ try {
 
 		# install cert-manager addons
 		Write-Log 'Install trust manager and cert-manager resources, creating bundle' -Console
+		Clear-KubectlDiscoveryCache
 		$linkerdYamlCertManager = Get-LinkerdConfigCertManager
-		(Invoke-Kubectl -Params 'apply', '-f', $linkerdYamlCertManager).Output | Write-Log
+		(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $linkerdYamlCertManager).Output | Write-Log
 
 		# wait for secret linkerd-trust-anchor to be available
 		Write-Log 'Waiting for secret linkerd-trust-anchor to be available' -Console
-		$secretStatus = Wait-ForK8sSecret -SecretName 'linkerd-trust-anchor' -Namespace 'cert-manager'
+		$secretStatus = Wait-ForK8sSecret -SecretName 'linkerd-trust-anchor' -Namespace 'cert-manager' -TimeoutSeconds 120
 		if ($secretStatus -ne $true) {
 			$errMsg = "Secret linkerd-trust-anchor not available. Please use kubectl describe for more details.`nInstallation of security addon failed."
 			if ($EncodeStructuredOutput -eq $true) {
@@ -417,9 +355,16 @@ try {
 		$filteredYaml = $filteredYamlLines -join "`n"
 		$filteredYaml | &"$kubeToolsPath\kubectl.exe" apply -f -
 
+		# Wait for trust-manager to propagate certificates to linkerd namespace
+		Write-Log 'Waiting for linkerd namespace secrets to be ready' -Console
+		Start-Sleep -Seconds 10
+
 		# install linkerd
+		# Clear kubectl discovery cache before applying Linkerd kustomization
+		# which bundles CRDs and CRD instances together
+		Clear-KubectlDiscoveryCache
 		$linkerdYamlCRDs = Get-LinkerdConfigDirectory
-		(Invoke-Kubectl -Params 'apply', '-k', $linkerdYamlCRDs).Output | Write-Log
+		(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-k', $linkerdYamlCRDs).Output | Write-Log
 		Write-Log 'Waiting for linkerd pods to be available' -Console
 		$linkerdPodStatus = Wait-ForLinkerdAvailable
 		if ($linkerdPodStatus -ne $true) {
@@ -434,6 +379,14 @@ try {
 			throw $errMsg
 		}
 
+	if (-not $OmitKeycloak -and -not $OmitOAuth2Proxy) {
+			if (-not (Test-NginxGwServerAuthorizationExists)) {
+				Write-Log 'Applying Linkerd ServerAuthorization policies for nginx-gw ingress' -Console
+				&"$PSScriptRoot\Update.ps1"
+			} else {
+				Write-Log 'Linkerd ServerAuthorization policies for nginx-gw already exist, skipping update' -Console
+			}
+		}
 		if (-not $OmitKeycloak) {
 			# update basic security pods: redis, oauth2-proxy, keycloak to be part of the service mesh
 			Write-Log "Updating redis to be part of service mesh" -Console

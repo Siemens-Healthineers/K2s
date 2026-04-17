@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -308,7 +308,6 @@ Describe "PerformClusterUpgrade" {
 		Mock -ModuleName $moduleName Start-Sleep
 		Mock -ModuleName $moduleName Invoke-ClusterInstall
 		Mock -ModuleName $moduleName Wait-ForAPIServer
-		Mock -ModuleName $moduleName Restore-Addons
 		Mock -ModuleName $moduleName Invoke-UpgradeBackupRestoreHooks
 		Mock -ModuleName $moduleName Get-KubeToolsPath -MockWith { return "C:\KubeTools" }
 		Mock -ModuleName $moduleName Import-NotNamespacedResources
@@ -326,21 +325,20 @@ Describe "PerformClusterUpgrade" {
 
 	It "should perform cluster upgrade with execute hooks successfully" {
 		InModuleScope $moduleName {
-			$memoryVM = [ref]"4GB"
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
 			$coresVM = [ref]"2"
 			$storageVM = [ref]"100GB"
-			$addonsBackupPath = [ref]"C:\Backup\Addons"
+			$enabledAddonsList = [System.Collections.ArrayList]@([pscustomobject]@{ Name = 'dashboard' })
 			$hooksBackupPath = [ref]"C:\Backup\Hooks"
 			$logFilePathBeforeUninstall = [ref]"C:\Backup\logfile.log"
 
 			Mock Invoke-ClusterUninstall
 
-			PerformClusterUpgrade -ExecuteHooks -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom "C:\K2sPath" -Config "config.yaml" -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+			PerformClusterUpgrade -ExecuteHooks -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom "C:\K2sPath" -Config "config.yaml" -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
 
 			# Assert that the mocked functions were called
 			Should -Invoke Invoke-ClusterUninstall -Exactly 1 -Scope It
 			Should -Invoke Invoke-ClusterInstall -Exactly 1 -Scope It
-			Should -Invoke Restore-Addons -Exactly 1 -Scope It -ParameterFilter { $BackupDir -eq $addonsBackupPath.Value }
 			Should -Invoke Invoke-UpgradeBackupRestoreHooks -Exactly 1 -Scope It -ParameterFilter { $HookType -eq "Restore" -and $BackupDir -eq $hooksBackupPath.Value }
 			Should -Invoke Import-NotNamespacedResources -Exactly 1 -Scope It
 			Should -Invoke Import-NamespacedResources -Exactly 1 -Scope It
@@ -352,20 +350,19 @@ Describe "PerformClusterUpgrade" {
 	
 	It "should perform cluster upgrade without execute hooks successfully" {
 		InModuleScope $moduleName {
-			$memoryVM = [ref]"4GB"
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
 			$coresVM = [ref]"2"
 			$storageVM = [ref]"100GB"
-			$addonsBackupPath = [ref]"C:\Backup\Addons"
+			$enabledAddonsList = [System.Collections.ArrayList]@()
 			$hooksBackupPath = [ref]"C:\Backup\Hooks"
 			$logFilePathBeforeUninstall = [ref]"C:\Backup\logfile.log"
 
 			Mock Invoke-ClusterUninstall
-			PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom "C:\K2sPath" -Config "config.yaml" -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+			PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom "C:\K2sPath" -Config "config.yaml" -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
 
 			# Assert that the mocked functions were called
 			Should -Invoke  Invoke-ClusterUninstall -Exactly 1 -Scope It
 			Should -Invoke Invoke-ClusterInstall -Exactly 1 -Scope It
-			Should -Invoke Restore-Addons -Exactly 1 -Scope It -ParameterFilter { $BackupDir -eq $addonsBackupPath.Value }
 			Should -Invoke Invoke-UpgradeBackupRestoreHooks -Exactly 0 -Scope It -ParameterFilter { $HookType -eq "Restore" -and $BackupDir -eq $hooksBackupPath.Value }
 			Should -Invoke Import-NotNamespacedResources -Exactly 1 -Scope It
 			Should -Invoke Import-NamespacedResources -Exactly 1 -Scope It
@@ -379,14 +376,79 @@ Describe "PerformClusterUpgrade" {
 		InModuleScope $moduleName {
 			Mock Invoke-ClusterUninstall -MockWith { throw "Uninstall failed" }
 	
-			$memoryVM = [ref]"4GB"
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
 			$coresVM = [ref]"2"
 			$storageVM = [ref]"100GB"
-			$addonsBackupPath = [ref]"C:\Backup\Addons"
+			$enabledAddonsList = [System.Collections.ArrayList]@()
 			$hooksBackupPath = [ref]"C:\Backup\Hooks"
 			$logFilePathBeforeUninstall = [ref]"C:\Backup\logfile.log"
 	
-			{ PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom "C:\K2sPath" -Config "config.yaml" -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall } | Should -Throw "Uninstall failed"
+			{ PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom "C:\K2sPath" -Config "config.yaml" -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall } | Should -Throw "Uninstall failed"
+		}
+	}
+}
+
+
+Describe 'Enable-ClusterIsRunning'{
+	BeforeAll {
+		$log = [System.Collections.ArrayList]@()
+		Mock -ModuleName $moduleName Write-Log { $log.Add($Messages) | Out-Null }
+		Mock -ModuleName $moduleName Get-ClusterInstalledFolder { return 'C:\temp\k2s' }
+		Mock -ModuleName $moduleName Test-Path { return $true }
+		Mock -ModuleName $moduleName Invoke-Cmd { return 0 }
+	}
+
+	It 'does nothing when cluster is already running' {
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $true } }
+			Enable-ClusterIsRunning
+			Should -Invoke -CommandName Get-ClusterInstalledFolder -Times 0 -Exactly
+			Should -Invoke -CommandName Invoke-Cmd -Times 0 -Exactly
+		}
+	}
+
+	It 'throws when installed k2s.exe is not found' {
+		Mock -ModuleName $moduleName Test-Path { return $false }
+
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $false } }
+			{ Enable-ClusterIsRunning } | Should -Throw '*Installed k2s.exe not found*'
+		}
+	}
+
+	It 'starts cluster using installed k2s.exe when cluster is stopped' {
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $false } }
+			Enable-ClusterIsRunning
+			Assert-MockCalled Invoke-Cmd -ParameterFilter {
+				$Executable -eq 'C:\temp\k2s\k2s.exe' -and $Arguments -eq 'start'
+			}
+			Should -Invoke -CommandName Invoke-Cmd -Times 1 -Exactly
+		}
+	}
+
+	It 'throws when start of cluster fails' {
+		Mock -ModuleName $moduleName Invoke-Cmd { return 1 }
+
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $false } }
+			{ Enable-ClusterIsRunning } | Should -Throw '*Not possible to start existing cluster*'
+		}
+	}
+
+	It 'passes -o flag to start command when ShowLogs is set' {
+		InModuleScope -ModuleName $moduleName {
+			Mock Get-SetupInfo { return @{ Name = 'k2s' } }
+			Mock Get-RunningState { return @{ IsRunning = $false } }
+			Enable-ClusterIsRunning -ShowLogs
+			Assert-MockCalled Invoke-Cmd -ParameterFilter {
+				$Executable -eq 'C:\temp\k2s\k2s.exe' -and $Arguments -eq 'start -o'
+			}
+			Should -Invoke -CommandName Invoke-Cmd -Times 1 -Exactly
 		}
 	}
 }
@@ -396,17 +458,18 @@ Describe "PrepareClusterUpgrade" {
 		# Mock the dependencies
 		Mock -ModuleName $moduleName Get-SetupInfo -MockWith { return @{ Name = "k2s" } }
 		Mock -ModuleName $moduleName Get-LinuxVMCores -MockWith { return 4 }
-		Mock -ModuleName $moduleName Get-LinuxVMMemory -MockWith { return 16 }
+		Mock -ModuleName $moduleName Get-LinuxVMMemory -MockWith { return @{ Startup = '4GB'; DynamicMemoryEnabled = $false } }
 		Mock -ModuleName $moduleName Get-LinuxVMStorageSize -MockWith { return 100 }
 		Mock -ModuleName $moduleName Assert-UpgradeOperation -MockWith { return $true }
 		Mock -ModuleName $moduleName Enable-ClusterIsRunning
+		Mock -ModuleName $moduleName Get-EnabledAddons -MockWith { return [System.Collections.ArrayList]@() }
 		Mock -ModuleName $moduleName Assert-YamlTools
 		Mock -ModuleName $moduleName Get-ClusterInstalledFolder -MockWith { return "C:\Cluster" }
 		Mock -ModuleName $moduleName Test-Path -MockWith { return $true }
 		Mock -ModuleName $moduleName Export-ClusterResources
 		Mock -ModuleName $moduleName Invoke-UpgradeBackupRestoreHooks
-		Mock -ModuleName $moduleName Backup-Addons
 		Mock -ModuleName $moduleName Backup-LogFile
+		Mock -ModuleName $moduleName Backup-AllPersistentVolumes -MockWith { return $null }
 		Mock -ModuleName $moduleName Write-Log
 		Mock -ModuleName $moduleName Write-Progress
 	}
@@ -416,16 +479,19 @@ Describe "PrepareClusterUpgrade" {
 			$coresVM = [ref]0
 			$memoryVM = [ref]0
 			$storageVM = [ref]0
-			$addonsBackupPath = [ref]""
+			$enabledAddonsList = [ref]$null
 			$hooksBackupPath = [ref]""
 			$logFilePathBeforeUninstall = [ref]""
+			$imagesBackupPath = [ref]""
+			$pvBackupPath = [ref]""
 
-			$result = PrepareClusterUpgrade -ShowProgress -SkipResources -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+			$result = PrepareClusterUpgrade -ShowProgress -SkipResources -SkipImages -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall -imagesBackupPath $imagesBackupPath -pvBackupPath $pvBackupPath
 
 			# Assert that the mocked functions were called
 			Should -Invoke Get-SetupInfo -Exactly 1 -Scope It
 			Should -Invoke Assert-UpgradeOperation -Exactly 1 -Scope It
 			Should -Invoke Enable-ClusterIsRunning -Exactly 1 -Scope It
+			Should -Invoke Get-EnabledAddons -Exactly 1 -Scope It
 			Should -Invoke Get-LinuxVMCores -Exactly 1 -Scope It
 			Should -Invoke Get-LinuxVMMemory -Exactly 1 -Scope It
 			Should -Invoke Get-LinuxVMStorageSize -Exactly 1 -Scope It
@@ -434,7 +500,6 @@ Describe "PrepareClusterUpgrade" {
 			Should -Invoke Test-Path -Exactly 1 -Scope It
 			Should -Invoke Export-ClusterResources -Exactly 1 -Scope It
 			Should -Invoke Invoke-UpgradeBackupRestoreHooks -Exactly 1 -Scope It
-			Should -Invoke Backup-Addons -Exactly 1 -Scope It
 			Should -Invoke Backup-LogFile -Exactly 1 -Scope It
 			Should -Invoke Write-Log -Times 1 -Scope It
 			Should -Invoke Write-Progress -Times 1 -Scope It
@@ -451,11 +516,13 @@ Describe "PrepareClusterUpgrade" {
 			$coresVM = [ref]0
 			$memoryVM = [ref]0
 			$storageVM = [ref]0
-			$addonsBackupPath = [ref]""
+			$enabledAddonsList = [ref]$null
 			$hooksBackupPath = [ref]""
 			$logFilePathBeforeUninstall = [ref]""
+			$imagesBackupPath = [ref]""
+			$pvBackupPath = [ref]""
 
-			$result = PrepareClusterUpgrade -ShowProgress -SkipResources -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+			$result = PrepareClusterUpgrade -ShowProgress -SkipResources -SkipImages -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall -imagesBackupPath $imagesBackupPath -pvBackupPath $pvBackupPath
 
 			# Assert that the mocked functions were called
 			Should -Invoke Get-SetupInfo -Exactly 1 -Scope It
@@ -474,11 +541,13 @@ Describe "PrepareClusterUpgrade" {
 			$coresVM = [ref]0
 			$memoryVM = [ref]0
 			$storageVM = [ref]0
-			$addonsBackupPath = [ref]""
+			$enabledAddonsList = [ref]$null
 			$hooksBackupPath = [ref]""
 			$logFilePathBeforeUninstall = [ref]""
+			$imagesBackupPath = [ref]""
+			$pvBackupPath = [ref]""
 
-			{ PrepareClusterUpgrade -ShowProgress -SkipResources -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall } | Should -Throw "Upgrade is only available for 'k2s' setup"
+			{ PrepareClusterUpgrade -ShowProgress -SkipResources -SkipImages -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall -imagesBackupPath $imagesBackupPath -pvBackupPath $pvBackupPath } | Should -Throw "Upgrade is only available for 'k2s' setup"
 		}
 	}
 
@@ -489,11 +558,13 @@ Describe "PrepareClusterUpgrade" {
 			$coresVM = [ref]0
 			$memoryVM = [ref]0
 			$storageVM = [ref]0
-			$addonsBackupPath = [ref]""
+			$enabledAddonsList = [ref]$null
 			$hooksBackupPath = [ref]""
 			$logFilePathBeforeUninstall = [ref]""
+			$imagesBackupPath = [ref]""
+			$pvBackupPath = [ref]""
 
-			{ PrepareClusterUpgrade -ShowProgress -SkipResources -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall } | Should -Throw "Unexpected error"
+			{ PrepareClusterUpgrade -ShowProgress -SkipResources -SkipImages -ShowLogs -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall -imagesBackupPath $imagesBackupPath -pvBackupPath $pvBackupPath } | Should -Throw "Unexpected error"
 
 			# Assert that the mocked functions were called
 			Should -Invoke Write-Log -Times 1 -Scope It

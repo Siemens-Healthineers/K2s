@@ -25,7 +25,7 @@ $windowsNode_Flannel64exe = 'flannel-amd64.exe'
 
 function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     $flannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_FlannelDirectory"
-    $flannelVersion = 'v0.28.0'
+    $flannelVersion = 'v0.28.4'
     $file = "$flannelDownloadsDirectory\$windowsNode_FlanneldExe"
 
     Write-Log "Create folder '$flannelDownloadsDirectory'"
@@ -36,7 +36,7 @@ function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
 
 function Invoke-DownloadCniPlugins($downloadsBaseDirectory, $Proxy) {
     $cniPluginsDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CniPluginsDirectory"
-    $cniPluginVersion = 'v1.9.0'
+    $cniPluginVersion = 'v1.9.1'
     $cniPlugins = "cni-plugins-windows-amd64-$cniPluginVersion.tgz"
     $compressedFile = "$cniPluginsDownloadsDirectory\$cniPlugins"
 
@@ -55,7 +55,7 @@ function Invoke-DownloadCniPlugins($downloadsBaseDirectory, $Proxy) {
 
 function Invoke-DownloadCniFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     $cniFlannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CniFlannelDirectory"
-    $cniFlannelVersion = 'v1.9.0-flannel1'
+    $cniFlannelVersion = 'v1.9.1-flannel1'
     $file = "$cniFlannelDownloadsDirectory\$windowsNode_Flannel64exe"
 
     Write-Log "Create folder '$cniFlannelDownloadsDirectory'"
@@ -80,7 +80,7 @@ function Invoke-DeployCniPlugins($windowsNodeArtifactsDirectory) {
         throw "Directory '$cniPluginsArtifactsDirectory' does not exist"
     }
     Write-Log 'Publish cni plugins artifacts'
-    Copy-Item -Path "$cniPluginsArtifactsDirectory\*.*" -Destination "$cniPath" -Force
+    Copy-Item -Path "$cniPluginsArtifactsDirectory\*.exe" -Destination "$cniPath" -Force
 }
 
 function Invoke-DeployCniFlannelArtifacts($windowsNodeArtifactsDirectory) {
@@ -93,16 +93,11 @@ function Invoke-DeployCniFlannelArtifacts($windowsNodeArtifactsDirectory) {
 }
 
 function Install-WinFlannel {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'Indicates if a loopback adapter is required for the installation')]
-        [bool] $IsLoopBackAdapterRequired = $true
-    )
     Write-Log 'Registering flanneld service'
     mkdir -Force "$(Get-SystemDriveLetter):\var\log\flanneld" | Out-Null
     &$kubeBinPath\nssm install flanneld "$kubeBinPath\cni\flanneld.exe"
-    if($IsLoopBackAdapterRequired) {
-        $adapterName = Get-L2BridgeName
-         Write-Log "Using network adapter '$adapterName'"
+    $adapterName = Get-L2BridgeName
+    Write-Log "Using network adapter '$adapterName'"
     $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "*$adapterName*")
     if (!$ipaddresses) {
         throw 'No IP address found which can be used for setting up K2s Setup !'
@@ -114,12 +109,7 @@ function Install-WinFlannel {
     }
 
     Write-Log "Using local IP $ipaddress for AppParameters of flanneld"
-    }
-    else {
-        $ipaddress = Get-HostPhysicalIp -ExcludeNetworkInterfaceName $loopbackAdapter
-    Write-Log "iface '$ipaddress'"
-    }
-        
+    
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
     $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
     
@@ -142,8 +132,15 @@ function Install-WinFlannel {
     &$kubeBinPath\nssm set flanneld AppRotateOnline 1 | Out-Null
     &$kubeBinPath\nssm set flanneld AppRotateSeconds 0 | Out-Null
     &$kubeBinPath\nssm set flanneld AppRotateBytes 500000 | Out-Null
-    &$kubeBinPath\nssm set flanneld Start SERVICE_AUTO_START | Out-Null
-    #&$kubeBinPath\nssm set flanneld DependOnService httpproxy | Out-Null
+    # Flanneld must never be SERVICE_AUTO_START. It creates cbr0 L2Bridge if it doesn't
+    # find one, which races with Start-System.ps1 after an unclean reboot. Instead, k2s
+    # scripts start flanneld explicitly after creating the proper cbr0.
+    &$kubeBinPath\nssm set flanneld Start SERVICE_DEMAND_START | Out-Null
+    # Explicitly configure NSSM to restart flanneld on any exit (including clean exit
+    # code 0). The 10s delay gives HNS time to settle and prevents flannel from
+    # recreating cbr0 L2Bridge when the existing one is transiently unavailable.
+    &$kubeBinPath\nssm set flanneld AppExit Default Restart | Out-Null
+    &$kubeBinPath\nssm set flanneld AppRestartDelay 10000 | Out-Null
 }
 
 

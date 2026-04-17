@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: CC0-1.0
 
@@ -16,8 +16,8 @@ bin/argocd.exe
 bin/cmctl.exe
 nssm.exe
 vc_redist.x64.exe
-bin/cmctl.exe
 bin/oras.exe
+bin/flux.exe
 
 #Scripts
 smallsetup/common/StartKubelet.ps1
@@ -73,7 +73,7 @@ containerd/*.tar.gz
 /bin/*.msi
 /lib/NSSM/*
 
-/smallsetup/linuxnode/containernetwork/masternode/flannel.yml
+/lib/modules/k2s/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.yml
 
 bin/dnsproxy.exe
 containerd/vfprules.log
@@ -103,6 +103,25 @@ addons/hooks
 
 # apps in /k2s exclude 
 /k2s/**/*.exe
+
+# Go-built binaries (built via BuildGoExe.ps1 / bgo -BuildAll)
+# These are no longer committed to git — build locally after clone.
+/k2s.exe
+/bin/cloudinitisobuilder.exe
+/bin/devgon.exe
+/bin/httpproxy.exe
+/bin/yaml2json.exe
+/bin/zap.exe
+/bin/cni/bridge.exe
+/bin/cni/vfprules.exe
+/bin/cni/l4proxy.exe
+/bin/cni/cplauncher.exe
+
+# Linux binaries built via cross-compilation (bgol)
+/bin/cloudinitisobuilder
+/bin/httpproxy
+/bin/yaml2json
+/k2s.linux
 
 tmp/**/*
 
@@ -174,7 +193,11 @@ addons/security/manifests/linkerd/linkerd.yaml
 addons/security/manifests/linkerd/linkerd-crds.yaml
 addons/storage/smb/build/smbplugin.exe
 addons/storage/smb/build/csi-node-driver-registrar.exe
+addons/.addon-sync-digests/
 bin/debian-12-genericcloud-amd64.qcow2
 **/debianpackages/**/*.deb
 **/linuxpackages/**
 **/windowspackages/**
+
+# AI assistant context
+claude.md

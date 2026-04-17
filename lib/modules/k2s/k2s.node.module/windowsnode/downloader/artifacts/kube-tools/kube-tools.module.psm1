@@ -126,7 +126,7 @@ function Install-WinKubelet {
     Set-Content -Path $startKubeletScriptPath -Value $StartKubeletFileContent
 
     &$kubeBinPath\nssm install kubelet $powershell
-    &$kubeBinPath\nssm set kubelet AppParameters "$powershellArgs `"Invoke-Command {&'$startKubeletScriptPath'}`"" | Out-Null
+    &$kubeBinPath\nssm set kubelet AppParameters "$powershellArgs \`"Invoke-Command {&'$startKubeletScriptPath'}\`"" | Out-Null
     &$kubeBinPath\nssm set kubelet DependOnService containerd | Out-Null
     
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP

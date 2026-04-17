@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	//lint:ignore ST1001 test framework code
@@ -88,6 +89,14 @@ func (c *CliExecutor) Exec(ctx context.Context, cliArgs ...string) (string, int)
 	var exitCodeMatcher types.GomegaMatcher = gexec.Exit()
 	if c.expectedExitCode != nil {
 		exitCodeMatcher = gexec.Exit(*c.expectedExitCode)
+	}
+
+	GinkgoWriter.Printf(">>> EXEC: %s %s\n", c.cliPath, strings.Join(cliArgs, " "))
+	GinkgoWriter.Printf(">>> EXEC: timeout=%v, pollInterval=%v, ctx=%v\n", c.timeout, c.pollInterval, ctx)
+	if deadline, ok := ctx.Deadline(); ok {
+		GinkgoWriter.Printf(">>> EXEC: context has deadline: %v (remaining: %v)\n", deadline, time.Until(deadline))
+	} else {
+		GinkgoWriter.Println(">>> EXEC: context has NO deadline")
 	}
 
 	Eventually(session,

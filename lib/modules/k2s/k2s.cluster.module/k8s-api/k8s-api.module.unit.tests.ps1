@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -45,8 +45,8 @@ Describe 'Get-Age' -Tag 'unit', 'ci' {
 
     Context 'timestamp is in the past' {
         BeforeEach {
-            $now = [datetime]::new(2023, 1, 2)
-            $then = [datetime]::new(2023, 1, 1)
+            $now = [datetime]::SpecifyKind([datetime]::new(2023, 1, 2), [System.DateTimeKind]::Utc)
+            $then = [datetime]::SpecifyKind([datetime]::new(2023, 1, 1), [System.DateTimeKind]::Utc)
             $expectedDuration = $now - $then
             $expectedResult = 'past test'
 
@@ -54,7 +54,7 @@ Describe 'Get-Age' -Tag 'unit', 'ci' {
             Mock -ModuleName $moduleName Convert-ToAgeString { return $expectedResult } -Verifiable -ParameterFilter { $Duration -eq $expectedDuration }
 
             InModuleScope $moduleName -Parameters @{Then = $then } {
-                $script:result = Get-Age -Timestamp $($Then.ToString())
+                $script:result = Get-Age -Timestamp $($Then.ToString('o'))
             }
         }
 
@@ -71,21 +71,21 @@ Describe 'Get-Age' -Tag 'unit', 'ci' {
 
     Context 'timestamp is in the future' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-Now { return [datetime]::new(2023, 1, 1) }
+            Mock -ModuleName $moduleName Get-Now { return [datetime]::SpecifyKind([datetime]::new(2023, 1, 1), [System.DateTimeKind]::Utc) }
         }
 
         It 'throws' {
             InModuleScope $moduleName {
-                $timestamp = [datetime]::new(2023, 1, 2)
+                $timestamp = [datetime]::SpecifyKind([datetime]::new(2023, 1, 2), [System.DateTimeKind]::Utc)
 
-                { Get-Age -Timestamp $($timestamp.ToString()) } | Should -Throw
+                { Get-Age -Timestamp $($timestamp.ToString('o')) } | Should -Throw
             }
         }
     }
 
     Context 'timestamp is now' {
         BeforeEach {
-            $now = [datetime]::new(2023, 1, 2)
+            $now = [datetime]::SpecifyKind([datetime]::new(2023, 1, 2), [System.DateTimeKind]::Utc)
             $then = $now
             $expectedDuration = $now - $then
             $expectedResult = 'now test'
@@ -94,7 +94,7 @@ Describe 'Get-Age' -Tag 'unit', 'ci' {
             Mock -ModuleName $moduleName Convert-ToAgeString { return $expectedResult } -Verifiable -ParameterFilter { $Duration -eq $expectedDuration }
 
             InModuleScope $moduleName -Parameters @{Then = $then } {
-                $script:result = Get-Age -Timestamp $($Then.ToString())
+                $script:result = Get-Age -Timestamp $($Then.ToString('o'))
             }
         }
 
@@ -1701,7 +1701,7 @@ Describe 'Wait-ForPodCondition' -Tag 'unit', 'ci' {
 
     Context 'Waits with default values' {
         BeforeAll {
-            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true; Output = '' } }
         }
 
         It 'succeeds using default values' {
@@ -1711,14 +1711,14 @@ Describe 'Wait-ForPodCondition' -Tag 'unit', 'ci' {
                 $result | Should -BeTrue
 
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
-                    $Params -contains 'wait' -and $Params -contains 'pod' -and $Params -contains 'test-label' -and $Params -contains 'default' -and $Params -contains '--for=condition=ready' -and $Params -contains '--timeout=30s' }
+                    $Params -contains 'wait' -and $Params -contains 'pod' -and $Params -contains '-l' -and $Params -contains 'test-label' -and $Params -contains '-n' -and $Params -contains 'default' -and $Params -contains '--for=condition=ready' -and $Params -contains '--timeout=60s' }
             }
         }
     }
 
     Context 'Waits with custom values' {
         BeforeAll {
-            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true; Output = '' } }
         }
 
         It 'succeeds using default values' {
@@ -1728,7 +1728,7 @@ Describe 'Wait-ForPodCondition' -Tag 'unit', 'ci' {
                 $result | Should -BeTrue
 
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope Context -ParameterFilter {
-                    $Params -contains 'wait' -and $Params -contains 'pod' -and $Params -contains 'test-label' -and $Params -contains 'test-ns' -and $Params -contains '--for=delete' -and $Params -contains '--timeout=123s' }
+                    $Params -contains 'wait' -and $Params -contains 'pod' -and $Params -contains '-l' -and $Params -contains 'test-label' -and $Params -contains '-n' -and $Params -contains 'test-ns' -and $Params -contains '--for=delete' -and $Params -contains '--timeout=123s' }
             }
         }
     }

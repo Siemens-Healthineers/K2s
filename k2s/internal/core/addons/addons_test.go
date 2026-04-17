@@ -471,7 +471,7 @@ var _ = Describe("addons", func() {
 		When("walkDir finds addons", func() {
 			It("returns the addons", func() {
 				dir := "test-dir"
-				path := dir + "\\test-path"
+				path := filepath.Join(dir, "test-path")
 				data := []byte{1, 2, 3}
 				var genericJson any
 				addon := Addon{Metadata: AddonMetadata{Name: "test-name", Description: "test-description"}, Spec: AddonSpec{Implementations: []Implementation{{Name: "test-implementation"}}}}
@@ -525,7 +525,7 @@ var _ = Describe("addons", func() {
 						Description: "test-description",
 					},
 					Directory: dir,
-					Spec:      AddonSpec{Implementations: []Implementation{{Name: "test-implementation", Directory: filepath.Join(dir, "test-implementation"), ExportDirectoryName: "test-name_test-implementation", AddonsCmdName: ("test-name" + " " + "test-implementation")}}},
+					Spec:      AddonSpec{Implementations: []Implementation{{Name: "test-implementation", Directory: filepath.Join(dir, "test-implementation"), ExportDirectoryName: "test-name-test-implementation", AddonsCmdName: ("test-name" + " " + "test-implementation")}}},
 				}))
 			})
 		})

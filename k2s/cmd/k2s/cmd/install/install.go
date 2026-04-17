@@ -4,10 +4,11 @@
 package install
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -15,14 +16,13 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/buildonly"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/linuxonly"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 
@@ -46,6 +46,12 @@ var (
 
 	# install K2s setup overwriting control-plane memory
 	k2s install --master-memory 8GB
+
+	# install K2s setup with dynamic memory management (min/max auto-enables dynamic memory)
+	k2s install --master-memory-min 2GB --master-memory-max 10GB
+
+	# install K2s setup with dynamic memory and startup memory
+	k2s install --master-memory 4GB --master-memory-min 2GB --master-memory-max 10GB
 
 	# install without Windows worker node
 	k2s install --linux-only
@@ -75,15 +81,14 @@ var (
 		RunE:    install,
 		Example: example,
 	}
-	installer             common.Installer
-	createTzHandleFunc    func(config *config_contracts.KubeConfig) (tz.ConfigWorkspaceHandle, error)
-	buildLinuxOnlyCmdFunc func(config *ic.InstallConfig) (cmd string, err error)
+	createTzHandleFunc func(config *config_contracts.KubeConfig) (tz.ConfigWorkspaceHandle, error)
 )
 
 func init() {
 	InstallCmd.AddCommand(buildonly.InstallCmd)
 
-	installer = &core.Installer{
+	// Wire buildonly subcommand to the core.Installer (PS-based, Windows-only).
+	buildonly.Installer = &core.Installer{
 		InstallConfigAccess:      ic.NewInstallConfigAccess(),
 		Printer:                  terminal.NewTerminalPrinter(),
 		ExecutePsScript:          powershell.ExecutePs,
@@ -97,9 +102,7 @@ func init() {
 		},
 	}
 
-	buildonly.Installer = installer
 	createTzHandleFunc = createTimezoneConfigHandle
-	buildLinuxOnlyCmdFunc = linuxonly.BuildCmd
 
 	bindFlags(InstallCmd)
 }
@@ -111,6 +114,8 @@ func bindFlags(cmd *cobra.Command) {
 
 	cmd.Flags().String(ic.ControlPlaneCPUsFlagName, "", ic.ControlPlaneCPUsFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
+	cmd.Flags().String(ic.ControlPlaneMemoryMinFlagName, "", ic.ControlPlaneMemoryMinFlagUsage)
+	cmd.Flags().String(ic.ControlPlaneMemoryMaxFlagName, "", ic.ControlPlaneMemoryMaxFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
 	cmd.Flags().StringSlice(ic.NoProxyFlagName, []string{}, ic.NoProxyFlagUsage)
@@ -196,13 +201,39 @@ func install(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Please clean up your PATH environment variable to remove old k2s.exe locations before proceeding with installation.")
 	}
 
-	cmdSession := cc.StartCmdSession(cmd.CommandPath())
+	// Parse install config from CLI flags
+	installCfgAccess := ic.NewInstallConfigAccess()
+	installConfig, err := installCfgAccess.Load(kind, cmd.Flags())
+	if err != nil {
+		return err
+	}
+
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
 	if err != nil {
 		return err
 	}
 
+	cmdSession := cc.StartCmdSession(cmd.CommandPath())
 	context := cmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
+	configDir := context.Config().Host().K2sSetupConfigDir()
+
+	// Check if already installed
+	runtimeConfig, err := config.ReadRuntimeConfig(configDir)
+	if errors.Is(err, config_contracts.ErrSystemInCorruptedState) {
+		return cc.CreateSystemInCorruptedStateCmdFailure()
+	}
+	if err != nil && !errors.Is(err, config_contracts.ErrSystemNotInstalled) {
+		return err
+	}
+	if err == nil && runtimeConfig.InstallConfig().SetupName() != "" {
+		return &cc.CmdFailure{
+			Severity: cc.SeverityWarning,
+			Code:     "system-already-installed",
+			Message:  fmt.Sprintf("'%s' setup already installed, please uninstall with 'k2s uninstall' first and re-run the install command afterwards", runtimeConfig.InstallConfig().SetupName()),
+		}
+	}
+
+	slog.Debug("Installing using config", "config", installConfig)
 
 	tzConfigHandle, err := createTzHandleFunc(context.Config().Host().KubeConfig())
 	if err != nil {
@@ -210,63 +241,71 @@ func install(cmd *cobra.Command, args []string) error {
 	}
 	defer tzConfigHandle.Release()
 
-	buildCmdFunc := buildInstallCmd
-
-	if linuxOnly {
-		slog.Info("Switching to Linux-only")
-
-		buildCmdFunc = buildLinuxOnlyCmdFunc
-	}
-
-	return installer.Install(kind, cmd, buildCmdFunc, cmdSession)
-}
-
-func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
-	node, err := c.GetNodeByRole(ic.ControlPlaneRoleName)
+	// Build provider install config
+	node, err := installConfig.GetNodeByRole(ic.ControlPlaneRoleName)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	path := utils.InstallDir() + "\\lib\\scripts\\k2s\\install\\install.ps1"
-	formattedPath := utils.FormatScriptFilePath(path)
-	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
-		formattedPath,
-		node.Resources.Cpu,
-		node.Resources.Memory,
-		node.Resources.Disk)
+	hostname, _ := os.Hostname()
+	ver := version.GetVersion()
 
-	if c.Env.Proxy != "" {
-		cmd += " -Proxy " + c.Env.Proxy
+	slog.Info("Installing", "kind", kind, "version", ver, "platform", utils.Platform())
+
+	outputWriter := cc.NewPtermWriter()
+
+	err = context.Providers().Cluster.Install(provider.ClusterInstallConfig{
+		SetupName:                         string(kind),
+		MasterVMProcessorCount:            node.Resources.Cpu,
+		MasterVMMemory:                    node.Resources.Memory,
+		MasterVMMemoryMin:                 node.Resources.MemoryMin,
+		MasterVMMemoryMax:                 node.Resources.MemoryMax,
+		MasterDiskSize:                    node.Resources.Disk,
+		DynamicMemory:                     node.Resources.DynamicMemory,
+		LinuxOnly:                         linuxOnly,
+		WSL:                               installConfig.Behavior.Wsl,
+		ShowLogs:                          installConfig.Behavior.ShowOutput,
+		SkipStart:                         installConfig.Behavior.SkipStart,
+		ForceOnlineInstallation:           installConfig.Behavior.ForceOnlineInstallation,
+		DeleteFilesForOfflineInstallation: installConfig.Behavior.DeleteFilesForOfflineInstallation,
+		AppendLog:                         installConfig.Behavior.AppendLog,
+		Proxy:                             installConfig.Env.Proxy,
+		NoProxy:                           installConfig.Env.NoProxy,
+		AdditionalHooksDir:                installConfig.Env.AdditionalHooksDir,
+		K8sBinsPath:                       installConfig.Env.K8sBins,
+		RestartPostInstall:                installConfig.Env.RestartPostInstall,
+		ConfigDir:                         configDir,
+		InstallDir:                        utils.InstallDir(),
+		Version:                           fmt.Sprintf("%s", ver),
+		ClusterName:                       "k2s-cluster",
+		ControlPlaneHostname:              hostname,
+		StdWriter:                         outputWriter,
+	})
+	if err != nil {
+		// On Windows, check for prerequisite failures in PS output
+		errorLine, found := cc.GetInstallPreRequisiteError(outputWriter.ErrorLines)
+		if found {
+			slog.Warn("Prerequisite check failed", "detail", errorLine)
+			if delErr := os.Remove(filepath.Join(configDir, definitions.K2sRuntimeConfigFileName)); delErr != nil {
+				slog.Debug("config file does not exist, nothing to do")
+			}
+			return &cc.CmdFailure{
+				Severity: cc.SeverityWarning,
+				Code:     "prereq-failed",
+				Message:  fmt.Sprintf("Prerequisite check failed: %s. See https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites", errorLine),
+			}
+		}
+
+		if outputWriter.ErrorOccurred {
+			if markErr := config.MarkSetupAsCorrupted(configDir); markErr != nil {
+				slog.Error("error while marking setup as corrupted", "error", markErr)
+			}
+			return cc.CreateSystemInCorruptedStateCmdFailure()
+		}
+
+		return err
 	}
-	if len(c.Env.NoProxy) > 0 {
-		cmd += fmt.Sprintf(" -NoProxy '%s'", strings.Join(c.Env.NoProxy, "','"))
-	}
-	if c.Env.AdditionalHooksDir != "" {
-		cmd += fmt.Sprintf(" -AdditionalHooksDir '%s'", c.Env.AdditionalHooksDir)
-	}
-	if c.Env.RestartPostInstall != "" {
-		cmd += fmt.Sprintf(" -RestartAfterInstallCount %s", c.Env.RestartPostInstall)
-	}
-	if c.Env.K8sBins != "" {
-		cmd += fmt.Sprintf(" -K8sBinsPath '%s'", c.Env.K8sBins)
-	}
-	if c.Behavior.ShowOutput {
-		cmd += " -ShowLogs"
-	}
-	if c.Behavior.SkipStart {
-		cmd += " -SkipStart"
-	}
-	if c.Behavior.DeleteFilesForOfflineInstallation {
-		cmd += " -DeleteFilesForOfflineInstallation"
-	}
-	if c.Behavior.ForceOnlineInstallation {
-		cmd += " -ForceOnlineInstallation"
-	}
-	if c.Behavior.Wsl {
-		cmd += " -WSL"
-	}
-	if c.Behavior.AppendLog {
-		cmd += " -AppendLogFile"
-	}
-	return cmd, nil
+
+	cmdSession.Finish()
+	return nil
 }

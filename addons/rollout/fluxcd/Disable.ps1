@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -47,6 +47,13 @@ if ($systemError) {
     exit 1
 }
 
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'rollout' can only be disabled for 'k2s' setup type."
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+}
+
 if (-not (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd'}))) {
     $errMsg = 'Addon rollout with Flux implementation is already disabled, nothing to do.'
 
@@ -62,6 +69,10 @@ if (-not (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Imple
 
 Write-Log 'Uninstalling Flux addon' -Console
 
+# Clean up addon-sync infrastructure (if deployed)
+Write-Log 'Cleaning up addon-sync infrastructure' -Console
+(Invoke-Kubectl -Params 'delete', 'namespace', 'k2s-addon-sync', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+
 # Remove optional ingress manifests (silently skips if not present)
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
@@ -74,6 +85,7 @@ Write-Log 'Deleting rollout namespace...' -Console
 (Invoke-Kubectl -Params 'delete', 'namespace', 'rollout','--timeout', '60s').Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
+
 Write-Log 'Uninstallation of rollout addon with Flux finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
