@@ -116,9 +116,9 @@ spec:
   selector:
     app: cp-albums-win # <== label selector used by cplauncher
   type: ClusterIP
+  clusterIP: 172.21.1.211
   ports:
     - name: http
       port: 8080 # Cluster IP port
       targetPort: 8080 # Container listens on 8080 (adjust if different)
       protocol: TCP
-  clusterIP: 172.21.1.211

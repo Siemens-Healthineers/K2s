@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $registryFunctionsModule = "$PSScriptRoot\registry\registry.module.psm1"
@@ -211,10 +211,13 @@ function Get-RemoteWindowsNodeImageOutput {
     }
 }
 
-function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false, [string]$NodeName = '', [string]$NodeType = '') {
+function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$ExcludeAddonImages = $false, [string]$NodeName = '', [string]$NodeType = '', [string]$CrictlExePath = '', [string]$CrictlConfigPath = '') {
     $localNodeName = $env:ComputerName.ToLower()
     $node = $localNodeName
     $output = @()
+
+    $resolvedCrictlExe    = if ($CrictlExePath -ne '')    { $CrictlExePath }    else { $crictlExe }
+    $resolvedCrictlConfig = if ($CrictlConfigPath -ne '') { $CrictlConfigPath } else { "$kubeBinPath\crictl.yaml" }
 
     if (-not [string]::IsNullOrWhiteSpace($NodeName)) {
         $requestedNode = $NodeName.ToLower()
@@ -230,12 +233,12 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
             }
         }
         else {
-            $output = @(&$crictlExe --config $kubeBinPath\crictl.yaml images 2> $null)
+            $output = @(&$resolvedCrictlExe --config $resolvedCrictlConfig images 2> $null)
             $node = $requestedNode
         }
     }
     else {
-        $output = @(&$crictlExe --config $kubeBinPath\crictl.yaml images 2> $null)
+        $output = @(&$resolvedCrictlExe --config $resolvedCrictlConfig images 2> $null)
     }
 
     $KubernetesImages = Get-KubernetesImagesFromJson
