@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 namespace: k2s
+
 resources:
   - namespace.yaml
   - linux-albums.yaml
