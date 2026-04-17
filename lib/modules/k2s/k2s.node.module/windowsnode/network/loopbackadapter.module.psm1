@@ -20,6 +20,7 @@ function New-DefaultLoopbackAdapter {
     New-LoopbackAdapter -Name $defaultLoopbackAdapterName -DevConExe $devgonPath | Out-Null
     $AdapterName = Get-L2BridgeName
     Set-LoopbackAdapterProperties -Name $AdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
+    Write-Log "New-DefaultLoopbackAdapter $AdapterName"
 }
 
 function Enable-LoopbackAdapter {
@@ -66,6 +67,7 @@ function Get-L2BridgeName {
         Throw 'More than one Loopback Adapter was found, this is an inconsistency on the system.'
     } # if
     # return the name of the first adapter
+    Write-Log "Get-L2BridgeName: $($Adapter.Name)"
     return $Adapter.Name
 }
 
@@ -136,6 +138,36 @@ function New-LoopbackAdapter {
 
     Return $Adapter
 } # function New-LoopbackAdapter
+
+
+function Get-LoopbackAdapter {
+    [OutputType([Microsoft.Management.Infrastructure.CimInstance[]])]
+    [CmdLetBinding()]
+    param
+    (
+        [Parameter(
+            Position = 0)]
+        [string]
+        $Name
+    )
+    # Check for the existing Loopback Adapter
+    if ($Name) {
+        $Adapter = Get-NetAdapter `
+            -Name $Name `
+            -ErrorAction SilentlyContinue
+
+        if (!$Adapter) {
+            return
+        }
+        if ($Adapter.InterfaceDescription -ne 'Microsoft KM-TEST Loopback Adapter') {
+            Throw "The Network Adapter $Name exists but it is not a Microsoft KM-TEST Loopback Adapter."
+        } # if
+        return $Adapter
+    }
+    else {
+        Get-NetAdapter | Where-Object -Property InterfaceDescription -eq 'Microsoft KM-TEST Loopback Adapter'
+    }
+}
 
 function Remove-LoopbackAdapter {
     [CmdLetBinding()]
@@ -240,7 +272,7 @@ function Confirm-LoopbackAdapterIP {
     if ($null -ne $currentAddresses) {
         foreach ($addr in $currentAddresses) {
             if ($addr.IPAddress -like "169.254.*") {
-                Write-Log "[LoopbackAdapter] WARNING: APIPA address detected: $($addr.IPAddress)" -Console
+                Write-Log "[LoopbackAdapter] WARNING: APIPA address detected: $($addr.IPAddress)" -Warning
             } else {
                 Write-Log "[LoopbackAdapter] Current IP address: $($addr.IPAddress)"
             }
@@ -283,7 +315,7 @@ function Set-LoopbackAdapterProperties {
         [Parameter()]
         [string] $Gateway
     )
-
+    Write-Log "Set-LoopbackAdapterProperties Start"
     $maxRetries = 3
     $retryDelaySeconds = 3
     $stabilizationDelaySeconds = 1
@@ -331,6 +363,7 @@ function Set-LoopbackAdapterProperties {
     else {
         Write-Log "[LoopbackAdapter] No loopback adapter '$Name' found to configure."
     }
+    Write-Log "Set-LoopbackAdapterProperties End"
 }
 
 function Set-LoopbackAdapterExtendedProperties {
@@ -442,6 +475,7 @@ function Set-PrivateNetworkProfileForLoopbackAdapter {
 
 Export-ModuleMember New-LoopbackAdapter
 Export-ModuleMember Remove-LoopbackAdapter
+Export-ModuleMember New-DefaultLoopbackAdaterRemote
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
 Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdapter, Get-L2BridgeName,
 Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath, Set-LoopbackAdapterExtendedProperties,

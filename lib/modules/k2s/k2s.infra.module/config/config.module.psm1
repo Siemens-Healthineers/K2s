@@ -94,7 +94,7 @@ function Get-SetupConfigFilePath {
 }
 
 function Get-ProductVersion {
-    return "$(Get-Content -Raw -Path "$kubePath\VERSION")".Trim()
+    return "$(Get-Content -Raw -Path "$kubePath\VERSION")"
 }
 
 function Get-SSHKeyControlPlane {
@@ -306,6 +306,7 @@ function Set-ConfigInstalledKubernetesVersion {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
     )
+    Write-Log "Set-ConfigInstalledKubernetesVersion: $SetupJsonFile"
     Set-ConfigValue -Path $SetupJsonFile -Key 'KubernetesVersion' -Value $Value
 }
 
@@ -321,11 +322,7 @@ function Set-ConfigInstallFolder {
 }
 
 function Get-ConfigProductVersion {
-    $version = Get-ConfigValue -Path $SetupJsonFile -Key 'Version'
-    if (-not [string]::IsNullOrEmpty($version)) {
-        $version = $version.Trim()
-    }
-    return $version
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'Version'
 }
 
 function Set-ConfigProductVersion {
@@ -336,6 +333,7 @@ function Set-ConfigProductVersion {
 }
 
 function Get-ConfigUsedStorageLocalDriveLetter {
+    Write-Log "Get-ConfigUsedStorageLocalDriveLetter: $SetupJsonFile" -Console
     return Get-ConfigValue -Path $SetupJsonFile -Key 'UsedStorageLocalDriveLetter'
 }
 
@@ -455,7 +453,7 @@ function Get-MinimalProvisioningBaseImageDiskSize {
     return 10GB
 }
 function Get-DefaultK8sVersion {
-    return 'v1.35.4'
+    return 'v1.35.0'
 }
 
 <#
@@ -499,32 +497,6 @@ function Set-InstalledClusterName {
         [object] $Value = $(throw 'Please provide the config value.')
     )
     Set-ConfigValue -Path $SetupJsonFile -Key 'ClusterName' -Value $Value
-}
-
-<#
-.SYNOPSIS
-    Returns the cloud image configuration for a supported distribution.
-.DESCRIPTION
-    Looks up the cloudImage block (urlRoot, urlFile) for the given OS key
-    from the supportedWorkerOS array in cfg/config.json.
-    Throws if the OS is not listed or has no cloudImage entry.
-.PARAMETER OS
-    The distribution key (e.g. 'debian12', 'debian13').
-#>
-function Get-DistributionCloudImage {
-    param (
-        [string] $OS = $(throw 'Argument missing: OS')
-    )
-    foreach ($entry in $rootConfig.supportedWorkerOS) {
-        if ($entry.os -eq $OS) {
-            if (-not $entry.cloudImage) {
-                throw "No 'cloudImage' configuration found for OS '$OS' in cfg/config.json"
-            }
-            return $entry.cloudImage
-        }
-    }
-    $supported = ($rootConfig.supportedWorkerOS | ForEach-Object { $_.os }) -join ', '
-    throw "OS '$OS' not found in supportedWorkerOS in cfg/config.json. Supported: $supported"
 }
 
 Export-ModuleMember -Function Get-ConfigValue,
@@ -585,5 +557,4 @@ Get-ConfiguredClusterNetworkPrefix,
 Get-MirrorRegistries,
 Get-ClusterName,
 Get-InstalledClusterName,
-Set-InstalledClusterName,
-Get-DistributionCloudImage
+Set-InstalledClusterName

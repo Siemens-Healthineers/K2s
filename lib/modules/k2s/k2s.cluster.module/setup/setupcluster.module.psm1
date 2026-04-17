@@ -81,10 +81,10 @@ function Wait-ForNodesReady {
     # force import path module since this is executed in a script block
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep 2
-        #Write-Output "Checking for node $env:COMPUTERNAME..."
+        Write-Output "Checking for node $env:COMPUTERNAME..."
         # using is used because this function is executed in script block in Join-WindowsNode.
         $nodes = $(&"$using:kubeToolsPath\kubectl.exe" get nodes)
-        #Write-Output "$i WaitForJoin: $nodes"
+        Write-Output "$i WaitForJoin: $nodes"
 
         $nodefound = $nodes | Select-String -Pattern "$env:COMPUTERNAME\s*Ready"
         if ( $nodefound ) {
@@ -178,7 +178,8 @@ Join the windows node with linux control plane node
 function Join-WindowsNode {
     Param(
         [string]$CommandForJoining = $(throw 'Argument missing: CommandForJoining'),
-        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [string] $windowsNodeIpAddress = $null
     )
 
     # join node if necessary
@@ -224,7 +225,12 @@ function Join-WindowsNode {
         $token = $patternSearchResult.Matches.Groups[2].Value
         $hash = $patternSearchResult.Matches.Groups[3].Value
         $caCertFilePath = "$(Get-SystemDriveLetter):\etc\kubernetes\pki\ca.crt"
-        $windowsNodeIpAddress = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+        
+        if ($windowsNodeIpAddress) {
+            $windowsNodeIpAddress = $windowsNodeIpAddress
+        } else {
+            $windowsNodeIpAddress = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+        }
 
         Write-Log 'Create config file for join command'
         $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinnode.template.yaml"
@@ -248,7 +254,7 @@ function Join-WindowsNode {
         Set-Location ..\..
 
         # print the output of the WaitForJoin.ps1
-        Receive-Job $job
+        Receive-Job $job 
         $job | Stop-Job
 
         # delete path if was created
@@ -369,8 +375,8 @@ function Join-LinuxNode {
 
         # check success in joining
         Write-Log "Check join status for node '$NodeName'"
-        $nodefound = $false
-        for ($retry = 0; $retry -lt 30; $retry++) {
+               $nodefound = $false
+          for ($retry = 0; $retry -lt 30; $retry++) {
             $singleNodeStatus = &"$kubeToolsPath\kubectl.exe" get node $NodeName --ignore-not-found --no-headers 2>&1
             if (($LASTEXITCODE -eq 0) -and -not [string]::IsNullOrWhiteSpace((($singleNodeStatus | Out-String).Trim()))) {
                 $nodefound = $true
@@ -435,14 +441,15 @@ function Initialize-KubernetesCluster {
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
         [string] $AdditionalHooksDir = '',
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
-        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand')
+        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand'),
+        [string] $IpAddress = $null
     )
     Invoke-Hook -HookName 'AfterVmInitialized' -AdditionalHooksDir $AdditionalHooksDir
 
     # try to join host windows node
-    Write-Log 'starting the join process'
+    Write-Log "starting the join process IPAddress: $IpAddress"
     
-    Join-WindowsNode -CommandForJoining $JoinCommand -PodSubnetworkNumber $PodSubnetworkNumber
+    Join-WindowsNode -CommandForJoining $JoinCommand -PodSubnetworkNumber $PodSubnetworkNumber -windowsNodeIpAddress $IpAddress
 
     Set-KubeletDiskPressure
 
