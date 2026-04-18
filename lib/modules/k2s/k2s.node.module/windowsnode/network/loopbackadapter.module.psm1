@@ -377,7 +377,7 @@ function Set-LoopbackAdapterExtendedProperties {
     )
     $adapterName = $AdapterName
     Write-Log "Figuring out IPv4DefaultGateway for $adapterName"
-    $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue
+    $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
     Write-Log "Get-NetIPConfiguration executed for $if"
     $gw = Get-LoopbackAdapterGateway
     if ( $if -and $if.IPv4DefaultGateway -and $if.IPv4DefaultGateway.NextHop ) {
