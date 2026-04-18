@@ -743,7 +743,7 @@
     {
       "group": "https://github.com/prometheus/node_exporter",
       "name": "node-exporter",
-      "version": "v1.11.0",
+      "version": "v1.11.1",
       "description": "Prometheus exporter for machine metrics - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -760,7 +760,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus/node_exporter@v1.11.0",
+      "purl": "pkg:github/prometheus/node_exporter@v1.11.1",
       "type": "container"
     },
     {
