@@ -766,7 +766,7 @@
     {
       "group": "https://github.com/grafana/grafana",
       "name": "grafana",
-      "version": "13.0.0",
+      "version": "13.0.1",
       "description": "Open-source analytics and monitoring platform - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -783,7 +783,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/grafana/grafana@13.0.0",
+      "purl": "pkg:github/grafana/grafana@13.0.1",
       "type": "container"
     },
     {
