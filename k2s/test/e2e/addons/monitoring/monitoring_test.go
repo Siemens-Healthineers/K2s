@@ -59,7 +59,9 @@ var _ = AfterEach(func() {
 var _ = Describe("'monitoring' addon", Ordered, func() {
 	When("no ingress controller is configured", func() {
 		AfterAll(func(ctx context.Context) {
-			portForwardingSession.Kill()
+			if portForwardingSession != nil {
+				portForwardingSession.Kill()
+			}
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
 
 			k2s.VerifyAddonIsDisabled("monitoring")

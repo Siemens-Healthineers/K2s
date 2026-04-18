@@ -16,10 +16,10 @@ spec:
           repos: []
           deb: []
           curl: []
-          additionalImages:
-            - quay.io/prometheus-operator/prometheus-config-reloader
+          additionalImages: []
           additionalImagesFiles:
             - manifests/monitoring/prometheus-operator/deployment.yaml
+            - manifests/monitoring/grafana/deployment.yaml
         windows:
           curl: []
           additionalImages:
