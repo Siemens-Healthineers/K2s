@@ -151,7 +151,7 @@ function Initialize-WinNode {
     else {
         Write-Log 'Skipping networking setup on windows node'
     }
-
+ 
     Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -PodSubnetworkNumber $PodSubnetworkNumber -K8sBinsPath $K8sBinsPath -IsLoopBackAdapterRequired $IsLoopBackAdapterRequired
 
     if (! $SkipClusterSetup) {

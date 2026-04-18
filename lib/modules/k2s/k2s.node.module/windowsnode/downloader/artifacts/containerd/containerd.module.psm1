@@ -220,7 +220,9 @@ function Install-WinContainerd {
         [parameter(Mandatory = $false, HelpMessage = 'Will skip setting up networking which is required only for cluster purposes')]
         [bool] $SkipNetworkingSetup = $false,
         $WindowsNodeArtifactsDirectory,
-        [string] $PodSubnetworkNumber = '1'
+        [string] $PodSubnetworkNumber = '1',
+        [parameter(Mandatory = $false, HelpMessage = 'Indicates if a loopback adapter is required for the installation')]
+        [bool] $IsLoopBackAdapterRequired = $true
     )
 
     Write-Log 'First uninstall containerd service if existent'
@@ -255,15 +257,6 @@ timeout: 30
         mkdir "$kubePath\cfg\containerd\cni\conf" -ErrorAction SilentlyContinue | Out-Null
         Copy-Item "$kubePath\cfg\containerd\flannel-l2bridge.conf.template" "$kubePath\cfg\containerd\flannel-l2bridge.conf" -Force
 
-        $adapterName = Get-L2BridgeName
-        Write-Log "Using network adapter '$adapterName'"
-        $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
-        if (!$ipaddresses) {
-            throw 'No IP address found which can be used for setting up K2s Setup !'
-        }
-        $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
-        Write-Log "Using local IP $ipaddress for setup of CNI"
-
         $nameServers = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf" | Select-String 'NAME.SERVERS' | Select-Object -ExpandProperty Line
         if ( $nameServers ) {
             $configuredNameservers = ''
@@ -279,20 +272,31 @@ timeout: 30
 
         $natExceptions = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf" | Select-String 'NAT.EXCEPTIONS' | Select-Object -ExpandProperty Line
         if ( $natExceptions ) {
-
+           
             $configuredExceptions = ''
             $clusterCIDRNatExceptions = $setupConfigRoot.psobject.properties['clusterCIDRNatExceptions'].value
 
-            $clusterCIDRNatExceptions | ForEach-Object { $configuredExceptions += "                            ""$_"",`n" }
-            $content = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf"
-            $network2 = $ipaddress.Remove($ipaddress.LastIndexOf('.')) + '.0'
-            $network2 = "                            ""$network2/24"""
+            $configuredExceptions = ($clusterCIDRNatExceptions | ForEach-Object { '                            "' + $_ + '"' }) -join ",`n"
 
-            if ($configuredExceptions -ne '') {
-                $configuredExceptions += $network2
-            }
-            else {
-                $configuredExceptions = $network2
+            $content = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf"
+            if ($IsLoopBackAdapterRequired) {
+                $adapterName = Get-L2BridgeName
+                Write-Log "Using network adapter '$adapterName'"
+                $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
+                if (!$ipaddresses) {
+                    throw 'No IP address found which can be used for setting up K2s Setup !'
+                }
+                $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
+                Write-Log "Using local IP $ipaddress for setup of CNI"
+                $network2 = $ipaddress.Remove($ipaddress.LastIndexOf('.')) + '.0'
+                $network2 = '                            "' + $network2 + '/24"'
+
+                if ($configuredExceptions -ne '') {
+                    $configuredExceptions += ",`n$network2"
+                }
+                else {
+                    $configuredExceptions = $network2
+                }
             }
 
             $content | ForEach-Object { $_ -replace $natExceptions, $configuredExceptions } | Set-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf"
@@ -311,7 +315,7 @@ timeout: 30
     mkdir "$(Get-SystemDriveLetter):\var\log\containerd" -ErrorAction SilentlyContinue | Out-Null
     &$kubeBinPath\nssm install containerd $kubePath\bin\containerd\containerd.exe *>&1 | ForEach-Object { $_.Trim() }
     &$kubeBinPath\nssm set containerd AppDirectory $kubePath\bin\containerd | Out-Null
-    &$kubeBinPath\nssm set containerd AppParameters "--log-file=\`"$(Get-SystemDriveLetter):\var\log\containerd\logs.log\`" --config \`"$kubePath\cfg\containerd\config.toml\`"" | Out-Null
+    &$kubeBinPath\nssm set containerd AppParameters "--log-file=`"$(Get-SystemDriveLetter):\var\log\containerd\logs.log`" --config `"$kubePath\cfg\containerd\config.toml`"" | Out-Null
     &$kubeBinPath\nssm set containerd AppStdout "$(Get-SystemDriveLetter):\var\log\containerd\containerd_stdout.log" | Out-Null
     &$kubeBinPath\nssm set containerd AppStderr "$(Get-SystemDriveLetter):\var\log\containerd\containerd_stderr.log" | Out-Null
     &$kubeBinPath\nssm set containerd AppStdoutCreationDisposition 4 | Out-Null

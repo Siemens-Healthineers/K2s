@@ -93,11 +93,16 @@ function Invoke-DeployCniFlannelArtifacts($windowsNodeArtifactsDirectory) {
 }
 
 function Install-WinFlannel {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'Indicates if a loopback adapter is required for the installation')]
+        [bool] $IsLoopBackAdapterRequired = $true
+    )
     Write-Log 'Registering flanneld service'
     mkdir -Force "$(Get-SystemDriveLetter):\var\log\flanneld" | Out-Null
     &$kubeBinPath\nssm install flanneld "$kubeBinPath\cni\flanneld.exe"
-    $adapterName = Get-L2BridgeName
-    Write-Log "Using network adapter '$adapterName'"
+    if($IsLoopBackAdapterRequired) {
+        $adapterName = Get-L2BridgeName
+         Write-Log "Using network adapter '$adapterName'"
     $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "*$adapterName*")
     if (!$ipaddresses) {
         throw 'No IP address found which can be used for setting up K2s Setup !'
@@ -109,7 +114,12 @@ function Install-WinFlannel {
     }
 
     Write-Log "Using local IP $ipaddress for AppParameters of flanneld"
-    
+    }
+    else {
+        $ipaddress = Get-HostPhysicalIp -ExcludeNetworkInterfaceName $loopbackAdapter
+    Write-Log "iface '$ipaddress'"
+    }
+        
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
     $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
     
