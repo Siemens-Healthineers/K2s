@@ -28,8 +28,9 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -183,6 +184,9 @@ if (!$kubectlCmd.Success) {
 &"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
+
+Write-Log '[Monitoring] Syncing Headlamp plugins...' -Console
+Sync-HeadlampPlugins
 
 Write-Log 'Kube Prometheus Stack installed successfully'
 

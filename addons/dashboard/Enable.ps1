@@ -112,6 +112,9 @@ if ($headlampReady -ne $true) {
 
 &"$PSScriptRoot\Update.ps1" -PreferredIngress $(if ($Ingress -eq 'none') { 'auto' } else { $Ingress })
 
+Write-Log '[Dashboard] Syncing Headlamp plugins for currently enabled addons' -Console
+Sync-HeadlampPlugins
+
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
 Write-HeadlampUsageForUser

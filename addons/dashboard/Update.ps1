@@ -154,3 +154,7 @@ if ($patchApplied) {
 }
 
 Write-Log '[Dashboard] Updating dashboard addon finished.' -Console
+
+Write-Log '[Dashboard] Syncing Headlamp plugins after update...' -Console
+Sync-HeadlampPlugins
+

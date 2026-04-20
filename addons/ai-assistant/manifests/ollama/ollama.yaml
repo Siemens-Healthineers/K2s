@@ -1,0 +1,203 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Ollama – local LLM runtime for the AI Assistant addon
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-assistant
+  labels:
+    app.kubernetes.io/name: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+---
+# Static PV — uses a local path on the kubemaster Linux node.
+# K2s has no dynamic StorageClass; PVs are provisioned manually, same pattern
+# as the registry and dicom addons.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ollama-models-pv
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: ai-assistant
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  local:
+    path: /data/ollama
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - kubemaster
+            - key: kubernetes.io/os
+              operator: In
+              values:
+                - linux
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: ai-assistant
+spec:
+  volumeName: ollama-models-pv
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ollama
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: ai-assistant
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: ai-assistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: ollama
+        app.kubernetes.io/name: ollama
+        app.kubernetes.io/part-of: ai-assistant
+    spec:
+      serviceAccountName: ollama
+      nodeSelector:
+        kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ollama
+          image: ollama/ollama:0.9.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 11434
+              protocol: TCP
+          env:
+            - name: OLLAMA_KEEP_ALIVE
+              value: "24h"
+            - name: OLLAMA_HOST
+              value: "0.0.0.0"
+            # Corporate ZScaler proxy — both cases required (Go reads lowercase, others uppercase)
+            - name: HTTPS_PROXY
+              value: "http://172.19.1.1:8181"
+            - name: HTTP_PROXY
+              value: "http://172.19.1.1:8181"
+            - name: https_proxy
+              value: "http://172.19.1.1:8181"
+            - name: http_proxy
+              value: "http://172.19.1.1:8181"
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,172.19.0.0/16,172.20.0.0/16,172.21.0.0/16,10.96.0.0/12"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,172.19.0.0/16,172.20.0.0/16,172.21.0.0/16,10.96.0.0/12"
+            # Point Go TLS to the bundle that includes the ZScaler CA (injected by install-ca)
+            - name: SSL_CERT_FILE
+              value: "/etc/ssl/certs/ca-certificates.crt"
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+            - name: zscaler-ca
+              mountPath: /etc/ssl/zscaler
+            - name: system-certs
+              mountPath: /etc/ssl/certs
+      # install-ca appends the ZScaler root cert to the system bundle before Ollama starts
+      initContainers:
+        - name: install-ca
+          image: ollama/ollama:0.9.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - >-
+              cp /usr/local/share/ca-certificates/ZScalerRootCA.crt /etc/ssl/certs/ 2>/dev/null;
+              cat /etc/ssl/zscaler/ZScalerRootCA.pem >> /etc/ssl/certs/ca-certificates.crt &&
+              echo "ZScaler CA installed OK."
+          volumeMounts:
+            - name: zscaler-ca
+              mountPath: /etc/ssl/zscaler
+            - name: system-certs
+              mountPath: /etc/ssl/certs
+          securityContext:
+            runAsNonRoot: false
+      volumes:
+        - name: ollama-models
+          persistentVolumeClaim:
+            claimName: ollama-models
+        - name: zscaler-ca
+          configMap:
+            name: zscaler-ca
+        - name: system-certs
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: ai-assistant
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: ai-assistant
+spec:
+  type: ClusterIP
+  selector:
+    app: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: 11434
+      protocol: TCP
+
