@@ -35,22 +35,44 @@ class EmbeddingService(ABC):
 
 
 class OllamaEmbeddingService(EmbeddingService):
-    """Embedding via a locally accessible Ollama instance."""
+    """Embedding via a locally accessible Ollama instance.
+
+    Supports both Ollama ≥0.9 (/api/embed, input, embeddings[0])
+    and legacy Ollama <0.9 (/api/embeddings, prompt, embedding).
+    """
 
     def __init__(self, host=None, model=None):
         self._host = (host or Config.OLLAMA_HOST).rstrip("/")
         self._model = model or Config.OLLAMA_MODEL
-        self._url = f"{self._host}/api/embeddings"
+        # Prefer the modern endpoint; fall back to legacy on 404
+        self._url_new = f"{self._host}/api/embed"
+        self._url_legacy = f"{self._host}/api/embeddings"
 
     def embed(self, text: str) -> List[float]:
-        payload = json.dumps({"model": self._model, "prompt": text}).encode()
+        # Try modern Ollama ≥0.9 API first
+        payload = json.dumps({"model": self._model, "input": text}).encode()
         req = urllib.request.Request(
-            self._url, data=payload, method="POST",
+            self._url_new, data=payload, method="POST",
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode())
-        embedding = data["embedding"]
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode())
+            # /api/embed returns {"embeddings": [[...vector...]]}
+            embedding = data["embeddings"][0]
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+            # Fall back to legacy /api/embeddings
+            payload_legacy = json.dumps({"model": self._model, "prompt": text}).encode()
+            req_legacy = urllib.request.Request(
+                self._url_legacy, data=payload_legacy, method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req_legacy, timeout=30) as resp:
+                data = json.loads(resp.read().decode())
+            embedding = data["embedding"]
+
         if len(embedding) != Config.EMBEDDING_DIMENSION:
             raise ValueError(
                 f"[AI][Embed] Dimension mismatch: expected {Config.EMBEDDING_DIMENSION}, "

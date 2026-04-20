@@ -6,7 +6,6 @@ kind: Kustomization
 namespace: logging
 resources:
   - configmap.yaml
-  - ollama.yaml
   - deployment-api.yaml
   - service-api.yaml
   - cronjob-pipeline.yaml

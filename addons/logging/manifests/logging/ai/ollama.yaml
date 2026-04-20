@@ -2,56 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 ---
-# PersistentVolume for Ollama model storage on the kubemaster Linux node.
-# Mirrors the pattern used by opensearch persistentvolume.yaml (local path, no StorageClass).
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: ollama-models-pv
-spec:
-  capacity:
-    storage: 5Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  local:
-    path: /ollama
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: kubernetes.io/hostname
-              operator: In
-              values:
-                - kubemaster
-            - key: kubernetes.io/os
-              operator: In
-              values:
-                - linux
-  claimRef:
-    name: ollama-models-pvc
-    namespace: logging
----
-# PersistentVolumeClaim for Ollama model storage.
-# Using a PVC ensures the model survives pod restarts (no re-download needed).
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: ollama-models-pvc
-  namespace: logging
-  labels:
-    app.kubernetes.io/name: ollama
-    app.kubernetes.io/component: ai
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 5Gi
-  volumeName: ollama-models-pv
----
-# Ollama – local embedding + LLM model server.
-# Init container pulls nomic-embed-text once into the PVC; subsequent starts skip the pull.
+# Ollama - local embedding + LLM model server.
+# Init container pulls nomic-embed-text once into the hostPath directory (/ollama on kubemaster);
+# subsequent starts skip the pull. Uses hostPath to avoid PV/PVC binding issues.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -71,19 +24,20 @@ spec:
         app.kubernetes.io/name: ollama
         app.kubernetes.io/component: ai
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: kubemaster
+        kubernetes.io/os: linux
       initContainers:
         - name: pull-embed-model
-          image: "docker.io/ollama/ollama:0.6.5"
+          image: "docker.io/ollama/ollama:0.9.1"
           imagePullPolicy: IfNotPresent
           command:
             - sh
             - -c
             - |
-              # Start ollama server in background
               ollama serve &
               OLLAMA_PID=$!
               echo "[Ollama-init] Waiting for server to be ready..."
-              # Use ollama itself to check readiness (no curl/wget dependency)
               until ollama list > /dev/null 2>&1; do
                 sleep 2
               done
@@ -112,7 +66,7 @@ spec:
               memory: 2Gi
       containers:
         - name: ollama
-          image: "docker.io/ollama/ollama:0.6.5"
+          image: "docker.io/ollama/ollama:0.9.1"
           imagePullPolicy: IfNotPresent
           command: ["ollama", "serve"]
           env:
@@ -145,8 +99,9 @@ spec:
               memory: 2Gi
       volumes:
         - name: ollama-models
-          persistentVolumeClaim:
-            claimName: ollama-models-pvc
+          hostPath:
+            path: /ollama
+            type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service

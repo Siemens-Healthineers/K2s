@@ -203,13 +203,23 @@ else {
     Write-Log $importingSavedObjects
 
     if ($EnableAI) {
-        Write-Log '[AI] Deploying AI log analysis components (Ollama, vector index, embedding pipeline, query API)' -Console
+        Write-Log '[AI] Deploying AI log analysis components (vector index, embedding pipeline, query API)' -Console
+        Write-Log '[AI] Using shared Ollama from ai-assistant namespace (nomic-embed-text + LLM models pre-cached)' -Console
+        Write-Log '[AI] Ensuring nomic-embed-text model is loaded in Ollama (bypassing proxy for registry pull)...' -Console
+        # ollama pull must bypass the Zscaler HTTPS proxy — the proxy intercepts registry.ollama.ai
+        # and returns a fake "success" with no data. Setting NO_PROXY=* forces a direct connection.
+        $pullResult = Invoke-Kubectl -Params @(
+            'exec', '-n', 'ai-assistant', 'deployment/ollama', '--',
+            'sh', '-c',
+            'NO_PROXY=''*'' no_proxy=''*'' HTTPS_PROXY='''' HTTP_PROXY='''' https_proxy='''' http_proxy='''' ollama pull nomic-embed-text'
+        )
+        $pullResult.Output | Write-Log
+        if (-not $pullResult.Success) {
+            Write-Log '[AI] Warning: nomic-embed-text pull may have failed. Check ai-assistant Ollama pod logs.' -Console
+        }
         $aiManifestsPath = "$manifestsPath\ai"
         $aiSourcePath = "$PSScriptRoot\ai"
 
-        # Create /ollama directory on the control-plane node for the Ollama PV (mirrors /logging for OpenSearch).
-        Write-Log '[AI] Creating /ollama host directory on control plane...' -Console
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /ollama').Output | Write-Log
 
         # Create source ConfigMaps from actual Python files so containers have the app code.
         # logging-ai-src-root: main.py
@@ -247,12 +257,9 @@ else {
         Write-Log '[AI] Source ConfigMaps ready.' -Console
         (Invoke-Kubectl -Params @('apply', '-k', "$aiManifestsPath\")).Output | Write-Log
 
-        Write-Log '[AI] Waiting for Ollama to be ready (model pull may take a few minutes on first run)...' -Console
-        $kubectlCmd = (Invoke-Kubectl -Params @('rollout', 'status', 'deployment', 'ollama', '-n', 'logging', '--timeout=600s'))
-        Write-Log $kubectlCmd.Output
-        if (!$kubectlCmd.Success) {
-            Write-Log '[AI] Warning: Ollama deployment did not become ready in time. Check pod logs: kubectl logs -n logging deploy/ollama' -Console
-        }
+        # Deploy demo broken pod in its own namespace (outside kustomize so namespace override doesn't apply)
+        Write-Log '[AI] Deploying demo error-prone order-service pod for log analysis demo...' -Console
+        (Invoke-Kubectl -Params @('apply', '-f', "$aiManifestsPath\demo-broken-pod.yaml")).Output | Write-Log
 
         Write-Log '[AI] Waiting for AI query API deployment...' -Console
         $kubectlCmd = (Invoke-Kubectl -Params @('rollout', 'status', 'deployment', 'logging-ai-api', '-n', 'logging', '--timeout=300s'))
@@ -262,9 +269,28 @@ else {
         }
         else {
             Write-Log '[AI] AI components deployed successfully.' -Console
-            Write-Log '[AI] Query API: POST http://logging-ai-api.logging.svc.cluster.local:8080/ai/logs/search' -Console
-            Write-Log '[AI] Embedding pipeline CronJob runs every hour. To trigger manually:' -Console
-            Write-Log '[AI]   kubectl create job --from=cronjob/logging-ai-pipeline pipeline-run -n logging' -Console
+
+            # Run the embedding pipeline immediately so the vector index is populated on first enable.
+            # Without this, users would have to wait up to an hour for the CronJob to fire.
+            Write-Log '[AI] Running initial embedding pipeline to index existing logs (this may take ~30s)...' -Console
+            $jobName = "pipeline-initial-$(Get-Date -Format 'yyyyMMddHHmmss')"
+            $jobResult = Invoke-Kubectl -Params @('create', 'job', '--from=cronjob/logging-ai-pipeline', $jobName, '-n', 'logging')
+            $jobResult.Output | Write-Log
+            if ($jobResult.Success) {
+                $kubectlCmd = Invoke-Kubectl -Params @('wait', '--for=condition=complete', "job/$jobName", '-n', 'logging', '--timeout=120s')
+                Write-Log $kubectlCmd.Output
+                if ($kubectlCmd.Success) {
+                    Write-Log '[AI] Initial pipeline run complete — vector index is populated and ready for semantic search.' -Console
+                } else {
+                    Write-Log '[AI] Warning: Pipeline job did not complete within 120s. Check: kubectl logs -n logging job/' + $jobName -Console
+                }
+            } else {
+                Write-Log '[AI] Warning: Could not create initial pipeline job. Run manually: kubectl create job --from=cronjob/logging-ai-pipeline pipeline-run -n logging' -Console
+            }
+
+            Write-Log '[AI] To start semantic search, open the demo UI:' -Console
+            Write-Log '[AI]   1. Run: kubectl -n logging port-forward svc/logging-ai-api 9090:9090' -Console
+            Write-Log "[AI]   2. Open: $PSScriptRoot\ai\demo.html" -Console
         }
     }
 

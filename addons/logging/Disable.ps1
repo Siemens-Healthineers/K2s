@@ -109,8 +109,10 @@ else {
         (Invoke-Kubectl -Params 'delete', 'configmap', 'logging-ai-src-root', '-n', 'logging', '--ignore-not-found').Output | Write-Log
         (Invoke-Kubectl -Params 'delete', 'configmap', 'logging-ai-src-app', '-n', 'logging', '--ignore-not-found').Output | Write-Log
 
-        # Delete Ollama PVC explicitly (kustomize delete may not remove PVCs)
-        (Invoke-Kubectl -Params 'delete', 'pvc', 'ollama-models-pvc', '-n', 'logging', '--ignore-not-found').Output | Write-Log
+
+        # Remove demo broken pod namespace
+        Write-Log '[AI] Removing demo broken pod (demo-app namespace)...' -Console
+        (Invoke-Kubectl -Params 'delete', 'namespace', 'demo-app', '--ignore-not-found').Output | Write-Log
 
         Write-Log '[AI] AI components removed.' -Console
     }
@@ -134,6 +136,9 @@ else {
     (Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--grace-period=0').Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
+    if ($enableAI) {
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /ollama').Output | Write-Log
+    }
 }
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
