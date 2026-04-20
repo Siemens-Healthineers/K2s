@@ -1,0 +1,142 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-app
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: broken-app-config
+  namespace: demo-app
+data:
+  app.conf: |
+    db_host=postgres-primary.demo-app.svc.cluster.local
+    db_port=5432
+    db_name=orders
+    cache_host=redis-master.demo-app.svc.cluster.local
+    cache_port=6379
+    api_timeout_ms=3000
+    max_retries=5
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: order-service
+  namespace: demo-app
+  labels:
+    app: order-service
+    tier: backend
+    version: v2.4.1
+spec:
+  initContainers:
+    - name: wait-for-db
+      image: busybox
+      command:
+        - sh
+        - -c
+        - |
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[Init] Waiting for PostgreSQL at postgres-primary:5432...\""
+          for i in $(seq 1 10); do
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=warn msg=\"[Init] Connection attempt $i/10 to postgres-primary:5432 failed: dial tcp 10.96.45.12:5432: connect: connection refused\""
+            sleep 2
+          done
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[Init] FATAL: PostgreSQL not reachable after 10 attempts. Proceeding anyway (crash expected).\""
+    - name: run-migrations
+      image: busybox
+      command:
+        - sh
+        - -c
+        - |
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[Migration] Starting schema migration v2.4.1...\""
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[Migration] Applying 003_add_payment_index.sql...\""
+          sleep 1
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[Migration] ERROR 1045 (28000): Access denied for user 'order_svc'@'10.244.0.58' (using password: YES)\""
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[Migration] java.sql.SQLException: Cannot create connection to database 'orders'. Caused by: org.postgresql.util.PSQLException: FATAL: password authentication failed for user order_svc\""
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=warn msg=\"[Migration] Falling back to read-only mode. Write operations will fail.\""
+  containers:
+    - name: order-service
+      image: busybox
+      command:
+        - sh
+        - -c
+        - |
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[OrderService] Starting order-service v2.4.1 (pid=1, go1.21.5)\""
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[OrderService] Loading config from /etc/config/app.conf\""
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[OrderService] Connecting to Redis cache at redis-master:6379...\""
+          sleep 1
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[Cache] Failed to connect to Redis: dial tcp 10.96.128.5:6379: connect: connection refused\""
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=warn msg=\"[Cache] Redis unavailable. Disabling cache layer — all requests will hit the database directly.\""
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[OrderService] Registering HTTP handlers...\""
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[OrderService] Listening on :8080\""
+          sleep 2
+
+          for cycle in $(seq 1 5); do
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[HTTP] POST /api/v1/orders 200 142ms\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=info msg=\"[HTTP] GET /api/v1/orders/ORD-10042 200 38ms\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=warn msg=\"[HTTP] POST /api/v1/orders 503 3012ms — upstream timeout waiting for database connection pool\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[DB] connection pool exhausted: 50/50 connections in use, 23 requests waiting. Oldest connection held for 45.2s by goroutine processing ORD-10039\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[DB] pq: too many clients already — cannot acquire connection from pool within 3s timeout\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=warn msg=\"[Circuit] Circuit breaker 'postgres-primary' OPEN — 15 consecutive failures in 30s (threshold: 10). Requests will be fast-failed for 60s.\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[HTTP] POST /api/v1/orders 500 2ms — {\\\"error\\\":\\\"circuit breaker open\\\",\\\"service\\\":\\\"postgres-primary\\\",\\\"retry_after\\\":\\\"60s\\\"}\""
+            sleep 1
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=warn msg=\"[Health] Readiness probe failed: database connection pool unhealthy (0/50 available). Pod will be removed from service endpoints.\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[Kafka] Failed to publish event OrderCreated to topic orders.events: context deadline exceeded — broker 10.96.200.3:9092 not responding\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[Kafka] Dead-letter queue write failed: kafka: client has run out of available brokers to talk to\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=warn msg=\"[GC] Long GC pause detected: 1.8s (heap: 487MB/512MB). Application threads were frozen.\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[TLS] x509: certificate has expired: peer certificate expired at 2026-04-18T23:59:59Z, current time 2026-04-19T08:30:00Z — mutual TLS handshake with payment-gateway.prod.svc.cluster.local:443 failed\""
+            sleep 0.5
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[Payment] Failed to process payment for ORD-10042: Post https://payment-gateway.prod.svc.cluster.local/v2/charge: x509: certificate has expired\""
+            sleep 1
+          done
+
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[OrderService] FATAL: unrecoverable state — database unreachable, cache down, message broker disconnected, TLS certs expired\""
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[OrderService] goroutine 1 [running]:\""
+          echo "main.(*Server).Run(0xc0001a2000)"
+          echo "        /app/cmd/server/main.go:142 +0x5a8"
+          echo "runtime.goexit()"
+          echo "        /usr/local/go/src/runtime/asm_amd64.s:1695 +0x1"
+          echo ""
+          echo "goroutine 47 [chan receive, 312 minutes]:"
+          echo "github.com/order-platform/order-service/internal/kafka.(*Producer).publishLoop(0xc000194000)"
+          echo "        /app/internal/kafka/producer.go:89 +0x168"
+          echo ""
+          echo "goroutine 52 [IO wait, 45 minutes]:"
+          echo "net.(*netFD).Read(0xc0001c6180, {0xc000580000, 0x1000, 0x1000})"
+          echo "        /usr/local/go/src/net/fd_posix.go:55 +0x29"
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) level=error msg=\"[OrderService] Shutting down with exit code 1. Uptime: 4m12s. Processed: 5 orders, 3 failed.\""
+          exit 1
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "50m"
+        limits:
+          memory: "128Mi"
+          cpu: "100m"
+      volumeMounts:
+        - name: config
+          mountPath: /etc/config
+      env:
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: order-db-secret
+              key: password
+              optional: true
+  restartPolicy: Never
+  volumes:
+    - name: config
+      configMap:
+        name: broken-app-config
+

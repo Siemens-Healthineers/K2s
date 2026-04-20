@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logging-ai-config
+  namespace: logging
+data:
+  OPENSEARCH_HOST: "opensearch-cluster-master.logging.svc.cluster.local"
+  OPENSEARCH_PORT: "9200"
+  SOURCE_INDEX: "k2s"
+  VECTOR_INDEX: "logs-vector"
+  # Dimension must match the embedding model output (nomic-embed-text = 768)
+  EMBEDDING_DIMENSION: "768"
+  # Embedding provider: "ollama" (default) or "noop" (zero vectors, no model needed)
+  EMBEDDING_PROVIDER: "ollama"
+  OLLAMA_HOST: "http://ollama.logging.svc.cluster.local:11434"
+  OLLAMA_MODEL: "nomic-embed-text"
+  BATCH_SIZE: "50"
+  PIPELINE_LOOKBACK_MINUTES: "60"
+  MIN_LOG_LEVEL: "warn"
+  TOP_K: "10"
+  # Set to "true" to enable RAG summarisation via Ollama LLM
+  LLM_ENABLED: "false"
+  OLLAMA_LLM_MODEL: "llama3"
