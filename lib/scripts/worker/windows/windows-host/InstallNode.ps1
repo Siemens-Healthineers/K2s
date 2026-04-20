@@ -95,49 +95,6 @@ route -p add $ipControlPlaneCIDR $nextHop METRIC 3 | Out-Null
 
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
 
-
-
-# # Verify loopback adapter has IP address before proceeding
-# Write-Log 'Verifying loopback adapter configuration...'
-# $maxRetries = 10
-# $retryCount = 0
-# $adapterConfigured = $false
-
-# while ($retryCount -lt $maxRetries -and -not $adapterConfigured) {
-#     try {
-#         # Import the required module to access Get-L2BridgeName
-#         $loopbackModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\windowsnode\network\loopbackadapter.module.psm1"
-#         Import-Module $loopbackModule -Force
-        
-#         $adapterName = Get-L2BridgeName
-#         $ipAddress = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName -ErrorAction Stop
-#         if ($ipAddress) {
-#             Write-Log "Loopback adapter '$adapterName' successfully configured with IP: $($ipAddress.IPAddress)" -Console
-#             $adapterConfigured = $true
-#         }
-#     }
-#     catch {
-#         $retryCount++
-#         Write-Log "Attempt $retryCount of ${maxRetries}: Waiting for loopback adapter IP configuration... Error: $($_.Exception.Message)" -Console
-#         Start-Sleep -Seconds 2
-        
-#         # Try to reconfigure the adapter on retry 5
-#         if ($retryCount -eq 5) {
-#             Write-Log "Re-attempting loopback adapter configuration..." -Console
-#             try {
-#                 New-DefaultLoopbackAdapter
-#             }
-#             catch {
-#                 Write-Log "Failed to reconfigure loopback adapter: $($_.Exception.Message)" -Console
-#             }
-#         }
-#     }
-# }
-
-# if (-not $adapterConfigured) {
-#     throw "Failed to configure loopback adapter after $maxRetries attempts. Please check network configuration."
-# }
-
 Write-Log "Starting Windows worker node on Windows host"
 $dnsServers = '8.8.8.8,8.8.4.4'  # Use default DNS servers
 $startWorkerParams = @{
@@ -156,42 +113,6 @@ if ([string]::IsNullOrWhiteSpace($JoinCommand)) {
 } else {
     Write-Log "Using provided join command: $JoinCommand" -Console
 }
-#Write-Log "Initialize-KubernetesCluster: $IpAddress"
-#Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -PodSubnetworkNumber $PodSubnetworkNumber -JoinCommand $JoinCommand -IpAddress $IpAddress
-# Write-Log 'Adding mirror registries'
-# $mirrorRegistries = Get-MirrorRegistries
-# foreach ($registry in $mirrorRegistries) {
-#     Set-Registry -Name $registry.registry -Https -SkipVerify -Mirror $registry.mirror -Server $registry.server 
-# }
-
-# if (! $SkipStart) {
-#     Write-Log 'Starting Windows worker node on Windows host'
-#     & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -HideHeaders:$true -DnsAddresses $DnsAddresses
-
-#     if ($RestartAfterInstallCount -gt 0) {
-#         $restartCount = 0;
-    
-#         while ($true) {
-#             $restartCount++
-#             Write-Log "Restarting Windows worker node on Windows host (iteration #$restartCount):"
-    
-#             & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -HideHeaders:$true
-#             Start-Sleep 10
-    
-#             & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -HideHeaders:$true -DnsAddresses $DnsAddresses
-#             Start-Sleep -s 5
-    
-#             if ($restartCount -eq $RestartAfterInstallCount) {
-#                 Write-Log 'Restarting Windows worker node on Windows host completed'
-#                 break;
-#             }
-#         }
-#     }
-# }
-# else {
-#     & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -HideHeaders:$true
-# }
-
 
 
 Write-Log '---------------------------------------------------------------'

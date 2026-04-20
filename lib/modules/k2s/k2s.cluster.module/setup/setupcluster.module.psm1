@@ -442,7 +442,9 @@ function Initialize-KubernetesCluster {
         [string] $AdditionalHooksDir = '',
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
         [string] $JoinCommand = $(throw 'Argument missing: JoinCommand'),
-        [string] $IpAddress = $null
+        [string] $IpAddress = $null,
+        [parameter(Mandatory = $false, HelpMessage = 'Indicates if a loopback adapter is required for the installation')]
+        [bool] $IsLoopBackAdapterRequired = $true
     )
     Invoke-Hook -HookName 'AfterVmInitialized' -AdditionalHooksDir $AdditionalHooksDir
 
@@ -457,9 +459,11 @@ function Initialize-KubernetesCluster {
     Write-Log "Current state of kubernetes nodes:`n"
     Start-Sleep 2
     &"$kubeToolsPath\kubectl.exe" get nodes -o wide
-
-    Write-Log "Collecting kubernetes images and storing them to $kubernetesImagesJson."
-    Write-KubernetesImagesIntoJson
+   if( $IsLoopBackAdapterRequired ) {
+       Write-Log "Collecting kubernetes images and storing them to $kubernetesImagesJson."
+       Write-KubernetesImagesIntoJson
+    }
+    
 }
 
 function Uninstall-Cluster {

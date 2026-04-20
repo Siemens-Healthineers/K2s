@@ -165,9 +165,9 @@ if ($httpproxyService) {
     Write-Log "[Proxy] httpproxy service not found, skipping allowed-cidr update" -Console
 }
 Write-Host "Executing InstallNode.ps1 on remote machine: $IpAddress with HostIpAddress $WindowsHostIpAddress"
-$executeScriptCmd = "powershell -ExecutionPolicy Bypass -File `"C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1`" -ShowLogs -IpAddress $IpAddress -HostIpAddress $WindowsHostIpAddress"
+$executeInstallNodeScript = "powershell -ExecutionPolicy Bypass -File `"C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1`" -ShowLogs -IpAddress $IpAddress -HostIpAddress $WindowsHostIpAddress"
 
-$result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $executeScriptCmd -IpAddress $IpAddress -UserName $UserName
+$result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $executeInstallNodeScript -IpAddress $IpAddress -UserName $UserName
 
 # Simple error checking
 if (-not $result.Success) {

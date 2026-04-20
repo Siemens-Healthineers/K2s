@@ -62,7 +62,7 @@ function Add-WindowsWorkerNodeOnWindowsHost {
     if ([string]::IsNullOrWhiteSpace($JoinCommand)) {
         return
     }
-    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -PodSubnetworkNumber $PodSubnetworkNumber -JoinCommand $JoinCommand -IpAddress $IpAddress 
+    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -PodSubnetworkNumber $PodSubnetworkNumber -JoinCommand $JoinCommand -IpAddress $IpAddress -IsLoopBackAdapterRequired $IsLoopBackAdapterRequired
 }
 
 function Start-WindowsWorkerNodeOnWindowsHost {
@@ -178,8 +178,6 @@ function Start-RemoteWindowsWorkerNode {
     Add-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
 
     Update-NodeLabelsAndTaints -WorkerMachineName $env:computername
-
-    Set-KubeSwitchToPrivate
 }
 
 function Stop-WindowsWorkerNodeOnWindowsHost {
