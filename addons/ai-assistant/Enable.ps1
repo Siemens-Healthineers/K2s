@@ -160,7 +160,7 @@ catch {
 Write-Log '[AI-Assistant] Waiting for HolmesGPT to be ready...' -Console
 $holmesReady = Wait-ForHolmesAvailable
 if (-not $holmesReady) {
-    $errMsg = '[AI-Assistant] HolmesGPT pod did not become ready within 120s. Check: kubectl describe pods -n ai-assistant -l app=holmesgpt'
+    $errMsg = '[AI-Assistant] HolmesGPT pod did not become ready within 300s. Check: kubectl describe pods -n ai-assistant -l app=holmesgpt'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -187,12 +187,16 @@ catch {
     exit 1
 }
 
+# ── Persist to setup.json BEFORE plugin sync ─────────────────────────────────
+# Sync-HeadlampPlugins calls Test-IsAddonEnabled to decide which init-containers
+# to inject. The addon must be registered first, otherwise the check returns $false
+# and the AI Assistant plugin is silently skipped.
+Add-AddonToSetupJson -Addon ([pscustomobject]@{Name = 'ai-assistant' })
+
 # ── Inject AI Assistant plugin into Headlamp ──────────────────────────────────
 Write-Log '[AI-Assistant] Injecting AI Assistant plugin into Headlamp...' -Console
 Sync-HeadlampPlugins
 
-# ── Persist to setup.json ─────────────────────────────────────────────────────
-Add-AddonToSetupJson -Addon ([pscustomobject]@{Name = 'ai-assistant' })
 
 Write-Log '[AI-Assistant] AI Assistant addon enabled successfully.' -Console
 

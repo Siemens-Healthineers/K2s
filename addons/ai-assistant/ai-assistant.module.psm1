@@ -302,14 +302,39 @@ _KUBECTL_MULTI_COL_RE = re.compile(r"\S  +\S")
 # contain diagnostic data and must reach the user.
 _NOISE_RE = re.compile(
     r"(?i)^("
+    # LLM summary/intro phrases
     r"here (are|is)|the (pods?|nodes?|services?|namespaces?|deployments?) "
     r"(in|for|of|are|is)|pods? in |nodes? in |services? in |namespaces? in |"
     r"(pods?|nodes?|services?|namespaces?|deployments?):\s*$|"
     r"this (means|indicates|suggests)|the (above|following|output|result)|"
     r"to (fix|resolve|investigate|check)|additionally|furthermore|note:|tip:|"
+    # Next steps / follow-up
     r"next steps?|follow[- ]up|investigation|analysis|root cause|"
+    r"next,? |next steps? could|"
+    # I/you phrases
     r"i (found|see|notice|recommend|suggest)|you (can|should|may|might)|"
-    r"please |running |#+ |\* |\d+\. "
+    r"(let me|let's|i will|i'll|shall i) |if you (have|need|want)|"
+    # Status summary prose
+    r"all (pods?|nodes?|services?|deployments?|containers?) (are|is|have|show)|"
+    r"there (are|is) no |no (pods?|nodes?|issues?|errors?|failures?) |"
+    r"everything (is|looks|seems|appears)|"
+    # Conditional/explanatory
+    r"since there (are|is)|however,|otherwise|"
+    r"consider (checking|monitoring|ensuring)|"
+    r"(monitoring|checking|ensuring) (resource|network|service|all)|"
+    # Offer/request phrases
+    r"please |if (issues?|errors?|problems?) |"
+    r"more details|particular|specific |"
+    r"if you need (further|more|additional)|"
+    r"(further|more) assist|let me know|"
+    # HolmesGPT metadata leakage
+    r"params used for|the tool call |unable to proceed|"
+    # Markdown/list formatting
+    r"#+ |\* |\d+\. |"
+    # Misc
+    r"as (we|you) can see|based on|looking at|"
+    r"running |proceed with|"
+    r"no (issues?|problems?|errors?) (found|detected|present|listed)"
     r")"
 )
 
@@ -375,6 +400,32 @@ _TYPE_HINTS = {
 _STATUS_COLS = {"STATUS", "READY", "PHASE"}
 # Which column is the "name" column.
 _NAME_COL = "NAME"
+
+# Common English prose words that should never be treated as k8s identifiers.
+# When the LLM answers without making a tool call it streams individual word
+# tokens that pass the single-token identifier regex.  Rejecting known prose
+# words here prevents those tokens from being assembled into visible output.
+_PROSE_STOP_WORDS = frozenset({
+    # Articles / prepositions / conjunctions
+    'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of',
+    'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
+    'may', 'might', 'must', 'shall', 'can', 'no', 'not', 'nor', 'so', 'yet',
+    # Pronouns / determiners
+    'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them',
+    'my', 'your', 'his', 'its', 'our', 'their', 'this', 'that', 'these', 'those',
+    'here', 'there', 'all', 'any', 'each', 'few', 'more', 'most', 'other', 'some',
+    # Common LLM prose verbs / adjectives
+    'running', 'failed', 'active', 'based', 'provided', 'found', 'detected',
+    'following', 'above', 'below', 'such', 'also', 'currently', 'available',
+    'terminated', 'crashed', 'working', 'showing', 'indicating', 'listed',
+    # k8s resource type words used as plain English nouns in LLM prose
+    # (in real tabular output they always appear in multi-column rows, not alone)
+    'pod', 'pods', 'node', 'nodes', 'service', 'services',
+    'namespace', 'namespaces', 'deployment', 'deployments',
+    'container', 'containers', 'cluster',
+    'information', 'output', 'result', 'status', 'name', 'type', 'version',
+})
 
 # Known kubectl column-header tokens — used to detect "header-only" output
 # that carries no real data (e.g. LLM echoing "NAME  STATUS" without rows).
@@ -673,6 +724,14 @@ def _extract_table_from_tool_result(text: str) -> tuple:
     # Strip leading blank lines (optional separator between header and table)
     table_body = rest.lstrip("\r\n")
 
+    # Strip trailing "Params used for the tool call: ..." metadata appended by
+    # HolmesGPT's server-agui.py after the actual kubectl output.  This metadata
+    # is not useful to the user and causes duplicate raw table output in the UI.
+    _params_marker = "Params used for the tool call"
+    params_idx = table_body.find(_params_marker)
+    if params_idx > 0:
+        table_body = table_body[:params_idx]
+
     # Final trim of trailing whitespace only — DO NOT strip content lines
     table_body = table_body.rstrip()
 
@@ -738,6 +797,29 @@ def _filter_delta(delta: str) -> str:
     """
     cleaned = _strip_tool_meta(delta)
 
+    # ── HolmesGPT tool-call echo — suppress entirely ──────────────────────────
+    # After emitting a tool-result block, HolmesGPT's server-agui.py appends a
+    # separate TEXT_MESSAGE_CONTENT delta:
+    #   "Params used for the tool call: {...}. The tool call output follows on the
+    #    next line.\n<raw kubectl table>"
+    # This duplicates what the formatted tool-result already showed.  Detect by
+    # the "Params used for" prefix and suppress the whole delta immediately.
+    cleaned_stripped = cleaned.strip()
+    if cleaned_stripped.lower().startswith("params used for"):
+        logging.info("OutputFilter: suppressed HolmesGPT tool-call echo (%d chars)", len(cleaned))
+        return ""
+
+    # Also suppress the single-line version that appears in later SSE chunks:
+    # "Params used for the tool call: {...}. The tool call output follows on the next line. NAME STATUS ..."
+    if "params used for the tool call" in cleaned_stripped.lower()[:120]:
+        logging.info("OutputFilter: suppressed inline tool-call echo (%d chars)", len(cleaned))
+        return ""
+
+    # ── "Unable to proceed" dedup guard from HolmesGPT ───────────────────────
+    if cleaned_stripped.lower().startswith("unable to proceed"):
+        logging.info("OutputFilter: suppressed HolmesGPT dedup message")
+        return ""
+
     # ── Tool-result block: contains embedded kubectl table ─────────────────────
     # Condition: delta starts with 🔧 AND contains "result:" near the start.
     # Pattern: "🔧 tool_name result:\n<kubectl output>"
@@ -754,6 +836,25 @@ def _filter_delta(delta: str) -> str:
             # Only the announcement line arrived (partial SSE chunk) — pass through
             logging.info("OutputFilter: tool-result block has no table body yet — pass through")
             return cleaned
+
+        # Suppress dedup/error messages that HolmesGPT embeds as the "table body".
+        # These occur when the same tool is called twice with the same parameters.
+        # Examples:
+        #   "Unable to proceed with the requested tool call as it was previously executed..."
+        #   "I'm sorry, I cannot..." / "Error: ..."
+        table_body_lower = table_body.strip().lower()
+        if (
+            table_body_lower.startswith("unable to proceed")
+            or table_body_lower.startswith("i'm sorry")
+            or table_body_lower.startswith("i cannot")
+            or table_body_lower.startswith("error:")
+            or table_body_lower.startswith("please choose a different tool")
+        ):
+            logging.info(
+                "OutputFilter: suppressed tool-result error/dedup body (%d chars): %r",
+                len(table_body), table_body[:80],
+            )
+            return ""
         if RAW_OUTPUT:
             return cleaned
         # Validate that the first line of the table body looks like a kubectl header.
@@ -818,6 +919,8 @@ def _filter_delta(delta: str) -> str:
 
     # ── Regular LLM text: filter line-by-line ─────────────────────────────────
     kept = []
+    noise_dropped = 0  # lines explicitly matched by _NOISE_RE
+    unknown_dropped = 0  # lines dropped because they look like multi-word prose
     in_describe_block = False  # track whether we are inside a describe key-value section
     for raw_line in cleaned_lines_for_detect:
         line = raw_line.rstrip()
@@ -853,6 +956,7 @@ def _filter_delta(delta: str) -> str:
         in_describe_block = False
 
         if _NOISE_RE.match(stripped):
+            noise_dropped += 1
             continue  # drop commentary
 
         if _KUBECTL_MULTI_COL_RE.search(stripped):
@@ -861,8 +965,13 @@ def _filter_delta(delta: str) -> str:
             continue
 
         # Single-token: keep only if it looks like a k8s name/identifier
-        # (letters, digits, hyphens, dots, slashes, underscores — NO spaces)
+        # (letters, digits, hyphens, dots, slashes, underscores — NO spaces).
+        # Reject common English prose words — they arrive as individual tokens
+        # when the LLM answers without calling a tool (word-by-word streaming).
         if re.match(r"^[A-Za-z0-9][A-Za-z0-9\-\./\_]*$", stripped):
+            if stripped.lower() in _PROSE_STOP_WORDS:
+                noise_dropped += 1
+                continue  # drop common English prose word
             kept.append(stripped)
             continue
 
@@ -873,11 +982,20 @@ def _filter_delta(delta: str) -> str:
             continue
 
         # Multi-word prose without column spacing -> drop
+        unknown_dropped += 1
 
     if not kept:
-        # SAFETY: if the original delta had substantial content (>20 chars) that we
-        # are about to suppress entirely, return the original rather than an empty
-        # string — data must never silently disappear from the UI.
+        # If ALL dropped lines were explicitly matched as noise (not unknown),
+        # it is safe to suppress — this is pure LLM commentary.
+        if noise_dropped > 0 and unknown_dropped == 0:
+            logging.info(
+                "OutputFilter: suppressed pure noise delta (%d noise lines, %d chars)",
+                noise_dropped, len(cleaned),
+            )
+            return ""
+
+        # SAFETY: if some lines were dropped for unknown reasons (not noise-matched),
+        # return the original to prevent accidental data loss.
         if len(cleaned.strip()) > 20:
             logging.info(
                 "OutputFilter: all lines filtered from non-empty delta (%d chars) — "
@@ -928,6 +1046,10 @@ _WHY_FAILING_RE = re.compile(
 )
 _DESCRIBE_POD_RE = re.compile(
     r"(?i)(describe|inspect|detail|info).{0,30}pod",
+)
+# Generic "list <resource>" queries — must always trigger a fresh tool call.
+_LIST_RESOURCE_RE = re.compile(
+    r"(?i)^(list|show|get|display)\s+(all\s+)?(pods?|nodes?|services?|deployments?|namespaces?|replicasets?|statefulsets?|daemonsets?|jobs?|configmaps?|secrets?|ingresses?|pvcs?|pvs?)\s*$",
 )
 # Short affirmative replies the user sends after AI asks "do you want more details?"
 _AFFIRMATIVE_RE = re.compile(
@@ -998,6 +1120,26 @@ def _build_ask_prefix(ask: str, messages: list = None) -> str:
                 f"Write the describe output (State, Reason, Exit Code, Started, Finished, Message) as your final answer. "
                 f"Original request: "
             )
+
+    # ── Generic list resource query ───────────────────────────────────────────
+    # Handles "list pods", "list nodes", "show services", etc.
+    # Forces a fresh kubernetes_tabular_query call regardless of conversation history.
+    if _LIST_RESOURCE_RE.match(ask.strip()):
+        # Determine the resource type from the request
+        resource_match = re.search(
+            r"(?i)(pods?|nodes?|services?|deployments?|namespaces?|replicasets?|statefulsets?|daemonsets?|jobs?|configmaps?|secrets?|ingresses?|pvcs?|pvs?)",
+            ask,
+        )
+        resource = resource_match.group(1).lower().rstrip("s") if resource_match else "pod"
+        # Normalise to plural kubectl kind (pods, nodes, services …)
+        resource_plural = resource if resource.endswith("s") else resource + "s"
+        return (
+            f"[INSTRUCTION] Use exactly 1 tool call. "
+            f"Call kubernetes_tabular_query with kind={resource_plural} to retrieve LIVE data. "
+            f"NEVER answer from memory or prior conversation context. "
+            f"After the tool returns, write its output as your final answer. "
+            f"Original request: "
+        )
 
     # ── Explicit failed/crash pod listing ────────────────────────────────────
     if _FAILED_PODS_RE.search(ask) or "failed" in ask_lower or "failing" in ask_lower:
@@ -1503,6 +1645,15 @@ function New-ZscalerCaConfigMap {
         return
     }
 
+    # Ensure the namespace exists before creating the ConfigMap.
+    # New-ZscalerCaConfigMap is called before ollama.yaml is applied (which creates the
+    # namespace), so we must create it here idempotently to avoid a silent apply failure.
+    $nsResult = Invoke-Kubectl -Params 'create', 'namespace', 'ai-assistant', '--dry-run=client', '-o', 'yaml'
+    $nsTmpYaml = [System.IO.Path]::GetTempFileName() + '.yaml'
+    $nsResult.Output | Set-Content $nsTmpYaml -Encoding UTF8
+    (Invoke-Kubectl -Params 'apply', '-f', $nsTmpYaml).Output | Write-Log
+    Remove-Item $nsTmpYaml -Force -ErrorAction SilentlyContinue
+
     # Strip SPDX header lines (lines starting with #) - keep only the PEM block
     $lines = Get-Content $certPath
     $pemLines = $lines | Where-Object { $_ -notmatch '^\s*#' }
@@ -1532,61 +1683,27 @@ function Invoke-OllamaModelPull {
     )
 
     Write-Log "[AI-Assistant] Waiting for Ollama pod to be ready..." -Console
-    $ollamaReady = Wait-ForPodCondition -Condition Ready -Label 'app=ollama' -Namespace 'ai-assistant' -TimeoutSeconds 180
+    # 600s timeout: the ollama/ollama:0.9.1 image is ~3.5 GB and can take 6-8 minutes
+    # to pull on first install. Subsequent enables use the cached image and complete in seconds.
+    $ollamaReady = Wait-ForPodCondition -Condition Ready -Label 'app=ollama' -Namespace 'ai-assistant' -TimeoutSeconds 1600
     if (-not $ollamaReady) {
-        throw '[AI-Assistant] Ollama pod did not become ready within 180s'
+        throw '[AI-Assistant] Ollama pod did not become ready within 1600s. Check: kubectl describe pod -n ai-assistant -l app=ollama'
     }
 
-    # Get the Ollama ClusterIP so we can POST to /api/pull directly from kubemaster.
-    # This bypasses the proxy issue: the Ollama *server* correctly uses the system
-    # proxy (HTTPS_PROXY in the container) to reach registry.ollama.ai, while our
-    # Python client talks to the ClusterIP (cluster-internal, NO_PROXY range).
-    $clusterIP = (Invoke-Kubectl -Params 'get', 'svc', 'ollama', '-n', 'ai-assistant',
-        '-o', 'jsonpath={.spec.clusterIP}').Output
-    if ([string]::IsNullOrWhiteSpace($clusterIP)) {
-        throw '[AI-Assistant] Could not resolve ClusterIP for Ollama service'
-    }
+    # Use kubectl exec to run 'ollama pull' directly inside the pod.
+    # This is the simplest and most reliable approach:
+    #   - No ClusterIP resolution needed
+    #   - No SSH tunnel or Python script on kubemaster
+    #   - Ollama binary is already inside the container and handles proxy/TLS natively
+    #   - Output streams directly back via kubectl exec
+    Write-Log "[AI-Assistant] Pulling Ollama model '$Model' (kubectl exec into pod)..." -Console
+    Write-Log "[AI-Assistant] (This may take several minutes for a new model - existing models complete in seconds)" -Console
 
-    Write-Log "[AI-Assistant] Pulling Ollama model '$Model' via REST API at $clusterIP:11434 ..." -Console
-    Write-Log "[AI-Assistant] (This may take several minutes - model is ~2 GB)" -Console
-
-    # Write a small Python script to /tmp on kubemaster and run it via SSH.
-    # Python is always present on the Debian kubemaster node.
-    $pyScript = @"
-import urllib.request, json, sys
-url = 'http://${clusterIP}:11434/api/pull'
-payload = json.dumps({'model': '${Model}', 'stream': True}).encode()
-req = urllib.request.Request(url, data=payload,
-    headers={'Content-Type': 'application/json'}, method='POST')
-try:
-    with urllib.request.urlopen(req, timeout=600) as resp:
-        for line in resp:
-            try:
-                d = json.loads(line.decode())
-                status = d.get('status', '')
-                if 'total' in d and 'completed' in d and d['total']:
-                    pct = int(100 * d['completed'] / d['total'])
-                    print(f'  {status}: {pct}%', flush=True)
-                elif status:
-                    print(f'  {status}', flush=True)
-            except Exception:
-                pass
-    print('success', flush=True)
-except Exception as e:
-    print(f'error: {e}', file=sys.stderr, flush=True)
-    sys.exit(1)
-"@
-
-    $tmpPy = [System.IO.Path]::GetTempFileName() + '.py'
-    $pyScript | Set-Content $tmpPy -Encoding ASCII
-    Copy-ToControlPlaneViaSSHKey -Source $tmpPy -Target '/tmp/ollama_pull.py'
-    Remove-Item $tmpPy -Force -ErrorAction SilentlyContinue
-
-    $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'python3 /tmp/ollama_pull.py' -Timeout 620
+    $pullResult = Invoke-Kubectl -Params 'exec', '-n', 'ai-assistant', 'deployment/ollama',
+        '--', 'ollama', 'pull', $Model
     $pullResult.Output | Write-Log
-    Remove-Item $tmpPy -Force -ErrorAction SilentlyContinue
 
-    if (-not $pullResult.Success -or ($pullResult.Output -notmatch 'success')) {
+    if (-not $pullResult.Success) {
         throw "[AI-Assistant] 'ollama pull $Model' failed. See log for details."
     }
     Write-Log "[AI-Assistant] Model '$Model' pulled successfully." -Console
@@ -1597,7 +1714,8 @@ except Exception as e:
 Waits for the HolmesGPT deployment to become available.
 #>
 function Wait-ForHolmesAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'app=holmesgpt' -Namespace 'ai-assistant' -TimeoutSeconds 120)
+    # 300s timeout: HolmesGPT image is ~1.3 GB and may need to be pulled on first enable.
+    return (Wait-ForPodCondition -Condition Ready -Label 'app=holmesgpt' -Namespace 'ai-assistant' -TimeoutSeconds 300)
 }
 
 <#
