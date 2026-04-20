@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: Â© 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -28,6 +28,9 @@ spec:
               - name: omitOpensearch
                 description: Deploy only Fluent-bit; omit OpenSearch and OpenSearch Dashboards
                 default: false
+              - name: enableAI
+                description: Deploy AI log analysis layer (vector index, embedding pipeline, RAG query API) alongside the logging stack
+                default: false
             examples:
               - cmd: k2s addons enable logging
                 comment: Enable logging in k2s
@@ -35,6 +38,8 @@ spec:
                 comment: Enable logging in k2s with ingress traefik
               - cmd: k2s addons enable logging --omitOpensearch
                 comment: Enable logging in k2s without OpenSearch (Fluent-bit stdout output only)
+              - cmd: k2s addons enable logging --enableAI
+                comment: Enable logging in k2s with AI-powered log analysis (k-NN vector search, RAG query API)
           script:
             subPath: Enable.ps1
             parameterMappings:
@@ -42,6 +47,8 @@ spec:
                 scriptParameterName: Ingress
               - cliFlagName: omitOpensearch
                 scriptParameterName: OmitOpensearch
+              - cliFlagName: enableAI
+                scriptParameterName: EnableAI
         disable:
           cli:
             examples:
@@ -49,3 +56,4 @@ spec:
                 comment: Disable addon logging in k2s
           script:
             subPath: Disable.ps1
+

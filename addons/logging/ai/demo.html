@@ -1,0 +1,184 @@
+<!--
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K2s AI Log Search – Demo</title>
+<style>
+  :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --orange: #d29922; --red: #f85149; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 24px; }
+  .container { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+  .status-bar { display: flex; gap: 16px; margin-bottom: 24px; padding: 12px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; }
+  .status-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.green { background: var(--green); }
+  .dot.red { background: var(--red); }
+  .dot.loading { background: var(--orange); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+  .search-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+  .search-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  input, select { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-size: 0.95rem; }
+  input[type="text"] { flex: 1; }
+  select { min-width: 100px; }
+  button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 20px; font-size: 0.95rem; cursor: pointer; font-weight: 600; }
+  button:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; }
+  .filters input { width: 180px; }
+  .filters label { color: var(--muted); font-size: 0.8rem; display: block; margin-bottom: 4px; }
+  .results { display: flex; flex-direction: column; gap: 12px; }
+  .result-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .score { font-weight: 700; font-size: 1.1rem; }
+  .score.high { color: var(--green); }
+  .score.med { color: var(--orange); }
+  .score.low { color: var(--red); }
+  .meta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .meta-tag { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; color: var(--muted); }
+  .content { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.82rem; color: var(--text); background: var(--bg); padding: 12px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow-y: auto; line-height: 1.5; }
+  .answer-box { background: var(--card); border: 1px solid var(--green); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .answer-box h3 { color: var(--green); font-size: 0.9rem; margin-bottom: 8px; }
+  .info { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 32px; }
+  .stats { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
+  .error-msg { color: var(--red); background: rgba(248,81,73,0.1); border: 1px solid var(--red); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔍 K2s <span>AI Log Search</span></h1>
+  <p class="subtitle">Semantic log analysis powered by OpenSearch k-NN + Ollama embeddings</p>
+
+  <div class="status-bar" id="statusBar">
+    <div class="status-item"><div class="dot loading" id="dotApi"></div><span id="txtApi">Checking API...</span></div>
+    <div class="status-item"><div class="dot loading" id="dotIdx"></div><span id="txtIdx">Checking index...</span></div>
+    <div class="status-item"><div class="dot loading" id="dotModel"></div><span id="txtModel">Checking model...</span></div>
+  </div>
+
+  <div class="search-box">
+    <div class="search-row">
+      <input type="text" id="query" placeholder="Describe what you're looking for... e.g. container ran out of memory" autofocus>
+      <select id="topK"><option value="3">Top 3</option><option value="5">Top 5</option><option value="10" selected>Top 10</option></select>
+      <button id="searchBtn" onclick="doSearch()">Search</button>
+    </div>
+    <div class="filters">
+      <div><label>Namespace</label><input type="text" id="fNamespace" placeholder="e.g. kube-system"></div>
+      <div><label>Pod</label><input type="text" id="fPod" placeholder="e.g. coredns"></div>
+      <div><label>From (ISO)</label><input type="text" id="fFrom" placeholder="2026-04-19T00:00:00Z"></div>
+      <div><label>To (ISO)</label><input type="text" id="fTo" placeholder=""></div>
+    </div>
+  </div>
+
+  <div id="output"><p class="info">Enter a query above and click Search.<br>Try natural language — you don't need exact keywords.</p></div>
+</div>
+
+<script>
+const API = 'http://localhost:9090';
+
+async function checkHealth() {
+  try {
+    const r = await fetch(API + '/healthz');
+    const d = await r.json();
+    setDot('dotApi', 'txtApi', d.status === 'ok', 'API: OK', 'API: down');
+  } catch { setDot('dotApi', 'txtApi', false, '', 'API: unreachable — run port-forward'); }
+}
+
+async function checkIndex() {
+  // We can't directly call OpenSearch from browser, so we do a dummy search
+  try {
+    const r = await fetch(API + '/healthz');
+    if (r.ok) setDot('dotIdx', 'txtIdx', true, 'Index: ready', 'Index: error');
+  } catch { setDot('dotIdx', 'txtIdx', false, '', 'Index: unknown'); }
+}
+
+function setDot(dotId, txtId, ok, goodTxt, badTxt) {
+  const dot = document.getElementById(dotId);
+  const txt = document.getElementById(txtId);
+  dot.className = 'dot ' + (ok ? 'green' : 'red');
+  txt.textContent = ok ? goodTxt : badTxt;
+}
+
+async function doSearch() {
+  const q = document.getElementById('query').value.trim();
+  if (!q) return;
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true; btn.textContent = 'Searching...';
+  const out = document.getElementById('output');
+  out.innerHTML = '<p class="info">Searching...</p>';
+
+  const body = { query: q, top_k: parseInt(document.getElementById('topK').value) };
+  const filters = {};
+  const ns = document.getElementById('fNamespace').value.trim();
+  const pod = document.getElementById('fPod').value.trim();
+  const from = document.getElementById('fFrom').value.trim();
+  const to = document.getElementById('fTo').value.trim();
+  if (ns) filters.namespace = ns;
+  if (pod) filters.service = pod;
+  if (from || to) { filters.time_range = {}; if (from) filters.time_range.gte = from; if (to) filters.time_range.lte = to; }
+  if (Object.keys(filters).length) body.filters = filters;
+
+  try {
+    const t0 = performance.now();
+    const r = await fetch(API + '/ai/logs/search', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+    if (!r.ok) { const e = await r.text(); out.innerHTML = `<div class="error-msg">API error ${r.status}: ${e}</div>`; return; }
+    const data = await r.json();
+    renderResults(data, elapsed, q);
+  } catch (e) {
+    out.innerHTML = `<div class="error-msg">Request failed: ${e.message}<br><br>Make sure port-forward is running:<br><code>kubectl -n logging port-forward svc/logging-ai-api 9090:9090</code></div>`;
+  } finally { btn.disabled = false; btn.textContent = 'Search'; }
+}
+
+function renderResults(data, elapsed, query) {
+  const out = document.getElementById('output');
+  const hits = data.hits || [];
+  let html = `<div class="stats">${hits.length} result${hits.length !== 1 ? 's' : ''} in ${elapsed}s · query: "${query}"</div>`;
+
+  if (data.answer) {
+    html += `<div class="answer-box"><h3>🤖 AI Answer</h3><p>${escHtml(data.answer)}</p></div>`;
+  }
+
+  if (!hits.length) {
+    html += '<p class="info">No results found. Try a broader query, or run the pipeline first:<br><code>kubectl create job --from=cronjob/logging-ai-pipeline run-now -n logging</code></p>';
+  }
+
+  for (const h of hits) {
+    const s = h.score || 0;
+    const cls = s >= 0.9 ? 'high' : s >= 0.8 ? 'med' : 'low';
+    const m = h.metadata || {};
+    html += `<div class="result-card">
+      <div class="result-header">
+        <div class="meta">
+          ${m.namespace ? `<span class="meta-tag">ns: ${escHtml(m.namespace)}</span>` : ''}
+          ${m.pod ? `<span class="meta-tag">pod: ${escHtml(m.pod)}</span>` : ''}
+          ${m.host ? `<span class="meta-tag">host: ${escHtml(m.host)}</span>` : ''}
+          ${m.log_level ? `<span class="meta-tag">level: ${escHtml(m.log_level)}</span>` : ''}
+          ${m.timestamp ? `<span class="meta-tag">${escHtml(m.timestamp)}</span>` : ''}
+        </div>
+        <span class="score ${cls}">${(s * 100).toFixed(1)}%</span>
+      </div>
+      <div class="content">${escHtml(h.content || '')}</div>
+    </div>`;
+  }
+  out.innerHTML = html;
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+document.getElementById('query').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+checkHealth();
+checkIndex();
+setDot('dotModel', 'txtModel', true, 'Model: nomic-embed-text', '');
+</script>
+</body>
+</html>
+

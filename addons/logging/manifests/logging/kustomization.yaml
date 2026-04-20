@@ -9,3 +9,4 @@ resources:
 - .\opensearch
 - .\opensearch-dashboards
 - .\fluentbit
+# AI layer is deployed separately via Enable.ps1 --enableAI flag

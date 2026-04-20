@@ -1,0 +1,551 @@
+execute curl command: curl --show-error --fail -m 7200 --connect-timeout 10 -ipv4 --retry-connrefused -s --noproxy '*' -X POST http://http-nightly-k2s-addon-monitoring-online-windows11-hmg69.kondor-ci/api/ci/v1/runacceptancetest -H Content-Type: application/json -d '{Proxy:http://10.81.32.5:81, Tags:[monitoring], ExcludeTags:[no-setup, system-stopped]}'
+*   Trying 10.109.196.62:80...
+* Connected to http-nightly-k2s-addon-monitoring-online-windows11-hmg69.kondor-ci (10.109.196.62) port 80 (#0)
+> POST /api/ci/v1/runacceptancetest HTTP/1.1
+> Host: http-nightly-k2s-addon-monitoring-online-windows11-hmg69.kondor-ci
+> User-Agent: curl/7.78.0
+> Accept: */*
+> Content-Type: application/json
+> Content-Length: 101
+>
+} [101 bytes data]
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 200 OK
+< Connection: Keep-Alive
+< X-Content-Type-Options: nosniff
+< Date: Sat, 18 Apr 2026 08:12:37 GMT
+< Content-Type: text/plain; charset=utf-8
+< Transfer-Encoding: chunked
+<
+{ [248 bytes data]
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+X-Content-Type-Options: nosniff
+Date: Sat, 18 Apr 2026 08:12:37 GMT
+Content-Type: text/plain; charset=utf-8
+Transfer-Encoding: chunked
+
+[2026-04-18|10:12:37.718240] Executing cmd: C:\k2s\test\execute_all_tests.ps1 -ThrowOnFailure -V -TestResultPath 'C:\TestReports'  -Proxy http://10.81.32.5:81 -Tags monitoring -ExcludeTags no-setup, system-stopped -KeepResourcesInCaseOfError
+[2026-04-18|10:12:38.600309] Detected ginkgo version from go.mod: 2.28.1
+[2026-04-18|10:12:38.612069] Resolved repository root: 'C:\k2s'
+[2026-04-18|10:12:38.613230] All tests execution started.
+[2026-04-18|10:12:38.626371] Set to keep test resources in case of errors
+[2026-04-18|10:12:44.140897] Found Pester version 5.7.1
+[2026-04-18|10:12:44.178455] Executing Powershell tests in 'C:\k2s' with verbose='True' for tags 'monitoring' and excluding tags 'no-setup system-stopped'..
+[2026-04-18|10:12:57.648305] Pester v5.7.1
+[2026-04-18|10:12:58.371773]
+[2026-04-18|10:12:58.373975] Starting discovery in 29 files.
+[2026-04-18|10:13:23.552031] Discovery found 825 tests in 21.94s.
+[2026-04-18|10:13:23.741414] Filter 'Tag' set to ('monitoring').
+[2026-04-18|10:13:23.751435] Filter 'ExcludeTag' set to ('no-setup', 'system-stopped').
+[2026-04-18|10:13:23.759578] Filters selected 0 tests to run.
+[2026-04-18|10:13:24.080912] Running tests.
+[2026-04-18|10:13:27.126462] Tests completed in 21.17s
+[2026-04-18|10:13:27.327060] Tests Passed: 0, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 825
+[2026-04-18|10:13:31.579637] Found Ginkgo version 2.28.1
+[2026-04-18|10:13:31.617669]   Executing Go-based tests in 'C:\k2s\k2s' with verbose='True' and super-verbose='False' for tags 'monitoring' and excluding tags 'no-setup system-stopped'..
+[2026-04-18|10:13:31.619640]   Using Proxy to download go modules: 'http://10.81.32.5:81'..
+[2026-04-18|10:13:31.790786] Using 'go -C' for module download in 'C:\k2s\k2s'
+[2026-04-18|10:13:39.610219]   Executing Gingko Command: 'ginkgo -v --require-suite --timeout=120m --junit-report=GoTest-2026-04-18-10-13-32.xml --output-dir=C:\TestReports --vet=off --label-filter="( monitoring ) && !no-setup && !system-stopped" "C:\k2s\k2s\test\e2e\addons\monitoring"'..
+[2026-04-18|10:14:00.010586] Running Suite: monitoring Addon Acceptance Tests - C:\k2s\k2s\test\e2e\addons\monitoring
+[2026-04-18|10:14:00.010992] [addon, addon-ilities, acceptance, setup-required, invasive, monitoring, system-running]
+[2026-04-18|10:14:00.010992] ========================================================================================
+[2026-04-18|10:14:00.010992] Random Seed: 1776500019
+[2026-04-18|10:14:00.010992]
+[2026-04-18|10:14:00.010992] Will run 17 of 17 specs
+[2026-04-18|10:14:00.010992] ------------------------------
+[2026-04-18|10:14:00.013283] [BeforeSuite]
+[2026-04-18|10:14:00.013283] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:40
+[2026-04-18|10:14:00.013283]   Proxy set to < http://10.81.32.5:81 >
+[2026-04-18|10:14:00.013283]   Set to keep resources on error
+[2026-04-18|10:14:00.013283]   Reloading K2s runtime config..
+[2026-04-18|10:14:00.013283]   K2s runtime config reloaded
+[2026-04-18|10:14:00.013283]   Found setup type < k2s ( Linux-only: false ) > in dir < C:\k2s >
+[2026-04-18|10:14:00.013283]   Initial system state should be < running >
+[2026-04-18|10:14:00.013283]   Checking K2s system status..
+[2026-04-18|10:14:00.013283]   Reloading K2s runtime config..
+[2026-04-18|10:14:00.020874]   K2s runtime config reloaded
+[2026-04-18|10:14:00.020874]   Checking VM status for control-plane..
+[2026-04-18|10:14:00.047727]   >>> EXEC: powershell (Get-VM -Name kubemaster).State
+[2026-04-18|10:14:00.049795]   >>> EXEC: timeout=20m0s, pollInterval=1s, ctx=&{context.Background.WithCancel.WithValue(GINKGO_SPEC_CONTEXT, *internal.specContext) 0x141617e988d0 0x7ff79a3d72e0 0x141617a44008}
+[2026-04-18|10:14:00.051400]   >>> EXEC: context has NO deadline
+[2026-04-18|10:14:02.054623]   VM running: true
+[2026-04-18|10:14:02.064767]   Checking Windows service < flanneld >..
+[2026-04-18|10:14:02.064767]   Windows service < flanneld > running: true
+[2026-04-18|10:14:02.064767]   Checking Windows service < kubelet >..
+[2026-04-18|10:14:02.064767]   Windows service < kubelet > running: true
+[2026-04-18|10:14:02.064767]   Checking Windows service < kubeproxy >..
+[2026-04-18|10:14:02.064767]   Windows service < kubeproxy > running: true
+[2026-04-18|10:14:02.064767]   K2s system running: true
+[2026-04-18|10:14:02.064767]   All addons are disabled
+[2026-04-18|10:14:02.078243] [BeforeSuite] PASSED [2.069 seconds]
+[2026-04-18|10:14:02.078243] ------------------------------
+[2026-04-18|10:14:02.078243] 'monitoring' addon when no ingress controller is configured prints already-disabled message on disable command and exits with non-zero
+[2026-04-18|10:14:02.078243] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:72
+[2026-04-18|10:14:02.092518]   >>> EXEC: C:\k2s\k2s.exe addons disable monitoring
+[2026-04-18|10:14:02.092634]   >>> EXEC: timeout=20m0s, pollInterval=1s, ctx=&{context.Background.WithCancel.WithValue(GINKGO_SPEC_CONTEXT, *internal.specContext) 0x141617b6e2d0 0x7ff79a3d72e0 0x141617a44008}
+[2026-04-18|10:14:02.092961]   >>> EXEC: context has NO deadline
+[2026-04-18|10:14:02.486412]   🤖 Running 'disable' for 'monitoring' addon
+[2026-04-18|10:14:08.880935]   ⏳ [10:14:08] Checking cluster status
+[2026-04-18|10:14:10.756907]    WARNING  Addon 'monitoring' is already disabled, nothing to do.
+[2026-04-18|10:14:11.107889] + [9.030 seconds]
+[2026-04-18|10:14:11.109817] ------------------------------
+[2026-04-18|10:14:11.112984] 'monitoring' addon when no ingress controller is configured is in enabled state and pods are in running state
+[2026-04-18|10:14:11.114451] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:78
+[2026-04-18|10:14:11.120095]   >>> EXEC: C:\k2s\k2s.exe addons enable monitoring -o
+[2026-04-18|10:14:11.120284]   >>> EXEC: timeout=20m0s, pollInterval=1s, ctx=&{context.Background.WithCancel.WithValue(GINKGO_SPEC_CONTEXT, *internal.specContext) 0x141617e98e28 0x7ff79a3d72e0 0x141617a44008}
+[2026-04-18|10:14:11.121032]   >>> EXEC: context has NO deadline
+[2026-04-18|10:14:11.331476]   🤖 Running 'enable' for 'monitoring' addon
+[2026-04-18|10:14:16.093729]   ⏳ [10:14:15] K2s interacts with Grafana (AGPLv3) solely through its standard, public APIs; no AGPL-licensed code is incorporated or modified, and Grafana is deployed as a container. For this integration scenario, a copyleft assessment was performed with the conclusion that AGPLv3 copyleft obligations are not triggered for this specific scenario.
+[2026-04-18|10:14:16.123196]   ⏳ [10:14:16] [Important] The AGPLv3 terms continue to apply to Grafana itself. Users must independently assess whether the AGPLv3 is appropriate for their use case.
+[2026-04-18|10:14:16.127208]   ⏳ [10:14:16] Checking cluster status
+[2026-04-18|10:14:16.250826]   ⏳ [10:14:16] Getting running state for SetupType='k2s'
+[2026-04-18|10:14:16.261394]   ⏳ [10:14:16] not WSL setup type
+[2026-04-18|10:14:16.273931]   ⏳ [10:14:16] Checking if VM is running for Name='kubemaster'..
+[2026-04-18|10:14:16.909729]   ⏳ [10:14:16] Found VM state 'Running'
+[2026-04-18|10:14:16.925839]   ⏳ [10:14:16] control-plane 'kubemaster' running
+[2026-04-18|10:14:16.946223]   ⏳ [10:14:16] checking 'flanneld' service state..
+[2026-04-18|10:14:16.979989]   ⏳ [10:14:16] 'flanneld' running
+[2026-04-18|10:14:16.983579]   ⏳ [10:14:16] checking 'kubelet' service state..
+[2026-04-18|10:14:16.992778]   ⏳ [10:14:16] 'kubelet' running
+[2026-04-18|10:14:17.002340]   ⏳ [10:14:16] checking 'kubeproxy' service state..
+[2026-04-18|10:14:17.012707]   ⏳ [10:14:17] 'kubeproxy' running
+[2026-04-18|10:14:17.023084]   ⏳ [10:14:17] returning with IsRunning='True' and Issues=''
+[2026-04-18|10:14:17.102370]   ⏳ [10:14:17] Installing Kube Prometheus Stack
+[2026-04-18|10:14:17.536825]   ⏳ [10:14:17] namespace/monitoring created
+[2026-04-18|10:14:23.438916]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/alertmanagerconfigs.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.465541]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/alertmanagers.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.474888]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/podmonitors.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.504797]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/probes.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.532205]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/prometheusagents.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.547179]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/prometheuses.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.555083]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/prometheusrules.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.575566]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/scrapeconfigs.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.576427]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/servicemonitors.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.594372]   ⏳ [10:14:23] customresourcedefinition.apiextensions.k8s.io/thanosrulers.monitoring.coreos.com serverside-applied
+[2026-04-18|10:14:23.620609]   ⏳ [10:14:23] [Monitoring] Waiting for Prometheus Operator CRDs to be fully established
+[2026-04-18|10:14:25.145940]   ⏳ [10:14:25] [kubectl] Clearing kubectl cache to pick up newly registered CRDs
+[2026-04-18|10:14:25.276527]   ⏳ [10:14:25] [Monitoring] Waiting for kubectl discovery cache to include Prometheus Operator CRDs
+[2026-04-18|10:14:25.903330]   ⏳ [10:14:25] [Monitoring] kubectl discovery cache is up-to-date
+[2026-04-18|10:14:45.022863]   ⏳ [10:14:45] serviceaccount/kube-prometheus-stack-admission serverside-applied
+[2026-04-18|10:14:45.044000]   ⏳ [10:14:45] serviceaccount/kube-prometheus-stack-alertmanager serverside-applied
+[2026-04-18|10:14:45.074317]   ⏳ [10:14:45] serviceaccount/kube-prometheus-stack-grafana serverside-applied
+[2026-04-18|10:14:45.097602]   ⏳ [10:14:45] serviceaccount/kube-prometheus-stack-kube-state-metrics serverside-applied
+[2026-04-18|10:14:45.110239]   ⏳ [10:14:45] serviceaccount/kube-prometheus-stack-operator serverside-applied
+[2026-04-18|10:14:45.122271]   ⏳ [10:14:45] serviceaccount/kube-prometheus-stack-prometheus serverside-applied
+[2026-04-18|10:14:45.122271]   ⏳ [10:14:45] serviceaccount/kube-prometheus-stack-prometheus-node-exporter serverside-applied
+[2026-04-18|10:14:45.122271]   ⏳ [10:14:45] role.rbac.authorization.k8s.io/kube-prometheus-stack-admission serverside-applied
+[2026-04-18|10:14:45.131625]   ⏳ [10:14:45] role.rbac.authorization.k8s.io/kube-prometheus-stack-grafana serverside-applied
+[2026-04-18|10:14:45.158012]   ⏳ [10:14:45] clusterrole.rbac.authorization.k8s.io/kube-prometheus-stack-admission serverside-applied
+[2026-04-18|10:14:45.219326]   ⏳ [10:14:45] clusterrole.rbac.authorization.k8s.io/kube-prometheus-stack-grafana-clusterrole serverside-applied
+[2026-04-18|10:14:45.231822]   ⏳ [10:14:45] clusterrole.rbac.authorization.k8s.io/kube-prometheus-stack-kube-state-metrics serverside-applied
+[2026-04-18|10:14:45.262440]   ⏳ [10:14:45] clusterrole.rbac.authorization.k8s.io/kube-prometheus-stack-operator serverside-applied
+[2026-04-18|10:14:45.278173]   ⏳ [10:14:45] clusterrole.rbac.authorization.k8s.io/kube-prometheus-stack-prometheus serverside-applied
+[2026-04-18|10:14:45.279341]   ⏳ [10:14:45] rolebinding.rbac.authorization.k8s.io/kube-prometheus-stack-admission serverside-applied
+[2026-04-18|10:14:45.279341]   ⏳ [10:14:45] rolebinding.rbac.authorization.k8s.io/kube-prometheus-stack-grafana serverside-applied
+[2026-04-18|10:14:45.303464]   ⏳ [10:14:45] clusterrolebinding.rbac.authorization.k8s.io/kube-prometheus-stack-admission serverside-applied
+[2026-04-18|10:14:45.307007]   ⏳ [10:14:45] clusterrolebinding.rbac.authorization.k8s.io/kube-prometheus-stack-grafana-clusterrolebinding serverside-applied
+[2026-04-18|10:14:45.315051]   ⏳ [10:14:45] clusterrolebinding.rbac.authorization.k8s.io/kube-prometheus-stack-kube-state-metrics serverside-applied
+[2026-04-18|10:14:45.326793]   ⏳ [10:14:45] clusterrolebinding.rbac.authorization.k8s.io/kube-prometheus-stack-operator serverside-applied
+[2026-04-18|10:14:45.340088]   ⏳ [10:14:45] clusterrolebinding.rbac.authorization.k8s.io/kube-prometheus-stack-prometheus serverside-applied
+[2026-04-18|10:14:45.348607]   ⏳ [10:14:45] configmap/kube-prometheus-stack-cluster-total serverside-applied
+[2026-04-18|10:14:45.357261]   ⏳ [10:14:45] configmap/kube-prometheus-stack-gpu serverside-applied
+[2026-04-18|10:14:45.378451]   ⏳ [10:14:45] configmap/kube-prometheus-stack-grafana serverside-applied
+[2026-04-18|10:14:45.384398]   ⏳ [10:14:45] configmap/kube-prometheus-stack-grafana-config-dashboards serverside-applied
+[2026-04-18|10:14:45.396052]   ⏳ [10:14:45] configmap/kube-prometheus-stack-grafana-datasource serverside-applied
+[2026-04-18|10:14:45.396232]   ⏳ [10:14:45] configmap/kube-prometheus-stack-k8s-coredns serverside-applied
+[2026-04-18|10:14:45.413718]   ⏳ [10:14:45] configmap/kube-prometheus-stack-k8s-resources-cluster serverside-applied
+[2026-04-18|10:14:45.414036]   ⏳ [10:14:45] configmap/kube-prometheus-stack-k8s-resources-namespace serverside-applied
+[2026-04-18|10:14:45.434677]   ⏳ [10:14:45] configmap/kube-prometheus-stack-kubelet serverside-applied
+[2026-04-18|10:14:45.446592]   ⏳ [10:14:45] configmap/kube-prometheus-stack-namespace-by-pod serverside-applied
+[2026-04-18|10:14:45.469632]   ⏳ [10:14:45] configmap/kube-prometheus-stack-nodes serverside-applied
+[2026-04-18|10:14:45.479723]   ⏳ [10:14:45] configmap/kube-prometheus-stack-pod-total serverside-applied
+[2026-04-18|10:14:45.484503]   ⏳ [10:14:45] configmap/kube-prometheus-stack-prometheus serverside-applied
+[2026-04-18|10:14:45.500280]   ⏳ [10:14:45] configmap/kube-prometheus-stack-statefulset serverside-applied
+[2026-04-18|10:14:45.504301]   ⏳ [10:14:45] configmap/kube-prometheus-stack-win-exporter serverside-applied
+[2026-04-18|10:14:45.506175]   ⏳ [10:14:45] configmap/kube-prometheus-stack-win-node2 serverside-applied
+[2026-04-18|10:14:45.524476]   ⏳ [10:14:45] configmap/kube-prometheus-stack-win-service-overview serverside-applied
+[2026-04-18|10:14:45.538389]   ⏳ [10:14:45] secret/alertmanager-kube-prometheus-stack-alertmanager serverside-applied
+[2026-04-18|10:14:45.551603]   ⏳ [10:14:45] secret/kube-prometheus-stack-grafana serverside-applied
+[2026-04-18|10:14:45.556738]   ⏳ [10:14:45] secret/kube-prometheus-stack-prometheus-scrape-confg serverside-applied
+[2026-04-18|10:14:45.562579]   ⏳ [10:14:45] service/kube-prometheus-stack-alertmanager serverside-applied
+[2026-04-18|10:14:45.567313]   ⏳ [10:14:45] service/kube-prometheus-stack-coredns serverside-applied
+[2026-04-18|10:14:45.577015]   ⏳ [10:14:45] service/kube-prometheus-stack-grafana serverside-applied
+[2026-04-18|10:14:45.584790]   ⏳ [10:14:45] service/kube-prometheus-stack-kube-controller-manager serverside-applied
+[2026-04-18|10:14:45.589636]   ⏳ [10:14:45] service/kube-prometheus-stack-kube-etcd serverside-applied
+[2026-04-18|10:14:45.596140]   ⏳ [10:14:45] service/kube-prometheus-stack-kube-proxy serverside-applied
+[2026-04-18|10:14:45.603211]   ⏳ [10:14:45] service/kube-prometheus-stack-kube-scheduler serverside-applied
+[2026-04-18|10:14:45.609969]   ⏳ [10:14:45] service/kube-prometheus-stack-kube-state-metrics serverside-applied
+[2026-04-18|10:14:45.615188]   ⏳ [10:14:45] service/kube-prometheus-stack-operator serverside-applied
+[2026-04-18|10:14:45.620491]   ⏳ [10:14:45] service/kube-prometheus-stack-prometheus serverside-applied
+[2026-04-18|10:14:45.624031]   ⏳ [10:14:45] service/kube-prometheus-stack-prometheus-node-exporter serverside-applied
+[2026-04-18|10:14:45.638099]   ⏳ [10:14:45] deployment.apps/kube-prometheus-stack-grafana serverside-applied
+[2026-04-18|10:14:45.647513]   ⏳ [10:14:45] deployment.apps/kube-prometheus-stack-kube-state-metrics serverside-applied
+[2026-04-18|10:14:45.653370]   ⏳ [10:14:45] deployment.apps/kube-prometheus-stack-operator serverside-applied
+[2026-04-18|10:14:45.658258]   ⏳ [10:14:45] daemonset.apps/kube-prometheus-stack-prometheus-node-exporter serverside-applied
+[2026-04-18|10:14:45.670786]   ⏳ [10:14:45] job.batch/kube-prometheus-stack-admission-create serverside-applied
+[2026-04-18|10:14:45.681302]   ⏳ [10:14:45] job.batch/kube-prometheus-stack-admission-patch serverside-applied
+[2026-04-18|10:14:45.685238]   ⏳ [10:14:45] alertmanager.monitoring.coreos.com/kube-prometheus-stack-alertmanager serverside-applied
+[2026-04-18|10:14:45.699886]   ⏳ [10:14:45] prometheus.monitoring.coreos.com/kube-prometheus-stack-prometheus serverside-applied
+[2026-04-18|10:14:45.713799]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-alertmanager.rules serverside-applied
+[2026-04-18|10:14:45.718530]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-config-reloaders serverside-applied
+[2026-04-18|10:14:45.727882]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-etcd serverside-applied
+[2026-04-18|10:14:45.732608]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-general.rules serverside-applied
+[2026-04-18|10:14:45.739172]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-k8s.rules serverside-applied
+[2026-04-18|10:14:45.747496]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kube-apiserver-availability.rules serverside-applied
+[2026-04-18|10:14:45.753405]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kube-apiserver-burnrate.rules serverside-applied
+[2026-04-18|10:14:45.756459]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kube-apiserver-histogram.rules serverside-applied
+[2026-04-18|10:14:45.767542]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kube-apiserver-slos serverside-applied
+[2026-04-18|10:14:45.782651]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kube-prometheus-general.rules serverside-applied
+[2026-04-18|10:14:45.786537]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kube-prometheus-node-recording.rules serverside-applied
+[2026-04-18|10:14:45.794322]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kube-scheduler.rules serverside-applied
+[2026-04-18|10:14:45.796398]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kube-state-metrics serverside-applied
+[2026-04-18|10:14:45.807306]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubelet.rules serverside-applied
+[2026-04-18|10:14:45.821050]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubernetes-apps serverside-applied
+[2026-04-18|10:14:45.827204]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubernetes-resources serverside-applied
+[2026-04-18|10:14:45.833987]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubernetes-storage serverside-applied
+[2026-04-18|10:14:45.838422]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubernetes-system serverside-applied
+[2026-04-18|10:14:45.841554]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubernetes-system-apiserver serverside-applied
+[2026-04-18|10:14:45.848681]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubernetes-system-controller-manager serverside-applied
+[2026-04-18|10:14:45.851761]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubernetes-system-kube-proxy serverside-applied
+[2026-04-18|10:14:45.857947]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubernetes-system-kubelet serverside-applied
+[2026-04-18|10:14:45.863557]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-kubernetes-system-scheduler serverside-applied
+[2026-04-18|10:14:45.868350]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-node-exporter serverside-applied
+[2026-04-18|10:14:45.874771]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-node-exporter.rules serverside-applied
+[2026-04-18|10:14:45.879886]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-node-network serverside-applied
+[2026-04-18|10:14:45.883506]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-node.rules serverside-applied
+[2026-04-18|10:14:45.889376]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-prometheus serverside-applied
+[2026-04-18|10:14:45.895406]   ⏳ [10:14:45] prometheusrule.monitoring.coreos.com/kube-prometheus-stack-prometheus-operator serverside-applied
+[2026-04-18|10:14:45.907026]   ⏳ [10:14:45] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-alertmanager serverside-applied
+[2026-04-18|10:14:45.911418]   ⏳ [10:14:45] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-apiserver serverside-applied
+[2026-04-18|10:14:45.916836]   ⏳ [10:14:45] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-coredns serverside-applied
+[2026-04-18|10:14:45.927340]   ⏳ [10:14:45] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-grafana serverside-applied
+[2026-04-18|10:14:45.964313]   ⏳ [10:14:45] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-kube-controller-manager serverside-applied
+[2026-04-18|10:14:45.971161]   ⏳ [10:14:45] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-kube-etcd serverside-applied
+[2026-04-18|10:14:45.975637]   ⏳ [10:14:45] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-kube-proxy serverside-applied
+[2026-04-18|10:14:45.997621]   ⏳ [10:14:45] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-kube-scheduler serverside-applied
+[2026-04-18|10:14:45.999771]   ⏳ [10:14:45] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-kube-state-metrics serverside-applied
+[2026-04-18|10:14:46.006903]   ⏳ [10:14:46] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-kubelet serverside-applied
+[2026-04-18|10:14:46.010840]   ⏳ [10:14:46] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-operator serverside-applied
+[2026-04-18|10:14:46.015597]   ⏳ [10:14:46] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-prometheus serverside-applied
+[2026-04-18|10:14:46.018250]   ⏳ [10:14:46] servicemonitor.monitoring.coreos.com/kube-prometheus-stack-prometheus-node-exporter serverside-applied
+[2026-04-18|10:14:46.022852]   ⏳ [10:14:46] mutatingwebhookconfiguration.admissionregistration.k8s.io/kube-prometheus-stack-admission serverside-applied
+[2026-04-18|10:14:46.029163]   ⏳ [10:14:46] validatingwebhookconfiguration.admissionregistration.k8s.io/kube-prometheus-stack-admission serverside-applied
+[2026-04-18|10:14:46.032300]   ⏳ [10:14:46] Deploying Windows Exporter for Windows node metrics
+[2026-04-18|10:14:46.981338]   ⏳ [10:14:46] configmap/windows-exporter-config created
+[2026-04-18|10:14:46.991171]   ⏳ [10:14:46] service/windows-exporter created
+[2026-04-18|10:14:46.995543]   ⏳ [10:14:46] daemonset.apps/windows-exporter created
+[2026-04-18|10:14:47.004877]   ⏳ [10:14:46] servicemonitor.monitoring.coreos.com/windows-exporter created
+[2026-04-18|10:14:47.015023]   ⏳ [10:14:47] Waiting for Pods..
+[2026-04-18|10:19:47.550978]   ⏳ [10:19:47] Waiting for deployment "kube-prometheus-stack-grafana" rollout to finish: 0 of 1 updated replicas are available...
+[2026-04-18|10:19:47.558836]   ⏳ [10:19:47] deployment "kube-prometheus-stack-kube-state-metrics" successfully rolled out
+[2026-04-18|10:19:47.561262]   ⏳ [10:19:47] deployment "kube-prometheus-stack-operator" successfully rolled out
+[2026-04-18|10:19:47.568328]   ⏳ [10:19:47] error: timed out waiting for the condition
+[2026-04-18|10:19:47.610968]   ⏳ [10:19:47] Converting message of type 'CmdResult' to JSON..
+[2026-04-18|10:19:47.621241]   ⏳ [10:19:47] message converted
+[2026-04-18|10:19:47.644911]   ⏳ [10:19:47] JSON compressed
+[2026-04-18|10:19:47.664658]   ⏳ [10:19:47] JSON base64 encoded (length=160)
+[2026-04-18|10:19:47.681271]   ⏳ [10:19:47] [ExecScript] Forwarding structured message (length=174)
+[2026-04-18|10:19:47.692840]   ⏳ [10:19:47] message sent via CLI
+[2026-04-18|10:19:47.759652]     ERROR   Kube Prometheus Stack could not be deployed!
+[2026-04-18|10:19:47.763816]   10:19:47 ERROR command failed
+[2026-04-18|10:19:47.764161]              ├ severity: 4(error)
+[2026-04-18|10:19:47.764161]              ├ code: addon-enable-failed
+[2026-04-18|10:19:47.764293]              ├ message: Kube Prometheus Stack could not be deployed!
+[2026-04-18|10:19:47.764293]              └ suppressCliOutput: false
+[2026-04-18|10:19:48.593657]   [FAILED] in [It] - C:/k2s/k2s/test/framework/os/exec.go:105 @ 04/18/26 10:19:48.592
+[2026-04-18|10:19:48.593657]   [PANICKED] in [AfterAll] - c:/Program Files/Go/src/runtime/panic.go:336 @ 04/18/26 10:19:48.592
+[2026-04-18|10:19:48.595710] + [FAILED] [337.485 seconds]
+[2026-04-18|10:19:48.595897] 'monitoring' addon when no ingress controller is configured [It] is in enabled state and pods are in running state
+[2026-04-18|10:19:48.595897] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:78
+[2026-04-18|10:19:48.595897]
+[2026-04-18|10:19:48.596086]   [FAILED] No future change is possible.  Bailing out early after 337.471s.
+[2026-04-18|10:19:48.596086]   Command 'C:\k2s\k2s.exe addons enable monitoring -o' exited with code '-1'
+[2026-04-18|10:19:48.596086]   Expected
+[2026-04-18|10:19:48.596235]       <int>: 1
+[2026-04-18|10:19:48.596235]   to match exit code:
+[2026-04-18|10:19:48.596235]       <int>: 0
+[2026-04-18|10:19:48.596235]   In [It] at: C:/k2s/k2s/test/framework/os/exec.go:105 @ 04/18/26 10:19:48.592
+[2026-04-18|10:19:48.596235]
+[2026-04-18|10:19:48.596235]   There were additional failures detected.  To view them in detail run ginkgo -vv
+[2026-04-18|10:19:48.596235] ------------------------------
+[2026-04-18|10:19:48.596235] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.596659] 'monitoring' addon when no ingress controller is configured [It] prints already-enabled message on enable command and exits with non-zero
+[2026-04-18|10:19:48.596659] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:92
+[2026-04-18|10:19:48.596659]
+[2026-04-18|10:19:48.596659]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.596659]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:92 @ 04/18/26 10:19:48.592
+[2026-04-18|10:19:48.596659] ------------------------------
+[2026-04-18|10:19:48.596659] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.596659] 'monitoring' addon when no ingress controller is configured [It] prints the status
+[2026-04-18|10:19:48.596659] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:98
+[2026-04-18|10:19:48.596659]
+[2026-04-18|10:19:48.596659]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.596659]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:98 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.596659] ------------------------------
+[2026-04-18|10:19:48.596659] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.596659] 'monitoring' addon when no ingress controller is configured [It] is reachable through port forwarding
+[2026-04-18|10:19:48.596659] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:102
+[2026-04-18|10:19:48.596659]
+[2026-04-18|10:19:48.596659]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.596659]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:102 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.596659] ------------------------------
+[2026-04-18|10:19:48.596659] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.596659] 'monitoring' addon when traefik as ingress controller [It] is in enabled state and pods are in running state
+[2026-04-18|10:19:48.596659] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:131
+[2026-04-18|10:19:48.596659]
+[2026-04-18|10:19:48.596659]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.598685]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:131 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.598685] ------------------------------
+[2026-04-18|10:19:48.598685] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.601660] 'monitoring' addon when traefik as ingress controller [It] prints already-enabled message on enable command and exits with non-zero
+[2026-04-18|10:19:48.601660] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:145
+[2026-04-18|10:19:48.601660]
+[2026-04-18|10:19:48.601660]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.601660]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:145 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.601660] ------------------------------
+[2026-04-18|10:19:48.601660] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.601660] 'monitoring' addon when traefik as ingress controller [It] prints the status
+[2026-04-18|10:19:48.604062] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:151
+[2026-04-18|10:19:48.604062]
+[2026-04-18|10:19:48.604062]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.604062]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:151 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.604062] ------------------------------
+[2026-04-18|10:19:48.604062] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.604062] 'monitoring' addon when traefik as ingress controller [It] is reachable through k2s.cluster.local/monitoring
+[2026-04-18|10:19:48.604062] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:155
+[2026-04-18|10:19:48.604062]
+[2026-04-18|10:19:48.604062]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.604062]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:155 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.604062] ------------------------------
+[2026-04-18|10:19:48.604062] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.604062] 'monitoring' addon nginx as ingress controller [It] is in enabled state and pods are in running state
+[2026-04-18|10:19:48.604062] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:180
+[2026-04-18|10:19:48.604062]
+[2026-04-18|10:19:48.604062]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.604062]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:180 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.604062] ------------------------------
+[2026-04-18|10:19:48.604062] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.604062] 'monitoring' addon nginx as ingress controller [It] prints already-enabled message on enable command and exits with non-zero
+[2026-04-18|10:19:48.604062] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:194
+[2026-04-18|10:19:48.606619]
+[2026-04-18|10:19:48.606619]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.606619]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:194 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.606619] ------------------------------
+[2026-04-18|10:19:48.606619] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.606619] 'monitoring' addon nginx as ingress controller [It] prints the status
+[2026-04-18|10:19:48.606619] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:200
+[2026-04-18|10:19:48.607445]
+[2026-04-18|10:19:48.607445]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.607445]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:200 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.607445] ------------------------------
+[2026-04-18|10:19:48.607445] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.607445] 'monitoring' addon nginx as ingress controller [It] is reachable through k2s.cluster.local/monitoring
+[2026-04-18|10:19:48.607445] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:204
+[2026-04-18|10:19:48.607445]
+[2026-04-18|10:19:48.607445]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.607445]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:204 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.607445] ------------------------------
+[2026-04-18|10:19:48.607445] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.607445] 'monitoring' addon nginx-gw as ingress controller [It] is in enabled state and pods are in running state
+[2026-04-18|10:19:48.607445] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:229
+[2026-04-18|10:19:48.607445]
+[2026-04-18|10:19:48.607445]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.607445]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:229 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.607445] ------------------------------
+[2026-04-18|10:19:48.607445] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.607445] 'monitoring' addon nginx-gw as ingress controller [It] prints already-enabled message on enable command and exits with non-zero
+[2026-04-18|10:19:48.607445] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:243
+[2026-04-18|10:19:48.607445]
+[2026-04-18|10:19:48.607445]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.607445]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:243 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.607445] ------------------------------
+[2026-04-18|10:19:48.607445] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.607445] 'monitoring' addon nginx-gw as ingress controller [It] prints the status
+[2026-04-18|10:19:48.607445] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:249
+[2026-04-18|10:19:48.612795]
+[2026-04-18|10:19:48.612795]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.612795]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:249 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.612795] ------------------------------
+[2026-04-18|10:19:48.612795] S [SKIPPED] [0.000 seconds]
+[2026-04-18|10:19:48.612795] 'monitoring' addon nginx-gw as ingress controller [It] is reachable through k2s.cluster.local/monitoring
+[2026-04-18|10:19:48.612795] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:253
+[2026-04-18|10:19:48.612795]
+[2026-04-18|10:19:48.612795]   [SKIPPED] Spec skipped because an earlier spec in an ordered container failed
+[2026-04-18|10:19:48.612795]   In [It] at: C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:253 @ 04/18/26 10:19:48.596
+[2026-04-18|10:19:48.612795] ------------------------------
+[2026-04-18|10:19:48.612795] [AfterSuite]
+[2026-04-18|10:19:48.612795] C:/k2s/k2s/test/e2e/addons/monitoring/monitoring_test.go:45
+[2026-04-18|10:19:48.628865]   >>> EXEC: C:\k2s\k2s.exe system dump -S -o
+[2026-04-18|10:19:48.628865]   >>> EXEC: timeout=20m0s, pollInterval=1s, ctx=&{context.Background.WithCancel.WithValue(GINKGO_SPEC_CONTEXT, *internal.specContext) 0x141617cbb728 0x7ff79a3d72e0 0x141617a44008}
+[2026-04-18|10:19:48.628865]   >>> EXEC: context has NO deadline
+[2026-04-18|10:19:53.717519]   ⏳ [10:19:53] k2s system dump started
+[2026-04-18|10:19:53.754544]   ⏳ [10:19:53] Gathering node details..
+[2026-04-18|10:19:58.814433]   ⏳ [10:19:58] Node name: kubemaster
+[2026-04-18|10:19:59.865164]   ⏳ [10:19:59] cmd: uname -a, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:00.435263]   ⏳ [10:20:00] cmd: cat /proc/version, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:00.780740]   ⏳ [10:20:00] cmd: ps -eo pid,user,%!c(MISSING)pu,%!m(MISSING)em,rss,cmd --sort=-%!m(MISSING)em, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:01.257922]   ⏳ [10:20:01] cmd: LC_ALL=C SYSTEMD_COLORS=0 systemctl list-units --type=service --all --no-pager --full, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:01.752279]   ⏳ [10:20:01] Gathering cluster diagnostics..
+[2026-04-18|10:20:01.784688]   ⏳ [10:20:01] [ClusterDiag] Starting cluster diagnostics collection...
+[2026-04-18|10:20:01.796210]   ⏳ [10:20:01] [ClusterDiag] Collecting pods and namespaces...
+[2026-04-18|10:20:01.806572]   ⏳ [10:20:01] cmd: kubectl get pods -A -o wide, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:04.014270]   ⏳ [10:20:04] [ClusterDiag] Parsing pod names and namespaces...
+[2026-04-18|10:20:04.046486]   ⏳ [10:20:04] [ClusterDiag] Collecting diagnostics for pod clusterip-webhook-774844576f-6r57g in namespace k2s-webhook...
+[2026-04-18|10:20:04.046642]   ⏳ [10:20:04] cmd: kubectl describe pod clusterip-webhook-774844576f-6r57g -n k2s-webhook, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:04.854156]   ⏳ [10:20:04] cmd: kubectl logs clusterip-webhook-774844576f-6r57g -n k2s-webhook, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:05.750602]   ⏳ [10:20:05] cmd: kubectl logs --previous clusterip-webhook-774844576f-6r57g -n k2s-webhook, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:06.577158]   ⏳ [10:20:06] Error occurred while executing command 'kubectl logs --previous clusterip-webhook-774844576f-6r57g -n k2s-webhook' in control plane (exit code: '1')
+[2026-04-18|10:20:06.619443]   ⏳ [10:20:06] [ClusterDiag] Collecting diagnostics for pod kube-flannel-ds-8r2bj in namespace kube-flannel...
+[2026-04-18|10:20:06.630212]   ⏳ [10:20:06] cmd: kubectl describe pod kube-flannel-ds-8r2bj -n kube-flannel, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:07.381762]   ⏳ [10:20:07] cmd: kubectl logs kube-flannel-ds-8r2bj -n kube-flannel, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:08.043984]   ⏳ [10:20:08] cmd: kubectl logs --previous kube-flannel-ds-8r2bj -n kube-flannel, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:08.713938]   ⏳ [10:20:08] Error occurred while executing command 'kubectl logs --previous kube-flannel-ds-8r2bj -n kube-flannel' in control plane (exit code: '1')
+[2026-04-18|10:20:08.739168]   ⏳ [10:20:08] [ClusterDiag] Collecting diagnostics for pod coredns-774b6dc6fc-dvtsw in namespace kube-system...
+[2026-04-18|10:20:08.746575]   ⏳ [10:20:08] cmd: kubectl describe pod coredns-774b6dc6fc-dvtsw -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:09.464159]   ⏳ [10:20:09] cmd: kubectl logs coredns-774b6dc6fc-dvtsw -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:10.391877]   ⏳ [10:20:10] cmd: kubectl logs --previous coredns-774b6dc6fc-dvtsw -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:11.317322]   ⏳ [10:20:11] Error occurred while executing command 'kubectl logs --previous coredns-774b6dc6fc-dvtsw -n kube-system' in control plane (exit code: '1')
+[2026-04-18|10:20:11.344121]   ⏳ [10:20:11] [ClusterDiag] Collecting diagnostics for pod etcd-kubemaster in namespace kube-system...
+[2026-04-18|10:20:11.348646]   ⏳ [10:20:11] cmd: kubectl describe pod etcd-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:12.199795]   ⏳ [10:20:12] cmd: kubectl logs etcd-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:13.910677]   ⏳ [10:20:13] cmd: kubectl logs --previous etcd-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:14.637932]   ⏳ [10:20:14] Error occurred while executing command 'kubectl logs --previous etcd-kubemaster -n kube-system' in control plane (exit code: '1')
+[2026-04-18|10:20:14.679188]   ⏳ [10:20:14] [ClusterDiag] Collecting diagnostics for pod kube-apiserver-kubemaster in namespace kube-system...
+[2026-04-18|10:20:14.688198]   ⏳ [10:20:14] cmd: kubectl describe pod kube-apiserver-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:15.770839]   ⏳ [10:20:15] cmd: kubectl logs kube-apiserver-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:16.776721]   ⏳ [10:20:16] cmd: kubectl logs --previous kube-apiserver-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:17.577180]   ⏳ [10:20:17] [SSH] close - IO is still pending on closed socket. read:1, write:0, io:00000131D589D4D0
+[2026-04-18|10:20:17.586497]   ⏳ [10:20:17] [SSH] Socket warning detected but command produced output - treating as success
+[2026-04-18|10:20:17.607296]   ⏳ [10:20:17] [ClusterDiag] Collecting diagnostics for pod kube-controller-manager-kubemaster in namespace kube-system...
+[2026-04-18|10:20:17.613064]   ⏳ [10:20:17] cmd: kubectl describe pod kube-controller-manager-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:18.405100]   ⏳ [10:20:18] cmd: kubectl logs kube-controller-manager-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:19.291957]   ⏳ [10:20:19] cmd: kubectl logs --previous kube-controller-manager-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:20.090062]   ⏳ [10:20:20] Error occurred while executing command 'kubectl logs --previous kube-controller-manager-kubemaster -n kube-system' in control plane (exit code: '1')
+[2026-04-18|10:20:20.110080]   ⏳ [10:20:20] [ClusterDiag] Collecting diagnostics for pod kube-proxy-kj5ll in namespace kube-system...
+[2026-04-18|10:20:20.117120]   ⏳ [10:20:20] cmd: kubectl describe pod kube-proxy-kj5ll -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:20.758451]   ⏳ [10:20:20] cmd: kubectl logs kube-proxy-kj5ll -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:21.469489]   ⏳ [10:20:21] cmd: kubectl logs --previous kube-proxy-kj5ll -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:22.222237]   ⏳ [10:20:22] Error occurred while executing command 'kubectl logs --previous kube-proxy-kj5ll -n kube-system' in control plane (exit code: '1')
+[2026-04-18|10:20:22.301636]   ⏳ [10:20:22] [ClusterDiag] Collecting diagnostics for pod kube-scheduler-kubemaster in namespace kube-system...
+[2026-04-18|10:20:22.302431]   ⏳ [10:20:22] cmd: kubectl describe pod kube-scheduler-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:23.277772]   ⏳ [10:20:23] cmd: kubectl logs kube-scheduler-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:24.155672]   ⏳ [10:20:24] cmd: kubectl logs --previous kube-scheduler-kubemaster -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:25.131813]   ⏳ [10:20:25] Error occurred while executing command 'kubectl logs --previous kube-scheduler-kubemaster -n kube-system' in control plane (exit code: '1')
+[2026-04-18|10:20:25.160803]   ⏳ [10:20:25] [ClusterDiag] Collecting diagnostics for pod windows-exporter-jd2s4 in namespace kube-system...
+[2026-04-18|10:20:25.180985]   ⏳ [10:20:25] cmd: kubectl describe pod windows-exporter-jd2s4 -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:25.980883]   ⏳ [10:20:25] cmd: kubectl logs windows-exporter-jd2s4 -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:26.776985]   ⏳ [10:20:26] cmd: kubectl logs --previous windows-exporter-jd2s4 -n kube-system, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:27.629938]   ⏳ [10:20:27] Error occurred while executing command 'kubectl logs --previous windows-exporter-jd2s4 -n kube-system' in control plane (exit code: '1')
+[2026-04-18|10:20:27.671348]   ⏳ [10:20:27] [ClusterDiag] Collecting diagnostics for pod alertmanager-kube-prometheus-stack-alertmanager-0 in namespace monitoring...
+[2026-04-18|10:20:27.671348]   ⏳ [10:20:27] cmd: kubectl describe pod alertmanager-kube-prometheus-stack-alertmanager-0 -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:28.602508]   ⏳ [10:20:28] cmd: kubectl logs alertmanager-kube-prometheus-stack-alertmanager-0 -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:29.568788]   ⏳ [10:20:29] cmd: kubectl logs --previous alertmanager-kube-prometheus-stack-alertmanager-0 -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:30.393204]   ⏳ [10:20:30] Error occurred while executing command 'kubectl logs --previous alertmanager-kube-prometheus-stack-alertmanager-0 -n monitoring' in control plane (exit code: '1')
+[2026-04-18|10:20:30.413699]   ⏳ [10:20:30] [ClusterDiag] Collecting diagnostics for pod kube-prometheus-stack-admission-create-7smlx in namespace monitoring...
+[2026-04-18|10:20:30.424340]   ⏳ [10:20:30] cmd: kubectl describe pod kube-prometheus-stack-admission-create-7smlx -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:31.232355]   ⏳ [10:20:31] cmd: kubectl logs kube-prometheus-stack-admission-create-7smlx -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:32.031934]   ⏳ [10:20:32] cmd: kubectl logs --previous kube-prometheus-stack-admission-create-7smlx -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:32.660772]   ⏳ [10:20:32] Error occurred while executing command 'kubectl logs --previous kube-prometheus-stack-admission-create-7smlx -n monitoring' in control plane (exit code: '1')
+[2026-04-18|10:20:32.684449]   ⏳ [10:20:32] [ClusterDiag] Collecting diagnostics for pod kube-prometheus-stack-admission-patch-9fzhv in namespace monitoring...
+[2026-04-18|10:20:32.692733]   ⏳ [10:20:32] cmd: kubectl describe pod kube-prometheus-stack-admission-patch-9fzhv -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:33.437647]   ⏳ [10:20:33] cmd: kubectl logs kube-prometheus-stack-admission-patch-9fzhv -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:34.173533]   ⏳ [10:20:34] cmd: kubectl logs --previous kube-prometheus-stack-admission-patch-9fzhv -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:34.985237]   ⏳ [10:20:34] Error occurred while executing command 'kubectl logs --previous kube-prometheus-stack-admission-patch-9fzhv -n monitoring' in control plane (exit code: '1')
+[2026-04-18|10:20:35.011875]   ⏳ [10:20:35] [ClusterDiag] Collecting diagnostics for pod kube-prometheus-stack-grafana-6d477c458c-ch2gf in namespace monitoring...
+[2026-04-18|10:20:35.016162]   ⏳ [10:20:35] cmd: kubectl describe pod kube-prometheus-stack-grafana-6d477c458c-ch2gf -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:35.754190]   ⏳ [10:20:35] cmd: kubectl logs kube-prometheus-stack-grafana-6d477c458c-ch2gf -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:36.608730]   ⏳ [10:20:36] Error occurred while executing command 'kubectl logs kube-prometheus-stack-grafana-6d477c458c-ch2gf -n monitoring' in control plane (exit code: '1')
+[2026-04-18|10:20:36.628079]   ⏳ [10:20:36] cmd: kubectl logs --previous kube-prometheus-stack-grafana-6d477c458c-ch2gf -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:37.354419]   ⏳ [10:20:37] [SSH] close - IO is still pending on closed socket. read:1, write:0, io:000002216E5BDB20
+[2026-04-18|10:20:37.359594]   ⏳ [10:20:37] [SSH] Socket warning detected but command produced output - treating as success
+[2026-04-18|10:20:37.379249]   ⏳ [10:20:37] [ClusterDiag] Collecting diagnostics for pod kube-prometheus-stack-kube-state-metrics-7b46b989d7-brbtz in namespace monitoring...
+[2026-04-18|10:20:37.392325]   ⏳ [10:20:37] cmd: kubectl describe pod kube-prometheus-stack-kube-state-metrics-7b46b989d7-brbtz -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:38.007514]   ⏳ [10:20:38] cmd: kubectl logs kube-prometheus-stack-kube-state-metrics-7b46b989d7-brbtz -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:38.667541]   ⏳ [10:20:38] cmd: kubectl logs --previous kube-prometheus-stack-kube-state-metrics-7b46b989d7-brbtz -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:39.253211]   ⏳ [10:20:39] Error occurred while executing command 'kubectl logs --previous kube-prometheus-stack-kube-state-metrics-7b46b989d7-brbtz -n monitoring' in control plane (exit code: '1')
+[2026-04-18|10:20:39.281267]   ⏳ [10:20:39] [ClusterDiag] Collecting diagnostics for pod kube-prometheus-stack-operator-6bcbbc667b-c7xgv in namespace monitoring...
+[2026-04-18|10:20:39.289642]   ⏳ [10:20:39] cmd: kubectl describe pod kube-prometheus-stack-operator-6bcbbc667b-c7xgv -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:39.877605]   ⏳ [10:20:39] cmd: kubectl logs kube-prometheus-stack-operator-6bcbbc667b-c7xgv -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:40.576532]   ⏳ [10:20:40] cmd: kubectl logs --previous kube-prometheus-stack-operator-6bcbbc667b-c7xgv -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:41.187971]   ⏳ [10:20:41] Error occurred while executing command 'kubectl logs --previous kube-prometheus-stack-operator-6bcbbc667b-c7xgv -n monitoring' in control plane (exit code: '1')
+[2026-04-18|10:20:41.209110]   ⏳ [10:20:41] [ClusterDiag] Collecting diagnostics for pod kube-prometheus-stack-prometheus-node-exporter-ztkq2 in namespace monitoring...
+[2026-04-18|10:20:41.218388]   ⏳ [10:20:41] cmd: kubectl describe pod kube-prometheus-stack-prometheus-node-exporter-ztkq2 -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:42.022617]   ⏳ [10:20:42] cmd: kubectl logs kube-prometheus-stack-prometheus-node-exporter-ztkq2 -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:42.763076]   ⏳ [10:20:42] cmd: kubectl logs --previous kube-prometheus-stack-prometheus-node-exporter-ztkq2 -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:43.494775]   ⏳ [10:20:43] Error occurred while executing command 'kubectl logs --previous kube-prometheus-stack-prometheus-node-exporter-ztkq2 -n monitoring' in control plane (exit code: '1')
+[2026-04-18|10:20:43.514544]   ⏳ [10:20:43] [ClusterDiag] Collecting diagnostics for pod prometheus-kube-prometheus-stack-prometheus-0 in namespace monitoring...
+[2026-04-18|10:20:43.523383]   ⏳ [10:20:43] cmd: kubectl describe pod prometheus-kube-prometheus-stack-prometheus-0 -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:44.282091]   ⏳ [10:20:44] cmd: kubectl logs prometheus-kube-prometheus-stack-prometheus-0 -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:44.969500]   ⏳ [10:20:44] cmd: kubectl logs --previous prometheus-kube-prometheus-stack-prometheus-0 -n monitoring, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:45.570782]   ⏳ [10:20:45] Error occurred while executing command 'kubectl logs --previous prometheus-kube-prometheus-stack-prometheus-0 -n monitoring' in control plane (exit code: '1')
+[2026-04-18|10:20:45.583363]   ⏳ [10:20:45] [ClusterDiag] Collecting cluster events...
+[2026-04-18|10:20:45.590794]   ⏳ [10:20:45] cmd: kubectl get events -A, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:46.307297]   ⏳ [10:20:46] [ClusterDiag] Collecting node descriptions...
+[2026-04-18|10:20:46.380480]   ⏳ [10:20:46] [ClusterDiag] Collecting node description for kubemaster...
+[2026-04-18|10:20:46.387179]   ⏳ [10:20:46] cmd: kubectl describe node kubemaster, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:47.455933]   ⏳ [10:20:47] [ClusterDiag] Collecting node description for cibox11-0925...
+[2026-04-18|10:20:47.470191]   ⏳ [10:20:47] cmd: kubectl describe node cibox11-0925, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:20:48.326709]   ⏳ [10:20:48] [ClusterDiag] Cluster diagnostics collection finished.
+[2026-04-18|10:20:48.334129]   ⏳ [10:20:48] Gathering host diagnostics..
+[2026-04-18|10:20:48.341090]   ⏳ [10:20:48] [HostDiag] Starting host diagnostics collection...
+[2026-04-18|10:20:48.350830]   ⏳ [10:20:48] [HostDiag] Collecting ipconfig /allcompartments...
+[2026-04-18|10:20:48.493144]   ⏳ [10:20:48] [HostDiag] Collecting NetConnectionProfile...
+[2026-04-18|10:20:49.156063]   ⏳ [10:20:49] [HostDiag] Collecting MSINFO32...
+[2026-04-18|10:21:43.105402]   ⏳ [10:21:43] [HostDiag] Collecting running processes...
+[2026-04-18|10:21:44.415884]   ⏳ [10:21:44] [HostDiag] Host diagnostics collection finished.
+[2026-04-18|10:21:44.424963]   ⏳ [10:21:44] Gathering logs..
+[2026-04-18|10:21:44.611121]   ⏳ [10:21:44] Gathering config files..
+[2026-04-18|10:21:44.700557]   ⏳ [10:21:44] Gathering network configuration..
+[2026-04-18|10:21:57.141270]   ⏳ [10:21:57] cmd: sudo ifconfig, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:21:57.519184]   ⏳ [10:21:57] Error occurred while executing command 'sudo ifconfig' in control plane (exit code: '1')
+[2026-04-18|10:21:57.548857]   ⏳ [10:21:57] cmd: ip route, retries: 0, timeout: 1 sec, execution timeout: 0 sec, ignore err: False, nested: False, ip address: 172.19.1.100
+[2026-04-18|10:21:57.922743]   ⏳ [10:21:57] Dumping to C:\var\log..
+[2026-04-18|10:22:21.889337]   ⏳ [10:22:21] Dump created at C:\var\log\k2s-dump-CIBOX11-0925-20260418T101953735.zip
+[2026-04-18|10:22:21.896598]   ⏳ [10:22:21] k2s system dump finished
+[2026-04-18|10:22:21.898446]   ⏳ [10:22:21] Skipping opening the dump folder
+[2026-04-18|10:22:21.972773]    SUCCESS  'k2s system dump' completed in 2m33.2829475s
+[2026-04-18|10:22:21.974142]   Please see 'C:\var\log\k2s.log' for more information
+[2026-04-18|10:22:22.042967]   Waiting for all started processes to die..
+[2026-04-18|10:22:22.045078]   All processes exited
+[2026-04-18|10:22:22.045274] [AfterSuite] PASSED [153.444 seconds]
+[2026-04-18|10:22:22.045274] ------------------------------
+[2026-04-18|10:22:22.045274] [ReportAfterSuite] Autogenerated ReportAfterSuite for --junit-report
+[2026-04-18|10:22:22.045464] autogenerated by Ginkgo
+[2026-04-18|10:22:22.054665] [ReportAfterSuite] PASSED [0.012 seconds]
+[2026-04-18|10:22:22.054665] ------------------------------
+[2026-04-18|10:22:22.054665]
+[2026-04-18|10:22:22.054665] Summarizing 1 Failure:
+[2026-04-18|10:22:22.054665]   [FAIL] 'monitoring' addon when no ingress controller is configured [It] is in enabled state and pods are in running state
+[2026-04-18|10:22:22.054665]   C:/k2s/k2s/test/framework/os/exec.go:105
+[2026-04-18|10:22:22.054665]
+[2026-04-18|10:22:22.054665] Ran 2 of 17 Specs in 502.033 seconds
+[2026-04-18|10:22:22.054665] FAIL! -- 1 Passed | 1 Failed | 0 Pending | 15 Skipped
+[2026-04-18|10:22:22.054665] --- FAIL: TestMonitoring (502.05s)
+[2026-04-18|10:22:22.054665] FAIL
+[2026-04-18|10:22:22.097042]
+[2026-04-18|10:22:22.097169] Ginkgo ran 1 suite in 8m42.33095s
+[2026-04-18|10:22:22.097169]
+[2026-04-18|10:22:22.097344] Test Suite Failed
+[2026-04-18|10:22:22.121096] All tests execution finished after 583.49s.
+* Connection #0 to host http-nightly-k2s-addon-monitoring-online-windows11-hmg69.kondor-ci left intact
+[2026-04-18|10:22:22.121096]
+[2026-04-18|10:22:22.126320] ------------------------------------------------
+[2026-04-18|10:22:22.139736] Test Results are available under 'C:\TestReports'
+[2026-04-18|10:22:22.139736]
+[2026-04-18|10:22:22.161314] WARNING: TESTS FAILED:
+[2026-04-18|10:22:22.167938] WARNING:      Go tests :-(
+[2026-04-18|10:22:22.167938] ------------------------------------------------
+[2026-04-18|10:22:22.339022] Test run failed. See log for details.
+[2026-04-18|10:22:22.339022] At C:\k2s\test\execute_all_tests.ps1:220 char:5
+[2026-04-18|10:22:22.339022] +     throw 'Test run failed. See log for details.'
+[2026-04-18|10:22:22.339022] +     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-04-18|10:22:22.339022]     + CategoryInfo          : OperationStopped: (Test run failed. See log for details.:String) [], RuntimeException
+[2026-04-18|10:22:22.339022]     + FullyQualifiedErrorId : Test run failed. See log for details.
+[2026-04-18|10:22:22.339022]
+{"exitCode":1,"execTime":"584.6845367"}
+Curl request finished, checking for exit code...
+Found response: {"exitCode":1,"execTime":"584.6845367"}. Extracting exit code and execution time
+Exit Code: 1
+Execution Time: 584.6845367s
+Exiting with error code 1

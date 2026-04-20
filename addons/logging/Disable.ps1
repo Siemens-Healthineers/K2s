@@ -62,6 +62,7 @@ $manifestsPath = "$PSScriptRoot\manifests\logging"
 
 $loggingConfig = Get-AddonConfig -Name 'logging'
 $omitOpensearch = $loggingConfig.OmitOpensearch -eq $true
+$enableAI = $loggingConfig.EnableAI -eq $true
 
 if ($omitOpensearch) {
     Write-Log 'Removing Fluent-bit only (--omitOpensearch mode)' -Console
@@ -92,6 +93,27 @@ if ($omitOpensearch) {
 else {
     Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'logging' })
     Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'logging' })
+
+    # Remove AI components first (before namespace deletion) if they were deployed
+    if ($enableAI) {
+        Write-Log '[AI] Removing AI log analysis components...' -Console
+        $aiManifestsPath = "$manifestsPath\ai"
+
+        # Delete any running pipeline jobs
+        (Invoke-Kubectl -Params 'delete', 'jobs', '-l', 'app.kubernetes.io/name=logging-ai-pipeline', '-n', 'logging', '--ignore-not-found', '--wait=false').Output | Write-Log
+
+        # Delete via kustomization
+        (Invoke-Kubectl -Params 'delete', '-k', "$aiManifestsPath\", '--ignore-not-found', '--wait=false').Output | Write-Log
+
+        # Delete source ConfigMaps created dynamically by Enable.ps1 (not in kustomization)
+        (Invoke-Kubectl -Params 'delete', 'configmap', 'logging-ai-src-root', '-n', 'logging', '--ignore-not-found').Output | Write-Log
+        (Invoke-Kubectl -Params 'delete', 'configmap', 'logging-ai-src-app', '-n', 'logging', '--ignore-not-found').Output | Write-Log
+
+        # Delete Ollama PVC explicitly (kustomize delete may not remove PVCs)
+        (Invoke-Kubectl -Params 'delete', 'pvc', 'ollama-models-pvc', '-n', 'logging', '--ignore-not-found').Output | Write-Log
+
+        Write-Log '[AI] AI components removed.' -Console
+    }
 
     (Invoke-Kubectl -Params 'delete', '-k', $manifestsPath, '--ignore-not-found', '--wait=false').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', '-k', "$manifestsPath\fluentbit\windows", '--ignore-not-found', '--wait=false').Output | Write-Log

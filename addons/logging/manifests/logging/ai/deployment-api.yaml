@@ -1,0 +1,103 @@
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+# The Python application source is mounted from two ConfigMaps:
+#   logging-ai-src-root  -> main.py
+#   logging-ai-src-app   -> app/*.py
+# No pip install is needed – the application uses Python stdlib only.
+# An init container copies source files into an emptyDir workdir.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logging-ai-api
+  namespace: logging
+  labels:
+    app.kubernetes.io/name: logging-ai-api
+    app.kubernetes.io/component: ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logging-ai-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logging-ai-api
+        app.kubernetes.io/component: ai
+    spec:
+      initContainers:
+        - name: copy-src
+          image: "docker.io/library/python:3.12-slim"
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "[AI-init] Assembling application..."
+              mkdir -p /workdir/app
+              cp /src-root/main.py /workdir/main.py
+              cp /src-app/* /workdir/app/
+              echo "[AI-init] Done."
+          volumeMounts:
+            - name: src-root
+              mountPath: /src-root
+            - name: src-app
+              mountPath: /src-app
+            - name: workdir
+              mountPath: /workdir
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 128Mi
+      containers:
+        - name: api
+          image: "docker.io/library/python:3.12-slim"
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              export PYTHONPATH=/workdir
+              exec python /workdir/main.py api
+          ports:
+            - name: http
+              containerPort: 9090
+          envFrom:
+            - configMapRef:
+                name: logging-ai-config
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9090
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - name: workdir
+              mountPath: /workdir
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: src-root
+          configMap:
+            name: logging-ai-src-root
+        - name: src-app
+          configMap:
+            name: logging-ai-src-app
+        - name: workdir
+          emptyDir: {}

@@ -1,0 +1,165 @@
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+---
+# PersistentVolume for Ollama model storage on the kubemaster Linux node.
+# Mirrors the pattern used by opensearch persistentvolume.yaml (local path, no StorageClass).
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ollama-models-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  local:
+    path: /ollama
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - kubemaster
+            - key: kubernetes.io/os
+              operator: In
+              values:
+                - linux
+  claimRef:
+    name: ollama-models-pvc
+    namespace: logging
+---
+# PersistentVolumeClaim for Ollama model storage.
+# Using a PVC ensures the model survives pod restarts (no re-download needed).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models-pvc
+  namespace: logging
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/component: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  volumeName: ollama-models-pv
+---
+# Ollama – local embedding + LLM model server.
+# Init container pulls nomic-embed-text once into the PVC; subsequent starts skip the pull.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: logging
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/component: ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ollama
+        app.kubernetes.io/component: ai
+    spec:
+      initContainers:
+        - name: pull-embed-model
+          image: "docker.io/ollama/ollama:0.6.5"
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              # Start ollama server in background
+              ollama serve &
+              OLLAMA_PID=$!
+              echo "[Ollama-init] Waiting for server to be ready..."
+              # Use ollama itself to check readiness (no curl/wget dependency)
+              until ollama list > /dev/null 2>&1; do
+                sleep 2
+              done
+              echo "[Ollama-init] Server ready. Checking if model already present..."
+              if ollama list | grep -q "nomic-embed-text"; then
+                echo "[Ollama-init] nomic-embed-text already present, skipping pull."
+              else
+                echo "[Ollama-init] Pulling nomic-embed-text..."
+                ollama pull nomic-embed-text
+                echo "[Ollama-init] Pull complete."
+              fi
+              kill $OLLAMA_PID
+              wait $OLLAMA_PID 2>/dev/null || true
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0"
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      containers:
+        - name: ollama
+          image: "docker.io/ollama/ollama:0.6.5"
+          imagePullPolicy: IfNotPresent
+          command: ["ollama", "serve"]
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0"
+          ports:
+            - name: http
+              containerPort: 11434
+          readinessProbe:
+            exec:
+              command: ["ollama", "list"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command: ["ollama", "list"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "4"
+              memory: 2Gi
+      volumes:
+        - name: ollama-models
+          persistentVolumeClaim:
+            claimName: ollama-models-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: logging
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/component: ai
+spec:
+  selector:
+    app.kubernetes.io/name: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: 11434

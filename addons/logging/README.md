@@ -119,6 +119,149 @@ Notes:
 - Backup/restore does not include OpenSearch data (historical logs).
 - Restore applies config and triggers best-effort rollout restarts.
 
+## AI-Powered Log Analysis (optional)
+
+The logging addon can be extended with an AI layer that adds **vector search**, an **embedding pipeline**, and a **RAG-ready query API** — all backed by the existing OpenSearch instance.
+
+### Enabling the AI layer
+
+```console
+k2s addons enable logging --enableAI
+```
+
+This deploys three additional components into the `logging` namespace:
+
+| Component | Kind | Purpose |
+|---|---|---|
+| `logging-ai-api` | Deployment | FastAPI query API (`POST /ai/logs/search`) |
+| `logging-ai-pipeline` | CronJob | Batch embedding pipeline (runs every hour) |
+| `logging-ai-config` | ConfigMap | All tunable parameters |
+
+### Architecture
+
+```
+Fluent Bit → OpenSearch (k2s index)
+                    ↓  [CronJob: every hour]
+            EmbeddingPipeline
+              – filter: warn/error logs only
+              – embed via Ollama (nomic-embed-text)
+                    ↓
+            OpenSearch (logs-vector index, k-NN HNSW)
+                    ↑
+            Query API  POST /ai/logs/search
+              – embed query → k-NN search + keyword hybrid
+              – optional: RAG summarisation via Ollama LLM
+```
+
+### Vector index
+
+A new index `logs-vector` is created automatically on first startup (idempotent). It uses the OpenSearch k-NN plugin with HNSW/Lucene and cosine similarity. The mapping is:
+
+```json
+{
+  "content":   "text",
+  "embedding": "knn_vector (dim=768)",
+  "metadata":  { "pod", "namespace", "host", "log_level", "timestamp" }
+}
+```
+
+The existing `k2s` index written by Fluent Bit is **not modified**.
+
+### Query API
+
+```console
+# Port-forward the API locally
+kubectl -n logging port-forward svc/logging-ai-api 8080:8080
+
+# Semantic search
+curl -X POST http://localhost:8080/ai/logs/search \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "pod OOMKilled memory pressure",
+    "filters": { "namespace": "default" },
+    "top_k": 5
+  }'
+```
+
+Response:
+```json
+{
+  "hits": [
+    {
+      "content": "OOMKilled: container exceeded memory limit",
+      "score": 0.94,
+      "metadata": { "pod": "myapp-xyz", "namespace": "default", "log_level": "error" }
+    }
+  ],
+  "answer": null
+}
+```
+
+Set `LLM_ENABLED: "true"` in `logging-ai-config` ConfigMap to receive an LLM-generated `answer` field (requires Ollama with a chat model).
+
+### Configuration
+
+All settings are in the `logging-ai-config` ConfigMap. Key parameters:
+
+| Key | Default | Description |
+|---|---|---|
+| `EMBEDDING_DIMENSION` | `768` | Must match the embedding model output |
+| `EMBEDDING_PROVIDER` | `ollama` | `ollama` or `noop` (zero vectors, for testing) |
+| `OLLAMA_MODEL` | `nomic-embed-text` | Embedding model served by Ollama |
+| `BATCH_SIZE` | `50` | Logs per bulk-index request |
+| `PIPELINE_LOOKBACK_MINUTES` | `60` | How far back the CronJob looks each run |
+| `MIN_LOG_LEVEL` | `warn` | Minimum severity to embed (`error`, `warn`, `info`) |
+| `LLM_ENABLED` | `false` | Enable RAG answer generation |
+| `OLLAMA_LLM_MODEL` | `llama3` | Chat model for RAG |
+
+### Running tests
+
+```console
+cd addons/logging/ai
+python -m pytest tests/ -v
+```
+
+### Demo UI
+
+A browser-based search interface is included:
+```console
+# Start port-forward
+kubectl -n logging port-forward svc/logging-ai-api 9090:9090
+
+# Open the demo page
+start addons/logging/ai/demo.html
+```
+
+### Architecture deep-dive
+
+See [ai/ARCHITECTURE.md](ai/ARCHITECTURE.md) for the full architecture diagram, component details, hybrid search strategy, demo script, and future prospects.
+
+### Source layout
+
+```
+addons/logging/ai/
+  app/
+    config.py          – configuration from env vars
+    embedding.py       – EmbeddingService interface + OllamaEmbeddingService / NoopEmbeddingService
+    opensearch_client.py – REST wrapper (index, bulk, search, scroll)
+    index_manager.py   – idempotent vector index creation
+    pipeline.py        – EmbeddingPipeline (filter → embed → store)
+    api.py             – FastAPI: POST /ai/logs/search, GET /healthz
+  tests/
+    test_embedding.py
+    test_search.py
+  main.py              – entry point (mode: api | pipeline)
+  Dockerfile
+  requirements.txt
+addons/logging/manifests/logging/ai/
+  configmap.yaml
+  deployment-api.yaml
+  service-api.yaml
+  cronjob-pipeline.yaml
+  kustomization.yaml
+```
+
 ## Further Reading
 - [fluentbit](https://github.com/fluent/fluent-bit)
 - [opensearch](https://github.com/opensearch-project/OpenSearch)
+- [OpenSearch k-NN plugin](https://opensearch.org/docs/latest/search-plugins/knn/)

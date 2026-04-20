@@ -1,0 +1,88 @@
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+# Same source-mounting pattern as deployment-api.yaml.
+# No pip install needed – application uses Python stdlib only.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: logging-ai-pipeline
+  namespace: logging
+  labels:
+    app.kubernetes.io/name: logging-ai-pipeline
+    app.kubernetes.io/component: ai
+spec:
+  # Run every hour; must align with PIPELINE_LOOKBACK_MINUTES
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: logging-ai-pipeline
+        spec:
+          restartPolicy: OnFailure
+          initContainers:
+            - name: copy-src
+              image: "docker.io/library/python:3.12-slim"
+              imagePullPolicy: IfNotPresent
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  echo "[AI-init] Assembling application..."
+                  mkdir -p /workdir/app
+                  cp /src-root/main.py /workdir/main.py
+                  cp /src-app/* /workdir/app/
+                  echo "[AI-init] Done."
+              volumeMounts:
+                - name: src-root
+                  mountPath: /src-root
+                - name: src-app
+                  mountPath: /src-app
+                - name: workdir
+                  mountPath: /workdir
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: "1"
+                  memory: 128Mi
+          containers:
+            - name: pipeline
+              image: "docker.io/library/python:3.12-slim"
+              imagePullPolicy: IfNotPresent
+              command:
+                - sh
+                - -c
+                - |
+                  export PYTHONPATH=/workdir
+                  exec python /workdir/main.py pipeline
+              envFrom:
+                - configMapRef:
+                    name: logging-ai-config
+              volumeMounts:
+                - name: workdir
+                  mountPath: /workdir
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+          volumes:
+            - name: src-root
+              configMap:
+                name: logging-ai-src-root
+            - name: src-app
+              configMap:
+                name: logging-ai-src-app
+            - name: workdir
+              emptyDir: {}
