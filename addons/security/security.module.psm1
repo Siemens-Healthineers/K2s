@@ -708,10 +708,37 @@ function Uninstall-Kyverno {
     }
 
     Write-Log '[Kyverno] Removing namespace' -Console
+    # Log services and their ClusterIPs before namespace deletion for diagnostics
+    Write-Log '[Kyverno] Services before namespace deletion:' -Console
+    (Invoke-Kubectl -Params 'get', 'svc', '-n', $kyvernoNamespace, '-o', 'wide', '--ignore-not-found').Output | Write-Log
+
     (Invoke-Kubectl -Params 'delete', 'namespace', $kyvernoNamespace, '--ignore-not-found').Output | Write-Log
 
-    Write-Log '[Kyverno] Uninstallation complete' -Console
+    Write-Log '[Kyverno] Waiting for namespace deletion to complete' -Console
+    $retries = 0
+    $maxRetries = 60
+    while ($retries -lt $maxRetries) {
+        $ns = (Invoke-Kubectl -Params 'get', 'namespace', $kyvernoNamespace, '--ignore-not-found', '-o', 'name').Output
+        if (-not $ns) {
+            Write-Log "[Kyverno] Namespace deleted successfully after $($retries * 2)s" -Console
+            break
+        }
+        if ($retries % 5 -eq 0) {
+            # Log remaining resources every 10s to diagnose stuck finalizers
+            $remaining = (Invoke-Kubectl -Params 'get', 'all', '-n', $kyvernoNamespace, '--ignore-not-found', '-o', 'name').Output
+            Write-Log "[Kyverno] Namespace still terminating (attempt $($retries + 1)/$maxRetries), remaining resources: $remaining" -Console
+        }
+        Start-Sleep -Seconds 2
+        $retries++
     }
+    if ($retries -ge $maxRetries) {
+        Write-Log '[Kyverno] Warning: namespace deletion did not complete within 120s -- proceeding anyway' -Console
+        # Log namespace status for post-mortem analysis
+        (Invoke-Kubectl -Params 'get', 'namespace', $kyvernoNamespace, '-o', 'yaml', '--ignore-not-found').Output | Write-Log
+    }
+
+    Write-Log '[Kyverno] Uninstallation complete' -Console
+}
 
 <#
 .DESCRIPTION
