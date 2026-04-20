@@ -327,7 +327,13 @@ server = "${protocol}://$Name"
         $content += @"
 
 server = "${protocol}://$Server"  # default after trying hosts
-host."${protocol}://$Mirror".capabilities = ["pull", "resolve"]
+
+[host."${protocol}://$Mirror"]
+  capabilities = ["pull", "resolve"]
+  skip_verify = $($SkipVerify.ToString().ToLower())
+
+[host."${protocol}://$Server"]
+  capabilities = ["pull", "resolve"]
 "@
     } 
     else {    
