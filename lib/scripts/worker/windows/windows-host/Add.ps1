@@ -167,11 +167,6 @@ if ($httpproxyService) {
 Write-Host "Executing InstallNode.ps1 on remote machine: $IpAddress with HostIpAddress $WindowsHostIpAddress"
 $executeInstallNodeScript = "powershell -ExecutionPolicy Bypass -File `"C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1`" -ShowLogs -IpAddress $IpAddress -HostIpAddress $WindowsHostIpAddress"
 
-$result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $executeInstallNodeScript -IpAddress $IpAddress -UserName $UserName
+Invoke-CmdOnVmViaSSHKey -CmdToExecute $executeInstallNodeScript -IpAddress $IpAddress -UserName $UserName
 
-# Simple error checking
-if (-not $result.Success) {
-    Write-Error "InstallNode.ps1 execution failed: $($result.Output)"
-    throw "Remote installation failed"
-}
 
