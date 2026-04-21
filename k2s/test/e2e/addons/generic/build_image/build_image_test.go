@@ -44,7 +44,7 @@ var (
 
 func TestBuildImage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Build Container Image Acceptance Tests", Label("functional", "acceptance", "internet-required", "setup-required", "build-image", "system-running"))
+	RunSpecs(t, "Build Container Image Acceptance Tests", Label("acceptance", "internet-required", "setup-required", "build-image", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
