@@ -144,6 +144,18 @@ if ($WindowsHostIpAddress -eq '') {
     $WindowsHostIpAddress = Get-HostPhysicalIp -ExcludeNetworkInterfaceName $loopbackAdapter
 }
 
+# Configure networking on the local Windows host for the remote worker node
+Write-Log "Configuring networking for adding the Windows worker node" -Console
+
+# Enable IP forwarding on the local Windows host network interface (required for routing traffic to the remote node)
+# Note: Routes on the remote node (control plane CIDR and pod network CIDR) are added by InstallNode.ps1
+$networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match $WindowsHostIpAddress)} | Select-Object -ExpandProperty InterfaceAlias)
+if ([string]::IsNullOrWhiteSpace($networkInterfaceName)) {
+    throw "Cannot find the network interface belonging to the IP address '$WindowsHostIpAddress'"
+}
+Write-Log "[Network] Enabling IP forwarding on interface '$networkInterfaceName'" -Console
+netsh int ipv4 set int $networkInterfaceName forwarding=enabled | Out-Null
+
 # Add the remote node's subnet to httpproxy's allowed-cidr so it can use the proxy for image pulls
 Write-Log "Checking if httpproxy needs to allow the remote node's subnet" -Console
 $remoteSubnet = ($IpAddress -replace '\.\d+$', '.0') + '/24'
