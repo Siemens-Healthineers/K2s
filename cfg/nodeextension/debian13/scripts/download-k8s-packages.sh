@@ -325,4 +325,9 @@ log_info "Download verification:"
 log_info "Total packages: $(ls "$TARGET_PATH"/*.deb 2>/dev/null | wc -l)"
 ls -lh "$TARGET_PATH"/*.deb 2>/dev/null || true
 
+# Remove temporary apt proxy config
+if [ -n "$PROXY" ]; then
+    sudo rm -f /etc/apt/apt.conf.d/90k2s-proxy
+fi
+
    
