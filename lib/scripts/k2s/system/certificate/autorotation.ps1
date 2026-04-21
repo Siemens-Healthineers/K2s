@@ -63,6 +63,16 @@ $global:controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
 $kubeletConfigPath = '/var/lib/kubelet/config.yaml'
 $kubeletConfigBackupPath = '/var/lib/kubelet/config.yaml.autorotation.bak'
 
+function Send-ErrorToCli {
+    Param([string]$ErrorMessage)
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'certificate-autorotation-failure' -Message $ErrorMessage
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err}
+        return
+    }
+    Write-Log $ErrorMessage -Error
+}
+
 function Start-ControlPlaneIfNotRunning {
     if ($global:isWsl) {
         if ((Get-IsWslRunning -Name $global:controlPlaneVMHostName) -ne $true) {
@@ -110,35 +120,29 @@ function Invoke-PatchKubeletConfig {
         [Parameter(Mandatory = $true)]
         [string] $Value   # 'true' or 'false'
     )
-    # Step 1: backup kubelet config
-    $backupCmd = "sudo cp $kubeletConfigPath $kubeletConfigBackupPath"
-    $backupResult = Invoke-CmdOnControlPlaneViaSSHKey $backupCmd
+    # Step 1: backup kubelet config (use -IgnoreErrors so we can check .Success ourselves)
+    $backupResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo cp $kubeletConfigPath $kubeletConfigBackupPath" -IgnoreErrors
     $backupResult.Output | Write-Log
-    if ($backupResult.ExitCode -ne 0) {
+    if (-not $backupResult.Success) {
         throw "[AutoRotation] Failed to back up kubelet config before patching."
     }
 
-    # Step 2: patch using sed (no python3 required) — update existing key or append
-    $patchScript = @"
-if sudo grep -q 'rotateCertificates' $kubeletConfigPath; then
-    sudo sed -i 's/rotateCertificates:.*/rotateCertificates: $Value/' $kubeletConfigPath
-else
-    echo 'rotateCertificates: $Value' | sudo tee -a $kubeletConfigPath > /dev/null
-fi
-"@
-    $patchResult = Invoke-CmdOnControlPlaneViaSSHKey $patchScript
+    # Step 2: patch using sed — single-line bash (no heredoc, SSH-safe)
+    # Update existing key if present, otherwise append it
+    $patchCmd = "if sudo grep -q 'rotateCertificates' $kubeletConfigPath; then sudo sed -i 's/rotateCertificates:.*/rotateCertificates: $Value/' $kubeletConfigPath; else echo 'rotateCertificates: $Value' | sudo tee -a $kubeletConfigPath > /dev/null; fi"
+    $patchResult = Invoke-CmdOnControlPlaneViaSSHKey $patchCmd -IgnoreErrors
     $patchResult.Output | Write-Log
-    if ($patchResult.ExitCode -ne 0) {
+    if (-not $patchResult.Success) {
         Write-Log "[AutoRotation] Patch failed. Restoring backup..." -Console
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo cp $kubeletConfigBackupPath $kubeletConfigPath").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo cp $kubeletConfigBackupPath $kubeletConfigPath" -IgnoreErrors).Output | Write-Log
         throw "[AutoRotation] Failed to patch kubelet config. Backup restored."
     }
 
     # Step 3: restart kubelet
     Write-Log "[AutoRotation] Restarting kubelet service to apply the change..." -Console
-    $restartResult = Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart kubelet'
+    $restartResult = Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart kubelet' -IgnoreErrors
     $restartResult.Output | Write-Log
-    if ($restartResult.ExitCode -ne 0) {
+    if (-not $restartResult.Success) {
         throw "[AutoRotation] Failed to restart kubelet after patching config."
     }
 }
@@ -147,22 +151,15 @@ function Get-KubeletAutoRotationStatus {
     Write-Log "[AutoRotation] Reading kubelet config from control plane node..." -Console
 
     # Verify config file exists before reading
-    $checkResult = Invoke-CmdOnControlPlaneViaSSHKey "test -f $kubeletConfigPath && echo 'exists' || echo 'missing'"
+    $checkResult = Invoke-CmdOnControlPlaneViaSSHKey "test -f $kubeletConfigPath && echo 'exists' || echo 'missing'" -IgnoreErrors
     if (($checkResult.Output | Where-Object { $_ -match 'missing' })) {
         Write-Log "[AutoRotation] Kubelet config file not found at $kubeletConfigPath" -Console
         return 'unknown (config file missing)'
     }
 
-    $statusScript = @"
-if sudo grep -q 'rotateCertificates: true' $kubeletConfigPath; then
-    echo 'enabled'
-elif sudo grep -q 'rotateCertificates' $kubeletConfigPath; then
-    echo 'disabled'
-else
-    echo 'disabled (key not present)'
-fi
-"@
-    $result = Invoke-CmdOnControlPlaneViaSSHKey $statusScript
+    # Single-line bash: check for enabled/disabled/absent — SSH-safe, no heredoc
+    $statusCmd = "if sudo grep -q 'rotateCertificates: true' $kubeletConfigPath; then echo 'enabled'; elif sudo grep -q 'rotateCertificates' $kubeletConfigPath; then echo 'disabled'; else echo 'disabled (key not present)'; fi"
+    $result = Invoke-CmdOnControlPlaneViaSSHKey $statusCmd -IgnoreErrors
     $statusValue = ($result.Output | Where-Object { $_ -match 'enabled|disabled|unknown' } | Select-Object -First 1)
     if ([string]::IsNullOrWhiteSpace($statusValue)) {
         $statusValue = 'disabled (key not present)'
@@ -201,7 +198,8 @@ try {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null}
     }
 } catch {
-    Write-ErrorMessage "An error occurred during certificate auto-rotation management: $_"
+    $errMsg = "An error occurred during certificate auto-rotation management: $_"
+    Write-Log $errMsg -Error
     $noErrorsOccurred = $false
     if ($EncodeStructuredOutput) {
         Send-ErrorToCli -ErrorMessage $_.ToString()
