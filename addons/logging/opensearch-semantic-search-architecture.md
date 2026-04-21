@@ -4,19 +4,19 @@ SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# OpenSearch Semantic Search — Architecture & Roadmap
+# OpenSearch Semantic Search - Architecture & Roadmap
 
-**Document date:** April 20, 2026  
-**Status:** Prototype / Active Development  
-**Audience:** K2s platform engineers, AI/ML practitioners, DevOps architects, forum reviewers  
-**Scope:** Codebase & knowledge search using dense vector embeddings inside the K2s cluster
+**Document date:** April 21, 2026
+**Status:** Prototype / Active Development
+**Audience:** K2s platform engineers, AI/ML practitioners, DevOps architects, forum reviewers
+**Scope:** Log & codebase search using dense vector embeddings inside the K2s cluster
 
 ---
 
 ## Table of Contents
 
 1. [Problem Statement](#1-problem-statement)
-2. [Semantic Search vs. Keyword Search — Why It Matters](#2-semantic-search-vs-keyword-search--why-it-matters)
+2. [Semantic Search vs. Keyword Search - Why It Matters](#2-semantic-search-vs-keyword-search--why-it-matters)
 3. [Current Architecture Overview](#3-current-architecture-overview)
 4. [Component Deep-Dive](#4-component-deep-dive)
 5. [Data Flow & Request Lifecycle](#5-data-flow--request-lifecycle)
@@ -29,9 +29,9 @@ SPDX-License-Identifier: MIT
 12. [Offline / Air-Gap Operation](#12-offline--air-gap-operation)
 13. [Performance Characteristics](#13-performance-characteristics)
 14. [Current Limitations](#14-current-limitations)
-15. [Future Scope — Near Term (3-6 months)](#15-future-scope--near-term-3-6-months)
-16. [Future Scope — Medium Term (6-12 months)](#16-future-scope--medium-term-6-12-months)
-17. [Future Scope — Long Term Vision (12-24 months)](#17-future-scope--long-term-vision-12-24-months)
+15. [Future Scope - Near Term (3-6 months)](#15-future-scope--near-term-3-6-months)
+16. [Future Scope - Medium Term (6-12 months)](#16-future-scope--medium-term-6-12-months)
+17. [Future Scope - Long Term Vision (12-24 months)](#17-future-scope--long-term-vision-12-24-months)
 18. [Comparison with Alternatives](#18-comparison-with-alternatives)
 19. [Quick Reference](#19-quick-reference)
 
@@ -44,105 +44,128 @@ K2s is a large, multi-platform Kubernetes distribution with:
 - **~50,000+ lines** of Go code across 15+ CLI commands
 - **~30,000+ lines** of PowerShell modules and addon scripts
 - **20+ addons**, each with its own manifests, enable/disable scripts, and configuration
-- Documentation spread across `docs/`, `addons/*/README.md`, and inline comments
+- Thousands of log lines per hour from pods across all namespaces
 
-**The challenge:** Finding things in this codebase is hard when you don't know the exact function name, file name, or terminology used in the source.
+**The challenge:** Finding things - whether in source code or in logs - is hard when you do not
+know the exact function name, file name, error text, or terminology used.
 
-Examples of searches that fail with `grep` / keyword search:
+Examples of searches that fail with keyword search:
 
-| What you want to find | What you actually type | grep result |
+| What you want to find | What you actually type | Keyword result |
 |---|---|---|
-| Windows VM lifecycle management | "start virtual machine" | ❌ Miss: code says `New-VM`, `Start-VM` |
-| Linux cluster provisioning | "setup kubeadm" | ❌ Miss: file is `setuporchestration` |
-| Certificate renewal logic | "renew cert" | ❌ Miss: code calls `cert-manager` reconcile |
-| HolmesGPT proxy filtering | "filter streaming" | ❌ Miss: code says `SSE delta filter` |
-| Addon dependency checking | "check prerequisites" | ❌ Miss: function is `Test-IsAddonEnabled` |
+| Windows VM lifecycle management | "start virtual machine" | MISS: code says `New-VM`, `Start-VM` |
+| Linux cluster provisioning | "setup kubeadm" | MISS: file is `setuporchestration` |
+| Certificate renewal logic | "renew cert" | MISS: code calls `cert-manager` reconcile |
+| DB pool exhausted | "database not responding" | MISS: log says `pq: too many clients` |
+| Payment gateway down | "payment service error" | MISS: log says `x509: certificate has expired` |
 
-**Semantic search solves this** — it finds results by *meaning*, not by exact words.
+**Semantic search solves this** - it finds results by *meaning*, not by exact words.
 
 ---
 
-## 2. Semantic Search vs. Keyword Search — Why It Matters
+## 2. Semantic Search vs. Keyword Search - Why It Matters
 
 ### 2.1 How Each Works
 
 ```
 Keyword Search (OpenSearch BM25 / grep):
-  Query: "start virtual machine"
-  Index: Inverted index on tokens → ["start", "virtual", "machine"]
-  Matches: Only files containing those exact words
-  Miss: New-VM, virsh start, Start-HyperVVM, vm.Power(on)
+  Query:   "database not responding"
+  Index:   Inverted index on tokens -> ["database", "not", "responding"]
+  Matches: Only logs/files containing those exact words
+  Miss:    "pq: too many clients", "connection pool exhausted", "circuit breaker OPEN"
 
 Semantic Search (Dense Vector / kNN):
-  Query: "start virtual machine"
-  Step 1: Embed query → vector [0.12, -0.34, 0.87, ...]  (768 floats)
-  Step 2: kNN search in vector space → nearest neighbors
+  Query:   "database not responding"
+  Step 1:  Embed query -> vector [0.12, -0.34, 0.87, ...]  (768 floats)
+  Step 2:  kNN search in vector space -> nearest neighbors by cosine similarity
   Matches: All semantically similar content regardless of words used
-  Finds: New-VM, virsh start, Start-HyperVVM, vm.Power(on), hypervisor boot sequence
+  Finds:   "pq: too many clients", "connection pool exhausted",
+           "circuit breaker OPEN", "Redis NOAUTH", "Kafka broker unavailable"
 ```
 
-### 2.2 Decision Matrix
+### 2.2 Live Demo - Log Search Comparison
+
+The `order-service` demo pod (deployed by `k2s addons enable logging --enableAI`) generates
+realistic error logs. Here is what each search mode finds:
+
+| Query | Keyword search | Semantic search |
+|---|---|---|
+| "TLS issue" | Only logs with word "TLS" | TLS errors AND "connection pool exhausted" AND "circuit breaker" (all = service unreachable) |
+| "database not responding" | Only logs with "database" | "pq: too many clients", "connection refused :5432", circuit breaker logs |
+| "application is overloaded" | Nothing (phrase not in logs) | "GC pause 1.8s", "heap 487MB/512MB", "connection pool exhausted" |
+| "payment processing failed" | Nothing | "x509 certificate expired", "Post https://payment-gateway", charge failed |
+| "service cannot reach dependencies" | Nothing | Redis unavailable + DB refused + Kafka broker down |
+
+### 2.3 Decision Matrix
 
 | Criteria | Keyword (BM25) | Semantic (kNN) | Hybrid |
 |---|---|---|---|
-| Exact token match | ✅ Excellent | ⚠️ Good | ✅ Excellent |
-| Synonym handling | ❌ None | ✅ Excellent | ✅ Excellent |
-| Cross-language concepts | ❌ None | ✅ Strong | ✅ Strong |
-| Query speed | ✅ Very fast (ms) | ✅ Fast (5-50ms) | ✅ Fast |
-| Index build time | ✅ Fast | ⚠️ Slow (embedding GPU) | ⚠️ Moderate |
-| Explainability | ✅ Token scores | ❌ Opaque | ⚠️ Partial |
-| Code search | ⚠️ Literal only | ✅ Conceptual | ✅ Best |
-| Doc discovery | ⚠️ Literal only | ✅ Intent-based | ✅ Best |
+| Exact token match | Excellent | Good | Excellent |
+| Synonym handling | None | Excellent | Excellent |
+| Cross-language concepts | None | Strong | Strong |
+| Query speed | Very fast (ms) | Fast (5-50ms) | Fast |
+| Index build time | Fast | Moderate (embedding) | Moderate |
+| Explainability | Token scores | Opaque (vector math) | Partial |
+| Code/log search | Literal only | Conceptual | Best |
+| Doc discovery | Literal only | Intent-based | Best |
 
-**Conclusion:** Hybrid search (BM25 + kNN with score fusion) gives the best results for K2s use cases.
+**Conclusion:** Hybrid search (BM25 + kNN with score fusion) gives the best results for K2s
+use cases.
 
 ---
 
 ## 3. Current Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  K2s Cluster  (namespace: search)                                   │
-│                                                                     │
-│  ┌─────────────────┐    REST :9200     ┌──────────────────────────┐ │
-│  │   OpenSearch     │◄──────────────────│  Embedding Service       │ │
-│  │  (single node)   │                  │  (sentence-transformers) │ │
-│  │  kNN index:      │                  │  Model: all-MiniLM-L6-v2 │ │
-│  │  k2s-knowledge   │                  │  :8080 / REST            │ │
-│  └────────┬─────────┘                  └──────────────────────────┘ │
-│           │ kNN vectors (768-dim)               ▲                   │
-│           │ + BM25 text index                   │ embed text chunks  │
-│           ▼                                     │                   │
-│  ┌─────────────────────────────────────────────┐│                   │
-│  │  Indexer Job (CronJob or one-shot)           ││                   │
-│  │  • Crawls: /k2s (Go), /addons (PS1),        ││                   │
-│  │            /lib/modules (PS1), /docs (MD)   ││                   │
-│  │  • Splits into chunks (512 tokens / 100 overlap)                 │
-│  │  • Calls Embedding Service → gets vector    ││                   │
-│  │  • Bulk-indexes into OpenSearch             ││                   │
-│  └──────────────────────────────────────────────┘                   │
-│                                                                     │
-│  ┌──────────────────────────────────────────────┐                   │
-│  │  Search API  (:8081)                         │                   │
-│  │  • POST /search  {query, top_k, filter}      │                   │
-│  │  • Returns: {hits: [{score, content, file}]} │                   │
-│  │  • Client: fmt.py / Headlamp plugin / AI     │                   │
-│  └──────────────────────────────────────────────┘                   │
-└─────────────────────────────────────────────────────────────────────┘
-                              ▲
-                    User / AI Assistant / CLI
++---------------------------------------------------------------------+
+|  K2s Cluster  (logging addon with --enableAI)                       |
+|                                                                     |
+|  +-----------------+  REST :9200   +---------------------------+   |
+|  |   OpenSearch    |<--------------| Embedding Service          |   |
+|  |  (single node)  |               | Ollama (ai-assistant ns)   |   |
+|  |  kNN index:     |               | Model: nomic-embed-text    |   |
+|  |  logs-vector    |               | :11434 / REST              |   |
+|  +--------+--------+               +---------------------------+   |
+|           |  kNN vectors (768-dim)            ^                    |
+|           |  + BM25 text index                | embed log chunks   |
+|           v                                   |                    |
+|  +------------------------------------------++                    |
+|  |  Embedding Pipeline (CronJob, hourly)     |                     |
+|  |  * Reads logs from OpenSearch k2s index   |                     |
+|  |  * Filters: warn + error level logs only  |                     |
+|  |  * Calls Ollama -> gets 768-dim vector    |                     |
+|  |  * Bulk-indexes into logs-vector index    |                     |
+|  +------------------------------------------+                     |
+|                                                                     |
+|  +------------------------------------------+                     |
+|  |  Logging AI Query API  (:8080 / :9090)    |                     |
+|  |  * POST /ai/logs/search {query, top_k}    |                     |
+|  |  * Returns: {hits: [{score, log, pod}]}   |                     |
+|  |  * Normal search:   OpenSearch BM25       |                     |
+|  |  * Semantic search: kNN on logs-vector    |                     |
+|  +------------------------------------------+                     |
+|                                                                     |
+|  +---------------------+   Fluent-bit collects all pod logs         |
+|  |  demo-app/          |   and ships to OpenSearch k2s index        |
+|  |  order-service (Err)|                                            |
+|  |  (generates rich    |                                            |
+|  |   error logs)       |                                            |
+|  +---------------------+                                            |
++---------------------------------------------------------------------+
+                              ^
+         User browser (demo.html via port-forward :9090)
 ```
 
 ### 3.1 Technology Choices
 
 | Component | Technology | Reason |
 |---|---|---|
-| Vector store | **OpenSearch 2.13+** | Open-source, kNN native, BM25 built-in, offline-capable |
-| Embedding model | **all-MiniLM-L6-v2** | 384-dim, fast CPU inference, permissive license (Apache 2.0) |
-| Embedding service | **sentence-transformers** (Python/FastAPI) | De-facto standard, huggingface model hub |
-| Search API | **Python FastAPI** | Lightweight, async, OpenAI-compatible response shape |
-| Chunking | **langchain TextSplitter** | Token-aware, overlap-configurable |
-| Result formatter | **fmt.py** | CLI utility: pretty-prints top-N hits with score% + preview |
+| Vector store | **OpenSearch 3.6.0** | Open-source, kNN native, BM25 built-in, offline-capable |
+| Embedding model | **nomic-embed-text** (768-dim) | Strong on code+prose, Apache 2.0, already in Ollama |
+| Embedding runtime | **Ollama** (shared from ai-assistant namespace) | No separate deployment, no extra image pull |
+| Log collector | **Fluent-bit** (DaemonSet) | Lightweight, ships logs to OpenSearch automatically |
+| Query API | **Python / stdlib only** | No external deps, runs on `python:3.11-alpine` |
+| Demo UI | **demo.html** (plain HTML+JS) | Zero dependencies, opens in any browser |
 
 ---
 
@@ -152,16 +175,16 @@ Semantic Search (Dense Vector / kNN):
 
 | Property | Value |
 |---|---|
-| Image | `opensearchproject/opensearch:2.13.0` |
-| Namespace | `search` |
-| Port | 9200 (REST), 9600 (Performance Analyzer) |
-| Auth | Admin cert/key (TLS disabled in dev mode) |
+| Image | `docker.io/opensearchproject/opensearch:3.6.0` |
+| Namespace | `logging` |
+| Port | 9200 (REST) |
+| Auth | Disabled (dev mode, security plugin off) |
 | Plugin | `knn` (bundled since OpenSearch 2.0) |
-| Index | `k2s-knowledge` |
+| Indices | `k2s` (raw Fluent-bit logs), `logs-vector` (semantic vectors) |
 | kNN algorithm | HNSW (Hierarchical Navigable Small World) |
-| Vector dimensions | 384 (all-MiniLM-L6-v2) |
+| Vector dimensions | **768** (nomic-embed-text) |
 | Similarity metric | Cosine similarity |
-| Storage | PVC 20 GiB on kubemaster |
+| Storage | hostPath `/logging` on kubemaster |
 
 **Why HNSW?**
 
@@ -169,73 +192,96 @@ HNSW is the gold standard approximate kNN algorithm:
 - Sub-linear query time: `O(log N)` instead of `O(N)` for brute-force
 - Very high recall (>95%) with tunable `ef_search` parameter
 - Supports incremental inserts (no full rebuild on new documents)
-- Memory-mapped — can exceed RAM size
+- Memory-mapped - can exceed RAM size
 
-### 4.2 Embedding Service
+### 4.2 Embedding Service (Ollama)
 
 | Property | Value |
 |---|---|
-| Model | `sentence-transformers/all-MiniLM-L6-v2` |
-| Vector size | 384 dimensions |
-| Max input | 512 tokens (WordPiece) |
-| Inference | CPU (no GPU required for this model) |
-| Latency | ~15-30ms per chunk (CPU) |
-| Throughput | ~50-100 chunks/second (single CPU core) |
-| Memory | ~200 MB model weights |
+| Model | `nomic-embed-text` |
+| Vector size | **768 dimensions** |
+| API endpoint | `http://ollama.ai-assistant.svc.cluster.local:11434/api/embed` |
+| Inference | CPU (no GPU required) |
+| Latency | ~15-30ms per log chunk |
+| Throughput | ~50-100 chunks/second |
+| Shared with | `ai-assistant` addon (qwen2.5:7b LLM in same Ollama instance) |
 
 **Model selection rationale:**
 
 ```
-Model               Dims  Speed    Quality   License
-all-MiniLM-L6-v2   384   ⚡⚡⚡   ⭐⭐⭐    Apache 2.0   ← Current choice
-all-mpnet-base-v2   768   ⚡⚡     ⭐⭐⭐⭐  Apache 2.0   ← Better quality, 2× cost
-bge-large-en-v1.5   1024  ⚡       ⭐⭐⭐⭐⭐ MIT          ← Best quality, 4× cost
-nomic-embed-text    768   ⚡⚡     ⭐⭐⭐⭐  Apache 2.0   ← Good for code
+Model                  Dims  Speed   Quality  License   Notes
+-----------------------------------------------------------------
+nomic-embed-text        768   **      ****    Apache2   <- CURRENT (deployed)
+                                                         Strong on code + prose
+                                                         Already cached in Ollama
+
+all-mpnet-base-v2       768   **      ****    Apache2   Similar quality,
+                                                         needs separate service
+
+bge-large-en-v1.5      1024    *      *****   MIT       Best quality, 4x cost,
+                                                         needs separate service
+
+Custom fine-tuned       768   **      *****   internal  Future: tuned on K2s
+                                                         log patterns
 ```
 
-For code-heavy corpora like K2s, `nomic-embed-text` (trained on code+docs) is a strong future candidate.
+`nomic-embed-text` was chosen because:
+1. Already loaded in the ai-assistant Ollama instance (zero extra image pull)
+2. Trained on both natural language AND code - ideal for K2s mixed log workloads
+3. 768-dim vectors give good quality without excessive storage cost
+4. Works fully offline (model cached in `/ollama` hostPath on first ai-assistant enable)
 
-### 4.3 Indexer Job
+### 4.3 Embedding Pipeline (CronJob)
 
-The indexer crawls the K2s repository and builds the vector index:
+The pipeline runs hourly and indexes recent logs into the vector index:
 
 ```
-Input sources:
-  k2s/            → Go source files (.go)
-  addons/         → PowerShell scripts (.ps1, .psm1), YAML manifests
-  lib/modules/    → PowerShell modules (.psm1)
-  lib/scripts/    → Orchestration scripts (.ps1)
-  docs/           → MkDocs documentation (.md)
-  *.md            → Top-level READMEs, analysis docs
-
-Chunking strategy:
-  • Code files:  512 tokens, 100 token overlap, split on function boundaries
-  • Markdown:    512 tokens, 50 token overlap, split on headings
-  • YAML:        256 tokens, 0 overlap (small structured blocks)
-
-Metadata per chunk:
-  • file_path       (relative to repo root)
-  • language        (go / powershell / markdown / yaml)
-  • chunk_index     (position within file)
-  • function_name   (extracted via regex if detectable)
-  • addon_name      (derived from path prefix for addons/)
-  • last_modified   (git commit timestamp)
+OpenSearch k2s index (raw Fluent-bit logs)
+      |
+      v  filter: warn + error only, last 60 minutes
+ +-----------------------+
+ | Log Fetcher           |  GET /_search with range + level filter
+ +-----------+-----------+
+             | raw log entries (up to BATCH_SIZE per run)
+             v
+ +-----------------------+
+ | Text Normalizer       |  Extract: timestamp, level, message, pod, namespace
+ +-----------+-----------+
+             | normalized log strings
+             v
+ +-----------------------+
+ | Ollama Embed Call     |  POST /api/embed -> float[768]
+ | nomic-embed-text      |  ~20ms per log entry
+ +-----------+-----------+
+             | (log_text, vector, metadata)
+             v
+ +-----------------------+
+ | OpenSearch Bulk Index |  POST /_bulk into logs-vector index
+ | knn_vector field       |  + BM25 text field (same log text)
+ +-----------------------+
 ```
 
-### 4.4 Search API
+**Pipeline configuration** (via ConfigMap):
 
-The search API wraps OpenSearch's kNN query with a clean interface:
+| Setting | Default | Description |
+|---|---|---|
+| `PIPELINE_LOOKBACK_MINUTES` | 60 | How far back to fetch logs each run |
+| `MIN_LOG_LEVEL` | `warn` | Minimum level to embed (warn, error, info, *) |
+| `BATCH_SIZE` | 50 | Max log entries per pipeline run |
+| `EMBEDDING_DIMENSION` | 768 | Must match nomic-embed-text output |
+
+### 4.4 Logging AI Query API
+
+The query API exposes two search modes on the same endpoint:
 
 **Request:**
 ```json
-POST /search
+POST /ai/logs/search
 {
-  "query": "how does K2s handle VM startup on Windows?",
+  "query": "database connection pool exhausted",
   "top_k": 10,
-  "filter": {
-    "language": "powershell"
-  },
-  "hybrid": true
+  "namespace": "demo-app",
+  "search_type": "semantic"
 }
 ```
 
@@ -244,152 +290,154 @@ POST /search
 {
   "hits": [
     {
-      "score": 0.87,
-      "file": "lib/modules/k2s.infra.module/New-VM.ps1",
-      "language": "powershell",
-      "chunk_index": 2,
-      "content": "function Start-LinuxVm {\n    param([string]$VmName)\n    Start-VM -Name $VmName\n    Wait-VmReady -Name $VmName -TimeoutSeconds 120\n..."
-    },
-    ...
+      "score": 0.89,
+      "log": "ERROR: pq: too many clients - cannot acquire connection within 3s",
+      "pod": "order-service",
+      "namespace": "demo-app",
+      "timestamp": "2026-04-21T12:46:56Z",
+      "level": "error"
+    }
   ],
-  "total": 47,
-  "took_ms": 23
+  "total": 7,
+  "search_type": "semantic",
+  "took_ms": 34
 }
-```
-
-**Result formatter (`fmt.py`):**
-```python
-import sys, json
-d = json.load(sys.stdin)
-hits = d["hits"]
-print(f"{len(hits)} hits")
-for h in hits[:5]:
-    s = h["score"]
-    c = h["content"][:130].replace("\n", " ")
-    print(f"  [{s:.1%}] {c}")
-```
-
-Sample output:
-```
-47 hits
-  [87.3%] function Start-LinuxVm {     param([string]$VmName)     Start-VM -Name $VmName     Wait-VmReady -Name $VmName -TimeoutSec
-  [84.1%] func (p *Provider) StartCluster(ctx context.Context, config ClusterConfig) error {     return p.powershell.Execute("Start-Li
-  [81.6%] function New-LinuxVmConfig {     param($Name, $Memory, $CPU)     # Hyper-V VM provisioning for K2s Linux node
-  [79.2%] ## Starting the Linux VM     K2s starts a Hyper-V virtual machine hosting the Kubernetes control plane. The VM lifecycle is
-  [76.8%] virsh start kubemaster     virsh dominfo kubemaster --state running
 ```
 
 ---
 
 ## 5. Data Flow & Request Lifecycle
 
-### 5.1 Indexing Flow (one-time / incremental)
+### 5.1 Log Ingestion Flow
 
 ```
-Repository Files
-      │
-      ▼ (Indexer Job)
- ┌──────────────┐
- │ File crawler  │  Walk directories, filter by extension
- └──────┬───────┘
-        │ raw text chunks
-        ▼
- ┌──────────────────┐
- │ Text Splitter     │  512-token chunks, 100-token overlap
- │ (LangChain)       │  Boundary-aware (functions, headings)
- └──────┬────────────┘
-        │ chunk strings
-        ▼
- ┌────────────────────┐
- │ Embedding Service  │  POST /embed  →  float[384]
- │ (MiniLM-L6-v2)     │  ~20ms per chunk
- └──────┬─────────────┘
-        │ (chunk_text, vector, metadata)
-        ▼
- ┌──────────────────────┐
- │ OpenSearch Bulk API  │  POST /_bulk  (batches of 100)
- │ knn_vector field      │  + BM25 text field (same content)
- └──────────────────────┘
+Pod (any namespace)
+      |
+      | stdout/stderr
+      v
+ +--------------+
+ | Fluent-bit   |  DaemonSet on every node
+ | (DaemonSet)  |  Tails /var/log/containers/*.log
+ +------+-------+
+        |  JSON log records
+        v
+ +------------------+
+ | OpenSearch       |  Index: k2s
+ | Raw log index    |  Fields: @timestamp, log, kubernetes.pod_name,
+ |                  |          kubernetes.namespace_name, level
+ +------------------+
+        |
+        v (every hour, CronJob)
+ +------------------+
+ | Embedding        |  Filters warn+error logs
+ | Pipeline         |  Calls Ollama -> 768-dim vector
+ |                  |  Stores in logs-vector index
+ +------------------+
 ```
 
-**Indexing throughput:** ~500 chunks/minute on a single CPU core  
-**Full K2s repo index time:** ~10-15 minutes  
-**Index size:** ~2-5 MB (for 384-dim vectors × ~5,000 chunks)
-
-### 5.2 Query Flow (real-time)
+### 5.2 Semantic Query Flow (real-time)
 
 ```
-User query: "how does DNS resolution work in K2s?"
-      │
-      ▼
- Search API (:8081)
-      │
-      ├──► Embed query  →  Embedding Service  →  float[384]
-      │    (synchronous, ~20ms)
-      │
-      ├──► kNN query to OpenSearch
-      │    GET /k2s-knowledge/_search
-      │    {
-      │      "knn": { "vector": [...], "k": 10 },
-      │      "filter": { "term": { "language": "..." } }
-      │    }
-      │    (~5-15ms HNSW lookup)
-      │
-      ├──► [hybrid mode] BM25 text query (parallel)
-      │    { "match": { "content": "DNS resolution K2s" } }
-      │
-      ├──► Score fusion (RRF: Reciprocal Rank Fusion)
-      │    final_score = α·knn_score + (1-α)·bm25_score
-      │
-      └──► Return ranked hits JSON
-           Total latency: ~30-60ms
+User query: "payment service cannot connect to gateway"
+      |
+      v
+ Logging AI API (:8080)
+      |
+      +---> Embed query via Ollama nomic-embed-text  (~20ms)
+      |     POST http://ollama.ai-assistant.svc:11434/api/embed
+      |     -> float[768]
+      |
+      +---> kNN query to OpenSearch logs-vector index  (~10ms)
+      |     GET /logs-vector/_search
+      |     { "knn": { "vector": [...], "k": 10 } }
+      |     HNSW approximate nearest neighbor lookup
+      |
+      +---> [normal mode] BM25 text query on k2s index  (~5ms)
+      |     { "match": { "log": "payment service cannot connect..." } }
+      |
+      +---> Return ranked hits JSON
+            Total latency: ~30-60ms
+```
+
+### 5.3 Normal vs. Semantic Search - Side by Side
+
+```
+Same query sent to both modes:
+  "service cannot reach its dependencies"
+
+Normal (BM25) result:
+  0 hits   <- exact phrase not in any log
+
+Semantic (kNN) results:
+  7 hits
+  [0.89] "Redis NOAUTH Authentication required"
+  [0.87] "pq: too many clients - connection pool exhausted"
+  [0.85] "circuit breaker OPEN after 5 consecutive failures"
+  [0.83] "Kafka broker unavailable at :9092"
+  [0.81] "goroutine panic: nil pointer dereference"
+  [0.79] "x509: certificate has expired or is not yet valid"
+  [0.76] "GC pause 1.8s - heap pressure at 487MB/512MB"
 ```
 
 ---
 
 ## 6. Embedding Pipeline
 
-### 6.1 Chunking Strategy by File Type
+### 6.1 Log Level Filter
+
+Only warn and error logs are embedded by default. This keeps the vector index focused on
+actionable signals and reduces noise from routine info logs.
 
 ```
-┌─────────────────┬───────────────┬──────────────┬─────────────────────────┐
-│ File Type        │ Chunk Size    │ Overlap      │ Split Boundary          │
-├─────────────────┼───────────────┼──────────────┼─────────────────────────┤
-│ Go (.go)         │ 512 tokens   │ 100 tokens   │ func / type / comment   │
-│ PowerShell (.ps1)│ 512 tokens   │ 100 tokens   │ function / param block  │
-│ Markdown (.md)   │ 512 tokens   │ 50 tokens    │ ## headings             │
-│ YAML (.yaml)     │ 256 tokens   │ 0 tokens     │ top-level keys          │
-│ Module (.psm1)   │ 512 tokens   │ 100 tokens   │ function boundary       │
-└─────────────────┴───────────────┴──────────────┴─────────────────────────┘
+Fluent-bit log levels in k2s index:
+  trace  -> skipped  (too verbose)
+  debug  -> skipped  (too verbose)
+  info   -> skipped  (unless MIN_LOG_LEVEL=info or *)
+  warn   -> EMBEDDED into logs-vector
+  error  -> EMBEDDED into logs-vector
+  fatal  -> EMBEDDED into logs-vector
 ```
 
-### 6.2 Metadata Enrichment
+### 6.2 Metadata per Vector Document
 
-Each chunk is stored with metadata that enables filtering and attribution:
+Each vector document in `logs-vector` includes:
 
 ```json
 {
-  "_index": "k2s-knowledge",
+  "_index": "logs-vector",
   "_source": {
-    "content": "function Enable-KubernetesAddon { ...",
-    "vector": [0.12, -0.34, 0.87, ...],
-    "file_path": "addons/autoscaling/Enable.ps1",
-    "language": "powershell",
-    "addon_name": "autoscaling",
-    "chunk_index": 3,
-    "function_name": "Enable-KubernetesAddon",
-    "token_count": 487,
-    "git_commit": "abc1234",
-    "indexed_at": "2026-04-20T10:00:00Z"
+    "log":        "ERROR: pq: too many clients already...",
+    "vector":     [0.12, -0.34, 0.87, "...768 floats total..."],
+    "pod":        "order-service",
+    "namespace":  "demo-app",
+    "node":       "kubemaster",
+    "level":      "error",
+    "timestamp":  "2026-04-21T12:46:56Z",
+    "indexed_at": "2026-04-21T13:00:00Z"
   }
 }
 ```
+
+### 6.3 Initial Pipeline Run on Enable
+
+When `k2s addons enable logging --enableAI` completes, Enable.ps1 immediately triggers
+a one-shot pipeline job so the vector index is populated before the user opens demo.html:
+
+```powershell
+# From Enable.ps1 - runs automatically after AI components deploy
+$jobName = "pipeline-initial-$(Get-Date -Format 'yyyyMMddHHmmss')"
+kubectl create job --from=cronjob/logging-ai-pipeline $jobName -n logging
+kubectl wait --for=condition=complete job/$jobName -n logging --timeout=120s
+# Vector index is ready when this completes
+```
+
+No manual steps required - the index is ready when enable completes.
 
 ---
 
 ## 7. Index Design & Schema
 
-### 7.1 OpenSearch Index Mapping
+### 7.1 OpenSearch Index Mapping (logs-vector)
 
 ```json
 {
@@ -403,13 +451,13 @@ Each chunk is stored with metadata that enables filtering and attribution:
   },
   "mappings": {
     "properties": {
-      "content": {
+      "log": {
         "type": "text",
         "analyzer": "english"
       },
       "vector": {
         "type": "knn_vector",
-        "dimension": 384,
+        "dimension": 768,
         "method": {
           "name": "hnsw",
           "space_type": "cosinesimil",
@@ -420,11 +468,11 @@ Each chunk is stored with metadata that enables filtering and attribution:
           }
         }
       },
-      "file_path": { "type": "keyword" },
-      "language":  { "type": "keyword" },
-      "addon_name":{ "type": "keyword" },
-      "function_name": { "type": "keyword" },
-      "chunk_index": { "type": "integer" },
+      "pod":        { "type": "keyword" },
+      "namespace":  { "type": "keyword" },
+      "node":       { "type": "keyword" },
+      "level":      { "type": "keyword" },
+      "timestamp":  { "type": "date" },
       "indexed_at": { "type": "date" }
     }
   }
@@ -435,10 +483,10 @@ Each chunk is stored with metadata that enables filtering and attribution:
 
 | Parameter | Current Value | Effect |
 |---|---|---|
-| `m` | 16 | Graph edges per node — higher = better recall, more memory |
-| `ef_construction` | 512 | Build-time quality — higher = better index, slower indexing |
-| `ef_search` | 512 | Query-time beam width — higher = better recall, slower query |
-| `k` (top-K) | 10 | Results returned — application tunable |
+| `m` | 16 | Graph edges per node - higher = better recall, more memory |
+| `ef_construction` | 512 | Build-time quality - higher = better index, slower indexing |
+| `ef_search` | 512 | Query-time beam width - higher = better recall, slower query |
+| `k` (top-K) | 10 | Results returned - application tunable |
 
 ---
 
@@ -448,26 +496,21 @@ Each chunk is stored with metadata that enables filtering and attribution:
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `POST /search` | POST | Semantic search query |
+| `POST /ai/logs/search` | POST | Semantic or normal log search |
 | `GET /health` | GET | Service health check |
-| `POST /index` | POST | Trigger re-indexing (admin) |
-| `GET /stats` | GET | Index statistics (doc count, size) |
-| `DELETE /index` | DELETE | Clear and rebuild index (admin) |
+| `GET /ai/logs/stats` | GET | Index statistics (doc count, last pipeline run) |
 
 ### 8.2 Search Request Schema
 
 ```json
 {
-  "query": "string (required)",
-  "top_k": 10,
-  "filter": {
-    "language": "go | powershell | markdown | yaml",
-    "addon_name": "autoscaling | dashboard | ...",
-    "file_path_prefix": "k2s/internal/provider"
-  },
-  "hybrid": true,
-  "hybrid_alpha": 0.7,
-  "include_metadata": true
+  "query":       "string (required)",
+  "top_k":       10,
+  "namespace":   "demo-app (optional filter)",
+  "pod":         "order-service (optional filter)",
+  "level":       "error (optional filter)",
+  "search_type": "semantic | normal",
+  "from_time":   "2026-04-21T00:00:00Z (optional)"
 }
 ```
 
@@ -477,19 +520,18 @@ Each chunk is stored with metadata that enables filtering and attribution:
 {
   "hits": [
     {
-      "score": 0.87,
-      "file": "lib/modules/k2s.infra.module/...",
-      "language": "powershell",
-      "function_name": "Start-LinuxVm",
-      "addon_name": null,
-      "chunk_index": 2,
-      "content": "raw chunk text (up to 512 tokens)"
+      "score":     0.89,
+      "log":       "raw log message text",
+      "pod":       "order-service",
+      "namespace": "demo-app",
+      "node":      "kubemaster",
+      "level":     "error",
+      "timestamp": "2026-04-21T12:46:56Z"
     }
   ],
-  "total": 47,
-  "took_ms": 23,
-  "query_vector_ms": 18,
-  "knn_ms": 5
+  "total":       7,
+  "search_type": "semantic",
+  "took_ms":     34
 }
 ```
 
@@ -497,143 +539,133 @@ Each chunk is stored with metadata that enables filtering and attribution:
 
 ## 9. Integration with the K2s AI Assistant
 
-The semantic search index is a **core knowledge layer** that dramatically improves the AI Assistant's ability to answer K2s-specific questions.
+The semantic log search complements the existing AI Assistant (HolmesGPT + Ollama).
 
-### 9.1 Retrieval-Augmented Generation (RAG) Pattern
+### 9.1 Current Integration
 
 ```
-User: "How do I add a custom addon to K2s?"
-         │
-         ▼
- Headlamp AI Assistant plugin
-         │
-         ├──► Search API: "create custom addon K2s"
-         │    Returns: addons/autoscaling/Enable.ps1,
-         │             addons/addon.manifest.schema.json,
-         │             docs/dev-guide/addons.md
-         │    (top 3 chunks, score > 70%)
-         │
-         ├──► Build augmented prompt:
-         │    [CONTEXT from codebase]:
-         │      <chunk 1: addon manifest schema>
-         │      <chunk 2: Enable.ps1 template>
-         │      <chunk 3: addon dev guide>
-         │    [USER QUESTION]: How do I add a custom addon?
-         │
-         └──► Send to Ollama (qwen2.5:7b)
-              LLM generates answer grounded in actual K2s code
-              Not hallucinated — sourced from the real repo
+User opens demo.html (port-forward :9090)
+         |
+         +---> POST /ai/logs/search  { search_type: "semantic" }
+         |     Logging AI API embeds query via Ollama nomic-embed-text
+         |     OpenSearch kNN returns top matching log entries
+         |
+         +---> POST /ai/logs/search  { search_type: "normal" }
+               OpenSearch BM25 returns keyword matches
+               (shown side-by-side for comparison)
 ```
 
-### 9.2 Without RAG vs. With RAG
+### 9.2 Future RAG Integration with HolmesGPT
 
-| Scenario | Without RAG (today) | With RAG (future) |
-|---|---|---|
-| "How do I write an addon?" | Generic K8s addon advice | Actual K2s addon pattern from `addons/autoscaling/` |
-| "What does `Test-SystemAvailability` do?" | Hallucination or "I don't know" | Exact function signature + description from module |
-| "How does the delta packaging work?" | Generic explanation | Actual `New-K2sDeltaPackage.ps1` logic |
-| "What images are in the offline package?" | Guesses | Exact list from manifest files |
-| "How do I enable GPU mode?" | Generic k8s GPU advice | Exact `k2s addons enable ai-assistant --gpu` commands |
-
-### 9.3 HolmesGPT Tool Extension
-
-A new HolmesGPT tool `k2s_codebase_search` can be added to the toolset:
+Wire the log search as a HolmesGPT tool for incident analysis:
 
 ```yaml
 # kubernetes.yaml toolset extension
-- name: k2s_codebase_search
+- name: k2s_log_search
   description: >
-    Search the K2s source code and documentation for concepts, functions,
-    scripts, or configuration patterns. Use this when answering questions
-    about how K2s works internally, how to configure addons, or how
-    specific features are implemented.
+    Search cluster logs semantically. Use this to find error patterns,
+    understand why a pod is failing, or find similar past incidents.
+    Returns logs ranked by conceptual similarity, not just keyword match.
   parameters:
     - name: query
-      description: Natural language description of what to find
+      description: Natural language description of the issue to investigate
       type: string
-    - name: language
-      description: "Filter by: go, powershell, markdown, yaml (optional)"
+    - name: namespace
+      description: Filter by namespace (optional)
       type: string
-  returns:
-    description: Top matching code/documentation chunks with file paths and relevance scores
 ```
+
+### 9.3 Without vs. With Semantic Log Search
+
+| Scenario | Without semantic search | With semantic search |
+|---|---|---|
+| "Why is order-service failing?" | Read recent pod logs literally | Find conceptually related errors across time |
+| "Is this a known issue?" | No history search | Finds similar past error patterns in vector index |
+| "What else is broken?" | Lists current pod states | Finds pods with semantically similar error patterns |
+| "DB connection problem?" | grep for "database" | Finds pool exhaustion + circuit breaker + timeout |
 
 ---
 
 ## 10. Deployment Topology in K2s
 
-### 10.1 Kubernetes Resources
+### 10.1 Kubernetes Resources (logging --enableAI)
 
 ```
-namespace: search
-├── Deployment: opensearch          (1 replica, StatefulSet preferred)
-│   └── PVC: opensearch-data       (20 GiB, hostPath on kubemaster)
-├── Deployment: embedding-service   (1 replica)
-├── Deployment: search-api          (1 replica)
-├── CronJob: indexer               (nightly or on-demand)
-├── Service: opensearch            (:9200, ClusterIP)
-├── Service: embedding-service     (:8080, ClusterIP)
-└── Service: search-api            (:8081, ClusterIP)
+namespace: logging
++-- StatefulSet: opensearch-cluster-master   (OpenSearch 3.6.0)
++-- Deployment:  opensearch-dashboards        (OpenSearch Dashboards 3.6.0)
++-- DaemonSet:   fluent-bit                   (log collector, Linux nodes)
++-- DaemonSet:   fluent-bit-win               (log collector, Windows nodes)
++-- Deployment:  logging-ai-api               (Python query API :8080/:9090)
++-- CronJob:     logging-ai-pipeline          (hourly embedding job)
++-- Service:     opensearch-cluster-master    (:9200, ClusterIP)
++-- Service:     opensearch-dashboards        (:5601, ClusterIP)
++-- Service:     logging-ai-api               (:9090, ClusterIP)
+
+namespace: demo-app
++-- Pod: order-service  (Status: Error - generates realistic error logs)
+
+namespace: ai-assistant  (shared Ollama - pre-existing prerequisite)
++-- Deployment: ollama   (serves nomic-embed-text + qwen2.5:7b)
++-- Service:    ollama   (:11434, ClusterIP)
 ```
 
 ### 10.2 Full Stack Topology
 
 ```
-┌─── K2s cluster ──────────────────────────────────────────────────────┐
-│                                                                      │
-│  namespace: ai-assistant          namespace: search                  │
-│  ┌─────────────┐                  ┌──────────────────┐               │
-│  │   Ollama    │                  │   OpenSearch     │               │
-│  │ (LLM)       │◄─────────────────│   kNN index      │               │
-│  └─────────────┘  RAG context     └──────────────────┘               │
-│  ┌─────────────┐     ↑            ┌──────────────────┐               │
-│  │  HolmesGPT  │     │            │ Embedding Service│               │
-│  │  (agent)    │─────┤            │ MiniLM-L6-v2     │               │
-│  └─────────────┘     │            └──────────────────┘               │
-│                       │            ┌──────────────────┐               │
-│  namespace: dashboard │            │   Search API     │               │
-│  ┌────────────────────┴──────┐     │   :8081          │               │
-│  │  Headlamp + AI plugin     │────►│   /search        │               │
-│  │  Chat panel               │     └──────────────────┘               │
-│  └───────────────────────────┘     ┌──────────────────┐               │
-│                                    │  Indexer CronJob │               │
-│                                    │  (nightly)       │               │
-│                                    └──────────────────┘               │
-└──────────────────────────────────────────────────────────────────────┘
-         ▲
-    User browser (Headlamp UI)
-    CLI: curl + fmt.py
++--- K2s cluster -------------------------------------------------------+
+|                                                                       |
+|  namespace: ai-assistant          namespace: logging                  |
+|  +------------------+             +---------------------+            |
+|  |      Ollama      |             |     OpenSearch      |            |
+|  | nomic-embed-text |<------------| logs-vector (768-d) |            |
+|  | qwen2.5:7b       |  embed API  | k2s (raw logs)      |            |
+|  +------------------+             +---------------------+            |
+|           ^                       |   logging-ai-api    |            |
+|           |                       |   :9090             |            |
+|           |                       +---------------------+            |
+|           |                       |  pipeline CronJob   |            |
+|           |  (embed calls)        |  (hourly indexing)  |            |
+|           +----------------------------+----------------+            |
+|                                                                       |
+|  namespace: demo-app              namespace: logging                  |
+|  +--------------------+           +--------------------+             |
+|  |   order-service    |--logs-->  |    fluent-bit      |             |
+|  |   (Status: Error)  | fluent-   |   (DaemonSet)      |             |
+|  |   Generates:       |   bit     +--------------------+             |
+|  |   - DB errors      |                                              |
+|  |   - TLS errors     |                                              |
+|  |   - Redis errors   |                                              |
+|  |   - Kafka errors   |                                              |
+|  +--------------------+                                              |
+|                                                                       |
+|  namespace: dashboard                                                 |
+|  +----------------------------+                                       |
+|  |  Headlamp + AI plugin      |                                       |
+|  |  Chat: HolmesGPT (k8s AI) |                                       |
+|  +----------------------------+                                       |
++-----------------------------------------------------------------------+
+         ^                    ^
+    User browser         User browser
+    demo.html            Headlamp dashboard
+    (port :9090)         (port :4654 or ingress)
 ```
 
 ### 10.3 K2s Addon Integration
 
-The search stack is delivered as a K2s addon:
-
 ```console
-# Enable semantic search
-k2s addons enable semantic-search
+# Prerequisites
+k2s addons enable ai-assistant     # provides Ollama with nomic-embed-text
 
-# Enable AI Assistant with RAG (depends on semantic-search)
-k2s addons enable ai-assistant --with-rag
+# Enable logging with AI semantic search
+k2s addons enable logging --enableAI
 
-# Trigger manual re-index (after code changes)
-k2s addons update semantic-search --reindex
+# Access semantic search demo (opens in browser)
+kubectl -n logging port-forward svc/logging-ai-api 9090:9090
+# Then open: addons/logging/ai/demo.html
 
-# Check search health
-k2s addons status semantic-search
-```
-
-`addon.manifest.yaml` for `semantic-search`:
-```yaml
-apiVersion: v1
-kind: AddonManifest
-metadata:
-  name: semantic-search
-  description: OpenSearch-based semantic code and documentation search for K2s
-spec:
-  offlinePackage: true
-  dependencies: []           # standalone, no prerequisites
-  optionalFor: [ai-assistant]
+# Disable (removes all AI components + demo-app namespace)
+k2s addons disable logging
 ```
 
 ---
@@ -644,85 +676,53 @@ spec:
 
 | Setting | Value | Rationale |
 |---|---|---|
-| TLS | Disabled in dev, enabled in prod | Dev convenience; prod requires cert-manager |
-| Auth | Admin cert + key pair | K8s Secret, not plain password |
+| TLS | Disabled (dev mode) | Dev convenience; security plugin off |
+| Auth | None | Cluster-internal access only via ClusterIP |
 | Network | ClusterIP only | No external exposure |
 | Snapshot | Disabled | Local dev; enable for prod backups |
 
-### 11.2 K8s RBAC for Search Components
+### 11.2 Data Privacy Considerations
 
-```yaml
-# Search API service account — read-only to OpenSearch
-kind: Role
-rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get"]           # To read OpenSearch admin credentials
-
-# Indexer job service account — read K2s ConfigMaps for metadata
-kind: Role
-rules:
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["get", "list"]
-```
-
-### 11.3 Data Privacy Considerations
-
-| Data type | Indexed? | Rationale |
+| Data type | Indexed into vectors? | Rationale |
 |---|---|---|
-| Source code (Go/PS1) | ✅ Yes | Public within org |
-| Documentation (MD) | ✅ Yes | Public within org |
-| Config manifests (YAML) | ✅ Yes | Public within org |
-| Secrets / credentials | ❌ No | Excluded by path filter (`cfg/applocker`, `*.key`, `*.pem`) |
-| User query history | ❌ No | Not stored; stateless API |
-| Cluster runtime state | ❌ No | Index is static repo snapshot |
+| Pod logs (warn/error level) | Yes | Operational data, stays in cluster |
+| Pod logs (info/debug/trace) | No | Too noisy; skipped by MIN_LOG_LEVEL |
+| User query text | No | Stateless API; queries not stored |
+| Source code / manifests | No (logging addon) | Separate future semantic-search addon |
+| Secrets / credentials | No | Fluent-bit excludes secret volumes by default |
 
 ---
 
 ## 12. Offline / Air-Gap Operation
 
-The semantic search stack is fully air-gap compatible — consistent with K2s's core offline-first promise.
+The semantic search stack is fully air-gap compatible - consistent with K2s's core
+offline-first promise.
 
 ### 12.1 Offline Components
 
 | Component | Image | Offline strategy |
 |---|---|---|
-| OpenSearch | `opensearchproject/opensearch:2.13.0` | Bundled in K2s offline package |
-| Embedding model | `all-MiniLM-L6-v2` (HuggingFace) | Model weights pre-downloaded, baked into embedding service image |
-| Embedding service | Custom Python image | Built and bundled in K2s offline package |
-| Search API | Custom Python image | Built and bundled in K2s offline package |
+| OpenSearch | `opensearchproject/opensearch:3.6.0` | Pre-loaded in K2s image cache |
+| OpenSearch Dashboards | `opensearchproject/opensearch-dashboards:3.6.0` | Pre-loaded in K2s image cache |
+| Fluent-bit | `cr.fluentbit.io/fluent/fluent-bit:5.0.2` | Pre-loaded in K2s image cache |
+| Python API | `python:3.11-alpine` | Pre-loaded; source code via ConfigMap |
+| nomic-embed-text model | Ollama (ai-assistant namespace) | Model cached in `/ollama` hostPath |
 
-### 12.2 Pre-built Index Option
+### 12.2 Model Caching
 
-For fully air-gapped environments (no access to source at runtime):
+The `nomic-embed-text` model is downloaded once when `ai-assistant` is first enabled:
 
 ```
-Option A — Runtime indexing:
-  Source repo mounted as volume (or git-synced)
-  Indexer job runs inside cluster
-  Requires: repo access from cluster (works if cluster = workstation)
+k2s addons enable ai-assistant
+  -> Ollama init container: ollama pull nomic-embed-text
+  -> Model stored in /ollama hostPath on kubemaster
+  -> Survives cluster restarts (persistent hostPath)
+  -> No internet access needed after this point
 
-Option B — Pre-built index export:
-  Index built outside cluster (developer machine)
-  Snapshot exported: opensearch-snapshot.tar.gz
-  Bundled in K2s offline package
-  Restored during addon enable
-  Immutable until next K2s package release
-
-Option C — Hybrid:
-  Pre-built base index in offline package (stable modules)
-  Incremental indexing of local modifications at runtime
-```
-
-### 12.3 Air-Gap Enablement Flow
-
-```console
-# Option B — pre-built index (recommended for air-gap)
-k2s addons enable semantic-search --use-bundled-index
-
-# Option A — runtime indexing (requires source access)
-k2s addons enable semantic-search --source-path C:\ws\K2s
+k2s addons enable logging --enableAI
+  -> logging-ai-api connects to ai-assistant Ollama
+  -> nomic-embed-text already available - no download
+  -> Works fully offline from this point
 ```
 
 ---
@@ -733,21 +733,21 @@ k2s addons enable semantic-search --source-path C:\ws\K2s
 
 | Metric | Value | Notes |
 |---|---|---|
-| Chunking throughput | ~2,000 chunks/min | Pure CPU, LangChain |
-| Embedding throughput | 50-100 chunks/sec | MiniLM on 1 CPU core |
-| Bulk index throughput | 1,000 docs/sec | OpenSearch default |
-| Full repo index time | ~10-15 minutes | ~5,000 chunks total |
-| Incremental update | ~1-3 minutes | Changed files only |
-| Index size on disk | ~20-50 MB | 384-dim × 5,000 docs + BM25 |
+| Pipeline frequency | Every 60 minutes | CronJob schedule (`0 * * * *`) |
+| Logs per run | Up to 50 (BATCH_SIZE) | Warn+error only, last 60 min |
+| Embedding latency | ~20ms per log entry | nomic-embed-text via Ollama CPU |
+| Bulk index throughput | ~1,000 docs/sec | OpenSearch default |
+| Initial pipeline time | ~30-60 seconds | Depends on log volume |
+| Vector index size | ~5-10 MB per 1000 logs | 768-dim x 1000 docs |
 
 ### 13.2 Query Performance
 
 | Metric | Value | Notes |
 |---|---|---|
-| Embedding latency | 15-30ms | MiniLM on CPU |
-| HNSW kNN search | 5-15ms | 5,000 docs, ef_search=512 |
+| Embed query latency | 15-30ms | nomic-embed-text via Ollama |
+| HNSW kNN search | 5-15ms | ef_search=512 |
 | BM25 text search | 2-5ms | Standard inverted index |
-| Score fusion | <1ms | Pure math |
+| Score fusion | less than 1ms | Pure math |
 | Total query P95 | 30-60ms | End-to-end |
 | Total query P99 | 80-120ms | Under load |
 
@@ -755,13 +755,13 @@ k2s addons enable semantic-search --source-path C:\ws\K2s
 
 | Component | CPU Request | CPU Limit | Memory Request | Memory Limit | Disk |
 |---|---|---|---|---|---|
-| OpenSearch | 0.5 cores | 2 cores | 1 GiB | 4 GiB | 20 GiB PVC |
-| Embedding Service | 0.5 cores | 2 cores | 512 MiB | 1 GiB | (model in image) |
-| Search API | 0.1 cores | 0.5 cores | 64 MiB | 256 MiB | — |
-| Indexer Job | 1 core | 2 cores | 512 MiB | 1 GiB | (ephemeral) |
-| **Total** | **2.1 cores** | **6.5 cores** | **2.1 GiB** | **6.25 GiB** | **20 GiB** |
+| OpenSearch | 500m | 2 cores | 1 GiB | 2 GiB | /logging hostPath |
+| OpenSearch Dashboards | 100m | 500m | 512 MiB | 1 GiB | - |
+| Logging AI API | 100m | 500m | 64 MiB | 256 MiB | - |
+| Pipeline Job | 200m | 500m | 128 MiB | 256 MiB | ephemeral |
+| Ollama (shared) | 200m | 4 cores | 512 MiB | 2 GiB | /ollama hostPath |
 
-> ⚠️ These resources are **additive** to the AI Assistant stack (~6-7 GiB). Ensure kubemaster has ≥ 16 GB RAM when running both.
+> Note: Ollama resources are shared with ai-assistant addon. No additional cost when both are enabled.
 
 ---
 
@@ -769,243 +769,211 @@ k2s addons enable semantic-search --source-path C:\ws\K2s
 
 | Limitation | Root Cause | Workaround |
 |---|---|---|
-| Static index (no real-time update) | Indexer is a batch job | Manual `--reindex` trigger |
-| No binary file search | `.exe`, `.vhdx` not indexable as text | Excluded by design |
-| 512-token chunk limit | Model context window | Overlap + neighboring chunks |
-| English-only embedding quality | MiniLM trained on English | German/other language queries degrade |
-| Single-node OpenSearch | Dev simplicity | StatefulSet for HA (production) |
-| No authentication on Search API | Dev convenience | Add JWT/API key for production |
-| MCP integration not yet wired | In-cluster MCP not supported by Headlamp | Roadmap item |
-| fmt.py is a CLI-only client | No UI yet | Headlamp plugin integration planned |
+| Only warn+error logs indexed | MIN_LOG_LEVEL=warn | Set `MIN_LOG_LEVEL=*` in ConfigMap to index all levels |
+| 50 logs per pipeline run | BATCH_SIZE=50 | Increase `BATCH_SIZE` in ConfigMap |
+| No real-time index update | CronJob is hourly | Trigger manually: `kubectl create job --from=cronjob/logging-ai-pipeline` |
+| Single-node OpenSearch | Dev simplicity | StatefulSet HA for production |
+| No auth on Query API | Dev convenience | Add JWT/API key for production |
+| demo.html needs port-forward | No ingress configured | Add ingress rule for logging-ai-api |
+| No LLM summarization yet | LLM_ENABLED=false | Enable + set `OLLAMA_LLM_MODEL=qwen2.5:7b` for RAG |
+| Requires ai-assistant addon | Shared Ollama | Could be made standalone with own Ollama |
 
 ---
 
-## 15. Future Scope — Near Term (3-6 months)
+## 15. Future Scope - Near Term (3-6 months)
 
-### 15.1 Headlamp Search UI Panel
+### 15.1 LLM-Powered Log Summarization (RAG)
 
-Add a dedicated **Search** panel to the Headlamp AI Assistant plugin:
+Enable `LLM_ENABLED=true` to add natural language answers on top of semantic search:
 
 ```
-┌─────────────────────────────────────────┐
-│  🔍 K2s Codebase Search                 │
-│  ┌─────────────────────────────────┐    │
-│  │ how does addon enable work?     │    │
-│  └─────────────────────────────────┘    │
-│  Filter: [All] [Go] [PowerShell] [Docs] │
-│                                          │
-│  Results (47):                           │
-│  ● [87%] addons/autoscaling/Enable.ps1  │
-│    function Enable-AutoscalingAddon {   │
-│    [View file] [Copy path] [Ask AI ↗]   │
-│                                          │
-│  ● [84%] k2s/cmd/k2s/addons/enable.go  │
-│    func runEnable(cmd *cobra.Command... │
-└─────────────────────────────────────────┘
+Query: "why is the order service failing?"
+
+Semantic search finds: 7 related error logs (scored 0.76 to 0.89)
+
+LLM (qwen2.5:7b via Ollama) synthesizes answer:
+
+  "The order-service is failing due to three cascading issues:
+   1. The PostgreSQL connection pool is exhausted (too many clients)
+   2. This triggered the circuit breaker (OPEN after 5 failures)
+   3. Redis is also unavailable (NOAUTH error)
+
+   Recommended action: Check DB max_connections setting and Redis
+   authentication config. The circuit breaker will reset automatically
+   after the DB issue is resolved."
 ```
 
-Features:
-- "Ask AI about this" button → pre-fills AI chat with the chunk as context
-- File path click → opens file in Headlamp source viewer
-- Filter chips for language/addon/path prefix
-- Score threshold slider
+### 15.2 Headlamp Log Search UI Panel
 
-### 15.2 RAG Integration with HolmesGPT
+Add a dedicated Log Search panel to the Headlamp AI Assistant plugin:
 
-Wire the Search API as a HolmesGPT tool:
-
-```yaml
-# New tool in kubernetes.yaml toolset
-- name: k2s_codebase_search
-  description: "Search K2s source code and docs by meaning"
-  endpoint: "http://search-api.search.svc.cluster.local:8081/search"
 ```
-
-Expected improvement in AI answers:
-- K2s-specific questions answered from real code, not hallucination
-- Addon configuration questions answered from actual Enable.ps1 patterns
-- Troubleshooting grounded in real implementation details
++------------------------------------------+
+|  Log Search                              |
+|  +------------------------------------+  |
+|  | payment service cannot connect     |  |
+|  +------------------------------------+  |
+|  [Semantic]  [Normal]  [Side-by-side]    |
+|  Filter: namespace [demo-app v]          |
+|                                          |
+|  Semantic results (7):                   |
+|  [0.89] order-service  error             |
+|         pq: too many clients already...  |
+|                                          |
+|  [0.87] order-service  error             |
+|         circuit breaker OPEN after 5...  |
+|                                          |
+|  [Ask AI to diagnose these logs ->]      |
++------------------------------------------+
+```
 
 ### 15.3 Incremental Real-Time Indexing
 
-Replace batch CronJob with event-driven incremental updates:
+Replace hourly CronJob with event-driven pipeline:
 
 ```
-Git push / file change
-    → Webhook → Indexer service
-    → Re-chunk only changed files
-    → Update OpenSearch documents
-    → Index lag < 30 seconds
+New log arrives in OpenSearch
+    -> Fluent-bit webhook / OpenSearch change feed
+    -> Embedding service notified immediately
+    -> Log embedded and indexed within seconds
+    -> Index lag: < 5 seconds (vs. up to 60 minutes today)
 ```
 
-### 15.4 Better Code Embedding Model
+### 15.4 Better Embedding Model Options
 
-Switch from `all-MiniLM-L6-v2` to `nomic-embed-text` or `CodeBERT`:
+Currently using `nomic-embed-text` (768-dim). Future upgrade candidates:
 
-| Model | Improvement | Cost |
-|---|---|---|
-| `nomic-embed-text` | Better on mixed code+prose | Same speed |
-| `microsoft/codebert-base` | Better code semantic understanding | Same speed |
-| `Salesforce/codet5-base` | Multi-language code aware | Slightly slower |
+| Model | Dims | Improvement | Notes |
+|---|---|---|---|
+| `nomic-embed-text` | 768 | Current choice | Already deployed - no change needed |
+| `bge-large-en-v1.5` | 1024 | Higher recall quality | Higher memory cost, needs own service |
+| `microsoft/codebert-base` | 768 | Better code semantic understanding | Good for source code indexing |
+| Custom fine-tuned | 768 | Tuned on K2s log patterns | Requires training data collection |
 
 ### 15.5 Hybrid Search Score Fusion (RRF)
 
-Implement proper Reciprocal Rank Fusion:
+Implement proper Reciprocal Rank Fusion to combine BM25 + kNN results:
 
 ```python
 def rrf_score(knn_rank, bm25_rank, k=60):
     return 1/(k + knn_rank) + 1/(k + bm25_rank)
 ```
 
-This eliminates the need to manually tune the `alpha` weight between semantic and keyword scores.
+This eliminates manual alpha weight tuning and generally outperforms both pure modes.
 
 ---
 
-## 16. Future Scope — Medium Term (6-12 months)
+## 16. Future Scope - Medium Term (6-12 months)
 
-### 16.1 Multi-Modal Indexing
+### 16.1 Multi-Source Indexing
 
-Extend indexing beyond source code:
+Extend the vector index beyond pod logs:
 
 | Content type | Indexing approach | Use case |
 |---|---|---|
-| Architecture diagrams (PNG) | OCR → text → embed | Find diagrams by concept |
-| Cluster runtime state | K8s API → JSON → embed | "Find pods similar to this configuration" |
-| Log patterns | Log → embed → cluster | "Find similar incidents" |
-| Addon manifests (structured YAML) | Schema-aware chunking | "Find addons that do X" |
-| Helm chart values | Values → semantic meaning | "What values control memory limits?" |
+| K8s events | Events API -> embed | "Find scheduling failures similar to this" |
+| Metrics anomalies | Time-series -> embed | "Find historical CPU spikes like current" |
+| Audit logs | K8s audit -> embed | "Who changed this resource recently?" |
+| Source code | Repo crawler -> embed | "Find code that handles this error pattern" |
+| Documentation | MkDocs -> embed | "How do I configure this addon?" |
 
-### 16.2 Cluster-Aware Search (Live State + Code Combined)
+### 16.2 Cluster-Aware Incident Analysis
 
-Combine static repo knowledge with live cluster state:
+Combine semantic log search with live cluster state:
 
 ```
 Query: "why is the ingress not working?"
-  │
-  ├── Code context: ingress addon enable logic, nginx config templates
-  ├── Live state: current ingress objects, endpoint health, cert status
-  └── Combined answer: "Your ingress is missing a TLS secret — see how
-      to create one in addons/ingress/Enable.ps1 line 45"
+  |
+  +-- Semantic log search: TLS errors, 502 logs, cert errors
+  +-- Live state:          current ingress objects, endpoint health, cert expiry
+  +-- Combined answer:     "Your ingress TLS cert expired 2 days ago.
+                            See: kubectl describe certificate -n ingress-nginx"
 ```
 
-### 16.3 Semantic Diff for Upgrades
-
-When a new K2s version is released, semantic search can power **upgrade impact analysis**:
+### 16.3 Anomaly Detection via Embedding Distance
 
 ```
-"What changed between K2s 1.4 and 1.5?"
-  → Embed both versions of the codebase
-  → Find semantically shifted chunks (same file, different meaning)
-  → Generate human-readable changelog with semantic grouping
+Baseline: embed all "normal" info logs -> compute cluster centroids
+New log arrives -> embed -> compute distance from nearest centroid
+If distance > threshold -> flag as anomaly -> create K8s event / alert
 ```
 
-### 16.4 Knowledge Graph Integration
+### 16.4 OpenSearch Neural Search (Native ML)
 
-Build a knowledge graph on top of the vector index:
-
-```
-Nodes:   Functions, Modules, Addons, Configs, Commands
-Edges:   calls, imports, depends-on, configures, documents
-
-Query:   "What does enabling the dashboard addon affect?"
-Answer:  dashboard → headlamp deployment
-         headlamp → ingress (optional)
-         headlamp → ai-assistant (optional dependency)
-         headlamp → TLS cert (via cert-manager)
-```
-
-### 16.5 OpenSearch Neural Search (Native ML)
-
-OpenSearch 2.9+ supports **native neural search** with models running inside OpenSearch via the ML Commons plugin:
+OpenSearch 2.9+ supports native neural search with models running inside OpenSearch
+via the ML Commons plugin:
 
 ```
-Current architecture:            Future native ML architecture:
-  External embedding service  →   OpenSearch ML Commons
-  Separate embedding call     →   Ingest pipeline auto-embeds
-  Two API calls per query     →   Single API call
-  Separate scaling            →   Unified scaling
+Current architecture:               Future native ML architecture:
+  External Ollama embed call  ->     OpenSearch ML Commons
+  Separate embedding step     ->     Ingest pipeline auto-embeds on index
+  Two API calls per query     ->     Single API call
+  Separate Ollama scaling     ->     Unified OpenSearch scaling
 ```
-
-Migration path: Publish the embedding model to OpenSearch ML Commons, configure an ingest pipeline with `text_embedding` processor, and simplify the Search API.
 
 ---
 
-## 17. Future Scope — Long Term Vision (12-24 months)
+## 17. Future Scope - Long Term Vision (12-24 months)
 
-### 17.1 K2s Institutional Memory
+### 17.1 K2s Operational Memory
 
-The combination of semantic search + AI assistant creates an **institutional memory** layer for K2s:
-
-```
-Every K2s operation generates context:
-  - Installation decisions → stored + retrievable
-  - Troubleshooting sessions → indexed
-  - Configuration rationale → embedded with metadata
-  - Upgrade history → versioned vector snapshots
-
-Query anytime:
-  "Why was the ingress configured with sticky sessions?"
-  "Who changed the cert-manager issuer last month and why?"
-  "What was the root cause of the last OOM incident?"
-```
-
-### 17.2 AI-Powered Documentation Generation
-
-Use the codebase index to auto-generate and keep documentation up to date:
+Semantic search over logs creates persistent operational memory:
 
 ```
-Code change detected (PR merge)
-    → Re-index changed files
-    → Semantic diff vs. existing docs
-    → AI drafts documentation update
-    → PR opened with suggested doc changes
-    → Human review + merge
+Every incident generates indexed evidence:
+  - Error logs -> embedded -> retrievable by concept forever
+  - Fix actions -> stored with incident context
+  - Resolution notes -> indexed alongside log vectors
+
+Query anytime (even months later):
+  "Have we seen this DB exhaustion before?"
+  "What fixed the Redis connection issue last time?"
+  "Is this payment error pattern new or recurring?"
+```
+
+### 17.2 Autonomous Incident Correlation
+
+```
+Alert fires: pod CrashLoopBackOff
+    -> HolmesGPT called (existing today)
+    -> ALSO: semantic log search for similar past incidents
+    -> ALSO: search K2s docs for known issue patterns
+    -> Combined: root cause + historical context + fix recommendation
+    -> One-click remediation suggestion
 ```
 
 ### 17.3 Federated Search Across K2s Deployments
 
-For enterprises running multiple K2s clusters (factory, lab, staging, production):
+For enterprises running multiple K2s clusters:
 
 ```
-┌─── Factory K2s ──┐  ┌─── Lab K2s ──────┐  ┌─── Staging K2s ──┐
-│ search-api :8081 │  │ search-api :8081  │  │ search-api :8081  │
-└──────────────────┘  └──────────────────┘  └──────────────────┘
-         │                    │                      │
-         └────────────────────┴──────────────────────┘
-                              │
-                    ┌─────────────────┐
-                    │  Federated      │
-                    │  Search API     │
-                    │  (aggregator)   │
-                    └─────────────────┘
-                              │
-                    "Find all clusters where
-                     the dashboard addon is
-                     configured with auth"
++--- Factory K2s ----+  +--- Lab K2s -------+  +--- Staging K2s ---+
+| logging-ai-api     |  | logging-ai-api    |  | logging-ai-api    |
+| :8080              |  | :8080             |  | :8080             |
++--------------------+  +-------------------+  +-------------------+
+         |                       |                       |
+         +-----------------------+-----------------------+
+                                 |
+                    +------------+------------+
+                    |  Federated Log Search   |
+                    |  (aggregator service)   |
+                    +-------------------------+
+                                 |
+              "Find all clusters with similar payment errors"
+              "Has this DB exhaustion pattern appeared in prod?"
 ```
 
-### 17.4 Autonomous Learning from Incidents
-
-```
-Incident occurs → HolmesGPT diagnoses → fix applied
-    → Incident + fix pair stored as training data
-    → Periodic fine-tuning of local embedding model
-    → Model improves at understanding THIS environment's patterns
-    → Semantic search becomes more accurate over time
-```
-
-### 17.5 Capability Maturity Timeline
+### 17.4 Capability Maturity Timeline
 
 | Capability | Today | 6 months | 12 months | 24 months |
 |---|---|---|---|---|
-| Code semantic search | ✅ Prototype | ✅ Production | ✅ Stable | ✅ Federated |
-| RAG in AI Assistant | 🔵 In progress | ✅ Integrated | ✅ Multi-source | ✅ Live state |
-| Headlamp Search UI | ❌ fmt.py only | 🔵 Alpha | ✅ Production | ✅ Advanced |
-| Auto re-indexing | ❌ Manual | 🔵 CronJob | ✅ Event-driven | ✅ Real-time |
-| Native OpenSearch ML | ❌ External | ❌ | 🔵 Prototype | ✅ Production |
-| Knowledge graph | ❌ | ❌ | 🔵 Research | ✅ Prototype |
-| Institutional memory | ❌ | ❌ | 🔵 Design | ✅ Alpha |
-| Federated search | ❌ | ❌ | ❌ | 🔵 Design |
+| Semantic log search | Prototype (demo.html) | Production | Stable | Federated |
+| Normal vs. semantic comparison | demo.html | Headlamp panel | Full UX | Advanced |
+| RAG log summarization | Disabled | Alpha | Production | Multi-source |
+| Real-time indexing | Hourly CronJob | Event-driven | Real-time | Real-time |
+| Native OpenSearch ML | External Ollama | External | Prototype | Production |
+| Anomaly detection | No | Research | Prototype | Production |
+| Federated search | No | No | Design | Prototype |
 
 ---
 
@@ -1015,105 +983,128 @@ Incident occurs → HolmesGPT diagnoses → fix applied
 
 | Feature | OpenSearch | Qdrant | Weaviate | pgvector | Chroma |
 |---|---|---|---|---|---|
-| BM25 + kNN hybrid | ✅ Native | ⚠️ Sparse vectors | ✅ Native | ⚠️ Manual | ❌ kNN only |
-| Production-ready | ✅ Enterprise | ✅ Yes | ✅ Yes | ✅ Yes | ⚠️ Dev-focused |
-| Offline/air-gap | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
-| K8s native | ✅ Helm chart | ✅ Helm | ✅ Helm | ✅ (postgres) | ✅ |
-| Dashboard UI | ✅ Dashboards | ✅ Web UI | ✅ Console | ❌ | ❌ |
+| BM25 + kNN hybrid | Native | Sparse vectors | Native | Manual | kNN only |
+| Production-ready | Enterprise | Yes | Yes | Yes | Dev-focused |
+| Offline/air-gap | Full | Full | Full | Full | Full |
+| K8s native | Helm chart | Helm | Helm | (postgres) | Yes |
+| Dashboard UI | OpenSearch Dashboards | Web UI | Console | No | No |
 | License | Apache 2.0 | Apache 2.0 | BSD-3 | PostgreSQL | Apache 2.0 |
-| Ecosystem maturity | ✅ Very high | ✅ High | ✅ High | ✅ High | ⚠️ Growing |
-| K2s fit | ✅ Best | ✅ Good | ✅ Good | ⚠️ Needs Postgres | ⚠️ Dev only |
+| Already in K2s logging | Yes | No | No | No | No |
+| K2s fit | Best (already deployed) | Good | Good | Needs Postgres | Dev only |
 
-**Verdict:** OpenSearch is the right choice for K2s because it provides BM25+kNN hybrid search natively, has enterprise-grade stability, and fits the offline-first constraint without external dependencies.
+**Verdict:** OpenSearch is the right choice for K2s because it provides BM25+kNN hybrid search
+natively, is already deployed as the logging backend, and fits the offline-first constraint
+without additional dependencies.
 
-### 18.2 Semantic Search vs. GitHub Copilot / Cloud Code Search
+### 18.2 K2s Semantic Search vs. Cloud Code Search
 
 | Aspect | K2s Semantic Search (local) | GitHub Copilot / Cloud |
 |---|---|---|
-| Air-gap compatible | ✅ Yes | ❌ No |
-| Data stays on-premise | ✅ Yes | ❌ No |
-| Costs per query | ✅ $0 | 💰 Subscription |
-| Index freshness | Nightly CronJob | Real-time (GitHub) |
-| Custom metadata | ✅ Full control | ❌ Limited |
-| Code actions (fix, apply) | Roadmap | ✅ Available |
-| Regulatory compliance | ✅ Simple | ⚠️ Complex |
+| Air-gap compatible | Yes | No |
+| Data stays on-premise | Yes | No |
+| Costs per query | $0 | Subscription |
+| Index freshness | Hourly CronJob | Real-time |
+| Custom metadata | Full control | Limited |
+| Proprietary/regulated logs | Yes (never leaves cluster) | No |
+| Regulatory compliance | Simple | Complex |
 
 ---
 
 ## 19. Quick Reference
 
-### 19.1 CLI Commands
+### 19.1 Enable & Access
 
 ```console
-# Enable the semantic search addon
-k2s addons enable semantic-search
+# Step 1: Enable ai-assistant (provides Ollama + nomic-embed-text)
+k2s addons enable ai-assistant
 
-# Trigger manual re-index (after code changes)
-kubectl create job --from=cronjob/k2s-indexer manual-reindex -n search
+# Step 2: Enable logging with AI semantic search
+k2s addons enable logging --enableAI
 
-# Search from command line using fmt.py
-curl -s -X POST http://localhost:8081/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "how does addon enabling work", "top_k": 5}' \
-  | python fmt.py
+# Step 3: Port-forward the query API
+kubectl -n logging port-forward svc/logging-ai-api 9090:9090
 
-# Port-forward Search API
-kubectl port-forward svc/search-api -n search 8081:8081
+# Step 4: Open the demo UI in your browser
+# File: addons/logging/ai/demo.html
+
+# Access OpenSearch Dashboards (raw log exploration)
+kubectl -n logging port-forward svc/opensearch-dashboards 5601:5601
+# Open: http://localhost:5601/logging
+```
+
+### 19.2 Manual Pipeline Operations
+
+```console
+# Trigger embedding pipeline immediately (do not wait for hourly CronJob)
+kubectl create job --from=cronjob/logging-ai-pipeline manual-$(Get-Date -Format yyyyMMddHHmmss) -n logging
+
+# Check pipeline job logs
+kubectl logs -n logging job/manual-<timestamp>
+
+# Check how many vectors are indexed
+curl -s http://localhost:9200/logs-vector/_count
 
 # Check OpenSearch index stats
-curl -k https://localhost:9200/k2s-knowledge/_stats \
-  --cert tmp/admin.crt --key tmp/admin.key | python -m json.tool
+curl -s http://localhost:9200/_cat/indices?v
 
-# Rebuild index from scratch
-kubectl delete job -n search -l app=k2s-indexer
-kubectl create job --from=cronjob/k2s-indexer full-reindex -n search
+# Delete vector index and re-run pipeline from scratch
+curl -X DELETE http://localhost:9200/logs-vector
+kubectl create job --from=cronjob/logging-ai-pipeline rebuild-$(Get-Date -Format yyyyMMddHHmmss) -n logging
 ```
 
-### 19.2 Useful OpenSearch Queries
+### 19.3 Demo Search Queries for Presentation
 
-```bash
-# Check index document count
-curl -k https://localhost:9200/k2s-knowledge/_count \
-  --cert tmp/admin.crt --key tmp/admin.key
+Use these in demo.html to demonstrate semantic search power vs. keyword search:
 
-# See all indexed languages
-curl -k https://localhost:9200/k2s-knowledge/_search \
-  --cert tmp/admin.crt --key tmp/admin.key \
-  -d '{"size":0,"aggs":{"langs":{"terms":{"field":"language"}}}}'
+| Search query (type this) | Semantic finds (different words, same meaning) |
+|---|---|
+| `database is not responding` | `pq: too many clients`, circuit breaker OPEN, connection pool exhausted |
+| `TLS issue` | `x509: certificate has expired`, payment gateway TLS handshake failed |
+| `application is overloaded` | `GC pause 1.8s`, `heap 487MB/512MB`, connection pool full |
+| `payment processing failed` | cert expired + `Post https://payment-gateway` charge failed logs |
+| `service cannot reach dependencies` | Redis NOAUTH + DB refused + Kafka broker unavailable |
+| `application crashed` | goroutine panic + nil pointer dereference + stack trace |
+| `memory pressure` | heap 487MB/512MB + GC pause + OOM risk |
 
-# Delete + recreate index
-curl -k -X DELETE https://localhost:9200/k2s-knowledge \
-  --cert tmp/admin.crt --key tmp/admin.key
-```
+**Demo script:** Run each query in "Normal" mode first (shows 0 results), then switch
+to "Semantic" mode (shows 5-9 results). This clearly demonstrates the value of semantic
+search over keyword matching.
 
-### 19.3 fmt.py Reference
+### 19.4 Configuration Reference
 
-```python
-# fmt.py — formats semantic search API JSON output
-# Usage: curl ... | python fmt.py
-import sys, json
-d = json.load(sys.stdin)
-hits = d["hits"]
-print(f"{len(hits)} hits")
-for h in hits[:5]:
-    s = h["score"]
-    c = h["content"][:130].replace("\n", " ")
-    print(f"  [{s:.1%}] {c}")
-```
+| Environment Variable | Default | Description |
+|---|---|---|
+| `OPENSEARCH_HOST` | `opensearch-cluster-master.logging.svc.cluster.local` | OpenSearch address |
+| `OPENSEARCH_PORT` | `9200` | OpenSearch REST port |
+| `OLLAMA_HOST` | `http://ollama.ai-assistant.svc.cluster.local:11434` | Ollama address |
+| `OLLAMA_MODEL` | `nomic-embed-text` | Embedding model name |
+| `EMBEDDING_DIMENSION` | `768` | Vector dimensions (must match model output) |
+| `MIN_LOG_LEVEL` | `warn` | Minimum log level to embed (warn, error, info, *) |
+| `BATCH_SIZE` | `50` | Max logs per pipeline run |
+| `PIPELINE_LOOKBACK_MINUTES` | `60` | How far back pipeline fetches logs |
+| `LLM_ENABLED` | `false` | Enable LLM summarization (RAG) |
+| `OLLAMA_LLM_MODEL` | `llama3` | LLM model for RAG answers |
+| `TOP_K` | `10` | Number of results returned per search |
+| `API_PORT` | `8080` | Query API internal listen port |
 
 ---
 
 ## Summary
 
-| Dimension | Today (prototype) | 6 months | 12 months | 24 months |
+| Dimension | Today (demo) | 6 months | 12 months | 24 months |
 |---|---|---|---|---|
-| **Search type** | kNN semantic | Hybrid BM25+kNN | Hybrid + live state | Federated |
-| **UI** | fmt.py CLI | Headlamp panel | Full search UX | Multi-cluster |
-| **RAG** | Manual context | Holmes tool | Auto-grounded AI | Institutional memory |
-| **Index freshness** | Manual | Nightly CronJob | Event-driven | Real-time |
-| **Model** | MiniLM 384-dim | nomic-embed 768-dim | Native OpenSearch ML | Fine-tuned local |
-| **Air-gap** | ✅ Full | ✅ Pre-built index | ✅ Bundled in offline pkg | ✅ Full federated |
-| **Latency** | 30-60ms | 20-40ms | 15-30ms | <15ms |
+| **Search type** | kNN semantic + BM25 normal | Hybrid fused (RRF) | Hybrid + anomaly | Federated |
+| **UI** | demo.html (browser) | Headlamp panel | Full log UX | Multi-cluster |
+| **RAG** | Disabled (LLM_ENABLED=false) | LLM alpha | Production RAG | Institutional memory |
+| **Index freshness** | Hourly CronJob | Event-driven | Real-time | Real-time |
+| **Embedding model** | nomic-embed-text 768-dim | nomic-embed-text | Native OpenSearch ML | Fine-tuned |
+| **Log sources** | Pod logs (warn+error) | All log levels | Logs + events + metrics | Federated multi-cluster |
+| **Air-gap** | Full | Full | Full | Full |
+| **Query latency** | 30-60ms | 20-40ms | 15-30ms | less than 15ms |
 
-The OpenSearch semantic search stack transforms K2s from a large, hard-to-navigate codebase into a **searchable knowledge base** that both humans and AI agents can query by meaning. Combined with the AI Assistant's RAG capability, it eliminates hallucination in K2s-specific questions and provides a foundation for institutional knowledge management — a critical capability for long-lived, regulated, offline-first deployments.
+The OpenSearch semantic search stack transforms K2s log exploration from simple keyword grep
+into **meaning-based discovery** - letting engineers find related errors, understand cascading
+failures, and investigate incidents by describing *what happened*, not by remembering *exact
+log text*. Combined with the existing AI Assistant (HolmesGPT + Ollama), it forms the
+foundation for fully AI-driven incident response in the K2s platform.
 
