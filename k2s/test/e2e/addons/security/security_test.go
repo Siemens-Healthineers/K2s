@@ -557,7 +557,7 @@ var _ = Describe("'security' addon with omit flags (basic mode)", Ordered, func(
 var _ = Describe("'security' addon with omit flags (enhanced mode)", Ordered, func() {
 	// Test only "all omit flags" case - covers all omit functionality in one enable/disable cycle
 	It("enables the addon with all omit flags in enhanced mode", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "--omitPolicyEnf", "-o")
 	})
 
 	It("prints the status showing correct component states", func(ctx context.Context) {
