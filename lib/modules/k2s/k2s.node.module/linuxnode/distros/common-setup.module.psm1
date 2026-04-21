@@ -559,6 +559,7 @@ Function Get-BuildahDebPackagesFromInternet {
         [string]$UserPwd = '',
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$Proxy = '',
         [string]$TargetPath = $(throw 'Argument missing: TargetPath'),
         [string]$InstalledDistribution = 'debian12'
     )
@@ -571,7 +572,7 @@ Function Get-BuildahDebPackagesFromInternet {
                         -UserName $UserName `
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
-                        -Arguments @($TargetPath) `
+                        -Arguments @($TargetPath, $Proxy) `
                         -CleanupAfterExecution `
                         -Retries 2
 
