@@ -1,24 +1,9 @@
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
-# Source: nginx-gateway-fabric/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: nginx-gw
-  namespace: nginx-gw
-  labels:
-    helm.sh/chart: nginx-gateway-fabric-2.5.1
-    app.kubernetes.io/name: nginx-gw-controller
-    app.kubernetes.io/instance: nginx-gw
-    app.kubernetes.io/version: "2.5.1"
-    app.kubernetes.io/managed-by: Helm
-  annotations: {}
-automountServiceAccountToken: false
----
 # Source: nginx-gateway-fabric/templates/certs-job.yaml
-apiVersion: v1
-kind: ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
   name: nginx-gw-nginx-gw-controller-cert-generator
   namespace: nginx-gw
@@ -30,4 +15,12 @@ metadata:
     app.kubernetes.io/managed-by: Helm
   annotations:
     "helm.sh/hook": pre-install
-automountServiceAccountToken: false
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+      - update
+      - get
