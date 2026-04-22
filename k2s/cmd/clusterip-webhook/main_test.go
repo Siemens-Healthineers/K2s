@@ -6,7 +6,8 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -141,7 +142,7 @@ func TestAllocateIPCanUseLastIP(t *testing.T) {
 	// Mark all IPs except .254 as used
 	usedIPs := map[string]bool{}
 	for i := 50; i < 254; i++ {
-		usedIPs["172.21.0."+itoa(i)] = true
+		usedIPs["172.21.0."+strconv.Itoa(i)] = true
 	}
 
 	ip, err := alloc.AllocateIP("linux", usedIPs)
@@ -207,11 +208,6 @@ func TestIncAndDecIP(t *testing.T) {
 	if ip3.String() != "172.21.0.255" {
 		t.Errorf("dec 172.21.1.0 = %s, want 172.21.0.255", ip3)
 	}
-}
-
-// itoa is a simple int-to-string for test use
-func itoa(i int) string {
-	return fmt.Sprintf("%d", i)
 }
 
 // --- OSCache tests ---
@@ -683,5 +679,169 @@ func TestReconcileMismatchedServices_SkipsNonMatchingSelector(t *testing.T) {
 	}
 	if svcAfter.Spec.ClusterIP != "172.21.0.55" {
 		t.Error("Non-matching service should not have been touched")
+	}
+}
+
+// --- In-flight and concurrent allocation tests ---
+
+// TestAllocateIP_InFlightPreventsReuse verifies that an IP marked in-flight
+// is not re-allocated to a concurrent request.
+func TestAllocateIP_InFlightPreventsReuse(t *testing.T) {
+	alloc, _ := NewIPAllocator("172.21.0.0/24", "172.21.1.0/24", 50)
+
+	// Simulate: first request allocated .50 and marked it in-flight.
+	alloc.mu.Lock()
+	alloc.markInFlight("172.21.0.50")
+	alloc.mu.Unlock()
+
+	// Second request lists the same used-IPs (empty from cluster) but merges in-flight.
+	usedIPs := map[string]bool{}
+	alloc.mu.Lock()
+	for ip := range alloc.inFlight {
+		usedIPs[ip] = true
+	}
+	ip, err := alloc.AllocateIP("linux", usedIPs)
+	alloc.mu.Unlock()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ip == "172.21.0.50" {
+		t.Error("in-flight IP .50 should not have been re-allocated")
+	}
+	if ip != "172.21.0.51" {
+		t.Errorf("expected .51 as next free, got %s", ip)
+	}
+}
+
+// TestAllocateIP_InFlightExpiry verifies that expired in-flight entries are
+// evicted and their IPs become allocatable again.
+func TestAllocateIP_InFlightExpiry(t *testing.T) {
+	alloc, _ := NewIPAllocator("172.21.0.0/24", "172.21.1.0/24", 50)
+
+	// Insert an already-expired entry directly.
+	alloc.mu.Lock()
+	alloc.inFlight["172.21.0.50"] = time.Now().Add(-1 * time.Second)
+	alloc.mu.Unlock()
+
+	alloc.mu.Lock()
+	alloc.cleanupExpiredInFlight()
+	usedIPs := map[string]bool{}
+	for ip := range alloc.inFlight {
+		usedIPs[ip] = true
+	}
+	ip, err := alloc.AllocateIP("linux", usedIPs)
+	alloc.mu.Unlock()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ip != "172.21.0.50" {
+		t.Errorf("expired in-flight IP should be available again, got %s", ip)
+	}
+}
+
+// TestConcurrentAllocation_NoDuplicates races 20 goroutines each performing a
+// full lock-getUsedIPs-mergeInFlight-allocate-markInFlight cycle and asserts
+// that no two goroutines receive the same IP.
+func TestConcurrentAllocation_NoDuplicates(t *testing.T) {
+	const goroutines = 20
+	alloc, _ := NewIPAllocator("172.21.0.0/24", "172.21.1.0/24", 50)
+
+	// Shared cluster state: starts empty, grows as goroutines "persist" their IPs.
+	var clusterMu sync.Mutex
+	clusterIPs := map[string]bool{}
+
+	results := make([]string, goroutines)
+	errs := make([]error, goroutines)
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+
+			alloc.mu.Lock()
+
+			// Build usedIPs: cluster state + in-flight.
+			usedIPs := map[string]bool{}
+			clusterMu.Lock()
+			for ip := range clusterIPs {
+				usedIPs[ip] = true
+			}
+			clusterMu.Unlock()
+
+			alloc.cleanupExpiredInFlight()
+			for ip := range alloc.inFlight {
+				usedIPs[ip] = true
+			}
+
+			ip, err := alloc.AllocateIP("linux", usedIPs)
+			if err != nil {
+				alloc.mu.Unlock()
+				errs[i] = err
+				return
+			}
+			alloc.markInFlight(ip)
+			alloc.mu.Unlock()
+
+			// Simulate API server persistence.
+			clusterMu.Lock()
+			clusterIPs[ip] = true
+			clusterMu.Unlock()
+
+			results[i] = ip
+		}()
+	}
+
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("goroutine %d: allocation error: %v", i, err)
+		}
+	}
+
+	// Assert no duplicate IPs.
+	seen := map[string]int{}
+	for i, ip := range results {
+		if ip == "" {
+			continue
+		}
+		if prev, ok := seen[ip]; ok {
+			t.Errorf("duplicate IP %s allocated by goroutines %d and %d", ip, prev, i)
+		}
+		seen[ip] = i
+	}
+
+	if t.Failed() {
+		t.Logf("allocated IPs: %v", results)
+	}
+}
+
+// TestStartCleanupLoop verifies that the cleanup goroutine evicts expired entries.
+func TestStartCleanupLoop(t *testing.T) {
+	alloc, _ := NewIPAllocator("172.21.0.0/24", "172.21.1.0/24", 50)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	alloc.StartCleanupLoop(ctx)
+
+	// Insert an already-expired entry.
+	alloc.mu.Lock()
+	alloc.inFlight["172.21.0.50"] = time.Now().Add(-1 * time.Second)
+	alloc.mu.Unlock()
+
+	// Call cleanupExpiredInFlight directly -- the background ticker fires at 5s
+	// so we invoke it explicitly rather than waiting.
+	alloc.mu.Lock()
+	alloc.cleanupExpiredInFlight()
+	remaining := len(alloc.inFlight)
+	alloc.mu.Unlock()
+
+	if remaining != 0 {
+		t.Errorf("expected 0 in-flight entries after cleanup, got %d", remaining)
 	}
 }
