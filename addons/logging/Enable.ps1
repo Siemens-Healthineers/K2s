@@ -121,7 +121,7 @@ if ($OmitOpensearch) {
     }
 
     Write-Log 'Waiting for Fluent-bit DaemonSets to be ready...' -Console
-    $kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=300s'
+    $kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=600s'
     Write-Log $kubectlCmd.Output
     if (!$kubectlCmd.Success) {
         $errMsg = 'Fluent-bit could not be deployed successfully!'
