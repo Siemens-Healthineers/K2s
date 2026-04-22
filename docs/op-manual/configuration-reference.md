@@ -245,6 +245,79 @@ Join templates for additional nodes are in `cfg\kubeadm\`:
 
 ---
 
+## Libvirt Templates (Linux Host)
+
+!!! note
+    This section applies only to the **Linux Host** variant, which uses libvirt/KVM to provision the optional Windows worker VM.
+
+Default libvirt XML templates are shipped in `cfg/libvirt/` and compiled into the `k2s` binary. At install time `k2s` checks for user-customised versions on disk **before** falling back to the built-in defaults.
+
+### Template Files
+
+| Template | Purpose |
+|----------|---------|
+| `cfg/libvirt/domain.xml.tmpl` | VM definition: CPU, memory, disk, UEFI firmware, Hyper-V enlightenments, VirtIO devices |
+| `cfg/libvirt/network.xml.tmpl` | NAT network: bridge, DHCP range, static reservation for the Windows VM |
+
+### Customising Templates
+
+To customise the VM or network definition **before** running `k2s install`:
+
+1. Copy the template to the K2s config directory:
+
+    ```console
+    sudo mkdir -p /var/lib/k2s/libvirt
+    sudo cp cfg/libvirt/domain.xml.tmpl  /var/lib/k2s/libvirt/domain.xml.tmpl
+    sudo cp cfg/libvirt/network.xml.tmpl /var/lib/k2s/libvirt/network.xml.tmpl
+    ```
+
+2. Edit the copies as needed. The files are standard Go `text/template` files — keep the `{{ .VariableName }}` placeholders intact.
+
+3. Run `k2s install`. The installer will pick up the custom templates automatically and log:
+
+    ```
+    [Libvirt] Using custom template  path=/var/lib/k2s/libvirt/domain.xml.tmpl
+    ```
+
+If no custom file is found at `/var/lib/k2s/libvirt/<name>`, the compiled-in default is used.
+
+### Domain Template Variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `{{.Name}}` | string | VM name (e.g. `k2s-win-worker`) |
+| `{{.MemoryKB}}` | integer | Memory in KiB |
+| `{{.CPUCount}}` | integer | Number of vCPUs |
+| `{{.DiskPath}}` | string | Absolute path to the QCOW2 disk image |
+| `{{.NetworkBridge}}` | string | Libvirt network name (e.g. `k2s`) |
+| `{{.FirmwarePath}}` | string | Path to OVMF UEFI firmware |
+| `{{.NVRAMPath}}` | string | Path to per-VM EFI variable store |
+
+### Network Template Variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `{{.Name}}` | string | Network name (e.g. `k2s`) |
+| `{{.BridgeName}}` | string | Bridge interface name (e.g. `virbr-k2s`) |
+| `{{.HostIP}}` | string | Host-side IP on the bridge |
+| `{{.Netmask}}` | string | Network mask |
+| `{{.DHCPRangeStart}}` | string | First DHCP address |
+| `{{.DHCPRangeEnd}}` | string | Last DHCP address |
+| `{{.WinVMMac}}` | string | MAC address for the Windows VM (DHCP reservation) |
+| `{{.WinVMIP}}` | string | Static IP assigned to the Windows VM |
+
+### Common Customisations
+
+**Increase VM memory and CPUs** — edit the install config YAML (`nodes[].resources.cpu` / `memory`) instead; the template variables are populated from that config.
+
+**Change the network range** — edit `network.xml.tmpl` to alter `{{.HostIP}}`, DHCP range, and static reservation. Also update `cfg/config.json` network CIDRs to match.
+
+**Add a second disk** — add a `<disk>` block to `domain.xml.tmpl` with a new `<source file='...'/>` path.
+
+**Enable VNC/Spice console** — add a `<graphics>` element to the `<devices>` section in `domain.xml.tmpl`.
+
+---
+
 ## See Also
 
 - [Installing K2s](installing-k2s.md) — using config files during installation
