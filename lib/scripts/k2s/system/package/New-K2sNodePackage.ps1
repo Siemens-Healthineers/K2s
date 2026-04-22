@@ -209,6 +209,7 @@ try {
         -UserName              $sshUser `
         -UserPwd               $sshPwd `
         -IpAddress             $guestIp `
+        -Proxy                 $Proxy `
         -TargetPath            $remoteBuildahPkgDir `
         -InstalledDistribution $distributionKey
 
