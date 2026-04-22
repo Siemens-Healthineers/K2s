@@ -48,6 +48,12 @@ const (
 	keyFile  = "/certs/tls.key"
 
 	cacheTTL = 30 * time.Second
+
+	// inFlightTTL: hold time between webhook response and API persistence. 10s is conservative; normal < 1s.
+	inFlightTTL = 10 * time.Second
+
+	// inFlightCleanupInterval is how often the background cleanup goroutine runs.
+	inFlightCleanupInterval = 5 * time.Second
 )
 
 var (
@@ -98,6 +104,10 @@ func main() {
 		slog.Error("Failed to create IP allocator", "error", err)
 		os.Exit(1)
 	}
+
+	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
+	defer cleanupCancel()
+	allocator.StartCleanupLoop(cleanupCtx)
 
 	handler := &WebhookHandler{
 		clientset: clientset,
@@ -244,9 +254,12 @@ func (h *WebhookHandler) mutateService(request *admissionv1.AdmissionRequest) *a
 	targetOS := h.detectTargetOS(service.Namespace, service.Spec.Selector)
 	slog.Info("Detected target OS", "os", targetOS, "name", service.Name, "namespace", service.Namespace)
 
-	// Get all existing service IPs to avoid conflicts
+	// Serialize with concurrent admissions to prevent duplicate IP allocation.
+	h.allocator.mu.Lock()
+
 	usedIPs, err := h.getUsedClusterIPs()
 	if err != nil {
+		h.allocator.mu.Unlock()
 		slog.Error("Failed to list existing services", "error", err)
 		return &admissionv1.AdmissionResponse{
 			Allowed: false,
@@ -256,9 +269,15 @@ func (h *WebhookHandler) mutateService(request *admissionv1.AdmissionRequest) *a
 		}
 	}
 
-	// Allocate next free IP
+	// Include IPs allocated by concurrent in-flight admissions not yet persisted.
+	h.allocator.cleanupExpiredInFlight()
+	for ip := range h.allocator.inFlight {
+		usedIPs[ip] = true
+	}
+
 	ip, err := h.allocator.AllocateIP(targetOS, usedIPs)
 	if err != nil {
+		h.allocator.mu.Unlock()
 		slog.Error("Failed to allocate IP", "error", err, "os", targetOS,
 			"name", service.Name, "namespace", service.Namespace)
 		return &admissionv1.AdmissionResponse{
@@ -268,6 +287,9 @@ func (h *WebhookHandler) mutateService(request *admissionv1.AdmissionRequest) *a
 			},
 		}
 	}
+
+	h.allocator.markInFlight(ip)
+	h.allocator.mu.Unlock()
 
 	slog.Info("Allocating ClusterIP",
 		"name", service.Name, "namespace", service.Namespace,
@@ -698,7 +720,13 @@ func (a *IPAllocator) IsInLinuxSubnet(ip string) bool {
 }
 
 // IPAllocator manages IP allocation from Linux and Windows subnets.
+//
+// Thread safety: mu serializes all allocation; inFlight bridges the gap between webhook response and API persistence, expiring after inFlightTTL.
+//
+// Single-replica only -- inFlight is in-process; scale to >1 requires a shared store (e.g. IPPool CRD).
 type IPAllocator struct {
+	mu           sync.Mutex
+	inFlight     map[string]time.Time
 	linuxStart   net.IP
 	linuxEnd     net.IP
 	windowsStart net.IP
@@ -719,6 +747,7 @@ func NewIPAllocator(linuxCIDR, windowsCIDR string, reservedIPs int) (*IPAllocato
 	}
 
 	return &IPAllocator{
+		inFlight:     make(map[string]time.Time),
 		linuxStart:   linuxStart,
 		linuxEnd:     linuxEnd,
 		windowsStart: windowsStart,
@@ -727,6 +756,7 @@ func NewIPAllocator(linuxCIDR, windowsCIDR string, reservedIPs int) (*IPAllocato
 }
 
 // AllocateIP returns the next available IP in the appropriate subnet.
+// The caller is responsible for marking the returned IP as in-flight before releasing the mutex.
 func (a *IPAllocator) AllocateIP(osType string, usedIPs map[string]bool) (string, error) {
 	var start, end net.IP
 	if osType == "windows" {
@@ -737,19 +767,53 @@ func (a *IPAllocator) AllocateIP(osType string, usedIPs map[string]bool) (string
 		end = a.linuxEnd
 	}
 
-	for ip := dupIP(start); !ip.Equal(end); incIP(ip) {
+	for ip := dupIP(start); ; incIP(ip) {
 		candidate := ip.String()
 		if !usedIPs[candidate] {
 			return candidate, nil
 		}
-	}
-
-	// Check the end IP too
-	if !usedIPs[end.String()] {
-		return end.String(), nil
+		if ip.Equal(end) {
+			break
+		}
 	}
 
 	return "", fmt.Errorf("no free IPs in %s subnet (range %s - %s)", osType, start, end)
+}
+
+// markInFlight records ip as in-flight. Must be called with mu held.
+func (a *IPAllocator) markInFlight(ip string) {
+	a.inFlight[ip] = time.Now().Add(inFlightTTL)
+}
+
+// cleanupExpiredInFlight evicts in-flight entries whose TTL has elapsed.
+// Must be called with mu held.
+func (a *IPAllocator) cleanupExpiredInFlight() {
+	now := time.Now()
+	for ip, expiry := range a.inFlight {
+		if now.After(expiry) {
+			slog.Info("Evicted stale in-flight IP", "ip", ip)
+			delete(a.inFlight, ip)
+		}
+	}
+}
+
+// StartCleanupLoop runs a background goroutine that periodically evicts expired
+// in-flight entries. It exits when ctx is cancelled (e.g. on webhook shutdown).
+func (a *IPAllocator) StartCleanupLoop(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(inFlightCleanupInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				a.mu.Lock()
+				a.cleanupExpiredInFlight()
+				a.mu.Unlock()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 // subnetRange returns the allocatable IP range [start, end] for a CIDR,
