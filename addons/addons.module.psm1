@@ -1765,6 +1765,21 @@ function Initialize-CACertificateIssuer {
         throw "Failed to apply CA issuer manifest after $maxRetries attempts. Last output: $($result.Output)"
     }
 
+    # Give cert-manager a brief moment to start processing the Certificate resource.
+    # Then perform an early check for the intermittent 'ErrorKeyMatch' race condition
+    # (CSR not signed by referenced private key) before entering the polling loop.
+    # This race occurs when cert-manager generates two temporary key secrets in rapid
+    # succession; the CertificateRequest ends up with a mismatched private key reference
+    # and cert-manager enters exponential backoff (~1 hour) which causes the polling loop
+    # to time out. Deleting the stale CertificateRequest lets cert-manager retry immediately.
+    Write-Log '[CertManager] Waiting briefly before checking for ErrorKeyMatch race condition...' -Console
+    Start-Sleep -Seconds 5
+    $earlyRepair = Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+    if ($earlyRepair) {
+        Write-Log '[CertManager] Early repair applied, giving cert-manager time to re-issue...' -Console
+        Start-Sleep -Seconds 5
+    }
+
     Write-Log 'Waiting for CA root certificate to be created' -Console
     $caCreated = Wait-ForCARootCertificate
     
@@ -1779,12 +1794,21 @@ function Initialize-CACertificateIssuer {
 <#
 .DESCRIPTION
 Waits for the cert-manager API to be available.
+Returns $true if the API is ready, $false otherwise.
+Logs cmctl output on failure so the cause is always visible in the log.
 #>
 function Wait-ForCertManagerAvailable {
-    $out = &$cmctlExe check api --wait=3m
-    if ($out -match 'The cert-manager API is ready') {
+    if (-not (Test-Path $cmctlExe)) {
+        Write-Log "[CertManager] cmctl.exe not found at '$cmctlExe'. Cannot check API readiness." -Console
+        return $false
+    }
+    $out = &$cmctlExe check api --wait=10m 2>&1
+    $outStr = ($out | Out-String).Trim()
+    if ($outStr -match 'The cert-manager API is ready') {
+        Write-Log '[CertManager] cert-manager API is ready.' -Console
         return $true
     }
+    Write-Log "[CertManager] cert-manager API did not become ready within timeout. cmctl output: $outStr" -Console
     return $false
 }
 
@@ -1797,12 +1821,126 @@ function Update-CertificateResources {
 }
 
 <#
+.SYNOPSIS
+Detects and recovers from the cert-manager 'CSR not signed by referenced private key' race condition.
+.DESCRIPTION
+This is an intermittent cert-manager race condition (ErrorKeyMatch) where cert-manager
+generates two temporary private-key secrets for the same Certificate almost simultaneously.
+The CertificateRequest's CSR is signed by the first key but the Certificate's private key
+reference gets updated to the second key, causing a mismatch. cert-manager then enters
+exponential backoff (default: ~1 hour) before retrying, which causes our polling loop to
+time out.
+
+The fix is to detect the failure condition (ErrorKeyMatch / 'CSR not signed by referenced
+private key') and delete the stale CertificateRequest resources. cert-manager will then
+generate a fresh CertificateRequest with a consistent key pair and succeed.
+.PARAMETER CertificateName
+Name of the Certificate resource (default: k2s-self-signed-ca)
+.PARAMETER Namespace
+Namespace of the Certificate (default: cert-manager)
+.RETURNS
+$true if the race condition was detected and corrective action was taken, $false otherwise.
+#>
+function Repair-FailedCertificateIssuance {
+    [CmdletBinding()]
+    param(
+        [string]$CertificateName = 'k2s-self-signed-ca',
+        [string]$Namespace = 'cert-manager',
+        [string]$FinalSecretName = 'ca-issuer-root-secret'
+    )
+
+    # Check if the Certificate is in a Failed/ErrorKeyMatch state.
+    # We query the full conditions array as JSON to avoid JSONPath filter errors when no Failed condition exists.
+    $certResult = Invoke-Kubectl -Params '-n', $Namespace, 'get', 'certificate', $CertificateName, `
+        '-o=jsonpath={.status.conditions}', '--ignore-not-found'
+
+    if (-not $certResult.Success -or -not $certResult.Output) {
+        # Certificate doesn't exist yet or has no status conditions — nothing to repair.
+        return $false
+    }
+
+    $conditionsRaw = $certResult.Output
+    # Look for a Failed reason in the conditions text
+    if ($conditionsRaw -notmatch '"reason"\s*:\s*"Failed"') {
+        # No Failed condition — certificate is either healthy (Ready) or still being processed.
+        return $false
+    }
+
+    # Extract the failure message from the conditions
+    $certStatus = $conditionsRaw
+
+    # Check for the specific race condition message
+    $isKeyMatchError = ($certStatus -match 'CSR not signed by referenced private key') -or
+                       ($certStatus -match 'ErrorKeyMatch')
+
+    if (-not $isKeyMatchError) {
+        # Extract just the message for cleaner logging
+        $failureMsg = if ($conditionsRaw -match '"message"\s*:\s*"([^"]+)"') { $Matches[1] } else { $conditionsRaw }
+        Write-Log "[CertManager] Certificate failure reason is not ErrorKeyMatch (got: $failureMsg), skipping repair" -Console
+        return $false
+    }
+
+    Write-Log "[CertManager] Detected 'CSR not signed by referenced private key' race condition. Initiating recovery..." -Console
+    Write-Log "[CertManager] Failure details: $certStatus" -Console
+
+    # Delete all CertificateRequest resources for this Certificate to unblock cert-manager.
+    # cert-manager will generate a fresh CertificateRequest with a consistent key pair.
+    Write-Log "[CertManager] Deleting stale CertificateRequests for '$CertificateName' in namespace '$Namespace'" -Console
+    $crList = (Invoke-Kubectl -Params '-n', $Namespace, 'get', 'certificaterequest',
+        '-l', "cert-manager.io/certificate-name=$CertificateName",
+        '-o=jsonpath={.items[*].metadata.name}', '--ignore-not-found').Output
+
+    if ($crList) {
+        foreach ($crName in ($crList -split '\s+' | Where-Object { $_ })) {
+            Write-Log "[CertManager] Deleting CertificateRequest: $crName" -Console
+            (Invoke-Kubectl -Params '-n', $Namespace, 'delete', 'certificaterequest', $crName, '--ignore-not-found').Output | Write-Log
+        }
+    } else {
+        # Fallback: delete CertificateRequests in the namespace that match by name prefix
+        Write-Log "[CertManager] No label-selected CRs found, deleting by name prefix '$CertificateName'" -Console
+        $allCRs = (Invoke-Kubectl -Params '-n', $Namespace, 'get', 'certificaterequest',
+            '-o=jsonpath={.items[*].metadata.name}', '--ignore-not-found').Output
+        if ($allCRs) {
+            foreach ($crName in ($allCRs -split '\s+' | Where-Object { $_ -like "$CertificateName-*" })) {
+                Write-Log "[CertManager] Deleting CertificateRequest: $crName" -Console
+                (Invoke-Kubectl -Params '-n', $Namespace, 'delete', 'certificaterequest', $crName, '--ignore-not-found').Output | Write-Log
+            }
+        }
+    }
+
+    # Delete stale temporary private-key secrets (named <cert-name>-<random>).
+    # The final CA secret ($FinalSecretName) is explicitly excluded.
+    Write-Log "[CertManager] Cleaning up stale temporary private-key secrets for '$CertificateName'" -Console
+    $allSecrets = (Invoke-Kubectl -Params '-n', $Namespace, 'get', 'secrets',
+        '-o=jsonpath={.items[*].metadata.name}', '--ignore-not-found').Output
+    if ($allSecrets) {
+        foreach ($secretName in ($allSecrets -split '\s+' | Where-Object { $_ -like "$CertificateName-*" -and $_ -ne $FinalSecretName })) {
+            Write-Log "[CertManager] Deleting stale temp secret: $secretName" -Console
+            (Invoke-Kubectl -Params '-n', $Namespace, 'delete', 'secret', $secretName, '--ignore-not-found').Output | Write-Log
+        }
+    }
+
+    Write-Log "[CertManager] Recovery actions completed. cert-manager will re-issue the certificate." -Console
+    return $true
+}
+
+<#
 .DESCRIPTION
 Waits for the kubernetes secret 'ca-issuer-root-secret' in the namespace 'cert-manager' to be created.
+Includes active monitoring for the known 'CSR not signed by referenced private key' (ErrorKeyMatch)
+race condition in cert-manager. When detected, stale CertificateRequests are deleted to unblock
+cert-manager's exponential backoff and allow immediate re-issuance.
+Allows up to $MaxRepairAttempts repair cycles to handle the rare case of the race recurring.
 #>
-function Wait-ForCARootCertificate(
-    [int]$SleepDurationInSeconds = 10,
-    [int]$NumberOfRetries = 30) {
+function Wait-ForCARootCertificate {
+    param(
+        [int]$SleepDurationInSeconds = 10,
+        [int]$NumberOfRetries = 30,
+        [int]$MaxRepairAttempts = 2
+    )
+
+    $repairCount = 0
+
     for (($i = 1); $i -le $NumberOfRetries; $i++) {
         $out = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o=jsonpath="{.metadata.name}"', '--ignore-not-found').Output
         if ($out -match 'ca-issuer-root-secret') {
@@ -1810,6 +1948,21 @@ function Wait-ForCARootCertificate(
             return $true
         }
         Write-Log "Retry {$i}: 'ca-issuer-root-secret' not yet created. Will retry after $SleepDurationInSeconds Seconds" -Console
+
+        # Starting from the second retry, check for the ErrorKeyMatch race condition.
+        # Allow up to $MaxRepairAttempts repairs (rare but possible to race twice).
+        if ($repairCount -lt $MaxRepairAttempts -and $i -ge 2) {
+            Write-Log '[CertManager] Checking for ErrorKeyMatch race condition...'
+            $repaired = Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+            if ($repaired) {
+                $repairCount++
+                Write-Log "[CertManager] Recovery applied (attempt $repairCount/$MaxRepairAttempts), continuing to wait for ca-issuer-root-secret..." -Console
+                # Give cert-manager a moment to process the deletion and start fresh issuance
+                Start-Sleep -Seconds 5
+                continue
+            }
+        }
+
         Start-Sleep -Seconds $SleepDurationInSeconds
     }
 
@@ -2249,6 +2402,6 @@ Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik,
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, Resolve-AddonImportPath,
 Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
-Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
+Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable, Wait-ForCARootCertificate, Repair-FailedCertificateIssuance,
 Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret, New-BackendCACertConfigMap,
 Clear-KubectlDiscoveryCache

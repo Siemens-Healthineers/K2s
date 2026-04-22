@@ -1158,18 +1158,31 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
 
 Describe 'Wait-ForCertManagerAvailable' -Tag 'unit', 'ci', 'addon' {
     Context 'cmctl reports API ready' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
         It 'returns true' {
             InModuleScope -ModuleName $moduleName {
-                $cmctlExe = { param($cmd, $subcmd, $wait) 'The cert-manager API is ready' }
+                $script:cmctlExe = 'C:\fake\cmctl.exe'
+                # Mock the & call by defining a function with the same name as the path
+                function script:C:\fake\cmctl.exe { 'The cert-manager API is ready' }
                 Wait-ForCertManagerAvailable | Should -BeTrue
             }
         }
     }
 
     Context 'cmctl does not report readiness' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
         It 'returns false' {
             InModuleScope -ModuleName $moduleName {
-                $cmctlExe = { param($cmd, $subcmd, $wait) 'not ready' }
+                $script:cmctlExe = 'C:\fake\cmctl.exe'
+                function script:C:\fake\cmctl.exe { 'not ready' }
                 Wait-ForCertManagerAvailable | Should -BeFalse
             }
         }
@@ -1929,3 +1942,376 @@ Describe 'Remove-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
     }
 }
 
+Describe 'Repair-FailedCertificateIssuance' -Tag 'unit', 'ci', 'addon' {
+
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Start-Sleep { }
+    }
+
+    Context 'Certificate has no failure condition' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'returns false' {
+            InModuleScope $moduleName {
+                $result = Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                $result | Should -Be $false
+            }
+        }
+
+        It 'does not invoke any kubectl delete' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+    }
+
+    Context 'Certificate is Ready — no Failed condition exists' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '[{"type":"Ready","status":"True","reason":"Ready","message":"Certificate is up to date and has not expired"}]' }
+            }
+        }
+
+        It 'returns false without logging' {
+            InModuleScope $moduleName {
+                $result = Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                $result | Should -Be $false
+            }
+        }
+
+        It 'does not invoke any kubectl delete' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+    }
+
+    Context 'Certificate has an unrelated failure — not ErrorKeyMatch' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '[{"type":"Ready","status":"False","reason":"Failed","message":"tls: failed to verify certificate"}]' }
+            }
+        }
+
+        It 'returns false' {
+            InModuleScope $moduleName {
+                $result = Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                $result | Should -Be $false
+            }
+        }
+
+        It 'logs the skipping message with the actual reason' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'not ErrorKeyMatch'
+                }
+            }
+        }
+
+        It 'does not invoke any kubectl delete' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter { $Params -contains 'delete' }
+            }
+        }
+    }
+
+    Context 'ErrorKeyMatch detected via CSR message — CRs found by label' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                $joined = $Params -join ' '
+                if ($joined -match 'get certificate' -and $joined -notmatch 'certificaterequest') {
+                    return [pscustomobject]@{ Success = $true; Output = '[{"type":"Ready","status":"False","reason":"Failed","message":"Error generating certificate template: CSR not signed by referenced private key"}]' }
+                }
+                if ($Params -contains 'get' -and $joined -match 'certificaterequest' -and $joined -match 'cert-manager.io/certificate-name') {
+                    return [pscustomobject]@{ Success = $true; Output = 'k2s-self-signed-ca-abc k2s-self-signed-ca-def' }
+                }
+                if ($Params -contains 'get' -and $joined -match 'secrets') {
+                    return [pscustomobject]@{ Success = $true; Output = 'k2s-self-signed-ca-tmp1 ca-issuer-root-secret other-secret' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'returns true' {
+            InModuleScope $moduleName {
+                $result = Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                $result | Should -Be $true
+            }
+        }
+
+        It 'deletes first CertificateRequest found by label' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'delete certificaterequest k2s-self-signed-ca-abc'
+                }
+            }
+        }
+
+        It 'deletes second CertificateRequest found by label' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'delete certificaterequest k2s-self-signed-ca-def'
+                }
+            }
+        }
+
+        It 'deletes temp private-key secret matching cert name prefix' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'delete secret k2s-self-signed-ca-tmp1'
+                }
+            }
+        }
+
+        It 'does NOT delete the final CA secret' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager' -FinalSecretName 'ca-issuer-root-secret'
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'delete secret ca-issuer-root-secret'
+                }
+            }
+        }
+
+        It 'does NOT delete unrelated secrets' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'delete secret other-secret'
+                }
+            }
+        }
+    }
+
+    Context 'ErrorKeyMatch detected — label selector finds nothing, falls back to prefix match' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                $joined = $Params -join ' '
+                if ($joined -match 'get certificate' -and $joined -notmatch 'certificaterequest') {
+                    return [pscustomobject]@{ Success = $true; Output = '[{"type":"Ready","status":"False","reason":"Failed","message":"Error generating certificate template: CSR not signed by referenced private key"}]' }
+                }
+                if ($Params -contains 'get' -and $joined -match 'certificaterequest' -and $joined -match 'cert-manager.io/certificate-name') {
+                    return [pscustomobject]@{ Success = $true; Output = '' }
+                }
+                if ($Params -contains 'get' -and $joined -match 'certificaterequest') {
+                    return [pscustomobject]@{ Success = $true; Output = 'k2s-self-signed-ca-xyz other-cert-abc' }
+                }
+                if ($Params -contains 'get' -and $joined -match 'secrets') {
+                    return [pscustomobject]@{ Success = $true; Output = 'ca-issuer-root-secret' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'returns true' {
+            InModuleScope $moduleName {
+                $result = Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                $result | Should -Be $true
+            }
+        }
+
+        It 'deletes only the prefix-matching CR' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'delete certificaterequest k2s-self-signed-ca-xyz'
+                }
+            }
+        }
+
+        It 'does NOT delete CRs that do not match the cert name prefix' {
+            InModuleScope $moduleName {
+                Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'delete certificaterequest other-cert-abc'
+                }
+            }
+        }
+    }
+
+    Context 'ErrorKeyMatch detected via literal ErrorKeyMatch keyword in message' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                $joined = $Params -join ' '
+                if ($joined -match 'get certificate') {
+                    return [pscustomobject]@{ Success = $true; Output = '[{"type":"Ready","status":"False","reason":"Failed","message":"ErrorKeyMatch"}]' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'returns true' {
+            InModuleScope $moduleName {
+                $result = Repair-FailedCertificateIssuance -CertificateName 'k2s-self-signed-ca' -Namespace 'cert-manager'
+                $result | Should -Be $true
+            }
+        }
+    }
+}
+
+Describe 'Wait-ForCARootCertificate' -Tag 'unit', 'ci', 'addon' {
+
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Start-Sleep { }
+        Mock -ModuleName $moduleName Repair-FailedCertificateIssuance { return $false }
+    }
+
+    Context 'secret exists on first attempt' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '"ca-issuer-root-secret"' }
+            }
+        }
+
+        It 'returns true immediately' {
+            InModuleScope $moduleName {
+                $result = Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 5
+                $result | Should -Be $true
+            }
+        }
+
+        It 'does not sleep' {
+            InModuleScope $moduleName {
+                Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 5
+                Should -Invoke Start-Sleep -Times 0 -Scope It
+            }
+        }
+
+        It 'does not call Repair-FailedCertificateIssuance' {
+            InModuleScope $moduleName {
+                Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 5
+                Should -Invoke Repair-FailedCertificateIssuance -Times 0 -Scope It
+            }
+        }
+    }
+
+    Context 'secret never appears — all retries exhausted' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'returns false' {
+            InModuleScope $moduleName {
+                $result = Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 3
+                $result | Should -Be $false
+            }
+        }
+
+        It 'logs diagnostic information on failure' {
+            InModuleScope $moduleName {
+                Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 3
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Collecting diagnostics'
+                }
+            }
+        }
+    }
+
+    Context 'repair check does not fire on retry 1 only' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'does not call Repair-FailedCertificateIssuance when only 1 retry runs' {
+            InModuleScope $moduleName {
+                Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 1
+                Should -Invoke Repair-FailedCertificateIssuance -Times 0 -Scope It
+            }
+        }
+
+        It 'calls Repair-FailedCertificateIssuance from retry 2 onwards' {
+            InModuleScope $moduleName {
+                Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 3
+            }
+            Should -Invoke Repair-FailedCertificateIssuance -ModuleName $moduleName -Times 1 -Scope It
+        }
+    }
+
+    Context 'ErrorKeyMatch race — repair succeeds then secret appears' {
+        BeforeAll {
+            $script:pollCount = 0
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:pollCount++
+                if ($script:pollCount -ge 4) {
+                    return [pscustomobject]@{ Success = $true; Output = '"ca-issuer-root-secret"' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Repair-FailedCertificateIssuance { return $true }
+        }
+
+        It 'returns true after repair and secret creation' {
+            InModuleScope $moduleName {
+                $script:pollCount = 0
+                $result = Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 10
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'repair attempts are capped at MaxRepairAttempts' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Repair-FailedCertificateIssuance { return $true }
+        }
+
+        It 'calls Repair-FailedCertificateIssuance exactly MaxRepairAttempts times' {
+            InModuleScope $moduleName {
+                Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 10 -MaxRepairAttempts 2
+                Should -Invoke Repair-FailedCertificateIssuance -Times 2 -Exactly -Scope It
+            }
+        }
+    }
+
+    Context 'secret appears on middle retry without repair' {
+        BeforeAll {
+            $script:pollCount = 0
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:pollCount++
+                if ($script:pollCount -ge 3) {
+                    return [pscustomobject]@{ Success = $true; Output = '"ca-issuer-root-secret"' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+        }
+
+        It 'returns true when secret eventually appears' {
+            InModuleScope $moduleName {
+                $script:pollCount = 0
+                $result = Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 10
+                $result | Should -Be $true
+            }
+        }
+
+        It 'does not log diagnostic failure message' {
+            InModuleScope $moduleName {
+                $script:pollCount = 0
+                Wait-ForCARootCertificate -SleepDurationInSeconds 0 -NumberOfRetries 10
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'Collecting diagnostics'
+                }
+            }
+        }
+    }
+}
