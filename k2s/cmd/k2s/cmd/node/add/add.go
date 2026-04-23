@@ -32,8 +32,6 @@ const (
 	MachineRoleFlagUsage      = "Role of the machine as a node"
 	NodePackagePath           = "node-package"
 	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet."
-	MachineWindows            = "windows"
-	MachineWindowsFlagUsage   = "Specify if the node is a Windows machine"
 )
 
 func NewCmd() *cobra.Command {
@@ -48,7 +46,6 @@ func NewCmd() *cobra.Command {
 	cmd.Flags().StringP(MachineName, "m", "", MachineNameFlagUsage)
 	cmd.Flags().StringP(MachineRole, "r", "worker", MachineRoleFlagUsage)
 	cmd.Flags().StringP(NodePackagePath, "p", "", NodePackagePathFlagUsage)
-	cmd.Flags().BoolP(MachineWindows, "w", false, MachineWindowsFlagUsage)
 	cmd.MarkFlagRequired(MachineIPAddress)
 	cmd.MarkFlagRequired(MachineUsername)
 	cmd.MarkFlagsRequiredTogether(MachineIPAddress, MachineUsername)
@@ -126,13 +123,8 @@ func buildAddNodeCmd(flags *pflag.FlagSet, setupName string) (string, error) {
 	if setupName != definitions.SetupNameK2s {
 		return "", errors.New("adding node is not supported for this setup type. Aborting")
 	}
-	isWindows := flags.Lookup(MachineWindows).Value.String() == "true"
-	cmd := ""
-	if isWindows {
-		cmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "worker", "windows", "windows-host", "Add.ps1"))
-	} else {
-		cmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "worker", "linux", "bare-metal", "Add.ps1"))
-	}
+
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "worker", "linux", "bare-metal", "Add.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"
