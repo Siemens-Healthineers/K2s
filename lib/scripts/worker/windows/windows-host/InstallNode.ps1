@@ -125,5 +125,7 @@ Write-Log '---------------------------------------------------------------'
 Write-Log "K2s Windows worker node on Windows host setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
 
+Write-Log "[Debug] InstallNode.ps1 completed, exiting" -Console
+exit 0
 
 
