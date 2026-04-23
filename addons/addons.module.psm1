@@ -1231,6 +1231,36 @@ function Update-IngressForNginx {
 	}
 	if (-not $applied) {
 		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name) after $maxRetries attempts" -Console
+	} else {
+		# Wait for the nginx ingress controller to acknowledge and program the new Ingress rule.
+		# After kubectl apply the controller reloads its config asynchronously; an immediate
+		# HTTP request would hit a 404 because the route is not yet active.
+		# We poll until the Ingress resource has a non-empty .status.loadBalancer.ingress
+		# address, which indicates nginx has processed it. Cap at 30 seconds.
+		# $Addon.Name equals the addon's Kubernetes namespace (e.g. 'dashboard', 'registry').
+		$addonNamespace = $Addon.Name
+		Write-Log "  Waiting for nginx ingress controller to program route for $($props.Name)..." -Console
+		$ingressName = (Invoke-Kubectl -Params 'get', 'ingress', '-n', $addonNamespace, '-o', 'jsonpath={.items[0].metadata.name}', '--ignore-not-found').Output
+		if ($ingressName) {
+			$maxWaitSeconds = 30
+			$waited = 0
+			$interval = 2
+			$programmed = $false
+			while ($waited -lt $maxWaitSeconds) {
+				$address = (Invoke-Kubectl -Params 'get', 'ingress', $ingressName, '-n', $addonNamespace,
+					'-o', 'jsonpath={.status.loadBalancer.ingress[0].ip}', '--ignore-not-found').Output
+				if ($address) {
+					Write-Log "  Nginx ingress route is active (address: $address)" -Console
+					$programmed = $true
+					break
+				}
+				Start-Sleep -Seconds $interval
+				$waited += $interval
+			}
+			if (-not $programmed) {
+				Write-Log "  WARNING: Nginx ingress route for $($props.Name) did not show an address within ${maxWaitSeconds}s; continuing anyway." -Console
+			}
+		}
 	}
 }
 

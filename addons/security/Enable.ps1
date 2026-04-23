@@ -355,9 +355,14 @@ try {
 		$filteredYaml = $filteredYamlLines -join "`n"
 		$filteredYaml | &"$kubeToolsPath\kubectl.exe" apply -f -
 
-		# Wait for trust-manager to propagate certificates to linkerd namespace
+		# Wait for trust-manager to propagate certificates to the linkerd namespace.
+		# Trust-manager needs time after the linkerd-trust-anchor secret is created to
+		# reconcile the Bundle resource and write the derived secrets into the linkerd namespace.
+		# Keeping this wait too short causes Linkerd identity/destination/proxy-injector pods
+		# to fail startup because the mTLS trust anchor is not yet present when they initialize.
+		# 30 seconds is conservative but reliable even on loaded CI nodes.
 		Write-Log 'Waiting for linkerd namespace secrets to be ready' -Console
-		Start-Sleep -Seconds 10
+		Start-Sleep -Seconds 30
 
 		# install linkerd
 		# Clear kubectl discovery cache before applying Linkerd kustomization

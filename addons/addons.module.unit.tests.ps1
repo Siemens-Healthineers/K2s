@@ -1059,6 +1059,162 @@ Describe 'Update-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
     }
 }
 
+Describe 'Update-IngressForNginx' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Start-Sleep { }
+        Mock -ModuleName $moduleName Test-Path { return $true }
+        Mock -ModuleName $moduleName Test-KeyCloakServiceAvailability { return $false }
+        Mock -ModuleName $moduleName Test-HydraAvailability { return $false }
+    }
+
+    Context 'manifest apply succeeds and nginx programs route immediately' {
+        BeforeAll {
+            # apply returns success; get returns an ingress name; status poll returns an IP on first try
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'apply') {
+                    return [pscustomobject]@{ Success = $true; Output = 'ingress.networking.k8s.io/dashboard-nginx-cluster-local configured' }
+                }
+                # first get call: list ingresses to find the name
+                if ($Params -contains 'get' -and $Params -contains 'ingress' -and $Params -notcontains $script:ingressName) {
+                    return [pscustomobject]@{ Output = 'dashboard-nginx-cluster-local' }
+                }
+                # second get call: poll for IP address
+                return [pscustomobject]@{ Output = '172.19.1.100' }
+            }
+        }
+
+        It 'applies the nginx ingress kustomization' {
+            InModuleScope $moduleName {
+                Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-k'
+                }
+            }
+        }
+
+        It 'polls for ingress address after successful apply' {
+            InModuleScope $moduleName {
+                Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                # Expect at least one get call checking for the IP (jsonpath contains loadBalancer)
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'loadBalancer'
+                }
+            }
+        }
+
+        It 'does not sleep when IP is returned immediately' {
+            InModuleScope $moduleName {
+                Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Start-Sleep -Times 0 -Scope It
+            }
+        }
+
+        It 'logs that the route is active' {
+            InModuleScope $moduleName {
+                Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    ($Messages -join ' ') -match 'route is active'
+                }
+            }
+        }
+    }
+
+    Context 'manifest apply succeeds but nginx does not program route within timeout' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'apply') {
+                    return [pscustomobject]@{ Success = $true; Output = 'configured' }
+                }
+                # ingress name lookup succeeds
+                if ($Params -contains 'ingress' -and ($Params -join ' ') -match 'jsonpath=\{\.items') {
+                    return [pscustomobject]@{ Output = 'dashboard-nginx-cluster-local' }
+                }
+                # IP address poll always returns empty (route never programmed)
+                return [pscustomobject]@{ Output = '' }
+            }
+        }
+
+        It 'applies the kustomization' {
+            InModuleScope $moduleName {
+                Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains 'apply' }
+            }
+        }
+
+        It 'logs a warning that the route did not show an address' {
+            InModuleScope $moduleName {
+                Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'WARNING.*did not show an address'
+                }
+            }
+        }
+
+        It 'does not throw — failure is non-fatal' {
+            InModuleScope $moduleName {
+                { Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' }) } | Should -Not -Throw
+            }
+        }
+    }
+
+    Context 'manifest apply fails after all retries' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $false; Output = 'admission webhook error' }
+            }
+        }
+
+        It 'does not poll for ingress address' {
+            InModuleScope $moduleName {
+                Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'loadBalancer'
+                }
+            }
+        }
+
+        It 'logs an ERROR message' {
+            InModuleScope $moduleName {
+                Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Console -eq $true -and ($Messages -join ' ') -match 'ERROR.*Failed to apply'
+                }
+            }
+        }
+
+        It 'does not throw — failure is non-fatal' {
+            InModuleScope $moduleName {
+                { Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' }) } | Should -Not -Throw
+            }
+        }
+    }
+
+    Context 'no ingress resource found in namespace after apply' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                param($Params)
+                if ($Params -contains 'apply') {
+                    return [pscustomobject]@{ Success = $true; Output = 'configured' }
+                }
+                # Ingress name lookup returns empty — no ingress in namespace yet
+                return [pscustomobject]@{ Output = '' }
+            }
+        }
+
+        It 'skips the address poll when no ingress name is found' {
+            InModuleScope $moduleName {
+                Update-IngressForNginx -Addon ([pscustomobject]@{ Name = 'dashboard' })
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter {
+                    ($Params -join ' ') -match 'loadBalancer'
+                }
+            }
+        }
+    }
+}
+
 Describe 'Get-CertManagerConfig' -Tag 'unit', 'ci', 'addon' {
     It 'returns cert-manager manifest path' {
         InModuleScope -ModuleName $moduleName {

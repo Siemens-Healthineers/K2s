@@ -319,9 +319,12 @@ function Get-LinkerdConfigCNI {
 <#
 .DESCRIPTION
 Waits for the linkerd pods to be available.
+Linkerd control plane (destination, identity, proxy-injector) can take longer to become ready
+on loaded CI nodes or after repeated cert-manager installs in the same session.
+360 seconds (6 minutes) gives sufficient headroom without exceeding normal test budgets.
 #>
 function Wait-ForLinkerdAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 180)
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 360)
 }
 
 <#
@@ -425,7 +428,7 @@ function Save-LinkerdMarkerConfig {
     # write info file for enhanced security
     $jsonFile = Get-EnhancedSecurityFileLocation
     $json = "{`"SecurityType`":`"$Type`"}"
-    $json | Out-File -FilePath $jsonFile     
+    $json | Out-File -FilePath $jsonFile
 }
 
 function Remove-LinkerdMarkerConfig {
