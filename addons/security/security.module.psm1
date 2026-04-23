@@ -321,7 +321,7 @@ function Get-LinkerdConfigCNI {
 Waits for the linkerd pods to be available.
 #>
 function Wait-ForLinkerdAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 180)
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 360)
 }
 
 <#

@@ -357,7 +357,7 @@ try {
 
 		# Wait for trust-manager to propagate certificates to linkerd namespace
 		Write-Log 'Waiting for linkerd namespace secrets to be ready' -Console
-		Start-Sleep -Seconds 10
+		Start-Sleep -Seconds 30
 
 		# install linkerd
 		# Clear kubectl discovery cache before applying Linkerd kustomization
