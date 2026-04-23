@@ -2610,8 +2610,11 @@ spec:
                       rollback has been performed.
                     type: boolean
                   force:
-                    description: Force forces resource updates through a replacement
-                      strategy.
+                    description: |-
+                      Force forces resource updates through a replacement strategy
+                      that avoids 3-way merge conflicts on client-side apply.
+                      This field is ignored for server-side apply (which always
+                      forces conflicts with other field managers).
                     type: boolean
                   recreate:
                     description: |-
@@ -2815,8 +2818,11 @@ spec:
                       upgrade has been performed.
                     type: boolean
                   force:
-                    description: Force forces resource updates through a replacement
-                      strategy.
+                    description: |-
+                      Force forces resource updates through a replacement strategy
+                      that avoids 3-way merge conflicts on client-side apply.
+                      This field is ignored for server-side apply (which always
+                      forces conflicts with other field managers).
                     type: boolean
                   preserveValues:
                     description: |-
@@ -7330,8 +7336,7 @@ spec:
                   to validate the payload authenticity. The Secret must contain a 'token'
                   key. For GCR receivers, the Secret must also contain an 'email' key
                   with the IAM service account email configured on the Pub/Sub push
-                  subscription, and may optionally contain an 'audience' key with the
-                  expected OIDC token audience.
+                  subscription, and an 'audience' key with the expected OIDC token audience.
                 properties:
                   name:
                     description: Name of the referent.
@@ -8053,7 +8058,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/helm-controller:v1.5.3
+        image: ghcr.io/fluxcd/helm-controller:v1.5.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -8142,7 +8147,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/image-automation-controller:v1.1.1
+        image: ghcr.io/fluxcd/image-automation-controller:v1.1.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -8322,7 +8327,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/kustomize-controller:v1.8.3
+        image: ghcr.io/fluxcd/kustomize-controller:v1.8.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -8410,7 +8415,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/notification-controller:v1.8.3
+        image: ghcr.io/fluxcd/notification-controller:v1.8.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -8510,7 +8515,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/source-controller:v1.8.2
+        image: ghcr.io/fluxcd/source-controller:v1.8.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
