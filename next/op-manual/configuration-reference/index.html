@@ -1423,6 +1423,78 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#libvirt-templates-linux-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Libvirt Templates (Linux Host)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Libvirt Templates (Linux Host)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#template-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template Files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#customising-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customising Templates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#domain-template-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain Template Variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#network-template-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Template Variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-customisations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Customisations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2917,6 +2989,78 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#libvirt-templates-linux-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Libvirt Templates (Linux Host)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Libvirt Templates (Linux Host)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#template-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template Files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#customising-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Customising Templates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#domain-template-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain Template Variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#network-template-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Template Variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-customisations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Customisations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3505,6 +3649,156 @@ SPDX-License-Identifier: MIT
 </tr>
 </tbody>
 </table>
+<hr />
+<h2 id="libvirt-templates-linux-host">Libvirt Templates (Linux Host)</h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This section applies only to the <strong>Linux Host</strong> variant, which uses libvirt/KVM to provision the optional Windows worker <abbr title="Virtual Machine">VM</abbr>.</p>
+</div>
+<p>Default libvirt XML templates are shipped in <code>cfg/libvirt/</code> and compiled into the <code>k2s</code> binary. At install time <code>k2s</code> checks for user-customised versions on disk <strong>before</strong> falling back to the built-in defaults.</p>
+<h3 id="template-files">Template Files</h3>
+<table>
+<thead>
+<tr>
+<th>Template</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cfg/libvirt/domain.xml.tmpl</code></td>
+<td><abbr title="Virtual Machine">VM</abbr> definition: <abbr title="Central Processing Unit">CPU</abbr>, memory, disk, UEFI firmware, Hyper-V enlightenments, VirtIO devices</td>
+</tr>
+<tr>
+<td><code>cfg/libvirt/network.xml.tmpl</code></td>
+<td><abbr title="Network Address Translation">NAT</abbr> network: bridge, <abbr title="Dynamic Host Configuration Protocol">DHCP</abbr> range, static reservation for the Windows <abbr title="Virtual Machine">VM</abbr></td>
+</tr>
+</tbody>
+</table>
+<h3 id="customising-templates">Customising Templates</h3>
+<p>To customise the <abbr title="Virtual Machine">VM</abbr> or network definition <strong>before</strong> running <code>k2s install</code>:</p>
+<ol>
+<li>
+<p>Copy the template to the K2s config directory:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">sudo mkdir -p /var/lib/k2s/libvirt</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="go">sudo cp cfg/libvirt/domain.xml.tmpl  /var/lib/k2s/libvirt/domain.xml.tmpl</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="go">sudo cp cfg/libvirt/network.xml.tmpl /var/lib/k2s/libvirt/network.xml.tmpl</span>
+</code></pre></div>
+</li>
+<li>
+<p>Edit the copies as needed. The files are standard Go <code>text/template</code> files — keep the <code>{{ .VariableName }}</code> placeholders intact.</p>
+</li>
+<li>
+<p>Run <code>k2s install</code>. The installer will pick up the custom templates automatically and log:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>[Libvirt] Using custom template  path=/var/lib/k2s/libvirt/domain.xml.tmpl
+</code></pre></div>
+</li>
+</ol>
+<p>If no custom file is found at <code>/var/lib/k2s/libvirt/&lt;name&gt;</code>, the compiled-in default is used.</p>
+<h3 id="domain-template-variables">Domain Template Variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.Name}}</code></td>
+<td>string</td>
+<td><abbr title="Virtual Machine">VM</abbr> name (e.g. <code>k2s-win-worker</code>)</td>
+</tr>
+<tr>
+<td><code>{{.MemoryKB}}</code></td>
+<td>integer</td>
+<td>Memory in KiB</td>
+</tr>
+<tr>
+<td><code>{{.CPUCount}}</code></td>
+<td>integer</td>
+<td>Number of vCPUs</td>
+</tr>
+<tr>
+<td><code>{{.DiskPath}}</code></td>
+<td>string</td>
+<td>Absolute path to the QCOW2 disk image</td>
+</tr>
+<tr>
+<td><code>{{.NetworkBridge}}</code></td>
+<td>string</td>
+<td>Libvirt network name (e.g. <code>k2s</code>)</td>
+</tr>
+<tr>
+<td><code>{{.FirmwarePath}}</code></td>
+<td>string</td>
+<td>Path to OVMF UEFI firmware</td>
+</tr>
+<tr>
+<td><code>{{.NVRAMPath}}</code></td>
+<td>string</td>
+<td>Path to per-<abbr title="Virtual Machine">VM</abbr> EFI variable store</td>
+</tr>
+</tbody>
+</table>
+<h3 id="network-template-variables">Network Template Variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.Name}}</code></td>
+<td>string</td>
+<td>Network name (e.g. <code>k2s</code>)</td>
+</tr>
+<tr>
+<td><code>{{.BridgeName}}</code></td>
+<td>string</td>
+<td>Bridge interface name (e.g. <code>virbr-k2s</code>)</td>
+</tr>
+<tr>
+<td><code>{{.HostIP}}</code></td>
+<td>string</td>
+<td>Host-side <abbr title="Internet Protocol">IP</abbr> on the bridge</td>
+</tr>
+<tr>
+<td><code>{{.Netmask}}</code></td>
+<td>string</td>
+<td>Network mask</td>
+</tr>
+<tr>
+<td><code>{{.DHCPRangeStart}}</code></td>
+<td>string</td>
+<td>First <abbr title="Dynamic Host Configuration Protocol">DHCP</abbr> address</td>
+</tr>
+<tr>
+<td><code>{{.DHCPRangeEnd}}</code></td>
+<td>string</td>
+<td>Last <abbr title="Dynamic Host Configuration Protocol">DHCP</abbr> address</td>
+</tr>
+<tr>
+<td><code>{{.WinVMMac}}</code></td>
+<td>string</td>
+<td>MAC address for the Windows <abbr title="Virtual Machine">VM</abbr> (<abbr title="Dynamic Host Configuration Protocol">DHCP</abbr> reservation)</td>
+</tr>
+<tr>
+<td><code>{{.WinVMIP}}</code></td>
+<td>string</td>
+<td>Static <abbr title="Internet Protocol">IP</abbr> assigned to the Windows <abbr title="Virtual Machine">VM</abbr></td>
+</tr>
+</tbody>
+</table>
+<h3 id="common-customisations">Common Customisations</h3>
+<p><strong>Increase <abbr title="Virtual Machine">VM</abbr> memory and CPUs</strong> — edit the install config <abbr title="Yet Another Markup Language">YAML</abbr> (<code>nodes[].resources.cpu</code> / <code>memory</code>) instead; the template variables are populated from that config.</p>
+<p><strong>Change the network range</strong> — edit <code>network.xml.tmpl</code> to alter <code>{{.HostIP}}</code>, <abbr title="Dynamic Host Configuration Protocol">DHCP</abbr> range, and static reservation. Also update <code>cfg/config.json</code> network CIDRs to match.</p>
+<p><strong>Add a second disk</strong> — add a <code>&lt;disk&gt;</code> block to <code>domain.xml.tmpl</code> with a new <code>&lt;source file='...'/&gt;</code> path.</p>
+<p><strong>Enable VNC/Spice console</strong> — add a <code>&lt;graphics&gt;</code> element to the <code>&lt;devices&gt;</code> section in <code>domain.xml.tmpl</code>.</p>
 <hr />
 <h2 id="see-also">See Also</h2>
 <ul>
