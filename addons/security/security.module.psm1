@@ -650,10 +650,24 @@ function Install-Kyverno {
 
     Write-Log '[Kyverno] Installing via Helm' -Console
     $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--wait', '--timeout', '5m')
-    $result = Invoke-Helm -Params $helmArgs
-    $result.Output | Write-Log
 
-    if ($result.Success -ne $true) {
+    $maxAttempts = 3
+    $retryDelaySec = 30
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        $result = Invoke-Helm -Params $helmArgs
+        $result.Output | Write-Log
+
+        if ($result.Success -eq $true) {
+            break
+        }
+
+        # Retry on ClusterIP allocation collision (K8s allocator bitmap lag after uninstall)
+        if ($attempt -lt $maxAttempts -and $result.Output -match 'provided IP is already allocated') {
+            Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed due to ClusterIP allocation conflict -- retrying in ${retryDelaySec}s" -Console
+            Start-Sleep -Seconds $retryDelaySec
+            continue
+        }
+
         throw "[Kyverno] Helm install failed: $($result.Output)"
     }
 
@@ -736,6 +750,10 @@ function Uninstall-Kyverno {
         # Log namespace status for post-mortem analysis
         (Invoke-Kubectl -Params 'get', 'namespace', $kyvernoNamespace, '-o', 'yaml', '--ignore-not-found').Output | Write-Log
     }
+
+    # Allow K8s ClusterIP allocator bitmap to release IPs freed by namespace deletion.
+    Write-Log '[Kyverno] Waiting 10s for ClusterIP allocator to sync after namespace deletion' -Console
+    Start-Sleep -Seconds 10
 
     Write-Log '[Kyverno] Uninstallation complete' -Console
 }
