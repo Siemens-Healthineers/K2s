@@ -629,10 +629,29 @@ function Copy-ToRemoteComputerViaSshKey($Source, $Target, $UserName, $IpAddress,
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
     [Parameter(Mandatory = $false)]
-    [switch]$IgnoreErrors = $false) {
+    [switch]$IgnoreErrors = $false,
+    [Parameter(Mandatory = $false)]
+    [uint16]$Retries = 3,
+    [Parameter(Mandatory = $false)]
+    [uint16]$RetryDelay = 2) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$remotePwd,"$Source","${remoteUser}:$Target") -PipeInput 'yes'
+    $attempt = 0
+    $output = $null
+
+    do {
+        $attempt++
+        $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$remotePwd,"$Source","${remoteUser}:$Target") -PipeInput 'yes'
+
+        if ($LASTEXITCODE -eq 0) {
+            break
+        }
+
+        if ($attempt -le $Retries) {
+            Write-Log "[SCP] Attempt $attempt failed (exit code $LASTEXITCODE), retrying in $RetryDelay seconds..."
+            Start-Sleep -Seconds $RetryDelay
+        }
+    } while ($attempt -le $Retries)
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -646,10 +665,29 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
     [string]$UserPwd = $remotePwd,
     [Parameter(Mandatory = $false)]
-    [switch]$IgnoreErrors = $false) {
+    [switch]$IgnoreErrors = $false,
+    [Parameter(Mandatory = $false)]
+    [uint16]$Retries = 3,
+    [Parameter(Mandatory = $false)]
+    [uint16]$RetryDelay = 2) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
+    $attempt = 0
+    $output = $null
+
+    do {
+        $attempt++
+        $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
+
+        if ($LASTEXITCODE -eq 0) {
+            break
+        }
+
+        if ($attempt -le $Retries) {
+            Write-Log "[SCP] Attempt $attempt failed (exit code $LASTEXITCODE), retrying in $RetryDelay seconds..."
+            Start-Sleep -Seconds $RetryDelay
+        }
+    } while ($attempt -le $Retries)
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"

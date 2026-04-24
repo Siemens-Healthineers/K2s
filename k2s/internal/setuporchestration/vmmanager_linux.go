@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 	"time"
 
 	_ "embed"
@@ -62,10 +61,10 @@ func (m *LibvirtVMManager) CreateVM(config VMConfig) error {
 		NVRAMPath:     nvramPath,
 	}
 
-	// Render domain XML
-	tmpl, err := template.New("domain").Parse(domainXMLTemplate)
+	// Render domain XML (user-customised template takes precedence over embedded default)
+	tmpl, err := loadLibvirtTemplate("domain.xml.tmpl", domainXMLTemplate)
 	if err != nil {
-		return fmt.Errorf("failed to parse domain XML template: %w", err)
+		return fmt.Errorf("failed to load domain XML template: %w", err)
 	}
 
 	tmpFile, err := os.CreateTemp("", "k2s-vm-*.xml")
