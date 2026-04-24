@@ -9,7 +9,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"text/template"
+
+	_ "embed"
 )
 
 const (
@@ -38,21 +39,8 @@ type networkTemplateData struct {
 	WinVMMac       string
 }
 
-const libvirtNetworkXML = `<network>
-  <name>{{.Name}}</name>
-  <forward mode='nat'>
-    <nat>
-      <port start='1024' end='65535'/>
-    </nat>
-  </forward>
-  <bridge name='{{.BridgeName}}' stp='on' delay='0'/>
-  <ip address='{{.HostIP}}' netmask='{{.Netmask}}'>
-    <dhcp>
-      <range start='{{.DHCPRangeStart}}' end='{{.DHCPRangeEnd}}'/>
-      <host mac='{{.WinVMMac}}' name='k2s-win-worker' ip='{{.WinVMIP}}'/>
-    </dhcp>
-  </ip>
-</network>`
+//go:embed libvirt_network.xml.tmpl
+var networkXMLTemplate string
 
 // winVMMACAddress is a fixed MAC address for the Windows worker VM.
 // Using a fixed MAC ensures the DHCP reservation always assigns the same IP.
@@ -82,9 +70,9 @@ func CreateK2sNetwork() error {
 		WinVMMac:       winVMMACAddress,
 	}
 
-	tmpl, err := template.New("network").Parse(libvirtNetworkXML)
+	tmpl, err := loadLibvirtTemplate("network.xml.tmpl", networkXMLTemplate)
 	if err != nil {
-		return fmt.Errorf("failed to parse network XML template: %w", err)
+		return fmt.Errorf("failed to load network XML template: %w", err)
 	}
 
 	tmpFile, err := os.CreateTemp("", "k2s-network-*.xml")
