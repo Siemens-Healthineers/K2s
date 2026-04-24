@@ -87,6 +87,38 @@ if ($Ingress -ne 'none') {
 
 $manifestsPath = "$PSScriptRoot\manifests\logging"
 
+function Wait-FluentBitReady {
+    Write-Log 'Waiting for Fluent-bit DaemonSets to be ready...' -Console
+    $cmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonset/fluent-bit', '-n', 'logging', '--timeout=300s'
+    Write-Log $cmd.Output
+    if (!$cmd.Success) {
+        $errMsg = 'Fluent-bit could not be deployed successfully!'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return $false
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+
+    if ($setupInfo.LinuxOnly -eq $false) {
+        $cmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonset/fluent-bit-win', '-n', 'logging', '--timeout=300s'
+        Write-Log $cmd.Output
+        if (!$cmd.Success) {
+            $errMsg = 'Fluent-bit Windows could not be deployed successfully!'
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return $false
+            }
+            Write-Log $errMsg -Error
+            exit 1
+        }
+    }
+    return $true
+}
+
 if ($OmitOpensearch) {
     Write-Log 'Deploying Fluent-bit only (--omitOpensearch)' -Console
 
@@ -107,20 +139,7 @@ if ($OmitOpensearch) {
         (Invoke-Kubectl -Params 'apply', '-f', "$fluentbitWindowsPath\daemonset-windows.yaml").Output | Write-Log
     }
 
-    Write-Log 'Waiting for Fluent-bit DaemonSets to be ready...' -Console
-    $kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=300s'
-    Write-Log $kubectlCmd.Output
-    if (!$kubectlCmd.Success) {
-        $errMsg = 'Fluent-bit could not be deployed successfully!'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-
-        Write-Log $errMsg -Error
-        exit 1
-    }
+    Wait-FluentBitReady
 }
 else {
     Write-Log 'Installing fluent-bit and opensearch stack' -Console
@@ -168,19 +187,7 @@ else {
         exit 1
     }
 
-    $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=600s')
-    Write-Log $kubectlCmd.Output
-    if (!$kubectlCmd.Success) {
-        $errMsg = 'Fluent-bit could not be deployed successfully!'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-
-        Write-Log $errMsg -Error
-        exit 1
-    }
+    Wait-FluentBitReady
 
     # Import saved objects 
     $dashboardIP = (Invoke-Kubectl -Params 'get', 'pods', '-l=app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '-o=jsonpath="{.items[0].status.podIP}"').Output
