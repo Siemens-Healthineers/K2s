@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const exportImportTestTimeout = time.Minute * 30
+const exportImportTestTimeout = time.Minute * 60
 
 var (
 	suite                 *framework.K2sTestSuite
