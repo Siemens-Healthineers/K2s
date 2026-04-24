@@ -176,9 +176,53 @@ if ($httpproxyService) {
 } else {
     Write-Log "[Proxy] httpproxy service not found, skipping allowed-cidr update" -Console
 }
-Write-Host "Executing InstallNode.ps1 on remote machine: $IpAddress with HostIpAddress $WindowsHostIpAddress"
-$executeInstallNodeScript = "powershell -ExecutionPolicy Bypass -File `"C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1`" -ShowLogs -IpAddress $IpAddress -HostIpAddress $WindowsHostIpAddress"
 
-Invoke-CmdOnVmViaSSHKey -CmdToExecute $executeInstallNodeScript -IpAddress $IpAddress -UserName $UserName
+Write-Log "Executing InstallNode.ps1 on remote machine: $IpAddress with HostIpAddress $WindowsHostIpAddress" -Console
+
+# Execute InstallNode.ps1 in background with output redirection to avoid SSH hanging
+# The script will run asynchronously on the remote machine and we'll poll for node join completion
+$remoteLogFile = "C:\k2s\InstallNode.log"
+$remoteErrorLog = "C:\k2s\InstallNode.error.log"
+
+# Use Start-Process with -WindowStyle Hidden to run in background and redirect output
+$executeInstallNodeScript = "Start-Process -FilePath 'powershell.exe' -ArgumentList '-ExecutionPolicy', 'Bypass', '-File', 'C:\k2s\lib\scripts\worker\windows\windows-host\InstallNode.ps1', '-ShowLogs', '-IpAddress', '$IpAddress', '-HostIpAddress', '$WindowsHostIpAddress' -NoNewWindow -RedirectStandardOutput '$remoteLogFile' -RedirectStandardError '$remoteErrorLog' -Wait"
+
+Write-Log "Starting InstallNode.ps1 in background on remote machine (logs: $remoteLogFile)" -Console
+
+$result = Invoke-CmdOnVmViaSSHKey -CmdToExecute "powershell -Command `"$executeInstallNodeScript`"" -IpAddress $IpAddress -UserName $UserName -ExecutionTimeoutSeconds 600
+
+if (-not $result.Success) {
+    Write-Log "Warning: InstallNode.ps1 execution may have encountered issues. Check remote logs at $remoteLogFile and $remoteErrorLog" -Console
+}
+
+Write-Log "InstallNode.ps1 execution initiated. Waiting for node to join cluster..." -Console
+
+# Wait for the node to appear in the cluster (with timeout)
+$maxWaitSeconds = 300
+$waitInterval = 5
+$elapsed = 0
+
+while ($elapsed -lt $maxWaitSeconds) {
+    $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
+    if ($clusterState -match $k8sFormattedNodeName) {
+        Write-Log "Node '$k8sFormattedNodeName' successfully joined the cluster!" -Console
+        break
+    }
+    
+    Write-Log "Waiting for node to join cluster... ($elapsed/$maxWaitSeconds seconds)" -Console
+    Start-Sleep -Seconds $waitInterval
+    $elapsed += $waitInterval
+}
+
+if ($elapsed -ge $maxWaitSeconds) {
+    Write-Log "Warning: Node did not appear in cluster within $maxWaitSeconds seconds. Check remote log at $remoteLogFile on $IpAddress" -Console
+    throw "Node join operation timed out"
+}
+
+# Clean up local temp files
+Remove-Item -Path $joinCommandFile -Force -ErrorAction SilentlyContinue
+
+$durationStopwatch.Stop()
+Write-Log "Windows worker node '$NodeName' added successfully in $($durationStopwatch.Elapsed.TotalSeconds) seconds" -Console
 
 
