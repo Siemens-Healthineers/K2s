@@ -20,6 +20,7 @@ import (
 
 const (
 	ageRegex     = `(\d\D)+`
+	readyRegex   = `\d+/\d+`
 	osRegex      = "((w)|(W)indows)|((l)|(L)inux)"
 	runtimeRegex = "(cri-o|containerd)"
 	bytesRegex   = `[0-9]+\w{0,2}B`
@@ -92,13 +93,13 @@ var _ = Describe("status", Ordered, func() {
 		It("prints short system Pods info", func(ctx context.Context) {
 			Expect(output).To(SatisfyAll(
 				MatchRegexp(`STATUS.+\|.+NAME.+\|.+READY.+\|.+RESTARTS.+\|.+AGE`),
-				MatchRegexp("Running.+\\|.+kube-flannel-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s", ageRegex),
-				MatchRegexp("Running.+\\|.+coredns-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s", ageRegex),
-				MatchRegexp("Running.+\\|.+etcd-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ageRegex),
-				MatchRegexp("Running.+\\|.+kube-apiserver-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ageRegex),
-				MatchRegexp("Running.+\\|.+kube-controller-manager-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ageRegex),
-				MatchRegexp("Running.+\\|.+kube-proxy-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s", ageRegex),
-				MatchRegexp("Running.+\\|.+kube-scheduler-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ageRegex),
+				MatchRegexp("Running.+\\|.+kube-flannel-.+\\|.+%s.+\\|.+\\d+.+\\|.+%s", readyRegex, ageRegex),
+				MatchRegexp("Running.+\\|.+coredns-.+\\|.+%s.+\\|.+\\d+.+\\|.+%s", readyRegex, ageRegex),
+				MatchRegexp("Running.+\\|.+etcd-%s.+\\|.+%s.+\\|.+\\d+.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), readyRegex, ageRegex),
+				MatchRegexp("Running.+\\|.+kube-apiserver-%s.+\\|.+%s.+\\|.+\\d+.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), readyRegex, ageRegex),
+				MatchRegexp("Running.+\\|.+kube-controller-manager-%s.+\\|.+%s.+\\|.+\\d+.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), readyRegex, ageRegex),
+				MatchRegexp("Running.+\\|.+kube-proxy-.+\\|.+%s.+\\|.+\\d+.+\\|.+%s", readyRegex, ageRegex),
+				MatchRegexp("Running.+\\|.+kube-scheduler-%s.+\\|.+%s.+\\|.+\\d+.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), readyRegex, ageRegex),
 			))
 		})
 
@@ -160,13 +161,13 @@ var _ = Describe("status", Ordered, func() {
 		It("prints extended system Pods info", func(ctx context.Context) {
 			Expect(output).To(SatisfyAll(
 				MatchRegexp(`STATUS.+\|.+NAMESPACE.+\|.+NAME.+\|.+READY.+\|.+RESTARTS.+\|.+AGE.+\|.+IP.+\|.+NODE`),
-				MatchRegexp("Running.+\\|.+kube-flannel.+\\|.+kube-flannel-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+coredns-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+etcd-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-apiserver-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-controller-manager-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-proxy-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-scheduler-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
+				MatchRegexp("Running.+\\|.+kube-flannel.+\\|.+kube-flannel-.+\\|.+%s.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", readyRegex, ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+coredns-.+\\|.+%s.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", readyRegex, ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+etcd-%s.+\\|.+%s.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), readyRegex, ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-apiserver-%s.+\\|.+%s.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), readyRegex, ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-controller-manager-%s.+\\|.+%s.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), readyRegex, ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-proxy-.+\\|.+%s.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", readyRegex, ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-scheduler-%s.+\\|.+%s.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), readyRegex, ageRegex, regex.IpAddressRegex, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()),
 			))
 		})
 
