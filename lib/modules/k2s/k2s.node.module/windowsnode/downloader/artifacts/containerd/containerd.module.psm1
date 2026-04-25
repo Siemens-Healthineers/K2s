@@ -71,7 +71,7 @@ function Invoke-DeployContainerdArtifacts($windowsNodeArtifactsDirectory) {
 
 function Invoke-DownloadCrictlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $crictlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CrictlDirectory"
-    $versionCrictl = '1.35.0'
+    $versionCrictl = '1.36.0'
 
     $compressedCrictlFile = "crictl-v$versionCrictl-windows-amd64.tar.gz"
     $compressedFile = "$crictlDownloadsDirectory\$compressedCrictlFile"
