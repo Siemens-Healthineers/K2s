@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	ageRegex     = `(\d\D)+`
+	ageRegex     = `\d+[dhms](\d+[dhms])*`
 	readyRegex   = `\d+/\d+`
 	osRegex      = "((w)|(W)indows)|((l)|(L)inux)"
 	runtimeRegex = "(cri-o|containerd)"
