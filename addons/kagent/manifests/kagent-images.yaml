@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Container images required by kagent v0.9.0
+# Used by K2s offline packaging to pre-pull images.
+---
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kagent-images
+    spec:
+      containers:
+        - name: kagent-controller
+          image: cr.kagent.dev/kagent-dev/kagent/controller:v0.9.0
+        - name: kagent-ui
+          image: cr.kagent.dev/kagent-dev/kagent/ui:v0.9.0
+        - name: kagent-app
+          image: cr.kagent.dev/kagent-dev/kagent/app:v0.9.0
+        - name: kagent-skills-init
+          image: cr.kagent.dev/kagent-dev/kagent/skills-init:v0.9.0
+        - name: postgres
+          image: docker.io/library/postgres:18.3-alpine
+        - name: copilot-cli-a2a-wrapper
+          image: shsk2s.azurecr.io/copilot-cli-a2a-wrapper:1.1.0
+        - name: local-path-provisioner
+          image: docker.io/rancher/local-path-provisioner:v0.0.30
+        - name: busybox
+          image: docker.io/library/busybox:latest

@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: AddonManifest
+metadata:
+  name: kagent
+  description: Kagent - Kubernetes-native AI agent framework (CNCF)
+spec:
+  implementations:
+    - name: kagent
+      description: Kagent - Kubernetes-native AI agent framework (CNCF)
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages: []
+          additionalImagesFiles:
+            - manifests/kagent-images.yaml
+        windows:
+          curl: []
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: provider
+                default: none
+                description: "LLM provider to configure (none, openAI, anthropic, ollama). Use 'none' for BYO agents or MCP-only usage"
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - none
+                    - openAI
+                    - anthropic
+                    - ollama
+              - name: api-key
+                default: ""
+                description: API key for the selected LLM provider (not required for ollama or none)
+              - name: byo-copilot
+                default: false
+                description: "Deploy Copilot CLI as a BYO agent in Kagent (requires pre-created secret 'copilot-github-token' in namespace 'kagent')"
+            examples:
+              - cmd: k2s addons enable kagent
+                comment: Enable kagent without a built-in LLM provider (for BYO agents or MCP clients)
+              - cmd: k2s addons enable kagent --provider openAI --api-key <your-key>
+                comment: Enable kagent with OpenAI provider
+              - cmd: k2s addons enable kagent --provider anthropic --api-key <your-key>
+                comment: Enable kagent with Anthropic provider
+              - cmd: k2s addons enable kagent --provider ollama
+                comment: Enable kagent with local Ollama provider (no API key needed)
+              - cmd: k2s addons enable kagent --byo-copilot
+                comment: Enable kagent with Copilot CLI as a BYO agent (secret must be pre-created)
+          script:
+            subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: provider
+                scriptParameterName: Provider
+              - cliFlagName: api-key
+                scriptParameterName: ApiKey
+              - cliFlagName: byo-copilot
+                scriptParameterName: ByoCopilot
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable kagent
+                comment: Disable kagent addon in k2s
+          script:
+            subPath: Disable.ps1

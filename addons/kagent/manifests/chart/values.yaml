@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Kagent Helm chart values for k2s
+# Chart: kagent-0.9.0 (https://github.com/kagent-dev/kagent)
+
+# Pin all workloads to Linux nodes (K2s runs mixed Windows/Linux)
+nodeSelector:
+  kubernetes.io/os: linux
+
+controller:
+  nodeSelector:
+    kubernetes.io/os: linux
+
+ui:
+  nodeSelector:
+    kubernetes.io/os: linux
+  service:
+    type: ClusterIP
+    ports:
+      port: 8080
+      targetPort: 8080
+
+database:
+  postgres:
+    bundled:
+      enabled: true
+      storageClassName: "local-path"
+      podSecurityContext:
+        fsGroup: 999
+        runAsUser: 999
+        runAsGroup: 999
+        runAsNonRoot: true
+
+# Fix grafana-mcp short image name: "mcp/grafana" → "docker.io/mcp/grafana"
+# Buildah in K2s enforces fully-qualified image names.
+grafana-mcp:
+  image:
+    registry: docker.io/mcp
+    repository: grafana
+    tag: "latest"
+
+# Disable built-in agents by default — they require a ModelConfig with
+# LLM API keys. Users can selectively enable agents after configuring
+# a model provider. Re-enable with e.g.:
+#   helm upgrade kagent ... --set agents.k8s-agent.enabled=true
+agents:
+  k8s-agent:
+    enabled: false
+  kgateway-agent:
+    enabled: false
+  istio-agent:
+    enabled: false
+  promql-agent:
+    enabled: false
+  observability-agent:
+    enabled: false
+  argo-rollouts-agent:
+    enabled: false
+  helm-agent:
+    enabled: false
+  cilium-policy-agent:
+    enabled: false
+  cilium-manager-agent:
+    enabled: false
+  cilium-debug-agent:
+    enabled: false
+
+# Provider configuration is injected dynamically via Helm --set flags
+# during Enable.ps1 based on user-selected provider.

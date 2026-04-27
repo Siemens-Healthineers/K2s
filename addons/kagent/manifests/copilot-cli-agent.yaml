@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Copilot CLI BYO Agent for Kagent
+# Deployed automatically when --byo-copilot is passed to 'k2s addons enable kagent'.
+# Kagent manages the pod lifecycle via the BYO deployment spec.
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: copilot-cli
+  namespace: kagent
+spec:
+  type: BYO
+  description: >-
+    GitHub Copilot CLI wrapped as an A2A agent. Handles code generation,
+    code review, and DevOps tasks via natural language.
+  byo:
+    deployment:
+      image: shsk2s.azurecr.io/copilot-cli-a2a-wrapper:1.1.0
+      env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: copilot-github-token
+              key: GITHUB_TOKEN
+              # Secret lives in the same namespace as the pod (kagent).
+              # Deploy-CopilotCliAgent copies it from 'default' namespace
+              # so it survives addon disable/re-enable cycles.
+        - name: COPILOT_TIMEOUT_SECONDS
+          value: "300"
+        - name: HTTP_PROXY
+          value: "http://172.19.1.1:8181"
+        - name: HTTPS_PROXY
+          value: "http://172.19.1.1:8181"
+        - name: http_proxy
+          value: "http://172.19.1.1:8181"
+        - name: https_proxy
+          value: "http://172.19.1.1:8181"
+        - name: NO_PROXY
+          value: "localhost,127.0.0.1,172.19.1.0/24,172.20.0.0/16,172.21.0.0/16,.cluster.local,.svc"
+        - name: no_proxy
+          value: "localhost,127.0.0.1,172.19.1.0/24,172.20.0.0/16,172.21.0.0/16,.cluster.local,.svc"
