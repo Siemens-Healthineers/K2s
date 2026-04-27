@@ -220,21 +220,20 @@ function Get-MasterNodeSwitchIndex {
 }
 
 function Wait-ForNetIpInterface {
-        param (
-        [string]$SwitchName = $(throw 'Argument missing: SwitchName')
+    param (
+        [string]$SwitchName = $(throw 'Argument missing: SwitchName'),
+        [int]$MaxWaitTimeSeconds = 60
     )
-    # wait for switch
     $switchName = $SwitchName
-    Write-Log "[KubeSwitch] Wait for NetIpInterface '$switchName' to be available ..."
-    $maxWaitTime = 60
+    Write-Log "[KubeSwitch] Wait for NetIpInterface '$switchName' to be available (timeout: ${MaxWaitTimeSeconds}s) ..."
     $startTime = Get-Date
     $lastProgressTime = $startTime
     while (!(Get-NetIPInterface -InterfaceAlias $switchName -AddressFamily IPv4 -ErrorAction SilentlyContinue)) {
         $elapsed = (Get-Date) - $startTime
-        if ($elapsed.TotalSeconds -ge $maxWaitTime) {
+        if ($elapsed.TotalSeconds -ge $MaxWaitTimeSeconds) {
             $availableInterfaces = (Get-NetIPInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty InterfaceAlias) -join ', '
             Write-Log "[KubeSwitch] Available IPv4 interfaces: $availableInterfaces"
-            throw "Switch '$switchName' not available after $maxWaitTime seconds"
+            throw "Switch '$switchName' not available after $MaxWaitTimeSeconds seconds. Windows may need more time to register the virtual adapter."
         }
         if (((Get-Date) - $lastProgressTime).TotalSeconds -ge 10) {
             Write-Log "[KubeSwitch] Still waiting for '$switchName' ($([int]$elapsed.TotalSeconds)s elapsed) ..."

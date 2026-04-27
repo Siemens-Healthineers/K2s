@@ -618,10 +618,17 @@ Function New-LinuxCloudBasedVirtualMachine {
         "NatName"=$NatName
         "NatIpAddress"=$NatIpAddress
     }
-    New-NetworkForProvisioning @networkParams
+    try {
+        New-NetworkForProvisioning @networkParams
 
-    Write-Log "Attach the VM to a network switch"
-    Connect-VmToSwitch -VmName $vmName -SwitchName $SwitchName
+        Write-Log "Attach the VM to a network switch"
+        Connect-VmToSwitch -VmName $vmName -SwitchName $SwitchName
+    }
+    catch {
+        Write-Log "[Provisioning] Network setup failed, cleaning up: $_"
+        Remove-NetworkForProvisioning -SwitchName $SwitchName -NatName $NatName
+        throw
+    }
 }
 
 <#
@@ -690,48 +697,51 @@ function New-NetworkForProvisioning {
         [string]$NatIpAddress = $(throw "Argument missing: NatIpAddress")
     )
 
-    $timeout = New-TimeSpan -Minutes 1
-	$stpwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $switchAlias = "vEthernet ($SwitchName)"
+    $maxRetries = 3
+    $retryDelaySeconds = 5
 
-    $retryCount = 0
-    $maxRetries = 5
-    $retryDelay = 10
-
-    do {
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
         try {
-            New-VMSwitch -Name $SwitchName -SwitchType Internal -ErrorAction SilentlyContinue
-            Write-Log "Try to find switch: $SwitchName"
-            $sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
-            if ($sw) {
-                Write-Log "Created VMSwitch '$SwitchName': $sw"
-                break
-            }
-        } catch {
-            Write-Log "Failed to create VMSwitch '$SwitchName'. Retrying in $retryDelay seconds..."
-            Start-Sleep -Seconds $retryDelay
-            $retryCount++
-        }
-        if ($sw) {
-            $retryCount = $maxRetries + 1
-            Write-Log "Created VMSwitch '$SwitchName': $sw"
+            Write-Log "[Provisioning] Create internal switch '$SwitchName' (attempt $attempt of $maxRetries)"
+            New-VMSwitch -Name $SwitchName -SwitchType Internal -ErrorAction Stop | Out-Null
+
+            # allow Windows networking stack to register the virtual adapter
+            Start-Sleep -Seconds 2
+
+            Wait-ForNetIpInterface -SwitchName $switchAlias
+
+            # switch and interface are available
+            Write-Log "[Provisioning] VMSwitch '$SwitchName' created and interface '$switchAlias' is ready"
             break
         }
-    } until ( ($sw) -or ($stpwatch.elapsed -gt $timeout) -or ($retryCount -ge $maxRetries))
+        catch {
+            Write-Log "[Provisioning] Attempt $attempt failed: $_"
 
-    if (-not $sw) {
-        throw "Failed to create VMSwitch '$SwitchName' after $maxRetries attempts."
+            # clean up partially-created switch before retrying
+            $sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
+            if ($sw) {
+                Write-Log "[Provisioning] Removing partially-created switch '$SwitchName' before retry ..."
+                Remove-VMSwitch -Name $SwitchName -Force
+            }
+
+            if ($attempt -ge $maxRetries) {
+                throw "[Provisioning] Failed to create switch '$SwitchName' and wait for interface after $maxRetries attempts. Last error: $_"
+            }
+
+            Write-Log "[Provisioning] Retrying in $retryDelaySeconds seconds ..."
+            Start-Sleep -Seconds $retryDelaySeconds
+        }
     }
 
-    Wait-ForNetIpInterface -SwitchName "vEthernet ($SwitchName)"
+    New-NetIPAddress -IPAddress $HostIpAddress -PrefixLength $HostIpPrefixLength -InterfaceAlias $switchAlias | Write-Log
+    Write-Log "Added IP address '$HostIpAddress' to network interface named '$switchAlias'"
 
-	New-NetIPAddress -IPAddress $HostIpAddress -PrefixLength $HostIpPrefixLength -InterfaceAlias "vEthernet ($SwitchName)" | Write-Log
-	Write-Log "Added IP address '$HostIpAddress' to network interface named 'vEthernet ($SwitchName)'"
-
-	$address = "$NatIpAddress/$HostIpPrefixLength"
+    $address = "$NatIpAddress/$HostIpPrefixLength"
     $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
     if( $nat ) { Remove-NetNat -Name $NatName -Confirm:$False -ErrorAction SilentlyContinue }
     New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $address -ErrorAction SilentlyContinue | Write-Log
-	Write-Log "Created NetNat '$NatName' with address '$address'"
+    Write-Log "Created NetNat '$NatName' with address '$address'"
 }
 
 <#
