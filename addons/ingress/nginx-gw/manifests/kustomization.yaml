@@ -19,4 +19,6 @@ resources:
   - deployment.yaml
   - gatewayclass.yaml
   - nginxgateway.yaml
+  - certs-role.yaml
+  - certs-rolebinding.yaml
   - certs-job.yaml
