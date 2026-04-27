@@ -27,20 +27,6 @@ spec:
               value: '8083'
             - name: RESOURCE
               value: 'albums-win3'
-          startupProbe:
-            httpGet:
-              path: /albums-win3
-              port: 8083
-            periodSeconds: 5
-            failureThreshold: 24
-            timeoutSeconds: 2
-          readinessProbe:
-            httpGet:
-              path: /albums-win3
-              port: 8083
-            periodSeconds: 5
-            failureThreshold: 3
-            timeoutSeconds: 2
       nodeSelector:
         kubernetes.io/os: windows
       tolerations:
