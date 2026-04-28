@@ -29,6 +29,8 @@ spec:
               # so it survives addon disable/re-enable cycles.
         - name: COPILOT_TIMEOUT_SECONDS
           value: "300"
+        - name: GH_HOST
+          value: "shs.ghe.com"
         - name: HTTP_PROXY
           value: "http://172.19.1.1:8181"
         - name: HTTPS_PROXY
