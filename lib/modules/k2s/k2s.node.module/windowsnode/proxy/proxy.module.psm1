@@ -183,6 +183,8 @@ function New-ProxyConfig {
     Add-Content -Path $proxyConfigFp -Value "http_proxy=$Proxy"
     Add-Content -Path $proxyConfigFp -Value "https_proxy=$Proxy"
     Add-Content -Path $proxyConfigFp -Value "no_proxy=$NoProxyString"
+
+    return $Proxy
 }
 
 <#
