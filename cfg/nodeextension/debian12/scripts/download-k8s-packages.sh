@@ -64,6 +64,12 @@ cleanup_and_create "$TARGET_PATH"
 # # APT sandbox config
 echo "APT::Sandbox::User \"root\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s > /dev/null
 
+# Configure apt proxy if provided (ensures apt-get update/download use the same proxy as curl)
+if [ -n "$PROXY" ]; then
+    log_info "Configuring apt proxy: $PROXY"
+    printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$PROXY" "$PROXY" | sudo tee /etc/apt/apt.conf.d/95k2s-proxy > /dev/null
+fi
+
 # Copy ZScaler certificate (if exists)
 if [ -f /tmp/ZScalerRootCA.crt ]; then
     log_info "Adding ZScaler certificate"
@@ -274,5 +280,10 @@ cd "$TARGET_PATH" && sudo find . -maxdepth 1 -type f \
 log_info "Download verification:"
 log_info "Total packages: $(ls "$TARGET_PATH"/*.deb 2>/dev/null | wc -l)"
 ls -lh "$TARGET_PATH"/*.deb 2>/dev/null || true
+
+# Remove temporary apt proxy config
+if [ -n "$PROXY" ]; then
+    sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy
+fi
 
    
