@@ -87,6 +87,28 @@ if ($Ingress -ne 'none') {
 
 $manifestsPath = "$PSScriptRoot\manifests\logging"
 
+function Stop-WithError ([string]$Message) {
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $Message
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    }
+    else { Write-Log $Message -Error }
+    exit 1
+}
+
+function Wait-FluentBitReady {
+    Write-Log 'Waiting for Fluent-bit DaemonSets to be ready...' -Console
+    $cmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonset/fluent-bit', '-n', 'logging', '--timeout=300s'
+    Write-Log $cmd.Output
+    if (!$cmd.Success) { Stop-WithError 'Fluent-bit could not be deployed successfully!' }
+
+    if ($setupInfo.LinuxOnly -eq $false) {
+        $cmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonset/fluent-bit-win', '-n', 'logging', '--timeout=300s'
+        Write-Log $cmd.Output
+        if (!$cmd.Success) { Stop-WithError 'Fluent-bit Windows could not be deployed successfully!' }
+    }
+}
+
 if ($OmitOpensearch) {
     Write-Log 'Deploying Fluent-bit only (--omitOpensearch)' -Console
 
@@ -107,20 +129,7 @@ if ($OmitOpensearch) {
         (Invoke-Kubectl -Params 'apply', '-f', "$fluentbitWindowsPath\daemonset-windows.yaml").Output | Write-Log
     }
 
-    Write-Log 'Waiting for Fluent-bit DaemonSets to be ready...' -Console
-    $kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=300s'
-    Write-Log $kubectlCmd.Output
-    if (!$kubectlCmd.Success) {
-        $errMsg = 'Fluent-bit could not be deployed successfully!'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-
-        Write-Log $errMsg -Error
-        exit 1
-    }
+    Wait-FluentBitReady
 }
 else {
     Write-Log 'Installing fluent-bit and opensearch stack' -Console
@@ -142,45 +151,13 @@ else {
     # Wait for opensearch (StatefulSet) first — dashboards depends on opensearch being available at port 9200
     $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'logging', '--timeout=600s')
     Write-Log $kubectlCmd.Output
-    if (!$kubectlCmd.Success) {
-        $errMsg = 'Opensearch could not be deployed successfully!'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-
-        Write-Log $errMsg -Error
-        exit 1
-    }
+    if (!$kubectlCmd.Success) { Stop-WithError 'Opensearch could not be deployed successfully!' }
 
     $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'logging', '--timeout=600s')
     Write-Log $kubectlCmd.Output
-    if (!$kubectlCmd.Success) {
-        $errMsg = 'Opensearch dashboards could not be deployed successfully!'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
+    if (!$kubectlCmd.Success) { Stop-WithError 'Opensearch dashboards could not be deployed successfully!' }
 
-        Write-Log $errMsg -Error
-        exit 1
-    }
-
-    $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=600s')
-    Write-Log $kubectlCmd.Output
-    if (!$kubectlCmd.Success) {
-        $errMsg = 'Fluent-bit could not be deployed successfully!'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-
-        Write-Log $errMsg -Error
-        exit 1
-    }
+    Wait-FluentBitReady
 
     # Import saved objects 
     $dashboardIP = (Invoke-Kubectl -Params 'get', 'pods', '-l=app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '-o=jsonpath="{.items[0].status.podIP}"').Output

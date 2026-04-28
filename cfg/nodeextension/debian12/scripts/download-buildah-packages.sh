@@ -11,8 +11,10 @@
 # Arguments:
 #   $1 - Target path on the remote machine to store downloaded .deb packages
 #        (e.g. /home/sk/apt-offline-k2s/buildah)
+#   $2 - Optional HTTP/HTTPS proxy URL
 
 BUILDAH_DEB_PACKAGES_PATH="${1:?Argument missing: BuildahDebPackagesPath}"
+PROXY="${2:-}"
 
 log_info() {
     echo "[BuildahPkg] $1"
@@ -20,6 +22,14 @@ log_info() {
 
 log_info "Starting download of buildah packages"
 log_info "Target path: $BUILDAH_DEB_PACKAGES_PATH"
+
+cleanup_proxy_config() {
+    if [ -n "$PROXY" ]; then
+        sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy
+    fi
+}
+
+trap cleanup_proxy_config EXIT
 
 # ---------------------------------------------------------------------------
 # Prepare target directory
@@ -31,6 +41,12 @@ mkdir -p "$BUILDAH_DEB_PACKAGES_PATH"
 
 # APT sandbox config
 echo 'APT::Sandbox::User "root";' | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s > /dev/null
+
+# Configure apt proxy if provided (ensures apt-get download uses the same proxy path)
+if [ -n "$PROXY" ]; then
+    log_info "Configuring apt proxy: $PROXY"
+    printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$PROXY" "$PROXY" | sudo tee /etc/apt/apt.conf.d/95k2s-proxy > /dev/null
+fi
 
 cd "$BUILDAH_DEB_PACKAGES_PATH"
 
