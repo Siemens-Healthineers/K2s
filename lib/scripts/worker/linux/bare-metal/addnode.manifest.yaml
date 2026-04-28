@@ -26,7 +26,7 @@ spec:
     - name: IpAddress
       type: string
       required: true
-      description: IPv4 address of the Linux machine to join.
+      description: IPv4 address of the Linux machine to join (must be in a physical network subnet - LAN/WiFi).
     - name: NodeName
       type: string
       required: false
@@ -39,21 +39,28 @@ spec:
       type: string
       required: false
       description: Optional HTTP proxy for remote package and image preparation.
+    - name: NodePackagePath
+      type: string
+      required: false
+      description: Path to a pre-built node package for offline installation.
     - name: ShowLogs
       type: switch
       required: false
       description: Emits logs to the console while the script runs.
   prerequisites:
     - K2s cluster is already installed and running on the Windows host.
+    - The target Linux machine IP address must be within a physical network subnet (Ethernet or Wi-Fi) of the Windows host.
     - SSH connectivity from the Windows host to the target Linux machine is available.
     - The Windows host public key exists locally and is present in ~/.ssh/authorized_keys on the target machine.
     - The target machine is not already part of the cluster.
     - The target Linux distribution is supported by K2s worker provisioning.
   behavior:
     autoDetection:
+      - Validates the target IP is within a physical network subnet (LAN/WiFi) on the Windows host.
       - Detects the remote hostname and uses it as node name.
       - Detects the installed Linux distribution before provisioning.
       - Derives the Windows host gateway IP automatically when WindowsHostIpAddress is not supplied.
+      - Retrieves proxy configuration from K2s config when Proxy is not supplied.
     postInstall:
       - Joins the node to the cluster.
       - Starts the worker node and obtains the worker Pod CIDR.

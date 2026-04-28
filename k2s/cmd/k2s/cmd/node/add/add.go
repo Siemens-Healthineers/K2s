@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package add
@@ -98,6 +98,19 @@ func addNode(ccmd *cobra.Command, args []string) error {
 	machineName := ccmd.Flags().Lookup(MachineName).Value.String()
 	nodePackagePath := ccmd.Flags().Lookup(NodePackagePath).Value.String()
 
+	if machineUserName == "" {
+		return fmt.Errorf("flag --%s is required", MachineUsername)
+	}
+
+	isLocalVM, err := config.DetectLocalVM(machineIpAddress, context.Config().Host().K2sInstallDir())
+	if err != nil {
+		return fmt.Errorf("failed to determine node type: %w", err)
+	}
+
+	if isLocalVM {
+		pterm.Printfln("🖥️  Detected local Hyper-V VM on KubeSwitch network — using local-VM provisioning path")
+	}
+
 	pterm.Printfln("🤖 Adding node to K2s cluster")
 
 	if err := context.Providers().Node.Add(provider.NodeAddConfig{
@@ -106,6 +119,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		NodeName:        machineName,
 		NodePackagePath: nodePackagePath,
 		ShowOutput:      outputFlag,
+		IsLocalVM:       isLocalVM,
 	}); err != nil {
 		return err
 	}

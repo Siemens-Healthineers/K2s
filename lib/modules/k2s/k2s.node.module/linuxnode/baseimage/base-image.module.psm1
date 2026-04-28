@@ -546,7 +546,7 @@ Function New-LinuxCloudBasedVirtualMachine {
     $NatName=$NetworkParams.NatName
     $NatIpAddress=$NetworkParams.NatIpAddress
     $dnsEntries = $NetworkParams.DnsIpAddresses
-
+    $ReuseExistingSwitch = [bool]$NetworkParams.ReuseExistingSwitch
     $IsoFileCreatorToolPath = $IsoFileParams.IsoFileCreatorToolPath
     $IsoFileName = $IsoFileParams.IsoFileName
     $IsoContentTemplateSourcePath = $IsoFileParams.SourcePath
@@ -610,25 +610,31 @@ Function New-LinuxCloudBasedVirtualMachine {
 
     Write-Log "Setup the network for provisioning the VM"
 
-    Remove-NetworkForProvisioning -SwitchName $SwitchName -NatName $NatName
-    $networkParams = @{
-        "SwitchName"=$SwitchName
-        "HostIpAddress"=$HostIpAddress
-        "HostIpPrefixLength"=$HostIpPrefixLength
-        "NatName"=$NatName
-        "NatIpAddress"=$NatIpAddress
+ if ($ReuseExistingSwitch) {
+        Write-Log "Reusing existing switch '$SwitchName' for provisioning VM '$vmName'"
     }
-    try {
-        New-NetworkForProvisioning @networkParams
-
-        Write-Log "Attach the VM to a network switch"
-        Connect-VmToSwitch -VmName $vmName -SwitchName $SwitchName
-    }
-    catch {
-        Write-Log "[Provisioning] Network setup failed, cleaning up: $_"
+    else {
         Remove-NetworkForProvisioning -SwitchName $SwitchName -NatName $NatName
-        throw
-    }
+        $networkParams = @{
+            "SwitchName"=$SwitchName
+            "HostIpAddress"=$HostIpAddress
+            "HostIpPrefixLength"=$HostIpPrefixLength
+            "NatName"=$NatName
+            "NatIpAddress"=$NatIpAddress
+        }
+        try {
+            New-NetworkForProvisioning @networkParams
+
+            Write-Log "Attach the VM to a network switch"
+            Connect-VmToSwitch -VmName $vmName -SwitchName $SwitchName
+        }
+        catch {
+            Write-Log "[Provisioning] Network setup failed, cleaning up: $_"
+            Remove-NetworkForProvisioning -SwitchName $SwitchName -NatName $NatName
+            throw
+        }
+}
+
 }
 
 <#

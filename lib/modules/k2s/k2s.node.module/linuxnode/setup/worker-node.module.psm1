@@ -146,93 +146,6 @@ function Remove-LinuxWorkerNodeOnNewVM {
     }
 }
 
-function Add-LinuxWorkerNodeOnExistingUbuntuVM {
-    Param(
-        [string] $VmName = $(throw 'Argument missing: VmName'),
-        [string] $NodeName = $(throw 'Argument missing: NodeName'),
-        [string] $UserName = $(throw 'Argument missing: UserName'),
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $ClusterIpAddress = $(throw 'Argument missing: ClusterIpAddress'),
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy,
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = ''
-    )
-
-    Write-Log "Prepare the computer $IpAddress for provisioning"
-    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
-
-    Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
-
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
-    $networkPrefix = Get-ConfiguredClusterNetworkPrefix
-    $networkInterfaceName = 'eth0'
-    Add-RemoteIPAddress -UserName $UserName -IPAddress $IpAddress -RemoteIpAddress $ClusterIpAddress -PrefixLength $networkPrefix -RemoteIpAddressGateway $windowsHostIpAddress -DnsEntries $controlPlaneIpAddress -NetworkInterfaceName $networkInterfaceName
-    Disconnect-VMNetworkAdapter -VmName $VmName -ErrorAction Stop
-    $switchName = Get-ControlPlaneNodeDefaultSwitchName
-    Connect-VMNetworkAdapter -VmName $VmName -SwitchName $switchName -ErrorAction Stop
-    Wait-ForSSHConnectionToLinuxVMViaSshKey -User "$UserName@$ClusterIpAddress"
-
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-    $transparentProxy = "http://$($windowsHostIpAddress):8181"
-    Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -UserName $UserName -IpAddress $ClusterIpAddress
-
-    $k8sFormattedNodeName = $NodeName.ToLower()
-    Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $ClusterIpAddress
-}
-
-function Remove-LinuxWorkerNodeOnExistingUbuntuVM {
-    Param(
-        [string] $VmName = $(throw 'Argument missing: VmName'),
-        [string] $NodeName = $(throw 'Argument missing: NodeName'),
-        [string] $UserName = $(throw 'Argument missing: UserName'),
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [switch] $SkipHeaderDisplay = $false
-    )
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName'"
-    }
-
-    Remove-ProxySettingsOnKubenode -UserName $UserName -IpAddress $IpAddress
-
-    $k8sFormattedNodeName = $NodeName.ToLower()
-    $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
-    if ($clusterState -match $k8sFormattedNodeName) {
-        Remove-LinuxNode -NodeName $k8sFormattedNodeName -NodeUserName $UserName -NodeIpAddress $IpAddress
-    }
-
-    Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
-
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if [[ -d /etc/netplan/backup ]]; then find /etc/netplan/backup -maxdepth 1 -type f -exec sudo mv {} /etc/netplan ';';fi" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    Remove-RemoteIPAddress -UserName $UserName -IpAddress $IpAddress
-
-    Disconnect-VMNetworkAdapter -VmName $VmName -ErrorAction Stop
-    Write-Log "Stopping VM $VmName"
-    Stop-VM -Name $VmName -Force -WarningAction SilentlyContinue
-    $state = (Get-VM -Name $VmName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
-    while (!$state) {
-        Write-Log 'Still waiting for stop...'
-        Start-Sleep -s 1
-    }
-    Write-Log "Starting VM $VmName"
-    Start-VM -Name $VmName
-
-    Write-Log "Important: reconnect manually the VM '$VmName' to the corresponding switch."
-    Write-Log "Important: enable swap manually if it was enabled before adding the VM '$VmName' to the cluster."
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName' done."
-    }
-}
-
 function Start-LinuxWorkerNodeOnExistingVM {
     Param(
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
@@ -268,7 +181,7 @@ function Stop-LinuxWorkerNodeOnExistingVM {
     }
 }
 
-function Add-LinuxWorkerNodeOnBareMetal {
+function Add-LinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
@@ -322,7 +235,7 @@ function Add-LinuxWorkerNodeOnBareMetal {
     Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $IpAddress -PreStepHook $doBeforeJoining
 }
 
-function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
+function Remove-LinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
@@ -631,10 +544,9 @@ Stop-LinuxWorkerNodeOnNewVM,
 Remove-LinuxWorkerNodeOnNewVM,
 Start-LinuxWorkerNodeOnExistingVM,
 Stop-LinuxWorkerNodeOnExistingVM,
-Add-LinuxWorkerNodeOnExistingUbuntuVM,
 Remove-LinuxWorkerNodeOnExistingUbuntuVM,
-Add-LinuxWorkerNodeOnBareMetal,
-Remove-LinuxWorkerNodeOnUbuntuBareMetal,
+Add-LinuxWorkerNode,
+Remove-LinuxWorkerNode,
 Start-LinuxWorkerNodeOnUbuntuBareMetal,
 Stop-LinuxWorkerNodeOnUbuntuBareMetal,
 Test-SupportedWorkerOS

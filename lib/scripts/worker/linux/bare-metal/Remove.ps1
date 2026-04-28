@@ -71,7 +71,7 @@ $workerNodeParams = @{
     IpAddress = $IpAddress
     AdditionalHooksDir = $AdditionalHooksDir
 }
-Remove-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
+Remove-LinuxWorkerNode @workerNodeParams
 
 Write-Log "Current state of kubernetes nodes:`n"
 Start-Sleep 2

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
 package node
@@ -30,6 +30,8 @@ const (
 	linux         = "linux"
 	windows       = "windows"
 	baseDeployDir = "overlays"
+	curlMaxTime   = "180"
+	curlConnTime  = "30"
 )
 
 var suite *framework.K2sTestSuite
@@ -494,10 +496,10 @@ func checkCommunication(ctx context.Context, sourcePod, targetPod v1.Pod, sideca
 	command := ""
 	if sidecarName != "" {
 		// For Linux, use curl-sidecar
-		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si http://%s.%s.svc.cluster.local/%s", cliPath, sourcePod.Name, namespace, sidecarName, targetAppLabel, namespace, targetAppLabel)
+		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --connect-timeout %s --max-time %s http://%s.%s.svc.cluster.local/%s", cliPath, sourcePod.Name, namespace, sidecarName, curlConnTime, curlMaxTime, targetAppLabel, namespace, targetAppLabel)
 	} else {
 		// For Windows, use the main container
-		command = fmt.Sprintf("%s exec %s -n %s -- curl -si http://%s.%s.svc.cluster.local/%s", cliPath, sourcePod.Name, namespace, targetAppLabel, namespace, targetAppLabel)
+		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --connect-timeout %s --max-time %s http://%s.%s.svc.cluster.local/%s", cliPath, sourcePod.Name, namespace, curlConnTime, curlMaxTime, targetAppLabel, namespace, targetAppLabel)
 	}
 
 	output := suite.Cli("cmd.exe").MustExec(ctx, "/c", command)
@@ -512,10 +514,10 @@ func checkInternetCommunication(ctx context.Context, pod v1.Pod, sidecarName str
 	command := ""
 	if sidecarName != "" {
 		// For Linux, use curl-sidecar
-		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, sidecarName, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure --connect-timeout %s --max-time %s -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, sidecarName, curlConnTime, curlMaxTime, proxy)
 	} else {
 		// For Windows, use the main container
-		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure --connect-timeout %s --max-time %s -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, curlConnTime, curlMaxTime, proxy)
 	}
 
 	output := suite.Cli("cmd.exe").MustExec(ctx, "/c", command)
