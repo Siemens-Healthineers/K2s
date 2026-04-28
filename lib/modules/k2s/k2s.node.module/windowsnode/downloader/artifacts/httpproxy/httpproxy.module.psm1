@@ -25,7 +25,16 @@ function Install-WinHttpProxy {
 
 
     mkdir -Force "$(Get-SystemDriveLetter):\var\log\httpproxy" | Out-Null
-    &$kubeBinPath\nssm install httpproxy "$kubeBinPath\httpproxy.exe"
+
+    Write-Log '[HttpProxy] Removing httpproxy service if existent'
+    Remove-ServiceIfExists 'httpproxy'
+
+    &$kubeBinPath\nssm install httpproxy "$kubeBinPath\httpproxy.exe" *>&1 | Out-Null
+
+    if (!(Get-Service -Name 'httpproxy' -ErrorAction SilentlyContinue)) {
+        throw '[HttpProxy] Failed to create httpproxy service'
+    }
+
     &$kubeBinPath\nssm set httpproxy AppDirectory $kubeBinPath | Out-Null
 
     Set-ProxyConfigInHttpProxy -Proxy:$Proxy -ProxyOverrides:$ProxyOverrides
