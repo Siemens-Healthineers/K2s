@@ -610,8 +610,10 @@ Function New-LinuxCloudBasedVirtualMachine {
 
     Write-Log "Setup the network for provisioning the VM"
 
- if ($ReuseExistingSwitch) {
-        Write-Log "Reusing existing switch '$SwitchName' for provisioning VM '$vmName'"
+   if ($ReuseExistingSwitch) {
+        Write-Log "Reusing existing switch '$SwitchName' for provisioning VM '$vmName'" -Console
+        Write-Log "Attach the VM to existing network switch '$SwitchName'" -Console
+        Connect-VmToSwitch -VmName $vmName -SwitchName $SwitchName
     }
     else {
         Remove-NetworkForProvisioning -SwitchName $SwitchName -NatName $NatName

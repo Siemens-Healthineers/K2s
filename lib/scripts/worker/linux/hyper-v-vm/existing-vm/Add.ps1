@@ -17,7 +17,7 @@ Param(
 $durationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 
-$linuxWorkerCommon = "$PSScriptRoot\..\common\LinuxWorkerNode.Common.ps1"
+$linuxWorkerCommon = "$PSScriptRoot\..\..\common\LinuxWorkerNode.Common.ps1"
 . $linuxWorkerCommon
 
 Initialize-LinuxWorkerScriptEnvironment -ShowLogs:$ShowLogs -IncludePuttyTools
@@ -31,10 +31,26 @@ Write-Log '[NodeAdd] Performing pre-requisites check' -Console
 Assert-LinuxWorkerPuttyToolsReady -LogPrefix '[NodeAdd]' -Proxy $Proxy
 
 
-# Find the VM attached to KubeSwitch with the given IP address
+# Find the VM by matching IP address to MAC address via ARP table
 $kubeSwitchName = Get-ControlPlaneNodeDefaultSwitchName
-Write-Log "[NodeAdd] Looking for VM with IP '$IpAddress' attached to switch '$kubeSwitchName'" -Console
+Write-Log "[NodeAdd] Looking for VM with IP '$IpAddress' on switch '$kubeSwitchName'" -Console
 
+# Ping the IP to populate ARP cache
+Write-Log "[NodeAdd] Pinging '$IpAddress' to populate ARP cache..." -Console
+$pingResult = Test-Connection -ComputerName $IpAddress -Count 2 -Quiet -ErrorAction SilentlyContinue
+if (-not $pingResult) {
+    throw "Precondition not met: IP address '$IpAddress' is not reachable"
+}
+
+# Get MAC address from ARP table
+$arpEntry = Get-NetNeighbor -IPAddress $IpAddress -ErrorAction SilentlyContinue | Where-Object { $_.State -ne 'Unreachable' }
+if ($null -eq $arpEntry) {
+    throw "Precondition not met: Could not find MAC address for IP '$IpAddress' in ARP table"
+}
+$targetMac = $arpEntry.LinkLayerAddress -replace '-', ''
+Write-Log "[NodeAdd] Found MAC address '$targetMac' for IP '$IpAddress'" -Console
+
+# Find VM on KubeSwitch with matching MAC address
 $vmsOnKubeSwitch = Get-VM | Where-Object {
     $adapters = Get-VMNetworkAdapter -VMName $_.Name -ErrorAction SilentlyContinue
     $adapters | Where-Object { $_.SwitchName -eq $kubeSwitchName }
@@ -44,23 +60,26 @@ if ($vmsOnKubeSwitch.Count -eq 0) {
     throw "Precondition not met: No VMs found attached to switch '$kubeSwitchName'"
 }
 
-# Find the VM that has our target IP address
 $targetVm = $null
 foreach ($vm in $vmsOnKubeSwitch) {
-    $vmIPs = (Get-VMNetworkAdapter -VMName $vm.Name).IPAddresses | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
-    if ($vmIPs -contains $IpAddress) {
-        $targetVm = $vm
-        break
+    $adapters = Get-VMNetworkAdapter -VMName $vm.Name -ErrorAction SilentlyContinue
+    foreach ($adapter in $adapters) {
+        $vmMac = $adapter.MacAddress -replace '-', ''
+        if ($vmMac -eq $targetMac) {
+            $targetVm = $vm
+            break
+        }
     }
+    if ($null -ne $targetVm) { break }
 }
 
 if ($null -eq $targetVm) {
     $vmNames = ($vmsOnKubeSwitch | ForEach-Object { $_.Name }) -join ', '
-    throw "Precondition not met: No VM with IP '$IpAddress' found on switch '$kubeSwitchName'. VMs on switch: $vmNames"
+    throw "Precondition not met: No VM with MAC '$targetMac' found on switch '$kubeSwitchName'. VMs on switch: $vmNames"
 }
 
 $VmName = $targetVm.Name
-Write-Log "[NodeAdd] Found VM '$VmName' with IP '$IpAddress' on switch '$kubeSwitchName'" -Console
+Write-Log "[NodeAdd] Found VM '$VmName' with IP '$IpAddress' (MAC: $targetMac) on switch '$kubeSwitchName'" -Console
 
 if ($targetVm.State -ne [Microsoft.HyperV.PowerShell.VMState]::Running) {
     throw "Precondition not met: VM '$VmName' must be in 'Running' state, but is '$($targetVm.State)'"

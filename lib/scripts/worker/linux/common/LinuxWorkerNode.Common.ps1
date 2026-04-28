@@ -140,5 +140,6 @@ function Disable-LinuxWorkerNodeSwap {
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapoff -a' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "for swapFile in `$swapFiles; do sudo rm '`$swapFile'; done" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sed -i '/\sswap\s/d' /etc/fstab" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapon --show' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     Write-Log "$LogPrefix Swap disabled successfully" -Console
 }
