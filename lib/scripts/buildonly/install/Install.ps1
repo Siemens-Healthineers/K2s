@@ -61,9 +61,7 @@ Write-Log "Installing $installationType setup"
 Test-ProxyEnvVarsConfiguration
 
 # Initialize the proxy settings before starting installation.
-New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
-
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+$Proxy = New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 Add-K2sHostsToNoProxyEnvVar
 
 $loopbackAdapter = Get-L2BridgeName
