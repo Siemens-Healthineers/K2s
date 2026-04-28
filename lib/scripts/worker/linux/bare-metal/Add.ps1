@@ -82,6 +82,7 @@ $workerNodeParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer
     NodePackagePath = $NodePackagePath
+    NodeType = 'HOST'
 }
 
 Add-LinuxWorkerNode @workerNodeParams

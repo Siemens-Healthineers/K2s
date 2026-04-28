@@ -53,7 +53,7 @@ type HyperVLinuxNodeInfo struct {
 	NodeType  clusterconfig.NodeType
 }
 
-// findHyperVLinuxNode searches cluster.json for a node with NodeType=VM-LOCAL
+// findHyperVLinuxNode searches cluster.json for a node with NodeType=VM-EXISTING
 // and returns its details.
 func findHyperVLinuxNode() (*HyperVLinuxNodeInfo, bool) {
 	suite.SetupInfo().LoadClusterConfig()
@@ -116,7 +116,7 @@ var _ = Describe("Hyper-V Linux VM Node", Ordered, func() {
 	BeforeAll(func() {
 		nodeInfo, found := findHyperVLinuxNode()
 		if !found {
-			Skip("Skipping Hyper-V Linux VM node tests: no VM-LOCAL node found in cluster.json")
+			Skip("Skipping Hyper-V Linux VM node tests: no VM-EXISTING node found in cluster.json")
 		}
 		vmIP = nodeInfo.IpAddress
 		vmName = nodeInfo.Name

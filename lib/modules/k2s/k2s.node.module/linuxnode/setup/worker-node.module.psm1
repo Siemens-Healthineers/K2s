@@ -190,7 +190,9 @@ function Add-LinuxWorkerNode {
         [string] $Proxy = '',
         [string] $AdditionalHooksDir = '',
         [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: installedDistributionOnRemoteComputer'),
-        [string] $NodePackagePath = ''
+        [string] $NodePackagePath = '',
+        [ValidateSet('HOST', 'VM-EXISTING')]
+        [string] $NodeType = 'HOST'
     )
 
     $nodeParams = @{
@@ -198,7 +200,7 @@ function Add-LinuxWorkerNode {
         IpAddress = $IpAddress
         UserName = $UserName
         Proxy = $Proxy
-        NodeType = 'HOST'
+        NodeType = $NodeType
         Role = 'worker'
         OS = 'linux'
         PodCIDR = '' # will be filled during start of node

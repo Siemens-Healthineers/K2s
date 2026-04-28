@@ -114,6 +114,7 @@ $workerNodeParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer
     NodePackagePath = $NodePackagePath
+    NodeType = 'VM-EXISTING'
 }
 Add-LinuxWorkerNode @workerNodeParams
 
