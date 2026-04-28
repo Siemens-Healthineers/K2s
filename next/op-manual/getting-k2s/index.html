@@ -2602,9 +2602,25 @@ SPDX-License-Identifier: MIT
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">mkdir c:\myFolder; cd c:\myFolder</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">git clone https://github.com/Siemens-Healthineers/K2s .</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">git checkout tags/v1.4.0</span>
+</code></pre></div></p>
+<p>Go-built binaries (including <code>k2s.exe</code>) are <strong>not committed</strong> to the git repository. After cloning, you <strong>must</strong> build them before proceeding:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Windows</label><label for="__tabbed_1_2">Linux</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">.\bin\bgow</span>
 </code></pre></div>
-The repo is now ready to be used.
-Proceed with the installation, see <a href="../installing-k2s/">Installing <em>K2s</em></a>.</p>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">./bin/bgol</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Without this step, <code>k2s.exe</code> and supporting tools will be missing and <em>K2s</em> will not function.</p>
+</div>
+<p>Proceed with the installation, see <a href="../installing-k2s/">Installing <em>K2s</em></a>.</p>
 <h2 id="option-2-downloading-official-release-package">[Option 2] Downloading Official Release Package</h2>
 <p>Download the latest released and officially cleared <em>K2s</em> version from <a href="https://github.com/Siemens-Healthineers/K2s/releases" target="_blank" rel="noopener"><em>K2s</em> Releases</a>.
 Please move the package to a folder on your drive from the windows downloads folder. </p>

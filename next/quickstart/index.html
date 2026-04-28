@@ -2474,11 +2474,14 @@ SPDX-License-Identifier: MIT
 <ol>
 <li><a href="../op-manual/getting-k2s/">Get <em>K2s</em></a></li>
 <li>Verify that the <a href="../op-manual/installing-k2s/#prerequisites">Prerequisites</a> are fulfilled</li>
+<li>If you cloned the <em>Git</em> repository, build the Go binaries first (they are not committed to git):
+    <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">.\bin\bgow</span>
+</code></pre></div></li>
 <li>Run as administrator in the installation/repository folder:
-    <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s.exe install</span>
+    <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s.exe install</span>
 </code></pre></div></li>
 <li>Check <em>K2s</em> cluster health:
-    <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s.exe status</span>
+    <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s.exe status</span>
 </code></pre></div></li>
 <li>Deploy your workloads <img alt="🚀" class="twemoji" src="../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f680.svg" title=":rocket:"></li>
 </ol>
