@@ -32,7 +32,7 @@ The following addons will be deployed with **K2s**:
 | [rollout fluxcd](./rollout/fluxcd/README.md) | Automating the deployment/updating of applications using Flux CD | 
 | [security](./security/README.md) | Enables secure communication into and inside the cluster | 
 | [storage smb](./storage/smb/README.md) | StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux) | 
-| [viewer](./viewer/README.md) | Private clinical image viewer running in the Kubernetes | 
+| [viewer](./viewer/README.md) | Private clinical image viewer running in the Kubernetes cluster | 
 <!-- addons-list-end -->
 
 ## Command line options
