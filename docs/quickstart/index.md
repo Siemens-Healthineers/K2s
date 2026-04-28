@@ -5,7 +5,11 @@ SPDX-License-Identifier: MIT
 
 # Quick Start
 1. [Get *K2s*](../op-manual/getting-k2s.md)
-3. Verify that the [Prerequisites](../op-manual/installing-k2s.md#prerequisites) are fulfilled
+2. Verify that the [Prerequisites](../op-manual/installing-k2s.md#prerequisites) are fulfilled
+3. If you cloned the *Git* repository, build the Go binaries first (they are not committed to git):
+    ```console
+    .\bin\bgow
+    ```
 4. Run as administrator in the installation/repository folder:
     ```console
     k2s.exe install
