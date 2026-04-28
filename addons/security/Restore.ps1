@@ -87,8 +87,8 @@ $caSecretFile = Join-Path $BackupDir 'ca-issuer-root-secret.yaml'
 if (Test-Path -LiteralPath $caSecretFile) {
     Write-Log '[SecurityRestore] Restoring CA root certificate Secret' -Console
 
-    # Replace the auto-generated Secret with the backed-up one to preserve the trust chain.
-    $applyResult = Invoke-Kubectl -Params 'replace', '--force', '-f', $caSecretFile
+    # Apply the backed-up Secret to preserve the trust chain.
+    $applyResult = Invoke-Kubectl -Params 'apply', '--force', '-f', $caSecretFile
     if ($applyResult.Success) {
         Write-Log '[SecurityRestore] CA root Secret restored successfully' -Console
 
