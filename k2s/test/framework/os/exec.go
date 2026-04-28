@@ -70,10 +70,10 @@ func (c *CliExecutor) MustExec(ctx context.Context, cliArgs ...string) string {
 func (c *CliExecutor) Exec(ctx context.Context, cliArgs ...string) (string, int) {
 	cmd := exec.Command(c.cliPath, cliArgs...)
 	cmd.Dir = c.dir
-	cmd.Env = os.Environ()
 
 	if c.useProxy && c.proxy != "" {
 		GinkgoWriter.Println("Using proxy <", c.proxy, "> for command execution..")
+		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "https_proxy="+c.proxy)
 		cmd.Env = append(cmd.Env, "http_proxy="+c.proxy)
 	}
