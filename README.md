@@ -84,4 +84,4 @@ These addons can be used for testing and rapid prototyping purposes, as well in 
 
 ## [Training](docs/dev-guide/training.md)
 
-## [Troubleshooting](docs/troubleshooting/)
+## [Troubleshooting](docs/troubleshooting/diagnostics.md)
