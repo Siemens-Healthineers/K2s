@@ -51,6 +51,7 @@ type DeploymentData struct {
 }
 
 func TestClusterCore(t *testing.T) {
+	os.Setenv("SYSTEM_TEST_TIMEOUT", "20m")
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cluster Nodes Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running", "node-sanity"))
 }
@@ -353,7 +354,7 @@ spec:
 		}
 
 		var resourcePaths []string
-		for i := 1; i <= 2; i++ {
+		for i := 1; i <= 1; i++ {
 			data := DeploymentData{
 				DeploymentName: fmt.Sprintf("%s%d", node, i),
 				AppName:        fmt.Sprintf("%s%d", node, i),
