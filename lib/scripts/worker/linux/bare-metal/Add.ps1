@@ -87,6 +87,9 @@ $workerNodeParams = @{
 
 Add-LinuxWorkerNode @workerNodeParams
 
+Write-Log 'Starting worker node' -Console
+& "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName -ObtainCIDR:$true
+
 Write-Log "Current state of cluster nodes:" -Console
 Start-Sleep 2
 $kubeToolsPath = Get-KubeToolsPath

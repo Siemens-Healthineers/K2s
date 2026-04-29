@@ -118,6 +118,10 @@ $workerNodeParams = @{
 }
 Add-LinuxWorkerNode @workerNodeParams
 
+Write-Log 'Starting worker node' -Console
+& "$PSScriptRoot\..\..\bare-metal\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName -ObtainCIDR:$true
+
+
 Write-Log "Current state of cluster nodes:" -Console
 Start-Sleep 2
 $kubeToolsPath = Get-KubeToolsPath
@@ -126,4 +130,3 @@ $kubeToolsPath = Get-KubeToolsPath
 Write-Log '---------------------------------------------------------------'
 Write-Log "Linux Hyper-V VM with IP  '$IpAddress' and hostname '$NodeName' added to the cluster.   Total duration: $('{0:hh\:mm\:ss}' -f $durationStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
-
