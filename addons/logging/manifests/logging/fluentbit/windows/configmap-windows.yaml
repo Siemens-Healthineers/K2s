@@ -120,7 +120,7 @@ data:
         # - trace
         #
         # by default 'info' is set, that means it includes 'error' and 'warning'.
-        log_level    debug
+        log_level    info
 
         # Parsers File
         # ============
@@ -156,14 +156,14 @@ data:
         # ------------
         # absolute file system path to store filesystem data buffers (chunks).
         #
-        # storage.path /tmp/storage
+        storage.path C:\\var\\log\\flb-storage
 
         # storage.sync
         # ------------
         # configure the synchronization mode used to store the data into the
         # filesystem. It can take the values normal or full.
         #
-        # storage.sync normal
+        storage.sync normal
 
         # storage.checksum
         # ----------------
@@ -179,7 +179,7 @@ data:
         # backlog data. This option configure a hint of maximum value of memory
         # to use when processing these records.
         #
-        # storage.backlog.mem_limit 5M
+        storage.backlog.mem_limit 15M
 
     [INPUT]
         Name tail
@@ -187,9 +187,10 @@ data:
         Exclude_Path *fluent-bit*.log
         Parser cri
         Tag kube.*
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 50MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -197,9 +198,10 @@ data:
         Path C:\\var\\log\\bridge\\*.log
         Tag bridge.*
         Parser nssm1
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -207,9 +209,10 @@ data:
         Path C:\\var\\log\\k2s.log
         Tag centrallog.*
         Parser centrallog
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -217,9 +220,10 @@ data:
         Path C:\\var\\log\\cloud-init\\*.log
         Tag cloudinit.*
         Parser cloudinit
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -227,9 +231,10 @@ data:
         Path C:\\var\\log\\containerd\\*.log
         Tag containerd.*
         Parser nssm1
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -237,9 +242,10 @@ data:
         Path C:\\var\\log\\dnsproxy\\*.log
         Tag dnsproxy.*
         Parser dnsproxy
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -247,9 +253,10 @@ data:
         Path C:\\var\\log\\dockerd\\*.log
         Tag dockerd.*
         Parser nssm1
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -257,9 +264,10 @@ data:
         Path C:\\var\\log\\flanneld\\*.log
         Tag flanneld.*
         Parser nssm2
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -267,9 +275,10 @@ data:
         Path C:\\var\\log\\httpproxy\\*.log
         Tag httpproxy.*
         Parser nssm3
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -277,9 +286,10 @@ data:
         Path C:\\var\\log\\kubelet\\*.log
         Tag kubelet.*
         Parser nssm2
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -287,9 +297,10 @@ data:
         Path C:\\var\\log\\kubeproxy\\*.log
         Tag kubeproxy.*
         Parser kubeproxy
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -297,9 +308,10 @@ data:
         Path C:\\var\\log\\vfprules\\*.log
         Tag vfprules.*
         Parser nssm1
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [INPUT]
@@ -307,9 +319,10 @@ data:
         Path C:\\var\\log\\windows_exporter\\*.log
         Tag windowsexporter.*
         Parser nssm1
-        Buffer_Chunk_Size 10MB
-        Buffer_Max_Size 40MB
-        Mem_Buf_Limit 512MB
+        Buffer_Chunk_Size 256KB
+        Buffer_Max_Size 2MB
+        Mem_Buf_Limit 10MB
+        storage.type filesystem
         Refresh_Interval 5
 
     [FILTER]
@@ -319,7 +332,7 @@ data:
         Merge_Log On
         K8S-Logging.Parser Off
         K8S-Logging.Exclude Off
-        Buffer_Size 10MB
+        Buffer_Size 1MB
 
     [FILTER]
         Name nest
@@ -449,7 +462,7 @@ data:
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
         Index k2s
-        Buffer_Size 10MB
+        Buffer_Size 2MB
         Suppress_Type_Name On
         Trace_Error       On
         net.dns.resolver LEGACY #https://github.com/fluent/fluent-bit/issues/7105

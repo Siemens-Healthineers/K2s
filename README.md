@@ -41,15 +41,19 @@ See also the [Features List](docs/index.md#features).
 Please check the next two points carefully, they have a big impact on your setup.
 1. [Get *K2s*](docs/op-manual/getting-k2s.md)
 2. Verify that the [Prerequisites](docs/op-manual/installing-k2s.md#prerequisites) are fulfilled
-3. Run as administrator in the installation/repository folder:
+3. If you cloned the *Git* repository, build the Go binaries first (they are not committed to git):
+    ```console
+    .\bin\bgow
+    ```
+4. Run as administrator in the installation/repository folder:
     ```console
     k2s.exe install
     ```
-4. Check *K2s* cluster health:
+5. Check *K2s* cluster health:
     ```console
     k2s.exe status
     ```
-5. Deploy your workloads :rocket:
+6. Deploy your workloads :rocket:
 
 See [*k2s* CLI](docs/user-guide/k2s-cli.md) and [CLI Shortcuts](docs/user-guide/cli-shortcuts.md) for more means to interact with the *K2s* cluster.
 
