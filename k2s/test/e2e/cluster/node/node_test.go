@@ -40,6 +40,7 @@ var k2s *dsl.K2s
 var linuxNodes []string
 var windowsNodes []string
 var deployments []DeploymentData
+var testFailed = false
 
 type DeploymentData struct {
 	DeploymentName string
@@ -86,17 +87,29 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	GinkgoWriter.Println("Deleting workloads..")
-
-	deleteDeployments(ctx)
-
-	GinkgoWriter.Println("Workloads deleted")
-
-	if err := os.RemoveAll(baseDeployDir); err != nil {
-		panic(err)
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	suite.TearDown(ctx, framework.RestartKubeProxy)
+	if suite.ShouldCleanup(testFailed) {
+		GinkgoWriter.Println("Deleting workloads..")
+
+		deleteDeployments(ctx)
+
+		GinkgoWriter.Println("Workloads deleted")
+
+		if err := os.RemoveAll(baseDeployDir); err != nil {
+			panic(err)
+		}
+
+		suite.TearDown(ctx, framework.RestartKubeProxy)
+	}
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("Node Communication Core", func() {
