@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Persistent storage for RCA learnings.
+# The Copilot CLI agent reads and writes /data/learnings/rca-heuristics.md
+# to accumulate failure pattern knowledge across RCA sessions.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: copilot-cli-learnings
+  namespace: kagent
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 100Mi

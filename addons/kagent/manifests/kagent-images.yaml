@@ -25,7 +25,7 @@ items:
         - name: postgres
           image: docker.io/library/postgres:18.3-alpine
         - name: copilot-cli-a2a-wrapper
-          image: shsk2s.azurecr.io/copilot-cli-a2a-wrapper:1.1.0
+          image: shsk2s.azurecr.io/copilot-cli-a2a-wrapper:1.2.0
         - name: local-path-provisioner
           image: docker.io/rancher/local-path-provisioner:v0.0.30
         - name: busybox

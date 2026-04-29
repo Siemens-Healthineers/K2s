@@ -14,10 +14,11 @@ spec:
   type: BYO
   description: >-
     GitHub Copilot CLI wrapped as an A2A agent. Handles code generation,
-    code review, and DevOps tasks via natural language.
+    code review, cluster inspection, and RCA tasks via natural language.
+    Uses persistent learnings from previous analyses to improve over time.
   byo:
     deployment:
-      image: shsk2s.azurecr.io/copilot-cli-a2a-wrapper:1.1.0
+      image: shsk2s.azurecr.io/copilot-cli-a2a-wrapper:1.2.0
       env:
         - name: GITHUB_TOKEN
           valueFrom:
@@ -31,6 +32,11 @@ spec:
           value: "300"
         - name: GH_HOST
           value: "shs.ghe.com"
+        # Paths for mounted context and learnings
+        - name: COPILOT_SYSTEM_CONTEXT_FILE
+          value: "/etc/copilot/system-context.md"
+        - name: COPILOT_LEARNINGS_FILE
+          value: "/data/learnings/rca-heuristics.md"
         - name: HTTP_PROXY
           value: "http://172.19.1.1:8181"
         - name: HTTPS_PROXY
@@ -43,3 +49,16 @@ spec:
           value: "localhost,127.0.0.1,172.19.1.0/24,172.20.0.0/16,172.21.0.0/16,.cluster.local,.svc"
         - name: no_proxy
           value: "localhost,127.0.0.1,172.19.1.0/24,172.20.0.0/16,172.21.0.0/16,.cluster.local,.svc"
+      volumes:
+        - name: system-context
+          configMap:
+            name: copilot-cli-context
+        - name: learnings
+          persistentVolumeClaim:
+            claimName: copilot-cli-learnings
+      volumeMounts:
+        - name: system-context
+          mountPath: /etc/copilot
+          readOnly: true
+        - name: learnings
+          mountPath: /data/learnings

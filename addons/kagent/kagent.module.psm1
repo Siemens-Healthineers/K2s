@@ -297,6 +297,32 @@ function Deploy-CopilotCliAgent {
         }
     }
 
+    # Apply the system context ConfigMap and learnings PVC
+    $contextManifest = "$PSScriptRoot\manifests\copilot-cli-context.yaml"
+    if (Test-Path $contextManifest) {
+        Write-Log '[Kagent] Applying Copilot CLI system context ConfigMap' -Console
+        $ctxResult = Invoke-Kubectl -Params 'apply', '-f', $contextManifest
+        if (-not $ctxResult.Success) {
+            Write-Log "[Kagent] Warning: Failed to apply system context ConfigMap: $($ctxResult.Output)" -Console
+        }
+    }
+
+    $pvcManifest = "$PSScriptRoot\manifests\copilot-cli-learnings-pvc.yaml"
+    if (Test-Path $pvcManifest) {
+        # Only create if not already present (PVC contains persistent learnings)
+        $pvcExists = (Invoke-Kubectl -Params 'get', 'pvc', 'copilot-cli-learnings', '-n', $script:KagentNamespace, '--ignore-not-found').Output
+        if (-not $pvcExists) {
+            Write-Log '[Kagent] Creating Copilot CLI learnings PVC' -Console
+            $pvcResult = Invoke-Kubectl -Params 'apply', '-f', $pvcManifest
+            if (-not $pvcResult.Success) {
+                Write-Log "[Kagent] Warning: Failed to create learnings PVC: $($pvcResult.Output)" -Console
+            }
+        }
+        else {
+            Write-Log '[Kagent] Copilot CLI learnings PVC already exists; preserving data' -Console
+        }
+    }
+
     # Apply the BYO Agent CR manifest
     $manifestPath = "$PSScriptRoot\manifests\copilot-cli-agent.yaml"
     if (-not (Test-Path $manifestPath)) {
@@ -338,6 +364,13 @@ function Remove-CopilotCliAgent {
 
     # Remove the view ClusterRoleBinding
     (Invoke-Kubectl -Params 'delete', 'clusterrolebinding', 'copilot-cli-view', '--ignore-not-found').Output | Write-Log
+
+    # Remove the system context ConfigMap (can be recreated)
+    (Invoke-Kubectl -Params 'delete', 'configmap', 'copilot-cli-context', '-n', $script:KagentNamespace, '--ignore-not-found').Output | Write-Log
+
+    # NOTE: The 'copilot-cli-learnings' PVC is intentionally NOT deleted.
+    # It contains accumulated RCA heuristics that should survive disable/re-enable cycles.
+    Write-Log '[Kagent] Learnings PVC preserved (contains RCA heuristics data)' -Console
 }
 
 Export-ModuleMember -Function Get-KagentChartDirectory, Get-KagentChartPath, Get-KagentCrdsChartPath, Install-LocalPathProvisioner, Uninstall-LocalPathProvisioner, Install-KagentViaHelm, Uninstall-KagentViaHelm, Wait-ForKagentAvailable, Write-KagentUsageForUser, Deploy-CopilotCliAgent, Remove-CopilotCliAgent
