@@ -6,11 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: viewer
-  description: Private clinical image viewer running in the Kubernetes
+  description: Private clinical image viewer running in the Kubernetes cluster
 spec:
   implementations:
     - name: viewer
-      description: Private clinical image viewer running in the Kubernetes
+      description: Private clinical image viewer running in the Kubernetes cluster
       offline_usage:
         linux:
           repos: []
