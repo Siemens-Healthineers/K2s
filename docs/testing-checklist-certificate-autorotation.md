@@ -147,70 +147,48 @@ k2s system certificate autorotation --disable   # sets rotateCertificates: false
 This validates that after enabling, Kubernetes actually performs the rotation cycle.
 
 > ⚠️ Full end-to-end rotation takes months on a production cert.  
-> Use the **forced simulation** approach below to test within minutes.
+> Use the **short-lifetime** approach (Option A) below to test within ~10 minutes without
+> touching the cert file or restarting kubelet.
 
 > ℹ️ **Note on SSH command:** Use `k2s node connect -i 172.19.1.100 -u remote` to SSH
 > into the control plane node. `k2s ssh m` does **not** exist in this build.
 
----
-
-### G0 — Node Recovery (if `kubelet-client-current.pem` is missing)
-
-> Run this **only** if the node cert was accidentally deleted while auto-rotation was disabled
-> (the failure mode observed on 2026-04-21). Skip to G1 if the node is healthy.
-
-```console
-# Step 1: re-enable auto-rotation from Windows host (SSH not needed for this step)
-k2s system certificate autorotation --enable
-
-# Step 2: SSH to node and restart kubelet to trigger a fresh CSR
-k2s node connect -i 172.19.1.100 -u remote
-sudo systemctl restart kubelet
-exit
-
-# Step 3: watch for the new CSR on Windows host
-kubectl get csr --watch
-# Expected: new csr-xxxxx appears and auto-approves within seconds
-
-# Step 4: verify cert is back
-k2s node connect -i 172.19.1.100 -u remote
-sudo ls -la /var/lib/kubelet/pki/kubelet-client-current.pem
-sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -serial -enddate
-exit
-
-# Step 5: verify node is Ready
-kubectl get nodes
-```
+> ⚠️ **K2s-specific constraint:**  
+> `/etc/kubernetes/bootstrap-kubelet.conf` does **NOT** exist in K2s.  
+> Kubelet uses a **combined PEM** (`kubelet-client-current.pem` contains both cert + key).  
+> **NEVER delete this file** — kubelet cannot re-bootstrap and the node goes `NotReady`
+> with no automatic recovery path.  
+> Rotation must be triggered by kubelet detecting a cert at ≥80% of its lifetime.
 
 ---
 
-### G1 — Verify controller-manager supports auto-approval
+### G1 — Verify auto-rotation is enabled and controller-manager supports signing
 
 ```console
+# From Windows host:
+k2s system certificate autorotation --status
+# Expected: enabled
+
+# On node:
 k2s node connect -i 172.19.1.100 -u remote
+sudo grep rotateCertificates /var/lib/kubelet/config.yaml
+# Expected: rotateCertificates: true
+
 sudo grep -E 'cluster-signing' /etc/kubernetes/manifests/kube-controller-manager.yaml
+# Expected:
+#   --cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt
+#   --cluster-signing-key-file=/etc/kubernetes/pki/ca.key
 exit
 ```
 
-✅ **Verified on 2026-04-21:**
-```
---cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt
---cluster-signing-key-file=/etc/kubernetes/pki/ca.key
-```
+✅ **Verified on 2026-04-21 and 2026-04-28:** signing keys present, auto-rotation enabled.
 
 ---
 
-### G2 — Enable auto-rotation
-
-> ⚠️ **CRITICAL:** Auto-rotation **must be enabled** before performing G3–G5.
-> If auto-rotation is disabled when the cert is deleted, kubelet has no mechanism to
-> request a new one — the `kubelet-client-current.pem` symlink will simply disappear
-> and the node will be unable to communicate with the API server.
-> This was confirmed by live testing on 2026-04-21.
+### G2 — Enable auto-rotation (if not already enabled)
 
 ```console
 k2s system certificate autorotation --enable
-# Confirm it is enabled before proceeding:
 k2s system certificate autorotation --status
 # Expected output must say: enabled
 ```
@@ -219,121 +197,216 @@ k2s system certificate autorotation --status
 
 ---
 
-### G3 — Check current kubelet cert expiry
+### G3 — Note current kubelet cert serial (baseline)
 
 ```console
-# SSH to node
 k2s node connect -i 172.19.1.100 -u remote
-sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -enddate -startdate
+sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -serial -startdate -enddate
+exit
 ```
 
-**Expected:** Cert shows valid dates (e.g. `notBefore: Apr 21 2026`, `notAfter: Apr 21 2027`). Note the serial:
-
-```console
-sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -serial
-# e.g. serial=323AF8E314DE55E8
-```
-
-✅ **Verified on 2026-04-21:** cert valid, serial recorded.
+Record the serial number — it must change after rotation to confirm a new cert was issued.
 
 ---
 
-### G4 — Simulate rotation trigger (force CSR submission)
+### G4 — Trigger rotation: Option A — Short signing duration (preferred)
 
-Since waiting 290 days is impractical, force a CSR by deleting the current kubelet cert.
-**Kubelet will immediately request a new one — but ONLY if `rotateCertificates: true`.**
+**Why it works:** kubelet periodically checks its cert lifetime. When `--cluster-signing-duration`
+is set to a short value (e.g. 10m) and kubelet receives a freshly rotated cert with that
+lifetime, it hits the 80% threshold and generates a new CSR automatically —
+without any cert file manipulation. Rotation typically occurs around 70–90% of certificate
+lifetime. For a 10-minute certificate this is approximately 7–9 minutes, but actual timing
+depends on kubelet's internal rotation loop and may not be immediate.
 
-> ⚠️ **Lesson learned (2026-04-21):** Running this step with auto-rotation DISABLED
-> causes kubelet to lose its cert with no recovery path. Always confirm `--status`
-> shows `enabled` before this step.
+> ⚠️ **Important:** The short signing duration applies only to **newly issued** certs.
+> The existing long-lived kubelet cert will not immediately trigger rotation. If this is the
+> first rotation, you may need to wait for the cert currently held by kubelet to be renewed
+> first (see G4b for time-shift alternative). Once the first rotation completes and kubelet
+> holds a short-lived cert, subsequent rotations will occur within minutes.
 
 ```console
-# SSH to node (from Windows host):
+# Step 1: SSH to node, patch kube-controller-manager manifest
 k2s node connect -i 172.19.1.100 -u remote
 
-# Step 1: confirm auto-rotation is enabled on the node
-sudo grep rotateCertificates /var/lib/kubelet/config.yaml
-# Expected: rotateCertificates: true   <-- MUST be true before continuing
+# Backup the manifest
+sudo cp /etc/kubernetes/manifests/kube-controller-manager.yaml \
+        /etc/kubernetes/manifests/kube-controller-manager.yaml.bak
 
-# Step 2: note the current cert serial (to verify it changes after rotation)
-sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -serial
+# Inject --cluster-signing-duration=10m (after the existing cluster-signing-key-file line)
+# Ensure the flag is not already present before inserting to avoid duplicate entries in the manifest.
+sudo grep -q 'cluster-signing-duration' /etc/kubernetes/manifests/kube-controller-manager.yaml || \
+sudo sed -i '/cluster-signing-key-file/a\    - --cluster-signing-duration=10m' \
+    /etc/kubernetes/manifests/kube-controller-manager.yaml
 
-# Step 3: delete current cert symlink + restart kubelet to trigger CSR
-sudo rm /var/lib/kubelet/pki/kubelet-client-current.pem
+# Verify
+sudo grep 'cluster-signing' /etc/kubernetes/manifests/kube-controller-manager.yaml
+
+# Wait for kube-controller-manager pod to restart (~30–40s)
+sleep 40
+sudo crictl pods --name kube-controller-manager 2>/dev/null || \
+  kubectl --kubeconfig /etc/kubernetes/admin.conf get pod -n kube-system -l component=kube-controller-manager
+
+# Restart kubelet ONCE to ensure it is running cleanly after controller-manager changes.
+# Note: restart does NOT force certificate rotation — kubelet follows its normal rotation loop.
 sudo systemctl restart kubelet
+sleep 5
+sudo systemctl status kubelet --no-pager | head -5
 exit
+```
 
-# Step 4: on Windows host — watch for new CSR to appear
+> ℹ️ **What to expect after G4:**  
+> - If the current kubelet cert is already short-lived (issued after the previous test), rotation
+>   will typically occur within 7–9 minutes once kubelet is using a short-lived certificate — watch `kubectl get csr --watch` (step G5).  
+> - If the current cert has a long remaining lifetime (e.g. 1 year), the first CSR will appear
+>   only when kubelet's internal cert manager triggers it based on the 80% threshold.  
+>   In that case, use Option B (time shift) below to force it immediately.
+
+---
+
+### G4b — Trigger rotation: Option B — System time shift (alternative)
+
+> Use this if Option A is not feasible. Time shift is **disruptive** and should only be
+> used on an isolated test node.
+
+```console
+k2s node connect -i 172.19.1.100 -u remote
+
+# Record current cert expiry
+sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -enddate
+
+# Advance system clock past 80% of cert lifetime
+# Example: cert valid 1 year → advance ~290 days
+sudo timedatectl set-ntp false
+sudo date -s "$(date -d '+290 days' '+%Y-%m-%d %H:%M:%S')"
+
+# Restart kubelet — it will now see cert as near-expiry and generate CSR
+sudo systemctl restart kubelet
+sleep 5
+sudo systemctl status kubelet --no-pager | head -5
+exit
+```
+
+> ⚠️ **Restore time after test:**
+> ```console
+> k2s node connect -i 172.19.1.100 -u remote
+> sudo timedatectl set-ntp true
+> exit
+> ```
+
+---
+
+### G5 — Observe CSR generated by kubelet
+
+Watch from the Windows host for a **new** CSR from `system:node:kubemaster`:
+
+```console
 kubectl get csr --watch
 ```
 
-**Expected:**
+**Expected — a NEW CSR appears (age = seconds):**
 
-- A **new** CSR named like `csr-xxxxx` appears with `REQUESTOR = system:node:kubemaster`
-- Within seconds its `CONDITION` changes from `Pending` → `Approved,Issued`
-- The AGE of the new CSR is seconds/minutes old — **not** tens of minutes (old CSRs are pre-existing)
+```
+NAME        AGE   SIGNERNAME                                    REQUESTOR                REQUESTEDDURATION   CONDITION
+csr-XXXXX   5s    kubernetes.io/kube-apiserver-client-kubelet   system:node:kubemaster   <none>              Approved,Issued
+```
 
-> ⚠️ **Pitfall:** `kubectl get csr` may show old CSRs already in `Approved,Issued` state.
-> Only a **newly appearing** CSR with a fresh AGE confirms the rotation fired.
-> If no new CSR appears within 30 seconds, auto-rotation is likely not truly enabled.
+- The CSR `AGE` must be seconds/minutes old — pre-existing CSRs (tens of minutes old) do **not** count.
+- `CONDITION` changes `Pending` → `Approved,Issued` automatically (controller-manager auto-approves).
+- If no new CSR appears within 10 minutes, run the following on the node to debug immediately:
+
+```console
+k2s node connect -i 172.19.1.100 -u remote
+sudo journalctl -u kubelet -f | grep -i cert
+```
+
+> ℹ️ **First rotation timing note:**
+> First rotation depends on the current certificate lifetime. If the existing cert is
+> long-lived (e.g. 1 year), rotation may not happen immediately — kubelet will only
+> trigger when its cert reaches the 70–90% lifetime threshold. After the first successful
+> rotation, kubelet will receive a short-lived cert and subsequent rotations will occur
+> quickly (within minutes).
 
 ---
 
-### G5 — Verify new cert is picked up
+### G5a — Confirm rotation in kubelet logs (on node)
 
 ```console
-# SSH to node — wait ~10–30 seconds after CSR is Approved,Issued
+k2s node connect -i 172.19.1.100 -u remote
+sudo journalctl -u kubelet --since "10 minutes ago" --no-pager | \
+  grep -iE "certif|rotat|CSR|renew|expir" | tail -20
+exit
+```
+
+**Expected log lines confirming rotation fired:**
+
+```
+certificate rotation …
+rotating certificates
+certificate request submitted
+```
+
+> ℹ️ If no CSR appears, check kubelet logs to confirm whether rotation logic is being triggered.
+> The absence of rotation log lines means kubelet's cert is not yet at the rotation threshold.
+
+---
+
+### G6 — Verify new cert is picked up (no kubelet restart needed)
+
+```console
 k2s node connect -i 172.19.1.100 -u remote
 
 sudo ls -la /var/lib/kubelet/pki/kubelet-client-*.pem
-# Expected: kubelet-client-current.pem symlink EXISTS + a new timestamped .pem
+# Expected: kubelet-client-current.pem symlink updated to a NEW timestamped .pem
 
 sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -serial -enddate
+# Expected: serial DIFFERENT from G3 baseline; new expiry date
+exit
 ```
 
 **Expected:**
 
-- `kubelet-client-current.pem` exists (symlink recreated by kubelet)
-- Serial number is **different** from G3
-- Expiry date is ~1 year from now (fresh cert)
-- kubelet still running: `sudo systemctl status kubelet` → `active (running)`
-
-> ⚠️ **Failure mode observed (2026-04-21 with auto-rotation DISABLED):**
-> After deleting cert + restarting kubelet with `rotateCertificates: false`:
-> - No new CSR appeared (only old CSRs from 53m, 55m ago visible)
-> - `kubelet-client-current.pem` symlink was **not recreated**
-> - `openssl x509` on that path gave "No such file or directory"
->
-> **Recovery from this state:**
-> ```console
-> k2s node connect -i 172.19.1.100 -u remote
-> # Re-enable auto-rotation
-> # (must be done from Windows host since kubelet has no cert now — node may be NotReady)
-> ```
-> From Windows host:
-> ```console
-> k2s system certificate autorotation --enable
-> # Then restart kubelet again to trigger fresh CSR
-> k2s node connect -i 172.19.1.100 -u remote
-> sudo systemctl restart kubelet
-> exit
-> kubectl get csr --watch
-> ```
+- `kubelet-client-current.pem` symlink points to a new timestamped file
+- Serial number changed from G3 baseline
+- kubelet still running (`sudo systemctl status kubelet` → `active (running)`)
+- **No manual kubelet restart was needed** — pickup is automatic
 
 ---
 
-### G6 — Verify cluster health after rotation
+### G7 — Restore controller-manager to original configuration
+
+After rotation test is complete, remove the short signing-duration flag:
+
+```console
+k2s node connect -i 172.19.1.100 -u remote
+
+# Restore original manifest from backup
+sudo cp /etc/kubernetes/manifests/kube-controller-manager.yaml.bak \
+        /etc/kubernetes/manifests/kube-controller-manager.yaml
+
+# Verify --cluster-signing-duration is gone
+sudo grep 'cluster-signing-duration' /etc/kubernetes/manifests/kube-controller-manager.yaml
+# Expected: no output (line must not exist)
+
+# Wait for controller-manager to restart
+sleep 40
+exit
+```
+
+---
+
+### G8 — Verify cluster health after rotation
 
 ```console
 kubectl get nodes
-kubectl get pods -A
-```
+# Expected: both nodes Ready
 
-**Expected:** All nodes `Ready`, all system pods `Running`.
+kubectl get pods -A
+# Expected: all system pods Running
+```
 
 ---
 
-### G7 — Verify auto-rotation interacts correctly with `renew`
+### G9 — Verify auto-rotation interacts correctly with `renew`
 
 ```console
 # Enable auto-rotation
@@ -344,6 +417,7 @@ k2s system certificate renew
 
 # Check kubelet auto-rotation setting is UNCHANGED
 k2s system certificate autorotation --status
+# Expected: still enabled
 ```
 
 **Expected:** `renew` succeeds; autorotation setting remains `enabled` (renew only touches
@@ -445,34 +519,58 @@ k2s system certificate autorotation --status
 # Expected: still enabled; renew does not affect kubelet auto-rotation
 
 # ── I: ACTUAL CSR ROTATION SIMULATION ────────────────────────────────
-# IMPORTANT: confirm auto-rotation is ENABLED before deleting the cert
+# Enable auto-rotation first
 k2s system certificate autorotation --enable
 k2s system certificate autorotation --status
 # Must show: enabled
 
-# Note current serial
+# Note current cert serial (baseline)
 k2s node connect -i 172.19.1.100 -u remote
-sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -serial -enddate
+sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -serial -startdate -enddate
 sudo grep rotateCertificates /var/lib/kubelet/config.yaml
 # Must show: rotateCertificates: true
 
-# Delete cert and restart kubelet to force CSR
-sudo rm /var/lib/kubelet/pki/kubelet-client-current.pem
+# Patch controller-manager to use short signing duration
+# (enables short-lived certificates; rotation will occur once kubelet enters its rotation window)
+sudo cp /etc/kubernetes/manifests/kube-controller-manager.yaml \
+        /etc/kubernetes/manifests/kube-controller-manager.yaml.bak
+# Ensure the flag is not already present before inserting to avoid duplicate entries.
+sudo grep -q 'cluster-signing-duration' /etc/kubernetes/manifests/kube-controller-manager.yaml || \
+sudo sed -i '/cluster-signing-key-file/a\    - --cluster-signing-duration=10m' \
+    /etc/kubernetes/manifests/kube-controller-manager.yaml
+sudo grep 'cluster-signing' /etc/kubernetes/manifests/kube-controller-manager.yaml
+# Wait for controller-manager restart, then restart kubelet once to ensure it is running cleanly.
+# Note: restart does NOT force rotation — kubelet follows its normal rotation loop.
+sleep 40
 sudo systemctl restart kubelet
+sleep 5
+sudo systemctl status kubelet --no-pager | head -5
 exit
 
-# Watch for new CSR (must be a NEWLY appearing one, not old ones)
+# Watch for a NEW CSR from system:node:kubemaster (must be newly appearing, not old ones)
+# NOTE: First rotation depends on current certificate lifetime. If the existing cert is
+# long-lived, rotation may not happen immediately. After the first successful rotation,
+# kubelet holds a short-lived cert and subsequent rotations occur within minutes.
 kubectl get csr --watch
 # Expected: new csr-xxxxx with REQUESTOR=system:node:kubemaster, age=seconds, Approved,Issued
 
-# Verify new cert
+# Verify new cert was picked up (no kubelet restart needed — pickup is automatic)
 k2s node connect -i 172.19.1.100 -u remote
 sudo ls -la /var/lib/kubelet/pki/kubelet-client-*.pem
 sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -serial -enddate
-# Expected: new serial, new expiry ~1 year from now
+# Expected: serial DIFFERENT from baseline, new expiry date
+sudo systemctl status kubelet --no-pager | head -5
+# Expected: active (running)
 exit
 kubectl get nodes
 # Expected: both nodes Ready
+
+# Restore controller-manager
+k2s node connect -i 172.19.1.100 -u remote
+sudo cp /etc/kubernetes/manifests/kube-controller-manager.yaml.bak \
+        /etc/kubernetes/manifests/kube-controller-manager.yaml
+sleep 40
+exit
 
 # ── J: CLUSTER RESTART PERSISTENCE ──────────────────────────────────
 k2s system certificate autorotation --enable
