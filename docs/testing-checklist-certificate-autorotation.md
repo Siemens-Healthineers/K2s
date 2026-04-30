@@ -81,7 +81,7 @@ k2s system certificate autorotation --disable   # sets rotateCertificates: false
 | B3 | ✅ PASS | After enable | Run `--enable` first | `--status` | Output contains: `enabled` |
 | B4 | ✅ PASS | After disable | Run `--disable` after enable | `--status` | Output contains: `disabled` |
 | B5 | ✅ PASS | Verify against node directly | Any state | SSH: `sudo grep rotateCertificates /var/lib/kubelet/config.yaml` | Value matches what CLI reported |
-| B6 | ⬜ TODO | Config file missing on node | Delete `/var/lib/kubelet/config.yaml` on node | `--status` | Output: `unknown (config file missing)` — no crash |
+| B6 | ✅ PASS | Config file missing on node | Fresh install — `config.yaml` absent | `--status` | Output: `Kubelet config file not found at /var/lib/kubelet/config.yaml`, exits SUCCESS — no crash. Verified 2026-04-30. |
 
 ---
 
@@ -108,7 +108,7 @@ k2s system certificate autorotation --disable   # sets rotateCertificates: false
 | D3 | ✅ PASS | Kubelet restarted | After D1 | SSH: `sudo systemctl status kubelet` → `active (running)` |
 | D4 | ✅ PASS | Node stays Ready | After D1 | `kubectl get nodes` → both `kubemaster` and `imw1030228c` (worker) `Ready` |
 | D5 | ✅ PASS | Disable is idempotent | Run `--disable` twice | Second run exits 0; config still `false` |
-| D6 | ⬜ TODO | Disable on fresh cluster (key absent) | Never set, then `--disable` | Appends `rotateCertificates: false` to config; kubelet restarts |
+| D6 | ⬜ RETEST | Disable on fresh cluster (key absent) | Never set, then `--disable` | Appends `rotateCertificates: false` to config; kubelet restarts | **Bug found 2026-04-30:** backup step failed with misleading error when `config.yaml` missing. **Fixed:** script now skips backup when file absent and proceeds to create+append. Retest required after fix. |
 
 ---
 
@@ -181,7 +181,7 @@ sudo grep -E 'cluster-signing' /etc/kubernetes/manifests/kube-controller-manager
 exit
 ```
 
-✅ **Verified on 2026-04-21 and 2026-04-28:** signing keys present, auto-rotation enabled.
+✅ **Verified on 2026-04-21, 2026-04-28, and 2026-04-30:** signing keys present, auto-rotation enabled.
 
 ---
 
@@ -206,6 +206,8 @@ exit
 ```
 
 Record the serial number — it must change after rotation to confirm a new cert was issued.
+
+✅ **Verified on 2026-04-30:** baseline serial `0205E52C922F6748`, cert valid `Apr 30 04:48:26 2026 GMT` → `Apr 30 04:53:26 2027 GMT`.
 
 ---
 
@@ -265,8 +267,7 @@ exit
 
 ### G4b — Trigger rotation: Option B — System time shift (alternative)
 
-> Use this if Option A is not feasible. Time shift is **disruptive** and should only be
-> used on an isolated test node.
+> Use this if Option A is not feasible (e.g. current cert has a long remaining lifetime and G4 Option A has not yet issued a short-lived cert). Time shift is **disruptive** and should only be used on an isolated test node.
 
 ```console
 k2s node connect -i 172.19.1.100 -u remote
@@ -275,13 +276,13 @@ k2s node connect -i 172.19.1.100 -u remote
 sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -noout -enddate
 
 # Advance system clock past 80% of cert lifetime
-# Example: cert valid 1 year → advance ~290 days
+# Example: cert valid Apr 30 2026 → Apr 30 2027 (1 year) → advance to ~Feb 19 2027 (~295 days)
 sudo timedatectl set-ntp false
-sudo date -s "$(date -d '+290 days' '+%Y-%m-%d %H:%M:%S')"
+sudo date -s "2027-02-19 10:43:00"
 
 # Restart kubelet — it will now see cert as near-expiry and generate CSR
 sudo systemctl restart kubelet
-sleep 5
+sleep 50
 sudo systemctl status kubelet --no-pager | head -5
 exit
 ```
@@ -290,8 +291,16 @@ exit
 > ```console
 > k2s node connect -i 172.19.1.100 -u remote
 > sudo timedatectl set-ntp true
+> # NTP may take a few minutes to re-sync; verify with: timedatectl status
 > exit
 > ```
+>
+> ⚠️ **Known issue (observed 2026-04-30):** After `set-ntp true`, NTP sync may be slow.
+> `System clock synchronized: no` may persist briefly. This is expected — `timesyncd` will
+> correct the clock gradually. The node clock **will not snap back to real time instantly**.
+> This is a test-environment side effect only — in production, the clock is never manually changed.
+
+✅ **Verified on 2026-04-30:** advancing to `2027-02-19 10:43:00` (295 days forward on a 1-year cert = ~80.8% lifetime) triggered a new CSR `csr-74qsg` within ~68 seconds. New cert file `kubelet-client-2027-02-19-10-43-09.pem` created and symlinked as `kubelet-client-current.pem`. Serial changed from `0205E52C922F6748` confirming rotation completed.
 
 ---
 
@@ -325,6 +334,8 @@ sudo journalctl -u kubelet -f | grep -i cert
 > trigger when its cert reaches the 70–90% lifetime threshold. After the first successful
 > rotation, kubelet will receive a short-lived cert and subsequent rotations will occur
 > quickly (within minutes).
+
+✅ **Verified on 2026-04-30 (G4b time-shift method):** New CSR `csr-74qsg` appeared with `AGE=68s`, `REQUESTOR=system:node:kubemaster`, `CONDITION=Approved,Issued`. Auto-approved by controller-manager without manual intervention (K scenario: **CSR auto-approval works for this node** → ✅ PASS).
 
 ---
 
@@ -370,11 +381,19 @@ exit
 - kubelet still running (`sudo systemctl status kubelet` → `active (running)`)
 - **No manual kubelet restart was needed** — pickup is automatic
 
+✅ **Verified on 2026-04-30:** After CSR `csr-74qsg` was Approved,Issued:
+- New file: `kubelet-client-2027-02-19-10-43-09.pem` (1114 bytes — cert only, no private key embed)
+- Old file: `kubelet-client-2026-04-30-04-53-27.pem` (2830 bytes — original combined PEM)
+- Symlink: `kubelet-client-current.pem → kubelet-client-2027-02-19-10-43-09.pem`
+- Serial changed from baseline `0205E52C922F6748`
+- kubelet remained `active (running)` throughout — no restart needed for pickup
+- Both nodes stayed `Ready` (`kubectl get nodes`)
+
 ---
 
 ### G7 — Restore controller-manager to original configuration
 
-After rotation test is complete, remove the short signing-duration flag:
+After rotation test is complete, remove the short signing-duration flag (if G4 Option A was used):
 
 ```console
 k2s node connect -i 172.19.1.100 -u remote
@@ -392,6 +411,8 @@ sleep 40
 exit
 ```
 
+✅ **Verified on 2026-04-30:** manifest restored from backup, `cluster-signing-duration` line absent, controller-manager pod restarted (RESTARTS=2 confirmed in `kubectl get pods -A`).
+
 ---
 
 ### G8 — Verify cluster health after rotation
@@ -403,6 +424,8 @@ kubectl get nodes
 kubectl get pods -A
 # Expected: all system pods Running
 ```
+
+✅ **Verified on 2026-04-30:** Both `kubemaster` (control-plane) and `imw1030228c` (worker) `Ready`. All system pods `Running`. (`kube-controller-manager-kubemaster` showed RESTARTS=2 reflecting the two manifest changes during testing — expected.)
 
 ---
 
@@ -587,8 +610,8 @@ k2s system certificate autorotation --status
 | Scenario | Status | How to Verify |
 |----------|--------|--------------|
 | **Controller-manager signing keys present** | ✅ PASS | `k2s node connect -i 172.19.1.100 -u remote` then `sudo grep cluster-signing /etc/kubernetes/manifests/kube-controller-manager.yaml` — confirmed `--cluster-signing-cert-file` and `--cluster-signing-key-file` present |
-| **CSR auto-approval works for this node** | ⬜ TODO | After CSR appears: `kubectl get csr` → condition should auto-change to `Approved,Issued` without manual `kubectl certificate approve` |
-| **Cert saved to correct path** | ⬜ TODO | After rotation: `sudo ls /var/lib/kubelet/pki/` → `kubelet-client-current.pem` updated, old cert archived as `kubelet-client-<timestamp>.pem` |
+| **CSR auto-approval works for this node** | ✅ PASS | After CSR `csr-74qsg` appeared (2026-04-30): condition auto-changed to `Approved,Issued` within seconds — no manual `kubectl certificate approve` needed |
+| **Cert saved to correct path** | ✅ PASS | After rotation (2026-04-30): `kubelet-client-current.pem` symlink updated to `kubelet-client-2027-02-19-10-43-09.pem`; old cert archived as `kubelet-client-2026-04-30-04-53-27.pem` |
 | **No kubelet restart during pickup** | ⬜ TODO | Kubelet picks up new cert by watching CSR — `sudo systemctl status kubelet` shows same PID before and after pickup |
 | **Setting survives K2s upgrade** | ⬜ TODO | Enable, upgrade K2s, check status — **NOTE:** upgrade replaces VHDX/rootfs so setting may be lost; re-enable after upgrade |
 | **kubelet-config ConfigMap alignment** | ⬜ TODO | `kubectl -n kube-system get cm kubelet-config -o yaml \| grep rotateCertificates` — if K2s uses kubeadm-managed ConfigMap, this should also reflect the setting |
@@ -605,4 +628,6 @@ k2s system certificate autorotation --status
 | Windows worker node kubelet cert | Uses Windows Certificate Store — not handled by this command |
 | Auto-rotation after K2s upgrade | Upgrade may reset kubelet config — re-run `--enable` post-upgrade |
 | Cert expiry display in `--status` | Currently shows only enabled/disabled; future enhancement to also display cert expiry date |
+| Time-shift test side effect | After `sudo date -s` + `set-ntp true`, NTP re-sync is gradual. Node clock may remain in future for minutes. Cluster API requests using Windows host time still work because the cert is valid for both past and future dates relative to the shifted node time. **In production, the clock is never manually changed — kubelet auto-rotation fires naturally when cert reaches 80% lifetime without any operator action.** |
+| Node clock stuck after time-shift test | If the node remains at the shifted time after `set-ntp true`, run `k2s stop && k2s start` to get a fresh VHDX state — the Hyper-V VM clock re-syncs from the Windows host on restart. |
 
