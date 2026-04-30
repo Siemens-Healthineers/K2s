@@ -38,7 +38,9 @@ Param (
 	[parameter(Mandatory = $false, HelpMessage = 'Omit keycloak and use external oauth2 provider')]
 	[switch] $OmitKeycloak,
 	[parameter(Mandatory = $false, HelpMessage = 'Omit OAuth2 proxy deployment')]
-	[switch] $OmitOAuth2Proxy
+	[switch] $OmitOAuth2Proxy,
+	[parameter(Mandatory = $false, HelpMessage = 'Omit Kyverno policy enforcement engine')]
+	[switch] $OmitPolicyEnf
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -412,6 +414,27 @@ try {
 				Write-Log 'Skipping security pods linker update because of OmitKeycloak and OmitHydra flags' -Console
 			}
 		}
+	}
+
+	# Kyverno policy enforcement
+	if (-not $OmitPolicyEnf) {
+		Write-Log 'Installing Kyverno policy enforcement engine' -Console
+		Install-KyvernoCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
+		Install-Kyverno -Proxy $Proxy
+		$kyvernoStatus = Wait-ForKyvernoAvailable
+		if ($kyvernoStatus -ne $true) {
+			$errMsg = "Kyverno pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
+			if ($EncodeStructuredOutput -eq $true) {
+				$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+				Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+				return
+			}
+			Write-Log $errMsg -Error
+			throw $errMsg
+		}
+		Write-Log 'Kyverno policy enforcement engine installed successfully' -Console
+	} else {
+		Write-Log 'Omitting Kyverno policy enforcement engine as per flag.' -Console
 	}
 }
 catch {
