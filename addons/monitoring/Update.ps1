@@ -30,10 +30,15 @@ if ($EnancedSecurityEnabled) {
 	$annotations5 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-p', $annotations5).Output | Write-Log
 
-	# Patch Windows Exporter DaemonSet for service mesh
+	# Patch Windows Exporter DaemonSet for service mesh (only if it exists - Windows-only resource)
 	Write-Log "Updating Windows Exporter to be part of service mesh"
 	$annotations6 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
-	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations6, '--ignore-not-found').Output | Write-Log
+	$dsExists = (Invoke-Kubectl -Params 'get', 'daemonset', 'windows-exporter', '-n', 'kube-system', '--ignore-not-found').Output
+	if ($dsExists) {
+		(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations6).Output | Write-Log
+	} else {
+		Write-Log "Windows Exporter DaemonSet not found, skipping Linkerd injection patch"
+	}
 
 	$maxAttempts = 30
 	$attempt = 0
@@ -69,10 +74,15 @@ if ($EnancedSecurityEnabled) {
 	(Invoke-Kubectl -Params 'patch', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-p', $annotations2, '--type=merge').Output | Write-Log
 	(Invoke-Kubectl -Params 'patch', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-p', $annotations2, '--type=merge').Output | Write-Log
 
-	# Remove Linkerd injection from Windows Exporter
+	# Remove Linkerd injection from Windows Exporter (only if it exists)
 	Write-Log "Updating Windows Exporter to not be part of service mesh"
 	$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":null}}}}}'
-	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations3, '--ignore-not-found').Output | Write-Log
+	$dsExists = (Invoke-Kubectl -Params 'get', 'daemonset', 'windows-exporter', '-n', 'kube-system', '--ignore-not-found').Output
+	if ($dsExists) {
+		(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations3).Output | Write-Log
+	} else {
+		Write-Log "Windows Exporter DaemonSet not found, skipping Linkerd injection removal"
+	}
 
 	$maxAttempts = 30
 	$attempt = 0
@@ -99,7 +109,8 @@ if ($EnancedSecurityEnabled) {
 		throw "Timeout waiting for patches to be applied"
 	}
 }
-(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'monitoring', '--timeout', '60s').Output | Write-Log
-(Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'monitoring', '--timeout', '60s').Output | Write-Log
+# Use 300s timeout - Linkerd sidecar injection triggers pod replacement which can exceed 60s
+(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
+(Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
 
 Write-Log 'Updating monitoring addon finished.' -Console
