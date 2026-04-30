@@ -2620,6 +2620,8 @@ You're not viewing the latest release version.
       
         
       
+        
+      
     
     
     
@@ -2678,6 +2680,34 @@ You're not viewing the latest release version.
     
   
     Security Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/policy-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Enforcement
   
 
     
@@ -3434,8 +3464,8 @@ SPDX-License-Identifier: MIT
 <tr>
 <td><strong>security</strong></td>
 <td>Data</td>
-<td><abbr title="Certificate Authority">CA</abbr> root Secret, Keycloak PostgreSQL dump, enhanced-security marker</td>
-<td><code>EnableForRestore.ps1</code> reconstructs original enable flags; drops/recreates Keycloak DB</td>
+<td><abbr title="Certificate Authority">CA</abbr> root Secret, Keycloak PostgreSQL dump, Kyverno policies, enhanced-security marker</td>
+<td><code>EnableForRestore.ps1</code> reconstructs original enable flags; drops/recreates Keycloak DB; re-applies Kyverno policies after framework is ready</td>
 </tr>
 <tr>
 <td><strong>storage smb</strong></td>
@@ -3513,8 +3543,8 @@ SPDX-License-Identifier: MIT
 <p><strong>Restore:</strong> Waits for Flux controller deployments. Applies resources with ingress-aware filtering. Runs <code>Update.ps1</code>.</p>
 <p>During restore, the addon re-enable step ensures <code>bin\\flux.exe</code> is present on the host.</p>
 <h3 id="security">security</h3>
-<p><strong>Backup:</strong> Exports the <abbr title="Certificate Authority">CA</abbr> root Secret (<code>ca-issuer-root-secret</code> from <code>cert-manager</code> namespace), a PostgreSQL dump of the Keycloak database (via <code>pg_dump</code> exec into the pod), and the enhanced-security marker file. Detects and records the current enable flags (<code>--type</code>, <code>--ingress</code>, <code>--omitKeycloak</code>, <code>--omitHydra</code>, <code>--omitOAuth2Proxy</code>).</p>
-<p><strong>Restore:</strong> Uses <code>EnableForRestore.ps1</code> which reads <code>backup.json</code> to reconstruct the original enable flags and delegates to <code>Enable.ps1</code>. Restores the <abbr title="Certificate Authority">CA</abbr> Secret with <code>--force</code> and restarts cert-manager. For Keycloak: scales down the Keycloak pod, drops and recreates the database, imports the dump via <code>psql</code> exec, then scales back up. Restores the enhanced-security marker file.</p>
+<p><strong>Backup:</strong> Exports the <abbr title="Certificate Authority">CA</abbr> root Secret (<code>ca-issuer-root-secret</code> from <code>cert-manager</code> namespace), a PostgreSQL dump of the Keycloak database (via <code>pg_dump</code> exec into the pod), the enhanced-security marker file, and all Kyverno <code>ClusterPolicy</code>, <code>Policy</code>, and <code>PolicyException</code> resources as <code>kyverno-policies.yaml</code> (only included if Kyverno is enabled and at least one policy exists). Detects and records the current enable flags (<code>--type</code>, <code>--ingress</code>, <code>--omitKeycloak</code>, <code>--omitHydra</code>, <code>--omitOAuth2Proxy</code>, <code>--omitPolicyEnf</code>).</p>
+<p><strong>Restore:</strong> Uses <code>EnableForRestore.ps1</code> which reads <code>backup.json</code> to reconstruct the original enable flags (including <code>--omitPolicyEnf</code>) and delegates to <code>Enable.ps1</code>. Restores the <abbr title="Certificate Authority">CA</abbr> Secret with <code>--force</code> and restarts cert-manager. For Keycloak: scales down the Keycloak pod, drops and recreates the database, imports the dump via <code>psql</code> exec, then scales back up. Restores the enhanced-security marker file. If <code>kyverno-policies.yaml</code> is present in the backup, waits for Kyverno to become available and applies the policies with <code>--server-side</code>.</p>
 <h3 id="storage-smb">storage smb</h3>
 <p><strong>Backup:</strong> Copies the <code>SmbStorage.json</code> configuration file, an addon config snapshot from <code>setup.json</code>, and the <abbr title="Server Message Block">SMB</abbr> share data from the Windows mount path. Works even when the cluster is not running (local data only).</p>
 <p><strong>Restore:</strong> Restores the config snapshot, determines the <abbr title="Server Message Block">SMB</abbr> host type from addon configuration, performs a disable/enable cycle with the <code>-Keep</code> flag, then restores the share data.</p>

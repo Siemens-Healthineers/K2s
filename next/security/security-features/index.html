@@ -19,7 +19,7 @@ SPDX-License-Identifier: MIT
         <link rel="prev" href="../../dev-guide/training/">
       
       
-        <link rel="next" href="../../troubleshooting/diagnostics/">
+        <link rel="next" href="../policy-enforcement/">
       
       
         
@@ -2222,6 +2222,8 @@ You're not viewing the latest release version.
       
         
       
+        
+      
     
     
     
@@ -2530,6 +2532,67 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#policy-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Policy Enforcement
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Policy Enforcement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-currently-ships" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What currently ships
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#policy-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Policy types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audit-vs-enforce-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audit vs Enforce mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opting-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opting out
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sbom-generation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2605,6 +2668,34 @@ You're not viewing the latest release version.
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../policy-enforcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Enforcement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2958,6 +3049,67 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#policy-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Policy Enforcement
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Policy Enforcement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-currently-ships" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What currently ships
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#policy-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Policy types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audit-vs-enforce-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audit vs Enforce mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opting-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opting out
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sbom-generation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3055,7 +3207,7 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -3205,6 +3357,10 @@ SPDX-License-Identifier: MIT
 <td><code>--omitOAuth2Proxy</code></td>
 <td>Skip the OAuth2 Proxy deployment</td>
 </tr>
+<tr>
+<td><code>--omitPolicyEnf</code></td>
+<td>Skip Kyverno policy enforcement framework</td>
+</tr>
 </tbody>
 </table>
 <p>The <code>login.exe</code> tool (bundled in <code>bin/</code>) provides Windows-logon-based authentication for the Hydra OAuth2 flow, enabling single sign-on from the Windows host.</p>
@@ -3213,6 +3369,49 @@ SPDX-License-Identifier: MIT
 <p>The enhanced security mode with Linkerd also enables the <a href="../../dev-guide/architecture/">Compartment Launcher</a> (<code>cplauncher.exe</code>) for Windows service mesh support.</p>
 </div>
 <hr />
+<h2 id="policy-enforcement">Policy Enforcement</h2>
+<p><em>K2s</em> ships <a href="https://kyverno.io/">Kyverno</a> as a policy enforcement framework within the <code>security</code> addon. Kyverno runs as a Kubernetes admission controller in the <code>kyverno</code> namespace and can <strong>validate</strong>, <strong>mutate</strong>, and <strong>generate</strong> Kubernetes resources based on declarative policies.</p>
+<h3 id="what-currently-ships">What currently ships</h3>
+<ul>
+<li><strong>Framework only.</strong> No default policies are installed. The cluster admission behaviour is unchanged until you add policies. Default policies may be added later based on feedback and further discussion about what works well for K2s users. Use <code>--omitPolicyEnf</code> to skip Kyverno installation entirely.</li>
+<li>All webhooks use <code>failurePolicy: Ignore</code>. Kyverno being unavailable never blocks cluster operations.</li>
+<li>Runs in standalone mode (1 replica per controller) suited for K2s single control-plane topology.</li>
+</ul>
+<h3 id="policy-types">Policy types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ClusterPolicy</code></td>
+<td>Cluster-wide rules applied to all namespaces</td>
+</tr>
+<tr>
+<td><code>Policy</code></td>
+<td>Namespace-scoped rules</td>
+</tr>
+<tr>
+<td><code>PolicyException</code></td>
+<td>Exempt specific resources from a policy</td>
+</tr>
+</tbody>
+</table>
+<h3 id="audit-vs-enforce-mode">Audit vs Enforce mode</h3>
+<p>Policies can run in two modes:</p>
+<ul>
+<li><strong><code>audit</code></strong>: violations are reported (via <code>PolicyReport</code>) but resources are <strong>not blocked</strong>. Use this to assess impact before enforcing.</li>
+<li><strong><code>enforce</code></strong>: non-compliant resources are <strong>rejected</strong> at admission time.</li>
+</ul>
+<p>Set the mode per policy rule with <code>validationFailureAction: Audit</code> or <code>validationFailureAction: Enforce</code>.</p>
+<h3 id="opting-out">Opting out</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons enable security --omitPolicyEnf</span>
+</code></pre></div>
+<p>For full usage examples, sample policies, and <code>PolicyException</code> guidance, see the <a href="../policy-enforcement/">Policy Enforcement Guide</a>.</p>
+<hr />
 <h2 id="sbom-generation">SBOM Generation</h2>
 <p><em>K2s</em> supports Software Bill of Materials (SBOM) generation for supply chain transparency, using:</p>
 <ul>
@@ -3220,7 +3419,7 @@ SPDX-License-Identifier: MIT
 <li><strong>CycloneDX</strong> — standard SBOM format</li>
 </ul>
 <h3 id="generating-an-sbom">Generating an SBOM</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">powershell -File build\bom\GenerateBom.ps1</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">powershell -File build\bom\GenerateBom.ps1</span>
 </code></pre></div>
 <p>The script:</p>
 <ol>
@@ -3231,7 +3430,7 @@ SPDX-License-Identifier: MIT
 </ol>
 <h3 id="image-inventory">Image Inventory</h3>
 <p>A separate script dumps all container images used by <em>K2s</em>:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">powershell -File build\bom\DumpK2sImages.ps1</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">powershell -File build\bom\DumpK2sImages.ps1</span>
 </code></pre></div>
 <p>This produces <code>kubernetes_images.json</code> listing every image across the cluster and all addon manifests.</p>
 <hr />
@@ -3366,13 +3565,13 @@ SPDX-License-Identifier: MIT
         
         
           
-          <a href="../../troubleshooting/diagnostics/" class="md-footer__link md-footer__link--next" aria-label="Next: Diagnostics">
+          <a href="../policy-enforcement/" class="md-footer__link md-footer__link--next" aria-label="Next: Policy Enforcement">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Diagnostics
+                Policy Enforcement
               </div>
             </div>
             <div class="md-footer__button md-icon">

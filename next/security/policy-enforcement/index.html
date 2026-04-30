@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/getting-k2s/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/security/policy-enforcement/">
       
       
-        <link rel="prev" href="../os-support/">
+        <link rel="prev" href="../security-features/">
       
       
-        <link rel="next" href="../creating-offline-package/">
+        <link rel="next" href="../../troubleshooting/diagnostics/">
       
       
         
@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Getting K2s - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Policy Enforcement - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#getting-k2s" class="md-skip">
+        <a href="#policy-enforcement-with-kyverno" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Getting K2s
+              Policy Enforcement
             
           </span>
         </div>
@@ -307,13 +307,11 @@ You're not viewing the latest release version.
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../os-support/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../op-manual/os-support/" class="md-tabs__link">
           
   
   
@@ -363,11 +361,13 @@ You're not viewing the latest release version.
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../security/security-features/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../security-features/" class="md-tabs__link">
           
   
   
@@ -910,10 +910,8 @@ You're not viewing the latest release version.
       
   
   
-    
   
   
-  
     
     
       
@@ -969,20 +967,17 @@ You're not viewing the latest release version.
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -1000,7 +995,7 @@ You're not viewing the latest release version.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1018,7 +1013,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../os-support/" class="md-nav__link">
+      <a href="../../op-manual/os-support/" class="md-nav__link">
         
   
   
@@ -1043,37 +1038,10 @@ You're not viewing the latest release version.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting K2s
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../op-manual/getting-k2s/" class="md-nav__link">
         
   
   
@@ -1089,48 +1057,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#option-1-cloning-git-repository" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        [Option 1] Cloning Git Repository
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#option-2-downloading-official-release-package" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        [Option 2] Downloading Official Release Package
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1143,7 +1069,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../creating-offline-package/" class="md-nav__link">
+      <a href="../../op-manual/creating-offline-package/" class="md-nav__link">
         
   
   
@@ -1171,7 +1097,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../delta-packages/" class="md-nav__link">
+      <a href="../../op-manual/delta-packages/" class="md-nav__link">
         
   
   
@@ -1199,7 +1125,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../installing-k2s/" class="md-nav__link">
+      <a href="../../op-manual/installing-k2s/" class="md-nav__link">
         
   
   
@@ -1227,7 +1153,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../configuration-reference/" class="md-nav__link">
+      <a href="../../op-manual/configuration-reference/" class="md-nav__link">
         
   
   
@@ -1255,7 +1181,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../starting-k2s/" class="md-nav__link">
+      <a href="../../op-manual/starting-k2s/" class="md-nav__link">
         
   
   
@@ -1283,7 +1209,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../checking-k2s-status/" class="md-nav__link">
+      <a href="../../op-manual/checking-k2s-status/" class="md-nav__link">
         
   
   
@@ -1311,7 +1237,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../adding-k2s-users/" class="md-nav__link">
+      <a href="../../op-manual/adding-k2s-users/" class="md-nav__link">
         
   
   
@@ -1339,7 +1265,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../stopping-k2s/" class="md-nav__link">
+      <a href="../../op-manual/stopping-k2s/" class="md-nav__link">
         
   
   
@@ -1367,7 +1293,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../upgrading-k2s/" class="md-nav__link">
+      <a href="../../op-manual/upgrading-k2s/" class="md-nav__link">
         
   
   
@@ -1395,7 +1321,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../compacting-vhdx-storage/" class="md-nav__link">
+      <a href="../../op-manual/compacting-vhdx-storage/" class="md-nav__link">
         
   
   
@@ -1423,7 +1349,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../hook-system/" class="md-nav__link">
+      <a href="../../op-manual/hook-system/" class="md-nav__link">
         
   
   
@@ -1451,7 +1377,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../backing-up-restoring-system/" class="md-nav__link">
+      <a href="../../op-manual/backing-up-restoring-system/" class="md-nav__link">
         
   
   
@@ -1479,7 +1405,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../backing-up-restoring-addons/" class="md-nav__link">
+      <a href="../../op-manual/backing-up-restoring-addons/" class="md-nav__link">
         
   
   
@@ -1507,7 +1433,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../gitops-addon-delivery/" class="md-nav__link">
+      <a href="../../op-manual/gitops-addon-delivery/" class="md-nav__link">
         
   
   
@@ -1535,7 +1461,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../external-dns/" class="md-nav__link">
+      <a href="../../op-manual/external-dns/" class="md-nav__link">
         
   
   
@@ -1563,7 +1489,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../extending-k2s-cluster/" class="md-nav__link">
+      <a href="../../op-manual/extending-k2s-cluster/" class="md-nav__link">
         
   
   
@@ -1591,7 +1517,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../secure-host-access/" class="md-nav__link">
+      <a href="../../op-manual/secure-host-access/" class="md-nav__link">
         
   
   
@@ -1619,7 +1545,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../networking-architecture/" class="md-nav__link">
+      <a href="../../op-manual/networking-architecture/" class="md-nav__link">
         
   
   
@@ -1647,7 +1573,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../running-apps-as-hostprocess/" class="md-nav__link">
+      <a href="../../op-manual/running-apps-as-hostprocess/" class="md-nav__link">
         
   
   
@@ -1675,7 +1601,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../uninstalling-k2s/" class="md-nav__link">
+      <a href="../../op-manual/uninstalling-k2s/" class="md-nav__link">
         
   
   
@@ -1703,7 +1629,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../signcatalog-k2s/" class="md-nav__link">
+      <a href="../../op-manual/signcatalog-k2s/" class="md-nav__link">
         
   
   
@@ -1731,7 +1657,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../code-signing/" class="md-nav__link">
+      <a href="../../op-manual/code-signing/" class="md-nav__link">
         
   
   
@@ -2287,8 +2213,10 @@ You're not viewing the latest release version.
       
   
   
+    
   
   
+  
     
     
       
@@ -2300,17 +2228,20 @@ You're not viewing the latest release version.
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -2328,7 +2259,7 @@ You're not viewing the latest release version.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2346,7 +2277,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../security/security-features/" class="md-nav__link">
+      <a href="../security-features/" class="md-nav__link">
         
   
   
@@ -2371,10 +2302,37 @@ You're not viewing the latest release version.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../security/policy-enforcement/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Enforcement
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2390,6 +2348,164 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#enabling-kyverno" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enabling Kyverno
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#audit-vs-enforce-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audit vs Enforce Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample Policies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sample Policies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#disallow-privileged-containers-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disallow privileged containers (audit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#require-labels-on-namespaces-enforce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Require labels on namespaces (enforce)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#require-images-from-approved-registries-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Require images from approved registries (audit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#applying-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Applying Policies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checking-policy-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking Policy Reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#policyexception-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PolicyException Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#linkerd-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linkerd Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#further-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Further Reading
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2548,10 +2664,10 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#option-1-cloning-git-repository" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        [Option 1] Cloning Git Repository
+        Overview
       
     </span>
   </a>
@@ -2559,10 +2675,126 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#option-2-downloading-official-release-package" class="md-nav__link">
+  <a href="#enabling-kyverno" class="md-nav__link">
     <span class="md-ellipsis">
       
-        [Option 2] Downloading Official Release Package
+        Enabling Kyverno
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#audit-vs-enforce-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audit vs Enforce Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample Policies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sample Policies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#disallow-privileged-containers-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disallow privileged containers (audit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#require-labels-on-namespaces-enforce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Require labels on namespaces (enforce)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#require-images-from-approved-registries-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Require images from approved registries (audit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#applying-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Applying Policies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checking-policy-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking Policy Reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#policyexception-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PolicyException Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#linkerd-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linkerd Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#further-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Further Reading
       
     </span>
   </a>
@@ -2586,7 +2818,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/getting-k2s.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/security/policy-enforcement.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2595,77 +2827,166 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="getting-k2s">Getting K2s</h1>
-<p><em>K2s</em> can be acquired in two different ways, depending on the intended use:</p>
-<ul>
-<li><a href="#option-1-cloning-git-repository">Option 1: Cloning Git Repository</a> for development of <em>K2s</em> or making use of the latest (potentially unstable) features. All dependencies get downloaded during the installation process.</li>
-<li><a href="#option-2-downloading-official-release-package">Option 2: Downloading Official Release Package</a> for e.g. use in development environments, test systems or production scenarios.</li>
-</ul>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The target installation folder must fulfill the following requirements:</p>
-<ul>
-<li>
-<p>Folder name contains only:</p>
-<ul>
-<li>Letters of the English alphabet (uppercase and lowercase)</li>
-<li>Digits of the decimal system</li>
-<li>Spaces</li>
-<li>Special characters: <code>+</code>, <code>-</code>, <code>_</code> and <code>.</code></li>
-</ul>
-</li>
-<li>
-<p>No special folders (e.g. symbolic links) are allowed</p>
-</li>
-</ul>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Due to legal/license considerations, <em>K2s</em> cannot provide a full offline installation package for e.g. air-gap scenarios out-of-the-box, but you can create one yourself locally, see <a href="../creating-offline-package/">Creating an Offline Package</a>.</p>
-</div>
-<h2 id="option-1-cloning-git-repository">[Option 1] Cloning <em>Git</em> Repository</h2>
-<p>To clone the Git repository into a new folder of your choice, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">mkdir c:\myFolder; cd c:\myFolder</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">git clone https://github.com/Siemens-Healthineers/K2s .</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">git checkout tags/v1.4.0</span>
-</code></pre></div></p>
-<p>Go-built binaries (including <code>k2s.exe</code>) are <strong>not committed</strong> to the git repository. After cloning, you <strong>must</strong> build them before proceeding:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Windows</label><label for="__tabbed_1_2">Linux</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">.\bin\bgow</span>
+<h1 id="policy-enforcement-with-kyverno">Policy Enforcement with Kyverno</h1>
+<p><em>K2s</em> ships <a href="https://kyverno.io/">Kyverno</a> as a policy enforcement framework inside the <code>security</code> addon. This guide covers audit mode, enforce mode, sample policies, and <code>PolicyException</code> usage.</p>
+<h2 id="overview">Overview</h2>
+<p>Kyverno is a Kubernetes-native admission controller. When a resource is created or updated, Kyverno evaluates it against active policies and either allows, blocks (enforce mode), or reports the violation (audit mode) before the resource is persisted.</p>
+<p><strong>K2s currently ships the framework only.</strong> No default policies are installed. The cluster admission behaviour is identical to a cluster without Kyverno until you add policies yourself. Default policies may be added later based on feedback and further discussion about what works well across environments.</p>
+<p>All Kyverno webhooks are configured with <code>failurePolicy: Ignore</code>, meaning Kyverno being unavailable (e.g. during a restart) will never block cluster operations.</p>
+<h2 id="enabling-kyverno">Enabling Kyverno</h2>
+<p>Kyverno is enabled by default with the security addon:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s addons enable security</span>
 </code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">./bin/bgol</span>
+<p>To opt out:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s addons enable security --omitPolicyEnf</span>
 </code></pre></div>
-</div>
-</div>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Without this step, <code>k2s.exe</code> and supporting tools will be missing and <em>K2s</em> will not function.</p>
-</div>
-<p>Proceed with the installation, see <a href="../installing-k2s/">Installing <em>K2s</em></a>.</p>
-<h2 id="option-2-downloading-official-release-package">[Option 2] Downloading Official Release Package</h2>
-<p>Download the latest released and officially cleared <em>K2s</em> version from <a href="https://github.com/Siemens-Healthineers/K2s/releases" target="_blank" rel="noopener"><em>K2s</em> Releases</a>.
-Please move the package to a folder on your drive from the windows downloads folder. </p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Please make sure to check <em>Unblock</em> in the file properties dialog before extracting the zip file (if this option is available):<br/>
-<img alt="Unblock Zip Package" src="../assets/UnblockZipPackage.png" /></p>
-</div>
-<p>Extract the zip file to a target folder of your choice (e.g. <code>c:\target-dir</code>).
-Remove the read-only attributes on the entire folder in an recursive way.
-Proceed with the installation, see <a href="../installing-k2s/">Installing <em>K2s</em></a>.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>It is recommended to install <em>K2s</em> to the <em>Windows</em> system drive (most likely <code>C:\</code>), because some 3rd-party components might assume that <code>C:\</code> is the <em>Windows</em> host's system drive, e.g. <em>Windows</em>-based containers running in <em>host mode</em>.</p>
-</div>
+<h2 id="audit-vs-enforce-mode">Audit vs Enforce Mode</h2>
+<p>Each policy rule has a <code>validationFailureAction</code> field:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Audit</code></td>
+<td>Violations are recorded in a <code>PolicyReport</code> but resources <strong>are not blocked</strong></td>
+</tr>
+<tr>
+<td><code>Enforce</code></td>
+<td>Non-compliant resources are <strong>rejected</strong> at admission time with an error message</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation:</strong> Always start in <code>Audit</code> mode to assess impact. Switch to <code>Enforce</code> only after confirming no legitimate workloads are affected.</p>
+<h2 id="sample-policies">Sample Policies</h2>
+<p>The Kyverno community commonly starts with three broad categories of policies: pod security hardening, governance and metadata rules, and image or supply-chain controls. The examples below reflect those common starting points.</p>
+<h3 id="disallow-privileged-containers-audit">Disallow privileged containers (audit)</h3>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kyverno.io/v1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterPolicy</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disallow-privileged-containers</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">validationFailureAction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Audit</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">check-privileged</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">match</span><span class="p">:</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">        </span><span class="nt">any</span><span class="p">:</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">              </span><span class="nt">kinds</span><span class="p">:</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">                </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">      </span><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">        </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Privileged</span><span class="nv"> </span><span class="s">containers</span><span class="nv"> </span><span class="s">are</span><span class="nv"> </span><span class="s">not</span><span class="nv"> </span><span class="s">allowed.&quot;</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">        </span><span class="nt">pattern</span><span class="p">:</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">          </span><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">            </span><span class="nt">containers</span><span class="p">:</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">=(securityContext)</span><span class="p">:</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">                  </span><span class="nt">=(privileged)</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;false&quot;</span>
+</code></pre></div>
+<h3 id="require-labels-on-namespaces-enforce">Require labels on namespaces (enforce)</h3>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kyverno.io/v1</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterPolicy</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">require-ns-labels</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">validationFailureAction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Enforce</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">check-team-label</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">match</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">        </span><span class="nt">any</span><span class="p">:</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">              </span><span class="nt">kinds</span><span class="p">:</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">                </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Namespace</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">      </span><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">        </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Namespace</span><span class="nv"> </span><span class="s">must</span><span class="nv"> </span><span class="s">have</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">&#39;team&#39;</span><span class="nv"> </span><span class="s">label.&quot;</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">        </span><span class="nt">pattern</span><span class="p">:</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">          </span><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">            </span><span class="nt">labels</span><span class="p">:</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">              </span><span class="nt">team</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;?*&quot;</span>
+</code></pre></div>
+<h3 id="require-images-from-approved-registries-audit">Require images from approved registries (audit)</h3>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kyverno.io/v1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterPolicy</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">require-approved-registries</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">validationFailureAction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Audit</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">check-image-registry</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">match</span><span class="p">:</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">        </span><span class="nt">any</span><span class="p">:</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">              </span><span class="nt">kinds</span><span class="p">:</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">                </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">      </span><span class="nt">validate</span><span class="p">:</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">        </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Images</span><span class="nv"> </span><span class="s">must</span><span class="nv"> </span><span class="s">come</span><span class="nv"> </span><span class="s">from</span><span class="nv"> </span><span class="s">approved</span><span class="nv"> </span><span class="s">registries.&quot;</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">        </span><span class="nt">foreach</span><span class="p">:</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">list</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;request.object.spec.containers&quot;</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">            </span><span class="nt">deny</span><span class="p">:</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">              </span><span class="nt">conditions</span><span class="p">:</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">                </span><span class="nt">all</span><span class="p">:</span>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">                  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;{{</span><span class="nv"> </span><span class="s">element.image</span><span class="nv"> </span><span class="s">}}&quot;</span>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">                    </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AnyNotIn</span>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">                    </span><span class="nt">value</span><span class="p">:</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">                      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;ghcr.io/*&quot;</span>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">                      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;registry.k8s.io/*&quot;</span>
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">                      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;shsk2s.azurecr.io/*&quot;</span>
+</code></pre></div>
+<h2 id="applying-policies">Applying Policies</h2>
+<p>Apply a policy directly with <code>kubectl</code>:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">kubectl apply -f my-policy.yaml</span>
+</code></pre></div>
+<p>Or place policy files in <code>addons/security/manifests/kyverno/policies/</code> and re-enable the addon. They will be applied automatically on each <code>k2s addons enable security</code>.</p>
+<h2 id="checking-policy-reports">Checking Policy Reports</h2>
+<p>After applying a policy in <code>Audit</code> mode, view violations with:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">kubectl get policyreport -A</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="go">kubectl describe policyreport -n &lt;namespace&gt; &lt;report-name&gt;</span>
+</code></pre></div>
+<p>For cluster-wide reports:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">kubectl get clusterpolicyreport</span>
+</code></pre></div>
+<h2 id="policyexception-usage">PolicyException Usage</h2>
+<p>Use a <code>PolicyException</code> to exempt specific resources from a policy without modifying the policy itself:</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kyverno.io/v2</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PolicyException</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">allow-monitoring-agent</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">monitoring</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="nt">exceptions</span><span class="p">:</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">policyName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disallow-host-namespaces</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">      </span><span class="nt">ruleNames</span><span class="p">:</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">host-namespaces</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">autogen-host-namespaces</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">  </span><span class="nt">match</span><span class="p">:</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="nt">any</span><span class="p">:</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">          </span><span class="nt">kinds</span><span class="p">:</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">          </span><span class="nt">namespaces</span><span class="p">:</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">monitoring</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">          </span><span class="nt">names</span><span class="p">:</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">monitoring-agent*</span>
+</code></pre></div>
+<p>This exempts a specific monitoring workload in the <code>monitoring</code> namespace from a policy that disallows host namespaces. This is a common pattern for infrastructure agents and other operational components that sometimes need tighter exceptions than application workloads.</p>
+<p>Note: <code>PolicyException</code> support must be enabled in Kyverno before these resources are accepted.</p>
+<h2 id="linkerd-compatibility">Linkerd Compatibility</h2>
+<p>When running Kyverno alongside Linkerd (enhanced security mode), be aware that Linkerd injects sidecar containers via its own admission webhook. If you write policies that validate container counts or specific container names, add a <code>PolicyException</code> for the <code>linkerd</code> namespace and any meshed namespaces, or scope your policies to exclude <code>linkerd.io/inject: enabled</code> pods until you have confirmed the policy behaves as expected for meshed workloads.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li><a href="https://kyverno.io/docs/">Kyverno Documentation</a></li>
+<li><a href="https://kyverno.io/policies/">Kyverno Policy Library</a></li>
+<li><a href="https://kyverno.io/docs/policy-reports/">PolicyReport specification</a></li>
+<li><a href="../security-features/">Security Features Overview</a></li>
+</ul>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -2705,7 +3026,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../os-support/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Supported OS Versions">
+          <a href="../security-features/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Security Features">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2715,20 +3036,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Supported OS Versions
+                Security Features
               </div>
             </div>
           </a>
         
         
           
-          <a href="../creating-offline-package/" class="md-footer__link md-footer__link--next" aria-label="Next: Creating Offline Package">
+          <a href="../../troubleshooting/diagnostics/" class="md-footer__link md-footer__link--next" aria-label="Next: Diagnostics">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Creating Offline Package
+                Diagnostics
               </div>
             </div>
             <div class="md-footer__button md-icon">
