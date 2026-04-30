@@ -120,11 +120,18 @@ function Invoke-PatchKubeletConfig {
         [Parameter(Mandatory = $true)]
         [string] $Value   # 'true' or 'false'
     )
-    # Step 1: backup kubelet config (use -IgnoreErrors so we can check .Success ourselves)
-    $backupResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo cp $kubeletConfigPath $kubeletConfigBackupPath" -IgnoreErrors
-    $backupResult.Output | Write-Log
-    if (-not $backupResult.Success) {
-        throw "[AutoRotation] Failed to back up kubelet config before patching."
+    # Step 1: backup kubelet config - only if the file already exists
+    $existsResult = Invoke-CmdOnControlPlaneViaSSHKey "test -f $kubeletConfigPath && echo 'exists' || echo 'missing'" -IgnoreErrors
+    $configExists = ($existsResult.Output | Where-Object { $_ -match 'exists' })
+
+    if ($configExists) {
+        $backupResult = Invoke-CmdOnControlPlaneViaSSHKey "sudo cp $kubeletConfigPath $kubeletConfigBackupPath" -IgnoreErrors
+        $backupResult.Output | Write-Log
+        if (-not $backupResult.Success) {
+            throw "[AutoRotation] Failed to back up kubelet config before patching."
+        }
+    } else {
+        Write-Log "[AutoRotation] Kubelet config file does not exist yet - will create it with rotateCertificates: $Value" -Console
     }
 
     # Step 2: patch using sed — single-line bash (no heredoc, SSH-safe)
