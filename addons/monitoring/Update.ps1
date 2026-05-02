@@ -30,20 +30,37 @@ if ($EnancedSecurityEnabled) {
 	$annotations5 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-p', $annotations5).Output | Write-Log
 
-	# Patch Windows Exporter DaemonSet for service mesh
-	Write-Log "Updating Windows Exporter to be part of service mesh"
-	$annotations6 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
-	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations6, '--ignore-not-found').Output | Write-Log
+	# Patch Windows Exporter DaemonSet for service mesh (only if it exists)
+	$winExporterCheck = Invoke-Kubectl -Params 'get', 'daemonset', 'windows-exporter', '-n', 'kube-system', '--ignore-not-found', '-o', 'name'
+	if ($winExporterCheck.Success -and $winExporterCheck.Output) {
+		Write-Log "[Monitoring] Updating Windows Exporter to be part of service mesh"
+		$annotations6 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+		(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations6).Output | Write-Log
+	} else {
+		Write-Log "[Monitoring] windows-exporter daemonset not present, skipping mesh injection"
+	}
 
 	$maxAttempts = 30
 	$attempt = 0
 	do {
 		$attempt++
-		$operatorDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-operator', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$grafanaDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-grafana', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$metricsDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$prometheus = (Invoke-Kubectl -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$alertmanager = (Invoke-Kubectl -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
+		$kgets = @(
+			(Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-operator', '-n', 'monitoring', '-o', 'json'),
+			(Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-grafana', '-n', 'monitoring', '-o', 'json'),
+			(Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-o', 'json'),
+			(Invoke-Kubectl -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-o', 'json'),
+			(Invoke-Kubectl -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-o', 'json')
+		)
+		if ($kgets | Where-Object { -not $_.Success }) {
+			Write-Log "[Monitoring] kubectl get failed (api-server transiently unreachable), retrying (attempt $attempt of $maxAttempts)..."
+			Start-Sleep -Seconds 5
+			continue
+		}
+		$operatorDeployment = $kgets[0].Output | ConvertFrom-Json
+		$grafanaDeployment  = $kgets[1].Output | ConvertFrom-Json
+		$metricsDeployment  = $kgets[2].Output | ConvertFrom-Json
+		$prometheus         = $kgets[3].Output | ConvertFrom-Json
+		$alertmanager       = $kgets[4].Output | ConvertFrom-Json
 
 		$hasAnnotations = ($operatorDeployment.spec.template.metadata.annotations.'linkerd.io/inject' -eq 'enabled') -and
 				($grafanaDeployment.spec.template.metadata.annotations.'linkerd.io/inject' -eq 'enabled') -and
@@ -51,7 +68,7 @@ if ($EnancedSecurityEnabled) {
 				($prometheus.spec.podMetadata.annotations.'linkerd.io/inject' -eq 'enabled') -and
 				($alertmanager.spec.podMetadata.annotations.'linkerd.io/inject' -eq 'enabled')
 		if (-not $hasAnnotations) {
-			Write-Log "Waiting for patches to be applied (attempt $attempt of $maxAttempts)..."
+			Write-Log "[Monitoring] Waiting for patches to be applied (attempt $attempt of $maxAttempts)..."
 			Start-Sleep -Seconds 2
 		}
 	} while (-not $hasAnnotations -and $attempt -lt $maxAttempts)
@@ -69,20 +86,37 @@ if ($EnancedSecurityEnabled) {
 	(Invoke-Kubectl -Params 'patch', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-p', $annotations2, '--type=merge').Output | Write-Log
 	(Invoke-Kubectl -Params 'patch', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-p', $annotations2, '--type=merge').Output | Write-Log
 
-	# Remove Linkerd injection from Windows Exporter
-	Write-Log "Updating Windows Exporter to not be part of service mesh"
+	# Remove Linkerd injection from Windows Exporter (only if it exists)
+	Write-Log "[Monitoring] Updating Windows Exporter to not be part of service mesh"
 	$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":null}}}}}'
-	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations3, '--ignore-not-found').Output | Write-Log
+	$winExporterCheck2 = Invoke-Kubectl -Params 'get', 'daemonset', 'windows-exporter', '-n', 'kube-system', '--ignore-not-found', '-o', 'name'
+	if ($winExporterCheck2.Success -and $winExporterCheck2.Output) {
+		(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations3).Output | Write-Log
+	} else {
+		Write-Log "[Monitoring] windows-exporter daemonset not present, skipping mesh removal"
+	}
 
 	$maxAttempts = 30
 	$attempt = 0
 	do {
 		$attempt++
-		$operatorDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-operator', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$grafanaDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-grafana', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$metricsDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$prometheus = (Invoke-Kubectl -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$alertmanager = (Invoke-Kubectl -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
+		$kgets = @(
+			(Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-operator', '-n', 'monitoring', '-o', 'json'),
+			(Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-grafana', '-n', 'monitoring', '-o', 'json'),
+			(Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-o', 'json'),
+			(Invoke-Kubectl -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-o', 'json'),
+			(Invoke-Kubectl -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-o', 'json')
+		)
+		if ($kgets | Where-Object { -not $_.Success }) {
+			Write-Log "[Monitoring] kubectl get failed (api-server transiently unreachable), retrying (attempt $attempt of $maxAttempts)..."
+			Start-Sleep -Seconds 5
+			continue
+		}
+		$operatorDeployment = $kgets[0].Output | ConvertFrom-Json
+		$grafanaDeployment  = $kgets[1].Output | ConvertFrom-Json
+		$metricsDeployment  = $kgets[2].Output | ConvertFrom-Json
+		$prometheus         = $kgets[3].Output | ConvertFrom-Json
+		$alertmanager       = $kgets[4].Output | ConvertFrom-Json
 
 		$hasNoAnnotations = ($null -eq $operatorDeployment.spec.template.metadata.annotations.'linkerd.io/inject') -and
 				($null -eq $grafanaDeployment.spec.template.metadata.annotations.'linkerd.io/inject') -and
@@ -90,7 +124,7 @@ if ($EnancedSecurityEnabled) {
 				($null -eq $prometheus.spec.podMetadata.annotations.'linkerd.io/inject') -and
 				($null -eq $alertmanager.spec.podMetadata.annotations.'linkerd.io/inject')
 		if (-not $hasNoAnnotations) {
-			Write-Log "Waiting for patches to be applied (attempt $attempt of $maxAttempts)..."
+			Write-Log "[Monitoring] Waiting for patches to be applied (attempt $attempt of $maxAttempts)..."
 			Start-Sleep -Seconds 2
 		}
 	} while (-not $hasNoAnnotations -and $attempt -lt $maxAttempts)
