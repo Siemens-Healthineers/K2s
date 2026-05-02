@@ -6,8 +6,9 @@
 
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+$linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
 
-Import-Module $infraModule, $k8sApiModule
+Import-Module $infraModule, $k8sApiModule, $linuxNodeModule
 
 function Get-KeyCloakConfig {
     return "$PSScriptRoot\manifests\keycloak\keycloak.yaml"
@@ -217,6 +218,73 @@ Waits for the keycloak postgresqlpods to be available.
 #>
 function Wait-ForKeyCloakPostgresqlAvailable($waiTime = 360) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=postgresql' -Namespace 'security' -TimeoutSeconds $waiTime)
+}
+
+<#
+.DESCRIPTION
+Wipes the on-host PostgreSQL data directory backing the Keycloak realm DB
+(/mnt/keycloak on the control-plane VM).
+
+Why this is needed:
+The PV `postgresql-pv-volume` is a hostPath volume at /mnt/keycloak/db with the
+default Retain reclaim policy, so deleting the PV does NOT delete the data on
+disk. Keycloak imports its realm (incl. demo-client secret) only when the realm
+does not yet exist in the DB (`--import-realm`). If stale postgres data
+survives a disable, the next enable boots Keycloak against the old realm and
+the freshly rendered client_secret in keycloak.yaml is silently ignored,
+causing 'unauthorized_client' on token requests.
+
+The race we close: the previous code issued `rm -rf /mnt/keycloak` immediately
+after `kubectl delete -f keycloak-postgres.yaml` returned, but that delete is
+asynchronous - the postgres pod may still be terminating and holding the bind
+mount, so files created after rm survive. With PostgreSQL 18.3 (bumped 2026-04-29)
+the shutdown timing widened enough to make this race reproducible; the fix is
+to wait for the pod to actually be gone before wiping, then verify.
+#>
+function Remove-KeyCloakPostgresStorage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [uint16] $PodTerminationTimeoutSeconds = 60
+    )
+
+    Write-Log '[Security][Cleanup] Waiting for postgres pod to terminate before wiping host data' -Console
+
+    # Poll until the postgres pod is gone (kubectl delete -f is async). Bound by timeout.
+    $deadline = (Get-Date).AddSeconds($PodTerminationTimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $remaining = (Invoke-Kubectl -Params 'get', 'pod', '-l', 'app=postgresql', '-n', 'security', '--ignore-not-found', '-o', 'name').Output
+        if ([string]::IsNullOrWhiteSpace($remaining)) {
+            break
+        }
+        Start-Sleep -Seconds 2
+    }
+    if (-not [string]::IsNullOrWhiteSpace($remaining)) {
+        Write-Log "[Security][Cleanup] Postgres pod still present after ${PodTerminationTimeoutSeconds}s; proceeding with cleanup anyway" -Console
+    }
+
+    # Single SSH round-trip: remove + verify + report status atomically.
+    # 'CLEAN' means /mnt/keycloak is gone, 'DIRTY' means rm did not fully take effect.
+    $cmd = 'sudo rm -rf /mnt/keycloak; if [ ! -e /mnt/keycloak ]; then echo CLEAN; else echo DIRTY; fi'
+
+    $maxAttempts = 2
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        Write-Log "[Security][Cleanup] Removing /mnt/keycloak (attempt $attempt/$maxAttempts)" -Console
+        $result = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cmd).Output
+        if ($result -match 'CLEAN') {
+            Write-Log '[Security][Cleanup] /mnt/keycloak removed successfully' -Console
+            return
+        }
+        Write-Log "[Security][Cleanup] /mnt/keycloak still present after rm (attempt $attempt/$maxAttempts)" -Console
+        if ($attempt -lt $maxAttempts) {
+            Start-Sleep -Seconds 5
+        }
+    }
+
+    # Diagnostics for postmortem rather than failing silently (per project conventions §10).
+    Write-Log '[Security][Cleanup] Failed to fully remove /mnt/keycloak; gathering diagnostics' -Console
+    (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo ls -la /mnt/keycloak 2>&1 || true').Output | Write-Log
+    Write-Log '[Security][Cleanup] WARNING: stale postgres data may cause subsequent enable to use an outdated Keycloak realm (manifest client_secret will be ignored).' -Console
 }
 
 <#

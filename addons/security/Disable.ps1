@@ -121,7 +121,13 @@ Remove-ConfigFileForCNI
 Remove-LinkerdManifests 
 
 Write-Log 'Deleting old storage files for postgres' -Console
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /mnt/keycloak').Output | Write-Log
+# See Remove-KeyCloakPostgresStorage in security.module.psm1 for rationale.
+# It waits for the postgres pod to fully terminate before wiping /mnt/keycloak,
+# then verifies the directory is gone. Stale data here causes Keycloak to skip
+# realm import on a subsequent enable and produces 'unauthorized_client' OIDC
+# errors in the monitoring e2e tests (regression introduced by PostgreSQL 18.3
+# bump on 2026-04-29 widening the pod shutdown / rm-rf race window).
+Remove-KeyCloakPostgresStorage
 
 Write-Log 'Cleaning up NGINX Gateway OAuth2 auth resources' -Console
 Write-Log '  Deleting oauth2-auth-filter SnippetsFilters...' -Console
