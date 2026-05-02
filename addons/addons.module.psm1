@@ -986,13 +986,38 @@ function Test-KeyCloakServiceAvailability {
 
 <#
 .DESCRIPTION
-Determines if linkerd service is deployed in the cluster
+Determines if linkerd service is deployed in the cluster.
+
+Resilient against:
+  - transient kubectl/api-server failures (retries a few times)
+  - empty service lists / partially deployed linkerd (matches a specific
+    well-known core linkerd service name instead of any 'linkerd' substring,
+    which used to match yaml output that did not include real services).
+
+Returns $true if a core linkerd service ('linkerd-dst', 'linkerd-identity',
+'linkerd-policy' or 'linkerd-proxy-injector') exists in the 'linkerd' namespace.
 #>
 function Test-LinkerdServiceAvailability {
-	$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'linkerd', '-o', 'yaml').Output
-	if ("$existingServices" -match '.*linkerd.*') {
-		return $true
+	$maxAttempts = 5
+	$delaySeconds = 3
+
+	for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+		$result = Invoke-Kubectl -Params 'get', 'service', '-n', 'linkerd', '-o', 'name'
+		if (-not $result.Success) {
+			Write-Log "[LinkerdProbe] kubectl get failed (attempt $attempt/$maxAttempts): $($result.Output)"
+			if ($attempt -lt $maxAttempts) { Start-Sleep -Seconds $delaySeconds }
+			continue
+		}
+		# kubectl -o name prints lines like 'service/linkerd-<something>'.
+		# Accept any service whose name starts with 'linkerd-' as proof linkerd is installed.
+		# Empty output (no services) -> namespace exists but linkerd not yet deployed -> $false.
+		if ("$($result.Output)" -match '(?m)^service/linkerd-') {
+			return $true
+		}
+		return $false
 	}
+	# All retries failed (api-server unreachable). Treat as not available.
+	Write-Log "[LinkerdProbe] linkerd service availability could not be determined after $maxAttempts attempts; assuming not available"
 	return $false
 }
 
