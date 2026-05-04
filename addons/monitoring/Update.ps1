@@ -109,7 +109,7 @@ if ($EnancedSecurityEnabled) {
 		throw "Timeout waiting for patches to be applied"
 	}
 }
-(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'monitoring', '--timeout', '60s').Output | Write-Log
-(Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'monitoring', '--timeout', '60s').Output | Write-Log
+(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
+(Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
 
 Write-Log 'Updating monitoring addon finished.' -Console
