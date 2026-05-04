@@ -136,6 +136,7 @@ The registry is exposed on `k2s.registry.local`.
 | `--omitHydra` | | boolean | `false` | Skip Ory Hydra and Windows login integration |
 | `--omitKeycloak` | | boolean | `false` | Skip Keycloak — use an external OAuth2 provider instead |
 | `--omitOAuth2Proxy` | | boolean | `false` | Skip OAuth2 Proxy deployment |
+| `--omitPolicyEnf` | | boolean | `false` | Skip Kyverno policy enforcement framework |
 
 ```console
 # Basic: cert-manager only

@@ -25,6 +25,13 @@ spec:
             - cr.l5d.io/linkerd/controller:edge-25.4.4
             - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4
             - shsk2s.azurecr.io/linkerd/proxy-init:v2.4.2
+            - reg.kyverno.io/kyverno/kyverno:v1.17.1
+            - reg.kyverno.io/kyverno/kyvernopre:v1.17.1
+            - reg.kyverno.io/kyverno/background-controller:v1.17.1
+            - reg.kyverno.io/kyverno/cleanup-controller:v1.17.1
+            - reg.kyverno.io/kyverno/reports-controller:v1.17.1
+            - reg.kyverno.io/kyverno/kyverno-cli:v1.17.1
+            - bitnami/kubectl:1.32.3
           additionalImagesFiles:
             - ../common/manifests/external-dns/deployment.yaml
             - ../common/manifests/certmanager/cert-manager.yaml
@@ -33,8 +40,10 @@ spec:
             - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4
             - shsk2s.azurecr.io/linkerd/proxy-init:v2.4.2
           curl:
-            - url: https://github.com/cert-manager/cmctl/releases/download/v2.4.1/cmctl_windows_amd64.exe
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.5.0/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
+            - url: https://github.com/kyverno/kyverno/releases/download/v1.17.1/kyverno-cli_v1.17.1_windows_x86_64.zip
+              destination: bin\kyverno.exe
           linkerd:
             - url: https://github.com/linkerd/linkerd2/releases/download/edge-25.4.4/linkerd2-cli-edge-25.4.4-windows.exe
               destination: bin\linkerd.exe
@@ -73,6 +82,10 @@ spec:
                 description: Omit OAuth2 proxy deployment
                 type: boolean
                 default: false
+              - name: omitPolicyEnf
+                description: Omit Kyverno policy enforcement engine
+                type: boolean
+                default: false
             examples:
               - cmd: k2s addons enable security
                 comment: Enable security addon with CA issuer configured
@@ -88,6 +101,8 @@ spec:
                 comment: Enable security addon and omit OAuth2 proxy setup
               - cmd: k2s addons enable security --omitHydra --omitKeycloak --omitOAuth2Proxy
                 comment: Enable security addon and omit hydra/login, keycloak, and OAuth2 proxy setup
+              - cmd: k2s addons enable security --omitPolicyEnf
+                comment: Enable security addon and omit Kyverno policy enforcement engine
           script:
             subPath: Enable.ps1
             parameterMappings:
@@ -101,6 +116,8 @@ spec:
                 scriptParameterName: OmitKeycloak
               - cliFlagName: omitOAuth2Proxy
                 scriptParameterName: OmitOAuth2Proxy
+              - cliFlagName: omitPolicyEnf
+                scriptParameterName: OmitPolicyEnf
         disable:
           cli:
             examples:
