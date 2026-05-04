@@ -30,10 +30,15 @@ if ($EnancedSecurityEnabled) {
 	$annotations5 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-p', $annotations5).Output | Write-Log
 
-	# Patch Windows Exporter DaemonSet for service mesh
+	# Patch Windows Exporter DaemonSet for service mesh (only if it exists)
 	Write-Log "Updating Windows Exporter to be part of service mesh"
-	$annotations6 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
-	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations6, '--ignore-not-found').Output | Write-Log
+	$winExporterExists = (Invoke-Kubectl -Params 'get', 'daemonset', 'windows-exporter', '-n', 'kube-system', '--ignore-not-found', '-o', 'name').Output
+	if ($winExporterExists) {
+		$annotations6 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+		(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations6).Output | Write-Log
+	} else {
+		Write-Log "windows-exporter DaemonSet not found in kube-system, skipping linkerd injection patch"
+	}
 
 	$maxAttempts = 30
 	$attempt = 0
@@ -69,10 +74,15 @@ if ($EnancedSecurityEnabled) {
 	(Invoke-Kubectl -Params 'patch', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-p', $annotations2, '--type=merge').Output | Write-Log
 	(Invoke-Kubectl -Params 'patch', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-p', $annotations2, '--type=merge').Output | Write-Log
 
-	# Remove Linkerd injection from Windows Exporter
+	# Remove Linkerd injection from Windows Exporter (only if it exists)
 	Write-Log "Updating Windows Exporter to not be part of service mesh"
-	$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":null}}}}}'
-	(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations3, '--ignore-not-found').Output | Write-Log
+	$winExporterExists = (Invoke-Kubectl -Params 'get', 'daemonset', 'windows-exporter', '-n', 'kube-system', '--ignore-not-found', '-o', 'name').Output
+	if ($winExporterExists) {
+		$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":null}}}}}'
+		(Invoke-Kubectl -Params 'patch', 'daemonset', 'windows-exporter', '-n', 'kube-system', '-p', $annotations3).Output | Write-Log
+	} else {
+		Write-Log "windows-exporter DaemonSet not found in kube-system, skipping linkerd un-injection patch"
+	}
 
 	$maxAttempts = 30
 	$attempt = 0
