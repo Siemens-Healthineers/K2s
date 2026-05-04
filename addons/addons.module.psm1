@@ -1741,6 +1741,13 @@ function Initialize-CACertificateIssuer {
     Write-Log 'Configuring CA ClusterIssuer' -Console
     $caIssuerConfig = Get-CAIssuerConfig
 
+    # When cert-manager is already running (e.g. security addon installed it first),
+    # calling Update-CertificateResources renews ALL cluster certs including
+    # linkerd-trust-anchor and linkerd-identity-issuer, disrupting the Linkerd
+    # identity service and preventing newly injected pods from getting mTLS certs.
+    $caSecretBefore = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o=jsonpath="{.metadata.name}"', '--ignore-not-found').Output
+    $caAlreadyExisted = $caSecretBefore -match 'ca-issuer-root-secret'
+
     $maxRetries = 5
     $retryDelay = 10
     $applied = $false
@@ -1772,8 +1779,11 @@ function Initialize-CACertificateIssuer {
         throw "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'cert-manager' failed."
     }
 
-    # Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
-    Update-CertificateResources
+    if ($caAlreadyExisted) {
+        Write-Log '[CertManager] CA root certificate was already present, skipping cluster-wide renewal' -Console
+    } else {
+        Update-CertificateResources
+    }
 }
 
 <#

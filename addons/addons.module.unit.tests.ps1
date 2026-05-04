@@ -1355,6 +1355,25 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
             }
         }
     }
+
+    Context 'CA root certificate already existed before initialization' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                if ($Params -contains 'ca-issuer-root-secret') {
+                    return [pscustomobject]@{ Success = $true; Output = '"ca-issuer-root-secret"' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = 'ok' }
+            }
+        }
+
+        It 'skips cluster-wide certificate renewal to preserve Linkerd identity state' {
+            InModuleScope -ModuleName $moduleName {
+                Initialize-CACertificateIssuer
+
+                Should -Invoke Update-CertificateResources -Times 0 -Scope It
+            }
+        }
+    }
 }
 
 Describe 'Get-CertManagerStatusProperties' -Tag 'unit', 'ci', 'addon' {
