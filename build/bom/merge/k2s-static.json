@@ -258,9 +258,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.2.zip",
       "name": "dockerd",
-      "version": "v29.4.1",
+      "version": "v29.4.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -277,13 +277,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.4.1",
+      "purl": "pkg:github/moby/moby@29.4.2",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.2.zip",
       "name": "docker",
-      "version": "v29.4.1",
+      "version": "v29.4.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -300,13 +300,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.4.1",
+      "purl": "pkg:github/moby/moby@29.4.2",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.1.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.4.2.zip",
       "name": "docker-proxy",
-      "version": "v29.4.1",
+      "version": "v29.4.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -323,7 +323,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.4.1",
+      "purl": "pkg:github/moby/moby@29.4.2",
       "type": "application"
     },
     {
@@ -465,9 +465,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.3/cri-containerd-cni-2.2.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.3.0/cri-containerd-cni-2.3.0-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1.6.9",
-      "version": "v2.2.3",
+      "version": "v2.3.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -484,13 +484,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.3",
+      "purl": "pkg:github/containerd/containerd@v2.3.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.3/cri-containerd-cni-2.2.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.3.0/cri-containerd-cni-2.3.0-windows-amd64.tar.gz",
       "name": "containerd-stress",
-      "version": "v2.2.3",
+      "version": "v2.3.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -507,13 +507,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.3",
+      "purl": "pkg:github/containerd/containerd@v2.3.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.3/cri-containerd-cni-2.2.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.3.0/cri-containerd-cni-2.3.0-windows-amd64.tar.gz",
       "name": "containerd",
-      "version": "v2.2.3",
+      "version": "v2.3.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -530,13 +530,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.3",
+      "purl": "pkg:github/containerd/containerd@v2.3.0",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v2.2.3/cri-containerd-cni-2.2.3-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.3.0/cri-containerd-cni-2.3.0-windows-amd64.tar.gz",
       "name": "ctr",
-      "version": "v2.2.3",
+      "version": "v2.3.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -553,7 +553,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v2.2.3",
+      "purl": "pkg:github/containerd/containerd@v2.3.0",
       "type": "application"
     },
     {
@@ -651,7 +651,7 @@
     {
       "group": "https://github.com/prometheus/prometheus",
       "name": "prometheus",
-      "version": "v3.11.2",
+      "version": "v3.11.3",
       "description": "Systems and service monitoring toolkit - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -668,7 +668,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus/prometheus@v3.11.2",
+      "purl": "pkg:github/prometheus/prometheus@v3.11.3",
       "type": "container"
     },
     {
@@ -789,7 +789,7 @@
     {
       "group": "https://github.com/kiwigrid/k8s-sidecar",
       "name": "k8s-sidecar",
-      "version": "2.6.0",
+      "version": "2.7.1",
       "description": "Sidecar to collect config maps with a specified label from all namespaces - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -806,7 +806,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/kiwigrid/k8s-sidecar@2.6.0",
+      "purl": "pkg:github/kiwigrid/k8s-sidecar@2.7.1",
       "type": "container"
     },
     {

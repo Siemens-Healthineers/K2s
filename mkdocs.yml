@@ -141,6 +141,7 @@ nav:
       - Training: dev-guide/training.md
   - Security:
       - Security Features: security/security-features.md
+      - Policy Enforcement: security/policy-enforcement.md
   - Troubleshooting:
       - Diagnostics: troubleshooting/diagnostics.md
       - Known Issues: troubleshooting/known-issues.md
