@@ -15838,7 +15838,7 @@ data:
                         "tableColumn": "",
                         "targets": [
                             {
-                                "expr": "sum(container_memory_usage_bytes{job=\"kubelet\", metrics_path=\"/metrics/cadvisor\", cluster=\"$cluster\", container!=\"\", namespace=\"$namespace\", pod=~\"$statefulset.*\"}) / 2.6.0",
+                                "expr": "sum(container_memory_usage_bytes{job=\"kubelet\", metrics_path=\"/metrics/cadvisor\", cluster=\"$cluster\", container!=\"\", namespace=\"$namespace\", pod=~\"$statefulset.*\"}) / 1024^3",
                                 "format": "time_series",
                                 "intervalFactor": 2,
                                 "legendFormat": "",
@@ -16571,7 +16571,7 @@ data:
         },
         "timezone": "UTC",
         "title": "Kubernetes / StatefulSets",
-        "uid": "a31c1f46e6f727cb37c0d731a72.6.05",
+        "uid": "a31c1f46e6f727cb37c0d731a7245005",
         "version": 0
     }
 ---

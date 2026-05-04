@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	ageRegex     = `(\d\D)+`
+	ageRegex     = `\d+[dhms](\d+[dhms])*`
 	readyRegex   = `\d+/\d+`
 	osRegex      = "((w)|(W)indows)|((l)|(L)inux)"
 	runtimeRegex = "(cri-o|containerd)"
@@ -46,7 +46,7 @@ var _ = Describe("status", Ordered, func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().MustExec(ctx, "status")
+			output = regex.StripAnsi(suite.K2sCli().MustExec(ctx, "status"))
 		})
 
 		It("prints a header", func(ctx context.Context) {
@@ -112,7 +112,7 @@ var _ = Describe("status", Ordered, func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().MustExec(ctx, "status", "-o", "wide")
+			output = regex.StripAnsi(suite.K2sCli().MustExec(ctx, "status", "-o", "wide"))
 		})
 
 		It("prints a header", func(ctx context.Context) {
