@@ -112,6 +112,7 @@ else {
     (Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--grace-period=0').Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/sysctl.d/99-opensearch.conf').Output | Write-Log
 }
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
