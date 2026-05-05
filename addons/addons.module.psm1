@@ -1659,6 +1659,13 @@ function Install-CmctlCli {
         return
     }
     foreach ($package in $windowsCurlPackages) {
+        $url = $package.url
+
+        if ($url -match '\.(zip|tar\.gz|tgz)(\?.*)?$') {
+            Write-Log "Skipping archive package '$url' - handled by dedicated installer." -Console
+            continue
+        }
+
         $destination = $package.destination
         $destination = "$K2sRoot\$destination"
         # Normalize path to ensure Test-Path works correctly
@@ -1668,7 +1675,6 @@ function Install-CmctlCli {
             Write-Log "File $destination already exists. Skipping download." -Console
             continue
         }
-        $url = $package.url
         Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
     }
 }
