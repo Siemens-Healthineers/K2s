@@ -128,43 +128,6 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgres-pv-storage
-          # Resource requests/limits prevent kubelet from OOMKilling Postgres when
-          # the cluster is under pressure (e.g. during the monitoring addon enable
-          # that runs concurrently in the e2e suites). An OOMKill is SIGKILL, which
-          # bypasses the preStop hook above and leaves a corrupt WAL.
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              memory: 512Mi
-          # Readiness gate keeps the Service endpoint out of rotation until Postgres
-          # has finished WAL replay / startup. Without this, Keycloak hammers a not-
-          # yet-ready DB during initial install, amplifying connection churn that has
-          # been observed to lead to pod restarts and WAL corruption on fresh CI runs.
-          readinessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1'
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 6
-          # Liveness probe with generous thresholds: only restart Postgres if it is
-          # truly hung. We deliberately do NOT couple this to client connectivity,
-          # because losing a client (e.g. proxy restart) must not restart Postgres.
-          livenessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1'
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            timeoutSeconds: 15
-            failureThreshold: 10
 ---
 apiVersion: v1
 kind: Service
