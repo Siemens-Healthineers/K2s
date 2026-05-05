@@ -30,7 +30,7 @@ if ! command -v yq &> /dev/null; then
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="amd64"
     fi
-    sudo curl -L $CURL_PROXY_OPT -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" --silent
+    sudo curl -fL $CURL_PROXY_OPT -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" --silent
     sudo chmod +x /usr/local/bin/yq
     yq --version
 else
@@ -45,7 +45,7 @@ if ! command -v helm &> /dev/null; then
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="amd64"
     fi
-    curl -L $CURL_PROXY_OPT -o "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" --silent
+    curl -fL $CURL_PROXY_OPT -o "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" --silent
     tar -xzf "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz"
     sudo mv "linux-${ARCH}/helm" /usr/local/bin/helm
     sudo chmod +x /usr/local/bin/helm
