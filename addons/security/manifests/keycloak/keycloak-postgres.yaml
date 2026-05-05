@@ -148,9 +148,9 @@ spec:
                 - /bin/sh
                 - -c
                 - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1'
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 5
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 10
             failureThreshold: 6
           # Liveness probe with generous thresholds: only restart Postgres if it is
           # truly hung. We deliberately do NOT couple this to client connectivity,
@@ -161,10 +161,10 @@ spec:
                 - /bin/sh
                 - -c
                 - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1'
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 6
+            timeoutSeconds: 15
+            failureThreshold: 10
 ---
 apiVersion: v1
 kind: Service
