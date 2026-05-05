@@ -166,8 +166,36 @@ With these settings, the Kubernetes scheduler sees reduced `Allocatable` resourc
 
 ## Important Notes
 
-!!! warning "Persistence"
-    Drop-in files **persist** across `k2s stop` / `k2s start` cycles — kubelet re-reads them on every startup. However, custom files are **lost on `k2s install`** (reinstall). Keep a backup of your override files externally. The K2s default drop-in (`00-k2s-defaults.conf`) is re-created automatically.
+!!! warning "Custom settings are lost on install and upgrade"
+    Drop-in files **persist** across `k2s stop` / `k2s start` cycles — kubelet re-reads them on every startup.
+
+    However, **custom drop-in files are lost** when running `k2s install` or `k2s system upgrade`, because both perform a full reinstall:
+
+    - **Windows**: The entire `C:\etc\` directory tree is deleted and recreated
+    - **Linux**: The VM is destroyed and provisioned from scratch
+
+    The K2s default drop-in (`00-k2s-defaults.conf`) is re-deployed automatically, but any user-created files (e.g. `20-custom.conf`) must be re-applied manually.
+
+    **You must re-apply your custom kubelet configuration after every install or upgrade.**
+
+    Recommended workflow:
+
+    1. Store your custom drop-in files in a version-controlled location outside K2s (e.g. a Git repository or a shared drive)
+    2. After `k2s install` or `k2s system upgrade` completes, re-apply them:
+
+    ```powershell
+    # Windows worker node
+    Copy-Item ".\my-kubelet-overrides\20-custom.conf" "C:\etc\kubernetes\kubelet.conf.d\"
+    nssm restart kubelet
+    ```
+
+    ```console
+    # Linux control-plane node
+    k2s node copy -i 172.19.1.100 -u remote -s .\my-kubelet-overrides\20-custom.conf -t /tmp/20-custom.conf
+    k2s node exec -i 172.19.1.100 -u remote -c "sudo cp /tmp/20-custom.conf /etc/kubernetes/kubelet.conf.d/20-custom.conf && sudo systemctl restart kubelet"
+    ```
+
+    Alternatively, use the [Hook System](hook-system.md) to automate re-application via a post-install hook script.
 
 !!! info "K2s defaults"
     *K2s* ships a `00-k2s-defaults.conf` drop-in file on the Windows worker node that sets `enforceNodeAllocatable: []`. Your custom files (e.g. `20-custom.conf`) are merged after it and can override any of its settings.
