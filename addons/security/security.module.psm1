@@ -652,11 +652,7 @@ function Install-Kyverno {
     $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--wait', '--timeout', '5m')
 
     $maxAttempts = 3
-    # The K8s ClusterIP allocator bitmap typically clears within a couple of seconds
-    # after the previous kyverno namespace finishes terminating. 30s was overkill and
-    # added ~30s to every security-enhanced test run; 10s is sufficient in practice
-    # and still leaves room for two retries within the helm 5m timeout window.
-    $retryDelaySec = 10
+    $retryDelaySec = 30
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         $result = Invoke-Helm -Params $helmArgs
         $result.Output | Write-Log
