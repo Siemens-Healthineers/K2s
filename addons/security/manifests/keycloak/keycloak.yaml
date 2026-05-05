@@ -2301,7 +2301,8 @@ spec:
             # Only include --import-realm if you are using a realm import file for initial setup
             # For ongoing realm management, you might use the admin console or Keycloak CRs/Operator
             - '--import-realm'
-            - '--proxy=edge'
+            - '--proxy-headers=xforwarded'
+            - '--http-enabled=true'
             - '--http-relative-path=keycloak'
             # Add health check arguments for 'start' mode
             - '--health-enabled=true'
@@ -2317,8 +2318,6 @@ spec:
                 secretKeyRef:
                   name: keycloak-admin-password
                   key: PASSWORD
-            - name: KC_PROXY
-              value: 'edge'
             - name: HTTP_PROXY
               value: http://172.19.1.1:8181
             - name: HTTPS_PROXY
@@ -2348,13 +2347,13 @@ spec:
               containerPort: 8080
           readinessProbe:
             httpGet:
-              path: /keycloak/realms/master
-              port: 8080
+              path: /health/ready
+              port: 9000
             initialDelaySeconds: 30 # Increase delay for production
             periodSeconds: 10
             timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 5 # Increase failure threshold
+            failureThreshold: 12
 
           # livenessProbe:
           #   # Add a liveness probe for production
