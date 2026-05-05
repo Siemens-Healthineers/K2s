@@ -105,6 +105,7 @@ nav:
       - Delta Packages: op-manual/delta-packages.md
       - Installing K2s: op-manual/installing-k2s.md
       - Configuration Reference: op-manual/configuration-reference.md
+      - Customizing Kubelet Configuration: op-manual/customizing-kubelet.md
       - Starting K2s: op-manual/starting-k2s.md
       - Checking K2s Status: op-manual/checking-k2s-status.md
       - Adding K2s Users: op-manual/adding-k2s-users.md
