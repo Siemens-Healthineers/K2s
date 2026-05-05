@@ -168,7 +168,12 @@ else {
 
     $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'logging', '--timeout=600s')
     Write-Log $kubectlCmd.Output
-    if (!$kubectlCmd.Success) { Stop-WithError 'Opensearch dashboards could not be deployed successfully!' }
+    if (!$kubectlCmd.Success) {
+        Write-Log '[Logging] Deployment rollout failed - gathering diagnostics' -Console
+        (Invoke-Kubectl -Params 'describe', 'pod', '-n', 'logging', '-l', 'app.kubernetes.io/name=opensearch-dashboards').Output | Write-Log
+        (Invoke-Kubectl -Params 'get', 'events', '-n', 'logging', '--sort-by=.lastTimestamp').Output | Write-Log
+        Stop-WithError 'Opensearch dashboards could not be deployed successfully!'
+    }
 
     Wait-FluentBitReady
 
