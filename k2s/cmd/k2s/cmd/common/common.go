@@ -244,6 +244,9 @@ func (s FailureSeverity) String() string {
 }
 
 func (w *PtermWriter) WriteStdOut(line string) {
+	if strings.TrimSpace(line) == "" {
+		return
+	}
 	if w.ShowProgress {
 		pterm.Printfln("⏳ %s", line)
 	} else {
