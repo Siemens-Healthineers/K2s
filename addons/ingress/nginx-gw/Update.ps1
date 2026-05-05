@@ -52,7 +52,7 @@ if ($EnancedSecurityEnabled -or $securityAddonEnabled) {
 
 if ($EnancedSecurityEnabled) {
 	Write-Log "Updating nginx gateway fabric addon to be part of service mesh" -Console
-	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":\"443,8443,9113\",\"config.linkerd.io/skip-outbound-ports\":\"443\",\"linkerd.io/inject\":\"enabled\"}}}}}'
+	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":\"443,8081,8443,9113\",\"config.linkerd.io/skip-outbound-ports\":\"443\",\"linkerd.io/inject\":\"enabled\"}}}}}'
 	Update-LinkerdAnnotation -AnnotationsPatch $annotations -ExpectedValue 'enabled' -EnhancedSecurityEnabled $true
 	
 	# Patch oauth2-proxy to skip outbound port 443 for Keycloak HTTPS communication
