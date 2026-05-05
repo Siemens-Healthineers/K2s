@@ -104,7 +104,7 @@ k2s stop
 k2s start
 ```
 
-Alternatively, restart only the kubelet service:
+Alternatively, restart only the kubelet service (please consider dependencies):
 
 ```powershell
 nssm restart kubelet
