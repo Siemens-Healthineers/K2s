@@ -1154,7 +1154,7 @@ failCgroupV1: false
     }
     $prePullResult.Output | Write-Log
     if (-not $prePullResult.Success) {
-        Write-Log '[KubeInit] WARNING: Pre-pulling images failed, kubeadm init will attempt to pull them' -Console
+        throw '[KubeInit] Pre-pulling Kubernetes images failed after retries. Check proxy settings and network connectivity to container registry (registry.k8s.io).'
     }
 
     &$executeRemoteCommand 'mkdir -p ~/tmp/kubeadm-init'
@@ -1468,9 +1468,14 @@ function Install-HelmAndYqOnKubeMaster
     }
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo sed -i 's/\r$//' $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
-    
-    Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
+    $installResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd
+    $installResult.Output | Write-Log
+    if (-not $installResult.Success) {
+        Write-Log "[InstallHelmYq] WARNING: install-helm-yq.sh failed on $IpAddress. Helm/yq may not be available. Check network connectivity and proxy settings." -Console
+    }
+    else {
+        Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
+    }
 }
 
 function Set-HypervDynamicMemory
