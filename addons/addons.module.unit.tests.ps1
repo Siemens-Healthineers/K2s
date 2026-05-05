@@ -1154,6 +1154,48 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             }
         }
     }
+
+    Context 'curl section contains a ZIP archive alongside a direct exe' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+
+            $script:downloadedUrls = @()
+
+            $manifest = [pscustomobject]@{
+                spec = [pscustomobject]@{
+                    implementations = @(
+                        [pscustomobject]@{
+                            offline_usage = [pscustomobject]@{
+                                windows = [pscustomobject]@{
+                                    curl = @(
+                                        [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
+                                        [pscustomobject]@{ destination = 'bin\\kyverno.exe'; url = 'http://example/kyverno-cli_v1.17.1_windows_x86_64.zip' }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
+            Mock -ModuleName $moduleName Test-Path { return $false }
+            Mock -ModuleName $moduleName Invoke-DownloadFile {
+                $script:downloadedUrls += $args[1]
+            }
+        }
+
+        It 'downloads the direct exe but skips the ZIP archive' {
+            InModuleScope -ModuleName $moduleName {
+                Install-CmctlCli -ManifestPath 'C:\test\manifest.yaml' -K2sRoot 'C:\k2s'
+            }
+
+            # Only cmctl.exe should be downloaded; the kyverno ZIP is handled by Install-KyvernoCli
+            $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
+            $script:downloadedUrls | Should -Not -Contain 'http://example/kyverno-cli_v1.17.1_windows_x86_64.zip'
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope Context
+        }
+    }
 }
 
 Describe 'Wait-ForCertManagerAvailable' -Tag 'unit', 'ci', 'addon' {
