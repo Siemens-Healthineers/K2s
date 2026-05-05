@@ -10,6 +10,8 @@ nodeRegistration:
     kubeletExtraArgs:
       - name: "node-ip"
         value: "__NODE_IP__"
+      - name: "config-dir"
+        value: "/etc/kubernetes/kubelet.conf.d"
 discovery:
     bootstrapToken:
         apiServerEndpoint: __API__
