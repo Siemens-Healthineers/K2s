@@ -182,7 +182,12 @@ function Write-Log {
                 
                 $logFileMessage = Protect-SensitiveInfo -InputText  $logFileMessage
                 
-                $consoleMessage = Format-ConsoleMessage -Message $message -Timestamp $timestamp -Progress:$Progress
+                $messageForConsole = $message
+                if (-not $script:ConsoleLogging) {
+                    $messageForConsole = Remove-CategoryTags -Message $messageForConsole
+                }
+
+                $consoleMessage = Format-ConsoleMessage -Message $messageForConsole -Timestamp $timestamp -Progress:$Progress
                 
                 $consoleMessage = Remove-ModuleSpecificMessages -ConsoleMessage $consoleMessage
 
@@ -250,6 +255,17 @@ function Remove-ModuleSpecificMessages {
     }    
 
     return $ConsoleMessage
+}
+
+function Remove-CategoryTags {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'The message to strip category tags from.')]
+        [string] $Message
+    )
+
+    # Strip leading category tags like [Proxy], [KubeInit], [ClusterIP-Webhook] from messages
+    # These are meant for log file categorization and should not appear on console in default mode
+    return $Message -replace '^\[[\w-]+\]\s*', ''
 }
     
 
