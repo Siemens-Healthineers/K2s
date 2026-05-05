@@ -652,7 +652,7 @@ function Install-Kyverno {
     }
 
     Write-Log '[Kyverno] Installing via Helm' -Console
-    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--wait', '--timeout', '5m')
+    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--wait', '--timeout', '10m')
 
     $maxAttempts = 3
     $retryDelaySec = 30
