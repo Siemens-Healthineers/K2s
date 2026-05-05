@@ -19,9 +19,11 @@ Kubelet reads its configuration from a base file (`config.yaml`, managed by kube
 Drop-in files are read in **alphabetical order**. Each file is a partial `KubeletConfiguration` — only include the fields you want to override. Later files override earlier ones, and all override the base config.
 
 !!! note
-    This approach requires **no changes to K2s itself**. You are working directly with the standard Kubernetes kubelet configuration mechanism.
+    *K2s* configures the kubelet drop-in directory on both Linux and Windows nodes during installation. You only need to place your override files and restart kubelet.
 
 ## Customizing the Linux Control-Plane Node
+
+On the Linux node, kubeadm configures the kubelet systemd unit with `--config-dir=/etc/kubernetes/kubelet.conf.d` automatically (Kubernetes >= 1.30). Drop-in files placed in this directory are read on kubelet startup without any additional changes.
 
 ### 1. Create an override file
 
@@ -78,13 +80,13 @@ Look for `Allocatable` and `Capacity` in the output.
 
 ## Customizing the Windows Worker Node
 
-### 1. Create the drop-in directory and override file
+*K2s* configures the Windows kubelet with `--config-dir=C:\etc\kubernetes\kubelet.conf.d` and deploys a default drop-in file (`00-k2s-defaults.conf`) that sets `enforceNodeAllocatable: []`. To add custom overrides, create additional `.conf` files in the same directory.
+
+### 1. Create an override file
 
 Open an **elevated PowerShell** prompt on the Windows host:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path "C:\etc\kubernetes\kubelet.conf.d"
-
 @"
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
@@ -165,10 +167,10 @@ With these settings, the Kubernetes scheduler sees reduced `Allocatable` resourc
 ## Important Notes
 
 !!! warning "Persistence"
-    Drop-in files **persist** across `k2s stop` / `k2s start` cycles — kubelet re-reads them on every startup. However, they are **lost on `k2s install`** (reinstall). Keep a backup of your override files externally.
+    Drop-in files **persist** across `k2s stop` / `k2s start` cycles — kubelet re-reads them on every startup. However, custom files are **lost on `k2s install`** (reinstall). Keep a backup of your override files externally. The K2s default drop-in (`00-k2s-defaults.conf`) is re-created automatically.
 
-!!! info "Windows `enforceNodeAllocatable`"
-    *K2s* passes `--enforce-node-allocatable=""` as a CLI flag to the Windows kubelet. CLI flags take precedence over config file values for this specific setting. To change this behavior, modify `StartKubelet.ps1` in `<k2s-install-dir>\smallsetup\common\`.
+!!! info "K2s defaults"
+    *K2s* ships a `00-k2s-defaults.conf` drop-in file on the Windows worker node that sets `enforceNodeAllocatable: []`. Your custom files (e.g. `20-custom.conf`) are merged after it and can override any of its settings.
 
 !!! info "Validation"
     Kubelet validates the merged configuration on startup. If an override file contains invalid field names or values, kubelet will fail to start. Always check kubelet logs after applying changes.
