@@ -19,7 +19,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const testClusterTimeout = time.Minute * 20
+// Per-spec timeout. Each It in this suite triggers either a full security-enhanced
+// enable (linkerd install + cert-manager + trust-manager + keycloak + kyverno) or a
+// security re-enable on top of an already-running monitoring stack which then rolls
+// 5 monitoring deployments + ingress with linkerd injection. On Argo CI nodes the
+// re-enable path has been observed to take 19 min, leaving no slack against a 20 min
+// budget. 30 min gives ~10 min headroom while still bounding flaky runs.
+const testClusterTimeout = time.Minute * 30
 
 var (
 	suite      *framework.K2sTestSuite
