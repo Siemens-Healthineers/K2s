@@ -1471,10 +1471,11 @@ function Install-HelmAndYqOnKubeMaster
     $installResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd
     $installResult.Output | Write-Log
     if (-not $installResult.Success) {
-        throw "[InstallHelmYq] install-helm-yq.sh failed on $IpAddress. Check network connectivity and proxy settings."
+        Write-Log "[InstallHelmYq] WARNING: install-helm-yq.sh failed on $IpAddress. Helm/yq may not be available. Check network connectivity and proxy settings." -Console
     }
-    
-    Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
+    else {
+        Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
+    }
 }
 
 function Set-HypervDynamicMemory
