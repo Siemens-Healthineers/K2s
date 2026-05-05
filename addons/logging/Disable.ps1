@@ -86,6 +86,7 @@ if ($omitOpensearch) {
     (Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=fluent-bit-win', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
 
     (Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'pv', 'opensearch-cluster-master-pv', '--ignore-not-found', '--wait=false').Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
 }
@@ -110,8 +111,10 @@ else {
     }
 
     (Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--grace-period=0').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'pv', 'opensearch-cluster-master-pv', '--ignore-not-found', '--wait=false').Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/sysctl.d/99-opensearch.conf').Output | Write-Log
 }
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
