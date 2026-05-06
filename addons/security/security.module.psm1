@@ -321,7 +321,10 @@ function Get-LinkerdConfigCNI {
 Waits for the linkerd pods to be available.
 #>
 function Wait-ForLinkerdAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 180)
+    # Linkerd control plane (especially linkerd-destination with 3 containers) may need
+    # 1-2 restart cycles on a loaded single-node cluster before probes pass consistently.
+    # 600s (10 min) allows for BackOff + restart + stabilization.
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 300)
 }
 
 <#
@@ -649,7 +652,7 @@ function Install-Kyverno {
     }
 
     Write-Log '[Kyverno] Installing via Helm' -Console
-    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--wait', '--timeout', '5m')
+    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--wait', '--timeout', '10m')
 
     $maxAttempts = 3
     $retryDelaySec = 30
