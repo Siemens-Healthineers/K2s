@@ -9,7 +9,8 @@ Param(
     [string] $UserName = '',
     [string] $IpAddress = '',
     [switch] $ShowLogs = $false,
-    [string] $AdditionalHooksDir = ''
+    [string] $AdditionalHooksDir = '',
+    [switch] $SkipHeaderDisplay = $false
 )
 
 $preparationStopwatch = [system.diagnostics.stopwatch]::StartNew()
