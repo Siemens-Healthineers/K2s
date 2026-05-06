@@ -75,6 +75,13 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: Security addon enabled")
 		})
 
+		It("activates the ingress addon with nginx", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Enabling ingress addon with nginx")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
+			GinkgoWriter.Println(">>> TEST: Ingress nginx addon enabled")
+		})
+
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: Enabling monitoring addon")
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
