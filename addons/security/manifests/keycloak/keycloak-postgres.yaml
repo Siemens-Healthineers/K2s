@@ -65,15 +65,7 @@ spec:
     metadata:
       labels:
         app: postgresql
-      annotations:
-        # Hold the postgres container's start until linkerd-proxy is Ready. Without
-        # this, on slower / resource-constrained nodes (e.g. CI / Argo workflow
-        # runners) Postgres starts answering connections while the sidecar is still
-        # acquiring its identity and proxying returns 403 / connection-refused. The
-        # resulting connection churn from Keycloak's pool, combined with kubelet
-        # restarting linkerd-proxy on liveness failure, has been observed to lead
-        # to an unclean Postgres shutdown and a corrupt WAL on the very first run.
-        config.linkerd.io/proxy-await: "enabled"
+
     spec:
       # Allow Postgres enough time to flush dirty buffers and write a clean checkpoint
       # when the pod is terminated (e.g. during the Linkerd-injection rollout in
