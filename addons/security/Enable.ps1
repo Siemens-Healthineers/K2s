@@ -400,7 +400,7 @@ try {
 			}
 			$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-outbound-ports\":\"4444\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'keycloak', '-n', 'security', '-p', $annotations3).Output | Write-Log
-			$annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
+			$annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\",\"config.linkerd.io/proxy-await\":\"enabled\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'postgresql', '-n', 'security', '-p', $annotations4).Output | Write-Log
 			# wait for pods to be ready
 			Write-Log 'Waiting for security pods to be ready' -Console
