@@ -9,6 +9,18 @@ $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
 
 Import-Module $addonsModule, $monitoringModule
 
+# Safe kubectl JSON getter: returns parsed object or $null on transient errors (TLS timeout, etc.)
+function Get-KubectlJson {
+    param([string[]]$Params)
+    $r = Invoke-Kubectl -Params $Params
+    if (-not $r.Success) { Write-Log "[Update] kubectl error, will retry: $($r.Output)"; return $null }
+    $out = $r.Output
+    if ([string]::IsNullOrWhiteSpace($out) -or -not $out.TrimStart().StartsWith('{')) {
+        Write-Log "[Update] kubectl returned non-JSON output, will retry: $out"; return $null
+    }
+    try { return $out | ConvertFrom-Json } catch { Write-Log "[Update] ConvertFrom-Json failed, will retry: $_"; return $null }
+}
+
 # Deploy Windows Exporter as HostProcess container (shared resource, idempotent)
 Write-Log 'Deploying Windows Exporter (shared resource for metrics collection)' -Console
 $windowsExporterManifest = Get-WindowsExporterManifestDir
@@ -44,11 +56,17 @@ if ($EnancedSecurityEnabled) {
 	$attempt = 0
 	do {
 		$attempt++
-		$operatorDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-operator', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$grafanaDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-grafana', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$metricsDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$prometheus = (Invoke-Kubectl -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$alertmanager = (Invoke-Kubectl -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
+		$operatorDeployment = Get-KubectlJson -Params 'get', 'deployment', 'kube-prometheus-stack-operator', '-n', 'monitoring', '-o', 'json'
+		$grafanaDeployment = Get-KubectlJson -Params 'get', 'deployment', 'kube-prometheus-stack-grafana', '-n', 'monitoring', '-o', 'json'
+		$metricsDeployment = Get-KubectlJson -Params 'get', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-o', 'json'
+		$prometheus = Get-KubectlJson -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-o', 'json'
+		$alertmanager = Get-KubectlJson -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-o', 'json'
+
+		if (-not $operatorDeployment -or -not $grafanaDeployment -or -not $metricsDeployment -or -not $prometheus -or -not $alertmanager) {
+			Write-Log "Waiting for kubectl to respond (attempt $attempt of $maxAttempts)..."
+			Start-Sleep -Seconds 2
+			continue
+		}
 
 		$hasAnnotations = ($operatorDeployment.spec.template.metadata.annotations.'linkerd.io/inject' -eq 'enabled') -and
 				($grafanaDeployment.spec.template.metadata.annotations.'linkerd.io/inject' -eq 'enabled') -and
@@ -88,11 +106,17 @@ if ($EnancedSecurityEnabled) {
 	$attempt = 0
 	do {
 		$attempt++
-		$operatorDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-operator', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$grafanaDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-grafana', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$metricsDeployment = (Invoke-Kubectl -Params 'get', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$prometheus = (Invoke-Kubectl -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
-		$alertmanager = (Invoke-Kubectl -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-o', 'json').Output | ConvertFrom-Json
+		$operatorDeployment = Get-KubectlJson -Params 'get', 'deployment', 'kube-prometheus-stack-operator', '-n', 'monitoring', '-o', 'json'
+		$grafanaDeployment = Get-KubectlJson -Params 'get', 'deployment', 'kube-prometheus-stack-grafana', '-n', 'monitoring', '-o', 'json'
+		$metricsDeployment = Get-KubectlJson -Params 'get', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-o', 'json'
+		$prometheus = Get-KubectlJson -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring', '-o', 'json'
+		$alertmanager = Get-KubectlJson -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring', '-o', 'json'
+
+		if (-not $operatorDeployment -or -not $grafanaDeployment -or -not $metricsDeployment -or -not $prometheus -or -not $alertmanager) {
+			Write-Log "Waiting for kubectl to respond (attempt $attempt of $maxAttempts)..."
+			Start-Sleep -Seconds 2
+			continue
+		}
 
 		$hasNoAnnotations = ($null -eq $operatorDeployment.spec.template.metadata.annotations.'linkerd.io/inject') -and
 				($null -eq $grafanaDeployment.spec.template.metadata.annotations.'linkerd.io/inject') -and
