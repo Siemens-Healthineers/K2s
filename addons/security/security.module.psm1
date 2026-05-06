@@ -652,7 +652,7 @@ function Install-Kyverno {
     }
 
     Write-Log '[Kyverno] Installing via Helm' -Console
-    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--wait', '--timeout', '10m')
+    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath)
 
     $maxAttempts = 3
     $retryDelaySec = 30
@@ -674,7 +674,13 @@ function Install-Kyverno {
         throw "[Kyverno] Helm install failed: $($result.Output)"
     }
 
-    # Apply bundled/user-provided policies after Helm --wait (webhook is live).
+    Write-Log '[Kyverno] Waiting for Kyverno controllers to be ready (up to 900s)...' -Console
+    $kyvernoReady = Wait-ForKyvernoAvailable -TimeoutSeconds 900
+    if (-not $kyvernoReady) {
+        throw '[Kyverno] Controllers did not become ready within 900s. Check kubectl describe pod -n kyverno for details.'
+    }
+
+    # Apply bundled/user-provided policies (webhook is now live).
     $policiesDir = "$PSScriptRoot\manifests\kyverno\policies"
     $policyFiles = @(Get-ChildItem -Path $policiesDir -Filter '*.yaml' -ErrorAction SilentlyContinue)
     if ($policyFiles.Count -gt 0) {

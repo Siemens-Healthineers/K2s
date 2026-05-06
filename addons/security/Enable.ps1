@@ -421,17 +421,6 @@ try {
 		Write-Log 'Installing Kyverno policy enforcement engine' -Console
 		Install-KyvernoCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
 		Install-Kyverno -Proxy $Proxy
-		$kyvernoStatus = Wait-ForKyvernoAvailable
-		if ($kyvernoStatus -ne $true) {
-			$errMsg = "Kyverno pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
-			if ($EncodeStructuredOutput -eq $true) {
-				$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-				Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-				return
-			}
-			Write-Log $errMsg -Error
-			throw $errMsg
-		}
 		Write-Log 'Kyverno policy enforcement engine installed successfully' -Console
 	} else {
 		Write-Log 'Omitting Kyverno policy enforcement engine as per flag.' -Console
