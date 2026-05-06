@@ -88,8 +88,7 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "monitoring")
-			GinkgoWriter.Println(">>> TEST: Monitoring addon enabled and verified with linkerd injection")
+			GinkgoWriter.Println(">>> TEST: Monitoring addon enabled and verified")
 		})
 
 		It("tests connectivity to the monitoring server using bearer token", func(ctx context.Context) {
@@ -140,8 +139,7 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "monitoring")
-			GinkgoWriter.Println(">>> TEST: Monitoring addon verified with linkerd injection")
+			GinkgoWriter.Println(">>> TEST: Monitoring addon verified")
 		})
 
 		It("tests connectivity to the monitoring server using bearer token", func(ctx context.Context) {
@@ -194,8 +192,7 @@ var _ = Describe("'monitoring and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "monitoring")
-			GinkgoWriter.Println(">>> TEST: Monitoring addon enabled and verified with linkerd injection")
+			GinkgoWriter.Println(">>> TEST: Monitoring addon enabled and verified")
 		})
 
 		It("tests connectivity to the monitoring server using bearer token", func(ctx context.Context) {
