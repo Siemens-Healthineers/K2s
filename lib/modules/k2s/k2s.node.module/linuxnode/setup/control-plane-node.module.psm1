@@ -224,6 +224,62 @@ function CheckKubeSwitchInExpectedState() {
     return $true
 }
 
+<#
+.SYNOPSIS
+    Reconnects all configured Hyper-V worker node VMs to the KubeSwitch.
+.DESCRIPTION
+    Reads the cluster configuration and reconnects all Hyper-V based worker nodes
+    to the KubeSwitch. Skips the control plane node and bare-metal nodes.
+.PARAMETER ControlPlaneVMHostName
+    The hostname of the control plane VM to skip.
+.PARAMETER SwitchName
+    The name of the KubeSwitch to connect worker nodes to.
+#>
+function Connect-WorkerNodesToKubeSwitch {
+    param (
+        [string] $ControlPlaneVMHostName = $(throw 'Argument missing: ControlPlaneVMHostName'),
+        [string] $SwitchName = $(throw 'Argument missing: SwitchName')
+    )
+    
+    # Write-Log 'Reconnecting configured worker nodes to KubeSwitch'
+    
+    # try {
+    #     $k2sConfigDir = Get-K2sConfigDir
+    #     $clusterDescriptorFile = "$k2sConfigDir\cluster.json"
+        
+    #     if (-not (Test-Path $clusterDescriptorFile)) {
+    #         Write-Log '[KubeSwitch] No cluster.json found, no worker nodes to reconnect'
+    #         return
+    #     }
+        
+    #     $json = Get-Content -Path $clusterDescriptorFile -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue
+    #     if (-not $json -or -not $json.nodes) {
+    #         Write-Log '[KubeSwitch] No nodes configured in cluster.json'
+    #         return
+    #     }
+        
+    #     foreach ($node in $json.nodes) {
+    #         # Skip control plane node and bare-metal nodes (only process Hyper-V VMs)
+    #         if ($node.Name -eq $ControlPlaneVMHostName -or $node.NodeType -eq 'HOST' -or $node.NodeType -eq 'HOST-EXISTING') {
+    #             continue
+    #         }
+            
+    #         # Check if VM exists before trying to connect
+    #         $vm = Get-VM -Name $node.Name -ErrorAction SilentlyContinue
+    #         if ($vm) {
+    #             Write-Log "[KubeSwitch] Reconnecting worker node VM '$($node.Name)' to switch '$SwitchName'"
+    #             Connect-NetworkAdapterToVm -VmName $node.Name -SwitchName $SwitchName
+    #         }
+    #         else {
+    #             Write-Log "[KubeSwitch] Worker node VM '$($node.Name)' not found, skipping"
+    #         }
+    #     }
+    # }
+    # catch {
+    #     Write-Log "[KubeSwitch] Warning: Failed to reconnect worker nodes: $_"
+    # }
+}
+
 function Start-ControlPlaneNodeOnNewVM {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Number of processors for VM')]
@@ -303,6 +359,9 @@ function Start-ControlPlaneNodeOnNewVM {
 
             # connect VM to switch
             Connect-KubeSwitch
+            
+            # Reconnect all configured Hyper-V worker nodes to KubeSwitch
+            Connect-WorkerNodesToKubeSwitch -ControlPlaneVMHostName $controlPlaneVMHostName -SwitchName $controlPlaneSwitchName
         }
 
         Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait

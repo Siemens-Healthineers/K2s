@@ -14,19 +14,19 @@ function Repair-LinuxWorkerNodeRegistriesConfig {
         [string] $IpAddress = $(throw 'Argument missing: IpAddress')
     )
 
-    $duplicateCountOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if [ -f /etc/containers/registries.conf ]; then grep -c '^[[:space:]]*unqualified-search-registries[[:space:]]*=' /etc/containers/registries.conf; else echo 0; fi" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output.Trim()
-    $duplicateCount = 0
-    [void][int]::TryParse($duplicateCountOutput, [ref]$duplicateCount)
+    # $duplicateCountOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if [ -f /etc/containers/registries.conf ]; then grep -c '^[[:space:]]*unqualified-search-registries[[:space:]]*=' /etc/containers/registries.conf; else echo 0; fi" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output.Trim()
+    # $duplicateCount = 0
+    # [void][int]::TryParse($duplicateCountOutput, [ref]$duplicateCount)
 
-    if ($duplicateCount -le 1) {
-        Write-Log "[RegistryConfig] registries.conf on node $IpAddress does not contain duplicate unqualified-search-registries entries, skipping."
-        return
-    }
+    # if ($duplicateCount -le 1) {
+    #     Write-Log "[RegistryConfig] registries.conf on node $IpAddress does not contain duplicate unqualified-search-registries entries, skipping."
+    #     return
+    # }
 
-    Write-Log "[RegistryConfig] Found $duplicateCount duplicate unqualified-search-registries entries on node $IpAddress. Normalizing registries.conf." -Console
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sh -c '{ echo \"unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"]\"; if [ -f /etc/containers/registries.conf ]; then grep -v \"^[[:space:]]*unqualified-search-registries[[:space:]]*=\" /etc/containers/registries.conf; fi; } > /tmp/registries.conf.k2s; mv /tmp/registries.conf.k2s /etc/containers/registries.conf'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-    Write-Log "[RegistryConfig] Restarting crio after registries.conf normalization on node $IpAddress."
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    # Write-Log "[RegistryConfig] Found $duplicateCount duplicate unqualified-search-registries entries on node $IpAddress. Normalizing registries.conf." -Console
+    # (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sh -c '{ echo \"unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"]\"; if [ -f /etc/containers/registries.conf ]; then grep -v \"^[[:space:]]*unqualified-search-registries[[:space:]]*=\" /etc/containers/registries.conf; fi; } > /tmp/registries.conf.k2s; mv /tmp/registries.conf.k2s /etc/containers/registries.conf'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    # Write-Log "[RegistryConfig] Restarting crio after registries.conf normalization on node $IpAddress."
+    # (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
 }
 
 function Add-LinuxWorkerNodeOnNewVM {

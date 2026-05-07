@@ -104,15 +104,26 @@ function Connect-KubeSwitch() {
     Remove switch to control plane VM.
 #>
 function Remove-KubeSwitch() {
-    # Remove old switch
     Write-Log 'Remove KubeSwitch'
-    Get-VM | ForEach-Object { Get-VMNetworkAdapter -VMName $_.Name } | Where-Object { $_.SwitchName -eq $controlPlaneSwitchName } | Disconnect-VMNetworkAdapter
-
+    
+    # Log which VMs will be disconnected
+    $connectedVMs = @(Get-VM -ErrorAction SilentlyContinue | ForEach-Object { 
+        Get-VMNetworkAdapter -VMName $_.Name -ErrorAction SilentlyContinue
+    } | Where-Object { $_.SwitchName -eq $controlPlaneSwitchName })
+    
+    if ($connectedVMs.Count -gt 0) {
+        $vmNames = ($connectedVMs | Select-Object -ExpandProperty VMName -Unique) -join ', '
+        Write-Log "[KubeSwitch] Disconnecting VMs from '$controlPlaneSwitchName': $vmNames"
+        $connectedVMs | Disconnect-VMNetworkAdapter -ErrorAction SilentlyContinue
+    }
+    
     $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
-    if ( $sw ) {
-        Remove-VMSwitch -Name $controlPlaneSwitchName -Force
+    if ($sw) {
+        Write-Log "[KubeSwitch] Removing switch '$controlPlaneSwitchName'"
+        Remove-VMSwitch -Name $controlPlaneSwitchName -Force -ErrorAction SilentlyContinue
     }
 
+    Write-Log "[KubeSwitch] Removing IP address $kubeSwitchIp"
     Remove-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -Confirm:$False -ErrorAction SilentlyContinue
 }
 
