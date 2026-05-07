@@ -32,6 +32,13 @@ if ($EnancedSecurityEnabled) {
 	if (-not $hasAnnotation) {
 		throw "Timeout waiting for patch to be applied"
 	}
+
+	Write-Log "Waiting for ingress-nginx-controller rollout to complete (webhook readiness)..." -Console
+	$rolloutResult = Invoke-Kubectl -Params 'rollout', 'status', 'deployment', 'ingress-nginx-controller', '-n', 'ingress-nginx', '--timeout=120s'
+	$rolloutResult.Output | Write-Log
+	if (-not $rolloutResult.Success) {
+		Write-Log "[ingress-nginx] WARNING: rollout did not complete within 120s; webhook may not be ready" -Console
+	}
 } else {
 	Write-Log "Updating nginx ingress addon to not be part of service mesh"
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"config.linkerd.io/skip-outbound-ports\":null,\"linkerd.io/inject\":null}}}}}'

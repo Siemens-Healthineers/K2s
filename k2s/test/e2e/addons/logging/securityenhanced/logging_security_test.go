@@ -82,7 +82,7 @@ var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: Enabling security addon in enhanced mode")
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
 			suite.K2sCli().MustExec(ctx, args...)
-			time.Sleep(30 * time.Second)
+			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			GinkgoWriter.Println(">>> TEST: Security addon enabled")
 		})
 
