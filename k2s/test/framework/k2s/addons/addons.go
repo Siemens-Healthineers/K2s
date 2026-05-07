@@ -512,8 +512,9 @@ func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expect
 	// Create an HTTP client with Windows certificate store trust for proper TLS handling
 	client := createHTTPClientWithWindowsCerts(30 * time.Second)
 
-	// Retry mechanism
-	maxRetries := 5
+	// Retry mechanism — after linkerd mesh updates the ingress controller may need
+	// several minutes to fully restart and serve routes, so we use generous retries.
+	maxRetries := 15
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		// Create a new HTTP request
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -571,11 +572,10 @@ func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expect
 			}
 		}
 
-		// Pause before the next attempt with exponential backoff
+		// Pause before the next attempt with fixed 10s interval
 		if attempt < maxRetries {
-			backoffTime := time.Duration(attempt*5) * time.Second
-			GinkgoWriter.Printf("Waiting %v before next attempt...\n", backoffTime)
-			time.Sleep(backoffTime)
+			GinkgoWriter.Printf("Waiting 10s before next attempt...\n")
+			time.Sleep(10 * time.Second)
 		}
 	}
 
