@@ -24,7 +24,7 @@ function Repair-LinuxWorkerNodeRegistriesConfig {
     }
 
     Write-Log "[RegistryConfig] Found $duplicateCount duplicate unqualified-search-registries entries on node $IpAddress. Normalizing registries.conf." -Console
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sh -c 'sed -i \"/^[[:space:]]*unqualified-search-registries[[:space:]]*=/d\" /etc/containers/registries.conf; echo \"unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"]\" >> /etc/containers/registries.conf'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sh -c 'sed -i \"/^[[:space:]]*unqualified-search-registries[[:space:]]*=/d\" /etc/containers/registries.conf; sed -i \"1s/^/unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"]\n/\" /etc/containers/registries.conf'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
     Write-Log "[RegistryConfig] Restarting crio after registries.conf normalization on node $IpAddress."
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
 }
