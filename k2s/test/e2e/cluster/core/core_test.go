@@ -5,6 +5,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -68,6 +69,13 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
+	// Early detection: check for systemic image pull failures before committing
+	// to the full rollout timeout (~8 min). If all pods are stuck in ErrImagePull
+	// after 60s, the registry is likely unreachable — fail fast with diagnostics.
+	GinkgoWriter.Println("Checking for image pull errors (60s grace period)...")
+	time.Sleep(60 * time.Second)
+	detectSystemicImagePullFailures(ctx)
+
 	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
 
 	for _, deploymentName := range linuxDeploymentNames {
@@ -125,6 +133,36 @@ var _ = AfterEach(func() {
 		testFailed = true
 	}
 })
+
+// detectSystemicImagePullFailures checks if all pods in the test namespace are
+// stuck in ErrImagePull/ImagePullBackOff, indicating a cluster-wide registry
+// connectivity problem (e.g., broken proxy or auth after an upgrade).
+// Fails immediately with diagnostics instead of waiting the full rollout timeout.
+func detectSystemicImagePullFailures(ctx context.Context) {
+	output, _ := suite.Kubectl().Exec(ctx, "get", "pods", "-n", namespace, "--no-headers",
+		"-o", "custom-columns=NAME:.metadata.name,REASON:.status.containerStatuses[*].state.waiting.reason")
+
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return
+	}
+
+	lines := strings.Split(output, "\n")
+	failCount := 0
+	for _, line := range lines {
+		if strings.Contains(line, "ErrImagePull") || strings.Contains(line, "ImagePullBackOff") {
+			failCount++
+		}
+	}
+
+	if failCount > 0 && failCount == len(lines) {
+		podStatus, _ := suite.Kubectl().Exec(ctx, "get", "pods", "-n", namespace, "-o", "wide")
+		events, _ := suite.Kubectl().Exec(ctx, "get", "events", "-n", namespace,
+			"--sort-by=.lastTimestamp", "--field-selector=reason=Failed")
+		Fail(fmt.Sprintf("All %d pods stuck in image pull failures — container registry may be unreachable after upgrade.\nPod status:\n%s\nRecent failure events:\n%s",
+			failCount, podStatus, events))
+	}
+}
 
 var _ = Describe("Cluster Core", func() {
 	systemNamespace := "kube-system"
