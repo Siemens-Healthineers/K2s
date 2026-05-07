@@ -8,6 +8,27 @@ $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.p
 
 Import-Module $infraModule, $clusterModule
 
+function Repair-LinuxWorkerNodeRegistriesConfig {
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    $duplicateCountOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if [ -f /etc/containers/registries.conf ]; then grep -c '^[[:space:]]*unqualified-search-registries[[:space:]]*=' /etc/containers/registries.conf; else echo 0; fi" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output.Trim()
+    $duplicateCount = 0
+    [void][int]::TryParse($duplicateCountOutput, [ref]$duplicateCount)
+
+    if ($duplicateCount -le 1) {
+        Write-Log "[RegistryConfig] registries.conf on node $IpAddress does not contain duplicate unqualified-search-registries entries, skipping."
+        return
+    }
+
+    Write-Log "[RegistryConfig] Found $duplicateCount duplicate unqualified-search-registries entries on node $IpAddress. Normalizing registries.conf." -Console
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sh -c 'sed -i \"/^[[:space:]]*unqualified-search-registries[[:space:]]*=/d\" /etc/containers/registries.conf; echo \"unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"]\" >> /etc/containers/registries.conf'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    Write-Log "[RegistryConfig] Restarting crio after registries.conf normalization on node $IpAddress."
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+}
+
 function Add-LinuxWorkerNodeOnNewVM {
     Param(
         [string] $WorkerNodeName = $(throw 'Argument missing: WorkerNodeName'),
@@ -68,6 +89,8 @@ function Add-LinuxWorkerNodeOnNewVM {
 
     (Invoke-CmdOnVmViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$(Get-ConfiguredIPControlPlane)]/' /etc/netplan/10-k2s.yaml" -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart systemd-networkd' -IpAddress $IpAddress).Output | Write-Log
+
+    Repair-LinuxWorkerNodeRegistriesConfig -UserName $remoteUsername -IpAddress $IpAddress
 
     Join-LinuxNode -NodeName $WorkerNodeName -NodeUserName $remoteUsername -NodeIpAddress $IpAddress
 
@@ -181,6 +204,69 @@ function Stop-LinuxWorkerNodeOnExistingVM {
     }
 }
 
+function Clear-LinuxWorkerNodeRoutes {
+    <#
+    .SYNOPSIS
+        Cleans only Kubernetes-related routes on a Linux worker node.
+    .DESCRIPTION
+        Removes control plane CIDR route, pod-network routes (e.g. /24 and /16),
+        and cni0 interface if present. Safe to call multiple times.
+    #>
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    Write-Log "[RouteCleanup] Cleaning Kubernetes-related routes on node $IpAddress" -Console
+
+    # Control plane route (e.g. 172.19.1.0/24)
+    # Keep kernel-connected route (proto kernel scope link), delete only manually-added route.
+    $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    $controlPlaneRoute = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR | head -1" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($controlPlaneRoute)) {
+        if ($controlPlaneRoute -match 'proto kernel|scope link') {
+            Write-Log "[RouteCleanup] Keeping connected route: $controlPlaneRoute"
+        } else {
+            Write-Log "[RouteCleanup] Deleting route: $controlPlaneCIDR"
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+        }
+    } else {
+        Write-Log "[RouteCleanup] Route $controlPlaneCIDR not found, skipping."
+    }
+
+    # Pod routes (e.g. 172.20.0.0/24 via 172.19.1.100 and 172.20.0.0/16 via 172.19.1.1)
+    $podNetworkCIDR = Get-ConfiguredClusterCIDR
+    $podNetworkPrefix = (($podNetworkCIDR -split '/')[0] -split '\.')[0..1] -join '\.'
+    $podRoutes = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route | grep -E '^$podNetworkPrefix\.'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output
+    if (-not [string]::IsNullOrWhiteSpace($podRoutes)) {
+        $podRoutes -split "`n" | ForEach-Object {
+            $routeLine = $_.Trim()
+            $route = ($routeLine -split '\s')[0]
+            if (-not [string]::IsNullOrWhiteSpace($route)) {
+                if ($routeLine -match 'proto kernel|scope link') {
+                    Write-Log "[RouteCleanup] Keeping connected route: $routeLine"
+                } else {
+                    Write-Log "[RouteCleanup] Deleting route: $route"
+                    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $route" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+                }
+            }
+        }
+    } else {
+        Write-Log "[RouteCleanup] No pod routes matching $podNetworkPrefix.* found, skipping."
+    }
+
+    # cni0 interface (created by flannel)
+    $cni0Exists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip link show cni0 2>/dev/null" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+    if ($cni0Exists) {
+        Write-Log "[RouteCleanup] Deleting interface: cni0"
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip link delete cni0" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    } else {
+        Write-Log "[RouteCleanup] cni0 not found, skipping."
+    }
+
+    Write-Log "[RouteCleanup] Kubernetes route cleanup completed" -Console
+}
+
 function Add-LinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
@@ -215,14 +301,29 @@ function Add-LinuxWorkerNode {
 
     Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath
 
+    Repair-LinuxWorkerNodeRegistriesConfig -UserName $UserName -IpAddress $IpAddress
+
+    # Cleanup Kubernetes-related routes before add/join flow
+    Clear-LinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
+
     $doBeforeJoining = {
         Write-Log "Configuring networking for adding the node" -Console
         # add a route to the cluster network over the Windows host IP address
         $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+        if ($controlPlaneRouteExists) {
+            Write-Log "[Route] Route $controlPlaneCIDR already exists, skipping add."
+        } else {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        }
 
         $podNetworkCIDR = Get-ConfiguredClusterCIDR
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        $podNetworkRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $podNetworkCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+        if ($podNetworkRouteExists) {
+            Write-Log "[Route] Route $podNetworkCIDR already exists, skipping add."
+        } else {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        }
 
         $networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match $WindowsHostIpAddress)} | Select-Object -ExpandProperty InterfaceAlias)
         if ([string]::IsNullOrWhiteSpace($networkInterfaceName)) {
@@ -247,17 +348,7 @@ function Remove-LinuxWorkerNode {
     Write-Log "Removing K2s worker node '$NodeName'"
 
     $doAfterRemoving = {
-        # delete routes
-        $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-
-        $podNetworkCIDR = Get-ConfiguredClusterCIDR
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $podNetworkCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-
-        # delete network interface 'cni0' that was created by flannel
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip link delete cni0" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-
-        Write-Log "Reconfigured networking for node removal" -Console
+        Clear-LinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
     }
 
     $k8sFormattedNodeName = $NodeName.ToLower()
@@ -549,6 +640,7 @@ Stop-LinuxWorkerNodeOnExistingVM,
 Remove-LinuxWorkerNodeOnExistingUbuntuVM,
 Add-LinuxWorkerNode,
 Remove-LinuxWorkerNode,
+Clear-LinuxWorkerNodeRoutes,
 Start-LinuxWorkerNodeOnUbuntuBareMetal,
 Stop-LinuxWorkerNodeOnUbuntuBareMetal,
 Test-SupportedWorkerOS
