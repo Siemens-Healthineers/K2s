@@ -148,4 +148,4 @@ function Update-NodeConfig {
 }
 
 Export-ModuleMember -Function Add-NodeConfig, Remove-NodeConfig,
-Get-NodeConfig, Update-NodeConfig
+Get-NodeConfig, Update-NodeConfig, Get-ClusterDescriptorFilePath
