@@ -128,7 +128,7 @@ var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: Enabling security addon in enhanced mode")
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
 			suite.K2sCli().MustExec(ctx, args...)
-			time.Sleep(30 * time.Second)
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-cluster-local-nginx-gw", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "logging")
 			GinkgoWriter.Println(">>> TEST: Security addon enabled and linkerd injection verified")
 		})
