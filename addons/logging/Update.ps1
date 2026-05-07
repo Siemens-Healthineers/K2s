@@ -87,9 +87,9 @@ if ($EnancedSecurityEnabled) {
 	}
 }
 if (-not $omitOpensearch) {
-    (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'logging', '--timeout', '60s').Output | Write-Log
-    (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'logging', '--timeout', '60s').Output | Write-Log
+    (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'logging', '--timeout', '300s').Output | Write-Log
+    (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'logging', '--timeout', '300s').Output | Write-Log
 }
-(Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', '-n', 'logging', '--timeout', '60s').Output | Write-Log
+(Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', '-n', 'logging', '--timeout', '300s').Output | Write-Log
 
 Write-Log 'Updating logging addon finished.' -Console

@@ -64,5 +64,9 @@ if ($EnancedSecurityEnabled) {
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"config.linkerd.io/skip-outbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
 	Update-LinkerdAnnotation -AnnotationsPatch $annotations -ExpectedValue $null -EnhancedSecurityEnabled $false
 }
-(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'nginx-gw-controller', '--timeout', '60s').Output | Write-Log
+$rolloutResult = Invoke-Kubectl -Params 'rollout', 'status', 'deployment', 'nginx-gw-controller', '-n', 'nginx-gw', '--timeout=120s'
+$rolloutResult.Output | Write-Log
+if (-not $rolloutResult.Success) {
+	Write-Log 'WARNING: rollout did not complete within 120s; mTLS identity may not be ready' -Console
+}
 Write-Log 'Updating nginx gateway fabric addon finished.' -Console

@@ -33,7 +33,7 @@ spec:
         resources:
           requests:
             storage: "1Gi"
-        storageClassName: "" 
+        #storageClassName: "local-path" # when using https://github.com/rancher/local-path-provisioner 
   template:
     metadata:
       name: "opensearch-cluster-master"
