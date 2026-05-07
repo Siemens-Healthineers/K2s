@@ -55,3 +55,11 @@ func (k2s *K2s) runCmd(ctx context.Context, cliArgs ...string) *K2sCmdResult {
 		exitCode: cli.ExitCode(exitCode),
 	}
 }
+
+func (k2s *K2s) StartNode(ctx context.Context, nodeName string) *K2sCmdResult {
+	return k2s.runCmd(ctx, "start", "--node", nodeName)
+}
+
+func (k2s *K2s) StopNode(ctx context.Context, nodeName string) *K2sCmdResult {
+	return k2s.runCmd(ctx, "stop", "--node", nodeName)
+}
