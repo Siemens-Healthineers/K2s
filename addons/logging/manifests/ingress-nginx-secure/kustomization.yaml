@@ -8,23 +8,17 @@ kind: Kustomization
 resources:
 - ../ingress-nginx
 
-# ~1 in a patch's path means "/" as part of the key name
-# Example:
-# "/metadata/annotations/nginx.ingress.kubernetes.io~1auth-url" means:
-# metadata:
-#   annotations:
-#     nginx.ingress.kubernetes.io/auth-url:
 patches:
 - patch: |-
-    - op: add
-      path: "/metadata/annotations/nginx.ingress.kubernetes.io~1auth-url"
-      value: "https://k2s.cluster.local/oauth2/auth"
-    - op: add
-      path: "/metadata/annotations/nginx.ingress.kubernetes.io~1auth-signin"
-      value: "https://k2s.cluster.local/oauth2/start?rd=$escaped_request_uri"
-    - op: add
-      path: "/metadata/annotations/nginx.ingress.kubernetes.io~1auth-response-headers"
-      value: "Authorization"
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: logging-nginx-cluster-local
+      namespace: logging
+      annotations:
+        nginx.ingress.kubernetes.io/auth-url: "https://k2s.cluster.local/oauth2/auth"
+        nginx.ingress.kubernetes.io/auth-signin: "https://k2s.cluster.local/oauth2/start?rd=$escaped_request_uri"
+        nginx.ingress.kubernetes.io/auth-response-headers: "Authorization"
   target:
     kind: Ingress
     name: logging-nginx-cluster-local
