@@ -5,8 +5,9 @@
 
 $infraModule =   "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
+$networkModule = "$PSScriptRoot\..\..\..\k2s.node.module\windowsnode\network\network.module.psm1"
 
-Import-Module $infraModule, $clusterModule
+Import-Module $infraModule, $clusterModule, $networkModule
 
 function Repair-LinuxWorkerNodeRegistriesConfig {
     Param(
@@ -198,6 +199,11 @@ function Start-LinuxWorkerNode {
         [string] $AdditionalHooksDir = '',
         [switch] $ObtainCIDR = $false
     )
+
+    # Ensure KubeSwitch network profile is Private (Windows can reset it to Public)
+    $switchName = Get-ControlPlaneNodeDefaultSwitchName
+    $switchAlias = "vEthernet ($switchName)"
+    Set-InterfacePrivate -InterfaceAlias $switchAlias
 
     $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName -ObtainCIDR:$ObtainCIDR
     Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
