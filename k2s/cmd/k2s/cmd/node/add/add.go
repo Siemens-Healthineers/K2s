@@ -39,7 +39,15 @@ func NewCmd() *cobra.Command {
 		Use:   "add",
 		Short: "[EXPERIMENTAL] Add a node to the cluster",
 		Long:  "Adds an machine or VM to an existing K2s cluster",
-		RunE:  addNode,
+		Example: `  # Add a Linux worker node (online installation)
+  k2s node add --ip-addr 192.168.1.50 --username admin
+
+  # Add a Linux worker node with a custom hostname
+  k2s node add --ip-addr 192.168.1.50 --username admin --name worker-node-1
+
+  # Add a Linux worker node offline using a node package
+  k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node.zip`,
+		RunE: addNode,
 	}
 	cmd.Flags().StringP(MachineIPAddress, "i", "", MachineIPAddressFlagUsage)
 	cmd.Flags().StringP(MachineUsername, "u", "", MachineUsernameFlagUsage)

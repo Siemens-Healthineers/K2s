@@ -60,7 +60,7 @@ Returns a hashtable with keys:
   Kind      - 'ControlPlane' | 'LinuxWorker' | 'LocalWindows' | 'WindowsWorker'
   IpAddress - SSH target IP  (Linux workers only)
   Username  - SSH username   (Linux workers only)
-  NodeType  - NodeType value from cluster.json (e.g. 'HOST', 'VM-NEW', 'VM-EXISTING')
+  NodeType  - NodeType value from cluster.json (e.g. 'HOST', 'VM-EXISTING')
 
 Returns $null if the node cannot be resolved.
 #>

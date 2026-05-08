@@ -30,12 +30,45 @@ function Add-DnsServer($switchname) {
 .SYNOPSIS
     Create switch to KubeMaster VM.
 .DESCRIPTION
-    Create switch to KubeMaster VM.
+    Create switch to KubeMaster VM. If the switch already exists and is valid, it will be reused.
 #>
 function New-KubeSwitch() {
     $maxRetries = 3
     $retryDelaySeconds = 5
     $switchAlias = "vEthernet ($controlPlaneSwitchName)"
+
+    # Check if switch already exists and is valid
+    $existingSwitch = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
+    if ($existingSwitch) {
+        Write-Log "[KubeSwitch] Switch '$controlPlaneSwitchName' already exists, checking if it's valid..."
+        
+        # Check if the network interface exists and has proper IP
+        $existingIp = Get-NetIPAddress -InterfaceAlias $switchAlias -IPAddress $kubeSwitchIp -ErrorAction SilentlyContinue
+        if ($existingIp) {
+            Write-Log "[KubeSwitch] Switch '$controlPlaneSwitchName' is valid with IP $kubeSwitchIp, reusing it"
+            return
+        }
+        
+        # Switch exists but IP is missing - try to configure it
+        Write-Log "[KubeSwitch] Switch exists but IP not configured, configuring IP..."
+        $ipInterface = Get-NetIPInterface -InterfaceAlias $switchAlias -ErrorAction SilentlyContinue
+        if ($ipInterface) {
+            # Remove any existing IP and add the correct one
+            Remove-NetIPAddress -InterfaceAlias $switchAlias -Confirm:$False -ErrorAction SilentlyContinue
+            New-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -InterfaceAlias $switchAlias | Out-Null
+            Set-NetConnectionProfile -InterfaceAlias $switchAlias -NetworkCategory Private -ErrorAction SilentlyContinue
+            netsh int ipv4 set int $switchAlias forwarding=enabled | Out-Null
+            $ipindex1 = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$controlPlaneSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
+            Write-Log "[KubeSwitch] Index for interface $controlPlaneSwitchName : ($ipindex1) -> metric 100"
+            Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 100
+            Write-Log "[KubeSwitch] Existing switch reconfigured successfully"
+            return
+        }
+        
+        # Interface doesn't exist - switch is corrupted, remove and recreate
+        Write-Log "[KubeSwitch] Switch appears corrupted, removing and recreating..."
+        Remove-VMSwitch -Name $controlPlaneSwitchName -Force -ErrorAction SilentlyContinue
+    }
 
     for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
         try {
@@ -101,21 +134,34 @@ function Connect-KubeSwitch() {
 .SYNOPSIS
     Remove switch to control plane VM.
 .DESCRIPTION
-    Remove switch to control plane VM.
+    Remove switch to control plane VM. If the switch is in use by VMs other than KubeMaster,
+    the switch will be preserved to avoid disconnecting those VMs.
 #>
 function Remove-KubeSwitch() {
-    Write-Log 'Remove KubeSwitch'
+    Write-Log '[KubeSwitch] Checking if KubeSwitch can be removed...'
     
-    # Log which VMs will be disconnected
+    # Get all VMs connected to the KubeSwitch
     $connectedVMs = @(Get-VM -ErrorAction SilentlyContinue | ForEach-Object { 
         Get-VMNetworkAdapter -VMName $_.Name -ErrorAction SilentlyContinue
     } | Where-Object { $_.SwitchName -eq $controlPlaneSwitchName })
     
-    if ($connectedVMs.Count -gt 0) {
-        $vmNames = ($connectedVMs | Select-Object -ExpandProperty VMName -Unique) -join ', '
-        Write-Log "[KubeSwitch] Disconnecting VMs from '$controlPlaneSwitchName': $vmNames"
-        $connectedVMs | Disconnect-VMNetworkAdapter -ErrorAction SilentlyContinue
+    # Always disconnect KubeMaster first if connected
+    $kubeMasterVMs = @($connectedVMs | Where-Object { $_.VMName -eq 'KubeMaster' })
+    if ($kubeMasterVMs.Count -gt 0) {
+        Write-Log "[KubeSwitch] Disconnecting KubeMaster from '$controlPlaneSwitchName'"
+        $kubeMasterVMs | Disconnect-VMNetworkAdapter -ErrorAction SilentlyContinue
     }
+    
+    # Check if any non-KubeMaster VMs are connected
+    $nonKubeMasterVMs = @($connectedVMs | Where-Object { $_.VMName -ne 'KubeMaster' })
+    
+    if ($nonKubeMasterVMs.Count -gt 0) {
+        $vmNames = ($nonKubeMasterVMs | Select-Object -ExpandProperty VMName -Unique) -join ', '
+        Write-Log "[KubeSwitch] Switch '$controlPlaneSwitchName' is in use by VMs: $vmNames. Preserving switch."
+        return
+    }
+    
+    Write-Log '[KubeSwitch] No non-KubeMaster VMs connected, proceeding with switch removal'
     
     $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
     if ($sw) {
@@ -127,32 +173,7 @@ function Remove-KubeSwitch() {
     Remove-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -Confirm:$False -ErrorAction SilentlyContinue
 }
 
-function Connect-NetworkAdapterToVm() {
-    param (
-        [string]$VmName = $(throw 'Argument missing: VmName'),
-        [string]$SwitchName = $(throw 'Argument missing: SwitchName')
-    )
-    Write-Log "Connect switch '$SwitchName' to VM '$VmName'"
-    # connect VM to switch
-    $ad = Get-VMNetworkAdapter -VMName $VmName
-    if ( !($ad) ) {
-        Write-Log "Adding network adapter to VM '$VmName' ..."
-        Add-VMNetworkAdapter -VMName $VmName -Name 'Network Adapter'
-    }
-    Connect-VMNetworkAdapter -VMName $VmName -SwitchName $SwitchName
-}
 
-function Disconnect-NetworkAdapterFromVm {
-    param (
-        [string]$VmName = $(throw 'Argument missing: VmName')
-    )
-    # Remove old switch
-    Write-Log "Disconnect VM '$VmName' from network adapter"
-    $networkAdapter = Get-VMNetworkAdapter -VMName $VmName -ErrorAction SilentlyContinue
-    if ( $networkAdapter ) {
-        Disconnect-VMNetworkAdapter -VmName $VmName
-    }
-}
 
 function Reset-DnsServer($switchname) {
     $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
@@ -263,8 +284,6 @@ Connect-KubeSwitch,
 Remove-KubeSwitch, 
 Get-WslSwitchName, 
 Reset-DnsServer, 
-Disconnect-NetworkAdapterFromVm, 
-Connect-NetworkAdapterToVm, 
 Repair-KubeSwitch,
 Get-MasterNodeSwitchIndex,
 Wait-ForNetIpInterface

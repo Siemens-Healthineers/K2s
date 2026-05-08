@@ -169,41 +169,6 @@ function Remove-LinuxWorkerNodeOnNewVM {
     }
 }
 
-function Start-LinuxWorkerNodeOnExistingVM {
-    Param(
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $NodeName = $(throw 'Argument missing: NodeName'),
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
-        [switch] $SkipHeaderDisplay = $false
-    )
-
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' started"
-    }
-}
-
-function Stop-LinuxWorkerNodeOnExistingVM {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
-        [switch] $SkipHeaderDisplay = $false,
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
-    )
-
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' stopped"
-    }
-}
-
 function Clear-LinuxWorkerNodeRoutes {
     <#
     .SYNOPSIS
@@ -366,7 +331,7 @@ function Remove-LinuxWorkerNode {
     Write-Log "Removing K2s worker node '$NodeName' complete."
 }
 
-function Start-LinuxWorkerNodeOnUbuntuBareMetal {
+function Start-LinuxWorkerNode {
     Param(
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
@@ -392,7 +357,7 @@ function Add-WorkerVFPRoute {
     Add-VfpRoute -Name $NodeName -Subnet $ClusterCIDRWorker -Gateway $defaultGateway
 }
 
-function Stop-LinuxWorkerNodeOnUbuntuBareMetal {
+function Stop-LinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $AdditionalHooksDir = '',
@@ -635,12 +600,10 @@ Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM,
 Start-LinuxWorkerNodeOnNewVM,
 Stop-LinuxWorkerNodeOnNewVM,
 Remove-LinuxWorkerNodeOnNewVM,
-Start-LinuxWorkerNodeOnExistingVM,
-Stop-LinuxWorkerNodeOnExistingVM,
 Remove-LinuxWorkerNodeOnExistingUbuntuVM,
 Add-LinuxWorkerNode,
 Remove-LinuxWorkerNode,
 Clear-LinuxWorkerNodeRoutes,
-Start-LinuxWorkerNodeOnUbuntuBareMetal,
-Stop-LinuxWorkerNodeOnUbuntuBareMetal,
+Start-LinuxWorkerNode,
+Stop-LinuxWorkerNode,
 Test-SupportedWorkerOS

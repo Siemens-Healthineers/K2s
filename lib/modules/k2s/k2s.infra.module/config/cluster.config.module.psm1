@@ -28,7 +28,6 @@ Add-NodeConfig @nodeParams
 
 Supported NodeTypes:
 - HOST          -> Baremetal machine
-- VM-NEW        -> New Provisioned VM from k2s
 - VM-EXISTING   -> Existing VM from the consumer of k2s
 #>
 function Add-NodeConfig {

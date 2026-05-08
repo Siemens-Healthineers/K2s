@@ -25,7 +25,7 @@ Initialize-LinuxWorkerScriptEnvironment -ShowLogs:$ShowLogs -IncludePuttyTools
 $ErrorActionPreference = 'Stop'
 
 
-Write-Log '[NodeAdd] Detected local Hyper-V VM on KubeSwitch - using existing-vm provisioning path' -Console
+Write-Log '[NodeAdd] Detected local Hyper-V VM on KubeSwitch - using existing-vm provisioning path'
 Write-Log '[NodeAdd] Performing pre-requisites check' -Console
 
 Assert-LinuxWorkerPuttyToolsReady -LogPrefix '[NodeAdd]' -Proxy $Proxy
@@ -33,10 +33,10 @@ Assert-LinuxWorkerPuttyToolsReady -LogPrefix '[NodeAdd]' -Proxy $Proxy
 
 # Find the VM by matching IP address to MAC address via ARP table
 $kubeSwitchName = Get-ControlPlaneNodeDefaultSwitchName
-Write-Log "[NodeAdd] Looking for VM with IP '$IpAddress' on switch '$kubeSwitchName'" -Console
+Write-Log "[NodeAdd] Looking for VM with IP '$IpAddress' on switch '$kubeSwitchName'" 
 
 # Ping the IP to populate ARP cache
-Write-Log "[NodeAdd] Pinging '$IpAddress' to populate ARP cache..." -Console
+Write-Log "[NodeAdd] Pinging '$IpAddress' to populate ARP cache..." 
 $pingResult = Test-Connection -ComputerName $IpAddress -Count 2 -Quiet -ErrorAction SilentlyContinue
 if (-not $pingResult) {
     throw "Precondition not met: IP address '$IpAddress' is not reachable"
@@ -48,7 +48,7 @@ if ($null -eq $arpEntry) {
     throw "Precondition not met: Could not find MAC address for IP '$IpAddress' in ARP table"
 }
 $targetMac = $arpEntry.LinkLayerAddress -replace '-', ''
-Write-Log "[NodeAdd] Found MAC address '$targetMac' for IP '$IpAddress'" -Console
+Write-Log "[NodeAdd] Found MAC address '$targetMac' for IP '$IpAddress'" 
 
 # Find VM on KubeSwitch with matching MAC address
 $vmsOnKubeSwitch = Get-VM | Where-Object {
@@ -79,7 +79,7 @@ if ($null -eq $targetVm) {
 }
 
 $VmName = $targetVm.Name
-Write-Log "[NodeAdd] Found VM '$VmName' with IP '$IpAddress' (MAC: $targetMac) on switch '$kubeSwitchName'" -Console
+Write-Log "[NodeAdd] Found VM '$VmName' with IP '$IpAddress' (MAC: $targetMac) on switch '$kubeSwitchName'"
 
 if ($targetVm.State -ne [Microsoft.HyperV.PowerShell.VMState]::Running) {
     throw "Precondition not met: VM '$VmName' must be in 'Running' state, but is '$($targetVm.State)'"
