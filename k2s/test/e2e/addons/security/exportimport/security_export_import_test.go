@@ -63,6 +63,11 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Printf("[Setup] Found implementation: %s\n", impl.Name)
 	GinkgoWriter.Printf("[Setup] Export directory name: %s\n", impl.ExportDirectoryName)
 
+	GinkgoWriter.Printf("[Setup] Windows curl packages in security metadata: %d\n", len(impl.OfflineUsage.WindowsResources.CurlPackages))
+	exportimport.AssertWindowsCurlContains(impl, `bin\cmctl.exe`)
+	exportimport.AssertWindowsCurlContains(impl, `bin\kyverno.exe`)
+	exportimport.AssertWindowsCurlContains(impl, `bin\linkerd.exe`)
+
 	k2s = dsl.NewK2s(suite)
 
 	GinkgoWriter.Println("[Setup] Setup complete")

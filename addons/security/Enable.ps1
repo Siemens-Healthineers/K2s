@@ -233,24 +233,7 @@ try {
 	# Enhanced Security is on
 	if (Confirm-EnhancedSecurityOn($Type)) {
 
-		# Download linkerd
-		Write-Log 'Downloading linkerd executable' -Console
-		$manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
-		$k2sRoot = "$PSScriptRoot\..\.."
-		$windowsLinkerdPackages = $manifest.spec.implementations[0].offline_usage.windows.linkerd
-		if ($windowsLinkerdPackages) {
-			foreach ($package in $windowsLinkerdPackages) {
-				$destination = $package.destination
-				$destination = "$k2sRoot\$destination"
-				if (!(Test-Path $destination)) {
-					$url = $package.url
-					Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
-				}
-				else {
-					Write-Log "File $destination already exists. Skipping download."
-				}
-			}
-		}
+		Install-LinkerdCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
 
 		# generate linkerd config
 		Write-Log 'Creating linkerd config files' -Console

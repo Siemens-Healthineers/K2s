@@ -609,6 +609,16 @@ func VerifyNoStrayFiles(unexpectedFiles []string) {
 	GinkgoWriter.Println("=== VERIFY NO STRAY FILES END ===")
 }
 
+func AssertWindowsCurlContains(impl *addons.Implementation, destination string) {
+	dests := make([]string, 0, len(impl.OfflineUsage.WindowsResources.CurlPackages))
+	for _, p := range impl.OfflineUsage.WindowsResources.CurlPackages {
+		dests = append(dests, p.Destination)
+	}
+	Expect(dests).To(ContainElement(destination),
+		"windows.curl must declare '%s' for offline packaging; "+
+			"tools under non-standard YAML keys are excluded from export/import", destination)
+}
+
 // exports a single addon using a relative directory path.
 func ExportAddonRelativePath(ctx context.Context, suite *framework.K2sTestSuite, addonName string, implName string, workingDir string, relativeOutputDir string) string {
 	GinkgoWriter.Println("=== EXPORT ADDON (RELATIVE PATH) START ===")
