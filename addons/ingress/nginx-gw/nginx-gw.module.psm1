@@ -171,7 +171,7 @@ function Enable-NginxGatewaySnippetsFilter {
         Remove-Item -Path $clusterRolePatchFile -Force
         
         Write-Log '  Restarting controller pod to apply changes' -Console
-        kubectl delete pod -l app.kubernetes.io/name=nginx-gateway -n nginx-gw 2>&1 | Write-Log
+        kubectl delete pod -l app.kubernetes.io/name=nginx-gw -n nginx-gw 2>&1 | Write-Log
     }
 
     Write-Log 'SnippetsFilter support enabled for NGINX Gateway' -Console
