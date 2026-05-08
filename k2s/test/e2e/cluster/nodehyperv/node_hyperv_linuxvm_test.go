@@ -5,8 +5,11 @@ package nodehyperv
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +20,9 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 var suite *framework.K2sTestSuite
@@ -53,25 +59,61 @@ type HyperVLinuxNodeInfo struct {
 	NodeType  clusterconfig.NodeType
 }
 
+// nodeJSON is used to parse node entries from cluster.json
+type nodeJSON struct {
+	Name      string `json:"Name"`
+	IpAddress string `json:"IpAddress"`
+	Username  string `json:"Username"`
+	NodeType  string `json:"NodeType"`
+}
+
 // findHyperVLinuxNode searches cluster.json for a node with NodeType=VM-EXISTING
-// and returns its details.
+// and returns its details. Handles both array and single-object formats for nodes.
 func findHyperVLinuxNode() (*HyperVLinuxNodeInfo, bool) {
-	suite.SetupInfo().LoadClusterConfig()
-	clusterCfg := suite.SetupInfo().ClusterConfig
-	if clusterCfg == nil {
+	configDir := suite.SetupInfo().Config.Host().K2sSetupConfigDir()
+	clusterJsonPath := filepath.Join(configDir, "cluster.json")
+
+	data, err := os.ReadFile(clusterJsonPath)
+	if err != nil {
+		GinkgoWriter.Printf("Could not read cluster.json: %v\n", err)
 		return nil, false
 	}
 
-	for _, node := range clusterCfg.Nodes {
-		if node.NodeType == clusterconfig.NodeTypeVMExisting {
+	// Try to parse nodes as an array first
+	var clusterWithArray struct {
+		Nodes []nodeJSON `json:"nodes"`
+	}
+	if err := json.Unmarshal(data, &clusterWithArray); err == nil && len(clusterWithArray.Nodes) > 0 {
+		for _, node := range clusterWithArray.Nodes {
+			if node.NodeType == string(clusterconfig.NodeTypeVMExisting) {
+				return &HyperVLinuxNodeInfo{
+					Name:      node.Name,
+					IpAddress: node.IpAddress,
+					Username:  node.Username,
+					NodeType:  clusterconfig.NodeType(node.NodeType),
+				}, true
+			}
+		}
+		return nil, false
+	}
+
+	// Try to parse nodes as a single object (non-standard but may occur)
+	var clusterWithObject struct {
+		Nodes nodeJSON `json:"nodes"`
+	}
+	if err := json.Unmarshal(data, &clusterWithObject); err == nil && clusterWithObject.Nodes.Name != "" {
+		node := clusterWithObject.Nodes
+		if node.NodeType == string(clusterconfig.NodeTypeVMExisting) {
 			return &HyperVLinuxNodeInfo{
 				Name:      node.Name,
 				IpAddress: node.IpAddress,
 				Username:  node.Username,
-				NodeType:  node.NodeType,
+				NodeType:  clusterconfig.NodeType(node.NodeType),
 			}, true
 		}
 	}
+
+	GinkgoWriter.Println("No VM-EXISTING node found in cluster.json")
 	return nil, false
 }
 
@@ -105,6 +147,60 @@ func kubeSwitchExists(ctx context.Context) bool {
 	cmd := fmt.Sprintf("(Get-VMSwitch -Name '%s' -ErrorAction SilentlyContinue) -ne $null", kubeSwitchName)
 	output := suite.Cli("powershell").NoStdOut().MustExec(ctx, "-Command", cmd)
 	return strings.TrimSpace(output) == "True"
+}
+
+// getKubeSwitchNetworkProfile returns the network profile category of the KubeSwitch interface.
+// Returns "Private", "Public", "DomainAuthenticated", or empty string if not found.
+func getKubeSwitchNetworkProfile(ctx context.Context) string {
+	cmd := `$adapter = Get-NetAdapter | Where-Object { $_.Name -like 'vEthernet (KubeSwitch)*' } | Select-Object -First 1; if ($adapter) { (Get-NetConnectionProfile -InterfaceIndex $adapter.ifIndex -ErrorAction SilentlyContinue).NetworkCategory } else { '' }`
+	output := suite.Cli("powershell").NoStdOut().MustExec(ctx, "-Command", cmd)
+	return strings.TrimSpace(output)
+}
+
+// getNodeStatus returns the Ready condition status of a node.
+func getNodeStatus(ctx context.Context, nodeName string) (bool, error) {
+	client := suite.Cluster().Client()
+	clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
+	if err != nil {
+		return false, err
+	}
+
+	node, err := clientSet.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	for _, cond := range node.Status.Conditions {
+		if cond.Type == corev1.NodeReady {
+			return cond.Status == corev1.ConditionTrue, nil
+		}
+	}
+	return false, nil
+}
+
+// getPodsOnNode returns all pods scheduled on the given node in the specified namespace.
+func getPodsOnNode(ctx context.Context, nodeName, namespace string) ([]corev1.Pod, error) {
+	client := suite.Cluster().Client()
+	clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
+	pods, err := clientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return pods.Items, nil
+}
+
+// getControlPlaneNodeName returns the name of the control-plane node.
+func getControlPlaneNodeName(ctx context.Context) string {
+	output := suite.Kubectl().NoStdOut().MustExec(ctx, "get", "nodes",
+		"-l", "node-role.kubernetes.io/control-plane",
+		"-o", "jsonpath={.items[0].metadata.name}")
+	return strings.TrimSpace(output)
 }
 
 var _ = Describe("Hyper-V Linux VM Node", Ordered, func() {
@@ -169,6 +265,237 @@ var _ = Describe("Hyper-V Linux VM Node", Ordered, func() {
 		Context("when node is already part of the cluster", func() {
 			It("node appears as Ready in the cluster", func(ctx context.Context) {
 				suite.Cluster().ExpectNodeToBeReady(vmName, ctx)
+			})
+		})
+
+		Context("when checking KubeSwitch network profile", func() {
+			It("KubeSwitch network profile is set to Private", func(ctx context.Context) {
+				profile := getKubeSwitchNetworkProfile(ctx)
+				Expect(profile).To(Equal("Private"),
+					"Expected KubeSwitch network profile to be 'Private', got '%s'. "+
+						"Run 'Set-NetConnectionProfile -InterfaceAlias \"vEthernet (KubeSwitch)\" -NetworkCategory Private' to fix.", profile)
+			})
+		})
+	})
+
+	Describe("node lifecycle", Label("lifecycle"), func() {
+		const (
+			testNamespace  = "node-lifecycle-test"
+			deploymentName = "nginx-lifecycle-test"
+			replicas       = 2
+		)
+
+		var controlPlaneNode string
+
+		BeforeAll(func(ctx context.Context) {
+			controlPlaneNode = getControlPlaneNodeName(ctx)
+			GinkgoWriter.Printf("Control-plane node: %s\n", controlPlaneNode)
+
+			// Create test namespace using pipe through cmd.exe
+			cmd := fmt.Sprintf("%s create namespace %s --dry-run=client -o yaml | %s apply -f -",
+				suite.Kubectl().Path(), testNamespace, suite.Kubectl().Path())
+			suite.Cli("cmd.exe").MustExec(ctx, "/c", cmd)
+		})
+
+		AfterAll(func(ctx context.Context) {
+			// Cleanup: ensure node is started and namespace is deleted
+			GinkgoWriter.Println("Cleanup: ensuring node is started")
+			k2s.StartNode(ctx, vmName)
+
+			// Wait for node to be ready again
+			Eventually(func() bool {
+				ready, _ := getNodeStatus(ctx, vmName)
+				return ready
+			}, 5*time.Minute, 5*time.Second).Should(BeTrue(), "Node should be Ready after cleanup start")
+
+			GinkgoWriter.Println("Cleanup: deleting test namespace")
+			suite.Kubectl().Exec(ctx, "delete", "namespace", testNamespace, "--ignore-not-found")
+		})
+
+		Context("when deploying workload across nodes", Ordered, func() {
+			It("creates a deployment with replicas spread across nodes", func(ctx context.Context) {
+				// Create a deployment that will schedule pods on both control-plane and worker node
+				// Using shsk2s.azurecr.io image which is pre-pulled and doesn't require internet
+				// tolerationSeconds=30 ensures pods are evicted quickly when node becomes NotReady
+				deploymentYaml := fmt.Sprintf(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  replicas: %d
+  selector:
+    matchLabels:
+      app: %s
+  template:
+    metadata:
+      labels:
+        app: %s
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: %s
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: albums-app
+        image: shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0
+        ports:
+        - containerPort: 80
+        env:
+        - name: PORT
+          value: "80"
+        - name: RESOURCE
+          value: "%s"
+      tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 30
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 30
+`, deploymentName, testNamespace, replicas, deploymentName, deploymentName, deploymentName, deploymentName)
+
+				// Apply the deployment using a temp file
+				tempFile := fmt.Sprintf("%s\\deployment.yaml", suite.SetupInfo().Config.Host().K2sSetupConfigDir())
+				writeCmd := fmt.Sprintf(`Set-Content -Path '%s' -Value @'
+%s
+'@`, tempFile, deploymentYaml)
+				suite.Cli("powershell").MustExec(ctx, "-Command", writeCmd)
+				suite.Kubectl().MustExec(ctx, "apply", "-f", tempFile)
+
+				GinkgoWriter.Printf("Created deployment %s with %d replicas\n", deploymentName, replicas)
+			})
+
+			It("waits for deployment to be available", func(ctx context.Context) {
+				suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, testNamespace)
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, testNamespace)
+				GinkgoWriter.Println("Deployment is available and pods are ready")
+			})
+
+			It("verifies pods are scheduled on the worker node", func(ctx context.Context) {
+				pods, err := getPodsOnNode(ctx, vmName, testNamespace)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(pods)).To(BeNumerically(">", 0),
+					"Expected at least one pod to be scheduled on worker node %s", vmName)
+
+				for _, pod := range pods {
+					GinkgoWriter.Printf("Pod %s is running on node %s\n", pod.Name, pod.Spec.NodeName)
+				}
+			})
+
+			It("stops the worker node using k2s stop --node", func(ctx context.Context) {
+				GinkgoWriter.Printf("Stopping node %s\n", vmName)
+
+				result := k2s.StopNode(ctx, vmName)
+				result.ExpectSuccess()
+
+				GinkgoWriter.Printf("Node %s stop command completed\n", vmName)
+			})
+
+			It("verifies worker node becomes NotReady", func(ctx context.Context) {
+				Eventually(func() bool {
+					ready, err := getNodeStatus(ctx, vmName)
+					if err != nil {
+						GinkgoWriter.Printf("Error getting node status: %v\n", err)
+						return true // Keep polling on error
+					}
+					GinkgoWriter.Printf("Node %s Ready status: %v\n", vmName, ready)
+					return !ready // We want NotReady (ready=false)
+				}, 5*time.Minute, 5*time.Second).Should(BeTrue(),
+					"Node %s should become NotReady after stop", vmName)
+			})
+
+			It("verifies pods on stopped node are terminating or evicted", func(ctx context.Context) {
+				// Wait for pods to be marked for deletion (Terminating) or evicted
+				// Note: "Terminating" is not a pod phase - it's indicated by DeletionTimestamp being set
+				// The pod phase may still show "Running" while terminating
+				Eventually(func() bool {
+					pods, err := getPodsOnNode(ctx, vmName, testNamespace)
+					if err != nil {
+						GinkgoWriter.Printf("Error getting pods: %v\n", err)
+						return false
+					}
+
+					// If no pods on this node, they've been evicted
+					if len(pods) == 0 {
+						GinkgoWriter.Printf("No pods remaining on node %s - all evicted\n", vmName)
+						return true
+					}
+
+					for _, pod := range pods {
+						isTerminating := pod.DeletionTimestamp != nil
+						GinkgoWriter.Printf("Pod %s on node %s: phase=%s, terminating=%v\n",
+							pod.Name, vmName, pod.Status.Phase, isTerminating)
+
+						// Pod should be terminating (has deletion timestamp) or already gone
+						if !isTerminating {
+							return false // Pod not yet marked for deletion
+						}
+					}
+					// All remaining pods are terminating
+					return true
+				}, 2*time.Minute, 5*time.Second).Should(BeTrue(),
+					"Pods on stopped node should be terminating or evicted")
+			})
+
+			It("verifies new pods are scheduled on another node", func(ctx context.Context) {
+				// The deployment controller should create new pods on available nodes
+				Eventually(func() int {
+					pods, err := getPodsOnNode(ctx, controlPlaneNode, testNamespace)
+					if err != nil {
+						GinkgoWriter.Printf("Error getting pods on control-plane: %v\n", err)
+						return 0
+					}
+
+					runningCount := 0
+					for _, pod := range pods {
+						if pod.Status.Phase == corev1.PodRunning {
+							runningCount++
+							GinkgoWriter.Printf("Running pod %s on control-plane node %s\n",
+								pod.Name, controlPlaneNode)
+						}
+					}
+					return runningCount
+				}, 5*time.Minute, 5*time.Second).Should(BeNumerically(">=", 1),
+					"At least one pod should be running on control-plane node after worker node stops")
+			})
+
+			It("starts the worker node using k2s start --node", func(ctx context.Context) {
+				GinkgoWriter.Printf("Starting node %s\n", vmName)
+
+				result := k2s.StartNode(ctx, vmName)
+				result.ExpectSuccess()
+
+				GinkgoWriter.Printf("Node %s start command completed\n", vmName)
+			})
+
+			It("verifies worker node becomes Ready again", func(ctx context.Context) {
+				Eventually(func() bool {
+					ready, err := getNodeStatus(ctx, vmName)
+					if err != nil {
+						GinkgoWriter.Printf("Error getting node status: %v\n", err)
+						return false
+					}
+					GinkgoWriter.Printf("Node %s Ready status: %v\n", vmName, ready)
+					return ready
+				}, 5*time.Minute, 5*time.Second).Should(BeTrue(),
+					"Node %s should become Ready after start", vmName)
+			})
+
+			It("verifies deployment is healthy with all replicas", func(ctx context.Context) {
+				suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, testNamespace)
+				GinkgoWriter.Printf("Deployment %s is healthy after node restart\n", deploymentName)
 			})
 		})
 	})

@@ -85,6 +85,22 @@ if ($targetVm.State -ne [Microsoft.HyperV.PowerShell.VMState]::Running) {
     throw "Precondition not met: VM '$VmName' must be in 'Running' state, but is '$($targetVm.State)'"
 }
 
+# Check KubeSwitch network profile is set to Private
+$kubeSwitchProfile = Test-KubeSwitchPrivateProfile
+if (-not $kubeSwitchProfile.IsPrivate) {
+    $category = $kubeSwitchProfile.CurrentCategory
+    $interfaceAlias = $kubeSwitchProfile.InterfaceAlias
+    
+    $errorMsg = @"
+Precondition not met: KubeSwitch network profile is set to '$category' but must be 'Private'.
+
+To fix this, run the following command in an elevated PowerShell:
+    Set-NetConnectionProfile -InterfaceAlias '$interfaceAlias' -NetworkCategory Private
+"@
+    throw $errorMsg
+}
+Write-Log "[NodeAdd] KubeSwitch profile check passed (category: $($kubeSwitchProfile.CurrentCategory))"
+
 Assert-LinuxWorkerNodeSshConnectivity -UserName $UserName -IpAddress $IpAddress -LogPrefix '[NodeAdd]' -TargetDescription 'node'
 Assert-LinuxWorkerNodeAuthorizedKey -UserName $UserName -IpAddress $IpAddress -LogPrefix '[NodeAdd]'
 
