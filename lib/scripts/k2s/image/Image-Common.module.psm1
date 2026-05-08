@@ -10,6 +10,49 @@ Import-Module $infraModule, $clusterModule, $nodeModule -Global
 
 <#
 .SYNOPSIS
+Tests whether a Kubernetes node is in Ready state.
+
+.DESCRIPTION
+Uses kubectl to check if the node is reporting Ready status.
+Returns $true if the node is Ready, $false otherwise.
+For control-plane and local Windows host, always returns $true (they must be Ready for the cluster to be up).
+
+.PARAMETER NodeName
+The name of the node to check.
+
+.PARAMETER Kind
+The kind of node (ControlPlane, LinuxWorker, LocalWindows, WindowsWorker).
+#>
+function Test-NodeReady {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$NodeName,
+        [Parameter(Mandatory = $false)]
+        [string]$Kind = ''
+    )
+
+    # Control-plane and local Windows host are implicitly Ready if we got this far (cluster is running)
+    if ($Kind -in @('ControlPlane', 'LocalWindows')) {
+        return $true
+    }
+
+    try {
+        $kubePath = Get-KubePath
+        $kubectlExe = "$kubePath\bin\kube\kubectl.exe"
+        $nodeStatus = & $kubectlExe get node $NodeName --no-headers 2>&1 | Out-String
+        if (-not [string]::IsNullOrWhiteSpace($nodeStatus) -and $nodeStatus -match '\s+Ready(?:\s|,|$)') {
+            return $true
+        }
+    }
+    catch {
+        Write-Log "[NodeReady] Error checking status for node '$NodeName': $_"
+    }
+
+    return $false
+}
+
+<#
+.SYNOPSIS
 Initializes image script runtime (logging + system availability check).
 
 .DESCRIPTION
@@ -291,6 +334,7 @@ function Get-ImagesByNodeSelection {
     Write-Log "[$LogPrefix] Node filter: $(if ($nodeList.Count -eq 0) { '<all default>' } else { $nodeList -join ', ' })"
 
     $targetNodeInfos = @()
+    $skippedNodes = @()
     if ($nodeList.Count -eq 0) {
         $targetNodeInfos = @(Get-DefaultNodeInfoList)
     }
@@ -298,7 +342,14 @@ function Get-ImagesByNodeSelection {
         foreach ($nodeName in $nodeList) {
             $nodeInfo = Resolve-ImageNode -NodeName $nodeName
             if ($null -eq $nodeInfo) {
-                Write-Log "[$LogPrefix] Node '$nodeName' could not be resolved, skipping" -Console
+                Write-Log "[$LogPrefix] Node '$nodeName' could not be resolved - verify the node name exists in the cluster" -Console
+                $skippedNodes += @{ Name = $nodeName; Reason = 'not-found' }
+                continue
+            }
+            # Check if node is Ready before adding to target list
+            if (-not (Test-NodeReady -NodeName $nodeName -Kind $nodeInfo.Kind)) {
+                Write-Log "[$LogPrefix] Node '$nodeName' is not in Ready state - start the node with 'k2s start --node $nodeName' first" -Console
+                $skippedNodes += @{ Name = $nodeName; Reason = 'not-ready' }
                 continue
             }
             $targetNodeInfos += $nodeInfo
@@ -321,10 +372,11 @@ function Get-ImagesByNodeSelection {
 
     return @{
         NodeInfos      = @($targetNodeInfos)
+        SkippedNodes   = @($skippedNodes)
         LinuxImages    = @($linuxContainerImages)
         WindowsImages  = @($windowsContainerImages)
         AllImages      = @($linuxContainerImages) + @($windowsContainerImages)
     }
 }
 
-Export-ModuleMember -Function Initialize-ImageScriptContext, Resolve-ImageNode, Get-DefaultNodeInfoList, Get-ImagesOnNode, Resolve-NodeList, Get-ImagesByNodeSelection
+Export-ModuleMember -Function Initialize-ImageScriptContext, Resolve-ImageNode, Get-DefaultNodeInfoList, Get-ImagesOnNode, Resolve-NodeList, Get-ImagesByNodeSelection, Test-NodeReady

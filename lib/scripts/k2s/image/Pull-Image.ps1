@@ -336,6 +336,12 @@ else {
             continue
         }
 
+        # Check if node is Ready before adding to target list
+        if (-not (Test-NodeReady -NodeName $nodeName -Kind $nodeInfo.Kind)) {
+            Write-Log "[Pull] Node '$nodeName' is not in Ready state - start the node with 'k2s start --node $nodeName' first" -Console
+            continue
+        }
+
         if ($Windows -and $nodeInfo.OS -ne 'windows') {
             Write-Log "[Pull] Node '$nodeName' is not a Windows node, skipping" -Console
             continue
