@@ -206,4 +206,4 @@ function Invoke-LinuxWorkerNodeStart {
 }
 
 # Restore kubelet/runtime services after route setup and wait for the node to become Ready.
-Invoke-LinuxWorkerNodeStart -NodeName $workerNodeName -WaitForReady -LogPrefix '[hyper-v existing-vm]'
+Invoke-LinuxWorkerNodeStart -NodeName $workerNodeName -WaitForReady -LogPrefix '[existing-vm]'

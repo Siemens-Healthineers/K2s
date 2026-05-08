@@ -235,6 +235,7 @@ function Invoke-PullOnNode {
 
             if (-not $result.Success) {
                 $resultOutput = ($result.Output | Out-String)
+                Write-Log "[Pull] buildah pull failed on '$($NodeInfo.Name)': $resultOutput"
                 $fallbackImage = Get-LinuxPullFallbackImage -Image $Image
                 if (-not [string]::IsNullOrWhiteSpace($fallbackImage) -and $resultOutput -match 'lookup k2s\.registry\.local|Temporary failure in name resolution|invalid status code from registry 404|x509|connection refused|dial tcp .*:80: connect: connection refused') {
                     Write-Log "[Pull] Retrying Linux pull on '$($NodeInfo.Name)' via control-plane NodePort image '$fallbackImage'" -Console
@@ -244,6 +245,10 @@ function Invoke-PullOnNode {
                     }
                     else {
                         $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $fallbackCmd -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 600
+                    }
+                    if (-not $result.Success) {
+                        $fallbackOutput = ($result.Output | Out-String)
+                        Write-Log "[Pull] Fallback buildah pull also failed on '$($NodeInfo.Name)': $fallbackOutput"
                     }
                 }
             }

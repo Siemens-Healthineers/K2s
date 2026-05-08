@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -230,6 +230,7 @@ function CheckKubeSwitchInExpectedState() {
 .DESCRIPTION
     Reads the cluster configuration and reconnects all Hyper-V based worker nodes
     to the KubeSwitch. Skips the control plane node and bare-metal nodes.
+    Uses the VmName field stored in cluster.json to find the Hyper-V VM.
 .PARAMETER ControlPlaneVMHostName
     The hostname of the control plane VM to skip.
 .PARAMETER SwitchName
@@ -241,43 +242,64 @@ function Connect-WorkerNodesToKubeSwitch {
         [string] $SwitchName = $(throw 'Argument missing: SwitchName')
     )
     
-    # Write-Log 'Reconnecting configured worker nodes to KubeSwitch'
+    Write-Log '[KubeSwitch] Reconnecting configured worker nodes to KubeSwitch'
     
-    # try {
-    #     $k2sConfigDir = Get-K2sConfigDir
-    #     $clusterDescriptorFile = "$k2sConfigDir\cluster.json"
+    try {
+        $k2sConfigDir = Get-K2sConfigDir
+        $clusterDescriptorFile = "$k2sConfigDir\cluster.json"
         
-    #     if (-not (Test-Path $clusterDescriptorFile)) {
-    #         Write-Log '[KubeSwitch] No cluster.json found, no worker nodes to reconnect'
-    #         return
-    #     }
+        if (-not (Test-Path $clusterDescriptorFile)) {
+            Write-Log '[KubeSwitch] No cluster.json found, no worker nodes to reconnect'
+            return
+        }
         
-    #     $json = Get-Content -Path $clusterDescriptorFile -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue
-    #     if (-not $json -or -not $json.nodes) {
-    #         Write-Log '[KubeSwitch] No nodes configured in cluster.json'
-    #         return
-    #     }
+        $json = Get-Content -Path $clusterDescriptorFile -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if (-not $json -or -not $json.nodes) {
+            Write-Log '[KubeSwitch] No nodes configured in cluster.json'
+            return
+        }
         
-    #     foreach ($node in $json.nodes) {
-    #         # Skip control plane node and bare-metal nodes (only process Hyper-V VMs)
-    #         if ($node.Name -eq $ControlPlaneVMHostName -or $node.NodeType -eq 'HOST' -or $node.NodeType -eq 'HOST-EXISTING') {
-    #             continue
-    #         }
+        # Ensure nodes is always an array
+        $nodes = @($json.nodes)
+        
+        foreach ($node in $nodes) {
+            # Skip control plane node and bare-metal nodes (only process Hyper-V VMs)
+            if ($node.Name -eq $ControlPlaneVMHostName -or $node.NodeType -eq 'HOST' -or $node.NodeType -eq 'HOST-EXISTING') {
+                Write-Log "[KubeSwitch] Skipping node '$($node.Name)' (type: $($node.NodeType))"
+                continue
+            }
             
-    #         # Check if VM exists before trying to connect
-    #         $vm = Get-VM -Name $node.Name -ErrorAction SilentlyContinue
-    #         if ($vm) {
-    #             Write-Log "[KubeSwitch] Reconnecting worker node VM '$($node.Name)' to switch '$SwitchName'"
-    #             Connect-NetworkAdapterToVm -VmName $node.Name -SwitchName $SwitchName
-    #         }
-    #         else {
-    #             Write-Log "[KubeSwitch] Worker node VM '$($node.Name)' not found, skipping"
-    #         }
-    #     }
-    # }
-    # catch {
-    #     Write-Log "[KubeSwitch] Warning: Failed to reconnect worker nodes: $_"
-    # }
+            $vm = $null
+            
+            # Use VmName field if available (stored during node add)
+            if ($node.VmName) {
+                Write-Log "[KubeSwitch] Looking for VM '$($node.VmName)' for node '$($node.Name)'"
+                $vm = Get-VM -Name $node.VmName -ErrorAction SilentlyContinue
+            }
+            
+            # Fallback: try by node Name
+            if (-not $vm) {
+                $vm = Get-VM -Name $node.Name -ErrorAction SilentlyContinue
+            }
+            
+            if ($vm) {
+                Write-Log "[KubeSwitch] Reconnecting worker node VM '$($vm.Name)' to switch '$SwitchName'"
+                Connect-NetworkAdapterToVm -VmName $vm.Name -SwitchName $SwitchName
+                
+                # Start the VM if it's not running
+                if ($vm.State -ne 'Running') {
+                    Write-Log "[KubeSwitch] Starting worker node VM '$($vm.Name)'" -Console
+                    Start-VM -Name $vm.Name -ErrorAction SilentlyContinue
+                }
+            }
+            else {
+                Write-Log "[KubeSwitch] Worker node VM for '$($node.Name)' (VmName: $($node.VmName)) not found, skipping"
+            }
+        }
+    }
+    catch {
+        Write-Log "[KubeSwitch] Warning: Failed to reconnect worker nodes: $_"
+    }
 }
 
 function Start-ControlPlaneNodeOnNewVM {
@@ -347,22 +369,16 @@ function Start-ControlPlaneNodeOnNewVM {
             Set-VMProcessor $controlPlaneVMHostName -Count $VmProcessors
         }
 
-        $kubeSwitchInExpectedState = CheckKubeSwitchInExpectedState
-        if (!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
-            # Remove old switch
-            Write-Log 'Updating VM networking...'
-            Remove-KubeSwitch
+        # Always create KubeSwitch and connect VMs (KubeSwitch is removed during stop)
+        Write-Log 'Setting up VM networking...'
+        New-KubeSwitch
+        Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
 
-            # create switch for VM
-            New-KubeSwitch
-            Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
-
-            # connect VM to switch
-            Connect-KubeSwitch
-            
-            # Reconnect all configured Hyper-V worker nodes to KubeSwitch
-            Connect-WorkerNodesToKubeSwitch -ControlPlaneVMHostName $controlPlaneVMHostName -SwitchName $controlPlaneSwitchName
-        }
+        # connect control plane VM to switch
+        Connect-KubeSwitch
+        
+        # Reconnect all configured Hyper-V worker nodes to KubeSwitch
+        Connect-WorkerNodesToKubeSwitch -ControlPlaneVMHostName $controlPlaneVMHostName -SwitchName $switchname
 
         Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
     }
@@ -457,9 +473,8 @@ function Stop-ControlPlaneNodeOnNewVM {
             Write-Log ('Stopping ' + $controlPlaneVMHostName + ' VM') -Console
             Stop-VM -Name $controlPlaneVMHostName -Force -WarningAction SilentlyContinue
         }
-        if (!$CacheK2sVSwitches) {
-            Remove-KubeSwitch
-        }
+        # Always remove the KubeSwitch during stop (will be recreated during start)
+        Remove-KubeSwitch
     }
 
     Reset-DnsServer $switchname

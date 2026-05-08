@@ -152,5 +152,5 @@ function Invoke-LinuxWorkerNodeStop {
 
 # Stop kubelet/runtime so the node transitions to NotReady.
 # -WaitForNotReady controls whether to block until the transition completes.
-    Invoke-LinuxWorkerNodeStop -NodeName $workerNodeName -WaitForNotReady:$WaitForNotReady -LogPrefix '[hyper-v existing-vm]'
+    Invoke-LinuxWorkerNodeStop -NodeName $workerNodeName -WaitForNotReady:$WaitForNotReady -LogPrefix '[existing-vm]'
 

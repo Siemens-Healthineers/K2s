@@ -104,7 +104,8 @@ function Add-LinuxWorkerNode {
         [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: installedDistributionOnRemoteComputer'),
         [string] $NodePackagePath = '',
         [ValidateSet('HOST', 'VM-EXISTING')]
-        [string] $NodeType = 'HOST'
+        [string] $NodeType = 'HOST',
+        [string] $VmName = ''  # Hyper-V VM name (for VM-EXISTING nodes)
     )
 
     $nodeParams = @{
@@ -117,6 +118,12 @@ function Add-LinuxWorkerNode {
         OS = 'linux'
         PodCIDR = '' # will be filled during start of node
     }
+    
+    # Add VmName for VM-EXISTING nodes (needed to find VM during cluster start)
+    if ($VmName) {
+        $nodeParams.VmName = $VmName
+    }
+    
     Add-NodeConfig @nodeParams
 
     Write-Log "Installing node essentials" -Console

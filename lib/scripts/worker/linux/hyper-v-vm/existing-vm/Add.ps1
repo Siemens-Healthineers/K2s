@@ -131,6 +131,7 @@ $workerNodeParams = @{
     installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer
     NodePackagePath = $NodePackagePath
     NodeType = 'VM-EXISTING'
+    VmName = $VmName  # Hyper-V VM name (detected earlier via MAC address)
 }
 Add-LinuxWorkerNode @workerNodeParams
 
