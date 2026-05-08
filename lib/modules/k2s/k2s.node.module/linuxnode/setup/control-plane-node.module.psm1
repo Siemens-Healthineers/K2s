@@ -368,14 +368,19 @@ function Start-ControlPlaneNodeOnNewVM {
             # change cores
             Set-VMProcessor $controlPlaneVMHostName -Count $VmProcessors
         }
+       $kubeSwitchInExpectedState = CheckKubeSwitchInExpectedState
+        if (!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
+            # Remove old switch
+            Write-Log 'Updating VM networking...'
+            Remove-KubeSwitch
 
-        # Always create KubeSwitch and connect VMs (KubeSwitch is removed during stop)
-        Write-Log 'Setting up VM networking...'
-        New-KubeSwitch
-        Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
+            # create switch for VM
+            New-KubeSwitch
+            Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
 
-        # connect control plane VM to switch
-        Connect-KubeSwitch
+            # connect VM to switch
+            Connect-KubeSwitch
+        }
         
         # Reconnect all configured Hyper-V worker nodes to KubeSwitch
         Connect-WorkerNodesToKubeSwitch -ControlPlaneVMHostName $controlPlaneVMHostName -SwitchName $switchname
@@ -473,8 +478,9 @@ function Stop-ControlPlaneNodeOnNewVM {
             Write-Log ('Stopping ' + $controlPlaneVMHostName + ' VM') -Console
             Stop-VM -Name $controlPlaneVMHostName -Force -WarningAction SilentlyContinue
         }
-        # Always remove the KubeSwitch during stop (will be recreated during start)
-        Remove-KubeSwitch
+        if (!$CacheK2sVSwitches) {
+            Remove-KubeSwitch
+        }
     }
 
     Reset-DnsServer $switchname
