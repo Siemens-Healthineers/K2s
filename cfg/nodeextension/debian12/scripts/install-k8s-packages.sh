@@ -109,7 +109,12 @@ else
     echo "[InstallK8s] File does not exist, no renaming of cni file $CRIO_CNI_FILE.."
 fi
 
-echo 'unqualified-search-registries = ["docker.io", "quay.io"]' | sudo tee -a /etc/containers/registries.conf
+# Add unqualified-search-registries only if not already present (prevents duplicate entries on retry)
+if ! grep -q '^[[:space:]]*unqualified-search-registries[[:space:]]*=' /etc/containers/registries.conf 2>/dev/null; then
+    echo 'unqualified-search-registries = ["docker.io", "quay.io"]' | sudo tee -a /etc/containers/registries.conf
+else
+    echo "[InstallK8s] unqualified-search-registries already configured in /etc/containers/registries.conf, skipping"
+fi
 
 # ---------------------------------------------------------------------------
 # Hold kubelet, kubeadm, kubectl

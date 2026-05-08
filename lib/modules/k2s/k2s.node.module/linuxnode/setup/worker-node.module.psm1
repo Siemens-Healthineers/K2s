@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -14,159 +14,19 @@ function Repair-LinuxWorkerNodeRegistriesConfig {
         [string] $IpAddress = $(throw 'Argument missing: IpAddress')
     )
 
-    # $duplicateCountOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if [ -f /etc/containers/registries.conf ]; then grep -c '^[[:space:]]*unqualified-search-registries[[:space:]]*=' /etc/containers/registries.conf; else echo 0; fi" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output.Trim()
-    # $duplicateCount = 0
-    # [void][int]::TryParse($duplicateCountOutput, [ref]$duplicateCount)
+    $duplicateCountOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if [ -f /etc/containers/registries.conf ]; then grep -c '^[[:space:]]*unqualified-search-registries[[:space:]]*=' /etc/containers/registries.conf 2>/dev/null || echo 0; else echo 0; fi" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output.Trim()
+    $duplicateCount = 0
+    [void][int]::TryParse($duplicateCountOutput, [ref]$duplicateCount)
 
-    # if ($duplicateCount -le 1) {
-    #     Write-Log "[RegistryConfig] registries.conf on node $IpAddress does not contain duplicate unqualified-search-registries entries, skipping."
-    #     return
-    # }
-
-    # Write-Log "[RegistryConfig] Found $duplicateCount duplicate unqualified-search-registries entries on node $IpAddress. Normalizing registries.conf." -Console
-    # (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sh -c '{ echo \"unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"]\"; if [ -f /etc/containers/registries.conf ]; then grep -v \"^[[:space:]]*unqualified-search-registries[[:space:]]*=\" /etc/containers/registries.conf; fi; } > /tmp/registries.conf.k2s; mv /tmp/registries.conf.k2s /etc/containers/registries.conf'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-    # Write-Log "[RegistryConfig] Restarting crio after registries.conf normalization on node $IpAddress."
-    # (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-}
-
-function Add-LinuxWorkerNodeOnNewVM {
-    Param(
-        [string] $WorkerNodeName = $(throw 'Argument missing: WorkerNodeName'),
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of master VM (Linux)')]
-        [long] $MasterVMMemory = 8GB,
-        [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
-        [long] $MasterVMProcessorCount = 6,
-        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
-        [uint64] $MasterDiskSize = 10GB,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy,
-        [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
-        [string]$DnsServers = $(throw 'Argument missing: DnsServers'),
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
-        [switch] $DeleteFilesForOfflineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
-        [switch] $ForceOnlineInstallation = $false
-    )
-
-    Write-Log 'Starting addition of new node...'
-    Write-Log "Setting up $($workerNodeParams.VmName) VM"
-
-    $workerNodeParams = @{
-        Hostname = $WorkerNodeName
-        IpAddress = $IpAddress
-        GatewayIpAddress = Get-ConfiguredKubeSwitchIP
-        DnsServers= $DnsServers
-        VmName = $WorkerNodeName
-        VMMemoryStartupBytes = $MasterVMMemory
-        VMProcessorCount = $MasterVMProcessorCount
-        VMDiskSize = $MasterDiskSize
-        Proxy = $Proxy
-        DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-        ForceOnlineInstallation = $ForceOnlineInstallation
-    }
-    New-LinuxVmAsWorkerNode @workerNodeParams
-
-    $remoteUsername = Get-DefaultUserNameWorkerNode
-    $remoteUser = "$remoteUserName@$IpAddress"
-    $remoteUserPwd = Get-DefaultUserPwdWorkerNode
-
-    Wait-ForSSHConnectionToLinuxVMViaPwd -User $remoteUser -UserPwd $remoteUserPwd
-
-    Write-Log "Copying ZScaler Root CA certificate to node '$WorkerNodeName'"
-    Copy-ToRemoteComputerViaUserAndPwd -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt" -IpAddress $IpAddress
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo update-ca-certificates" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
-    Write-Log "Zscaler certificate added to CA certificates of node '$WorkerNodeName'"
-
-    Write-Log 'Remove previous VM key from known_hosts file'
-    ssh-keygen.exe -R $IpAddress 2>&1 | ForEach-Object { "$_" } | Out-Null
-
-    Copy-LocalPublicSshKeyToRemoteComputer -UserName $remoteUsername -UserPwd $remoteUserPwd -IpAddress $IpAddress
-    Wait-ForSSHConnectionToLinuxVMViaSshKey -User $remoteUser
-
-    (Invoke-CmdOnVmViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$(Get-ConfiguredIPControlPlane)]/' /etc/netplan/10-k2s.yaml" -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart systemd-networkd' -IpAddress $IpAddress).Output | Write-Log
-
-    Repair-LinuxWorkerNodeRegistriesConfig -UserName $remoteUsername -IpAddress $IpAddress
-
-    Join-LinuxNode -NodeName $WorkerNodeName -NodeUserName $remoteUsername -NodeIpAddress $IpAddress
-
-    Remove-VmAccessViaUserAndPwd -IpAddress $IpAddress
-}
-
-function Start-LinuxWorkerNodeOnNewVM {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'Number of processors for VM')]
-        [string] $VmProcessors,
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
-        [switch] $SkipHeaderDisplay = $false,
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
-    )
-
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' started"
-    }
-}
-
-function Stop-LinuxWorkerNodeOnNewVM {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
-        [switch] $SkipHeaderDisplay = $false,
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
-    )
-
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' stopped"
-    }
-}
-
-function Remove-LinuxWorkerNodeOnNewVM {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
-        [switch] $DeleteFilesForOfflineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing header display')]
-        [switch] $SkipHeaderDisplay = $false,
-        [string] $NodeName = $(throw 'Argument missing: NodeName')
-    )
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName'"
+    if ($duplicateCount -le 1) {
+        Write-Log "[RegistryConfig] registries.conf on node $IpAddress has $duplicateCount unqualified-search-registries entries, no repair needed."
+        return
     }
 
-    $kubeToolsPath = Get-KubeToolsPath
-    $ipAddress = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="{.status.addresses[?(@.type=='InternalIP')].address}"
-    if ([string]::IsNullOrWhiteSpace($ipAddress)) {
-        throw "Cannot obtain IP address of node '$NodeName'"
-    }
-
-    &"$kubeToolsPath\kubectl.exe" drain $NodeName --ignore-daemonsets --delete-emptydir-data 2>&1 | ForEach-Object { "$_" } | Write-Log
-    &"$kubeToolsPath\kubectl.exe" delete node $NodeName 2>&1 | ForEach-Object { "$_" } | Write-Log
-
-    Stop-VirtualMachine -VmName $NodeName -Wait
-    Remove-VirtualMachine $NodeName
-
-    Write-Log 'Remove key from known_hosts file'
-    ssh-keygen.exe -R $ipAddress 2>&1 | ForEach-Object { "$_" } | Out-Null
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName' done."
-    }
+    # Remove all unqualified-search-registries lines and add a single one at the top
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sh -c 'grep -v \"^[[:space:]]*unqualified-search-registries[[:space:]]*=\" /etc/containers/registries.conf > /tmp/registries.conf.k2s; echo \"unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"]\" | cat - /tmp/registries.conf.k2s > /tmp/registries.conf.final; mv /tmp/registries.conf.final /etc/containers/registries.conf; rm -f /tmp/registries.conf.k2s'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    Write-Log "[RegistryConfig] Restarting crio after registries.conf normalization on node $IpAddress."
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
 }
 
 function Clear-LinuxWorkerNodeRoutes {
@@ -596,12 +456,7 @@ function Test-SupportedWorkerOS {
     throw "OS '$OS' is not supported. Supported: $supportedList"
 }
 
-Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM,
-Start-LinuxWorkerNodeOnNewVM,
-Stop-LinuxWorkerNodeOnNewVM,
-Remove-LinuxWorkerNodeOnNewVM,
-Remove-LinuxWorkerNodeOnExistingUbuntuVM,
-Add-LinuxWorkerNode,
+Export-ModuleMember -Function Add-LinuxWorkerNode,
 Remove-LinuxWorkerNode,
 Clear-LinuxWorkerNodeRoutes,
 Start-LinuxWorkerNode,

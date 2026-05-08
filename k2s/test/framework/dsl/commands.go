@@ -17,6 +17,10 @@ func (k2s *K2s) Start(ctx context.Context) *K2sCmdResult {
 	return k2s.runCmd(ctx, "start")
 }
 
+func (k2s *K2s) Stop(ctx context.Context) *K2sCmdResult {
+	return k2s.runCmd(ctx, "stop")
+}
+
 func (k2s *K2s) AddNode(ctx context.Context) *K2sCmdResult {
 	return k2s.runCmd(ctx, "node", "add", "-i", "ip", "-u", "user")
 }

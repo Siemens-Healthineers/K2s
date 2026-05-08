@@ -499,4 +499,76 @@ spec:
 			})
 		})
 	})
+
+	Describe("cluster lifecycle", Label("cluster-lifecycle"), func() {
+		Context("when stopping and starting the entire cluster", Ordered, func() {
+			It("stops the cluster using k2s stop", func(ctx context.Context) {
+				GinkgoWriter.Println("Stopping the entire K2s cluster")
+
+				result := k2s.Stop(ctx)
+				result.ExpectSuccess()
+
+				GinkgoWriter.Println("Cluster stop command completed")
+			})
+
+			It("starts the cluster using k2s start", func(ctx context.Context) {
+				GinkgoWriter.Println("Starting the K2s cluster")
+
+				result := k2s.Start(ctx)
+				result.ExpectSuccess()
+
+				GinkgoWriter.Println("Cluster start command completed")
+			})
+
+			It("verifies all nodes are Ready after cluster restart", func(ctx context.Context) {
+				// Get all nodes and verify they are Ready
+				Eventually(func() bool {
+					client := suite.Cluster().Client()
+					clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
+					if err != nil {
+						GinkgoWriter.Printf("Error creating clientset: %v\n", err)
+						return false
+					}
+
+					nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+					if err != nil {
+						GinkgoWriter.Printf("Error listing nodes: %v\n", err)
+						return false
+					}
+
+					if len(nodes.Items) == 0 {
+						GinkgoWriter.Println("No nodes found in cluster")
+						return false
+					}
+
+					allReady := true
+					for _, node := range nodes.Items {
+						nodeReady := false
+						for _, cond := range node.Status.Conditions {
+							if cond.Type == corev1.NodeReady {
+								nodeReady = cond.Status == corev1.ConditionTrue
+								break
+							}
+						}
+						GinkgoWriter.Printf("Node %s Ready: %v\n", node.Name, nodeReady)
+						if !nodeReady {
+							allReady = false
+						}
+					}
+					return allReady
+				}, 10*time.Minute, 10*time.Second).Should(BeTrue(),
+					"All nodes should be Ready after cluster restart")
+
+				GinkgoWriter.Println("All nodes are Ready after cluster restart")
+			})
+
+			It("verifies the added worker node is Ready", func(ctx context.Context) {
+				ready, err := getNodeStatus(ctx, vmName)
+				Expect(err).NotTo(HaveOccurred(), "Should be able to get node status for %s", vmName)
+				Expect(ready).To(BeTrue(), "Worker node %s should be Ready after cluster restart", vmName)
+
+				GinkgoWriter.Printf("Worker node %s is Ready after cluster restart\n", vmName)
+			})
+		})
+	})
 })
