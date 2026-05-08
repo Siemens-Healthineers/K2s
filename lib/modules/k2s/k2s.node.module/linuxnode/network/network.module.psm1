@@ -30,45 +30,12 @@ function Add-DnsServer($switchname) {
 .SYNOPSIS
     Create switch to KubeMaster VM.
 .DESCRIPTION
-    Create switch to KubeMaster VM. If the switch already exists and is valid, it will be reused.
+    Create switch to KubeMaster VM.
 #>
 function New-KubeSwitch() {
     $maxRetries = 3
     $retryDelaySeconds = 5
     $switchAlias = "vEthernet ($controlPlaneSwitchName)"
-
-    # Check if switch already exists and is valid
-    $existingSwitch = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
-    if ($existingSwitch) {
-        Write-Log "[KubeSwitch] Switch '$controlPlaneSwitchName' already exists, checking if it's valid..."
-        
-        # Check if the network interface exists and has proper IP
-        $existingIp = Get-NetIPAddress -InterfaceAlias $switchAlias -IPAddress $kubeSwitchIp -ErrorAction SilentlyContinue
-        if ($existingIp) {
-            Write-Log "[KubeSwitch] Switch '$controlPlaneSwitchName' is valid with IP $kubeSwitchIp, reusing it"
-            return
-        }
-        
-        # Switch exists but IP is missing - try to configure it
-        Write-Log "[KubeSwitch] Switch exists but IP not configured, configuring IP..."
-        $ipInterface = Get-NetIPInterface -InterfaceAlias $switchAlias -ErrorAction SilentlyContinue
-        if ($ipInterface) {
-            # Remove any existing IP and add the correct one
-            Remove-NetIPAddress -InterfaceAlias $switchAlias -Confirm:$False -ErrorAction SilentlyContinue
-            New-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -InterfaceAlias $switchAlias | Out-Null
-            Set-NetConnectionProfile -InterfaceAlias $switchAlias -NetworkCategory Private -ErrorAction SilentlyContinue
-            netsh int ipv4 set int $switchAlias forwarding=enabled | Out-Null
-            $ipindex1 = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$controlPlaneSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-            Write-Log "[KubeSwitch] Index for interface $controlPlaneSwitchName : ($ipindex1) -> metric 100"
-            Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 100
-            Write-Log "[KubeSwitch] Existing switch reconfigured successfully"
-            return
-        }
-        
-        # Interface doesn't exist - switch is corrupted, remove and recreate
-        Write-Log "[KubeSwitch] Switch appears corrupted, removing and recreating..."
-        Remove-VMSwitch -Name $controlPlaneSwitchName -Force -ErrorAction SilentlyContinue
-    }
 
     for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
         try {
@@ -177,8 +144,7 @@ function Disconnect-NetworkAdapterFromVm {
 .SYNOPSIS
     Remove switch to control plane VM.
 .DESCRIPTION
-    Remove switch to control plane VM. Disconnects all VMs from the switch first,
-    then removes the switch.
+    Remove switch to control plane VM.
 #>
 function Remove-KubeSwitch() {
     Write-Log '[KubeSwitch] Removing KubeSwitch...'
