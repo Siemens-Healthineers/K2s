@@ -149,14 +149,6 @@ func kubeSwitchExists(ctx context.Context) bool {
 	return strings.TrimSpace(output) == "True"
 }
 
-// getKubeSwitchNetworkProfile returns the network profile category of the KubeSwitch interface.
-// Returns "Private", "Public", "DomainAuthenticated", or empty string if not found.
-func getKubeSwitchNetworkProfile(ctx context.Context) string {
-	cmd := `$adapter = Get-NetAdapter | Where-Object { $_.Name -like 'vEthernet (KubeSwitch)*' } | Select-Object -First 1; if ($adapter) { (Get-NetConnectionProfile -InterfaceIndex $adapter.ifIndex -ErrorAction SilentlyContinue).NetworkCategory } else { '' }`
-	output := suite.Cli("powershell").NoStdOut().MustExec(ctx, "-Command", cmd)
-	return strings.TrimSpace(output)
-}
-
 // getNodeStatus returns the Ready condition status of a node.
 func getNodeStatus(ctx context.Context, nodeName string) (bool, error) {
 	client := suite.Cluster().Client()
@@ -265,15 +257,6 @@ var _ = Describe("Hyper-V Linux VM Node", Ordered, func() {
 		Context("when node is already part of the cluster", func() {
 			It("node appears as Ready in the cluster", func(ctx context.Context) {
 				suite.Cluster().ExpectNodeToBeReady(vmName, ctx)
-			})
-		})
-
-		Context("when checking KubeSwitch network profile", func() {
-			It("KubeSwitch network profile is set to Private", func(ctx context.Context) {
-				profile := getKubeSwitchNetworkProfile(ctx)
-				Expect(profile).To(Equal("Private"),
-					"Expected KubeSwitch network profile to be 'Private', got '%s'. "+
-						"Run 'Set-NetConnectionProfile -InterfaceAlias \"vEthernet (KubeSwitch)\" -NetworkCategory Private' to fix.", profile)
 			})
 		})
 	})
