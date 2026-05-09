@@ -654,6 +654,23 @@ function Install-Kyverno {
     Write-Log '[Kyverno] Installing via Helm' -Console
     $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath)
 
+    $staleReleaseCheck = Invoke-Helm -Params @('status', 'kyverno', '-n', $kyvernoNamespace, '-o', 'json')
+    if ($staleReleaseCheck.Success) {
+        try {
+            $releaseStatus = ($staleReleaseCheck.Output | Out-String | ConvertFrom-Json).info.status
+        } catch {
+            $releaseStatus = 'unknown'
+        }
+        if ($releaseStatus -notin @('deployed', 'superseded')) {
+            Write-Log "[Kyverno] Found Helm release in state '$releaseStatus', purging before install to ensure clean state" -Console
+            $uninstallResult = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--no-hooks', '--wait')
+            $uninstallResult.Output | Write-Log
+            if (-not $uninstallResult.Success) {
+                Write-Log '[Kyverno] Warning: pre-clean uninstall failed, proceeding with install attempt' -Console
+            }
+        }
+    }
+
     $maxAttempts = 3
     $retryDelaySec = 30
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
@@ -667,8 +684,9 @@ function Install-Kyverno {
         # Retry on ClusterIP allocation collision (K8s allocator bitmap lag after uninstall)
         if ($attempt -lt $maxAttempts -and $result.Output -match 'provided IP is already allocated') {
             Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed due to ClusterIP allocation conflict -- retrying in ${retryDelaySec}s" -Console
-            # Purge the failed Helm release so the retry starts as a fresh install, not an upgrade
-            # (an upgrade would trigger the post-upgrade-migrate-resources hook which times out)
+            # Purge the failed Helm release so the retry is a fresh install, not an upgrade
+            # (an upgrade triggers the post-upgrade-migrate-resources hook which times out)
+            # Wait for K8s IPAM to free the ClusterIP after Service deletion before retrying
             $purgeResult = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--no-hooks')
             $purgeResult.Output | Write-Log
             Start-Sleep -Seconds $retryDelaySec
