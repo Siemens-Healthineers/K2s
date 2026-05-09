@@ -39,6 +39,21 @@ if ($EnancedSecurityEnabled) {
 	if (-not $rolloutResult.Success) {
 		Write-Log "[ingress-nginx] WARNING: rollout did not complete within 120s; webhook may not be ready" -Console
 	}
+
+	Write-Log '[ingress-nginx] Waiting for admission webhook endpoint to have ready IPs...' -Console
+	$webhookMaxWait = 60
+	$webhookWaited = 0
+	do {
+		$webhookEndpoints = (Invoke-Kubectl -Params 'get', 'endpoints', 'ingress-nginx-controller-admission', '-n', 'ingress-nginx', '-o', 'jsonpath={.subsets[*].addresses[*].ip}').Output
+		if ($webhookEndpoints) { break }
+		Start-Sleep -Seconds 3
+		$webhookWaited += 3
+	} while ($webhookWaited -lt $webhookMaxWait)
+	if ($webhookEndpoints) {
+		Write-Log "[ingress-nginx] Admission webhook ready (IPs: $webhookEndpoints)" -Console
+	} else {
+		Write-Log '[ingress-nginx] WARNING: admission webhook endpoint has no ready IPs after 60s; Ingress applies may fail' -Console
+	}
 } else {
 	Write-Log "Updating nginx ingress addon to not be part of service mesh"
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"config.linkerd.io/skip-outbound-ports\":null,\"linkerd.io/inject\":null}}}}}'

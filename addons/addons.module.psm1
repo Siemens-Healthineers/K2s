@@ -1231,6 +1231,8 @@ function Update-IngressForNginx {
 	}
 	if (-not $applied) {
 		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name) after $maxRetries attempts" -Console
+		throw "[Ingress-Nginx] Failed to apply ingress manifest for '$($props.Name)' after $maxRetries attempts. " +
+			"Check kubectl output above and nginx admission webhook availability."
 	}
 }
 
