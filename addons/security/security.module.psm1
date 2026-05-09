@@ -652,7 +652,7 @@ function Install-Kyverno {
     }
 
     Write-Log '[Kyverno] Installing via Helm' -Console
-    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath)
+    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--timeout', '10m')
 
     $staleReleaseCheck = Invoke-Helm -Params @('status', 'kyverno', '-n', $kyvernoNamespace, '-o', 'json')
     if ($staleReleaseCheck.Success) {

@@ -1211,6 +1211,24 @@ function Update-IngressForNginx {
 		$kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
 	}
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
+
+	Write-Log '  [Webhook probe] Waiting for nginx admission webhook to accept connections (up to 120s)...' -Console
+	$probeWaited = 0
+	$probeMaxWait = 120
+	do {
+		$probeResult = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir, '--dry-run=server'
+		if ($probeResult.Output -notmatch 'connection refused') {
+			Write-Log "  [Webhook probe] Webhook is accepting connections after ${probeWaited}s" -Console
+			break
+		}
+		Write-Log "  [Webhook probe] Webhook not ready at ${probeWaited}s (connection refused) - waiting 5s..." -Console
+		Start-Sleep -Seconds 5
+		$probeWaited += 5
+	} while ($probeWaited -lt $probeMaxWait)
+	if ($probeWaited -ge $probeMaxWait) {
+		Write-Log '  [Webhook probe] WARNING: webhook did not become reachable within 120s; apply attempts will likely fail' -Console
+	}
+
 	# Retry logic: the admission webhook may transiently reject the ingress if the
 	# controller has not yet fully loaded the ConfigMap (e.g. annotations-risk-level).
 	$maxRetries = 3
