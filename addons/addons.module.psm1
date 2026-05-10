@@ -1402,11 +1402,23 @@ function Update-IngressForNginxGateway {
 	}
 
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
-	if ($result.Success) {
-		Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+	
+	$maxRetries = 3
+	$retryDelay = 10
+	$result = $null
+	for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+		$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
+		if ($result.Success) {
+			Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+			break
+		}
+		Write-Log "  WARNING: Failed to apply ingress manifest for $($props.Name) (attempt $attempt/$maxRetries): $($result.Output)" -Console
+		if ($attempt -lt $maxRetries) {
+			Write-Log "  Retrying in $retryDelay seconds..." -Console
+			Start-Sleep -Seconds $retryDelay
+		}
 	}
-	else {
+	if (-not $result.Success) {
 		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name): $($result.Output)" -Console
 	}
 }

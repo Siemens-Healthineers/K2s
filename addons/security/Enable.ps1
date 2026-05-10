@@ -428,7 +428,6 @@ try {
 
 	Write-Log '[Security] Waiting for security-stack deployments to reach Available state...' -Console
 	$stabilizationNamespaces = [System.Collections.Generic.List[string]]@('security', 'cert-manager')
-	if (-not $OmitPolicyEnf) { $stabilizationNamespaces.Add('kyverno') }
 	if (Confirm-EnhancedSecurityOn($Type)) { $stabilizationNamespaces.Add('linkerd') }
 
 	foreach ($ns in $stabilizationNamespaces) {
