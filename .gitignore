@@ -18,6 +18,7 @@ nssm.exe
 vc_redist.x64.exe
 bin/oras.exe
 bin/flux.exe
+bin/kyverno.exe
 
 #Scripts
 smallsetup/common/StartKubelet.ps1

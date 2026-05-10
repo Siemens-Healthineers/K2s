@@ -400,7 +400,7 @@ try {
 			}
 			$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-outbound-ports\":\"4444\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'keycloak', '-n', 'security', '-p', $annotations3).Output | Write-Log
-			$annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
+			$annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\",\"config.linkerd.io/proxy-await\":\"enabled\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'postgresql', '-n', 'security', '-p', $annotations4).Output | Write-Log
 			# wait for pods to be ready
 			Write-Log 'Waiting for security pods to be ready' -Console
@@ -436,6 +436,21 @@ try {
 	} else {
 		Write-Log 'Omitting Kyverno policy enforcement engine as per flag.' -Console
 	}
+
+	Write-Log '[Security] Waiting for security-stack deployments to reach Available state...' -Console
+	$stabilizationNamespaces = [System.Collections.Generic.List[string]]@('security', 'cert-manager')
+	if (-not $OmitPolicyEnf) { $stabilizationNamespaces.Add('kyverno') }
+	if (Confirm-EnhancedSecurityOn($Type)) { $stabilizationNamespaces.Add('linkerd') }
+
+	foreach ($ns in $stabilizationNamespaces) {
+		Write-Log "[Security] Waiting for deployments in namespace '$ns' to be Available..." -Console
+		$waitResult = Invoke-Kubectl -Params 'wait', '--for=condition=Available', 'deployment', '--all', '-n', $ns, '--timeout=120s'
+		$waitResult.Output | Write-Log
+		if ($waitResult.Success -ne $true) {
+			Write-Log "[Security] Warning: some deployments in '$ns' did not reach Available state within 120s. Continuing." -Console
+		}
+	}
+	Write-Log '[Security] Security-stack stabilisation complete.' -Console
 }
 catch {
 	Write-Log 'Exception happened during enable of addon' -Console
