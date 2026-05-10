@@ -681,12 +681,11 @@ function Install-Kyverno {
             break
         }
 
-        # Retry on ClusterIP allocation collision (K8s allocator bitmap lag after uninstall)
-        if ($attempt -lt $maxAttempts -and $result.Output -match 'provided IP is already allocated') {
-            Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed due to ClusterIP allocation conflict -- retrying in ${retryDelaySec}s" -Console
+        if ($attempt -lt $maxAttempts -and $result.Output -match 'provided IP is already allocated|context deadline exceeded') {
+            $reason = if ($result.Output -match 'provided IP is already allocated') { 'ClusterIP allocation conflict' } else { 'API server context deadline exceeded' }
+            Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed ($reason) -- purging and retrying in ${retryDelaySec}s" -Console
             # Purge the failed Helm release so the retry is a fresh install, not an upgrade
             # (an upgrade triggers the post-upgrade-migrate-resources hook which times out)
-            # Wait for K8s IPAM to free the ClusterIP after Service deletion before retrying
             $purgeResult = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--no-hooks')
             $purgeResult.Output | Write-Log
             Start-Sleep -Seconds $retryDelaySec
