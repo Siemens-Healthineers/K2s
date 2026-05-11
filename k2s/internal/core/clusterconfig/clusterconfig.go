@@ -35,7 +35,6 @@ type Cluster struct {
 
 const (
 	NodeTypeHost       NodeType = "HOST"
-	NodeTypeVMNew      NodeType = "VM-NEW"
 	NodeTypeVMExisting NodeType = "VM-EXISTING"
 
 	RoleWorker       Role = "worker"
@@ -71,8 +70,6 @@ func GetNodeDirectory(nodeType string) string {
 	switch NodeType(nodeType) {
 	case NodeTypeHost:
 		return "bare-metal"
-	case NodeTypeVMNew:
-		return filepath.Join("hyper-v-vm", "new-vm")
 	case NodeTypeVMExisting:
 		return filepath.Join("hyper-v-vm", "existing-vm")
 	default:

@@ -9,6 +9,30 @@ BUILDAH_DEB_PACKAGES_PATH="${1:?Argument missing: BuildahDebPackagesPath}"
 
 echo "[BuildahInstall] Installing buildah packages from '$BUILDAH_DEB_PACKAGES_PATH'"
 
+# ---------------------------------------------------------------------------
+# Wait for dpkg lock (unattended-upgrades may hold it)
+# ---------------------------------------------------------------------------
+wait_for_dpkg_lock() {
+    local max_wait=300  # 5 minutes
+    local waited=0
+    while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+          sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || \
+          sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+        if [ $waited -ge $max_wait ]; then
+            echo "[BuildahInstall] ERROR: Timeout waiting for dpkg lock after ${max_wait}s" >&2
+            exit 1
+        fi
+        echo "[BuildahInstall] Waiting for dpkg lock (held by another process)..."
+        sleep 5
+        waited=$((waited + 5))
+    done
+    if [ $waited -gt 0 ]; then
+        echo "[BuildahInstall] dpkg lock released after ${waited}s"
+    fi
+}
+
+wait_for_dpkg_lock
+
 # Multi-pass dpkg: alphabetical glob order can place a package before its deps
 # are configured. Three passes let each iteration configure more packages.
 # --no-remove prevents apt --fix-broken from evicting buildah.
