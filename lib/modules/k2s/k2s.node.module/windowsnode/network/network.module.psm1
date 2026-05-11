@@ -681,6 +681,71 @@ function Set-KubeSwitchToPrivate {
     Write-Log 'Kubeswitch check finished.'
 }
 
+<#
+.SYNOPSIS
+Checks if the KubeSwitch network connection profile is set to Private.
+
+.DESCRIPTION
+Verifies that the KubeSwitch (Hyper-V internal switch) has its network category set to Private.
+This is required for proper communication between the Windows host and VMs on the switch.
+Returns a hashtable with IsPrivate (bool) and CurrentCategory (string).
+
+.EXAMPLE
+$result = Test-KubeSwitchPrivateProfile
+if (-not $result.IsPrivate) {
+    throw "KubeSwitch is set to '$($result.CurrentCategory)' - must be Private"
+}
+#>
+function Test-KubeSwitchPrivateProfile {
+    $WSL = Get-ConfigWslFlag
+    $switchname = ''
+    if ($WSL) {
+        $switchname = Get-WslSwitchName
+    }
+    else {
+        $switchname = Get-ControlPlaneNodeDefaultSwitchName
+    }
+
+    # get the real switch name (vEthernet interface)
+    $switchRealName = $null
+    try {
+        $switchRealName = Get-VirtualSwitchName($switchname)
+    }
+    catch {
+        Write-Log "[KubeSwitchCheck] Could not find interface for switch '$switchname': $_"
+        return @{
+            IsPrivate       = $false
+            CurrentCategory = 'Unknown'
+            SwitchName      = $switchname
+            InterfaceAlias  = $null
+            Error           = "Switch interface not found: $_"
+        }
+    }
+
+    $connectionProfile = Get-NetConnectionProfile -InterfaceAlias $switchRealName -ErrorAction SilentlyContinue
+    if (-not $connectionProfile) {
+        Write-Log "[KubeSwitchCheck] No connection profile found for '$switchRealName'"
+        return @{
+            IsPrivate       = $false
+            CurrentCategory = 'NoProfile'
+            SwitchName      = $switchname
+            InterfaceAlias  = $switchRealName
+            Error           = "No connection profile found"
+        }
+    }
+
+    $category = $connectionProfile.NetworkCategory
+    Write-Log "[KubeSwitchCheck] KubeSwitch '$switchRealName' has network category: $category"
+
+    return @{
+        IsPrivate       = ($category -eq 'Private')
+        CurrentCategory = $category
+        SwitchName      = $switchname
+        InterfaceAlias  = $switchRealName
+        Error           = $null
+    }
+}
+
 Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
@@ -689,4 +754,4 @@ Get-L2BridgeSwitchName,
 Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
 Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand,
-Wait-ForServiceStopped
+Wait-ForServiceStopped, Test-KubeSwitchPrivateProfile
