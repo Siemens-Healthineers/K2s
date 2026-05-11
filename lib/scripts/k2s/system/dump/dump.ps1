@@ -322,7 +322,8 @@ function Invoke-ClusterDiagnosticsCollection(
             # Logs
             (Invoke-CmdOnControlPlaneViaSSHKey "kubectl logs $podName -n $namespace").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $podDir "logs.txt") -Description "kubectl logs $podName -n $namespace"
             # Previous logs
-            (Invoke-CmdOnControlPlaneViaSSHKey "kubectl logs --previous $podName -n $namespace").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $podDir "logs-previous.txt") -Description "kubectl logs --previous $podName -n $namespace"
+            $previousLogs = (Invoke-CmdOnControlPlaneViaSSHKey -IgnoreErrors "kubectl logs --previous $podName -n $namespace").Output
+            $previousLogs | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $podDir "logs-previous.txt") -Description "kubectl logs --previous $podName -n $namespace"
         }
     }
 
