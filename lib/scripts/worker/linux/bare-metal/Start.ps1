@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -10,7 +10,8 @@ Param(
     [string] $NodeName = $(throw 'Argument missing: NodeName'),
     [switch] $ObtainCIDR = $false,
     [switch] $ShowLogs = $false,
-    [string] $AdditionalHooksDir = ''
+    [string] $AdditionalHooksDir = '',
+    [switch] $SingleNode = $false
 )
 
 $infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
@@ -35,4 +36,4 @@ $workerNodeStartParams = @{
     NodeName = $workerNodeName
     ObtainCIDR = $ObtainCIDR
 }
-Start-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeStartParams
+Start-LinuxWorkerNode @workerNodeStartParams
