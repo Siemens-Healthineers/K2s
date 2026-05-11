@@ -41,6 +41,8 @@ type Cluster struct {
 	testStepPollInterval time.Duration
 }
 
+const clusterReadinessTimeout = 10 * time.Minute
+
 type podExecParam struct {
 	Namespace string
 	Pod       string
@@ -424,11 +426,44 @@ func (c *Cluster) ExpectClusterIsRunningAfterRestart(ctx context.Context) {
 
 // This is used to check system pods are up and running, use EnsureClusterIsRunningAfterRestart if the check is needed after restart
 func (c *Cluster) ExpectClusterIsRunning(ctx context.Context) {
-	Eventually(c.AreAllPodsReady(ctx, "kube-system"), c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue(), "Not all pods are ready in namespace: kube-system")
-	Eventually(c.AreAllPodsReady(ctx, "kube-flannel"), c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue(), "Not all pods are ready in namespace: kube-flannel")
+	c.expectNamespacePodsReady(ctx, "kube-system")
+	c.expectNamespacePodsReady(ctx, "kube-flannel")
 }
 
 func (c *Cluster) AreAllPodsReady(ctx context.Context, namespace string) bool {
+	return c.areAllPodsReady(ctx, namespace, true)
+}
+
+func (c *Cluster) expectNamespacePodsReady(ctx context.Context, namespace string) {
+	timeout := c.testStepTimeout
+	if timeout < clusterReadinessTimeout {
+		timeout = clusterReadinessTimeout
+	}
+
+	deadline := time.Now().Add(timeout)
+
+	for {
+		if c.areAllPodsReady(ctx, namespace, false) {
+			return
+		}
+
+		if time.Now().After(deadline) {
+			c.writeNamespaceReadinessDiagnostics(ctx, namespace)
+			Expect(false).To(BeTrue(), "Not all pods are ready in namespace: %s after %s", namespace, timeout)
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			c.writeNamespaceReadinessDiagnostics(context.Background(), namespace)
+			Expect(ctx.Err()).ToNot(HaveOccurred(), "context ended while waiting for pods in namespace: %s", namespace)
+			return
+		case <-time.After(c.testStepPollInterval):
+		}
+	}
+}
+
+func (c *Cluster) areAllPodsReady(ctx context.Context, namespace string, verbose bool) bool {
 	client := c.Client()
 	clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
 	Expect(err).To(BeNil())
@@ -439,22 +474,30 @@ func (c *Cluster) AreAllPodsReady(ctx context.Context, namespace string) bool {
 	}
 
 	for _, pod := range pods.Items {
-		GinkgoWriter.Println(fmt.Sprintf("Pod: %-40s Status: %-40s", pod.Name, pod.Status.Phase))
+		if verbose {
+			GinkgoWriter.Println(fmt.Sprintf("Pod: %-40s Status: %-40s", pod.Name, pod.Status.Phase))
+		}
 
 		// Check if the pod is in the "Running" phase
 		if pod.Status.Phase != "Running" {
-			GinkgoWriter.Println(fmt.Sprintf("Pod: %-40s is not Running yet", pod.Name))
+			if verbose {
+				GinkgoWriter.Println(fmt.Sprintf("Pod: %-40s is not Running yet", pod.Name))
+			}
 			return false
 		}
 
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type == corev1.PodReady && condition.Status != corev1.ConditionTrue {
-				GinkgoWriter.Println(fmt.Sprintf("Pod: %-40s is not ready yet Condition Type: %s Condition Status: %s Last Transition Time: %s", pod.Name, condition.Type, condition.Status, condition.LastTransitionTime))
+				if verbose {
+					GinkgoWriter.Println(fmt.Sprintf("Pod: %-40s is not ready yet Condition Type: %s Condition Status: %s Last Transition Time: %s", pod.Name, condition.Type, condition.Status, condition.LastTransitionTime))
+				}
 				return false
 			}
 
 			if condition.Type == corev1.ContainersReady && condition.Status != corev1.ConditionTrue {
-				GinkgoWriter.Println(fmt.Sprintf("Pod: %-40s containers are not ready yet Condition Type: %s Condition Status: %s Last Transition Time: %s", pod.Name, condition.Type, condition.Status, condition.LastTransitionTime))
+				if verbose {
+					GinkgoWriter.Println(fmt.Sprintf("Pod: %-40s containers are not ready yet Condition Type: %s Condition Status: %s Last Transition Time: %s", pod.Name, condition.Type, condition.Status, condition.LastTransitionTime))
+				}
 				return false
 			}
 		}
@@ -462,13 +505,137 @@ func (c *Cluster) AreAllPodsReady(ctx context.Context, namespace string) bool {
 		// Check if all containers in the pod are ready
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if !containerStatus.Ready {
-				GinkgoWriter.Println(fmt.Sprintf("Pod Container: %-40s is not Running yet", pod.Name))
+				if verbose {
+					GinkgoWriter.Println(fmt.Sprintf("Pod Container: %-40s is not Running yet", pod.Name))
+				}
 				return false
 			}
 		}
 	}
 
 	return true
+}
+
+func (c *Cluster) writeNamespaceReadinessDiagnostics(ctx context.Context, namespace string) {
+	clientSet, err := kubernetes.NewForConfig(c.Client().Resources().GetConfig())
+	if err != nil {
+		GinkgoWriter.Printf("Failed to create Kubernetes client for readiness diagnostics: %v\n", err)
+		return
+	}
+
+	pods, err := clientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		GinkgoWriter.Printf("Failed to list pods in namespace %s for readiness diagnostics: %v\n", namespace, err)
+		return
+	}
+
+	GinkgoWriter.Printf("Readiness diagnostics for namespace <%s> (%d pods):\n", namespace, len(pods.Items))
+
+	for _, pod := range pods.Items {
+		GinkgoWriter.Printf("Pod %s/%s phase=%s node=%s podIP=%s hostIP=%s startTime=%s\n", pod.Namespace, pod.Name, pod.Status.Phase, pod.Spec.NodeName, pod.Status.PodIP, pod.Status.HostIP, pod.Status.StartTime)
+
+		for _, condition := range pod.Status.Conditions {
+			GinkgoWriter.Printf("  Condition type=%s status=%s reason=%q message=%q lastTransition=%s\n", condition.Type, condition.Status, condition.Reason, condition.Message, condition.LastTransitionTime)
+		}
+
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			GinkgoWriter.Printf("  Container name=%s ready=%t restartCount=%d state=%s lastState=%s\n", containerStatus.Name, containerStatus.Ready, containerStatus.RestartCount, formatContainerState(containerStatus.State), formatContainerState(containerStatus.LastTerminationState))
+		}
+
+		if !isPodReady(pod) {
+			c.writePodEvents(ctx, clientSet, pod)
+			c.writePodLogs(ctx, clientSet, pod)
+		}
+	}
+}
+
+func isPodReady(pod corev1.Pod) bool {
+	if pod.Status.Phase != corev1.PodRunning {
+		return false
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status != corev1.ConditionTrue {
+			return false
+		}
+
+		if condition.Type == corev1.ContainersReady && condition.Status != corev1.ConditionTrue {
+			return false
+		}
+	}
+
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if !containerStatus.Ready {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (c *Cluster) writePodEvents(ctx context.Context, clientSet *kubernetes.Clientset, pod corev1.Pod) {
+	events, err := clientSet.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
+	if err != nil {
+		GinkgoWriter.Printf("  Failed to retrieve events for pod %s/%s: %v\n", pod.Namespace, pod.Name, err)
+		return
+	}
+
+	if len(events.Items) == 0 {
+		GinkgoWriter.Printf("  No events found for pod %s/%s\n", pod.Namespace, pod.Name)
+		return
+	}
+
+	GinkgoWriter.Printf("  Events for pod %s/%s:\n", pod.Namespace, pod.Name)
+	for _, event := range events.Items {
+		GinkgoWriter.Printf("    type=%s reason=%s count=%d lastTimestamp=%s message=%q\n", event.Type, event.Reason, event.Count, event.LastTimestamp, event.Message)
+	}
+}
+
+func (c *Cluster) writePodLogs(ctx context.Context, clientSet *kubernetes.Clientset, pod corev1.Pod) {
+	const tailLines int64 = 100
+
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		c.writeContainerLogs(ctx, clientSet, pod, containerStatus.Name, tailLines, false)
+
+		if containerStatus.RestartCount > 0 {
+			c.writeContainerLogs(ctx, clientSet, pod, containerStatus.Name, tailLines, true)
+		}
+	}
+}
+
+func (c *Cluster) writeContainerLogs(ctx context.Context, clientSet *kubernetes.Clientset, pod corev1.Pod, containerName string, tailLines int64, previous bool) {
+	logs, err := clientSet.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: containerName, TailLines: ptrTo(tailLines), Previous: previous}).Do(ctx).Raw()
+	logType := "current"
+	if previous {
+		logType = "previous"
+	}
+
+	if err != nil {
+		GinkgoWriter.Printf("  Failed to retrieve %s logs for pod %s/%s container %s: %v\n", logType, pod.Namespace, pod.Name, containerName, err)
+		return
+	}
+
+	GinkgoWriter.Printf("  Last %d %s log lines for not-ready pod %s/%s container %s:\n%s\n", tailLines, logType, pod.Namespace, pod.Name, containerName, string(logs))
+}
+
+func ptrTo[T any](value T) *T {
+	return &value
+}
+
+func formatContainerState(state corev1.ContainerState) string {
+	if state.Waiting != nil {
+		return fmt.Sprintf("Waiting(reason=%q message=%q)", state.Waiting.Reason, state.Waiting.Message)
+	}
+
+	if state.Running != nil {
+		return fmt.Sprintf("Running(startedAt=%s)", state.Running.StartedAt)
+	}
+
+	if state.Terminated != nil {
+		return fmt.Sprintf("Terminated(reason=%q exitCode=%d message=%q finishedAt=%s)", state.Terminated.Reason, state.Terminated.ExitCode, state.Terminated.Message, state.Terminated.FinishedAt)
+	}
+
+	return "Unknown"
 }
 
 func (c *Cluster) ExpectPodToBeReady(name string, namespace string, hostname string) {
