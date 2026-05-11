@@ -705,12 +705,15 @@ function Install-Kyverno {
             break
         }
 
-        $isRetryable = $result.Output -match 'provided IP is already allocated|context deadline exceeded|has no deployed releases'
+        $outputText = ($result.Output | ForEach-Object { "$_" }) -join "`n"
+        $isRetryable = $outputText -match 'provided IP is already allocated|context deadline exceeded|has no deployed releases|unable to continue with install: could not get information about the resource|server was unable to return a response in the time allotted|etcdserver: request timed out'
         if ($attempt -lt $maxAttempts -and $isRetryable) {
-            $reason = switch -Regex ($result.Output) {
-                'provided IP is already allocated' { 'ClusterIP allocation conflict' }
-                'context deadline exceeded'        { 'API server context deadline exceeded' }
-                'has no deployed releases'         { 'stale pending-install Helm secret (no base release)' }
+            $reason = switch -Regex ($outputText) {
+                'provided IP is already allocated' { 'ClusterIP allocation conflict'; break }
+                'context deadline exceeded'        { 'API server context deadline exceeded'; break }
+                'has no deployed releases'         { 'stale pending-install Helm secret (no base release)'; break }
+                'could not get information about the resource|server was unable to return a response in the time allotted' { 'API server timeout while resolving CRDs'; break }
+                'etcdserver: request timed out'    { 'etcd request timeout'; break }
                 default                            { 'transient Helm error' }
             }
             Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed ($reason) -- purging and retrying in ${retryDelaySec}s" -Console
