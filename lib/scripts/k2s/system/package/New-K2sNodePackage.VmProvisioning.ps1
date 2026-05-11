@@ -1,6 +1,123 @@
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
+function Test-NodePackageGuestIpAvailability {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $IpAddress,
+		[Parameter(Mandatory = $true)]
+		[string] $SwitchName,
+		[Parameter(Mandatory = $true)]
+		[string[]] $ReservedIpAddresses,
+		[Parameter(Mandatory = $false)]
+		[string] $LogPrefix = '[NodePkg]'
+	)
+
+	$normalizedIp = $IpAddress.Trim()
+	$normalizedReserved = @($ReservedIpAddresses | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
+
+	if ($normalizedReserved -contains $normalizedIp) {
+		Write-Log ("{0} Candidate guest IP '{1}' is reserved by K2s networking. Skipping." -f $LogPrefix, $normalizedIp)
+		return $false
+	}
+
+	$matchingAdapters = @(Get-VMNetworkAdapter -All -ErrorAction SilentlyContinue | Where-Object {
+		$adapterIps = @($_.IPAddresses)
+		$adapterIps -contains $normalizedIp
+	})
+	if ($matchingAdapters.Count -gt 0) {
+		$vmNames = ($matchingAdapters | Select-Object -ExpandProperty VMName -Unique) -join ', '
+		Write-Log ("{0} Candidate guest IP '{1}' is already assigned to Hyper-V VM(s): {2}. Skipping." -f $LogPrefix, $normalizedIp, $vmNames)
+		return $false
+	}
+
+	$neighbors = @(Get-NetNeighbor -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object {
+		$_.IPAddress -eq $normalizedIp -and $_.State -ne 'Unreachable'
+	})
+	if ($neighbors.Count -gt 0) {
+		$activeNeighbors = @($neighbors | Where-Object { $_.State -in @('Reachable', 'Permanent') })
+		if ($activeNeighbors.Count -gt 0) {
+			$ifIndexes = ($activeNeighbors | Select-Object -ExpandProperty ifIndex -Unique) -join ', '
+			Write-Log ("{0} Candidate guest IP '{1}' has active neighbor entries (ifIndex={2}). Skipping." -f $LogPrefix, $normalizedIp, $ifIndexes)
+			return $false
+		}
+
+		$neighborStates = ($neighbors | Select-Object -ExpandProperty State -Unique) -join ', '
+		Write-Log ("{0} Candidate guest IP '{1}' has non-active neighbor cache state(s): {2}. Continuing with active checks." -f $LogPrefix, $normalizedIp, $neighborStates)
+	}
+
+	if (Test-Connection -ComputerName $normalizedIp -Count 1 -Quiet -ErrorAction SilentlyContinue) {
+		Write-Log ("{0} Candidate guest IP '{1}' responds to ping. Skipping." -f $LogPrefix, $normalizedIp)
+		return $false
+	}
+
+	return $true
+}
+
+function Get-NodePackagePreferredHostOctets {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $DistributionKey
+	)
+
+	$normalizedKey = $DistributionKey.Trim().ToLower()
+	if ($normalizedKey -eq 'debian13') {
+		return @(102, 101)
+	}
+
+	return @(101, 102)
+}
+
+function Get-AvailableNodePackageGuestIp {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $ControlPlaneCIDR,
+		[Parameter(Mandatory = $true)]
+		[string] $SwitchName,
+		[Parameter(Mandatory = $true)]
+		[string[]] $ReservedIpAddresses,
+		[Parameter(Mandatory = $false)]
+		[int[]] $PreferredHostOctets = @(101, 102),
+		[Parameter(Mandatory = $false)]
+		[string] $LogPrefix = '[NodePkg]'
+	)
+
+	$cidrParts = $ControlPlaneCIDR -split '/'
+	if ($cidrParts.Count -ne 2) {
+		throw ("{0} Invalid CIDR format '{1}'." -f $LogPrefix, $ControlPlaneCIDR)
+	}
+
+	$prefixLen = [int]$cidrParts[1]
+	if ($prefixLen -ne 24) {
+		throw ("{0} KubeSwitch-based node package provisioning currently expects a /24 control-plane CIDR. Found '{1}'." -f $LogPrefix, $ControlPlaneCIDR)
+	}
+
+	$networkBase = ($cidrParts[0] -replace '\.0$', '')
+	$candidates = New-Object System.Collections.Generic.List[string]
+	$hardBlockedHostOctets = @(1, 2)
+
+	foreach ($octet in $PreferredHostOctets) {
+		if ($octet -ge 1 -and $octet -le 254 -and $hardBlockedHostOctets -notcontains $octet) {
+			$candidates.Add("$networkBase.$octet")
+		}
+	}
+
+	for ($octet = 3; $octet -le 254; $octet++) {
+		$candidateIp = "$networkBase.$octet"
+		if (-not $candidates.Contains($candidateIp)) {
+			$candidates.Add($candidateIp)
+		}
+	}
+
+	foreach ($candidateIp in $candidates) {
+		if (Test-NodePackageGuestIpAvailability -IpAddress $candidateIp -SwitchName $SwitchName -ReservedIpAddresses $ReservedIpAddresses -LogPrefix $LogPrefix) {
+			return $candidateIp
+		}
+	}
+
+	throw ("{0} Could not find a free guest IP in '{1}'." -f $LogPrefix, $ControlPlaneCIDR)
+}
+
 function Start-NodePackageVmProvisioning {
 	param (
 		[Parameter(Mandatory = $true)]
@@ -21,25 +138,25 @@ function Start-NodePackageVmProvisioning {
 	$kubePath = Get-KubePath
 	$kubeBinPath = Get-KubeBinPath
 
-	$suffix = [guid]::NewGuid().ToString('N').Substring(0, 6)
-	$switchName = "k2s-node-$DistributionKey-$suffix"
-	$natName = "k2s-node-$DistributionKey-$suffix"
+	$switchName = Get-ControlPlaneNodeDefaultSwitchName
+	$controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+	$hostIp = Get-ConfiguredKubeSwitchIP
+	$masterIp = Get-ConfiguredIPControlPlane
+	$reservedIps = @($hostIp, $masterIp)
+	$preferredHostOctets = Get-NodePackagePreferredHostOctets -DistributionKey $DistributionKey
+	$guestIp = Get-AvailableNodePackageGuestIp -ControlPlaneCIDR $controlPlaneCIDR -SwitchName $switchName -ReservedIpAddresses $reservedIps -PreferredHostOctets $preferredHostOctets -LogPrefix '[NodePkg]'
+	$prefixLen = [int](($controlPlaneCIDR -split '/')[1])
 
-	# Pick a free subnet from 192.168.100-200
-	$usedSubnets = @(
-		(Get-NetNat -ErrorAction SilentlyContinue | ForEach-Object { if ($_.InternalIPInterfaceAddressPrefix -match '192\.168\.(\d+)\.') { [int]$matches[1] } })
-		(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | ForEach-Object { if ($_.IPAddress -match '192\.168\.(\d+)\.') { [int]$matches[1] } })
-	) | Select-Object -Unique
-	$randomSubnet = 100..200 | Where-Object { $_ -notin $usedSubnets } | Get-Random
-	if (-not $randomSubnet) {
-		throw '[NodePkg] No free 192.168.x.0/24 subnet available in range 100-200. Clean up stale NATs manually.'
+	$kubeSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
+	if ($null -eq $kubeSwitch) {
+		Write-Log "[NodePkg] KubeSwitch '$switchName' not found. Creating it for node package VM provisioning." -Console
+		New-KubeSwitch
 	}
-	Write-Log "[NodePkg] Selected free subnet: 192.168.$randomSubnet.0/24" -Console
+	else {
+		Write-Log "[NodePkg] Reusing existing KubeSwitch '$switchName' for node package VM provisioning." -Console
+	}
+	Write-Log "[NodePkg] Using KubeSwitch subnet '$controlPlaneCIDR' with guest IP '$guestIp' and gateway '$hostIp'." -Console
 
-	$hostIp = "192.168.$randomSubnet.1"
-	$guestIp = "192.168.$randomSubnet.10"
-	$prefixLen = 24
-	$natIp = "192.168.$randomSubnet.0"
 	$hostDns = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
 		ForEach-Object { @($_.ServerAddresses) } |
 		Where-Object { $_ -and $_ -ne '0.0.0.0' -and $_ -notlike '127.*' } |
@@ -74,9 +191,8 @@ function Start-NodePackageVmProvisioning {
 		SwitchName         = $switchName
 		HostIpAddress      = $hostIp
 		HostIpPrefixLength = $prefixLen
-		NatName            = $natName
-		NatIpAddress       = $natIp
 		DnsIpAddresses     = $hostDns
+		ReuseExistingSwitch = $true
 	}
 	$isoParams = @{
 		IsoFileCreatorToolPath = Join-Path $kubeBinPath 'cloudinitisobuilder.exe'
@@ -118,11 +234,11 @@ function Start-NodePackageVmProvisioning {
 	return [PSCustomObject]@{
 		VmName                 = $VmName
 		SwitchName             = $switchName
-		NatName                = $natName
+		NatName                = ''
 		GuestIp                = $guestIp
 		SshUser                = $sshUser
 		SshPwd                 = $sshPwd
+		UsesSharedKubeSwitch   = $true
 		InProvisioningVhdxPath = (Join-Path $provisioningDir $vhdxName)
 	}
 }
-
