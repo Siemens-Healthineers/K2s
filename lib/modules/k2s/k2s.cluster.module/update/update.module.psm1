@@ -248,11 +248,11 @@ function Restore-ClusterIPWebhook {
 		$existingCaBundleValue = ($existingCaBundle.Output | Out-String).Trim()
 		$webhookHealthy = $false
 
-		if ($existingCaBundle.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($existingCaBundleValue)) {
+		if ($existingCaBundle.Success -and -not [string]::IsNullOrWhiteSpace($existingCaBundleValue)) {
 			# caBundle exists — check that the deployment is Ready
 			$deployCheck = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get deployment clusterip-webhook -n k2s-webhook -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null' -Timeout 30 -IgnoreErrors:$true
 			$readyReplicas = ($deployCheck.Output | Out-String).Trim()
-			if ($deployCheck.ExitCode -eq 0 -and $readyReplicas -match '^\d+$' -and [int]$readyReplicas -ge 1) {
+			if ($deployCheck.Success -and $readyReplicas -match '^\d+$' -and [int]$readyReplicas -ge 1) {
 				$webhookHealthy = $true
 			}
 		}
@@ -307,15 +307,15 @@ function Restore-ClusterIPWebhook {
 		# Step 1: Apply namespace and RBAC (critical preconditions)
 		Write-Log '[Webhook] Applying namespace and RBAC...' -Console:$consoleSwitch
 		$nsResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/namespace.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
-		Write-Log ('[Webhook] namespace apply: exit={0} output={1}' -f $nsResult.ExitCode, ($nsResult.Output | Out-String).Trim()) -Console:$consoleSwitch
+		Write-Log ('[Webhook] namespace apply: success={0} output={1}' -f $nsResult.Success, ($nsResult.Output | Out-String).Trim()) -Console:$consoleSwitch
 		$rbacResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/rbac.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
-		Write-Log ('[Webhook] rbac apply: exit={0} output={1}' -f $rbacResult.ExitCode, ($rbacResult.Output | Out-String).Trim()) -Console:$consoleSwitch
+		Write-Log ('[Webhook] rbac apply: success={0} output={1}' -f $rbacResult.Success, ($rbacResult.Output | Out-String).Trim()) -Console:$consoleSwitch
 
 		# Step 2: Apply webhook-config.yaml ONLY if the MutatingWebhookConfiguration does not exist.
 		# We must NOT re-apply it when the MWC already exists because the static manifest contains
 		# caBundle: "" which would overwrite any previously-patched caBundle, breaking the webhook.
 		$mwcExists = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get mutatingwebhookconfiguration k2s-webhook --no-headers 2>/dev/null' -Timeout 30 -IgnoreErrors:$true
-		if ($mwcExists.ExitCode -ne 0) {
+		if (-not $mwcExists.Success) {
 			Write-Log '[Webhook] MutatingWebhookConfiguration not found - creating it...' -Console:$consoleSwitch
 			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/webhook-config.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
 		} else {
@@ -346,7 +346,7 @@ function Restore-ClusterIPWebhook {
 			# Wait for CRI-O to be ready
 			Write-Log '[Webhook] Waiting for CRI-O to become ready...' -Console:$consoleSwitch
 			$crioReady = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'for i in $(seq 1 30); do sudo crictl info >/dev/null 2>&1 && break; sleep 2; done && sudo crictl info >/dev/null 2>&1' -Timeout 90 -IgnoreErrors:$true
-			if ($crioReady.ExitCode -ne 0) {
+			if (-not $crioReady.Success) {
 				Write-Log '[Webhook][Error] CRI-O did not become ready after restart' -Console:$consoleSwitch
 				return $false
 			}
@@ -365,16 +365,16 @@ function Restore-ClusterIPWebhook {
 		# Step 5: Apply deployment (may have new image or config)
 		Write-Log '[Webhook] Applying deployment and service...' -Console:$consoleSwitch
 		$deployResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/deployment.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
-		Write-Log ('[Webhook] deployment apply: exit={0} output={1}' -f $deployResult.ExitCode, ($deployResult.Output | Out-String).Trim()) -Console:$consoleSwitch
+		Write-Log ('[Webhook] deployment apply: success={0} output={1}' -f $deployResult.Success, ($deployResult.Output | Out-String).Trim()) -Console:$consoleSwitch
 
 		# Step 6: Run certgen create Job to generate fresh TLS certificate
 		Write-Log '[Webhook] Running TLS certificate create job...' -Console:$consoleSwitch
 		$jobApplyResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
-		Write-Log ('[Webhook] certgen-create job apply: exit={0} output={1}' -f $jobApplyResult.ExitCode, ($jobApplyResult.Output | Out-String).Trim()) -Console:$consoleSwitch
+		Write-Log ('[Webhook] certgen-create job apply: success={0} output={1}' -f $jobApplyResult.Success, ($jobApplyResult.Output | Out-String).Trim()) -Console:$consoleSwitch
 
 		Write-Log '[Webhook] Waiting for cert-create job to complete...' -Console:$consoleSwitch
 		$certCreateResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true
-		if ($certCreateResult.ExitCode -ne 0) {
+		if (-not $certCreateResult.Success) {
 			# Collect diagnostics to understand WHY the job failed
 			Write-Log '[Webhook][Error] cert-create job did not complete successfully - collecting diagnostics...' -Console:$consoleSwitch
 			$waitOutput = ($certCreateResult.Output | Out-String).Trim()
@@ -404,7 +404,7 @@ function Restore-ClusterIPWebhook {
 
 		Write-Log '[Webhook] Waiting for cert-patch job to complete...' -Console:$consoleSwitch
 		$certPatchResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true
-		if ($certPatchResult.ExitCode -ne 0) {
+		if (-not $certPatchResult.Success) {
 			Write-Log '[Webhook][Error] cert-patch job did not complete successfully - caBundle may be invalid' -Console:$consoleSwitch
 			return $false
 		}
@@ -413,7 +413,7 @@ function Restore-ClusterIPWebhook {
 		Write-Log '[Webhook] Restarting webhook deployment...' -Console:$consoleSwitch
 		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/clusterip-webhook -n k2s-webhook' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
 		$rolloutResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true
-		if ($rolloutResult.ExitCode -ne 0) {
+		if (-not $rolloutResult.Success) {
 			Write-Log '[Webhook][Error] Webhook deployment did not become ready after restart' -Console:$consoleSwitch
 			return $false
 		}
