@@ -1403,18 +1403,6 @@ function Update-IngressForNginxGateway {
 
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
 
-	$apiMaxWait = 60
-	$apiWaited = 0
-	while ($apiWaited -lt $apiMaxWait) {
-		if ((Invoke-Kubectl -Params 'get', '--raw=/healthz').Success) { break }
-		Write-Log "  [Ingress-NginxGw] API server not healthy, waiting 10s (${apiWaited}s/${apiMaxWait}s elapsed)..." -Console
-		Start-Sleep -Seconds 10
-		$apiWaited += 10
-	}
-	if ($apiWaited -ge $apiMaxWait) {
-		Write-Log '  [Ingress-NginxGw] WARNING: API server did not become healthy within 60s; attempting apply anyway...' -Console
-	}
-
 	$maxRetries = 3
 	$retryDelay = 10
 	$applied = $false
