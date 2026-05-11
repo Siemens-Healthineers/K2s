@@ -651,6 +651,30 @@ function Install-Kyverno {
         Write-Log "[Kyverno] Namespace '$kyvernoNamespace' already exists" -Console
     }
 
+    # Wait for the API server to be responsive before running Helm.
+    # When logging is enabled first, the subsequent Linkerd injection rollout restarts
+    # many pods, creating sustained API server load.  Helm's 10m timeout fires on
+    # loaded single-node clusters (consistent CI failure pattern).  Verifying readyz
+    # and running a lightweight API-discovery call first ensures the server can handle
+    # the burst of CRD and webhook registrations Kyverno requires.
+    # Evidence: security.module.psm1 Kyverno retry loop consistently fails with
+    # "context deadline exceeded" when logging is active (Kagent RCA 2026-05-10).
+    Write-Log '[Kyverno] Waiting for API server to be ready before Helm install...' -Console
+    $apiReady = $false
+    for ($apiAttempt = 1; $apiAttempt -le 12; $apiAttempt++) {
+        $readyz = (Invoke-Kubectl -Params 'get', '--raw', '/readyz').Output
+        if ($readyz -match 'ok') {
+            $apiReady = $true
+            Write-Log '[Kyverno] API server is ready' -Console
+            break
+        }
+        Write-Log "[Kyverno] API server not ready yet (attempt $apiAttempt/12), waiting 10s..." -Console
+        Start-Sleep -Seconds 10
+    }
+    if (-not $apiReady) {
+        Write-Log '[Kyverno] Warning: API server did not report ready within 120s; proceeding anyway' -Console
+    }
+
     Write-Log '[Kyverno] Installing via Helm' -Console
     $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--timeout', '10m')
 
@@ -672,7 +696,7 @@ function Install-Kyverno {
     }
 
     $maxAttempts = 3
-    $retryDelaySec = 30
+    $retryDelaySec = 60
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         $result = Invoke-Helm -Params $helmArgs
         $result.Output | Write-Log
@@ -681,13 +705,23 @@ function Install-Kyverno {
             break
         }
 
-        if ($attempt -lt $maxAttempts -and $result.Output -match 'provided IP is already allocated|context deadline exceeded') {
-            $reason = if ($result.Output -match 'provided IP is already allocated') { 'ClusterIP allocation conflict' } else { 'API server context deadline exceeded' }
+        $isRetryable = $result.Output -match 'provided IP is already allocated|context deadline exceeded|has no deployed releases'
+        if ($attempt -lt $maxAttempts -and $isRetryable) {
+            $reason = switch -Regex ($result.Output) {
+                'provided IP is already allocated' { 'ClusterIP allocation conflict' }
+                'context deadline exceeded'        { 'API server context deadline exceeded' }
+                'has no deployed releases'         { 'stale pending-install Helm secret (no base release)' }
+                default                            { 'transient Helm error' }
+            }
             Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed ($reason) -- purging and retrying in ${retryDelaySec}s" -Console
-            # Purge the failed Helm release so the retry is a fresh install, not an upgrade
-            # (an upgrade triggers the post-upgrade-migrate-resources hook which times out)
+
             $purgeResult = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--no-hooks')
             $purgeResult.Output | Write-Log
+            if (-not $purgeResult.Success) {
+                Write-Log '[Kyverno] helm uninstall failed; falling back to direct Helm secret deletion' -Console
+                (Invoke-Kubectl -Params 'delete', 'secret', '-n', $kyvernoNamespace,
+                    '-l', 'owner=helm,name=kyverno', '--ignore-not-found').Output | Write-Log
+            }
             Start-Sleep -Seconds $retryDelaySec
             continue
         }
