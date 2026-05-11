@@ -757,6 +757,14 @@ func (c *Cluster) ExpectNodeToBeReady(name string, ctx context.Context) {
 	Expect(isNodeReady(node)).To(BeTrue())
 }
 
+// ExpectNodeNotToExist verifies that a node with the given name does not exist in the cluster.
+func (c *Cluster) ExpectNodeNotToExist(name string, ctx context.Context) {
+	var node corev1.Node
+
+	err := c.Client().Resources().Get(ctx, name, "", &node)
+	Expect(err).To(HaveOccurred(), "Expected node <%s> to not exist, but it was found", name)
+}
+
 func (c *Cluster) ExpectInternetToBeReachableFromPodOfDeployment(deploymentName string, namespace string, proxy string, ctx context.Context) {
 	client := c.Client()
 
