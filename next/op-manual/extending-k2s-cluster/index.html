@@ -1617,15 +1617,15 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#steps-to-add-a-physical-host-or-vm" class="md-nav__link">
+  <a href="#steps-to-add-a-supported-node" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Steps to Add a Physical Host or VM
+        Steps to Add a Supported Node
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Steps to Add a Physical Host or VM">
+    <nav class="md-nav" aria-label="Steps to Add a Supported Node">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2839,15 +2839,15 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#steps-to-add-a-physical-host-or-vm" class="md-nav__link">
+  <a href="#steps-to-add-a-supported-node" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Steps to Add a Physical Host or VM
+        Steps to Add a Supported Node
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Steps to Add a Physical Host or VM">
+    <nav class="md-nav" aria-label="Steps to Add a Supported Node">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3081,7 +3081,7 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -3096,15 +3096,15 @@ SPDX-License-Identifier: MIT
 </li>
 <li>
 <p><strong>New Host or <abbr title="Virtual Machine">VM</abbr> Requirements</strong>:</p>
-<ul>
+</li>
 <li>Install a compatible operating system (Linux or Windows, based on your cluster requirements).</li>
 <li>For Linux worker node onboarding, the currently supported Debian versions are <code>debian12</code> and <code>debian13</code>.</li>
-</ul>
-</li>
 <li>Install an <abbr title="Secure Shell">SSH</abbr> service on the new machine and ensure port 22 is enabled for connectivity.</li>
 <li>Ensure network connectivity with the K2s node.</li>
 <li><strong><abbr title="Internet Protocol">IP</abbr> Address Requirements</strong>:<ul>
 <li>The <abbr title="Internet Protocol">IP</abbr> address of the new machine must be in the same subnet as the K2s setup (e.g., <code>172.94.91.0/24</code>).</li>
+<li><strong>Bare-metal target</strong>: <abbr title="Internet Protocol">IP</abbr> must be in a physical network subnet (<abbr title="Local Area Network">LAN</abbr>/WiFi/Ethernet) of the Windows host.</li>
+<li><strong>Existing Hyper-V <abbr title="Virtual Machine">VM</abbr> target</strong>: <abbr title="Virtual Machine">VM</abbr> must be attached to KubeSwitch and have an <abbr title="Internet Protocol">IP</abbr> in the KubeSwitch <abbr title="Classless Inter-Domain Routing">CIDR</abbr> (for example <code>172.19.1.x</code>).</li>
 </ul>
 </li>
 </ol>
@@ -3124,7 +3124,12 @@ SPDX-License-Identifier: MIT
 </ul>
 <p>Use offline mode when the new node has no internet connectivity, is behind a restricted proxy, or when you want reproducible node onboarding.</p>
 <hr />
-<h2 id="steps-to-add-a-physical-host-or-vm">Steps to Add a Physical Host or <abbr title="Virtual Machine">VM</abbr></h2>
+<h2 id="steps-to-add-a-supported-node">Steps to Add a Supported Node</h2>
+<p>Before running <code>k2s node add</code>, make sure your target matches one of the supported types:</p>
+<ul>
+<li><strong>Bare-metal host</strong>: reachable over <abbr title="Secure Shell">SSH</abbr> and <abbr title="Internet Protocol">IP</abbr> belongs to a physical host subnet.</li>
+<li><strong>Existing Hyper-V <abbr title="Virtual Machine">VM</abbr></strong>: reachable over <abbr title="Secure Shell">SSH</abbr>, connected to KubeSwitch, and currently running.</li>
+</ul>
 <h3 id="1-copy-the-public-ssh-key-to-the-new-node">1. Copy the public <abbr title="Secure Shell">SSH</abbr> Key to the new node</h3>
 <p>When K2s is installed, an <abbr title="Secure Shell">SSH</abbr> public key is available under the directory <code>%USERPROFILE%\.ssh\k2s\id_rsa.pub</code>.
 This key must be copied to the physical host or <abbr title="Virtual Machine">VM</abbr> to establish communication and initiate the installation.</p>
