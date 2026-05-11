@@ -304,10 +304,12 @@ function Restore-ClusterIPWebhook {
 			}
 		}
 
-		# Step 1: Apply namespace and RBAC (safe, idempotent)
+		# Step 1: Apply namespace and RBAC (critical preconditions)
 		Write-Log '[Webhook] Applying namespace and RBAC...' -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/namespace.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/rbac.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+		$nsResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/namespace.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
+		Write-Log ('[Webhook] namespace apply: exit={0} output={1}' -f $nsResult.ExitCode, ($nsResult.Output | Out-String).Trim()) -Console:$consoleSwitch
+		$rbacResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/rbac.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
+		Write-Log ('[Webhook] rbac apply: exit={0} output={1}' -f $rbacResult.ExitCode, ($rbacResult.Output | Out-String).Trim()) -Console:$consoleSwitch
 
 		# Step 2: Apply webhook-config.yaml ONLY if the MutatingWebhookConfiguration does not exist.
 		# We must NOT re-apply it when the MWC already exists because the static manifest contains
@@ -326,25 +328,73 @@ function Restore-ClusterIPWebhook {
 		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete job clusterip-webhook-certgen-patch -n k2s-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
 		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete secret clusterip-webhook-tls -n k2s-webhook --ignore-not-found=true' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
 
-		# Step 4: Pre-pull the certgen image (it is removed after initial install to avoid nginx addon collision)
-		Write-Log '[Webhook] Ensuring certgen image is available...' -Console:$consoleSwitch
-		$pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo buildah pull --policy=missing registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9 2>&1' -Timeout 120 -Retries 2 -IgnoreErrors:$true
-		if ($pullResult.ExitCode -ne 0) {
-			Write-Log ('[Webhook][Warn] certgen image pre-pull returned non-zero exit code; will rely on kubelet pull: {0}' -f ($pullResult.Output | Out-String).Trim()) -Console:$consoleSwitch
+		# Step 4: Verify certgen image is available to CRI-O (not just buildah)
+		# Phase 9 loads images via 'buildah pull oci-archive:' which writes to containers/storage.
+		# CRI-O shares this storage but may need to be aware of the image.
+		Write-Log '[Webhook] Checking CRI-O image availability for certgen...' -Console:$consoleSwitch
+		$crioCheck = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo crictl images 2>&1 | grep -i certgen' -Timeout 30 -IgnoreErrors:$true
+		$crioCheckOutput = ($crioCheck.Output | Out-String).Trim()
+		if ([string]::IsNullOrWhiteSpace($crioCheckOutput)) {
+			Write-Log '[Webhook][Warn] certgen image NOT visible to CRI-O - checking buildah store...' -Console:$consoleSwitch
+			$buildahCheck = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo buildah images 2>&1 | grep -i certgen' -Timeout 30 -IgnoreErrors:$true
+			Write-Log ('[Webhook] buildah images: {0}' -f ($buildahCheck.Output | Out-String).Trim()) -Console:$consoleSwitch
+
+			# Image may be in buildah store but CRI-O has stale cache - restart CRI-O to re-scan storage
+			Write-Log '[Webhook] Restarting CRI-O to pick up images loaded by buildah...' -Console:$consoleSwitch
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -Timeout 60 -IgnoreErrors:$true).Output | Out-Null
+
+			# Wait for CRI-O to be ready
+			Write-Log '[Webhook] Waiting for CRI-O to become ready...' -Console:$consoleSwitch
+			$crioReady = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'for i in $(seq 1 30); do sudo crictl info >/dev/null 2>&1 && break; sleep 2; done && sudo crictl info >/dev/null 2>&1' -Timeout 90 -IgnoreErrors:$true
+			if ($crioReady.ExitCode -ne 0) {
+				Write-Log '[Webhook][Error] CRI-O did not become ready after restart' -Console:$consoleSwitch
+				return $false
+			}
+
+			# Re-check CRI-O visibility
+			$crioRecheck = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo crictl images 2>&1 | grep -i certgen' -Timeout 30 -IgnoreErrors:$true
+			Write-Log ('[Webhook] CRI-O images after restart (certgen): {0}' -f ($crioRecheck.Output | Out-String).Trim()) -Console:$consoleSwitch
+
+			# Also wait for kubelet to reconnect to CRI-O
+			Write-Log '[Webhook] Waiting for node to become Ready after CRI-O restart...' -Console:$consoleSwitch
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=Ready node --all --timeout=120s' -Timeout 150 -IgnoreErrors:$true).Output | Out-Null
+		} else {
+			Write-Log ('[Webhook] certgen image visible to CRI-O: {0}' -f $crioCheckOutput) -Console:$consoleSwitch
 		}
 
 		# Step 5: Apply deployment (may have new image or config)
 		Write-Log '[Webhook] Applying deployment and service...' -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/deployment.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+		$deployResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/deployment.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
+		Write-Log ('[Webhook] deployment apply: exit={0} output={1}' -f $deployResult.ExitCode, ($deployResult.Output | Out-String).Trim()) -Console:$consoleSwitch
 
 		# Step 6: Run certgen create Job to generate fresh TLS certificate
 		Write-Log '[Webhook] Running TLS certificate create job...' -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+		$jobApplyResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
+		Write-Log ('[Webhook] certgen-create job apply: exit={0} output={1}' -f $jobApplyResult.ExitCode, ($jobApplyResult.Output | Out-String).Trim()) -Console:$consoleSwitch
 
 		Write-Log '[Webhook] Waiting for cert-create job to complete...' -Console:$consoleSwitch
 		$certCreateResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true
 		if ($certCreateResult.ExitCode -ne 0) {
-			Write-Log '[Webhook][Error] cert-create job did not complete successfully' -Console:$consoleSwitch
+			# Collect diagnostics to understand WHY the job failed
+			Write-Log '[Webhook][Error] cert-create job did not complete successfully - collecting diagnostics...' -Console:$consoleSwitch
+			$waitOutput = ($certCreateResult.Output | Out-String).Trim()
+			Write-Log ('[Webhook][Diag] kubectl wait output: {0}' -f $waitOutput) -Console:$consoleSwitch
+
+			$jobDesc = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl describe job clusterip-webhook-certgen-create -n k2s-webhook 2>&1' -Timeout 30 -IgnoreErrors:$true
+			Write-Log ('[Webhook][Diag] Job description: {0}' -f ($jobDesc.Output | Out-String).Trim()) -Console:$consoleSwitch
+
+			$pods = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get pods -n k2s-webhook -l app.kubernetes.io/component=certgen -o wide 2>&1' -Timeout 30 -IgnoreErrors:$true
+			Write-Log ('[Webhook][Diag] Certgen pods: {0}' -f ($pods.Output | Out-String).Trim()) -Console:$consoleSwitch
+
+			$podLogs = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl logs job/clusterip-webhook-certgen-create -n k2s-webhook --all-containers --tail=50 2>&1' -Timeout 30 -IgnoreErrors:$true
+			Write-Log ('[Webhook][Diag] Certgen job logs: {0}' -f ($podLogs.Output | Out-String).Trim()) -Console:$consoleSwitch
+
+			$events = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get events -n k2s-webhook --sort-by=.lastTimestamp 2>&1 | tail -30' -Timeout 30 -IgnoreErrors:$true
+			Write-Log ('[Webhook][Diag] k2s-webhook namespace events: {0}' -f ($events.Output | Out-String).Trim()) -Console:$consoleSwitch
+
+			$crioImgs = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo crictl images 2>&1' -Timeout 30 -IgnoreErrors:$true
+			Write-Log ('[Webhook][Diag] CRI-O images: {0}' -f ($crioImgs.Output | Out-String).Trim()) -Console:$consoleSwitch
+
 			return $false
 		}
 
