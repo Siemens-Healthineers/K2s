@@ -85,19 +85,19 @@ Copy-Item -Path $kubeConfigSource -Destination $kubeConfigTarget -Force
 Write-Log "Kubeconfig copied to $kubeConfigTarget. kubectl will use this config."
 
 # Ensure persistent route to control plane network for WiFi/Ethernet adapters
+// Note: This is not needed as flannel will take care of this.
+# $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+# # Use the passed HostIpAddress as the next hop
+# $nextHop = $HostIpAddress
+# route delete $ipControlPlaneCIDR >$null 2>&1
+# Write-Log "[Route] Adding persistent route to $ipControlPlaneCIDR via $nextHop"
+# route -p add $ipControlPlaneCIDR $nextHop METRIC 3 | Out-Null
 
-$ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-# Use the passed HostIpAddress as the next hop
-$nextHop = $HostIpAddress
-route delete $ipControlPlaneCIDR >$null 2>&1
-Write-Log "[Route] Adding persistent route to $ipControlPlaneCIDR via $nextHop"
-route -p add $ipControlPlaneCIDR $nextHop METRIC 3 | Out-Null
-
-# Add persistent route to pod network CIDR
-$podNetworkCIDR = Get-ConfiguredClusterCIDR
-route delete $podNetworkCIDR >$null 2>&1
-Write-Log "[Route] Adding persistent route to $podNetworkCIDR via $nextHop"
-route -p add $podNetworkCIDR $nextHop METRIC 3 | Out-Null
+# # Add persistent route to pod network CIDR
+# $podNetworkCIDR = Get-ConfiguredClusterCIDR
+# route delete $podNetworkCIDR >$null 2>&1
+# Write-Log "[Route] Adding persistent route to $podNetworkCIDR via $nextHop"
+# route -p add $podNetworkCIDR $nextHop METRIC 3 | Out-Null
 
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
 

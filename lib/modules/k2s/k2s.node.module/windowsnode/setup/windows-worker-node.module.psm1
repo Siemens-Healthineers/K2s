@@ -112,8 +112,8 @@ function Start-RemoteWindowsWorkerNode {
         [parameter(Mandatory = $false, HelpMessage = 'IP address of the remote machine')]
         [string] $IpAddress = ''
     )
-
-    Set-RoutesToWindowsWorkloads
+    # commented as flannel will do the routing
+    #Set-RoutesToWindowsWorkloads
 
     # Determine the physical IP of this node
     $physicalIp = $null
