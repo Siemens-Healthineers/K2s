@@ -146,8 +146,9 @@ function Set-RootPathForImagesInConfig($tomlPath) {
         Write-Log 'StorageLocalDrive is '
         Write-Log $storageLocalDrive
         $storageLocalDriveWithFolderName = $storageLocalDrive + $storageLocalFolder        
-        Write-Log "StorageLocalDriveWithFolderName is'$storageLocalDriveWithFolderName'"
-        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $storageLocalDriveWithFolderName | Set-Content -Path $tomlPath
+        Write-Log "StorageLocalDriveWithFolderName is '$storageLocalDriveWithFolderName'"
+        $formattedPath = $storageLocalDriveWithFolderName.Replace('\', '\\')
+        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $formattedPath | Set-Content -Path $tomlPath
     }    
 }
 
