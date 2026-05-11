@@ -125,13 +125,13 @@ function Ensure-PuttyToolsAvailable {
         [string]$Proxy
     )
     
-    Write-Log "Checking plink.exe and pscp.exe availability..." -Console
-    Write-Log "  plink.exe path: $PlinkPath (exists: $(Test-Path $PlinkPath))" -Console
-    Write-Log "  pscp.exe path: $PscpPath (exists: $(Test-Path $PscpPath))" -Console
+    Write-Log "Checking plink.exe and pscp.exe availability..." 
+    Write-Log "  plink.exe path: $PlinkPath (exists: $(Test-Path $PlinkPath))"
+    Write-Log "  pscp.exe path: $PscpPath (exists: $(Test-Path $PscpPath))"
     
     # Check if both tools already exist
     if ((Test-Path $PlinkPath) -and (Test-Path $PscpPath)) {
-        Write-Log "  plink.exe and pscp.exe already present in bin folder" -Console
+        Write-Log "  plink.exe and pscp.exe already present in bin folder"
         return $true
     }
     

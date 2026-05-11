@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package dsl
@@ -16,6 +16,10 @@ func (cmdResult *K2sCmdResult) VerifyWrongK8sContextFailure() {
 		ContainSubstring("WARNING"),
 		ContainSubstring("operation requires the K8s context"),
 	))
+}
+
+func (cmdResult *K2sCmdResult) ExpectSuccess() {
+	Expect(cmdResult.exitCode).To(Equal(cli.ExitCodeSuccess), "Expected command to succeed but got exit code %d. Output: %s", cmdResult.exitCode, cmdResult.output)
 }
 
 func (cmdResult *K2sCmdResult) VerifySystemNotRunningFailure() {
