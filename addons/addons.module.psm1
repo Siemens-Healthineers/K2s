@@ -1402,14 +1402,27 @@ function Update-IngressForNginxGateway {
 	}
 
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	
+
+	$apiMaxWait = 60
+	$apiWaited = 0
+	while ($apiWaited -lt $apiMaxWait) {
+		if ((Invoke-Kubectl -Params 'get', '--raw=/healthz').Success) { break }
+		Write-Log "  [Ingress-NginxGw] API server not healthy, waiting 10s (${apiWaited}s/${apiMaxWait}s elapsed)..." -Console
+		Start-Sleep -Seconds 10
+		$apiWaited += 10
+	}
+	if ($apiWaited -ge $apiMaxWait) {
+		Write-Log '  [Ingress-NginxGw] WARNING: API server did not become healthy within 60s; attempting apply anyway...' -Console
+	}
+
 	$maxRetries = 3
 	$retryDelay = 10
-	$result = $null
+	$applied = $false
 	for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
-		$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
+		$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir, '--request-timeout=30s'
 		if ($result.Success) {
 			Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+			$applied = $true
 			break
 		}
 		Write-Log "  WARNING: Failed to apply ingress manifest for $($props.Name) (attempt $attempt/$maxRetries): $($result.Output)" -Console
@@ -1418,8 +1431,10 @@ function Update-IngressForNginxGateway {
 			Start-Sleep -Seconds $retryDelay
 		}
 	}
-	if (-not $result.Success) {
-		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name): $($result.Output)" -Console
+	if (-not $applied) {
+		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name) after $maxRetries attempts" -Console
+		throw "[Ingress-NginxGw] Failed to apply ingress manifest for '$($props.Name)' after $maxRetries attempts. " +
+			"Check kubectl output above and API server availability."
 	}
 }
 
