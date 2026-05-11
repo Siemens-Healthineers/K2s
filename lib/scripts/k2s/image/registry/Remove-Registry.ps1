@@ -189,11 +189,16 @@ else {
             Write-Log "[Registry] Node '$nodeName' could not be resolved, skipping" -Console
             continue
         }
+        # Check if node is Ready before adding to target list
+        if (-not (Test-NodeReady -NodeName $nodeName -Kind $nodeInfo.Kind)) {
+            Write-Log "[Registry] Node '$nodeName' is not in Ready state - start the node with 'k2s start --node $nodeName' first" -Console
+            continue
+        }
         $targetNodeInfos += $nodeInfo
     }
 
     if ($targetNodeInfos.Count -eq 0) {
-        Send-RegistryError -Code 'nodes-not-found' -Message 'None of the selected nodes could be resolved.'
+        Send-RegistryError -Code 'nodes-not-found' -Message 'None of the selected nodes could be resolved or are not Ready.'
         return
     }
 
