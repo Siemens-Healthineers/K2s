@@ -43,6 +43,9 @@ if ($ShowLogs.IsPresent) {
 }
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Start.ps1" $controlPlaneParams
 
+Write-Log 'Waiting for control-plane pods to be ready'
+Wait-ForControlPlanePodsReady
+
 Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
 Invoke-AddonsHooks -HookType 'AfterStart'
