@@ -126,6 +126,7 @@ k2s start [flags]
 |------|-------|-------------|
 | `--ignore-if-running` | `-i` | Skip if already running |
 | `--autouse-cached-vswitch` | | Re-use the cached vSwitch (cbr0 / KubeSwitch) |
+| `--node` | | Start only the specified additional node |
 | `--additional-hooks-dir` | | Directory with additional hook scripts |
 
 ---
@@ -141,6 +142,7 @@ k2s stop [flags]
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--cache-vswitch` | | Cache vswitches for cluster connectivity |
+| `--node` | | Stop only the specified additional node |
 | `--additional-hooks-dir` | | Directory with additional hook scripts |
 
 ---

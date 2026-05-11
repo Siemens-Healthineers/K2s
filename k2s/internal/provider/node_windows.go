@@ -26,7 +26,12 @@ func newWindowsNodeProvider(cfg ProviderConfig) *windowsNodeProvider {
 }
 
 func (p *windowsNodeProvider) Add(cfg NodeAddConfig) error {
-	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "worker", "linux", "bare-metal", "Add.ps1"))
+
+	scriptDir := "bare-metal"
+	if cfg.IsLocalVM {
+		scriptDir = filepath.Join("hyper-v-vm", "existing-vm")
+	}
+	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "worker", "linux", scriptDir, "Add.ps1"))
 
 	var params string
 	if cfg.UserName != "" {
