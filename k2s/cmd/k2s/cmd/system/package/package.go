@@ -44,10 +44,10 @@ var (
 	k2s system package --delta-package --target-dir "C:\tmp" --name "k2s-delta-1.4.0-to-1.4.1.zip" --package-version-from "C:\tmp\k2s-1.4.0.zip" --package-version-to "C:\tmp\k2s-1.4.1.zip"
 
 	# Creates a node package with Linux worker node artifacts for a specific OS
-	k2s system package --node-package --os debian12 --target-dir "C:\output" --name "debian12-node.zip"
+	k2s system package --node-package --os debian13 --target-dir "C:\output" --name "debian13-node.zip"
 
 	# Creates a node-only delta package (between two node package zips)
-	k2s system package --node-package --delta-package --package-version-from "C:\tmp\debian12-node-v1.7.0.zip" --package-version-to "C:\tmp\debian12-node-v1.8.0.zip" --target-dir "C:\output" --name "debian12-node-delta-v1.7.0-to-v1.8.0.zip"
+	k2s system package --node-package --delta-package --package-version-from "C:\tmp\debian13-node-v1.7.0.zip" --package-version-to "C:\tmp\debian13-node-v1.8.0.zip" --target-dir "C:\output" --name "debian13-node-delta-v1.7.0-to-v1.8.0.zip"
 
 	Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
 	`

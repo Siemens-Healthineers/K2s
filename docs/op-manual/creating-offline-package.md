@@ -73,13 +73,13 @@ k2s system package -h
 Example from a local directory using `k2s.exe` directly:
 
 ```console
-.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip"
+.\k2s.exe system package --node-package --os debian13 --target-dir "D:\Linuxpackagetest" --name "debian13.zip"
 ```
 
 Create an OS-specific node package ZIP:
 
 ```console
-k2s system package --node-package --os debian12 --target-dir C:\output --name debian12-node.zip
+k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip
 ```
 
 Example for Debian 13:
