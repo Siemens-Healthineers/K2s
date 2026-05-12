@@ -509,6 +509,181 @@ function Remove-ConfigFileForCNI {
     }
 }
 
+# Linkerd CLI helpers
+
+function Get-LinkerdCliPackageFromManifest {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ManifestPath
+    )
+
+    $manifest = Get-FromYamlFile -Path $ManifestPath
+    $windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
+    if ($windowsCurlPackages) {
+        foreach ($package in $windowsCurlPackages) {
+            $destination = [string]$package.destination
+            $url = [string]$package.url
+
+            if ($destination -match '(?i)linkerd\.exe$' -or $url -match '(?i)linkerd2-cli') {
+                return $package
+            }
+        }
+    }
+
+    $legacyLinkerdPackages = @($manifest.spec.implementations[0].offline_usage.windows.linkerd)
+    foreach ($package in $legacyLinkerdPackages) {
+        $destination = [string]$package.destination
+        $url = [string]$package.url
+        if ([string]::IsNullOrWhiteSpace($destination) -or [string]::IsNullOrWhiteSpace($url)) {
+            continue
+        }
+
+        Write-Log '[Linkerd] Using legacy manifest key offline_usage.windows.linkerd.' -Console
+        return $package
+    }
+
+    return $null
+}
+
+function Get-LinkerdVersionFromUrl {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Url
+    )
+
+    $match = [regex]::Match($Url, '/download/(?<version>[^/]+)/')
+    if (-not $match.Success) {
+        return $null
+    }
+
+    $version = $match.Groups['version'].Value
+    if ([string]::IsNullOrWhiteSpace($version)) {
+        return $null
+    }
+
+    return $version.ToLowerInvariant()
+}
+
+function Get-InstalledLinkerdCliVersion {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ExecutablePath
+    )
+
+    if (-not (Test-Path -LiteralPath $ExecutablePath)) {
+        return $null
+    }
+
+    $versionOutput = $null
+    try {
+        $versionOutput = & $ExecutablePath version --client --short 2>&1 | Out-String
+    }
+    catch {
+        try {
+            $versionOutput = & $ExecutablePath version 2>&1 | Out-String
+        }
+        catch {
+            Write-Log "[Linkerd] Failed to query CLI version from '$ExecutablePath': $_" -Console
+            return $null
+        }
+    }
+
+    $match = [regex]::Match($versionOutput, '(?<version>(?:edge|stable)-\d+\.\d+\.\d+|v?\d+\.\d+\.\d+)')
+    if (-not $match.Success) {
+        Write-Log "[Linkerd] Could not parse CLI version output from '$ExecutablePath'." -Console
+        return $null
+    }
+
+    return $match.Groups['version'].Value.ToLowerInvariant()
+}
+
+function Test-IsOfflineInstallationContext {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $K2sRoot
+    )
+
+    $offlineModeEnv = [Environment]::GetEnvironmentVariable('SYSTEM_OFFLINE_MODE')
+    if ($offlineModeEnv -and $offlineModeEnv -match '^(?i:true|1|yes)$') {
+        return $true
+    }
+
+    $windowsNodeArtifactsPath = Join-Path $K2sRoot 'bin\WindowsNodeArtifacts.zip'
+    return (Test-Path -LiteralPath $windowsNodeArtifactsPath)
+}
+
+function Install-LinkerdCli {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ManifestPath,
+
+        [Parameter(Mandatory = $true)]
+        [string] $K2sRoot,
+
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy
+    )
+
+    Write-Log '[Linkerd] Checking Linkerd CLI' -Console
+
+    $package = Get-LinkerdCliPackageFromManifest -ManifestPath $ManifestPath
+    if (-not $package) {
+        Write-Log "[Linkerd] No Linkerd CLI package entry found in '$ManifestPath'. Skipping CLI install." -Console
+        return
+    }
+
+    $destination = Join-Path $K2sRoot ([string]$package.destination)
+    $destination = [System.IO.Path]::GetFullPath($destination)
+    $url = [string]$package.url
+
+    $expectedVersion = Get-LinkerdVersionFromUrl -Url $url
+    if ($expectedVersion) {
+        Write-Log "[Linkerd] Expected CLI version from manifest URL: '$expectedVersion'." -Console
+    }
+    else {
+        Write-Log '[Linkerd] Could not parse expected CLI version from manifest URL. Keeping backward compatible install behavior.' -Console
+    }
+
+    if (Test-Path -LiteralPath $destination) {
+        if (-not $expectedVersion) {
+            Write-Log "[Linkerd] CLI already present at '$destination'. Skipping download." -Console
+            return
+        }
+
+        $installedVersion = Get-InstalledLinkerdCliVersion -ExecutablePath $destination
+        if ($installedVersion -and $installedVersion -eq $expectedVersion) {
+            Write-Log "[Linkerd] CLI already present at '$destination' with expected version '$installedVersion'." -Console
+            return
+        }
+
+        if ($installedVersion) {
+            Write-Log "[Linkerd] Refreshing CLI from version '$installedVersion' to '$expectedVersion'." -Console
+        }
+        else {
+            Write-Log "[Linkerd] Refreshing CLI because the cached binary version could not be verified; expected '$expectedVersion'." -Console
+        }
+    }
+
+    $isOfflineInstallation = Test-IsOfflineInstallationContext -K2sRoot $K2sRoot
+    try {
+        Write-Log "[Linkerd] Downloading Linkerd CLI from '$url'." -Console
+        Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
+        Write-Log "[Linkerd] CLI installed to '$destination'." -Console
+    }
+    catch {
+        if ($isOfflineInstallation) {
+            throw "[Linkerd] Failed to obtain linkerd.exe. The offline package may be outdated or missing linkerd.exe for the security addon. Re-export and re-import the security addon package, then retry. Original error: $($_.Exception.Message)"
+        }
+
+        throw
+    }
+}
+
 # Kyverno policy engine helpers
 
 function Get-KyvernoVersionFromUrl {
