@@ -223,6 +223,13 @@ try {
     }
     Write-Log "[NodeUpgrade] Node '$NodeName' found in cluster." -Console
 
+    # Check if the node is Ready before proceeding with upgrade
+    $nodeStatusOutput = (Invoke-Kubectl -Params @('get', 'node', $NodeName, '--no-headers')).Output | Out-String
+    if ([string]::IsNullOrWhiteSpace($nodeStatusOutput) -or -not ($nodeStatusOutput -match '\s+Ready(?:\s|,|$)')) {
+        throw "[NodeUpgrade] Node '$NodeName' is not in Ready state. Cannot proceed with upgrade."
+    }
+    Write-Log "[NodeUpgrade] Node '$NodeName' is in Ready state." -Console
+
     # Resolve SSH username from cluster descriptor if not provided explicitly.
     if ([string]::IsNullOrWhiteSpace($UserName)) {
         $nodeConfig = Get-NodeConfig -NodeName $NodeName
