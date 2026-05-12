@@ -826,11 +826,44 @@ function Install-Kyverno {
         Write-Log "[Kyverno] Namespace '$kyvernoNamespace' already exists" -Console
     }
 
+    Write-Log '[Kyverno] Waiting for API server to be ready before Helm install...' -Console
+    $apiReady = $false
+    for ($apiAttempt = 1; $apiAttempt -le 12; $apiAttempt++) {
+        $readyz = (Invoke-Kubectl -Params 'get', '--raw', '/readyz').Output
+        if ($readyz -match 'ok') {
+            $apiReady = $true
+            Write-Log '[Kyverno] API server is ready' -Console
+            break
+        }
+        Write-Log "[Kyverno] API server not ready yet (attempt $apiAttempt/12), waiting 10s..." -Console
+        Start-Sleep -Seconds 10
+    }
+    if (-not $apiReady) {
+        Write-Log '[Kyverno] Warning: API server did not report ready within 120s; proceeding anyway' -Console
+    }
+
     Write-Log '[Kyverno] Installing via Helm' -Console
-    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--wait', '--timeout', '10m')
+    $helmArgs = @('upgrade', '--install', 'kyverno', $chartPath, '-n', $kyvernoNamespace, '-f', $valuesPath, '--timeout', '10m')
+
+    $staleReleaseCheck = Invoke-Helm -Params @('status', 'kyverno', '-n', $kyvernoNamespace, '-o', 'json')
+    if ($staleReleaseCheck.Success) {
+        try {
+            $releaseStatus = ($staleReleaseCheck.Output | Out-String | ConvertFrom-Json).info.status
+        } catch {
+            $releaseStatus = 'unknown'
+        }
+        if ($releaseStatus -notin @('deployed', 'superseded')) {
+            Write-Log "[Kyverno] Found Helm release in state '$releaseStatus', purging before install to ensure clean state" -Console
+            $uninstallResult = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--no-hooks', '--wait')
+            $uninstallResult.Output | Write-Log
+            if (-not $uninstallResult.Success) {
+                Write-Log '[Kyverno] Warning: pre-clean uninstall failed, proceeding with install attempt' -Console
+            }
+        }
+    }
 
     $maxAttempts = 3
-    $retryDelaySec = 30
+    $retryDelaySec = 60
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         $result = Invoke-Helm -Params $helmArgs
         $result.Output | Write-Log
@@ -839,9 +872,26 @@ function Install-Kyverno {
             break
         }
 
-        # Retry on ClusterIP allocation collision (K8s allocator bitmap lag after uninstall)
-        if ($attempt -lt $maxAttempts -and $result.Output -match 'provided IP is already allocated') {
-            Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed due to ClusterIP allocation conflict -- retrying in ${retryDelaySec}s" -Console
+        $outputText = ($result.Output | ForEach-Object { "$_" }) -join "`n"
+        $isRetryable = $outputText -match 'provided IP is already allocated|context deadline exceeded|has no deployed releases|unable to continue with install: could not get information about the resource|server was unable to return a response in the time allotted|etcdserver: request timed out'
+        if ($attempt -lt $maxAttempts -and $isRetryable) {
+            $reason = switch -Regex ($outputText) {
+                'provided IP is already allocated' { 'ClusterIP allocation conflict'; break }
+                'context deadline exceeded'        { 'API server context deadline exceeded'; break }
+                'has no deployed releases'         { 'stale pending-install Helm secret (no base release)'; break }
+                'could not get information about the resource|server was unable to return a response in the time allotted' { 'API server timeout while resolving CRDs'; break }
+                'etcdserver: request timed out'    { 'etcd request timeout'; break }
+                default                            { 'transient Helm error' }
+            }
+            Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed ($reason) -- purging and retrying in ${retryDelaySec}s" -Console
+
+            $purgeResult = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--no-hooks')
+            $purgeResult.Output | Write-Log
+            if (-not $purgeResult.Success) {
+                Write-Log '[Kyverno] helm uninstall failed; falling back to direct Helm secret deletion' -Console
+                (Invoke-Kubectl -Params 'delete', 'secret', '-n', $kyvernoNamespace,
+                    '-l', 'owner=helm,name=kyverno', '--ignore-not-found').Output | Write-Log
+            }
             Start-Sleep -Seconds $retryDelaySec
             continue
         }
@@ -849,7 +899,13 @@ function Install-Kyverno {
         throw "[Kyverno] Helm install failed: $($result.Output)"
     }
 
-    # Apply bundled/user-provided policies after Helm --wait (webhook is live).
+    Write-Log '[Kyverno] Waiting for Kyverno controllers to be ready (up to 900s)...' -Console
+    $kyvernoReady = Wait-ForKyvernoAvailable -TimeoutSeconds 900
+    if (-not $kyvernoReady) {
+        throw '[Kyverno] Controllers did not become ready within 900s. Check kubectl describe pod -n kyverno for details.'
+    }
+
+    # Apply bundled/user-provided policies (webhook is now live).
     $policiesDir = "$PSScriptRoot\manifests\kyverno\policies"
     $policyFiles = @(Get-ChildItem -Path $policiesDir -Filter '*.yaml' -ErrorAction SilentlyContinue)
     if ($policyFiles.Count -gt 0) {
