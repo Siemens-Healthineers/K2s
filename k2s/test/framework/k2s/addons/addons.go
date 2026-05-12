@@ -410,6 +410,18 @@ func waitForKeycloakReady(keycloakServer, realm string) error {
 	return fmt.Errorf("keycloak did not become ready after %d attempts", maxRetries)
 }
 
+// isTLSError checks whether the error is a TLS/x509 certificate error that would
+// benefit from recreating the HTTP client with a fresh CA cert lookup.
+func isTLSError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := err.Error()
+	return strings.Contains(errMsg, "x509") ||
+		strings.Contains(errMsg, "certificate") ||
+		strings.Contains(errMsg, "tls")
+}
+
 func GetKeycloakToken() (string, error) {
 	keycloakServer := "https://k2s.cluster.local"
 	realm := "demo-app"
@@ -436,6 +448,7 @@ func GetKeycloakToken() (string, error) {
 	maxRetries := 15 // Increased from 10 to handle sporadic failures
 	// Create HTTP client with Windows certificate store trust
 	client := createHTTPClientWithWindowsCerts(30 * time.Second)
+	caCertLoaded := loadK2sCACertFromCluster() != nil
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		req, err := http.NewRequest("POST", tokenUrl, strings.NewReader(data.Encode()))
@@ -450,6 +463,12 @@ func GetKeycloakToken() (string, error) {
 				return "", fmt.Errorf("failed to get token after %d attempts: %v", maxRetries, err)
 			}
 			GinkgoWriter.Printf("Attempt %d/%d: Failed to get token: %v\n", attempt, maxRetries, err)
+			// If TLS error and CA cert wasn't loaded, recreate client
+			if !caCertLoaded && isTLSError(err) {
+				GinkgoWriter.Printf("Recreating HTTP client to retry CA cert loading...\n")
+				client = createHTTPClientWithWindowsCerts(30 * time.Second)
+				caCertLoaded = loadK2sCACertFromCluster() != nil
+			}
 			// Add jitter to avoid thundering herd
 			backoffTime := time.Duration(attempt*5) * time.Second
 			jitter := time.Duration(attempt*500) * time.Millisecond
@@ -509,8 +528,11 @@ func GetKeycloakToken() (string, error) {
 }
 
 func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expectedStatusCode int, url string, headers ...map[string]string) {
-	// Create an HTTP client with Windows certificate store trust for proper TLS handling
+	// Create an HTTP client with Windows certificate store trust for proper TLS handling.
+	// If the CA cert cannot be loaded (e.g. API server temporarily down), the client is
+	// recreated on TLS errors so that subsequent attempts can pick up the cert.
 	client := createHTTPClientWithWindowsCerts(30 * time.Second)
+	caCertLoaded := loadK2sCACertFromCluster() != nil
 
 	// Retry mechanism — after linkerd mesh updates the ingress controller may need
 	// several minutes to fully restart and serve routes, so we use generous retries.
@@ -541,6 +563,13 @@ func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expect
 		resp, err := client.Do(req)
 		if err != nil {
 			GinkgoWriter.Printf("Attempt %d/%d: Failed to perform HTTP request: %v\n", attempt, maxRetries, err)
+			// If we hit a TLS error and haven't successfully loaded the CA cert yet,
+			// try recreating the client — the API server may now be available.
+			if !caCertLoaded && isTLSError(err) {
+				GinkgoWriter.Printf("Recreating HTTP client to retry CA cert loading...\n")
+				client = createHTTPClientWithWindowsCerts(30 * time.Second)
+				caCertLoaded = loadK2sCACertFromCluster() != nil
+			}
 		} else {
 			defer resp.Body.Close()
 
