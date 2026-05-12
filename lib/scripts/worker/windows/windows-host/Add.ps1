@@ -62,6 +62,18 @@ if ($clusterState -match $k8sFormattedNodeName) {
     throw "Precondition not met: the node '$k8sFormattedNodeName' is already part of the cluster."
 }
 
+$nodeParams = @{
+        Name = $NodeName
+        IpAddress = $IpAddress
+        UserName = $UserName
+        Proxy = $Proxy
+        NodeType = 'HOST'
+        Role = 'worker'
+        OS = 'windows'
+        PodCIDR = '' # will be filled during start of node
+    }
+Add-NodeConfig @nodeParams
+
 #Define paths
 $key = Get-SSHKeyControlPlane
 $sourcePath = "C:\K2s"
@@ -195,6 +207,11 @@ if (-not $result.Success) {
     Write-Log "Warning: InstallNode.ps1 execution may have encountered issues. Check remote logs at $remoteLogFile and $remoteErrorLog" -Console
 }
 
+$clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+Write-Log "Remove obsolete route to $ClusterCIDRWorker"
+route delete $ClusterCIDRWorker >$null 2>&1
+Write-Log "Add route to Pods for node:$NodeName CIDR:$ClusterCIDRWorker"
+route -p add $ClusterCIDRWorker $IpAddress METRIC 4 | Out-Null
 Write-Log "InstallNode.ps1 execution initiated. Waiting for node to join cluster..." -Console
 
 # Wait for the node to appear in the cluster (with timeout)
