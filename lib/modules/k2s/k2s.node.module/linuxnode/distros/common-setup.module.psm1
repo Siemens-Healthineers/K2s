@@ -60,7 +60,7 @@ Function Set-UpComputerBeforeProvisioning {
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [parameter(Mandatory = $false)]
         [string] $Proxy = '',
-        [string] $InstalledDistribution = 'debian12'
+        [string] $InstalledDistribution = 'debian13'
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
@@ -383,7 +383,7 @@ Function Install-KubernetesArtifacts {
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $Proxy = '',
         [string] $SourcePath = $(throw 'Argument missing: SourcePath'),
-        [string] $InstalledDistribution = 'debian12'
+        [string] $InstalledDistribution = 'debian13'
     )
 
     $token = Get-RegistryToken
@@ -561,7 +561,7 @@ Function Get-BuildahDebPackagesFromInternet {
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [string]$Proxy = '',
         [string]$TargetPath = $(throw 'Argument missing: TargetPath'),
-        [string]$InstalledDistribution = 'debian12'
+        [string]$InstalledDistribution = 'debian13'
     )
 
     Write-Log '[BuildahPkg] Downloading buildah packages'
@@ -587,7 +587,7 @@ Function Install-BuildahDebPackages {
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [string]$SourcePath = $(throw 'Argument missing: SourcePath'),
-        [string]$InstalledDistribution = 'debian12'
+        [string]$InstalledDistribution = 'debian13'
     )
 
     Write-Log '[BuildahInstall] Installing buildah packages'
@@ -1418,8 +1418,8 @@ Function New-KubernetesNode {
 
     Write-Log "Start provisioning the computer $IpAddress"
     $debPackagesPath = Get-KubernetesDebPackagesPath -UserName $controlPlaneUserName
-    Get-KubernetesArtifactsFromInternet -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion -TargetPath $debPackagesPath -InstalledDistribution 'debian12'
-    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -SourcePath $debPackagesPath -InstalledDistribution 'debian12'
+    Get-KubernetesArtifactsFromInternet -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion -TargetPath $debPackagesPath -InstalledDistribution 'debian13'
+    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -SourcePath $debPackagesPath -InstalledDistribution 'debian13'
 
     Write-Log "Finalize preparation of the computer $IpAddress after provisioning"
     Set-UpComputerWithSpecificOsAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
@@ -2106,7 +2106,7 @@ function Update-CoreDNSConfigurationviaSSH {
 
 function Get-LinuxScriptPath {
     param (
-        [string]$InstalledDistribution='debian12'
+        [string]$InstalledDistribution='debian13'
     )
     $installationPath = Get-KubePath
     # Map OS to script filename
