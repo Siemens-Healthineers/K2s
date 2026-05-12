@@ -582,6 +582,41 @@ function Set-RoutesToWindowsWorkloads {
     route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
 }
 
+function Get-ClusterCIDRWorker {
+    Param (
+        [string] $NodeName = $(throw 'Argument missing: Hostname'),
+        [switch] $ObtainCIDR = $false
+    )
+
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
+
+    $clusterCIDRWorker = ''
+    if (!$ObtainCIDR) {
+        Write-Log 'Getting Node CIDR from config'
+        $node = Get-NodeConfig -NodeName $NodeName
+        if ($null -ne $node) {
+            $clusterCIDRWorker = $node.PodCIDR
+        }
+    }
+
+    if ($clusterCIDRWorker -eq '' -or $ObtainCIDR) {
+        $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
+        if ($output.Success) {
+            $assignedPodSubnetworkNumber = $output.PodSubnetworkNumber
+            $clusterCIDRWorker = $clusterCIDRWorkerTemplate.Replace('X', $assignedPodSubnetworkNumber)
+
+            Update-NodeConfig -Name $NodeName -Updates @{
+                PodCIDR = $clusterCIDRWorker
+            }
+        } else {
+            throw "Cannot obtain pod network information from node '$NodeName'"
+        }
+    }
+
+    return $clusterCIDRWorker
+}
+
 function Repair-K2sRoutes {
     Set-RoutesToKubemaster
     Set-RoutesToLinuxWorkloads
@@ -598,4 +633,5 @@ Wait-NetworkL2BridgeReady,
 Repair-K2sRoutes,
 Set-RoutesToKubemaster,
 Set-RoutesToLinuxWorkloads,
-Set-RoutesToWindowsWorkloads
+Set-RoutesToWindowsWorkloads,
+Get-ClusterCIDRWorker
