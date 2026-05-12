@@ -162,9 +162,9 @@ Both full node packages and node delta packages are created with the `--node-pac
 A full node package bundles everything needed for a fresh node installation or a full node upgrade.
 
 ```console
-k2s system package --node-package --os debian12 `
-    -d C:\packages `
-    -n debian12-node-v1.8.0.zip
+k2s system package --node-package --os debian13 `
+  -d C:\packages `
+  -n debian13-node-v1.8.0.zip
 ```
 
 #### Full Node Package Parameters
@@ -183,10 +183,10 @@ A node delta package contains only the Debian packages and container images that
 
 ```console
 k2s system package --node-package --delta-package `
-    --package-version-from C:\packages\debian12-node-v1.7.0.zip `
-    --package-version-to C:\packages\debian12-node-v1.8.0.zip `
-    -d C:\packages `
-    -n debian12-node-delta-v1.7.0-to-v1.8.0.zip
+  --package-version-from C:\packages\debian13-node-v1.7.0.zip `
+  --package-version-to C:\packages\debian13-node-v1.8.0.zip `
+  -d C:\packages `
+  -n debian13-node-delta-v1.7.0-to-v1.8.0.zip
 ```
 
 The `--os` flag is optional in delta mode — the OS folder is auto-detected from the ZIP structure. Specify it explicitly only when both input ZIPs contain multiple OS directories.
@@ -213,7 +213,7 @@ deb12-node-delta-v1.7.0-to-v1.8.0.zip
 ├── apply-node-delta.sh      # Manual application helper (Linux node)
 ├── verify-node-delta.sh     # Manual verification helper (Linux node)
 ├── packages/
-│   └── debian12/            # Changed and added .deb files only
+│   └── debian13/            # Changed and added .deb files only
 │       ├── kubelet_1.35.2-1.1_amd64.deb
 │       └── ...
 ├── images/                  # Changed and added container image archives
@@ -235,13 +235,13 @@ Use `k2s system upgrade --node` to upgrade a worker node. The upgrade mode is **
   (installs all packages present in the ZIP)
 
 ```console
-k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-delta-v1.7.0-to-v1.8.0.zip" -o
+k2s system upgrade --node k2s-nodepkg-debian13 --path "C:\ws\DeltaPackage\debian13-node-delta-v1.7.0-to-v1.8.0.zip" -o
 ```
 
 The same command works for full node packages:
 
 ```console
-k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-v1.8.0.zip" -o
+k2s system upgrade --node k2s-nodepkg-debian13 --path "C:\ws\DeltaPackage\debian13-node-v1.8.0.zip" -o
 ```
 
 #### `k2s system upgrade --node` Flags

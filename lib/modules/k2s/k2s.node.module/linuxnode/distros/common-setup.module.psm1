@@ -646,29 +646,17 @@ Function Install-Tools {
     Get-BuildahDebPackagesFromInternet -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress -TargetPath $buildahDebPackagesPath
     Install-BuildahDebPackages -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress -SourcePath $buildahDebPackagesPath
 
-    #Remove chrony as it is unstable with latest version of buildah                                                                                                 #
-    #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
-    #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes software-properties-common'                                                 #
-    #
-    #Now update apt sources to get latest from bookworm                                                                                                              #
-    AddAptRepo -RepoDebString 'deb http://deb.debian.org/debian bookworm main' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"                                        #
-    AddAptRepo -RepoDebString 'deb http://deb.debian.org/debian-security/ bookworm-security main' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"                     #
-    #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'                                                                             #
-    #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
-    #
-    #Install latest from bookworm now                                                                                                                                #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -t bookworm --no-install-recommends --no-install-suggests buildah --yes'              #
-    &$executeRemoteCommand 'sudo buildah -v'                                                                                                                          #
-    #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq --yes'                                                                         #
-    #
-    #Remove bookworm source now                                                                                                                                      #
-    &$executeRemoteCommand "sudo apt-add-repository 'deb http://deb.debian.org/debian bookworm main' -r"                                                              #
-    &$executeRemoteCommand "sudo apt-add-repository 'deb http://deb.debian.org/debian-security/ bookworm-security main' -r"                                           #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'                                                                             #
-    #################################################################################################################################################################
+    # Verify buildah is installed and working
+    &$executeRemoteCommand 'sudo buildah -v'
+
+    # Ensure hwclock is available to keep time-sync behavior aligned with Debian 12 images
+    # Debian 13 cloud images may require util-linux-extra for hwclock.
+    &$executeRemoteCommand "if ! sudo sh -c 'command -v hwclock >/dev/null 2>&1 || [ -x /usr/sbin/hwclock ] || [ -x /sbin/hwclock ]'; then sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes util-linux util-linux-extra; fi 2>&1"
+    Write-Log '[TimeSync] Verifying hwclock installation'
+    &$executeRemoteCommand "if sudo sh -c 'command -v hwclock >/dev/null 2>&1 || [ -x /usr/sbin/hwclock ] || [ -x /sbin/hwclock ]'; then echo '[TimeSync] hwclock installed at:'; sudo sh -c 'command -v hwclock || ls -l /usr/sbin/hwclock /sbin/hwclock 2>/dev/null'; sudo hwclock --version; else echo '[TimeSync] hwclock not installed'; fi 2>&1"
+    
+    # Clean up any unnecessary packages
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq --yes'
 
     # Temporary fix for [master] not recognized in buildah 1.22.3, we comment the section as this is only specific to container engine
     # Issue is fixed in buildah 1.26 but exists in experimental stage
