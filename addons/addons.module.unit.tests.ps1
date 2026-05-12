@@ -1083,6 +1083,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName Write-Log { }
 
             $script:downloadArgs = $null
+            $script:downloadedUrls = @()
             $script:downloadProxy = $null
 
             $manifest = [pscustomobject]@{
@@ -1093,6 +1094,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
                                 windows = [pscustomobject]@{
                                     curl = @(
                                         [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
+                                        [pscustomobject]@{ destination = 'bin\\linkerd.exe'; url = 'http://example/linkerd.exe' }
                                     )
                                 }
                             }
@@ -1105,6 +1107,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName Test-Path { return $false }
             Mock -ModuleName $moduleName Invoke-DownloadFile {
                 $script:downloadArgs = $args
+                $script:downloadedUrls += $args[1]
                 $script:downloadProxy = $PSBoundParameters['ProxyToUse']
             }
         }
@@ -1118,6 +1121,9 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             ($script:downloadArgs | Where-Object { $_ -match 'cmctl\.exe$' }).Count | Should -BeGreaterThan 0
             ($script:downloadArgs | Where-Object { $_ -eq 'http://example/cmctl.exe' }).Count | Should -BeGreaterThan 0
             ($script:downloadArgs | Where-Object { $_ -eq 'http://proxy:8080' }).Count | Should -BeGreaterThan 0
+            $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
+            $script:downloadedUrls | Should -Not -Contain 'http://example/linkerd.exe'
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It
         }
     }
 

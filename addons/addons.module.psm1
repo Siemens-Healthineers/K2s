@@ -1696,14 +1696,20 @@ function Install-CmctlCli {
         return
     }
     foreach ($package in $windowsCurlPackages) {
+		$destination = [string]$package.destination
         $url = $package.url
+		$urlPath = ($url -split '\?')[0]
+		$urlFileName = [System.IO.Path]::GetFileName($urlPath)
+
+		if ($destination -notmatch '(?i)cmctl\.exe' -and $urlFileName -notmatch '(?i)^cmctl') {
+			continue
+		}
 
         if ($url -match '\.(zip|tar\.gz|tgz)(\?.*)?$') {
             Write-Log "Skipping archive package '$url' - handled by dedicated installer." -Console
             continue
         }
 
-        $destination = $package.destination
         $destination = "$K2sRoot\$destination"
         # Normalize path to ensure Test-Path works correctly
         $destination = [System.IO.Path]::GetFullPath($destination)
