@@ -87,9 +87,22 @@ if ($EnancedSecurityEnabled) {
 	}
 }
 if (-not $omitOpensearch) {
-    (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'logging', '--timeout', '60s').Output | Write-Log
-    (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'logging', '--timeout', '60s').Output | Write-Log
+    $deploymentRollout = Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'logging', '--timeout', '60s'
+    $deploymentRollout.Output | Write-Log
+    if (-not $deploymentRollout.Success) {
+        throw "[Logging] Deployment rollout did not complete within timeout: $($deploymentRollout.Output)"
+    }
+
+    $statefulsetRollout = Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'logging', '--timeout', '900s'
+    $statefulsetRollout.Output | Write-Log
+    if (-not $statefulsetRollout.Success) {
+        throw "[Logging] StatefulSet rollout did not complete within timeout: $($statefulsetRollout.Output)"
+    }
 }
-(Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', '-n', 'logging', '--timeout', '60s').Output | Write-Log
+$daemonsetRollout = Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', '-n', 'logging', '--timeout', '60s'
+$daemonsetRollout.Output | Write-Log
+if (-not $daemonsetRollout.Success) {
+    throw "[Logging] DaemonSet rollout did not complete within timeout: $($daemonsetRollout.Output)"
+}
 
 Write-Log 'Updating logging addon finished.' -Console

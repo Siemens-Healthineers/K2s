@@ -986,7 +986,7 @@ Describe 'Update-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
         Mock -ModuleName $moduleName Update-IngressForAddon { }
-        Mock -ModuleName $moduleName Invoke-Kubectl { }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = '' } }
     }
 
     Context 'security addon not enabled' {

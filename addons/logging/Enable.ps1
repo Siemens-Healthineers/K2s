@@ -156,8 +156,7 @@ else {
 
     Write-Log 'Waiting for pods being ready...' -Console
 
-    # Wait for opensearch (StatefulSet) first — dashboards depends on opensearch being available at port 9200
-    $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'logging', '--timeout=600s')
+    $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'logging', '--timeout=900s')
     Write-Log $kubectlCmd.Output
     if (!$kubectlCmd.Success) {
         Write-Log '[Logging] Rollout status timed out - gathering diagnostics' -Console
