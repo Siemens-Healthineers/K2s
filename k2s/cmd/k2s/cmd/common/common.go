@@ -98,6 +98,9 @@ const (
 	IgnoreIfRunningFlagShort = "i"
 	IgnoreIfRunningFlagUsage = "Skip starting the K2s cluster if it is already running"
 
+	NodeFlagName  = "node"
+	NodeFlagUsage = "Name of a specific node to start/stop"
+
 	PreReqMarker = "[PREREQ-FAILED]"
 )
 
