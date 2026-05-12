@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -14,12 +14,14 @@ This guide explains how to extend a K2s cluster by adding physical hosts or virt
    - Confirm that the K2s cluster is running and healthy.
 
 2. **New Host or VM Requirements**:
-    - Install a compatible operating system (Linux or Windows, based on your cluster requirements).
-    - For Linux worker node onboarding, the currently supported Debian versions are `debian12` and `debian13`.
+   - Install a compatible operating system (Linux or Windows, based on your cluster requirements).
+   - For Linux worker node onboarding, the currently supported Debian versions are `debian12` and `debian13`.
    - Install an SSH service on the new machine and ensure port 22 is enabled for connectivity.
    - Ensure network connectivity with the K2s node.
    - **IP Address Requirements**:
      - The IP address of the new machine must be in the same subnet as the K2s setup (e.g., `172.94.91.0/24`).
+     - **Bare-metal target**: IP must be in a physical network subnet (LAN/WiFi/Ethernet) of the Windows host.
+     - **Existing Hyper-V VM target**: VM must be attached to KubeSwitch and have an IP in the KubeSwitch CIDR (for example `172.19.1.x`).
 
 ---
 
@@ -42,7 +44,12 @@ Use offline mode when the new node has no internet connectivity, is behind a res
 
 ---
 
-## Steps to Add a Physical Host or VM
+## Steps to Add a Supported Node
+
+Before running `k2s node add`, make sure your target matches one of the supported types:
+
+- **Bare-metal host**: reachable over SSH and IP belongs to a physical host subnet.
+- **Existing Hyper-V VM**: reachable over SSH, connected to KubeSwitch, and currently running.
 
 ### 1. Copy the public SSH Key to the new node
 

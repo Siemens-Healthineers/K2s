@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -16,80 +16,50 @@ Param(
 
 $durationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-$infraModule =   "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule =    "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule
-$puttyToolsHelper = "$PSScriptRoot\..\..\..\..\scripts\k2s\system\package\New-K2sPackage.PuttyTools.ps1"
-. $puttyToolsHelper
 
-Initialize-Logging -ShowLogs:$ShowLogs
+$linuxWorkerCommon = "$PSScriptRoot\..\common\LinuxWorkerNode.Common.ps1"
+. $linuxWorkerCommon
+
+Initialize-LinuxWorkerScriptEnvironment -ShowLogs:$ShowLogs -IncludePuttyTools
 
 $ErrorActionPreference = 'Stop'
 
-# make sure we are at the right place for install
-$installationPath = Get-KubePath
-Set-Location $installationPath
 
-Write-Log "Performing pre-requisites check" -Console
+Write-Log '[NodeAdd] Detected external node (bare-metal) - using bare-metal provisioning path' -Console
+Write-Log '[NodeAdd] Performing pre-requisites check' -Console
 
-Assert-PuttyToolsReady -LogPrefix '[NodeAdd]' -Proxy $Proxy
+Assert-LinuxWorkerPuttyToolsReady -LogPrefix '[NodeAdd]' -Proxy $Proxy
 
-$connectionCheck = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which ls' -UserName $UserName -IpAddress $IpAddress)
-if (!$connectionCheck.Success) {
-    throw "Cannot connect to node with IP '$IpAddress'. Error message: $($connectionCheck.Output)"
+
+# Validate that the node IP is on a physical network subnet (LAN/WiFi)
+$loopbackAdapter = Get-L2BridgeName
+$physicalSubnets = Get-PhysicalNetworkSubnets -ExcludeNetworkInterfaceName $loopbackAdapter
+
+Write-Log "[NodeAdd] Available physical network subnets:" -Console
+foreach ($subnet in $physicalSubnets) {
+    Write-Log "[NodeAdd]   - $($subnet.InterfaceName): $($subnet.CIDR) (IP: $($subnet.IPAddress))" -Console
 }
 
-# check if the authorized public key in the computer is the same as the one in the Windows Host
-$localPublicKeyFilePath = "$(Get-SSHKeyControlPlane).pub"
-if (!(Test-Path -Path $localPublicKeyFilePath)) {
-    throw "Precondition not met: the file '$localPublicKeyFilePath' shall exist."
-}
-$localPublicKey = (Get-Content -Raw $localPublicKeyFilePath).Trim()
-if ([string]::IsNullOrWhiteSpace($localPublicKey)) {
-    throw "Precondition not met: the file '$localPublicKeyFilePath' is not empty."
-}
-$authorizedKeysFilePath = '~/.ssh/authorized_keys'
-$authorizedKeysRaw = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "[ -f $authorizedKeysFilePath ] && cat $authorizedKeysFilePath || echo 'File $authorizedKeysFilePath not available'" -UserName $UserName -IpAddress $IpAddress).Output
-# Output may be a string or array (multiple lines); join and normalize CR to handle both cases
-$authorizedKeys = if ($authorizedKeysRaw -is [array]) { $authorizedKeysRaw -join "`n" } else { [string]$authorizedKeysRaw }
-$authorizedKeys = $authorizedKeys.Replace("`r", '')
-$normalizedLocalPublicKey = $localPublicKey.Replace("`r", '')
-if (!($authorizedKeys.Contains($normalizedLocalPublicKey))) {
-    throw "Precondition not met: the local public key from the file '$localPublicKeyFilePath' is NOT present in the file '$authorizedKeysFilePath' of the computer with IP '$IpAddress'. Please add the public key to the authorized_keys file on the remote machine."
+if (!(Test-IpInPhysicalSubnet -IpAddress $IpAddress -ExcludeNetworkInterfaceName $loopbackAdapter)) {
+    $subnetList = ($physicalSubnets | ForEach-Object { "$($_.InterfaceName): $($_.CIDR)" }) -join ', '
+    throw "[NodeAdd] Precondition not met: IP address '$IpAddress' is not within any physical network subnet. Available subnets: $subnetList"
 }
 
-$actualHostname = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo $(hostname)' -UserName $UserName -IpAddress $IpAddress).Output
+Write-Log "[NodeAdd] IP address '$IpAddress' validated - belongs to a physical network subnet" -Console
 
-$k8sFormattedNodeName = $actualHostname.ToLower()
 
-# check if the intended node name to add to the cluster is the same as the hostname of the computer behind the passed IP address
-if (![string]::IsNullOrWhiteSpace($NodeName) -and ($NodeName.ToLower() -ne $k8sFormattedNodeName)) {
-    throw "Precondition not met: the passed NodeName '$NodeName' is the hostname of the computer with IP '$IpAddress' ($actualHostname)"
-}
+Assert-LinuxWorkerNodeSshConnectivity -UserName $UserName -IpAddress $IpAddress -LogPrefix '[NodeAdd]' -TargetDescription 'node'
+Assert-LinuxWorkerNodeAuthorizedKey -UserName $UserName -IpAddress $IpAddress -LogPrefix '[NodeAdd]'
 
-$installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
-
-Write-Log "Detected OS on remote computer: $($installedDistributionOnRemoteComputer)" -Console
-
-Test-SupportedWorkerOS -OS $installedDistributionOnRemoteComputer
-
-$NodeName = $actualHostname
-
-# check if the computer is already part of the cluster
-$clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
-if ($clusterState -match $k8sFormattedNodeName) {
-    throw "Precondition not met: the node '$k8sFormattedNodeName' is already part of the cluster."
-}
+$provisioningContext = Get-LinuxWorkerNodeProvisioningContext -UserName $UserName -IpAddress $IpAddress -NodeName $NodeName -LogPrefix '[NodeAdd]' -TargetDescription 'computer'
+$NodeName = $provisioningContext.ActualHostname
+$k8sFormattedNodeName = $provisioningContext.KubernetesNodeName
+$installedDistributionOnRemoteComputer = $provisioningContext.InstalledDistribution
 
 Write-Log "Adding node with hostname '$k8sFormattedNodeName'"
 
-Write-Log "Disable swap"
-(Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapon --show' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-(Invoke-CmdOnVmViaSSHKey -CmdToExecute "swapFiles=`$(cat /proc/swaps | awk 'NR>1 {print `$1}')" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-(Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapoff -a' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-(Invoke-CmdOnVmViaSSHKey -CmdToExecute "for swapFile in `$swapFiles; do sudo rm '`$swapFile'; done" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-(Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sed -i '/\sswap\s/d' /etc/fstab" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+Disable-LinuxWorkerNodeSwap -UserName $UserName -IpAddress $IpAddress -LogPrefix '[NodeAdd]'
 
 if ($WindowsHostIpAddress -eq '') {
     $loopbackAdapter = Get-L2BridgeName
@@ -103,8 +73,6 @@ if ($Proxy -eq '') {
     $Proxy = $proxyConfig.HttpProxy
 }
 
-
-
 $workerNodeParams = @{
     NodeName = $NodeName
     UserName = $UserName
@@ -114,33 +82,13 @@ $workerNodeParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     installedDistributionOnRemoteComputer = $installedDistributionOnRemoteComputer
     NodePackagePath = $NodePackagePath
+    NodeType = 'HOST'
 }
-Add-LinuxWorkerNodeOnBareMetal @workerNodeParams
 
-if (! $SkipStart) {
-    Write-Log 'Starting worker node' -Console
-    & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName -ObtainCIDR:$true
+Add-LinuxWorkerNode @workerNodeParams
 
-    if ($RestartAfterInstallCount -gt 0) {
-        $restartCount = 0;
-
-        while ($true) {
-            $restartCount++
-            Write-Log "Restarting worker (iteration #$restartCount):"
-
-            & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -NodeName $NodeName
-            Start-Sleep 10
-
-            & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName
-            Start-Sleep -s 5
-
-            if ($restartCount -eq $RestartAfterInstallCount) {
-                Write-Log 'Restarting worker node completed'
-                break;
-            }
-        }
-    }
-}
+Write-Log 'Starting worker node' -Console
+& "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName -ObtainCIDR:$true
 
 Write-Log "Current state of cluster nodes:" -Console
 Start-Sleep 2

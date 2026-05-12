@@ -7,10 +7,12 @@ package exportimport
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -28,6 +30,13 @@ type ExportedOciInfo struct {
 	OciTarPath    string
 	ExtractedPath string
 	AddonDir      string
+}
+
+// MirrorRegistry describes one registry mirror entry from cfg/config.json.
+type MirrorRegistry struct {
+	Registry string `json:"registry"`
+	Server   string `json:"server"`
+	Mirror   string `json:"mirror"`
 }
 
 // GetAddonByName returns the addon with the given name from the list of all addons.
@@ -56,6 +65,156 @@ func GetExpectedDirName(addonName, implName string) string {
 		return strings.ReplaceAll(addonName+"-"+implName, " ", "-")
 	}
 	return strings.ReplaceAll(addonName, " ", "-")
+}
+
+// ConfigJsonMirrorRegistries returns registry mirrors configured in cfg/config.json.
+func ConfigJsonMirrorRegistries(suite *framework.K2sTestSuite) []MirrorRegistry {
+	configPath := filepath.Join(suite.RootDir(), "cfg", "config.json")
+	GinkgoWriter.Printf("[AirGap] Reading mirror registries from %s\n", configPath)
+
+	content, err := os.ReadFile(configPath)
+	Expect(err).ToNot(HaveOccurred(), "should be able to read %s", configPath)
+
+	var config struct {
+		SmallSetup struct {
+			MirrorRegistries []MirrorRegistry `json:"mirrorRegistries"`
+		} `json:"smallsetup"`
+	}
+
+	err = json.Unmarshal(content, &config)
+	Expect(err).ToNot(HaveOccurred(), "should be able to parse %s", configPath)
+
+	for i, mirror := range config.SmallSetup.MirrorRegistries {
+		GinkgoWriter.Printf("[AirGap]   [%d] registry=%s server=%s mirror=%s\n", i, mirror.Registry, mirror.Server, mirror.Mirror)
+	}
+
+	return config.SmallSetup.MirrorRegistries
+}
+
+// PrepareAirGappedAddonImport removes proxy environment variables and runtime mirror files.
+func PrepareAirGappedAddonImport(ctx context.Context, suite *framework.K2sTestSuite, controlPlaneIP string) func() {
+	GinkgoWriter.Println("=== PREPARE AIR-GAPPED ADDON IMPORT START ===")
+	restoreProxyEnvironment := RemoveProxyEnvironment()
+	mirrors := ConfigJsonMirrorRegistries(suite)
+
+	RemoveConfigJsonMirrorRuntimeFiles(ctx, suite, mirrors, controlPlaneIP)
+	VerifyConfigJsonMirrorsRemoved(ctx, suite, mirrors, controlPlaneIP)
+
+	GinkgoWriter.Println("=== PREPARE AIR-GAPPED ADDON IMPORT END ===")
+	return restoreProxyEnvironment
+}
+
+// RemoveProxyEnvironment unsets proxy variables for the current test process and returns a restore function.
+func RemoveProxyEnvironment() func() {
+	GinkgoWriter.Println("[AirGap] Removing proxy environment variables for air-gapped phase")
+
+	keys := []string{"SYSTEM_TEST_PROXY", "http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY"}
+	originalValues := map[string]*string{}
+
+	for _, key := range keys {
+		if value, ok := os.LookupEnv(key); ok {
+			valueCopy := value
+			originalValues[key] = &valueCopy
+			GinkgoWriter.Printf("[AirGap]   unset %s\n", key)
+		} else {
+			originalValues[key] = nil
+		}
+
+		Expect(os.Unsetenv(key)).To(Succeed(), "should unset %s", key)
+	}
+
+	return func() {
+		GinkgoWriter.Println("[AirGap] Restoring proxy environment variables")
+		for _, key := range keys {
+			value := originalValues[key]
+			if value == nil {
+				Expect(os.Unsetenv(key)).To(Succeed(), "should keep %s unset", key)
+				continue
+			}
+
+			Expect(os.Setenv(key, *value)).To(Succeed(), "should restore %s", key)
+		}
+	}
+}
+
+// RemoveConfigJsonMirrorRuntimeFiles removes container runtime mirror files created from cfg/config.json.
+func RemoveConfigJsonMirrorRuntimeFiles(ctx context.Context, suite *framework.K2sTestSuite, mirrors []MirrorRegistry, controlPlaneIP string) {
+	GinkgoWriter.Println("=== REMOVE CONFIG.JSON MIRROR RUNTIME FILES START ===")
+	if len(mirrors) == 0 {
+		GinkgoWriter.Println("[AirGap] No config.json mirror registries configured")
+		return
+	}
+
+	Expect(controlPlaneIP).NotTo(BeEmpty(), "control plane IP must be set to remove Linux runtime mirror files")
+
+	for _, mirror := range mirrors {
+		registryConfigName := runtimeRegistryConfigName(mirror.Registry)
+		linuxConfigPath := fmt.Sprintf("/etc/containers/registries.conf.d/%s.conf", registryConfigName)
+		removeLinuxMirrorCmd := fmt.Sprintf("sudo rm -f '%s' && sudo systemctl daemon-reload && sudo systemctl restart crio", linuxConfigPath)
+
+		GinkgoWriter.Printf("[AirGap] Removing Linux CRI-O mirror file for %s: %s\n", mirror.Registry, linuxConfigPath)
+		suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", removeLinuxMirrorCmd, "-o")
+
+		if runtime.GOOS == "windows" {
+			removeWindowsMirrorRuntimeFiles(ctx, suite, mirror)
+		} else {
+			GinkgoWriter.Printf("[AirGap] Skipping Windows containerd mirror cleanup on non-Windows test host: %s\n", runtime.GOOS)
+		}
+	}
+	GinkgoWriter.Println("=== REMOVE CONFIG.JSON MIRROR RUNTIME FILES END ===")
+}
+
+// VerifyConfigJsonMirrorsRemoved verifies that cfg/config.json mirrors are absent from runtime files.
+func VerifyConfigJsonMirrorsRemoved(ctx context.Context, suite *framework.K2sTestSuite, mirrors []MirrorRegistry, controlPlaneIP string) {
+	GinkgoWriter.Println("=== VERIFY CONFIG.JSON MIRRORS REMOVED START ===")
+	if len(mirrors) == 0 {
+		GinkgoWriter.Println("[AirGap] No config.json mirror registries configured")
+		return
+	}
+
+	for _, mirror := range mirrors {
+		registryConfigName := runtimeRegistryConfigName(mirror.Registry)
+		linuxConfigPath := fmt.Sprintf("/etc/containers/registries.conf.d/%s.conf", registryConfigName)
+		checkLinuxMirrorCmd := fmt.Sprintf("test -f '%s'", linuxConfigPath)
+
+		GinkgoWriter.Printf("[AirGap] Verifying Linux CRI-O mirror file is absent for %s: %s\n", mirror.Registry, linuxConfigPath)
+		suite.K2sCli().ExpectedExitCode(1).Exec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", checkLinuxMirrorCmd, "-o")
+
+		if runtime.GOOS == "windows" {
+			verifyWindowsMirrorRuntimeFilesRemoved(ctx, suite, mirror)
+		}
+	}
+	GinkgoWriter.Println("=== VERIFY CONFIG.JSON MIRRORS REMOVED END ===")
+}
+
+func removeWindowsMirrorRuntimeFiles(ctx context.Context, suite *framework.K2sTestSuite, mirror MirrorRegistry) {
+	registryConfigName := runtimeRegistryConfigName(mirror.Registry)
+	powershellCommand := fmt.Sprintf(`$ErrorActionPreference = 'Stop'
+$folder = Join-Path $env:SystemDrive 'etc\containerd\certs.d\%s'
+if (Test-Path -LiteralPath $folder) {
+    Remove-Item -LiteralPath $folder -Recurse -Force
+}
+if (Test-Path -LiteralPath $folder) {
+    throw "Containerd mirror folder still exists: $folder"
+}`, registryConfigName)
+
+	GinkgoWriter.Printf("[AirGap] Removing Windows containerd mirror folder for %s\n", mirror.Registry)
+	suite.Cli("powershell").MustExec(ctx, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", powershellCommand)
+}
+
+func verifyWindowsMirrorRuntimeFilesRemoved(ctx context.Context, suite *framework.K2sTestSuite, mirror MirrorRegistry) {
+	registryConfigName := runtimeRegistryConfigName(mirror.Registry)
+	powershellCommand := fmt.Sprintf(`$folder = Join-Path $env:SystemDrive 'etc\containerd\certs.d\%s'
+if (Test-Path -LiteralPath $folder) {
+    throw "Containerd mirror folder still exists: $folder"
+}`, registryConfigName)
+
+	GinkgoWriter.Printf("[AirGap] Verifying Windows containerd mirror folder is absent for %s\n", mirror.Registry)
+	suite.Cli("powershell").MustExec(ctx, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", powershellCommand)
+}
+
+func runtimeRegistryConfigName(registry string) string {
+	return strings.ReplaceAll(registry, ":", "")
 }
 
 // ExportAddon exports a single addon (or implementation) to an OCI tar file.
@@ -607,6 +766,16 @@ func VerifyNoStrayFiles(unexpectedFiles []string) {
 	}
 
 	GinkgoWriter.Println("=== VERIFY NO STRAY FILES END ===")
+}
+
+func AssertWindowsCurlContains(impl *addons.Implementation, destination string) {
+	dests := make([]string, 0, len(impl.OfflineUsage.WindowsResources.CurlPackages))
+	for _, p := range impl.OfflineUsage.WindowsResources.CurlPackages {
+		dests = append(dests, p.Destination)
+	}
+	Expect(dests).To(ContainElement(destination),
+		"windows.curl must declare '%s' for offline packaging; "+
+			"tools under non-standard YAML keys are excluded from export/import", destination)
 }
 
 // exports a single addon using a relative directory path.

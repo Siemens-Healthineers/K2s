@@ -110,7 +110,7 @@ Multi-node cluster topology is stored in `C:\ProgramData\K2s\cluster.json`. This
 | `Name` | string | | Hostname of the node |
 | `IpAddress` | string | | IP address for SSH/API access |
 | `Username` | string | | SSH username |
-| `NodeType` | string | `HOST`, `VM-NEW`, `VM-EXISTING` | How the node is provisioned |
+| `NodeType` | string | `HOST`, `VM-EXISTING` | How the node is provisioned |
 | `Role` | string | `worker`, `control-plane` | Kubernetes role |
 | `OS` | string | `windows`, `linux` | Node operating system |
 | `Proxy` | string | | Per-node HTTP proxy |
@@ -119,7 +119,6 @@ Multi-node cluster topology is stored in `C:\ProgramData\K2s\cluster.json`. This
 **Node types:**
 
 - `HOST` — the local Windows host machine acting as a worker node
-- `VM-NEW` — a Hyper-V VM provisioned and managed by *K2s*
 - `VM-EXISTING` — a pre-existing VM or bare-metal machine joined to the cluster
 
 Use `k2s node add` / `k2s node remove` to manage nodes rather than editing this file directly.
