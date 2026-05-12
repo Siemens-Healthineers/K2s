@@ -31,7 +31,6 @@ spec:
             - reg.kyverno.io/kyverno/cleanup-controller:v1.17.1
             - reg.kyverno.io/kyverno/reports-controller:v1.17.1
             - reg.kyverno.io/kyverno/kyverno-cli:v1.17.1
-            - bitnami/kubectl:1.32.3
           additionalImagesFiles:
             - ../common/manifests/external-dns/deployment.yaml
             - ../common/manifests/certmanager/cert-manager.yaml
