@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package setuprequired
@@ -57,7 +57,7 @@ var _ = Describe("node", Ordered, func() {
 			})
 
 			It("fails", func(ctx context.Context) {
-				result := k2s.RemoveNode(ctx)
+				result := k2s.RemoveNode(ctx, "machine")
 
 				result.VerifyWrongK8sContextFailure()
 			})
