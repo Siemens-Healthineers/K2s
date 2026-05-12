@@ -31,7 +31,6 @@ spec:
             - reg.kyverno.io/kyverno/cleanup-controller:v1.17.1
             - reg.kyverno.io/kyverno/reports-controller:v1.17.1
             - reg.kyverno.io/kyverno/kyverno-cli:v1.17.1
-            - bitnami/kubectl:1.32.3
           additionalImagesFiles:
             - ../common/manifests/external-dns/deployment.yaml
             - ../common/manifests/certmanager/cert-manager.yaml
@@ -44,7 +43,6 @@ spec:
               destination: bin\cmctl.exe
             - url: https://github.com/kyverno/kyverno/releases/download/v1.17.1/kyverno-cli_v1.17.1_windows_x86_64.zip
               destination: bin\kyverno.exe
-          linkerd:
             - url: https://github.com/linkerd/linkerd2/releases/download/edge-25.4.4/linkerd2-cli-edge-25.4.4-windows.exe
               destination: bin\linkerd.exe
       commands:
