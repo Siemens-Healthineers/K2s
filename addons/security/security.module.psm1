@@ -651,14 +651,6 @@ function Install-Kyverno {
         Write-Log "[Kyverno] Namespace '$kyvernoNamespace' already exists" -Console
     }
 
-    # Wait for the API server to be responsive before running Helm.
-    # When logging is enabled first, the subsequent Linkerd injection rollout restarts
-    # many pods, creating sustained API server load.  Helm's 10m timeout fires on
-    # loaded single-node clusters (consistent CI failure pattern).  Verifying readyz
-    # and running a lightweight API-discovery call first ensures the server can handle
-    # the burst of CRD and webhook registrations Kyverno requires.
-    # Evidence: security.module.psm1 Kyverno retry loop consistently fails with
-    # "context deadline exceeded" when logging is active (Kagent RCA 2026-05-10).
     Write-Log '[Kyverno] Waiting for API server to be ready before Helm install...' -Console
     $apiReady = $false
     for ($apiAttempt = 1; $apiAttempt -le 12; $apiAttempt++) {
