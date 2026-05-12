@@ -35,7 +35,7 @@ var (
 
 func TestSecurityExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "security Addon Export/Import Tests", Label("addon", "addon-security", "acceptance", "internet-required", "setup-required", "invasive", "security", "export-import", "system-running"))
+	RunSpecs(t, "security Addon Export/Import Tests", Label("addon", "addon-security", "acceptance", "internet-required", "setup-required", "invasive", "security", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -62,6 +62,11 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	Expect(impl).NotTo(BeNil(), "security implementation should exist")
 	GinkgoWriter.Printf("[Setup] Found implementation: %s\n", impl.Name)
 	GinkgoWriter.Printf("[Setup] Export directory name: %s\n", impl.ExportDirectoryName)
+
+	GinkgoWriter.Printf("[Setup] Windows curl packages in security metadata: %d\n", len(impl.OfflineUsage.WindowsResources.CurlPackages))
+	exportimport.AssertWindowsCurlContains(impl, `bin\cmctl.exe`)
+	exportimport.AssertWindowsCurlContains(impl, `bin\kyverno.exe`)
+	exportimport.AssertWindowsCurlContains(impl, `bin\linkerd.exe`)
 
 	k2s = dsl.NewK2s(suite)
 
@@ -143,11 +148,18 @@ var _ = Describe("security addon export and import", Ordered, func() {
 	})
 
 	Describe("import security addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
+
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 

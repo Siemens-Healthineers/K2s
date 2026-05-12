@@ -231,6 +231,110 @@ function Test-SubnetOverlap {
     return ($network1 -band $overlapMask) -eq ($network2 -band $overlapMask)
 }
 
+<#
+.SYNOPSIS
+Gets all subnets from physical network interfaces (LAN and WiFi).
 
-Export-ModuleMember -Function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost, Get-HostPhysicalIp, Get-HostIpAddressForRemoteIp, Test-DefaultSwitch
+.DESCRIPTION
+Retrieves the list of IPv4 subnets configured on physical network adapters
+that are currently up. This includes Ethernet (LAN) and WiFi interfaces,
+but excludes virtual adapters (vEthernet, loopback, etc.).
+
+.PARAMETER ExcludeNetworkInterfaceName
+Optional name of a network interface to exclude from the results.
+
+.OUTPUTS
+Returns an array of objects with InterfaceName, IPAddress, PrefixLength, and CIDR properties.
+
+.EXAMPLE
+Get-PhysicalNetworkSubnets
+#>
+function Get-PhysicalNetworkSubnets {
+    param (
+        [string]$ExcludeNetworkInterfaceName = ''
+    )
+
+    $subnets = @()
+    
+    # Get physical adapters that are up (Ethernet, Wi-Fi, etc.)
+    $physicalAdapters = Get-NetAdapter -Physical | Where-Object { 
+        $_.Status -eq 'Up' -and 
+        $_.Name -ne $ExcludeNetworkInterfaceName 
+    }
+
+    foreach ($adapter in $physicalAdapters) {
+        $ipAddresses = Get-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPAddress -ne '127.0.0.1' -and $_.IPAddress -notmatch '^169\.254\.' }
+        
+        foreach ($ipAddr in $ipAddresses) {
+            # Calculate network address for CIDR notation
+            $ip = [System.Net.IPAddress]::Parse($ipAddr.IPAddress)
+            $prefix = $ipAddr.PrefixLength
+            $mask = [uint32]([math]::Pow(2, 32) - [math]::Pow(2, 32 - $prefix))
+            $networkInt = [uint32]([System.BitConverter]::ToUInt32($ip.GetAddressBytes()[3..0], 0)) -band $mask
+            $networkBytes = [System.BitConverter]::GetBytes($networkInt)[3..0]
+            $networkAddress = [System.Net.IPAddress]::new($networkBytes)
+            
+            $subnets += [PSCustomObject]@{
+                InterfaceName = $adapter.Name
+                InterfaceType = $adapter.InterfaceDescription
+                IPAddress     = $ipAddr.IPAddress
+                PrefixLength  = $prefix
+                CIDR          = "$($networkAddress.ToString())/$prefix"
+            }
+        }
+    }
+
+    return $subnets
+}
+
+<#
+.SYNOPSIS
+Tests if an IP address belongs to any physical network interface subnet.
+
+.DESCRIPTION
+Validates that the given IP address is within the subnet range of a physical 
+network adapter (LAN or WiFi). This is used to ensure external nodes are 
+reachable via standard network infrastructure.
+
+.PARAMETER IpAddress
+The IP address to validate.
+
+.PARAMETER ExcludeNetworkInterfaceName
+Optional name of a network interface to exclude from validation.
+
+.OUTPUTS
+Returns $true if the IP is in a physical subnet, $false otherwise.
+
+.EXAMPLE
+Test-IpInPhysicalSubnet -IpAddress "192.168.1.100"
+#>
+function Test-IpInPhysicalSubnet {
+    param (
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$ExcludeNetworkInterfaceName = ''
+    )
+
+    $physicalSubnets = Get-PhysicalNetworkSubnets -ExcludeNetworkInterfaceName $ExcludeNetworkInterfaceName
+    
+    if ($physicalSubnets.Count -eq 0) {
+        Write-Log "Warning: No physical network interfaces found" -Console
+        return $false
+    }
+
+    # Create a CIDR for the target IP (using /32 for exact match testing)
+    $targetCIDR = "$IpAddress/32"
+    
+    foreach ($subnet in $physicalSubnets) {
+        if (Test-SubnetOverlap -Subnet1 $targetCIDR -Subnet2 $subnet.CIDR) {
+            Write-Log "IP '$IpAddress' is within physical subnet '$($subnet.CIDR)' on interface '$($subnet.InterfaceName)'" -Console
+            return $true
+        }
+    }
+
+    return $false
+}
+
+
+Export-ModuleMember -Function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost, Get-HostPhysicalIp, Get-HostIpAddressForRemoteIp, Test-DefaultSwitch, Get-PhysicalNetworkSubnets, Test-IpInPhysicalSubnet
 # Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost, Reset-DnsForActivePhysicalInterfacesOnWindowsHost
