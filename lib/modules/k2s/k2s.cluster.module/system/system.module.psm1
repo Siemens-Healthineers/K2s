@@ -76,6 +76,51 @@ function Wait-ForAPIServer {
     }
 }
 
+function Wait-ForControlPlanePodsReady {
+    param (
+        [Parameter(Mandatory = $false)]
+        [int] $TimeoutSeconds = 300
+    )
+
+    $controlPlaneVMHostName = (Get-ConfigControlPlaneNodeHostname).ToLower()
+    $kubeToolsPath = Get-KubeToolsPath
+    $pods = @(
+        "etcd-$controlPlaneVMHostName",
+        "kube-apiserver-$controlPlaneVMHostName",
+        "kube-controller-manager-$controlPlaneVMHostName",
+        "kube-scheduler-$controlPlaneVMHostName"
+    )
+
+    Write-Log "[ControlPlane] Waiting for control-plane pods to be Ready (timeout: ${TimeoutSeconds}s)"
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+    foreach ($pod in $pods) {
+        $remainingSeconds = $TimeoutSeconds - [int]$stopwatch.Elapsed.TotalSeconds
+        if ($remainingSeconds -le 0) {
+            throw "Timed out waiting for control-plane pods to become Ready after ${TimeoutSeconds}s"
+        }
+
+        Write-Log "[ControlPlane] Waiting for pod '$pod' to be Ready (${remainingSeconds}s remaining)"
+
+        $ErrorActionPreference = 'Continue'
+        $result = &"$kubeToolsPath\kubectl.exe" wait --timeout="$($remainingSeconds)s" --for=condition=Ready -n kube-system "pod/$pod" 2>&1
+        $exitCode = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+
+        if ($exitCode -ne 0 -or $result -notmatch 'condition met|condition satisfied') {
+            Write-Log "[ControlPlane] Pod '$pod' did not become Ready: $result" -Error
+
+            $describeResult = &"$kubeToolsPath\kubectl.exe" describe pod -n kube-system $pod 2>&1
+            Write-Log "[ControlPlane] Diagnostics for pod '$pod': $describeResult" -Error
+
+            throw "Control-plane pod '$pod' did not become Ready within ${TimeoutSeconds}s: $result"
+        }
+    }
+
+    Write-Log '[ControlPlane] All control-plane pods are Ready'
+}
+
 <#
 .SYNOPSIS
     Sets the correct labels and taints for the nodes.
@@ -263,6 +308,7 @@ function Get-AssignedPodNetworkCIDR {
 
 Export-ModuleMember Invoke-TimeSync,
 Wait-ForAPIServer,
+Wait-ForControlPlanePodsReady,
 Update-NodeLabelsAndTaints,
 Get-Cni0IpAddressInControlPlaneUsingSshWithRetries,
 Get-AssignedPodSubnetworkNumber,
