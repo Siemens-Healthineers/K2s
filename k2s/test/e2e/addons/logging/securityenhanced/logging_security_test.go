@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const testClusterTimeout = time.Minute * 20
+const testClusterTimeout = time.Minute * 30
 
 var (
 	suite      *framework.K2sTestSuite
@@ -82,7 +82,7 @@ var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: Enabling security addon in enhanced mode")
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
 			suite.K2sCli().MustExec(ctx, args...)
-			time.Sleep(30 * time.Second)
+			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			GinkgoWriter.Println(">>> TEST: Security addon enabled")
 		})
 
@@ -128,7 +128,8 @@ var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: Enabling security addon in enhanced mode")
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
 			suite.K2sCli().MustExec(ctx, args...)
-			time.Sleep(30 * time.Second)
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-cluster-local-nginx-gw", "nginx-gw")
+			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "logging")
 			GinkgoWriter.Println(">>> TEST: Security addon enabled and linkerd injection verified")
 		})
