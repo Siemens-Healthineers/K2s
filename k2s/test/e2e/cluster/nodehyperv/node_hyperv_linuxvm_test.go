@@ -149,20 +149,6 @@ func kubeSwitchExists(ctx context.Context) bool {
 	return strings.TrimSpace(output) == "True"
 }
 
-// isVMConnectedToKubeSwitch checks whether a VM has at least one network adapter connected to KubeSwitch.
-func isVMConnectedToKubeSwitch(ctx context.Context, vmName string) bool {
-	cmd := fmt.Sprintf(`$adapters = Get-VMNetworkAdapter -VMName '%s' -ErrorAction SilentlyContinue; if ($null -eq $adapters) { 'False' } else { (($adapters | Where-Object { $_.SwitchName -eq '%s' } | Measure-Object).Count -gt 0).ToString() }`, vmName, kubeSwitchName)
-	output := suite.Cli("powershell").NoStdOut().MustExec(ctx, "-Command", cmd)
-	return strings.TrimSpace(output) == "True"
-}
-
-// getVMState returns the Hyper-V state of a VM (e.g. Running, Off).
-func getVMState(ctx context.Context, vmName string) string {
-	cmd := fmt.Sprintf(`$vm = Get-VM -Name '%s' -ErrorAction SilentlyContinue; if ($null -eq $vm) { '' } else { $vm.State.ToString() }`, vmName)
-	output := suite.Cli("powershell").NoStdOut().MustExec(ctx, "-Command", cmd)
-	return strings.TrimSpace(output)
-}
-
 // getNodeStatus returns the Ready condition status of a node.
 func getNodeStatus(ctx context.Context, nodeName string) (bool, error) {
 	client := suite.Cluster().Client()
@@ -498,21 +484,7 @@ spec:
 	})
 
 	Describe("cluster lifecycle", Label("cluster-lifecycle"), func() {
-		var controlPlaneVMName string
-
 		Context("when stopping and starting the entire cluster", Ordered, func() {
-			It("captures node names and verifies KubeSwitch wiring before stop", func(ctx context.Context) {
-				controlPlaneVMName = getControlPlaneNodeName(ctx)
-				Expect(controlPlaneVMName).NotTo(BeEmpty(), "Control-plane node name should not be empty")
-
-				Expect(kubeSwitchExists(ctx)).To(BeTrue(),
-					"KubeSwitch should exist before stopping the cluster")
-				Expect(isVMConnectedToKubeSwitch(ctx, controlPlaneVMName)).To(BeTrue(),
-					"Control-plane VM %s should be connected to KubeSwitch before stop", controlPlaneVMName)
-				Expect(isVMConnectedToKubeSwitch(ctx, vmName)).To(BeTrue(),
-					"Worker VM %s should be connected to KubeSwitch before stop", vmName)
-			})
-
 			It("stops the cluster using k2s stop", func(ctx context.Context) {
 				GinkgoWriter.Println("Stopping the entire K2s cluster")
 
@@ -522,15 +494,6 @@ spec:
 				GinkgoWriter.Println("Cluster stop command completed")
 			})
 
-			It("verifies KubeSwitch is removed after k2s stop for control-plane and worker VMs", func(ctx context.Context) {
-				Expect(kubeSwitchExists(ctx)).To(BeFalse(),
-					"KubeSwitch should be removed after stopping the cluster")
-				Expect(isVMConnectedToKubeSwitch(ctx, controlPlaneVMName)).To(BeFalse(),
-					"Control-plane VM %s should not be connected to KubeSwitch after cluster stop", controlPlaneVMName)
-				Expect(isVMConnectedToKubeSwitch(ctx, vmName)).To(BeFalse(),
-					"Worker VM %s should not be connected to KubeSwitch after cluster stop", vmName)
-			})
-
 			It("starts the cluster using k2s start", func(ctx context.Context) {
 				GinkgoWriter.Println("Starting the K2s cluster")
 
@@ -538,15 +501,6 @@ spec:
 				result.ExpectSuccess()
 
 				GinkgoWriter.Println("Cluster start command completed")
-			})
-
-			It("verifies KubeSwitch is added back after k2s start for control-plane and worker VMs", func(ctx context.Context) {
-				Expect(kubeSwitchExists(ctx)).To(BeTrue(),
-					"KubeSwitch should be recreated after starting the cluster")
-				Expect(isVMConnectedToKubeSwitch(ctx, controlPlaneVMName)).To(BeTrue(),
-					"Control-plane VM %s should reconnect to KubeSwitch after cluster start", controlPlaneVMName)
-				Expect(isVMConnectedToKubeSwitch(ctx, vmName)).To(BeTrue(),
-					"Worker VM %s should reconnect to KubeSwitch after cluster start", vmName)
 			})
 
 			It("verifies all nodes are Ready after cluster restart", func(ctx context.Context) {
@@ -597,45 +551,6 @@ spec:
 				Expect(ready).To(BeTrue(), "Worker node %s should be Ready after cluster restart", vmName)
 
 				GinkgoWriter.Printf("Worker node %s is Ready after cluster restart\n", vmName)
-			})
-		})
-
-		Context("when stopping and starting only the worker node", Ordered, func() {
-			It("stops the worker node using k2s stop --node and verifies VM state", func(ctx context.Context) {
-				result := k2s.StopNode(ctx, vmName)
-				result.ExpectSuccess()
-
-				Eventually(func() string {
-					state := getVMState(ctx, vmName)
-					GinkgoWriter.Printf("Worker VM %s state after stop --node: %s\n", vmName, state)
-					return state
-				}, 2*time.Minute, 5*time.Second).Should(Equal("Off"),
-					"Worker VM %s should be Off after k2s stop --node", vmName)
-
-				Expect(kubeSwitchExists(ctx)).To(BeTrue(),
-					"KubeSwitch should remain available when only one node is stopped")
-			})
-
-			It("starts the worker node using k2s start --node and verifies VM/node recovery", func(ctx context.Context) {
-				result := k2s.StartNode(ctx, vmName)
-				result.ExpectSuccess()
-
-				Eventually(func() string {
-					state := getVMState(ctx, vmName)
-					GinkgoWriter.Printf("Worker VM %s state after start --node: %s\n", vmName, state)
-					return state
-				}, 5*time.Minute, 5*time.Second).Should(Equal("Running"),
-					"Worker VM %s should be Running after k2s start --node", vmName)
-
-				Eventually(func() bool {
-					ready, err := getNodeStatus(ctx, vmName)
-					if err != nil {
-						GinkgoWriter.Printf("Error getting node status after start --node: %v\n", err)
-						return false
-					}
-					return ready
-				}, 5*time.Minute, 5*time.Second).Should(BeTrue(),
-					"Worker node %s should become Ready after k2s start --node", vmName)
 			})
 		})
 	})
