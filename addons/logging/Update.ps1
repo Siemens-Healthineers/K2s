@@ -93,7 +93,7 @@ if (-not $omitOpensearch) {
         throw "[Logging] Deployment rollout did not complete within timeout: $($deploymentRollout.Output)"
     }
 
-    $statefulsetRollout = Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'logging', '--timeout', '300s'
+    $statefulsetRollout = Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'logging', '--timeout', '900s'
     $statefulsetRollout.Output | Write-Log
     if (-not $statefulsetRollout.Success) {
         throw "[Logging] StatefulSet rollout did not complete within timeout: $($statefulsetRollout.Output)"

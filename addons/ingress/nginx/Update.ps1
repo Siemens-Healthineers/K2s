@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -44,8 +44,9 @@ if ($EnancedSecurityEnabled) {
 	$webhookMaxWait = 60
 	$webhookWaited = 0
 	do {
-		$webhookEndpoints = (Invoke-Kubectl -Params 'get', 'endpoints', 'ingress-nginx-controller-admission', '-n', 'ingress-nginx', '-o', 'jsonpath={.subsets[*].addresses[*].ip}').Output
-		if ($webhookEndpoints) { break }
+		$endpointResult = Invoke-Kubectl -Params 'get', 'endpoints', 'ingress-nginx-controller-admission', '-n', 'ingress-nginx', '-o', 'jsonpath={.subsets[*].addresses[*].ip}'
+		$webhookEndpoints = $endpointResult.Output
+		if ($endpointResult.Success -and $webhookEndpoints) { break }
 		Start-Sleep -Seconds 3
 		$webhookWaited += 3
 	} while ($webhookWaited -lt $webhookMaxWait)

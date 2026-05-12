@@ -1218,7 +1218,7 @@ function Update-IngressForNginx {
 	do {
 		$probeResult = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir, '--dry-run=server'
 		$outputText = ($probeResult.Output | ForEach-Object { "$_" }) -join "`n"
-		if ($outputText -notmatch 'connection refused' -and $outputText -notmatch 'deadline exceeded') {
+		if ($probeResult.Success -and $outputText -notmatch 'connection refused' -and $outputText -notmatch 'deadline exceeded') {
 			Write-Log "  [Webhook probe] Webhook is accepting connections after ${probeWaited}s" -Console
 			break
 		}
