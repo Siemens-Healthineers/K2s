@@ -525,7 +525,6 @@ function Get-LinkerdCliPackageFromManifest {
             $destination = [string]$package.destination
             $url = [string]$package.url
 
-            # Evidence: addons/security/addon.manifest.yaml:41-47 defines Linkerd CLI in windows.curl.
             if ($destination -match '(?i)linkerd\.exe$' -or $url -match '(?i)linkerd2-cli') {
                 return $package
             }
