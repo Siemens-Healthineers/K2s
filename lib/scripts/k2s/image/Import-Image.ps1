@@ -115,6 +115,12 @@ else {
             continue
         }
 
+        # Check if node is Ready before processing
+        if (-not (Test-NodeReady -NodeName $nodeName -Kind $nodeInfo.Kind)) {
+            Write-Log "[Import] Node '$nodeName' is not in Ready state - start the node with 'k2s start --node $nodeName' first" -Console
+            continue
+        }
+
         Write-Log "[Import] Targeting node '$nodeName' (kind=$($nodeInfo.Kind), os=$($nodeInfo.OS))" -Console
 
         foreach ($image in $images) {
