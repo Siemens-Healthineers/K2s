@@ -1217,11 +1217,13 @@ function Update-IngressForNginx {
 	$probeMaxWait = 120
 	do {
 		$probeResult = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir, '--dry-run=server'
-		if ($probeResult.Output -notmatch 'connection refused') {
+		$outputText = ($probeResult.Output | ForEach-Object { "$_" }) -join "`n"
+		if ($outputText -notmatch 'connection refused' -and $outputText -notmatch 'deadline exceeded') {
 			Write-Log "  [Webhook probe] Webhook is accepting connections after ${probeWaited}s" -Console
 			break
 		}
-		Write-Log "  [Webhook probe] Webhook not ready at ${probeWaited}s (connection refused) - waiting 5s..." -Console
+		$notReadyReason = if ($outputText -match 'deadline exceeded') { 'deadline exceeded' } else { 'connection refused' }
+		Write-Log "  [Webhook probe] Webhook not ready at ${probeWaited}s ($notReadyReason) - waiting 5s..." -Console
 		Start-Sleep -Seconds 5
 		$probeWaited += 5
 	} while ($probeWaited -lt $probeMaxWait)
