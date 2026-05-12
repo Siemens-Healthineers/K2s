@@ -79,6 +79,9 @@ $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
 $WSL = Get-ConfigWslFlag
 Initialize-Cni0Interface -VmName $controlPlaneVMHostName -WSL:$WSL
 
+Write-Log "[$logUseCase] Waiting for control-plane pods to be ready"
+Wait-ForControlPlanePodsReady
+
 # change loopback adapter to private network profile
 # Set-PrivateNetworkProfileForLoopbackAdapter
 

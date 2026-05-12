@@ -316,10 +316,19 @@ function Join-LinuxNode {
         Write-Log "Host $NodeName not yet available as worker node."
 
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/kubernetes/kubelet.conf' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/kubernetes/pki/ca.crt' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo y | sudo kubeadm reset' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/kubernetes/pki' -UserName $NodeUserName -IpAddress $NodeIpAddress -IgnoreErrors).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /var/lib/kubelet/pki' -UserName $NodeUserName -IpAddress $NodeIpAddress -IgnoreErrors).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl stop kubelet' -UserName $NodeUserName -IpAddress $NodeIpAddress -IgnoreErrors).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo kubeadm reset --force' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
 
-        &$PreStepHook
+        Write-Log "Preparing kubelet prerequisites on node '$NodeIpAddress'"
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/kubernetes/kubelet.conf.d' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /var/lib/kubelet' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl reset-failed kubelet' -UserName $NodeUserName -IpAddress $NodeIpAddress -IgnoreErrors).Output | Write-Log
+
+        if ($null -ne $PreStepHook) {
+            &$PreStepHook
+        }
 
         $CommandForJoining = New-JoinCommand
 
@@ -405,12 +414,23 @@ function Remove-LinuxNode {
 
     (Invoke-Kubectl -Params @('drain', "$NodeName", '--ignore-daemonsets', '--delete-emptydir-data')).Output | ForEach-Object { "$_" } | Write-Log
     (Invoke-Kubectl -Params @('delete', 'node', "$NodeName")).Output | ForEach-Object { "$_" } | Write-Log
+    
+    # delete control plane route only if it exists and is not a connected/kernel route
     $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+    $controlPlaneRoute = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR | head -1" -UserName $NodeUserName -IpAddress $NodeIpAddress -IgnoreErrors).Output.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($controlPlaneRoute)) {
+        if ($controlPlaneRoute -match 'proto kernel|scope link') {
+            Write-Log "[Route] Keeping connected route: $controlPlaneRoute"
+        } else {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $NodeUserName -IpAddress $NodeIpAddress -IgnoreErrors).Output | Write-Log
+        }
+    } else {
+        Write-Log "[Route] $controlPlaneCIDR not found on node, skipping delete."
+    }
     
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl stop kubelet' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/kubernetes' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo y | sudo kubeadm reset' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo kubeadm reset --force' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
 
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/cni' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
 
