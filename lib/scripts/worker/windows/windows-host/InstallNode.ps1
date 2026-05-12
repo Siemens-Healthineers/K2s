@@ -84,14 +84,14 @@ if (!(Test-Path $kubeConfigTargetDir)) {
 Copy-Item -Path $kubeConfigSource -Destination $kubeConfigTarget -Force
 Write-Log "Kubeconfig copied to $kubeConfigTarget. kubectl will use this config."
 
-# Ensure persistent route to control plane network for WiFi/Ethernet adapters
-// Note: This is not needed as flannel will take care of this.
-# $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+# For Node join to work, the Windows worker node needs to have a route to the control plane CIDR via the Windows host. 
+# This is needed for the kubelet on the Windows worker node to be able to reach the API server on the control plane.
+$ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
 # # Use the passed HostIpAddress as the next hop
-# $nextHop = $HostIpAddress
-# route delete $ipControlPlaneCIDR >$null 2>&1
-# Write-Log "[Route] Adding persistent route to $ipControlPlaneCIDR via $nextHop"
-# route -p add $ipControlPlaneCIDR $nextHop METRIC 3 | Out-Null
+$nextHop = $HostIpAddress
+route delete $ipControlPlaneCIDR >$null 2>&1
+Write-Log "[Route] Adding persistent route to $ipControlPlaneCIDR via $nextHop"
+route -p add $ipControlPlaneCIDR $nextHop METRIC 3 | Out-Null
 
 # # Add persistent route to pod network CIDR
 # $podNetworkCIDR = Get-ConfiguredClusterCIDR
