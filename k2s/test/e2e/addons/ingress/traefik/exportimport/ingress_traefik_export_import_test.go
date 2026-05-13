@@ -63,6 +63,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Printf("[Setup] Found implementation: %s\n", impl.Name)
 	GinkgoWriter.Printf("[Setup] Export directory name: %s\n", impl.ExportDirectoryName)
 
+	exportimport.AssertWindowsCurlContains(impl, `bin\cmctl.exe`)
+
 	k2s = dsl.NewK2s(suite)
 
 	GinkgoWriter.Println("[Setup] Setup complete")

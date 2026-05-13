@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -33,7 +33,7 @@ spec:
         resources:
           requests:
             storage: "1Gi"
-        #storageClassName: "local-path" # when using https://github.com/rancher/local-path-provisioner
+        #storageClassName: "local-path" # when using https://github.com/rancher/local-path-provisioner 
   template:
     metadata:
       name: "opensearch-cluster-master"
@@ -113,7 +113,7 @@ spec:
               port: 9200
             timeoutSeconds: 3
           startupProbe:
-            failureThreshold: 30
+            failureThreshold: 60
             initialDelaySeconds: 5
             periodSeconds: 10
             tcpSocket:
