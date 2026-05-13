@@ -666,7 +666,7 @@ Function New-RootfsForWSL {
 
     $target = '/tmp/rootfs/'
     $filename = Split-Path $VhdxFile -Leaf
-    Copy-ToRemoteComputerViaUserAndPwd -Source $VhdxFile -Target $target -IpAddress $IpAddress
+    Copy-ToRemoteComputerViaUserAndPwd -Source $VhdxFile -Target $target -IpAddress $IpAddress -Retries 5 -RetryDelay 10
 
     &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir mntfs"
     &$executeRemoteCommand "cd /tmp/rootfs && sudo modprobe nbd"
