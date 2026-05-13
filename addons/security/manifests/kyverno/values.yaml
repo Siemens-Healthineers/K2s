@@ -49,9 +49,6 @@ features:
   forceFailurePolicyIgnore:
     enabled: true
 
-# Override cleanup hook image to match the image listed in additionalImages.
+# Cleanup is handled by the security addon Uninstall-Kyverno flow, which uses helm uninstall kyverno --no-hooks.
 webhooksCleanup:
-  image:
-    registry: docker.io
-    repository: bitnami/kubectl
-    tag: "1.32.3"
+  enabled: false

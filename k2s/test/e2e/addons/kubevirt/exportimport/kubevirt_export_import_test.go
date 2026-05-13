@@ -35,7 +35,7 @@ var (
 
 func TestKubevirtExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "kubevirt Addon Export/Import Tests", Label("addon", "addon-diverse", "acceptance", "internet-required", "setup-required", "invasive", "kubevirt", "export-import", "system-running"))
+	RunSpecs(t, "kubevirt Addon Export/Import Tests", Label("addon", "addon-diverse", "acceptance", "internet-required", "setup-required", "invasive", "kubevirt", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -143,11 +143,18 @@ var _ = Describe("kubevirt addon export and import", Ordered, func() {
 	})
 
 	Describe("import kubevirt addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
+
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 
