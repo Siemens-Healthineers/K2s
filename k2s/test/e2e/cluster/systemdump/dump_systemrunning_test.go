@@ -107,10 +107,12 @@ var _ = Describe("system dump", func() {
 
 		node1NodeFile := fmt.Sprintf("/node/%s-node.txt", node1)
 		node1ProcFile := fmt.Sprintf("/node/%s-processes.txt", node1)
+		node1ResourcesFile := fmt.Sprintf("/node/%s-resources.txt", node1)
 		node1SystemdFile := fmt.Sprintf("/node/%s-systemd-units.txt", node1)
 
 		node2NodeFile := fmt.Sprintf("/node/%s-node.txt", node2)
 		node2ProcFile := fmt.Sprintf("/node/%s-processes.txt", node2)
+		node2ResourcesFile := fmt.Sprintf("/node/%s-resources.txt", node2)
 		node2SystemdFile := fmt.Sprintf("/node/%s-systemd-units.txt", node2)
 
 		describeFile1 := fmt.Sprintf("/cluster/describe-%s.txt", node1)
@@ -120,10 +122,12 @@ var _ = Describe("system dump", func() {
 
 		Expect(hasDumpEntry(r.File, node1NodeFile)).To(BeTrue(), entryMissingPattern, node1NodeFile)
 		Expect(hasDumpEntry(r.File, node1ProcFile)).To(BeTrue(), entryMissingPattern, node1ProcFile)
+		Expect(hasDumpEntry(r.File, node1ResourcesFile)).To(BeTrue(), entryMissingPattern, node1ResourcesFile)
 		Expect(hasDumpEntry(r.File, node1SystemdFile)).To(BeTrue(), entryMissingPattern, node1SystemdFile)
 
 		Expect(hasDumpEntry(r.File, node2NodeFile)).To(BeTrue(), entryMissingPattern, node2NodeFile)
 		Expect(hasDumpEntry(r.File, node2ProcFile)).To(BeTrue(), entryMissingPattern, node2ProcFile)
+		Expect(hasDumpEntry(r.File, node2ResourcesFile)).To(BeTrue(), entryMissingPattern, node2ResourcesFile)
 		Expect(hasDumpEntry(r.File, node2SystemdFile)).To(BeTrue(), entryMissingPattern, node2SystemdFile)
 	})
 })
