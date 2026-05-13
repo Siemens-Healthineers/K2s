@@ -233,24 +233,7 @@ try {
 	# Enhanced Security is on
 	if (Confirm-EnhancedSecurityOn($Type)) {
 
-		# Download linkerd
-		Write-Log 'Downloading linkerd executable' -Console
-		$manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
-		$k2sRoot = "$PSScriptRoot\..\.."
-		$windowsLinkerdPackages = $manifest.spec.implementations[0].offline_usage.windows.linkerd
-		if ($windowsLinkerdPackages) {
-			foreach ($package in $windowsLinkerdPackages) {
-				$destination = $package.destination
-				$destination = "$k2sRoot\$destination"
-				if (!(Test-Path $destination)) {
-					$url = $package.url
-					Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
-				}
-				else {
-					Write-Log "File $destination already exists. Skipping download."
-				}
-			}
-		}
+		Install-LinkerdCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
 
 		# generate linkerd config
 		Write-Log 'Creating linkerd config files' -Console
@@ -421,17 +404,6 @@ try {
 		Write-Log 'Installing Kyverno policy enforcement engine' -Console
 		Install-KyvernoCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
 		Install-Kyverno -Proxy $Proxy
-		$kyvernoStatus = Wait-ForKyvernoAvailable
-		if ($kyvernoStatus -ne $true) {
-			$errMsg = "Kyverno pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
-			if ($EncodeStructuredOutput -eq $true) {
-				$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-				Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-				return
-			}
-			Write-Log $errMsg -Error
-			throw $errMsg
-		}
 		Write-Log 'Kyverno policy enforcement engine installed successfully' -Console
 	} else {
 		Write-Log 'Omitting Kyverno policy enforcement engine as per flag.' -Console
@@ -439,7 +411,6 @@ try {
 
 	Write-Log '[Security] Waiting for security-stack deployments to reach Available state...' -Console
 	$stabilizationNamespaces = [System.Collections.Generic.List[string]]@('security', 'cert-manager')
-	if (-not $OmitPolicyEnf) { $stabilizationNamespaces.Add('kyverno') }
 	if (Confirm-EnhancedSecurityOn($Type)) { $stabilizationNamespaces.Add('linkerd') }
 
 	foreach ($ns in $stabilizationNamespaces) {
