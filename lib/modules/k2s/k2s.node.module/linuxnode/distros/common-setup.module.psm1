@@ -526,6 +526,7 @@ Function Remove-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubelet' 
 
     &$executeRemoteCommand 'sudo rm -f /etc/containers/registries.conf'
+    &$executeRemoteCommand 'sudo sh -c ''for f in /etc/containers/registries.conf.d/*.conf; do [ -f "$f" ] || continue; if grep -q "^[[:space:]]*\[\[registry\.mirror\]\]" "$f"; then rm -f "$f"; fi; done'''
     &$executeRemoteCommand 'sudo rm -f /etc/cni/net.d/100-crio-bridge.conf'
     &$executeRemoteCommand 'sudo rm -drf /root/.config/containers'
     &$executeRemoteCommand 'sudo rm -drf /etc/systemd/system/crio.service.d'
