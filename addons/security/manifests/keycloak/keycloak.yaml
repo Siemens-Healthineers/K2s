@@ -2345,6 +2345,8 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            - name: management
+              containerPort: 9000
           readinessProbe:
             httpGet:
               path: /health/ready
@@ -2353,7 +2355,14 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 12
+            failureThreshold: 30
+          startupProbe:
+            httpGet:
+              path: /health/ready
+              port: 9000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
 
           # livenessProbe:
           #   # Add a liveness probe for production
