@@ -1089,7 +1089,8 @@ Function Set-UpMasterNode {
         [string] $NetworkInterfaceName = $(throw 'Argument missing: NetworkInterfaceName'),
         [ScriptBlock] $Hook = $(throw 'Argument missing: Hook'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string] $ClusterName = $(throw 'Argument missing: ClusterName')
+        [string] $ClusterName = $(throw 'Argument missing: ClusterName'),
+        [switch] $ForceOnlineInstallation = $false
     )
 
     $remoteUser = "$UserName@$IpAddress"
@@ -1145,16 +1146,21 @@ failCgroupV1: false
 "@
 
     # Pre-pull Kubernetes images with retries to isolate network issues from kubeadm init
-    Write-Log "[KubeInit] Pre-pulling Kubernetes images for version $K8sVersion" -Console
-    if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
-        $prePullResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -UserName $UserName -IpAddress $IpAddress -Retries 3 -Timeout 30
+    if ($ForceOnlineInstallation) {
+        Write-Log "[KubeInit] Pre-pulling Kubernetes images for version $K8sVersion" -Console
+        if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+            $prePullResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -UserName $UserName -IpAddress $IpAddress -Retries 3 -Timeout 30
+        }
+        else {
+            $prePullResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries 3 -Timeout 30
+        }
+        $prePullResult.Output | Write-Log
+        if (-not $prePullResult.Success) {
+            throw '[KubeInit] Pre-pulling Kubernetes images failed after retries. Check proxy settings and network connectivity to container registry (registry.k8s.io).'
+        }
     }
     else {
-        $prePullResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries 3 -Timeout 30
-    }
-    $prePullResult.Output | Write-Log
-    if (-not $prePullResult.Success) {
-        throw '[KubeInit] Pre-pulling Kubernetes images failed after retries. Check proxy settings and network connectivity to container registry (registry.k8s.io).'
+        Write-Log "[KubeInit] Skipping image pre-pull (offline install - images already included in base image)" -Console
     }
 
     &$executeRemoteCommand 'mkdir -p ~/tmp/kubeadm-init'
