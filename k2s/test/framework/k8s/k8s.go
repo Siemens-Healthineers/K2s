@@ -747,6 +747,29 @@ func (c *Cluster) ExpectDNSToBeResolvableFromHost(ctx context.Context, serviceNa
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(Succeed(), "DNS resolution of <"+fqdn+"> should succeed")
 }
 
+// WaitForNodeToBeReady polls until the node transitions to Ready state.
+// This is useful in BeforeSuite to ensure nodes are ready before deploying workloads.
+func (c *Cluster) WaitForNodeToBeReady(name string, ctx context.Context) {
+	GinkgoWriter.Println("Waiting for node <", name, "> to become Ready...")
+
+	Eventually(func() bool {
+		var node corev1.Node
+		err := c.Client().Resources().Get(ctx, name, "", &node)
+		if err != nil {
+			GinkgoWriter.Println("Error getting node <", name, ">:", err)
+			return false
+		}
+
+		ready := isNodeReady(node)
+		if !ready {
+			GinkgoWriter.Println("Node <", name, "> is not Ready yet, waiting...")
+		}
+		return ready
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue(), "Node <%s> should become Ready", name)
+
+	GinkgoWriter.Println("Node <", name, "> is Ready")
+}
+
 func (c *Cluster) ExpectNodeToBeReady(name string, ctx context.Context) {
 	var node corev1.Node
 
