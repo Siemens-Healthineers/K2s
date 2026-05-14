@@ -789,7 +789,7 @@
     {
       "group": "https://github.com/kiwigrid/k8s-sidecar",
       "name": "k8s-sidecar",
-      "version": "2.7.1",
+      "version": "2.7.3",
       "description": "Sidecar to collect config maps with a specified label from all namespaces - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -806,7 +806,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/kiwigrid/k8s-sidecar@2.7.1",
+      "purl": "pkg:github/kiwigrid/k8s-sidecar@2.7.3",
       "type": "container"
     },
     {
