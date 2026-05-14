@@ -705,15 +705,21 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
     [uint16]$Retries = 3,
     [Parameter(Mandatory = $false)]
-    [uint16]$RetryDelay = 2) {
-    Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
+    [uint16]$RetryDelay = 2,
+    [Parameter(Mandatory = $false)]
+    [uint16]$TimeoutMinutes = 30) {
+    Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors', timeout: ${TimeoutMinutes}min"
 
     $attempt = 0
     $output = $null
+    $timeoutSeconds = $TimeoutMinutes * 60
 
     do {
         $attempt++
-        $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
+        # Use SSH keepalive options to prevent connection timeouts during large file transfers
+        # ServerAliveInterval: send keepalive every 60 seconds
+        # ServerAliveCountMax: allow 30 missed keepalives before disconnect (30 min total)
+        $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,'-o',"ServerAliveInterval=60",'-o',"ServerAliveCountMax=$([math]::Ceiling($timeoutSeconds / 60))","$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
 
         if ($LASTEXITCODE -eq 0) {
             break
