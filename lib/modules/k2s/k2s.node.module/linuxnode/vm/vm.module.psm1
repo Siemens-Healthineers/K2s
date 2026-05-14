@@ -464,7 +464,9 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     [uint16]$Retrycount = 1
     do {
         try {
-            $output = &"$plinkExe" -ssh -4 -legacy-stdio-prompts $RemoteUser -pw $RemoteUserPwd -no-antispoof $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+            $outputLines = @(&"$plinkExe" -ssh -4 -legacy-stdio-prompts $RemoteUser -pw $RemoteUserPwd -no-antispoof $CmdToExecute 2>&1)
+            $outputLines | ForEach-Object { Write-Log $_ -Console -Raw }
+            $output = $outputLines
             $success = ($LASTEXITCODE -eq 0)
             if (!$success -and !$IgnoreErrors) { throw "Error occurred while executing command '$CmdToExecute' (exit code: '$LASTEXITCODE')" }
             $Stoploop = $true
