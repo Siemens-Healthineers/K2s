@@ -464,7 +464,8 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     [uint16]$Retrycount = 1
     do {
         try {
-            $outputLines = @(&"$plinkExe" -ssh -4 -legacy-stdio-prompts $RemoteUser -pw $RemoteUserPwd -no-antispoof $CmdToExecute 2>&1)
+            # Capture plink output and convert ErrorRecords (stderr) to strings to prevent PowerShell error handling
+            $outputLines = @(&"$plinkExe" -ssh -4 -legacy-stdio-prompts $RemoteUser -pw $RemoteUserPwd -no-antispoof $CmdToExecute 2>&1 | ForEach-Object { "$_" })
             $outputLines | ForEach-Object { Write-Log $_ -Console -Raw }
             $output = $outputLines
             $success = ($LASTEXITCODE -eq 0)
