@@ -97,8 +97,8 @@ func PrepareAirGappedAddonImport(ctx context.Context, suite *framework.K2sTestSu
 	restoreProxyEnvironment := RemoveProxyEnvironment()
 	mirrors := ConfigJsonMirrorRegistries(suite)
 
-	RemoveConfigJsonMirrorRuntimeFiles(ctx, suite, mirrors, controlPlaneIP)
-	VerifyConfigJsonMirrorsRemoved(ctx, suite, mirrors, controlPlaneIP)
+	RemoveAirGappedMirrorRuntimeFiles(ctx, suite, mirrors, controlPlaneIP)
+	VerifyAirGappedMirrorsRemoved(ctx, suite, mirrors, controlPlaneIP)
 
 	GinkgoWriter.Println("=== PREPARE AIR-GAPPED ADDON IMPORT END ===")
 	return restoreProxyEnvironment
@@ -139,22 +139,25 @@ func RemoveProxyEnvironment() func() {
 
 // RemoveConfigJsonMirrorRuntimeFiles removes container runtime mirror files created from cfg/config.json.
 func RemoveConfigJsonMirrorRuntimeFiles(ctx context.Context, suite *framework.K2sTestSuite, mirrors []MirrorRegistry, controlPlaneIP string) {
+	RemoveAirGappedMirrorRuntimeFiles(ctx, suite, mirrors, controlPlaneIP)
+}
+
+// RemoveAirGappedMirrorRuntimeFiles removes container runtime mirror files that would mask air-gapped import gaps.
+func RemoveAirGappedMirrorRuntimeFiles(ctx context.Context, suite *framework.K2sTestSuite, mirrors []MirrorRegistry, controlPlaneIP string) {
 	GinkgoWriter.Println("=== REMOVE CONFIG.JSON MIRROR RUNTIME FILES START ===")
+	Expect(controlPlaneIP).NotTo(BeEmpty(), "control plane IP must be set to remove Linux runtime mirror files")
+
+	removeLinuxMirrorCmd := `sudo sh -c 'for f in /etc/containers/registries.conf.d/*.conf; do [ -f "$f" ] || continue; if grep -q "^[[:space:]]*\[\[registry\.mirror\]\]" "$f"; then rm -f "$f"; fi; done' && sudo systemctl daemon-reload && sudo systemctl restart crio`
+	GinkgoWriter.Println("[AirGap] Removing all Linux CRI-O registry mirror drop-ins")
+	suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", removeLinuxMirrorCmd, "-o")
+
 	if len(mirrors) == 0 {
-		GinkgoWriter.Println("[AirGap] No config.json mirror registries configured")
+		GinkgoWriter.Println("[AirGap] No config.json mirror registries configured for Windows containerd cleanup")
+		GinkgoWriter.Println("=== REMOVE CONFIG.JSON MIRROR RUNTIME FILES END ===")
 		return
 	}
 
-	Expect(controlPlaneIP).NotTo(BeEmpty(), "control plane IP must be set to remove Linux runtime mirror files")
-
 	for _, mirror := range mirrors {
-		registryConfigName := runtimeRegistryConfigName(mirror.Registry)
-		linuxConfigPath := fmt.Sprintf("/etc/containers/registries.conf.d/%s.conf", registryConfigName)
-		removeLinuxMirrorCmd := fmt.Sprintf("sudo rm -f '%s' && sudo systemctl daemon-reload && sudo systemctl restart crio", linuxConfigPath)
-
-		GinkgoWriter.Printf("[AirGap] Removing Linux CRI-O mirror file for %s: %s\n", mirror.Registry, linuxConfigPath)
-		suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", removeLinuxMirrorCmd, "-o")
-
 		if runtime.GOOS == "windows" {
 			removeWindowsMirrorRuntimeFiles(ctx, suite, mirror)
 		} else {
@@ -166,25 +169,32 @@ func RemoveConfigJsonMirrorRuntimeFiles(ctx context.Context, suite *framework.K2
 
 // VerifyConfigJsonMirrorsRemoved verifies that cfg/config.json mirrors are absent from runtime files.
 func VerifyConfigJsonMirrorsRemoved(ctx context.Context, suite *framework.K2sTestSuite, mirrors []MirrorRegistry, controlPlaneIP string) {
+	VerifyAirGappedMirrorsRemoved(ctx, suite, mirrors, controlPlaneIP)
+}
+
+// VerifyAirGappedMirrorsRemoved verifies that air-gapped mirror runtime files are absent.
+func VerifyAirGappedMirrorsRemoved(ctx context.Context, suite *framework.K2sTestSuite, mirrors []MirrorRegistry, controlPlaneIP string) {
 	GinkgoWriter.Println("=== VERIFY CONFIG.JSON MIRRORS REMOVED START ===")
+	VerifyLinuxCriOMirrorsRemoved(ctx, suite, controlPlaneIP)
+
 	if len(mirrors) == 0 {
-		GinkgoWriter.Println("[AirGap] No config.json mirror registries configured")
+		GinkgoWriter.Println("[AirGap] No config.json mirror registries configured for Windows containerd verification")
+		GinkgoWriter.Println("=== VERIFY CONFIG.JSON MIRRORS REMOVED END ===")
 		return
 	}
 
 	for _, mirror := range mirrors {
-		registryConfigName := runtimeRegistryConfigName(mirror.Registry)
-		linuxConfigPath := fmt.Sprintf("/etc/containers/registries.conf.d/%s.conf", registryConfigName)
-		checkLinuxMirrorCmd := fmt.Sprintf("test -f '%s'", linuxConfigPath)
-
-		GinkgoWriter.Printf("[AirGap] Verifying Linux CRI-O mirror file is absent for %s: %s\n", mirror.Registry, linuxConfigPath)
-		suite.K2sCli().ExpectedExitCode(1).Exec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", checkLinuxMirrorCmd, "-o")
-
 		if runtime.GOOS == "windows" {
 			verifyWindowsMirrorRuntimeFilesRemoved(ctx, suite, mirror)
 		}
 	}
 	GinkgoWriter.Println("=== VERIFY CONFIG.JSON MIRRORS REMOVED END ===")
+}
+
+func VerifyLinuxCriOMirrorsRemoved(ctx context.Context, suite *framework.K2sTestSuite, controlPlaneIP string) {
+	checkLinuxMirrorCmd := `! grep -R "^[[:space:]]*\[\[registry\.mirror\]\]" /etc/containers/registries.conf.d 2>/dev/null`
+	GinkgoWriter.Println("[AirGap] Verifying no Linux CRI-O registry mirror drop-ins remain")
+	suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", checkLinuxMirrorCmd, "-o")
 }
 
 func removeWindowsMirrorRuntimeFiles(ctx context.Context, suite *framework.K2sTestSuite, mirror MirrorRegistry) {

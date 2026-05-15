@@ -325,13 +325,12 @@ timeout: 30
 
     Write-Log "Proxy to use with containerd: '$Proxy'"
     
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-    $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
-    
-    $k2sHosts = Get-K2sHosts
-    $allNoProxyHosts = @()
-    
     if ( $Proxy -ne '' ) {
+        $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+        $httpProxyUrl = "http://$($windowsHostIpAddress):8181"
+
+        $k2sHosts = Get-K2sHosts
+        $allNoProxyHosts = @()
         $allNoProxyHosts += $k2sHosts
         $noProxyValue = $allNoProxyHosts -join ','
         # Build environment variables as separate lines for NSSM
@@ -339,6 +338,7 @@ timeout: 30
         &$kubeBinPath\nssm set containerd AppEnvironmentExtra $envVars | Out-Null
         Write-Log "Containerd service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
     } else {
+        $k2sHosts = Get-K2sHosts
         $noProxyValue = $k2sHosts -join ','
         &$kubeBinPath\nssm set containerd AppEnvironmentExtra "NO_PROXY=$noProxyValue" | Out-Null
         Write-Log "Containerd service configured with NO_PROXY: $noProxyValue"
