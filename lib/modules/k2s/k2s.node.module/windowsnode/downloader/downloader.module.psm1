@@ -148,31 +148,31 @@ function Invoke-PackageWindowsImageDownload {
         [string] $WindowsNodeArtifactsDirectory
     )
 
-    $packageInstalledHttpProxy = $false
     try {
-        if ($Proxy -ne '') {
-            $httpProxyService = Get-Service -Name 'httpproxy' -ErrorAction SilentlyContinue
-            if ($null -eq $httpProxyService) {
-                Write-Log '[HttpProxy] Installing temporary httpproxy service for Windows image download'
-                Install-WinHttpProxy -Proxy $Proxy
-                $packageInstalledHttpProxy = $true
-            }
-            else {
-                Write-Log '[HttpProxy] Reusing existing httpproxy service for Windows image download'
-                Start-WinHttpProxy -OnlyProxy
-            }
-        }
-
-        Install-WinContainerd -Proxy $Proxy -SkipNetworkingSetup:$true -WindowsNodeArtifactsDirectory $WindowsNodeArtifactsDirectory
+        Install-WinContainerd -Proxy '' -SkipNetworkingSetup:$true -WindowsNodeArtifactsDirectory $WindowsNodeArtifactsDirectory
+        Set-DirectProxyForPackageContainerd -Proxy $Proxy
         Invoke-DownloadWindowsImages $DownloadsBaseDirectory $Proxy
     }
     finally {
         Uninstall-WinContainerd -ShallowUninstallation $true
-        if ($packageInstalledHttpProxy) {
-            Write-Log '[HttpProxy] Removing temporary httpproxy service after Windows image download'
-            Remove-WinHttpProxy
-        }
     }
+}
+
+function Set-DirectProxyForPackageContainerd {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy = ''
+    )
+
+    if ($Proxy -eq '') {
+        return
+    }
+
+    Write-Log "[Containerd] Configuring temporary containerd service to use direct HTTP proxy: $Proxy"
+    $envVars = "HTTP_PROXY=$Proxy`r`nHTTPS_PROXY=$Proxy"
+    &$kubeBinPath\nssm set containerd AppEnvironmentExtra $envVars | Out-Null
+
+    Restart-Service containerd -WarningAction SilentlyContinue
 }
 
 function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
