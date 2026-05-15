@@ -82,4 +82,3 @@ $kubeToolsPath = Get-KubeToolsPath
 Write-Log '---------------------------------------------------------------'
 Write-Log "Linux computer with IP '$IpAddress' and hostname '$NodeName' removed from the cluster.   Total duration: $('{0:hh\:mm\:ss}' -f $preparationStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
-
