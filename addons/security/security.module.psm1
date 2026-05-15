@@ -324,7 +324,7 @@ function Wait-ForLinkerdAvailable {
     # Linkerd control plane (especially linkerd-destination with 3 containers) may need
     # 1-2 restart cycles on a loaded single-node cluster before probes pass consistently.
     # 600s (10 min) allows for BackOff + restart + stabilization.
-    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 300)
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 180)
 }
 
 <#

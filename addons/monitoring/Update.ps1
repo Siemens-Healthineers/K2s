@@ -52,7 +52,7 @@ if ($EnancedSecurityEnabled) {
 		Write-Log "windows-exporter DaemonSet not found in kube-system, skipping linkerd injection patch"
 	}
 
-	$maxAttempts = 60
+	$maxAttempts = 30
 	$attempt = 0
 	do {
 		$attempt++
@@ -102,7 +102,7 @@ if ($EnancedSecurityEnabled) {
 		Write-Log "windows-exporter DaemonSet not found in kube-system, skipping linkerd removal patch"
 	}
 
-	$maxAttempts = 60
+	$maxAttempts = 30
 	$attempt = 0
 	do {
 		$attempt++
