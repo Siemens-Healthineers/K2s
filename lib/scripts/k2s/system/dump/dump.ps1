@@ -78,12 +78,108 @@ function Invoke-k2sConfigCollection(
     $k2sConfigFile = Get-k2sConfigFilePath
 
     $Configs = @(
-        $setupJsonFile, 
+        $setupJsonFile,
         $k2sConfigFile
     )
 
     foreach ($config in $Configs) {
         Copy-Item -Path $config -Destination $ConfigCollectionDirectory -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Write-HostResourceSection(
+    [string] $DumpFilePath,
+    [string] $Description,
+    [scriptblock] $Command
+) {
+    try {
+        (& $Command) | Out-String -Width 512 | Write-OutputIntoDumpFile -DumpFilePath $DumpFilePath -Description $Description
+    }
+    catch {
+        $message = "[HostDiag] Failed to collect '$Description': $($_.Exception.Message)"
+        Write-Log $message
+        $message | Write-OutputIntoDumpFile -DumpFilePath $DumpFilePath -Description $Description
+    }
+}
+
+function Invoke-HostResourceUsageCollection(
+    [string] $HostDiagnosticsDir
+) {
+    Write-Log '[HostDiag] Collecting host CPU, memory, and disk usage...'
+    $resourcesFile = Join-Path $HostDiagnosticsDir 'resources.txt'
+
+    Write-HostResourceSection -DumpFilePath $resourcesFile -Description 'Host memory summary (Win32_OperatingSystem)' -Command {
+        Get-CimInstance Win32_OperatingSystem | Select-Object `
+            @{N = 'TotalVisibleMemory(GB)'; E = { [math]::Round($_.TotalVisibleMemorySize / 1MB, 2) } },
+            @{N = 'FreePhysicalMemory(GB)'; E = { [math]::Round($_.FreePhysicalMemory / 1MB, 2) } },
+            @{N = 'TotalVirtualMemory(GB)'; E = { [math]::Round($_.TotalVirtualMemorySize / 1MB, 2) } },
+            @{N = 'FreeVirtualMemory(GB)'; E = { [math]::Round($_.FreeVirtualMemory / 1MB, 2) } },
+            NumberOfProcesses,
+            LastBootUpTime
+    }
+
+    Write-HostResourceSection -DumpFilePath $resourcesFile -Description 'Host CPU summary (Win32_Processor)' -Command {
+        Get-CimInstance Win32_Processor | Select-Object `
+            Name,
+            NumberOfCores,
+            NumberOfLogicalProcessors,
+            MaxClockSpeed,
+            LoadPercentage
+    }
+
+    Write-HostResourceSection -DumpFilePath $resourcesFile -Description 'Host fixed disks (Win32_LogicalDisk)' -Command {
+        Get-CimInstance Win32_LogicalDisk -Filter "DriveType = 3" | Select-Object `
+            DeviceID,
+            VolumeName,
+            FileSystem,
+            @{N = 'Size(GB)'; E = { [math]::Round($_.Size / 1GB, 2) } },
+            @{N = 'FreeSpace(GB)'; E = { [math]::Round($_.FreeSpace / 1GB, 2) } },
+            @{N = 'FreeSpace(%)'; E = { if ($_.Size -gt 0) { [math]::Round(($_.FreeSpace / $_.Size) * 100, 2) } else { 0 } } }
+    }
+
+    if (Get-Command Get-Volume -ErrorAction SilentlyContinue) {
+        Write-HostResourceSection -DumpFilePath $resourcesFile -Description 'Host volumes (Get-Volume)' -Command {
+            Get-Volume | Select-Object `
+                DriveLetter,
+                FileSystemLabel,
+                FileSystem,
+                HealthStatus,
+                OperationalStatus,
+                @{N = 'Size(GB)'; E = { [math]::Round($_.Size / 1GB, 2) } },
+                @{N = 'SizeRemaining(GB)'; E = { [math]::Round($_.SizeRemaining / 1GB, 2) } }
+        }
+    }
+}
+
+function Invoke-LinuxNodeResourceUsageCollection(
+    [string] $NodeDetailsDirectory,
+    [string] $NodeName,
+    [string] $NodePrompt,
+    [scriptblock] $InvokeLinuxCommand
+) {
+    Write-Log "[NodeDiag] Collecting CPU, memory, and disk usage for '$NodeName'..."
+
+    $linuxResourcesDumpFile = Join-Path $NodeDetailsDirectory "$($NodeName)-resources.txt"
+    $resourceCommands = @(
+        [PSCustomObject]@{ Description = "$NodePrompt~$ uptime"; Command = 'uptime' },
+        [PSCustomObject]@{ Description = "$NodePrompt~$ cat /proc/loadavg"; Command = 'cat /proc/loadavg' },
+        [PSCustomObject]@{ Description = "$NodePrompt~$ lscpu"; Command = 'lscpu' },
+        [PSCustomObject]@{ Description = "$NodePrompt~$ nproc --all"; Command = 'nproc --all' },
+        [PSCustomObject]@{ Description = "$NodePrompt~$ free -h"; Command = 'free -h' },
+        [PSCustomObject]@{ Description = "$NodePrompt~$ selected /proc/meminfo"; Command = "grep -E '^(MemTotal|MemFree|MemAvailable|Buffers|Cached|SwapTotal|SwapFree):' /proc/meminfo" },
+        [PSCustomObject]@{ Description = "$NodePrompt~$ df -hT"; Command = 'df -hT' },
+        [PSCustomObject]@{ Description = "$NodePrompt~$ lsblk"; Command = 'lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT' }
+    )
+
+    foreach ($resourceCommand in $resourceCommands) {
+        try {
+            (& $InvokeLinuxCommand $resourceCommand.Command) | Out-String -Width 250 | Write-OutputIntoDumpFile -DumpFilePath $linuxResourcesDumpFile -Description $resourceCommand.Description
+        }
+        catch {
+            $message = "[NodeDiag] Failed to collect '$($resourceCommand.Description)' for '$NodeName': $($_.Exception.Message)"
+            Write-Log $message
+            $message | Write-OutputIntoDumpFile -DumpFilePath $linuxResourcesDumpFile -Description $resourceCommand.Description
+        }
     }
 }
 
@@ -157,6 +253,8 @@ function Invoke-LinuxNodeDetailsCollection(
     $linuxNodeDumpFile = Join-Path $NodeDetailsDirectory "$($NodeName)-node.txt"
     (& $invokeLinuxCommand 'uname -a') | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description "$nodePrompt~$ uname -a"
     (& $invokeLinuxCommand 'cat /proc/version') | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description "$nodePrompt~$ cat /proc/version"
+
+    Invoke-LinuxNodeResourceUsageCollection -NodeDetailsDirectory $NodeDetailsDirectory -NodeName $NodeName -NodePrompt $nodePrompt -InvokeLinuxCommand $invokeLinuxCommand
 
     $linuxProcessesDumpFile = Join-Path $NodeDetailsDirectory "$($NodeName)-processes.txt"
     $rawProcesses = & $invokeLinuxCommand 'ps -eo pid,user,%cpu,%mem,rss,cmd --sort=-%mem'
@@ -322,7 +420,8 @@ function Invoke-ClusterDiagnosticsCollection(
             # Logs
             (Invoke-CmdOnControlPlaneViaSSHKey "kubectl logs $podName -n $namespace").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $podDir "logs.txt") -Description "kubectl logs $podName -n $namespace"
             # Previous logs
-            (Invoke-CmdOnControlPlaneViaSSHKey "kubectl logs --previous $podName -n $namespace").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $podDir "logs-previous.txt") -Description "kubectl logs --previous $podName -n $namespace"
+            $previousLogs = (Invoke-CmdOnControlPlaneViaSSHKey -IgnoreErrors "kubectl logs --previous $podName -n $namespace").Output
+            $previousLogs | Out-String | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $podDir "logs-previous.txt") -Description "kubectl logs --previous $podName -n $namespace"
         }
     }
 
@@ -375,6 +474,7 @@ function Invoke-HostDiagnosticsCollection(
         @{N='CPU(s)'; E={ [math]::Round($_.CPU, 2) }},
         @{N='Mem(MB)'; E={ [math]::Round($_.WorkingSet64 / 1MB, 1) }},
         Path | Format-Table -AutoSize | Out-String -Width 512 | Write-OutputIntoDumpFile -DumpFilePath (Join-Path $HostDiagnosticsDir 'processes.txt') -Description 'Host processes'
+    Invoke-HostResourceUsageCollection -HostDiagnosticsDir $HostDiagnosticsDir
     Write-Log '[HostDiag] Host diagnostics collection finished.'
 }
 
@@ -424,7 +524,7 @@ try {
 
     # Network dump
     & $PSScriptRoot\network_dump.ps1 -DumpDir $tempNetworkDir
-     
+
     # Final dump of logs and cleanup
     Write-Log "Dumping to $dumpTargetDir.." -Console
     Compress-Archive -Path $tempDir -DestinationPath $dumpTargetPath -CompressionLevel Optimal -Force

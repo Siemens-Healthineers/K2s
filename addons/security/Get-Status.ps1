@@ -83,4 +83,13 @@ if ($oauth2ProxyProp.Value -eq $true) {
     $oauth2ProxyProp.Message = 'The OAuth2 proxy is not deployed (possibly omitted with -OmitOAuth2Proxy)'
 }
 
-return $securityProp,$certManagerProp, $caRootCertificateProp,  $keycloakProp, $hydraProp, $oauth2ProxyProp, $trustManagerProp, $linkerdProp
+# Check for Kyverno deployment (optional)
+$kyvernoAvailable = Test-KyvernoServiceAvailability
+$kyvernoProp = @{Name = 'IsKyvernoAvailable'; Value = $kyvernoAvailable; Okay = $kyvernoAvailable }
+if ($kyvernoProp.Value -eq $true) {
+    $kyvernoProp.Message = 'The Kyverno policy engine is ready'
+} else {
+    $kyvernoProp.Message = 'The Kyverno policy engine is not deployed (possibly omitted with -OmitPolicyEnf)'
+}
+
+return $securityProp, $certManagerProp, $caRootCertificateProp, $keycloakProp, $hydraProp, $oauth2ProxyProp, $trustManagerProp, $linkerdProp, $kyvernoProp

@@ -58,9 +58,7 @@ Set-ConfigLinuxOnly -Value $true
 Test-ProxyEnvVarsConfiguration
 
 # Initialize the proxy settings before starting installation.
-New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
-
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+$Proxy = New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 Add-K2sHostsToNoProxyEnvVar
 
 $dnsServers = $DnsAddresses -join ','
