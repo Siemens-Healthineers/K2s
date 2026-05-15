@@ -93,64 +93,6 @@ function Clear-LinuxWorkerNodeRoutes {
     Write-Log "[RouteCleanup] Kubernetes route cleanup completed" -Console
 }
 
-function Restore-LinuxWorkerNodeRoutes {
-    <#
-    .SYNOPSIS
-        Restores Kubernetes-related routes on a Linux bare-metal worker node.
-    .DESCRIPTION
-        Re-adds control plane CIDR route and pod-network route via Windows host.
-        These routes may be lost after node reboot or network restart.
-        Used during Start-LinuxWorkerNode for bare-metal (HOST) nodes.
-    #>
-    Param(
-        [string] $UserName = $(throw 'Argument missing: UserName'),
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $NodeName = $(throw 'Argument missing: NodeName')
-    )
-
-    Write-Log "[RouteRestore] Restoring Kubernetes routes on bare-metal node $NodeName ($IpAddress)" -Console
-
-    # Get Windows host IP that can reach this node
-    $loopbackAdapter = Get-L2BridgeName
-    $windowsHostIpAddress = Get-HostIpAddressForRemoteIp -RemoteIpAddress $IpAddress -ExcludeNetworkInterfaceName $loopbackAdapter
-
-    if ([string]::IsNullOrWhiteSpace($windowsHostIpAddress)) {
-        Write-Log "[RouteRestore] WARNING: Could not determine Windows host IP for node $IpAddress, skipping route restoration"
-        return
-    }
-
-    Write-Log "[RouteRestore] Using Windows host IP: $windowsHostIpAddress"
-
-    # Restore route to control plane network
-    $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-    $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR | grep -v 'proto kernel'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
-    if ($controlPlaneRouteExists) {
-        Write-Log "[RouteRestore] Route to $controlPlaneCIDR already exists, skipping."
-    } else {
-        Write-Log "[RouteRestore] Adding route to control plane: $controlPlaneCIDR via $windowsHostIpAddress"
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $windowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-    }
-
-    # Restore route to pod network
-    $podNetworkCIDR = Get-ConfiguredClusterCIDR
-    $podNetworkRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $podNetworkCIDR | grep -v 'proto kernel'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
-    if ($podNetworkRouteExists) {
-        Write-Log "[RouteRestore] Route to $podNetworkCIDR already exists, skipping."
-    } else {
-        Write-Log "[RouteRestore] Adding route to pod network: $podNetworkCIDR via $windowsHostIpAddress"
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $windowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-    }
-
-    # Ensure IP forwarding is enabled on Windows host interface
-    $networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match [regex]::Escape($windowsHostIpAddress))} | Select-Object -ExpandProperty InterfaceAlias)
-    if (-not [string]::IsNullOrWhiteSpace($networkInterfaceName)) {
-        netsh int ipv4 set int $networkInterfaceName forwarding=enabled | Out-Null
-        Write-Log "[RouteRestore] Enabled IP forwarding on interface '$networkInterfaceName'"
-    }
-
-    Write-Log "[RouteRestore] Route restoration completed" -Console
-}
-
 function Add-LinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
@@ -530,7 +472,6 @@ function Test-SupportedWorkerOS {
 Export-ModuleMember -Function Add-LinuxWorkerNode,
 Remove-LinuxWorkerNode,
 Clear-LinuxWorkerNodeRoutes,
-Restore-LinuxWorkerNodeRoutes,
 Start-LinuxWorkerNode,
 Stop-LinuxWorkerNode,
 Test-SupportedWorkerOS
