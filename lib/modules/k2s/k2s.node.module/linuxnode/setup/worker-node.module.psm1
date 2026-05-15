@@ -274,19 +274,6 @@ function Start-LinuxWorkerNode {
     Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
     Add-WorkerVFPRoute -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
 
-    # For bare-metal (HOST) nodes, restore Linux-side routes to control plane and pod network
-    # These routes may be lost after node reboot or network restart
-    $nodeConfig = Get-NodeConfig -NodeName $NodeName
-    if ($null -ne $nodeConfig -and $nodeConfig.NodeType -eq 'HOST') {
-        $userName = $nodeConfig.UserName
-        if ([string]::IsNullOrWhiteSpace($userName)) {
-            $userName = $nodeConfig.Username
-        }
-        if (-not [string]::IsNullOrWhiteSpace($userName)) {
-            Restore-LinuxWorkerNodeRoutes -UserName $userName -IpAddress $IpAddress -NodeName $NodeName
-        }
-    }
-
     Write-Log "K2s worker node '$NodeName' started" -Console
 }
 
