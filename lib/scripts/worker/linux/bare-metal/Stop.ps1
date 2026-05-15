@@ -23,6 +23,10 @@ $nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.mo
 $clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule
 
+# Dot-source common Linux worker node functions
+$linuxWorkerCommon = "$PSScriptRoot\..\common\LinuxWorkerNode.Common.ps1"
+. $linuxWorkerCommon
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
 # make sure we are at the right place for executing this script
@@ -38,3 +42,7 @@ $workerNodeStopParams = @{
     NodeName           = $workerNodeName
 }
 Stop-LinuxWorkerNode @workerNodeStopParams
+
+# Stop kubelet/runtime so the node transitions to NotReady.
+# -WaitForNotReady controls whether to block until the transition completes.
+Invoke-LinuxWorkerNodeStop -NodeName $workerNodeName -WaitForNotReady:$WaitForNotReady -LogPrefix '[existing-vm]'
