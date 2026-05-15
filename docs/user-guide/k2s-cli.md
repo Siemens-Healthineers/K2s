@@ -480,7 +480,7 @@ k2s system package [flags]
 | `--package-version-to` | | Target full-package zip (required with `--delta-package`) |
 | `--certificate` | `-c` | Code-signing certificate (.pfx) |
 | `--password` | `-w` | Certificate password |
-| `--profile` | | Packaging profile: `Dev` (default) or `Lite` |
+| `--profile` | | Packaging profile: `Dev` (default) or `Lite`; Lite skips optional build and large intermediate artifacts |
 | `--addons-list` | | Comma-separated addons to include |
 | `--master-cpus` | | CPUs for master VM |
 | `--master-memory` | | Memory for master VM |
