@@ -524,6 +524,7 @@ Function Remove-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubeadm' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubectl' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubelet' 
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P cri-tools' 
 
     &$executeRemoteCommand 'sudo rm -f /etc/containers/registries.conf'
     &$executeRemoteCommand 'sudo sh -c ''for f in /etc/containers/registries.conf.d/*.conf; do [ -f "$f" ] || continue; if grep -q "^[[:space:]]*\[\[registry\.mirror\]\]" "$f"; then rm -f "$f"; fi; done'''
