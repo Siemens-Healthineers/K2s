@@ -10,6 +10,8 @@ Param(
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
     [string] $AdditionalHooksDir = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
+    [switch] $SkipHeaderDisplay = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Indicates this is a single node stop operation')]
     [switch] $SingleNode = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Wait for node to become not ready')]
