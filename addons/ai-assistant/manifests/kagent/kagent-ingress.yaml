@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Kagent A2A API Ingress — enables Headlamp AI Assistant plugin and external
+# clients to reach the Kagent controller's A2A endpoint.
+# Accessible at: http://<node-ip>/kagent/api/a2a/kagent/<agent-name>
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kagent-controller-ingress
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    # Long timeouts for LLM inference (especially with local Ollama models)
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    # SSE streaming support
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Connection "";
+      add_header X-Accel-Buffering no always;
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - backend:
+              service:
+                name: kagent-controller
+                port:
+                  number: 8083
+            pathType: ImplementationSpecific
+            path: /kagent/(.*)
+---
+# SSE Direct-Route Ingress for Headlamp integration
+# Intercepts the Headlamp K8s apiserver proxy path for the kagent service
+# so SSE streaming works without buffering.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kagent-sse-direct
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: "/api/$2"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Connection "";
+      add_header X-Accel-Buffering no always;
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /dashboard/clusters/[^/]+/api/v1/namespaces/kagent/services/kagent-controller:8083/proxy/api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: kagent-controller
+                port:
+                  number: 8083
+

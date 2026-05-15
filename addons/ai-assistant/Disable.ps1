@@ -8,6 +8,9 @@
 .SYNOPSIS
 Disables the AI Assistant addon for K2s.
 
+.DESCRIPTION
+Removes the Kagent framework, agent resources, and optionally Ollama model data.
+
 .EXAMPLE
 k2s addons disable ai-assistant
 k2s addons disable ai-assistant --keep-model-data
@@ -78,4 +81,3 @@ Write-Log '[AI-Assistant] AI Assistant addon disabled.' -Console
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }
-

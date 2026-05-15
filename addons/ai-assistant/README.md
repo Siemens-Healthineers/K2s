@@ -6,132 +6,83 @@ SPDX-License-Identifier: MIT
 
 # AI Assistant Addon
 
-The **AI Assistant** addon brings natural-language Kubernetes assistance directly into K2s by combining:
-
-| Component | Role |
-|---|---|
-| **Ollama** | Offline-capable local LLM runtime (runs in the cluster) |
-| **HolmesGPT** | Kubernetes-aware AI agent (reads cluster state, streams reasoning via AG-UI) |
-| **Headlamp plugin** | Chat UI injected into the Headlamp dashboard |
-
-> **Prerequisites**: The `dashboard` addon must be enabled before enabling `ai-assistant`.
-
----
-
-## Quick Start
-
-```console
-# 1. Enable the dashboard first (if not already done)
-k2s addons enable dashboard
-
-# 2. Enable AI Assistant with the default model (qwen2.5:7b)
-k2s addons enable ai-assistant
-
-# 3. Open Headlamp, click the AI icon, configure Local Models provider
-#    Base URL: http://ollama.ai-assistant.svc.cluster.local:11434
-#    Model:    qwen2.5:7b
-```
-
----
-
-## CLI Options
-
-### Enable
-
-| Flag | Default | Description |
-|---|---|---|
-| `--model` | `qwen2.5:7b` | Ollama model to pull on first enable |
-| `--gpu` | `false` | Enable GPU acceleration (requires a node labelled `gpu=true`) |
-
-```console
-k2s addons enable ai-assistant --model mistral
-k2s addons enable ai-assistant --model phi3 --gpu
-```
-
-### Disable
-
-| Flag | Default | Description |
-|---|---|---|
-| `--keep-model-data` | `false` | Preserve the Ollama PVC so models survive a re-enable |
-
-```console
-k2s addons disable ai-assistant
-k2s addons disable ai-assistant --keep-model-data
-```
-
----
+The AI Assistant addon deploys [Kagent](https://kagent.dev) (a CNCF Kubernetes-native AI agent framework) with a configurable backend provider, and injects an AI chat panel into the Headlamp dashboard.
 
 ## Architecture
 
 ```
-┌─ K2s cluster ──────────────────────────────────────────────┐
-│                                                            │
-│  namespace: ai-assistant                                   │
-│  ┌────────────┐    REST /v1    ┌──────────────────────┐   │
-│  │   Ollama   │◄──────────────│    HolmesGPT (holmes) │   │
-│  │ :11434     │               │    AG-UI :5050        │   │
-│  └────────────┘               └──────────┬───────────┘   │
-│       │ PVC: ollama-models               │ SSE /api/agui/chat
-│                                          │               │
-│  namespace: dashboard                    │               │
-│  ┌───────────────────────────────────────┘               │
-│  │  Headlamp pod                                          │
-│  │  initContainer: ai-assistant-plugin                    │
-│  │  → /tmp/headlamp/plugins/ai-assistant/                │
-│  └────────────────────────────────────────────────────────│
-└────────────────────────────────────────────────────────────┘
-        ▲
-        │  K8s service proxy
-   User Browser (Headlamp UI → AI chat panel)
+┌─────────────────────────────────────────────────────┐
+│  Headlamp UI  (plugin: ai-assistant 0.2.0-alpha)    │
+│  Chat panel · Model selector · Agent status         │
+└─────────────────────────┬───────────────────────────┘
+                          │  A2A / SSE
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│  Kagent Controller  (kagent.dev v0.9.0)             │
+│  K8s-native AI agent orchestration · A2A protocol   │
+│  UI · PostgreSQL · Tool Server · MCP                │
+└─────────────┬───────────────────┬───────────────────┘
+              │                   │
+    ┌─────────▼─────────┐  ┌─────▼──────────────────┐
+    │  Copilot CLI Agent │  │  Ollama Local Agent    │
+    │  (BYO, connected)  │  │  (offline/air-gapped)  │
+    │  GitHub Copilot    │  │  qwen2.5:7b / etc.     │
+    └────────────────────┘  └────────────────────────┘
 ```
 
-The Headlamp plugin communicates with HolmesGPT through the Kubernetes API server's service proxy (`/api/v1/namespaces/ai-assistant/services/holmesgpt-holmes:80/proxy/api/agui/chat`). No direct ingress or port-forwarding is needed for the agent.
+## Providers
 
----
+| Provider | Flag | Connectivity | Description |
+|----------|------|-------------|-------------|
+| `copilot` (default) | `--provider copilot` | Connected | Kagent + Copilot CLI BYO agent. Requires GitHub PAT. |
+| `ollama` | `--provider ollama` | Offline | Kagent + Ollama local LLM. Fully air-gapped. |
 
-## Headlamp Plugin Configuration
-
-After enabling the addon, open Headlamp → **Settings → AI Assistant**:
-
-- **Provider**: `Local Models`
-- **Base URL**: `http://ollama.ai-assistant.svc.cluster.local:11434`  
-  *(or port-forward: `kubectl port-forward svc/ollama -n ai-assistant 11434:11434` → `http://localhost:11434`)*
-- **Model**: The model name you supplied with `--model` (default: `qwen2.5:7b`)
-
-The plugin auto-detects HolmesGPT via the K8s service proxy. When the Holmes indicator in the UI shows **Connected**, the agent is reachable and will enhance responses with live cluster diagnostics.
-
-> **Note**: The HolmesGPT service namespace in this addon is `ai-assistant`. If the plugin shows "disconnected", navigate to plugin settings and set the Holmes namespace to `ai-assistant`.
-
----
-
-## Pulling Additional Models
+## Quick Start
 
 ```console
-kubectl exec -n ai-assistant deployment/ollama -- ollama pull llama3.1
-kubectl exec -n ai-assistant deployment/ollama -- ollama list
+# Connected mode (default) — uses GitHub Copilot CLI
+k2s addons enable ai-assistant --github-token ghp_xxx
+
+# Offline mode — uses local Ollama LLM
+k2s addons enable ai-assistant --provider ollama
+
+# Offline with specific model and GPU
+k2s addons enable ai-assistant --provider ollama --model mistral --gpu
+
+# Check status
+k2s addons status ai-assistant
+
+# Disable (removes everything)
+k2s addons disable ai-assistant
+
+# Disable but keep downloaded models
+k2s addons disable ai-assistant --keep-model-data
 ```
 
----
+## Prerequisites
 
-## Troubleshooting
+1. **Dashboard addon** must be enabled: `k2s addons enable dashboard`
+2. For `copilot` provider: GitHub PAT with "Copilot Requests" permission
+3. For `copilot` provider: Container registry secret for `shsk2s.azurecr.io` (the Copilot CLI wrapper image)
 
-| Symptom | Check |
-|---|---|
-| Ollama not starting | `kubectl describe pod -n ai-assistant -l app=ollama` — check PVC binding and resource limits |
-| Model pull timeout | Large models (7B+) take several minutes. Watch: `kubectl logs -n ai-assistant deployment/ollama -f` |
-| Holmes "disconnected" | Verify pod: `kubectl get pods -n ai-assistant -l app=holmesgpt` — check it is Running and ready |
-| Plugin icon not in Headlamp | `kubectl get deploy headlamp -n dashboard -o jsonpath='{.spec.template.spec.initContainers[*].name}'` should include `ai-assistant-plugin` |
-| Holmes uses wrong namespace | Go to Headlamp → Settings → AI Assistant → Holmes tab → set namespace to `ai-assistant` |
+## Kagent UI
 
----
+The Kagent UI is available via port-forward:
 
-## Offline Usage
+```console
+kubectl port-forward svc/kagent-ui -n kagent 8080:8080
+# Then open http://localhost:8080
+```
 
-All images referenced by this addon are included in the K2s offline package:
+## Files
 
-- `ollama/ollama:0.9.1`
-- `shsk2s.azurecr.io/holmesgpt:0.19.1` (retagged from `robustadev/holmes:0.19.1`)
-- `shsk2s.azurecr.io/headlamp-plugin-ai-assistant:0.2.0-alpha`
-
-No internet access is required after the initial installation, except for pulling new Ollama models (use `--keep-model-data` to avoid re-downloading).
-
+| File | Description |
+|------|-------------|
+| `manifests/kagent/namespace.yaml` | Kagent namespace |
+| `manifests/kagent/kagent-crds.yaml` | Kagent CRDs (pre-rendered) |
+| `manifests/kagent/kagent.yaml` | Kagent core (controller, UI, PostgreSQL, tools) |
+| `manifests/kagent/local-path-provisioner.yaml` | StorageClass for PVCs |
+| `manifests/kagent/copilot-cli-agent.yaml` | Copilot CLI BYO Agent CR + RBAC |
+| `manifests/kagent/ollama-agent.yaml` | Ollama-backed Agent CR + ModelConfig |
+| `manifests/kagent/kagent-ingress.yaml` | Ingress for A2A API + SSE streaming |
+| `manifests/ollama/ollama.yaml` | Ollama deployment (offline provider only) |

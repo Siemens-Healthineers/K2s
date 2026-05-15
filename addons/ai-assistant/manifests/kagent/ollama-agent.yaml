@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Ollama-backed Kagent Agent — used in "ollama" provider mode (offline/air-gapped).
+# This Agent uses Kagent's built-in AutoGen model integration with Ollama
+# serving a local LLM. No external connectivity required.
+---
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: ollama-model-config
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  provider: "OpenAI"
+  model: "MODEL_PLACEHOLDER"
+  # Ollama exposes an OpenAI-compatible API; we point the OpenAI provider at it.
+  # The API key is a dummy value — Ollama does not require authentication.
+  apiKeySecret: ollama-api-key
+  apiKeySecretKey: OPENAI_API_KEY
+  baseURL: "http://ollama.ai-assistant.svc.cluster.local:11434/v1"
+---
+# Dummy API key secret — Ollama doesn't need auth but Kagent ModelConfig requires one
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ollama-api-key
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+type: Opaque
+data:
+  # base64("ollama")
+  OPENAI_API_KEY: "b2xsYW1h"
+---
+# Agent definition that uses the Ollama model config with Kagent's built-in tools
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: k2s-assistant
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  modelConfigRef: ollama-model-config
+  description: >-
+    K2s Kubernetes assistant powered by a local Ollama LLM. Provides cluster
+    inspection, diagnostics, and troubleshooting capabilities using kubectl
+    tools. Runs fully offline — no external connectivity required.
+  systemPrompt: |
+    You are a Kubernetes assistant running in a K2s cluster.
+    K2s is a lightweight Kubernetes distribution by Siemens Healthineers.
+
+    STRICT RULES:
+    1. For EVERY user request about cluster state, call kubectl tools to get REAL live data.
+    2. NEVER answer from memory or generate fake resource names.
+    3. After tool execution, write a response with the REAL tool output.
+    4. Be concise — return tool output directly without verbose commentary.
+    5. Maximum 3 tool calls per request.
+
+    TOOL SELECTION:
+    - List/get resources → use kubectl tools
+    - Describe a resource → use kubectl describe
+    - Check events → use kubectl events
+    - Pod issues → get pods first, then describe the failing pod
+
+    OUTPUT:
+    - Return ONLY real tool output
+    - NEVER invent resource names
+    - If no data found, say so clearly
+  toolServerRefs:
+    - name: kagent-tool-server
+

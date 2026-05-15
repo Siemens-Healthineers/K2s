@@ -6,10 +6,9 @@
 
 <#
 .SYNOPSIS
-Re-syncs the AI Assistant plugin into Headlamp and re-wires proxy Endpoints.
-Typically needed after a full cluster reinstall (when service ClusterIPs change)
-or after a Headlamp upgrade. Pod/deployment restarts do NOT require re-wiring,
-because Endpoints now point to the stable ClusterIP of the Holmes service.
+Re-syncs the AI Assistant addon: re-applies Kagent manifests, re-wires proxy,
+and re-injects the Headlamp plugin. Typically needed after a full cluster
+reinstall or after a Headlamp upgrade.
 
 .EXAMPLE
 k2s addons update ai-assistant
@@ -59,68 +58,79 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ai-assistant'})) -ne 
     exit 1
 }
 
-# ── Pre-flight: HolmesGPT service must exist in ai-assistant namespace ────────
-$holmesSvc = (Invoke-Kubectl -Params 'get', 'svc', 'holmesgpt-holmes',
-    '-n', 'ai-assistant', '--ignore-not-found', '-o', 'name').Output
+# ── Clean up legacy HolmesGPT resources (migration from old version) ──────────
+Remove-LegacyHolmesResources
 
-if ([string]::IsNullOrWhiteSpace($holmesSvc)) {
-    $errMsg = '[AI-Assistant] HolmesGPT service not found in ai-assistant namespace. Check: kubectl get pods -n ai-assistant -l app=holmesgpt'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-    Write-Log $errMsg -Error
-    Write-Log '[AI-Assistant] If the service is permanently missing, re-enable the addon: k2s addons disable ai-assistant; k2s addons enable ai-assistant' -Console
-    exit 1
+# ── Re-apply Kagent framework ─────────────────────────────────────────────────
+Write-Log '[AI-Assistant] Re-applying Kagent framework manifests...' -Console
+try {
+    Install-KagentFramework
+}
+catch {
+    $errMsg = "[AI-Assistant] Warning: Failed to re-apply Kagent framework: $($_.Exception.Message)"
+    Write-Log $errMsg -Console
 }
 
-# ── Re-apply HolmesGPT manifest (updates prompt-overrides ConfigMap) ──────────
-Write-Log '[AI-Assistant] Re-applying HolmesGPT manifest to refresh prompt ConfigMaps...' -Console
+# ── Wait for Kagent controller ────────────────────────────────────────────────
+$kagentReady = Wait-ForKagentAvailable -TimeoutSeconds 120
+if (-not $kagentReady) {
+    Write-Log '[AI-Assistant] Warning: Kagent controller not ready after 120s. Agent may be unavailable.' -Console
+}
 
-# Snapshot the live MODEL value BEFORE applying. Use ConvertFrom-Json to avoid PowerShell
-# stripping the double-quotes required by the jsonpath filter expression.
-$liveModelResult = Invoke-Kubectl -Params 'get', 'deployment', 'holmesgpt-holmes',
-    '-n', 'ai-assistant', '-o', 'json'
-$liveModel = ''
-if ($liveModelResult.Success -and $liveModelResult.Output) {
+# ── Detect and re-apply active agent ──────────────────────────────────────────
+# Check which agent CR exists to determine the active provider
+$copilotAgent = (Invoke-Kubectl -Params 'get', 'agent', 'copilot-cli',
+    '-n', 'kagent', '--ignore-not-found', '-o', 'name').Output
+$ollamaAgent = (Invoke-Kubectl -Params 'get', 'agent', 'k2s-assistant',
+    '-n', 'kagent', '--ignore-not-found', '-o', 'name').Output
+
+if (-not [string]::IsNullOrWhiteSpace($copilotAgent)) {
+    Write-Log '[AI-Assistant] Re-applying Copilot CLI agent...' -Console
     try {
-        $deployJson = ($liveModelResult.Output -join '') | ConvertFrom-Json
-        $modelEnv = $deployJson.spec.template.spec.containers[0].env |
-            Where-Object { $_.name -eq 'MODEL' } |
-            Select-Object -First 1
-        $liveModel = if ($modelEnv) { $modelEnv.value } else { '' }
+        Install-CopilotAgent
     }
     catch {
-        Write-Log "[AI-Assistant] Warning: could not parse deployment JSON to read live MODEL: $($_.Exception.Message)" -Console
+        Write-Log "[AI-Assistant] Warning: Failed to re-apply Copilot agent: $($_.Exception.Message)" -Console
     }
 }
 
-# Strip the "openai/" LiteLLM prefix to get the bare Ollama model name for Set-HolmesModelConfig.
-# If the live value is missing or still the placeholder, fall back to qwen2.5:7b.
-$bareModel = $liveModel -replace '^openai/', ''
-if ([string]::IsNullOrWhiteSpace($bareModel) -or $bareModel -eq 'MODEL_PLACEHOLDER') {
-    $bareModel = 'qwen2.5:7b'
+if (-not [string]::IsNullOrWhiteSpace($ollamaAgent)) {
+    # Detect current model from the ModelConfig
+    $modelConfigJson = (Invoke-Kubectl -Params 'get', 'modelconfig', 'ollama-model-config',
+        '-n', 'kagent', '-o', 'json', '--ignore-not-found').Output
+    $currentModel = 'qwen2.5:7b'
+    if ($modelConfigJson) {
+        try {
+            $mcObj = ($modelConfigJson -join '') | ConvertFrom-Json
+            if ($mcObj.spec.model) {
+                $currentModel = $mcObj.spec.model
+            }
+        }
+        catch {
+            Write-Log "[AI-Assistant] Warning: Could not parse ModelConfig JSON: $($_.Exception.Message)" -Console
+        }
+    }
+    Write-Log "[AI-Assistant] Re-applying Ollama agent with model: $currentModel..." -Console
+    try {
+        Install-OllamaAgent -Model $currentModel
+    }
+    catch {
+        Write-Log "[AI-Assistant] Warning: Failed to re-apply Ollama agent: $($_.Exception.Message)" -Console
+    }
 }
-Write-Log "[AI-Assistant] Using model for re-apply: $bareModel (live was: $liveModel)" -Console
 
+# If no agent found, the user may need to re-enable
+if ([string]::IsNullOrWhiteSpace($copilotAgent) -and [string]::IsNullOrWhiteSpace($ollamaAgent)) {
+    Write-Log '[AI-Assistant] No active agent found. Consider re-enabling: k2s addons disable ai-assistant; k2s addons enable ai-assistant' -Console
+}
+
+# ── Re-wire proxy service ─────────────────────────────────────────────────────
+Write-Log '[AI-Assistant] Re-wiring Kagent proxy service...' -Console
 try {
-    Set-HolmesModelConfig -Model $bareModel
-    # Restart HolmesGPT pod so it picks up any updated ConfigMap data
-    (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment/holmesgpt-holmes', '-n', 'ai-assistant').Output | Write-Log
-    Write-Log '[AI-Assistant] HolmesGPT deployment restarted to apply updated ConfigMaps.' -Console
+    Set-KagentProxyService
 }
 catch {
-    Write-Log "[AI-Assistant] Warning: Failed to re-apply HolmesGPT manifest: $($_.Exception.Message). Prompt config may be outdated." -Console
-}
-
-# ── Re-wire proxy Endpoints ───────────────────────────────────────────────────
-Write-Log '[AI-Assistant] Re-wiring HolmesGPT proxy Endpoints...' -Console
-try {
-    Set-HolmesProxyEndpoints
-}
-catch {
-    $errMsg = "[AI-Assistant] Failed to re-wire proxy Endpoints: $($_.Exception.Message)"
+    $errMsg = "[AI-Assistant] Failed to re-wire proxy service: $($_.Exception.Message)"
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }

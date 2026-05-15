@@ -1,0 +1,261 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Copilot CLI BYO Agent for Kagent — used in "copilot" provider mode.
+# Kagent manages the pod lifecycle via the BYO deployment spec.
+# Requires a GitHub PAT with "Copilot Requests" permission.
+---
+apiVersion: kagent.dev/v1alpha2
+kind: Agent
+metadata:
+  name: copilot-cli
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  type: BYO
+  description: >-
+    GitHub Copilot CLI wrapped as an A2A agent. Handles cluster inspection,
+    root cause analysis, and Kubernetes queries via natural language.
+    Uses persistent learnings from previous analyses to improve over time.
+  byo:
+    deployment:
+      replicas: 1
+      image: shsk2s.azurecr.io/copilot-cli-a2a-wrapper:1.3.0
+      imagePullSecrets:
+        - name: regcred
+      resources:
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+        limits:
+          cpu: "2"
+          memory: "2Gi"
+      env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: copilot-github-token
+              key: GITHUB_TOKEN
+        - name: COPILOT_TIMEOUT_SECONDS
+          value: "600"
+        - name: GH_HOST
+          value: "shs.ghe.com"
+        - name: COPILOT_SYSTEM_CONTEXT_FILE
+          value: "/etc/copilot/system-context.md"
+        - name: COPILOT_LEARNINGS_FILE
+          value: "/data/learnings/rca-heuristics.md"
+        # Proxy settings — optional, set via ConfigMap
+        - name: HTTP_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: kagent-proxy-config
+              key: HTTP_PROXY
+              optional: true
+        - name: HTTPS_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: kagent-proxy-config
+              key: HTTPS_PROXY
+              optional: true
+        - name: http_proxy
+          valueFrom:
+            configMapKeyRef:
+              name: kagent-proxy-config
+              key: HTTP_PROXY
+              optional: true
+        - name: https_proxy
+          valueFrom:
+            configMapKeyRef:
+              name: kagent-proxy-config
+              key: HTTPS_PROXY
+              optional: true
+        - name: NO_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: kagent-proxy-config
+              key: NO_PROXY
+              optional: true
+        - name: no_proxy
+          valueFrom:
+            configMapKeyRef:
+              name: kagent-proxy-config
+              key: NO_PROXY
+              optional: true
+      volumes:
+        - name: system-context
+          configMap:
+            name: copilot-cli-context
+        - name: learnings
+          persistentVolumeClaim:
+            claimName: copilot-cli-learnings
+      volumeMounts:
+        - name: system-context
+          mountPath: /etc/copilot
+          readOnly: true
+        - name: learnings
+          mountPath: /data/learnings
+---
+# System context prompt for Copilot CLI — mounted as a file
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: copilot-cli-context
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+data:
+  system-context.md: |
+    # Identity & Environment
+
+    You are an SRE AI agent running inside a Kubernetes pod in a K2s cluster.
+    K2s is a lightweight Kubernetes distribution by Siemens Healthineers that
+    supports both Windows and Linux hosts with strong offline support.
+
+    You are managed by Kagent (a CNCF K8s-native AI agent framework) and wrapped
+    via a Copilot CLI A2A adapter. You have the following capabilities:
+    - **kubectl** is installed and authenticated via the pod's ServiceAccount
+      with cluster-wide read access (view ClusterRole).
+    - You can run shell commands to inspect the cluster.
+
+    # Kubernetes Assistant Instructions
+
+    When answering Kubernetes questions:
+
+    1. **Always use kubectl**: Call kubectl to get REAL live data. Never answer
+       from memory or make up resource names.
+
+    2. **Inspect the cluster**: Use kubectl to examine:
+       - Pods: `kubectl get pods -A`, `kubectl describe pod <name> -n <ns>`
+       - Events: `kubectl get events --sort-by=.lastTimestamp -A`
+       - Logs: `kubectl logs <pod> -n <namespace> --previous` (for crashed pods)
+       - Nodes: `kubectl get nodes -o wide`
+       - Resources: `kubectl top nodes`, `kubectl top pods -A`
+
+    3. **Produce structured answers** with:
+       - **Summary**: What was found
+       - **Evidence**: Specific logs, events, or metrics
+       - **Resolution**: Recommended fix or workaround (if applicable)
+
+    4. **Be concise**: Return tool output directly. Avoid verbose commentary.
+
+    # Important Architecture Constraints
+
+    - **Addons are independent**: Each K2s addon is a self-contained plugin.
+      Addons MUST NOT depend on other addons.
+    - K2s supports both Windows and Linux nodes in the same cluster.
+---
+# Persistent storage for learnings — survives pod restarts
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: copilot-cli-learnings
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 100Mi
+---
+# Proxy configuration — edit values for your environment or leave empty.
+# Default uses K2s httpproxy on the Windows host gateway (172.19.1.1:8181).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kagent-proxy-config
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+data:
+  HTTP_PROXY: "http://172.19.1.1:8181"
+  HTTPS_PROXY: "http://172.19.1.1:8181"
+  NO_PROXY: "localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,.cluster.local,.svc,kubernetes.default.svc"
+---
+# Grant cluster-wide read access so Copilot CLI can inspect K8s resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: copilot-cli-view
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: copilot-cli
+    namespace: kagent
+---
+# Extra permissions not included in the built-in "view" ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: copilot-cli-extra
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: copilot-cli-extra
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: copilot-cli-extra
+subjects:
+  - kind: ServiceAccount
+    name: copilot-cli
+    namespace: kagent
+---
+# NetworkPolicy: allow ai-assistant and argo-workflows namespaces to reach kagent controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ai-assistant-to-kagent
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kagent
+      app.kubernetes.io/component: controller
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow from kagent namespace itself (UI, agents, etc.)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kagent
+    # Allow from ai-assistant namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai-assistant
+      ports:
+        - protocol: TCP
+          port: 8083
