@@ -103,12 +103,33 @@ function Wait-FluentBitReady {
     Write-Log 'Waiting for Fluent-bit DaemonSets to be ready...' -Console
     $cmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonset/fluent-bit', '-n', 'logging', '--timeout=300s'
     Write-Log $cmd.Output
-    if (!$cmd.Success) { Stop-WithError 'Fluent-bit could not be deployed successfully!' }
+    if (!$cmd.Success) {
+        Write-Log '[Logging] Fluent-bit rollout failed - gathering diagnostics' -Console
+        (Invoke-Kubectl -Params 'describe', 'pods', '-n', 'logging', '-l', 'app.kubernetes.io/name=fluent-bit').Output | Write-Log
+        (Invoke-Kubectl -Params 'get', 'events', '-n', 'logging', '--sort-by=.lastTimestamp').Output | Write-Log
+        Stop-WithError 'Fluent-bit could not be deployed successfully!'
+    }
 
     if ($setupInfo.LinuxOnly -eq $false) {
+        $podsJson = Invoke-Kubectl -Params 'get', 'pods', '-n', 'logging', '-l', 'app.kubernetes.io/name=fluent-bit-win', '-o', 'json'
+        if ($podsJson.Success) {
+            $stale = ($podsJson.Output | ConvertFrom-Json).items | Where-Object { $null -ne $_.metadata.deletionTimestamp }
+            if ($stale) {
+                Write-Log "[Logging] Found $($stale.Count) Terminating fluent-bit-win pod(s) - force-deleting to unblock DaemonSet scheduling" -Console
+                foreach ($pod in $stale) {
+                    (Invoke-Kubectl -Params 'delete', 'pod', $pod.metadata.name, '-n', 'logging', '--force', '--grace-period=0').Output | Write-Log
+                }
+            }
+        }
+
         $cmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonset/fluent-bit-win', '-n', 'logging', '--timeout=300s'
         Write-Log $cmd.Output
-        if (!$cmd.Success) { Stop-WithError 'Fluent-bit Windows could not be deployed successfully!' }
+        if (!$cmd.Success) {
+            Write-Log '[Logging] Fluent-bit Windows rollout failed - gathering diagnostics' -Console
+            (Invoke-Kubectl -Params 'describe', 'pods', '-n', 'logging', '-l', 'app.kubernetes.io/name=fluent-bit-win').Output | Write-Log
+            (Invoke-Kubectl -Params 'get', 'events', '-n', 'logging', '--sort-by=.lastTimestamp').Output | Write-Log
+            Stop-WithError 'Fluent-bit Windows could not be deployed successfully!'
+        }
     }
 }
 

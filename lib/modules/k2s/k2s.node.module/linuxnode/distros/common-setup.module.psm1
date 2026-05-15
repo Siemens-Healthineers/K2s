@@ -2007,6 +2007,67 @@ function Set-ProxySettingsForApt {
     }
 }
 
+function Get-NormalizedNoProxyHostFromMirrorEndpoint {
+    param (
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$MirrorEndpoint
+    )
+
+    if ([string]::IsNullOrWhiteSpace($MirrorEndpoint)) {
+        return $null
+    }
+
+    # Mirror endpoint can include scheme/path/port, but no_proxy matching should use only the host.
+    $trimmedEndpoint = $MirrorEndpoint.Trim()
+    $parsedUri = $null
+    try {
+        if ($trimmedEndpoint -match '^[a-zA-Z][a-zA-Z0-9+.-]*://') {
+            $parsedUri = [System.Uri]$trimmedEndpoint
+        }
+        else {
+            $parsedUri = [System.Uri]("https://$trimmedEndpoint")
+        }
+    }
+    catch {
+        return $null
+    }
+
+    if ([string]::IsNullOrWhiteSpace($parsedUri.Host)) {
+        return $null
+    }
+
+    return $parsedUri.Host.Trim().ToLowerInvariant()
+}
+
+function Get-CrioNoProxySettings {
+    $noProxyEntries = @(
+        'localhost',
+        '127.0.0.1',
+        '::1',
+        '.local',
+        '.cluster.local',
+        (Get-ConfiguredIPControlPlane),
+        (Get-ConfiguredKubeSwitchIP),
+        (Get-ConfiguredClusterCIDR),
+        (Get-ConfiguredClusterCIDRServices)
+    )
+
+    $mirrorRegistries = Get-MirrorRegistries
+    foreach ($registry in $mirrorRegistries) {
+        if ([string]::IsNullOrWhiteSpace($registry.mirror)) {
+            continue
+        }
+        $mirrorHost = Get-NormalizedNoProxyHostFromMirrorEndpoint -MirrorEndpoint $registry.mirror
+        if (![string]::IsNullOrWhiteSpace($mirrorHost)) {
+            $noProxyEntries += $mirrorHost
+        }
+    }
+
+    $noProxyEntries = $noProxyEntries | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+    return $noProxyEntries -join ','
+}
+
 function Set-ProxySettingsForContainerRuntime {
     param (
         [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
@@ -2041,7 +2102,8 @@ function Set-ProxySettingsForContainerRuntime {
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTPS_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'http_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'https_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        $noProxySettings = Get-CrioNoProxySettings
+        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'no_proxy=$noProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     }
 }
 
