@@ -24,6 +24,30 @@ if ! ls "$K8S_DEB_PACKAGES_PATH" > /dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------------------
+# Wait for dpkg lock (unattended-upgrades may hold it)
+# ---------------------------------------------------------------------------
+wait_for_dpkg_lock() {
+    local max_wait=300  # 5 minutes
+    local waited=0
+    while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+          sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || \
+          sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+        if [ $waited -ge $max_wait ]; then
+            echo "[InstallK8s] ERROR: Timeout waiting for dpkg lock after ${max_wait}s" >&2
+            exit 1
+        fi
+        echo "[InstallK8s] Waiting for dpkg lock (held by another process)..."
+        sleep 5
+        waited=$((waited + 5))
+    done
+    if [ $waited -gt 0 ]; then
+        echo "[InstallK8s] dpkg lock released after ${waited}s"
+    fi
+}
+
+wait_for_dpkg_lock
+
+# ---------------------------------------------------------------------------
 # Install .deb packages
 # ---------------------------------------------------------------------------
 echo "[InstallK8s] Installing deb packages from $K8S_DEB_PACKAGES_PATH"
@@ -109,7 +133,12 @@ else
     echo "[InstallK8s] File does not exist, no renaming of cni file $CRIO_CNI_FILE.."
 fi
 
-echo 'unqualified-search-registries = ["docker.io", "quay.io"]' | sudo tee -a /etc/containers/registries.conf
+# Add unqualified-search-registries only if not already present (prevents duplicate entries on retry)
+if ! grep -q '^[[:space:]]*unqualified-search-registries[[:space:]]*=' /etc/containers/registries.conf 2>/dev/null; then
+    echo 'unqualified-search-registries = ["docker.io", "quay.io"]' | sudo tee -a /etc/containers/registries.conf
+else
+    echo "[InstallK8s] unqualified-search-registries already configured in /etc/containers/registries.conf, skipping"
+fi
 
 # ---------------------------------------------------------------------------
 # Hold kubelet, kubeadm, kubectl

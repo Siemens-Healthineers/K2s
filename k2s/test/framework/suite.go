@@ -146,14 +146,6 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", testSuite.setupInfo.RuntimeConfig.InstallConfig().SetupName()))
 	}
 
-	GinkgoWriter.Println("Initial system state should be <", expectedSystemState, ">")
-
-	if expectedSystemState == SystemStateIrrelevant {
-		GinkgoWriter.Println("Skipping system state checks")
-	} else {
-		testSuite.expectSystemState(ctx, expectedSystemState, ensureAddonsAreDisabled)
-	}
-
 	nssmCli := newCliFunc(filepath.Join(rootDir, "bin", "nssm.exe"))
 
 	kubectlFunc := func() *os.CliExecutor {
@@ -163,6 +155,14 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	testSuite.kubeProxyRestarter = k2s.NewKubeProxyRestarter(testSuite.setupInfo.RuntimeConfig, nssmCli)
 	testSuite.kubectlFunc = kubectlFunc
 	testSuite.cluster = k8s.NewCluster(clusterTestStepTimeout, clusterTestStepPollInterval)
+
+	GinkgoWriter.Println("Initial system state should be <", expectedSystemState, ">")
+
+	if expectedSystemState == SystemStateIrrelevant {
+		GinkgoWriter.Println("Skipping system state checks")
+	} else {
+		testSuite.expectSystemState(ctx, expectedSystemState, ensureAddonsAreDisabled)
+	}
 
 	return testSuite
 }
@@ -275,6 +275,10 @@ func (s *K2sTestSuite) expectSystemState(ctx context.Context, systemState expect
 	switch systemState {
 	case SystemMustBeRunning:
 		Expect(isRunning).To(BeTrue(), "System should be running to execute the tests")
+
+		GinkgoWriter.Println("Waiting for essential Pods to be ready..")
+		s.cluster.ExpectClusterIsRunning(ctx)
+		GinkgoWriter.Println("All essential Pods are ready")
 	case SystemMustBeStopped:
 		Expect(isRunning).To(BeFalse(), "System should be stopped to execute the tests")
 	default:

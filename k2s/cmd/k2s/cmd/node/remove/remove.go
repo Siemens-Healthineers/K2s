@@ -29,7 +29,9 @@ func NewCmd() *cobra.Command {
 		Use:   "remove",
 		Short: "[EXPERIMENTAL] Remove a node from the cluster",
 		Long:  "Removes machine or VM from K2s cluster",
-		RunE:  removeNode,
+		Example: `  # Remove a worker node by its hostname
+  k2s node remove --name worker-node-1`,
+		RunE: removeNode,
 	}
 	cmd.Flags().StringP(MachineName, "m", "", MachineNameFlagUsage)
 	cmd.MarkFlagsOneRequired(MachineName)

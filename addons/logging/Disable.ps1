@@ -62,7 +62,6 @@ $manifestsPath = "$PSScriptRoot\manifests\logging"
 
 $loggingConfig = Get-AddonConfig -Name 'logging'
 $omitOpensearch = $loggingConfig.OmitOpensearch -eq $true
-$enableAI = $loggingConfig.EnableAI -eq $true
 
 if ($omitOpensearch) {
     Write-Log 'Removing Fluent-bit only (--omitOpensearch mode)' -Console
@@ -87,35 +86,13 @@ if ($omitOpensearch) {
     (Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=fluent-bit-win', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
 
     (Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'pv', 'opensearch-cluster-master-pv', '--ignore-not-found', '--wait=false').Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
 }
 else {
     Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'logging' })
     Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'logging' })
-
-    # Remove AI components first (before namespace deletion) if they were deployed
-    if ($enableAI) {
-        Write-Log '[AI] Removing AI log analysis components...' -Console
-        $aiManifestsPath = "$manifestsPath\ai"
-
-        # Delete any running pipeline jobs
-        (Invoke-Kubectl -Params 'delete', 'jobs', '-l', 'app.kubernetes.io/name=logging-ai-pipeline', '-n', 'logging', '--ignore-not-found', '--wait=false').Output | Write-Log
-
-        # Delete via kustomization
-        (Invoke-Kubectl -Params 'delete', '-k', "$aiManifestsPath\", '--ignore-not-found', '--wait=false').Output | Write-Log
-
-        # Delete source ConfigMaps created dynamically by Enable.ps1 (not in kustomization)
-        (Invoke-Kubectl -Params 'delete', 'configmap', 'logging-ai-src-root', '-n', 'logging', '--ignore-not-found').Output | Write-Log
-        (Invoke-Kubectl -Params 'delete', 'configmap', 'logging-ai-src-app', '-n', 'logging', '--ignore-not-found').Output | Write-Log
-
-
-        # Remove demo broken pod namespace
-        Write-Log '[AI] Removing demo broken pod (demo-app namespace)...' -Console
-        (Invoke-Kubectl -Params 'delete', 'namespace', 'demo-app', '--ignore-not-found').Output | Write-Log
-
-        Write-Log '[AI] AI components removed.' -Console
-    }
 
     (Invoke-Kubectl -Params 'delete', '-k', $manifestsPath, '--ignore-not-found', '--wait=false').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', '-k', "$manifestsPath\fluentbit\windows", '--ignore-not-found', '--wait=false').Output | Write-Log
@@ -134,11 +111,10 @@ else {
     }
 
     (Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--grace-period=0').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'pv', 'opensearch-cluster-master-pv', '--ignore-not-found', '--wait=false').Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
-    if ($enableAI) {
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /ollama').Output | Write-Log
-    }
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/sysctl.d/99-opensearch.conf').Output | Write-Log
 }
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
