@@ -1830,7 +1830,7 @@ function Initialize-CACertificateIssuer {
 Waits for the cert-manager API to be available.
 #>
 function Wait-ForCertManagerAvailable {
-    $out = &$cmctlExe check api --wait=3m
+    $out = &$cmctlExe check api --wait=5m
     if ($out -match 'The cert-manager API is ready') {
         return $true
     }
