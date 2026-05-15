@@ -2349,7 +2349,7 @@ spec:
               containerPort: 9000
           readinessProbe:
             httpGet:
-              path: /health/ready
+              path: /keycloak/health/ready
               port: 9000
             initialDelaySeconds: 30 # Increase delay for production
             periodSeconds: 10
@@ -2358,7 +2358,7 @@ spec:
             failureThreshold: 30
           startupProbe:
             httpGet:
-              path: /health/ready
+              path: /keycloak/health/ready
               port: 9000
             periodSeconds: 10
             timeoutSeconds: 5
