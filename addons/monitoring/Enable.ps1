@@ -17,6 +17,8 @@ Param(
     [switch] $ShowLogs = $false,
     [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
+    [parameter(Mandatory = $false, HelpMessage = 'Omit Grafana web UI; deploy only Prometheus, Alertmanager, and exporters')]
+    [switch] $OmitGrafana,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -70,15 +72,25 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'monitoring' })) -eq 
 }
 
 if ($Ingress -ne 'none') {
-    Enable-IngressAddon -Ingress:$Ingress
+        Enable-IngressAddon -Ingress:$Ingress
 }
 
-$manifestsPath = "$PSScriptRoot\manifests\monitoring"
+# Select kustomization based on OmitGrafana flag
+if ($OmitGrafana) {
+    $manifestsPath = "$PSScriptRoot\manifests\monitoring-no-grafana"
+    Write-Log 'Installing Kube Prometheus Stack without Grafana (--omitGrafana)' -Console
+} else {
+    $manifestsPath = "$PSScriptRoot\manifests\monitoring"
+    
+    Write-Log 'Installing Kube Prometheus Stack' -Console
+}
 
-Write-Log 'Installing Kube Prometheus Stack' -Console
-(Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
+$crdsPath = "$PSScriptRoot\manifests\monitoring\crds"
+$namespacePath = "$PSScriptRoot\manifests\monitoring\namespace.yaml"
+
+(Invoke-Kubectl -Params 'apply', '-f', $namespacePath).Output | Write-Log
 # Use --server-side for CRDs to avoid oversized last-applied annotations on large CRDs
-(Invoke-Kubectl -Params 'apply', '--server-side', '-f', "$manifestsPath\crds").Output | Write-Log
+(Invoke-Kubectl -Params 'apply', '--server-side', '-f', $crdsPath).Output | Write-Log
 
 # Wait for CRDs to be registered by the API server before clearing the discovery cache
 Write-Log '[Monitoring] Waiting for Prometheus Operator CRDs to be fully established' -Console
@@ -180,14 +192,17 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-&"$PSScriptRoot\Update.ps1"
+&"$PSScriptRoot\Update.ps1" -OmitGrafana:$OmitGrafana
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring'; OmitGrafana = $OmitGrafana.IsPresent })
 
-Write-Log 'Kube Prometheus Stack installed successfully'
-
-Write-UsageForUser
-Write-BrowserWarningForUser
+if ($OmitGrafana) {
+    Write-Log 'Kube Prometheus Stack installed successfully (without Grafana)'
+} else {
+    Write-Log 'Kube Prometheus Stack installed successfully'
+    Write-UsageForUser
+    Write-BrowserWarningForUser
+}
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
