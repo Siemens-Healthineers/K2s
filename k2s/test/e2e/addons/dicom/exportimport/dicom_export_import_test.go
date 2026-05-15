@@ -35,7 +35,7 @@ var (
 
 func TestDicomExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "dicom Addon Export/Import Tests", Label("addon", "addon-medical", "acceptance", "internet-required", "setup-required", "invasive", "dicom", "export-import", "system-running"))
+	RunSpecs(t, "dicom Addon Export/Import Tests", Label("addon", "addon-medical", "acceptance", "internet-required", "setup-required", "invasive", "dicom", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -143,11 +143,18 @@ var _ = Describe("dicom addon export and import", Ordered, func() {
 	})
 
 	Describe("import dicom addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
+
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 

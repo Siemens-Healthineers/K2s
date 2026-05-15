@@ -31,7 +31,22 @@ mkdir c:\myFolder; cd c:\myFolder
 git clone https://github.com/Siemens-Healthineers/K2s .
 git checkout tags/v1.4.0
 ```
-The repo is now ready to be used.
+
+Go-built binaries (including `k2s.exe`) are **not committed** to the git repository. After cloning, you **must** build them before proceeding:
+
+=== "Windows"
+    ```console
+    .\bin\bgow
+    ```
+
+=== "Linux"
+    ```console
+    ./bin/bgol
+    ```
+
+!!! warning
+    Without this step, `k2s.exe` and supporting tools will be missing and *K2s* will not function.
+
 Proceed with the installation, see [Installing *K2s*](installing-k2s.md).
 
 ## \[Option 2\] Downloading Official Release Package

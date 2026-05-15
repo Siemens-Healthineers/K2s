@@ -9,7 +9,8 @@ Param(
     [string] $UserName = '',
     [string] $IpAddress = '',
     [switch] $ShowLogs = $false,
-    [string] $AdditionalHooksDir = ''
+    [string] $AdditionalHooksDir = '',
+    [switch] $SkipHeaderDisplay = $false
 )
 
 $preparationStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -71,7 +72,7 @@ $workerNodeParams = @{
     IpAddress = $IpAddress
     AdditionalHooksDir = $AdditionalHooksDir
 }
-Remove-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
+Remove-LinuxWorkerNode @workerNodeParams
 
 Write-Log "Current state of kubernetes nodes:`n"
 Start-Sleep 2
