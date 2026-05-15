@@ -96,6 +96,31 @@ password: admin
 
 _Note:_ Credentials can be changed after first login.
 
+## Headless mode (without Grafana)
+
+If you use an external monitoring UI such as **OpenLens**, **Lens**, or your own Grafana instance, you can deploy only Prometheus, Alertmanager, and exporters without the built-in Grafana:
+
+```
+k2s addons enable monitoring --omitGrafana
+```
+
+This deploys:
+- Prometheus (metrics collection & storage)
+- Alertmanager (alerting)
+- Prometheus Operator
+- Kube-state-metrics
+- Node Exporter (Linux) and Windows Exporter
+
+### Accessing Prometheus from external tools
+
+Use port-forwarding to access Prometheus:
+
+```
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090:9090
+```
+
+Then connect your monitoring tool to `http://localhost:9090`.
+
 ## Disable monitoring
 
 The monitoring addon can be disabled using the k2s CLI by running the following command:
