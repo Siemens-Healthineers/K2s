@@ -8,19 +8,21 @@
 Param(
     [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
     [string] $NodeName = $(throw 'Argument missing: NodeName'),
-    [switch] $ObtainCIDR = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
     [string] $AdditionalHooksDir = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
+    [switch] $SkipHeaderDisplay = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Indicates this is a single node start operation')]
-    [switch] $SingleNode = $false
+    [switch] $SingleNode = $false,
+    [switch] $ObtainCIDR = $false
 )
 
-$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\..\..\..\..\addons\addons.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\..\..\..\..\addons\addons.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -35,11 +37,13 @@ $workerNodeName = $NodeName.ToLower()
 
 $workerNodeStartParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
+    SkipHeaderDisplay = $SkipHeaderDisplay
     IpAddress = $IpAddress
     NodeName = $workerNodeName
     ObtainCIDR = $ObtainCIDR
 }
 Start-LinuxWorkerNode @workerNodeStartParams
+
 
 <#
 .SYNOPSIS
@@ -107,6 +111,32 @@ function Start-LinuxWorkerNodeServices {
 
     if (-not $sshProbeSucceeded) {
         Write-Log "$LogPrefix Failed to establish SSH connection to '$workerNodeName' after retries: $($sshProbeResult.Output)"
+
+        try {
+            $tcpCheck = Test-NetConnection -ComputerName $IpAddress -Port 22 -WarningAction SilentlyContinue
+            Write-Log "$LogPrefix Connectivity check for '$IpAddress': Ping=$($tcpCheck.PingSucceeded), Tcp22=$($tcpCheck.TcpTestSucceeded)"
+
+            $matchingVmAdapters = @(Get-VMNetworkAdapter -All -ErrorAction SilentlyContinue | Where-Object {
+                @($_.IPAddresses) -contains $IpAddress
+            })
+
+            if ($matchingVmAdapters.Count -eq 0) {
+                Write-Log "$LogPrefix No Hyper-V VM adapter currently reports guest IP '$IpAddress'. The VM may have lost this IP (check 'ip address' / netplan inside the Linux VM)." -Console
+            } else {
+                $switches = ($matchingVmAdapters | Select-Object -ExpandProperty SwitchName -Unique) -join ', '
+                Write-Log "$LogPrefix Hyper-V adapter for '$IpAddress' is attached to switch(es): $switches"
+            }
+
+            $staleNodeAdapters = @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object {
+                $_.Name -like 'vEthernet (k2s-node-*'
+            })
+            if ($staleNodeAdapters.Count -gt 3) {
+                Write-Log "$LogPrefix Detected $($staleNodeAdapters.Count) 'vEthernet (k2s-node-*)' adapters on host. This can interfere with local VM reachability after full stop/start."
+            }
+        } catch {
+            Write-Log "$LogPrefix Failed to collect SSH failure diagnostics: $($_.Exception.Message)"
+        }
+
         return
     }
 
@@ -176,4 +206,4 @@ function Invoke-LinuxWorkerNodeStart {
 }
 
 # Restore kubelet/runtime services after route setup and wait for the node to become Ready.
-Invoke-LinuxWorkerNodeStart -NodeName $workerNodeName -WaitForReady -LogPrefix '[bare-metal]'
+Invoke-LinuxWorkerNodeStart -NodeName $workerNodeName -WaitForReady -LogPrefix '[existing-vm]'
