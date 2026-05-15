@@ -324,6 +324,11 @@ cd "$TARGET_PATH" && sudo find . -maxdepth 1 -type f \
     ! -name "*_${SHORT_K8S_VERSION}_amd64.deb" \
     -exec sudo rm -f {} + || true
 
+if ! ls "$TARGET_PATH"/cri-tools*.deb >/dev/null 2>&1; then
+    log_warning "Required cri-tools package was not downloaded"
+    exit 1
+fi
+
 log_info "Download verification:"
 log_info "Total packages: $(ls "$TARGET_PATH"/*.deb 2>/dev/null | wc -l)"
 ls -lh "$TARGET_PATH"/*.deb 2>/dev/null || true
