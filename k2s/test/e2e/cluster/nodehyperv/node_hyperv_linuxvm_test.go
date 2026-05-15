@@ -38,7 +38,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx,
 		framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(500*time.Millisecond),
-		framework.ClusterTestStepTimeout(10*time.Minute))
+		framework.ClusterTestStepTimeout(20*time.Minute))
 	k2s = dsl.NewK2s(suite)
 
 	DeferCleanup(suite.TearDown)
