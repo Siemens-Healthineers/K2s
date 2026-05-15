@@ -262,6 +262,9 @@ set_kubernetes_apt_repository "$K8S_VERSION_REPO" "$PROXY"
 log_info "=== Downloading CRI-O ==="
 download_packages 'cri-o'
 
+log_info "=== Downloading cri-tools (crictl) ==="
+download_packages 'cri-tools'
+
 log_info "=== Downloading Kubernetes Tools ==="
 SHORT_K8S_VERSION="${K8S_VERSION#v}-1.1"
 log_info "Target Kubernetes version: $SHORT_K8S_VERSION"
