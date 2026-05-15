@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -863,7 +863,6 @@ function Install-Kyverno {
     }
 
     $maxAttempts = 3
-    $retryDelaySec = 60
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         $result = Invoke-Helm -Params $helmArgs
         $result.Output | Write-Log
@@ -883,7 +882,7 @@ function Install-Kyverno {
                 'etcdserver: request timed out'    { 'etcd request timeout'; break }
                 default                            { 'transient Helm error' }
             }
-            Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed ($reason) -- purging and retrying in ${retryDelaySec}s" -Console
+            Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed ($reason) -- purging and retrying" -Console
 
             $purgeResult = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--no-hooks')
             $purgeResult.Output | Write-Log
@@ -892,7 +891,25 @@ function Install-Kyverno {
                 (Invoke-Kubectl -Params 'delete', 'secret', '-n', $kyvernoNamespace,
                     '-l', 'owner=helm,name=kyverno', '--ignore-not-found').Output | Write-Log
             }
-            Start-Sleep -Seconds $retryDelaySec
+
+            # Delete lingering services to release ClusterIPs before retry
+            Write-Log '[Kyverno] Deleting services in namespace to release ClusterIPs' -Console
+            (Invoke-Kubectl -Params 'delete', 'svc', '--all', '-n', $kyvernoNamespace, '--ignore-not-found').Output | Write-Log
+
+            # Wait for services to be fully removed (ClusterIP allocator sync)
+            $svcWait = 0
+            $svcMaxWait = 30
+            while ($svcWait -lt $svcMaxWait) {
+                $svcs = (Invoke-Kubectl -Params 'get', 'svc', '-n', $kyvernoNamespace, '--no-headers', '--ignore-not-found').Output
+                if (-not $svcs) {
+                    Write-Log "[Kyverno] All services deleted after ${svcWait}s" -Console
+                    break
+                }
+                Start-Sleep -Seconds 2
+                $svcWait += 2
+            }
+            # Brief pause for ClusterIP allocator bitmap to sync
+            Start-Sleep -Seconds 5
             continue
         }
 
