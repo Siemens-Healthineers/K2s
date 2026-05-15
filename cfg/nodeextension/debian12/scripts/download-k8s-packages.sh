@@ -272,14 +272,18 @@ log_info "Target Kubernetes version: $SHORT_K8S_VERSION"
 download_packages "kubectl=$SHORT_K8S_VERSION"
 download_packages "kubelet=$SHORT_K8S_VERSION"
 download_packages "kubeadm=$SHORT_K8S_VERSION"
-download_packages "cri-tools=$SHORT_K8S_VERSION"
 
 # Cleanup extra versions (keep only specified version)
 log_info "Cleaning up extra package versions"
 cd "$TARGET_PATH" && sudo find . -maxdepth 1 -type f \
-    \( -name 'kubeadm_*.deb' -o -name 'kubectl_*.deb' -o -name 'kubelet_*.deb' -o -name 'cri-tools_*.deb' \) \
+    \( -name 'kubeadm_*.deb' -o -name 'kubectl_*.deb' -o -name 'kubelet_*.deb' \) \
     ! -name "*_${SHORT_K8S_VERSION}_amd64.deb" \
     -exec sudo rm -f {} + || true
+
+if ! ls "$TARGET_PATH"/cri-tools*.deb >/dev/null 2>&1; then
+    log_warning "Required cri-tools package was not downloaded"
+    exit 1
+fi
 
 log_info "Download verification:"
 log_info "Total packages: $(ls "$TARGET_PATH"/*.deb 2>/dev/null | wc -l)"
