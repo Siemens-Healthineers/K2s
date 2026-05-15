@@ -35,7 +35,7 @@ var (
 
 func TestGpuNodeExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "gpu-node Addon Export/Import Tests", Label("addon", "addon-diverse", "acceptance", "internet-required", "setup-required", "invasive", "gpu-node", "export-import", "system-running", "gpu-required"))
+	RunSpecs(t, "gpu-node Addon Export/Import Tests", Label("addon", "addon-diverse", "acceptance", "internet-required", "setup-required", "invasive", "gpu-node", "export-import", "air-gapped", "system-running", "gpu-required"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -143,11 +143,18 @@ var _ = Describe("gpu-node addon export and import", Ordered, func() {
 	})
 
 	Describe("import gpu-node addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
+
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 

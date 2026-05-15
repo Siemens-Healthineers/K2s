@@ -27,7 +27,7 @@ function Get-CtrExePath {
 
 function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $containerdDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_ContainerdDirectory"
-    $versionContainerd = '2.2.3'
+    $versionContainerd = '2.3.0'
     $compressedContainerdFile = "containerd-$versionContainerd-windows-amd64.tar.gz"
     $compressedFile = "$containerdDownloadsDirectory\$compressedContainerdFile"
 
@@ -71,7 +71,7 @@ function Invoke-DeployContainerdArtifacts($windowsNodeArtifactsDirectory) {
 
 function Invoke-DownloadCrictlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $crictlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CrictlDirectory"
-    $versionCrictl = '1.35.0'
+    $versionCrictl = '1.36.0'
 
     $compressedCrictlFile = "crictl-v$versionCrictl-windows-amd64.tar.gz"
     $compressedFile = "$crictlDownloadsDirectory\$compressedCrictlFile"
@@ -106,13 +106,13 @@ function Invoke-DeployCrictlArtifacts($windowsNodeArtifactsDirectory) {
 
 function Invoke-DownloadNerdctlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $nerdctlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_NerdctlDirectory"
-    $compressedNerdFile = 'nerdctl-2.2.2-windows-amd64.tar.gz'
+    $compressedNerdFile = 'nerdctl-2.3.0-windows-amd64.tar.gz'
     $compressedFile = "$nerdctlDownloadsDirectory\$compressedNerdFile"
 
     Write-Log "Create folder '$nerdctlDownloadsDirectory'"
     mkdir $nerdctlDownloadsDirectory | Out-Null
     Write-Log 'Download nerdctl'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v2.2.2/$compressedNerdFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v2.3.0/$compressedNerdFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$nerdctlDownloadsDirectory`"
@@ -146,8 +146,9 @@ function Set-RootPathForImagesInConfig($tomlPath) {
         Write-Log 'StorageLocalDrive is '
         Write-Log $storageLocalDrive
         $storageLocalDriveWithFolderName = $storageLocalDrive + $storageLocalFolder        
-        Write-Log "StorageLocalDriveWithFolderName is'$storageLocalDriveWithFolderName'"
-        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $storageLocalDriveWithFolderName | Set-Content -Path $tomlPath
+        Write-Log "StorageLocalDriveWithFolderName is '$storageLocalDriveWithFolderName'"
+        $formattedPath = $storageLocalDriveWithFolderName.Replace('\', '\\')
+        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $formattedPath | Set-Content -Path $tomlPath
     }    
 }
 

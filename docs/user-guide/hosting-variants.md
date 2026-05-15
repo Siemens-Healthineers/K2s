@@ -29,3 +29,5 @@ The *k2s* CLI is compiled as a native *Linux* binary and uses *Go* APIs directly
 | Linux container runtime (CRI-O / containerd) | Linux host |
 | Windows worker (optional) | Windows VM via KVM |
 | CLI | `k2s` (Linux binary) |
+
+The Windows VM is defined by libvirt XML templates that ship with K2s. Operators can customise the VM and network definitions before installation — see [Libvirt Templates](../op-manual/configuration-reference.md#libvirt-templates-linux-host) in the Configuration Reference.

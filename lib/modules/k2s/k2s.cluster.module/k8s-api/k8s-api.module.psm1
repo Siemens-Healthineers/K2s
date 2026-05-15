@@ -868,7 +868,16 @@ function Invoke-Helm {
         $Params
     )
     $kubeBinPath = Get-KubeBinPath
-    $output = &"$kubeBinPath\helm.exe" $params 2>&1
+
+    $originalOutputEncoding = [Console]::OutputEncoding
+    try {
+        # Helm emits UTF-8 notes; switch decoding temporarily so PowerShell 5.1 does not mojibake redirected output.
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $output = &"$kubeBinPath\helm.exe" $params 2>&1
+    }
+    finally {
+        [Console]::OutputEncoding = $originalOutputEncoding
+    }
 
     return [pscustomobject]@{ Success = ($LASTEXITCODE -eq 0); Output = $output }
 }

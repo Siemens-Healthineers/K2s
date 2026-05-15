@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -99,49 +99,80 @@ function Connect-KubeSwitch() {
 
 <#
 .SYNOPSIS
-    Remove switch to control plane VM.
+    Connect a VM's network adapter to a switch.
 .DESCRIPTION
-    Remove switch to control plane VM.
+    Ensures the VM has a network adapter and connects it to the specified switch.
+.PARAMETER VmName
+    The name of the VM to connect.
+.PARAMETER SwitchName
+    The name of the switch to connect the VM to.
 #>
-function Remove-KubeSwitch() {
-    # Remove old switch
-    Write-Log 'Remove KubeSwitch'
-    Get-VM | ForEach-Object { Get-VMNetworkAdapter -VMName $_.Name } | Where-Object { $_.SwitchName -eq $controlPlaneSwitchName } | Disconnect-VMNetworkAdapter
-
-    $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
-    if ( $sw ) {
-        Remove-VMSwitch -Name $controlPlaneSwitchName -Force
-    }
-
-    Remove-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -Confirm:$False -ErrorAction SilentlyContinue
-}
-
-function Connect-NetworkAdapterToVm() {
+function Connect-NetworkAdapterToVm {
     param (
         [string]$VmName = $(throw 'Argument missing: VmName'),
         [string]$SwitchName = $(throw 'Argument missing: SwitchName')
     )
-    Write-Log "Connect switch '$SwitchName' to VM '$VmName'"
-    # connect VM to switch
-    $ad = Get-VMNetworkAdapter -VMName $VmName
+    Write-Log "[KubeSwitch] Connect switch '$SwitchName' to VM '$VmName'"
+    $ad = Get-VMNetworkAdapter -VMName $VmName -ErrorAction SilentlyContinue
     if ( !($ad) ) {
-        Write-Log "Adding network adapter to VM '$VmName' ..."
+        Write-Log "[KubeSwitch] Adding network adapter to VM '$VmName' ..."
         Add-VMNetworkAdapter -VMName $VmName -Name 'Network Adapter'
     }
     Connect-VMNetworkAdapter -VMName $VmName -SwitchName $SwitchName
 }
 
+<#
+.SYNOPSIS
+    Disconnect a VM's network adapter from its current switch.
+.DESCRIPTION
+    Disconnects the VM's network adapter if one exists.
+.PARAMETER VmName
+    The name of the VM to disconnect.
+#>
 function Disconnect-NetworkAdapterFromVm {
     param (
         [string]$VmName = $(throw 'Argument missing: VmName')
     )
-    # Remove old switch
-    Write-Log "Disconnect VM '$VmName' from network adapter"
+    Write-Log "[KubeSwitch] Disconnect VM '$VmName' from network adapter"
     $networkAdapter = Get-VMNetworkAdapter -VMName $VmName -ErrorAction SilentlyContinue
     if ( $networkAdapter ) {
-        Disconnect-VMNetworkAdapter -VmName $VmName
+        Disconnect-VMNetworkAdapter -VMName $VmName -ErrorAction SilentlyContinue
     }
 }
+
+<#
+.SYNOPSIS
+    Remove switch to control plane VM.
+.DESCRIPTION
+    Remove switch to control plane VM.
+#>
+function Remove-KubeSwitch() {
+    Write-Log '[KubeSwitch] Removing KubeSwitch...'
+    
+    # Get all VMs connected to the KubeSwitch and disconnect them
+    $connectedVMs = @(Get-VM -ErrorAction SilentlyContinue | ForEach-Object { 
+        Get-VMNetworkAdapter -VMName $_.Name -ErrorAction SilentlyContinue
+    } | Where-Object { $_.SwitchName -eq $controlPlaneSwitchName })
+    
+    if ($connectedVMs.Count -gt 0) {
+        $vmNames = ($connectedVMs | Select-Object -ExpandProperty VMName -Unique) -join ', '
+        Write-Log "[KubeSwitch] Disconnecting VMs from '$controlPlaneSwitchName': $vmNames"
+        foreach ($adapter in $connectedVMs) {
+            Disconnect-NetworkAdapterFromVm -VmName $adapter.VMName
+        }
+    }
+    
+    $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
+    if ($sw) {
+        Write-Log "[KubeSwitch] Removing switch '$controlPlaneSwitchName'"
+        Remove-VMSwitch -Name $controlPlaneSwitchName -Force -ErrorAction SilentlyContinue
+    }
+
+    Write-Log "[KubeSwitch] Removing IP address $kubeSwitchIp"
+    Remove-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -Confirm:$False -ErrorAction SilentlyContinue
+}
+
+
 
 function Reset-DnsServer($switchname) {
     $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
@@ -220,21 +251,20 @@ function Get-MasterNodeSwitchIndex {
 }
 
 function Wait-ForNetIpInterface {
-        param (
-        [string]$SwitchName = $(throw 'Argument missing: SwitchName')
+    param (
+        [string]$SwitchName = $(throw 'Argument missing: SwitchName'),
+        [int]$MaxWaitTimeSeconds = 60
     )
-    # wait for switch
     $switchName = $SwitchName
-    Write-Log "[KubeSwitch] Wait for NetIpInterface '$switchName' to be available ..."
-    $maxWaitTime = 60
+    Write-Log "[KubeSwitch] Wait for NetIpInterface '$switchName' to be available (timeout: ${MaxWaitTimeSeconds}s) ..."
     $startTime = Get-Date
     $lastProgressTime = $startTime
     while (!(Get-NetIPInterface -InterfaceAlias $switchName -AddressFamily IPv4 -ErrorAction SilentlyContinue)) {
         $elapsed = (Get-Date) - $startTime
-        if ($elapsed.TotalSeconds -ge $maxWaitTime) {
+        if ($elapsed.TotalSeconds -ge $MaxWaitTimeSeconds) {
             $availableInterfaces = (Get-NetIPInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty InterfaceAlias) -join ', '
             Write-Log "[KubeSwitch] Available IPv4 interfaces: $availableInterfaces"
-            throw "Switch '$switchName' not available after $maxWaitTime seconds"
+            throw "Switch '$switchName' not available after $MaxWaitTimeSeconds seconds. Windows may need more time to register the virtual adapter."
         }
         if (((Get-Date) - $lastProgressTime).TotalSeconds -ge 10) {
             Write-Log "[KubeSwitch] Still waiting for '$switchName' ($([int]$elapsed.TotalSeconds)s elapsed) ..."
@@ -253,8 +283,8 @@ Connect-KubeSwitch,
 Remove-KubeSwitch, 
 Get-WslSwitchName, 
 Reset-DnsServer, 
-Disconnect-NetworkAdapterFromVm, 
-Connect-NetworkAdapterToVm, 
 Repair-KubeSwitch,
 Get-MasterNodeSwitchIndex,
-Wait-ForNetIpInterface
+Wait-ForNetIpInterface,
+Connect-NetworkAdapterToVm,
+Disconnect-NetworkAdapterFromVm
