@@ -82,10 +82,9 @@ var _ = Describe("'monitoring' addon backup/restore", Ordered, func() {
 			os.MkdirAll(backupDir, os.ModePerm)
 		})
 
-		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().Exec(ctx, "addons", "disable", "monitoring", "-o")
-			k2s.VerifyAddonIsDisabled("monitoring")
-		})
+		// No AfterAll disable here — monitoring stays running for the
+		// next Describe block (custom dashboard test), saving a full
+		// disable + enable cycle (~5-8 min).
 
 		// --- error tests while addon is disabled ---
 
@@ -170,14 +169,8 @@ var _ = Describe("'monitoring' addon backup/restore", Ordered, func() {
 			k2s.VerifyAddonIsDisabled("monitoring")
 		})
 
-		It("enables the addon", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
-
-			k2s.VerifyAddonIsEnabled("monitoring")
-
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-grafana", "monitoring")
-		})
+		// Monitoring is already running from the previous Describe's
+		// successful restore — no need to enable again.
 
 		It("creates a custom Grafana dashboard ConfigMap", func(ctx context.Context) {
 			// Create a ConfigMap with the grafana_dashboard=1 label so
