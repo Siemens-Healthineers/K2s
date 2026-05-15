@@ -54,6 +54,11 @@ echo "[InstallK8s] Installing deb packages from $K8S_DEB_PACKAGES_PATH"
 sudo DEBIAN_FRONTEND=noninteractive dpkg -i "$K8S_DEB_PACKAGES_PATH"/*.deb || true
 sudo DEBIAN_FRONTEND=noninteractive apt-get --fix-broken install -y
 
+if ! command -v crictl >/dev/null 2>&1; then
+    echo "[InstallK8s] ERROR: crictl is not available after package installation. Ensure cri-tools is included in the Kubernetes artifact set." >&2
+    exit 1
+fi
+
 # ---------------------------------------------------------------------------
 # Configure bridged traffic (kernel modules + sysctl)
 # ---------------------------------------------------------------------------
@@ -143,7 +148,7 @@ fi
 # ---------------------------------------------------------------------------
 # Hold kubelet, kubeadm, kubectl
 # ---------------------------------------------------------------------------
-sudo apt-mark hold kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl cri-tools
 
 # ---------------------------------------------------------------------------
 # Start CRI-O
