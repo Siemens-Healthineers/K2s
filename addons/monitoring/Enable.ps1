@@ -17,6 +17,8 @@ Param(
     [switch] $ShowLogs = $false,
     [ValidateSet('nginx', 'nginx-gw', 'traefik', 'none')]
     [string] $Ingress = 'none',
+    [parameter(Mandatory = $false, HelpMessage = 'Omit Grafana web UI; deploy only Prometheus, Alertmanager, and exporters')]
+    [switch] $OmitGrafana,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -33,8 +35,12 @@ Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Write-Log "K2s interacts with Grafana (AGPLv3) solely through its standard, public APIs; no AGPL-licensed code is incorporated or modified, and Grafana is deployed as a container. For this integration scenario, a copyleft assessment was performed with the conclusion that AGPLv3 copyleft obligations are not triggered for this specific scenario." -Console
-Write-Log "[Important] The AGPLv3 terms continue to apply to Grafana itself. Users must independently assess whether the AGPLv3 is appropriate for their use case." -Console
+if ($OmitGrafana) {
+    Write-Log 'Enabling monitoring addon with --omitGrafana flag (Grafana web UI will not be deployed)' -Console
+} else {
+    Write-Log "K2s interacts with Grafana (AGPLv3) solely through its standard, public APIs; no AGPL-licensed code is incorporated or modified, and Grafana is deployed as a container. For this integration scenario, a copyleft assessment was performed with the conclusion that AGPLv3 copyleft obligations are not triggered for this specific scenario." -Console
+    Write-Log "[Important] The AGPLv3 terms continue to apply to Grafana itself. Users must independently assess whether the AGPLv3 is appropriate for their use case." -Console
+}
 
 Write-Log 'Checking cluster status' -Console
 
@@ -70,15 +76,25 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'monitoring' })) -eq 
 }
 
 if ($Ingress -ne 'none') {
-    Enable-IngressAddon -Ingress:$Ingress
+        Enable-IngressAddon -Ingress:$Ingress
 }
 
-$manifestsPath = "$PSScriptRoot\manifests\monitoring"
+# Select kustomization based on OmitGrafana flag
+if ($OmitGrafana) {
+    $manifestsPath = "$PSScriptRoot\manifests\monitoring-no-grafana"
+    Write-Log 'Installing Kube Prometheus Stack without Grafana (--omitGrafana)' -Console
+} else {
+    $manifestsPath = "$PSScriptRoot\manifests\monitoring"
+    
+    Write-Log 'Installing Kube Prometheus Stack' -Console
+}
 
-Write-Log 'Installing Kube Prometheus Stack' -Console
-(Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
+$crdsPath = "$PSScriptRoot\manifests\monitoring\crds"
+$namespacePath = "$PSScriptRoot\manifests\monitoring\namespace.yaml"
+
+(Invoke-Kubectl -Params 'apply', '-f', $namespacePath).Output | Write-Log
 # Use --server-side for CRDs to avoid oversized last-applied annotations on large CRDs
-(Invoke-Kubectl -Params 'apply', '--server-side', '-f', "$manifestsPath\crds").Output | Write-Log
+(Invoke-Kubectl -Params 'apply', '--server-side', '-f', $crdsPath).Output | Write-Log
 
 # Wait for CRDs to be registered by the API server before clearing the discovery cache
 Write-Log '[Monitoring] Waiting for Prometheus Operator CRDs to be fully established' -Console
@@ -180,14 +196,17 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-&"$PSScriptRoot\Update.ps1"
+&"$PSScriptRoot\Update.ps1" -OmitGrafana:$OmitGrafana
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring'; OmitGrafana = $OmitGrafana.IsPresent })
 
-Write-Log 'Kube Prometheus Stack installed successfully'
-
-Write-UsageForUser
-Write-BrowserWarningForUser
+if ($OmitGrafana) {
+    Write-Log 'Kube Prometheus Stack installed successfully (without Grafana)'
+} else {
+    Write-Log 'Kube Prometheus Stack installed successfully'
+    Write-UsageForUser
+    Write-BrowserWarningForUser
+}
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

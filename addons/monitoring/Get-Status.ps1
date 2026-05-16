@@ -5,6 +5,12 @@
 #Requires -RunAsAdministrator
 
 Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+Import-Module $addonsModule
+
+# Check if Grafana was omitted during installation
+$monitoringConfig = Get-AddonConfig -Name 'monitoring'
+$omitGrafana = $monitoringConfig.OmitGrafana -eq $true
 
 $success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'monitoring', 'deployment/kube-prometheus-stack-kube-state-metrics').Success
 
@@ -26,14 +32,19 @@ else {
     $isPrometheusOperatorRunningProp.Message = "The Prometheus Operator is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'monitoring', 'deployment/kube-prometheus-stack-grafana').Success
+# Grafana status check (only when not omitted)
+if (-not $omitGrafana) {
+    $success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'monitoring', 'deployment/kube-prometheus-stack-grafana').Success
 
-$isGrafanaRunningProp = @{Name = 'IsGrafanaRunning'; Value = $success; Okay = $success }
-if ($isGrafanaRunningProp.Value -eq $true) {
-    $isGrafanaRunningProp.Message = 'The Grafana Dashboard is working'
-}
-else {
-    $isGrafanaRunningProp.Message = "The Grafana Dashboard is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
+    $isGrafanaRunningProp = @{Name = 'IsGrafanaRunning'; Value = $success; Okay = $success }
+    if ($isGrafanaRunningProp.Value -eq $true) {
+        $isGrafanaRunningProp.Message = 'The Grafana Dashboard is working'
+    }
+    else {
+        $isGrafanaRunningProp.Message = "The Grafana Dashboard is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
+    }
+} else {
+    $isGrafanaRunningProp = @{Name = 'IsGrafanaRunning'; Value = $true; Okay = $true; Message = 'Grafana was omitted during installation (--omitGrafana)' }
 }
 
 $success = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=5s').Success
