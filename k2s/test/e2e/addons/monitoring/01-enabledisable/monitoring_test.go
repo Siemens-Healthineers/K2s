@@ -57,6 +57,47 @@ var _ = AfterEach(func() {
 })
 
 var _ = Describe("'monitoring' addon", Ordered, func() {
+	When("--omitGrafana flag is used", func() {
+		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
+
+			k2s.VerifyAddonIsDisabled("monitoring")
+
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
+		})
+
+		It("deploys Prometheus stack without Grafana", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "--omitGrafana", "-o")
+
+			k2s.VerifyAddonIsEnabled("monitoring")
+
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
+
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
+		})
+
+		It("does not deploy Grafana deployment", func(ctx context.Context) {
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
+		})
+
+		It("prints the status without Grafana", func(ctx context.Context) {
+			output := suite.K2sCli().MustExec(ctx, "addons", "status", "monitoring")
+
+			Expect(output).To(SatisfyAll(
+				MatchRegexp("ADDON STATUS"),
+				MatchRegexp(`Addon .+monitoring.+ is .+enabled.+`),
+				MatchRegexp("The Kube State Metrics Deployment is working"),
+				MatchRegexp("The Prometheus Operator is working"),
+				MatchRegexp("Prometheus and Alertmanager are working"),
+				MatchRegexp("Node Exporter is working"),
+				MatchRegexp("Grafana was omitted during installation"),
+			))
+		})
+	})
+
 	When("no ingress controller is configured", func() {
 		AfterAll(func(ctx context.Context) {
 			if portForwardingSession != nil {
