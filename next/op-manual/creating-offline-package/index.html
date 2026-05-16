@@ -2786,6 +2786,7 @@ SPDX-License-Identifier: MIT
 <p>For multi-implementation addons like <em>ingress</em>, specify the implementation name separated by a space (e.g., <code>ingress nginx</code> or <code>ingress traefik</code>).</p>
 </div>
 <p>The <code>--addons-list</code> flag works with both <em>Dev</em> (default) and <em>Lite</em> profiles.</p>
+<p>The <em>Lite</em> profile reduces package size by excluding optional build artifacts and large intermediate artifacts. Documentation and test code for delivered components remain included: when all addons are packaged, addon tests are included as well; when <code>--addons-list</code> limits the delivery, only tests for the selected addons are kept.</p>
 <p>When running the aforementioned command and no <em>K2s</em> variant has been installed on the current system yet, the <a href="../../user-guide/hosting-variants/#development-only">Development-Only Variant</a> will be installed in order to create an offline package (which requires an internet connection). If all dependencies are already available locally due to prior installation of <em>K2s</em>, the offline package creation does not require internet connection.</p>
 <details class="info">
 <summary>Offline Package Creation Diagram</summary>
