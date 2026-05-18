@@ -224,7 +224,10 @@ function Wait-ForKeyCloakPostgresqlAvailable($waiTime = 360) {
 Waits for the oauth2-proxy pods to be available.
 #>
 function Wait-ForOauth2ProxyAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=oauth2-proxy' -Namespace 'security' -TimeoutSeconds 120)
+    # 600s budget: image pull + pod startup on constrained CI nodes.
+    # Evidence: dump1 log 07:51:33→07:53:33 shows oauth2-proxy-68946fb568-ztqzf
+    # timed out after exactly 120s on CIBOX11-0925 (pod not yet ready).
+    return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=oauth2-proxy' -Namespace 'security' -TimeoutSeconds 600)
 }
 
 <#

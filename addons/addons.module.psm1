@@ -1010,18 +1010,6 @@ function Test-TrustManagerServiceAvailability {
 
 <#
 .DESCRIPTION
-Determines if keycloak service is deployed in the cluster
-#>
-function Test-KeyCloakServiceAvailability {
-	$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
-	if ("$existingServices" -match '.*keycloak*') {
-		return $true
-	}
-	return $false
-}
-
-<#
-.DESCRIPTION
 Enables a ingress addon based on the input
 #>
 function Enable-IngressAddon([string]$Ingress) {
@@ -2296,7 +2284,7 @@ Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddo
 Add-HostEntries, Add-CoreDNSHostEntry, Remove-CoreDNSHostEntry, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory,
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, Resolve-AddonImportPath,
-Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
+Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
 Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
 Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret, New-BackendCACertConfigMap,
