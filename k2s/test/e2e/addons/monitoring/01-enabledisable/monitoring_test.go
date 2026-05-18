@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package monitoring
+package monitoringenabdisable
 
 import (
 	"context"
@@ -57,18 +57,53 @@ var _ = AfterEach(func() {
 })
 
 var _ = Describe("'monitoring' addon", Ordered, func() {
-	When("no ingress controller is configured", func() {
+	When("--omitGrafana flag is used", func() {
 		AfterAll(func(ctx context.Context) {
-			if portForwardingSession != nil {
-				portForwardingSession.Kill()
-			}
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
 
 			k2s.VerifyAddonIsDisabled("monitoring")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
+		})
+
+		It("deploys Prometheus stack without Grafana", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "--omitGrafana", "-o")
+
+			k2s.VerifyAddonIsEnabled("monitoring")
+
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
+
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
+		})
+
+		It("does not deploy Grafana deployment", func(ctx context.Context) {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
+		})
+
+		It("prints the status without Grafana", func(ctx context.Context) {
+			output := suite.K2sCli().MustExec(ctx, "addons", "status", "monitoring")
+
+			Expect(output).To(SatisfyAll(
+				MatchRegexp("ADDON STATUS"),
+				MatchRegexp(`Addon .+monitoring.+ is .+enabled.+`),
+				MatchRegexp("The Kube State Metrics Deployment is working"),
+				MatchRegexp("The Prometheus Operator is working"),
+				MatchRegexp("Prometheus and Alertmanager are working"),
+				MatchRegexp("Node Exporter is working"),
+				MatchRegexp("Grafana was omitted during installation"),
+			))
+		})
+	})
+
+	When("no ingress controller is configured", func() {
+		AfterAll(func(ctx context.Context) {
+			if portForwardingSession != nil {
+				portForwardingSession.Kill()
+			}
+			// NOTE: monitoring stays enabled for the ingress tests that follow
 		})
 
 		It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
@@ -111,151 +146,52 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 		})
 	})
 
-	When("traefik as ingress controller", func() {
-		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "traefik", "-o")
-			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
-		})
-
+	// Monitoring is already enabled from the previous group.
+	// Each ingress test: enable ingress → verify reachability → disable ingress.
+	// This avoids redundant monitoring enable/disable cycles per ingress type.
+	When("ingress controllers are configured", func() {
 		AfterAll(func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 			k2s.VerifyAddonIsDisabled("monitoring")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
+		})
 
+		It("is reachable through traefik ingress", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "traefik", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
+
+			url := "https://k2s.cluster.local/monitoring/login"
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 		})
 
-		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
-
-			k2s.VerifyAddonIsEnabled("monitoring")
-
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-grafana", "monitoring")
-
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
-		})
-
-		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "monitoring")
-
-			Expect(output).To(ContainSubstring("already enabled"))
-		})
-
-		It("prints the status", func(ctx context.Context) {
-			expectStatusToBePrinted(ctx)
-		})
-
-		It("is reachable through k2s.cluster.local/monitoring", func(ctx context.Context) {
-			url := "https://k2s.cluster.local/monitoring/login"
-			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
-		})
-	})
-
-	Describe("nginx as ingress controller", func() {
-		BeforeAll(func(ctx context.Context) {
+		It("is reachable through nginx ingress", func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
-		})
 
-		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
+			url := "https://k2s.cluster.local/monitoring/login"
+			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-
-			k2s.VerifyAddonIsDisabled("monitoring")
-
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
-
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 		})
 
-		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
-
-			k2s.VerifyAddonIsEnabled("monitoring")
-
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-grafana", "monitoring")
-
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
-		})
-
-		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "monitoring")
-
-			Expect(output).To(ContainSubstring("already enabled"))
-		})
-
-		It("prints the status", func(ctx context.Context) {
-			expectStatusToBePrinted(ctx)
-		})
-
-		It("is reachable through k2s.cluster.local/monitoring", func(ctx context.Context) {
-			url := "https://k2s.cluster.local/monitoring/login"
-			suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
-		})
-	})
-
-	Describe("nginx-gw as ingress controller", func() {
-		BeforeAll(func(ctx context.Context) {
+		It("is reachable through nginx-gw ingress", func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
-		})
 
-		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
-
-			k2s.VerifyAddonIsDisabled("monitoring")
-
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
-
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw-controller", "nginx-gw")
-		})
-
-		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "--ingress", "nginx-gw", "-o")
-
-			k2s.VerifyAddonIsEnabled("monitoring")
-
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-grafana", "monitoring")
-
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
-		})
-
-		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", "monitoring")
-
-			Expect(output).To(ContainSubstring("already enabled"))
-		})
-
-		It("prints the status", func(ctx context.Context) {
-			expectStatusToBePrinted(ctx)
-		})
-
-		It("is reachable through k2s.cluster.local/monitoring", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/monitoring/login"
 			httpStatus := suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
+
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw-controller", "nginx-gw")
 		})
 	})
 })
