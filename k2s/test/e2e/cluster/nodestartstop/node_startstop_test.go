@@ -471,6 +471,60 @@ spec:
 					"Node %s should become Ready after start", workerName)
 			})
 
+			It("verifies CNI pods are running on worker node", func(ctx context.Context) {
+				// Wait for flannel and kube-proxy to be Running on the restarted worker node
+				// This ensures CNI is fully converged before testing deployment health
+				client := suite.Cluster().Client()
+				clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
+				Expect(err).NotTo(HaveOccurred())
+
+				GinkgoWriter.Printf("Waiting for CNI pods on node %s\n", workerName)
+
+				// Wait for flannel pod
+				Eventually(func() bool {
+					pods, err := clientSet.CoreV1().Pods("kube-flannel").List(ctx, metav1.ListOptions{
+						FieldSelector: fmt.Sprintf("spec.nodeName=%s", workerName),
+						LabelSelector: "app=flannel",
+					})
+					if err != nil || len(pods.Items) == 0 {
+						return false
+					}
+					for _, pod := range pods.Items {
+						if pod.Status.Phase == corev1.PodRunning {
+							GinkgoWriter.Printf("Flannel pod %s is Running on node %s\n", pod.Name, workerName)
+							return true
+						}
+					}
+					return false
+				}, 5*time.Minute, 5*time.Second).Should(BeTrue(),
+					"Flannel pod should be Running on node %s", workerName)
+
+				// Wait for kube-proxy pod
+				Eventually(func() bool {
+					pods, err := clientSet.CoreV1().Pods("kube-system").List(ctx, metav1.ListOptions{
+						FieldSelector: fmt.Sprintf("spec.nodeName=%s", workerName),
+						LabelSelector: "k8s-app=kube-proxy",
+					})
+					if err != nil || len(pods.Items) == 0 {
+						return false
+					}
+					for _, pod := range pods.Items {
+						if pod.Status.Phase == corev1.PodRunning {
+							GinkgoWriter.Printf("kube-proxy pod %s is Running on node %s\n", pod.Name, workerName)
+							return true
+						}
+					}
+					return false
+				}, 5*time.Minute, 5*time.Second).Should(BeTrue(),
+					"kube-proxy pod should be Running on node %s", workerName)
+
+				// Add stabilization delay for CNI route propagation
+				GinkgoWriter.Println("Waiting 15s for CNI routes to propagate...")
+				time.Sleep(15 * time.Second)
+
+				GinkgoWriter.Printf("CNI pods are Running on node %s\n", workerName)
+			})
+
 			It("verifies deployment is healthy with all replicas", func(ctx context.Context) {
 				suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, testNamespace)
 				GinkgoWriter.Printf("Deployment %s is healthy after node restart\n", deploymentName)
@@ -568,6 +622,66 @@ spec:
 					"All nodes should be Ready after cluster restart")
 
 				GinkgoWriter.Println("All nodes are Ready after cluster restart")
+			})
+
+			It("verifies CNI pods are running on all nodes", func(ctx context.Context) {
+				// Wait for flannel and kube-proxy pods to be Running on all nodes
+				// This ensures CNI routes are fully propagated before subsequent tests
+				client := suite.Cluster().Client()
+				clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
+				Expect(err).NotTo(HaveOccurred())
+
+				nodes, err := clientSet.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, node := range nodes.Items {
+					nodeName := node.Name
+					GinkgoWriter.Printf("Checking CNI pods on node %s\n", nodeName)
+
+					// Wait for flannel pod on this node
+					Eventually(func() bool {
+						pods, err := clientSet.CoreV1().Pods("kube-flannel").List(ctx, metav1.ListOptions{
+							FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+							LabelSelector: "app=flannel",
+						})
+						if err != nil || len(pods.Items) == 0 {
+							return false
+						}
+						for _, pod := range pods.Items {
+							if pod.Status.Phase == corev1.PodRunning {
+								GinkgoWriter.Printf("Flannel pod %s is Running on node %s\n", pod.Name, nodeName)
+								return true
+							}
+						}
+						return false
+					}, 5*time.Minute, 5*time.Second).Should(BeTrue(),
+						"Flannel pod should be Running on node %s", nodeName)
+
+					// Wait for kube-proxy pod on this node
+					Eventually(func() bool {
+						pods, err := clientSet.CoreV1().Pods("kube-system").List(ctx, metav1.ListOptions{
+							FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+							LabelSelector: "k8s-app=kube-proxy",
+						})
+						if err != nil || len(pods.Items) == 0 {
+							return false
+						}
+						for _, pod := range pods.Items {
+							if pod.Status.Phase == corev1.PodRunning {
+								GinkgoWriter.Printf("kube-proxy pod %s is Running on node %s\n", pod.Name, nodeName)
+								return true
+							}
+						}
+						return false
+					}, 5*time.Minute, 5*time.Second).Should(BeTrue(),
+						"kube-proxy pod should be Running on node %s", nodeName)
+				}
+
+				// Add stabilization delay for CNI route propagation
+				GinkgoWriter.Println("Waiting 30s for CNI routes to fully propagate...")
+				time.Sleep(30 * time.Second)
+
+				GinkgoWriter.Println("All CNI pods are Running on all nodes")
 			})
 
 			It("verifies the added worker node is Ready", func(ctx context.Context) {
