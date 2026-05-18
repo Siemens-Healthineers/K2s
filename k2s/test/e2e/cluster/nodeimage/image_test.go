@@ -233,6 +233,14 @@ var _ = Describe("Node Image CLI", Label("node-image", "image"), Ordered, func()
 			Skip("No cluster nodes found")
 		}
 
+		// Wait for all discovered nodes to be Ready before running image tests
+		GinkgoWriter.Println("Waiting for all discovered nodes to be in Ready state...")
+		for _, node := range additionalNodes {
+			GinkgoWriter.Printf("Waiting for node %s to be Ready...\n", node.Name)
+			suite.Cluster().WaitForNodeToBeReady(node.Name, ctx)
+		}
+		GinkgoWriter.Println("All nodes are Ready")
+
 		imageTestDir = filepath.Join(suite.RootDir(), "imgetest")
 		Expect(os.MkdirAll(imageTestDir, 0o755)).To(Succeed())
 
