@@ -170,8 +170,10 @@ function Add-PersistentLinuxWorkerNodeRoutes {
 
     Write-Log "[PersistentRoutes] Creating persistent routes on bare-metal node $IpAddress" -Console
 
-    # Create a systemd service to add routes at boot
-    $serviceContent = @"
+    # Create systemd service file using cat with heredoc to avoid Windows CRLF issues
+    # The heredoc is executed entirely on Linux, avoiding line-ending problems
+    $createServiceCmd = @"
+sudo cat > /etc/systemd/system/k2s-routes.service << 'EOF'
 [Unit]
 Description=K2s Kubernetes Routes
 After=network-online.target
@@ -185,11 +187,12 @@ ExecStop=/bin/sh -c 'ip route del $controlPlaneCIDR 2>/dev/null || true; ip rout
 
 [Install]
 WantedBy=multi-user.target
+EOF
 "@
+    # Replace Windows CRLF with LF before sending
+    $createServiceCmd = $createServiceCmd -replace "`r`n", "`n"
 
-    # Write service file
-    $escapedContent = $serviceContent -replace '"', '\"' -replace '\$', '\$'
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "echo `"$escapedContent`" | sudo tee /etc/systemd/system/k2s-routes.service > /dev/null" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute $createServiceCmd -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 
     # Enable and start the service
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo systemctl daemon-reload && sudo systemctl enable k2s-routes.service && sudo systemctl start k2s-routes.service" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
