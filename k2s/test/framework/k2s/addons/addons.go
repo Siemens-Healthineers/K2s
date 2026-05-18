@@ -365,6 +365,7 @@ func createHTTPClientWithWindowsCerts(timeout time.Duration) *http.Client {
 
 func waitForKeycloakReady(keycloakServer, realm string) error {
 	realmUrl := fmt.Sprintf("%s/keycloak/realms/%s", keycloakServer, realm)
+	tokenUrl := fmt.Sprintf("%s/keycloak/realms/%s/protocol/openid-connect/token", keycloakServer, realm)
 	maxRetries := 30 // Wait up to 5 minutes (30 * 10s)
 
 	GinkgoWriter.Printf("Checking Keycloak readiness at %s\n", realmUrl)
@@ -379,21 +380,31 @@ func waitForKeycloakReady(keycloakServer, realm string) error {
 		} else {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				GinkgoWriter.Printf("Keycloak is ready (realm accessible) after %d attempts\n", attempt)
+				// Verify client auth actually works — Keycloak may be pod-Ready but still
+				// committing client config from PostgreSQL, causing unauthorized_client errors.
+				data := url.Values{}
+				data.Set("client_id", "demo-client")
+				data.Set("client_secret", "1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl")
+				data.Set("username", "demo-user")
+				data.Set("password", "password")
+				data.Set("grant_type", "password")
 
-				// Additional check: verify the token endpoint is accessible
-				tokenEndpointUrl := fmt.Sprintf("%s/protocol/openid-connect/token", realmUrl)
-				tokenResp, tokenErr := client.Get(tokenEndpointUrl)
-				if tokenErr != nil {
-					GinkgoWriter.Printf("Token endpoint check failed: %v\n", tokenErr)
+				req, reqErr := http.NewRequest("POST", tokenUrl, strings.NewReader(data.Encode()))
+				if reqErr != nil {
+					GinkgoWriter.Printf("Readiness check %d/%d: Failed to build token request: %v\n", attempt, maxRetries, reqErr)
 				} else {
-					tokenResp.Body.Close()
-					// Token endpoint should return 405 (Method Not Allowed) for GET, which means it's accessible
-					if tokenResp.StatusCode == http.StatusMethodNotAllowed || tokenResp.StatusCode == http.StatusBadRequest {
-						GinkgoWriter.Printf("Token endpoint is accessible (status: %d)\n", tokenResp.StatusCode)
-						return nil
+					req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+					tokenResp, tokenErr := client.Do(req)
+					if tokenErr != nil {
+						GinkgoWriter.Printf("Readiness check %d/%d: Token request failed: %v\n", attempt, maxRetries, tokenErr)
+					} else {
+						tokenResp.Body.Close()
+						if tokenResp.StatusCode == http.StatusOK {
+							GinkgoWriter.Printf("Keycloak is ready (realm accessible and client auth successful) after %d attempts\n", attempt)
+							return nil
+						}
+						GinkgoWriter.Printf("Readiness check %d/%d: Client auth not yet ready (status: %d)\n", attempt, maxRetries, tokenResp.StatusCode)
 					}
-					GinkgoWriter.Printf("Token endpoint returned unexpected status: %d\n", tokenResp.StatusCode)
 				}
 			} else {
 				GinkgoWriter.Printf("Readiness check %d/%d: Realm not ready (status: %d)\n", attempt, maxRetries, resp.StatusCode)
