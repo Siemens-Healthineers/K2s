@@ -138,6 +138,43 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
     }
 }
 
+function Invoke-PackageWindowsImageDownload {
+    Param(
+        [parameter(Mandatory = $true, HelpMessage = 'The base directory used for downloaded artifacts')]
+        [string] $DownloadsBaseDirectory,
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy = '',
+        [parameter(Mandatory = $true, HelpMessage = 'The directory containing Windows node artifacts')]
+        [string] $WindowsNodeArtifactsDirectory
+    )
+
+    try {
+        Install-WinContainerd -Proxy '' -SkipNetworkingSetup:$true -WindowsNodeArtifactsDirectory $WindowsNodeArtifactsDirectory
+        Set-DirectProxyForPackageContainerd -Proxy $Proxy
+        Invoke-DownloadWindowsImages $DownloadsBaseDirectory $Proxy
+    }
+    finally {
+        Uninstall-WinContainerd -ShallowUninstallation $true
+    }
+}
+
+function Set-DirectProxyForPackageContainerd {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy = ''
+    )
+
+    if ($Proxy -eq '') {
+        return
+    }
+
+    Write-Log "[Containerd] Configuring temporary containerd service to use direct HTTP proxy: $Proxy"
+    $envVars = "HTTP_PROXY=$Proxy`r`nHTTPS_PROXY=$Proxy"
+    &$kubeBinPath\nssm set containerd AppEnvironmentExtra $envVars | Out-Null
+
+    Restart-Service containerd -WarningAction SilentlyContinue
+}
+
 function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
     $windowsImagesArtifactsDirectory = "$windowsNodeArtifactsDirectory\$windowsNode_ImagesDirectory"
     if (!(Test-Path "$windowsImagesArtifactsDirectory")) {
@@ -262,9 +299,7 @@ function Invoke-DownloadWindowsNodeArtifacts {
     # YAML TOOLS
     Invoke-DeployYamlArtifacts $windowsNodeArtifactsDirectory
 
-    Install-WinContainerd -Proxy $Proxy -SkipNetworkingSetup:$true -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
-    Invoke-DownloadWindowsImages $downloadsBaseDirectory $Proxy
-    Uninstall-WinContainerd -ShallowUninstallation $true
+    Invoke-PackageWindowsImageDownload -DownloadsBaseDirectory $downloadsBaseDirectory -Proxy $Proxy -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
 
     Write-Log 'Finished downloading artifacts for the Windows node'
 
