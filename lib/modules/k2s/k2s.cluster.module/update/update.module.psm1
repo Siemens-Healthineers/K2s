@@ -171,7 +171,9 @@ function Restore-CoreDnsEtcdConfiguration {
 				'{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"mountPath":"/etc/kubernetes/pki/etcd-ca","name":"etcd-ca-cert"}},' +
 				'{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"mountPath":"/etc/kubernetes/pki/etcd-client","name":"etcd-client-cert"}}' +
 				']'
-			$patchCmd = "kubectl patch deployment coredns -n kube-system --type='json' -p='$patchJson'"
+			# Base64-encode JSON to avoid double-quote stripping during PowerShell->ssh.exe transport
+			$base64Json = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($patchJson))
+			$patchCmd = "echo $base64Json | base64 -d | kubectl patch deployment coredns -n kube-system --type=json --patch-file=/dev/stdin"
 			$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $patchCmd -Timeout 30 -Retries 2
 			if (-not $result.Success) {
 				Write-Log "[CoreDNS][Error] Failed to patch deployment: $($result.Output)" -Console:$consoleSwitch
