@@ -170,28 +170,28 @@ function Add-PersistentLinuxWorkerNodeRoutes {
 
     Write-Log "[PersistentRoutes] Creating persistent routes on bare-metal node $IpAddress" -Console
 
-    # Create systemd service file using cat with heredoc to avoid Windows CRLF issues
-    # The heredoc is executed entirely on Linux, avoiding line-ending problems
-    $createServiceCmd = @"
-sudo cat > /etc/systemd/system/k2s-routes.service << 'EOF'
-[Unit]
-Description=K2s Kubernetes Routes
-After=network-online.target
-Wants=network-online.target
+    # Build systemd service content with Unix line endings (LF only)
+    $serviceLines = @(
+        "[Unit]"
+        "Description=K2s Kubernetes Routes"
+        "After=network-online.target"
+        "Wants=network-online.target"
+        ""
+        "[Service]"
+        "Type=oneshot"
+        "RemainAfterExit=yes"
+        "ExecStart=/bin/sh -c 'ip route add $controlPlaneCIDR via $WindowsHostIpAddress 2>/dev/null || true; ip route add $podNetworkCIDR via $WindowsHostIpAddress 2>/dev/null || true'"
+        "ExecStop=/bin/sh -c 'ip route del $controlPlaneCIDR 2>/dev/null || true; ip route del $podNetworkCIDR 2>/dev/null || true'"
+        ""
+        "[Install]"
+        "WantedBy=multi-user.target"
+    )
+    # Join with LF and encode as base64 to avoid line-ending/escaping issues over SSH
+    $serviceContent = $serviceLines -join "`n"
+    $base64Content = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($serviceContent))
 
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/bin/sh -c 'ip route add $controlPlaneCIDR via $WindowsHostIpAddress 2>/dev/null || true; ip route add $podNetworkCIDR via $WindowsHostIpAddress 2>/dev/null || true'
-ExecStop=/bin/sh -c 'ip route del $controlPlaneCIDR 2>/dev/null || true; ip route del $podNetworkCIDR 2>/dev/null || true'
-
-[Install]
-WantedBy=multi-user.target
-EOF
-"@
-    # Replace Windows CRLF with LF before sending
-    $createServiceCmd = $createServiceCmd -replace "`r`n", "`n"
-
+    # Decode on Linux side and write to file using sudo tee
+    $createServiceCmd = "echo '$base64Content' | base64 -d | sudo tee /etc/systemd/system/k2s-routes.service > /dev/null"
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute $createServiceCmd -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 
     # Enable and start the service
