@@ -411,10 +411,6 @@ try {
 
 	Write-Log '[Security] Waiting for security-stack deployments to reach Available state...' -Console
 	$stabilizationNamespaces = [System.Collections.Generic.List[string]]@('cert-manager')
-	# Only include security namespace if keycloak or hydra components were actually deployed there.
-	# When both OmitKeycloak and OmitHydra are set, nothing is installed in the security namespace.
-	# Evidence: Enable.ps1 code flow at lines 140/163 — OmitKeycloak+OmitHydra branch sets
-	# $oauth2ProxyPodStatus=$true without creating any resources in the security namespace.
 	if (-not ($OmitKeycloak -and $OmitHydra)) {
 		$stabilizationNamespaces.Add('security')
 	}
