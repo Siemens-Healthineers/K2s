@@ -225,7 +225,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "grafana", "monitoring")
 
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw-controller", "nginx-gw")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw", "nginx-gw")
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
