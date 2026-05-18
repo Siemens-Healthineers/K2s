@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -207,7 +207,7 @@ chrome://net-internals/#hsts
 .DESCRIPTION
 Waits for the keycloak pods to be available.
 #>
-function Wait-ForKeyCloakAvailable($waiTime = 240) {
+function Wait-ForKeyCloakAvailable($waiTime = 900) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds $waiTime)
 }
 
@@ -892,24 +892,22 @@ function Install-Kyverno {
                     '-l', 'owner=helm,name=kyverno', '--ignore-not-found').Output | Write-Log
             }
 
-            # Delete lingering services to release ClusterIPs before retry
-            Write-Log '[Kyverno] Deleting services in namespace to release ClusterIPs' -Console
-            (Invoke-Kubectl -Params 'delete', 'svc', '--all', '-n', $kyvernoNamespace, '--ignore-not-found').Output | Write-Log
+            # Delete stale services to release ClusterIPs before retry
+            Write-Log "[Kyverno] Deleting services in namespace '$kyvernoNamespace' to release ClusterIPs..." -Console
+            (Invoke-Kubectl -Params 'delete', 'svc', '--all', '-n', $kyvernoNamespace, '--force', '--grace-period=0', '--ignore-not-found').Output | Write-Log
 
-            # Wait for services to be fully removed (ClusterIP allocator sync)
-            $svcWait = 0
-            $svcMaxWait = 30
-            while ($svcWait -lt $svcMaxWait) {
+            # Wait for services to be fully removed (ClusterIP allocator releases IPs)
+            $waitMax = 30
+            for ($w = 0; $w -lt $waitMax; $w++) {
                 $svcs = (Invoke-Kubectl -Params 'get', 'svc', '-n', $kyvernoNamespace, '--no-headers', '--ignore-not-found').Output
-                if (-not $svcs) {
-                    Write-Log "[Kyverno] All services deleted after ${svcWait}s" -Console
+                if ([string]::IsNullOrWhiteSpace($svcs)) {
+                    Write-Log '[Kyverno] All services deleted, ClusterIPs released' -Console
                     break
                 }
-                Start-Sleep -Seconds 2
-                $svcWait += 2
+                Write-Log "[Kyverno] Waiting for service cleanup... ($w/$waitMax)" -Console
+                Start-Sleep -Seconds 1
             }
-            # Brief pause for ClusterIP allocator bitmap to sync
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds 5  # Allow ClusterIP allocator to fully sync
             continue
         }
 
