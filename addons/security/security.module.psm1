@@ -914,10 +914,38 @@ function Install-Kyverno {
         throw "[Kyverno] Helm install failed: $($result.Output)"
     }
 
-    Write-Log '[Kyverno] Waiting for Kyverno controllers to be ready (up to 900s)...' -Console
-    $kyvernoReady = Wait-ForKyvernoAvailable -TimeoutSeconds 900
+    Write-Log '[Kyverno] Waiting for Kyverno controllers to be ready (up to 1200s)...' -Console
+    # After a Helm retry, old pods from the failed attempt may still be in Terminating state.
+    # kubectl wait picks up ALL pods matching the label (including Terminating ones) and will
+    # never succeed for them. Wait for terminating pods to fully disappear first.
+    $terminatingWaitMax = 60
+    for ($tw = 0; $tw -lt $terminatingWaitMax; $tw++) {
+        # Use jsonpath to find pods with a deletionTimestamp (= Terminating).
+        # This avoids false positives on Pending/ContainerCreating pods from the new install.
+        $terminatingPods = (Invoke-Kubectl -Params 'get', 'pods', '-n', $kyvernoNamespace,
+            '-l', 'app.kubernetes.io/instance=kyverno',
+            '-o', 'jsonpath={.items[?(@.metadata.deletionTimestamp)].metadata.name}',
+            '--ignore-not-found').Output
+        if ([string]::IsNullOrWhiteSpace($terminatingPods)) {
+            Write-Log '[Kyverno] No terminating pods found, proceeding with readiness wait' -Console
+            break
+        }
+        if ($tw % 10 -eq 0) {
+            Write-Log "[Kyverno] Waiting for terminating pods to clear ($tw/$terminatingWaitMax): $terminatingPods" -Console
+        }
+        Start-Sleep -Seconds 2
+    }
+    if ($tw -ge $terminatingWaitMax) {
+        Write-Log '[Kyverno] Warning: terminating pods did not clear within 120s, proceeding anyway' -Console
+    }
+
+    # The admission-controller pod needs its TLS certificate secret
+    # (kyverno-svc.kyverno.svc.kyverno-tls-pair) to pass startup probes.
+    # When cert-manager is under load (serving linkerd, ingress, trust-manager),
+    # TLS provisioning can take 12-15 minutes. Use 1200s to provide headroom.
+    $kyvernoReady = Wait-ForKyvernoAvailable -TimeoutSeconds 1200
     if (-not $kyvernoReady) {
-        throw '[Kyverno] Controllers did not become ready within 900s. Check kubectl describe pod -n kyverno for details.'
+        throw '[Kyverno] Controllers did not become ready within 1200s. Check kubectl describe pod -n kyverno for details.'
     }
 
     # Apply bundled/user-provided policies (webhook is now live).
