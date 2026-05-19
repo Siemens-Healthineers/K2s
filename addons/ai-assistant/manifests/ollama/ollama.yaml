@@ -110,6 +110,13 @@ spec:
               value: "24h"
             - name: OLLAMA_HOST
               value: "0.0.0.0"
+            # CRITICAL: Override OLLAMA_PORT to prevent K8s service env injection
+            # (K8s sets OLLAMA_PORT=tcp://... which breaks Ollama's model registry)
+            - name: OLLAMA_PORT
+              value: "11434"
+            # Ensure model storage uses the PV mount path
+            - name: OLLAMA_MODELS
+              value: "/root/.ollama/models"
             # Corporate ZScaler proxy — both cases required (Go reads lowercase, others uppercase)
             - name: HTTPS_PROXY
               value: "http://172.19.1.1:8181"

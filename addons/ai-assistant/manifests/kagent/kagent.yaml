@@ -1,0 +1,1819 @@
+---
+# Source: kagent/charts/grafana-mcp/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kagent-grafana-mcp
+  namespace: kagent
+  labels:
+    helm.sh/chart: grafana-mcp-0.9.0
+    app.kubernetes.io/name: grafana-mcp
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: kagent/charts/kagent-tools/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kagent-tools
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-tools-0.1.3
+    app.kubernetes.io/name: kagent-tools
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.1.3"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: kagent/charts/kmcp/templates/rbac/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kagent-kmcp-controller-manager
+  namespace: kagent
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: kagent/charts/querydoc/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kagent-querydoc
+  namespace: kagent
+  labels:
+    helm.sh/chart: querydoc-0.9.0
+    app.kubernetes.io/name: querydoc
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "1.1.10"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: kagent/templates/controller-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kagent-controller
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+---
+# Source: kagent/templates/postgresql.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kagent-postgresql
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    app.kubernetes.io/component: database
+---
+# Source: kagent/templates/ui-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kagent-ui
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+---
+# Source: kagent/charts/grafana-mcp/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kagent-grafana-mcp
+  namespace: kagent
+  labels:
+    helm.sh/chart: grafana-mcp-0.9.0
+    app.kubernetes.io/name: grafana-mcp
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/managed-by: Helm
+type: Opaque
+data:
+---
+# Source: kagent/templates/postgresql-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kagent-postgresql
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    app.kubernetes.io/component: database
+type: Opaque
+data:
+  POSTGRES_PASSWORD: "a2FnZW50"
+---
+# Source: kagent/charts/grafana-mcp/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kagent-grafana-mcp
+  namespace: kagent
+  labels:
+    helm.sh/chart: grafana-mcp-0.9.0
+    app.kubernetes.io/name: grafana-mcp
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/managed-by: Helm
+data:
+  GRAFANA_URL: grafana.kagent:3000/api
+
+  # Custom configuration
+---
+# Source: kagent/charts/querydoc/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kagent-querydoc
+  namespace: kagent
+  labels:
+    helm.sh/chart: querydoc-0.9.0
+    app.kubernetes.io/name: querydoc
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "1.1.10"
+    app.kubernetes.io/managed-by: Helm
+data:
+  KAGENT_NAMESPACE: "kagent"
+  KAGENT_LOG_LEVEL: "info"
+  PORT: "8080"
+  TRANSPORT_TYPE: "http"
+  # OpenTelemetry Configuration
+  OTEL_TRACING_ENABLED: "false"
+
+  # Custom configuration
+---
+# Source: kagent/templates/builtin-prompts-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kagent-builtin-prompts
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    kagent.dev/prompt-library: "true"
+data:
+  skills-usage: |
+    ## Skills
+
+    You have access to skills ΓÇö pre-built capabilities loaded from external sources and
+    available as files in your skills directory (/skills). Each skill contains instructions,
+    prompts, or data that extend your abilities beyond your base training.
+
+    When a user asks you to perform a task, check if any of the available skills match
+    the request. If a skill is relevant, read and follow its instructions carefully.
+    Skills may contain domain-specific knowledge, step-by-step procedures, or templates
+    that you should use to produce higher-quality responses.
+
+    Always prefer using a skill over generating a response from scratch when a relevant
+    skill is available.
+
+  tool-usage-best-practices: |
+    ## Tool Usage Best Practices
+
+    Follow these principles when using tools:
+
+    1. **Read before write**: Always use informational tools (get, describe, list, status)
+       before modification tools. Understand the current state before making changes.
+    2. **Explain before acting**: Before calling any modification tool, explain to the user
+       what you intend to do and why. Wait for confirmation on destructive operations.
+    3. **Dry-run when possible**: Use dry-run flags or preview modes when available to
+       validate changes before applying them.
+    4. **Use the right tool**: Select the most specific tool for the task. Check tool
+       descriptions carefully and ensure you understand the expected parameters.
+    5. **Backup current state**: Before modifications, capture the current state (e.g.,
+       export YAML, save configuration) so changes can be reverted if needed.
+    6. **Verify after changes**: After any modification, use informational tools to confirm
+       the change took effect and didn't cause unintended side effects.
+    7. **Handle errors gracefully**: If a tool call fails, analyze the error, adjust your
+       approach, and retry. Do not repeat the exact same failing call.
+    8. **Minimize calls**: Plan your approach to minimize tool calls. Batch operations when
+       possible and avoid redundant calls.
+
+  safety-guardrails: |
+    ## Safety Guidelines
+
+    You must follow these safety principles in all interactions:
+
+    1. **No destructive operations without confirmation**: Never delete resources, modify
+       production systems, or take irreversible actions without explicit user confirmation.
+       Always explain what will happen and ask for approval first.
+    2. **Least privilege**: Apply changes to the minimum scope necessary. Prefer targeted
+       operations over broad ones. Avoid cluster-wide changes when namespace-scoped changes
+       will suffice.
+    3. **Rollback planning**: Before making changes, ensure you have a plan to revert them.
+       Capture the current state, explain the rollback procedure, and verify the rollback
+       path exists before proceeding.
+    4. **Protect sensitive data**: Never expose secrets, credentials, API keys, tokens, or
+       certificates in your responses. Redact sensitive information before presenting output
+       to the user.
+    5. **Stay within scope**: Only perform actions within your defined capabilities and the
+       user's stated intent. Do not take autonomous actions beyond what was requested.
+    6. **Report uncertainties**: If you are unsure about an action or its consequences,
+       communicate your uncertainty to the user and ask for guidance before proceeding.
+
+  kubernetes-context: |
+    ## Kubernetes Operational Context
+
+    You are operating within a Kubernetes cluster. Follow this methodology:
+
+    ### Investigation Protocol
+    1. **Start non-intrusively**: Begin with read-only operations (get, describe, logs,
+       events) before any modifications. Gather information before acting.
+    2. **Progressive escalation**: Start with broad resource checks, then narrow down to
+       specific resources, pods, containers, or logs as you identify the problem area.
+    3. **Verify before acting**: Consider the potential impact of any change. Check
+       dependencies, related resources, and downstream effects before modifying anything.
+
+    ### Problem-Solving Framework
+    1. **Initial assessment**: Check cluster health, node status, and recent events. Identify
+       the scope of the issue (single pod, deployment, namespace, or cluster-wide).
+    2. **Classify the problem**: Determine if it's an application issue (crashes, errors),
+       infrastructure problem (node failures, resource exhaustion), networking issue
+       (connectivity, DNS, policies), or configuration error (invalid specs, missing secrets).
+    3. **Analyze resources**: Examine pod status, container logs, resource metrics, events,
+       and network connectivity relevant to the issue.
+    4. **Implement solutions**: Propose targeted fixes. Present multiple options when
+       appropriate, explain trade-offs, and include verification steps.
+
+    ### Key Principles
+    - Always be explicit about which namespace you are operating in.
+    - Remember that your actions impact real workloads ΓÇö prioritize stability.
+    - Use labels and selectors to target resources precisely.
+    - Check resource quotas and limits before creating or scaling resources.
+
+  a2a-communication: |
+    ## Agent-to-Agent Communication
+
+    You can communicate with other agents to accomplish complex tasks that span multiple
+    domains of expertise. When working with other agents:
+
+    1. **Clear delegation**: When delegating a task to another agent, provide clear and
+       complete context. Include all relevant information the other agent needs to
+       accomplish the task.
+    2. **Result validation**: When receiving results from another agent, validate them
+       before incorporating them into your response or using them for further actions.
+    3. **Error handling**: If an agent you are communicating with fails or returns an
+       unexpected result, handle the error gracefully. Consider retrying, using an
+       alternative approach, or informing the user.
+    4. **Avoid circular delegation**: Do not create circular delegation chains where
+       agents repeatedly delegate tasks back to each other without making progress.
+---
+# Source: kagent/templates/controller-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kagent-controller
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    app.kubernetes.io/component: controller
+data:
+  A2A_BASE_URL: "http://kagent-controller.kagent.svc.cluster.local:8083"
+  DEFAULT_MODEL_CONFIG_NAME: "default-model-config"
+  KAGENT_CONTROLLER_NAME: kagent-controller
+  IMAGE_PULL_POLICY: "IfNotPresent"
+  IMAGE_REGISTRY: "cr.kagent.dev"
+  IMAGE_REPOSITORY: "kagent-dev/kagent/app"
+  IMAGE_TAG: "0.9.0"
+  SKILLS_INIT_IMAGE_PULL_POLICY: "IfNotPresent"
+  SKILLS_INIT_IMAGE_REGISTRY: "cr.kagent.dev"
+  SKILLS_INIT_IMAGE_REPOSITORY: "kagent-dev/kagent/skills-init"
+  SKILLS_INIT_IMAGE_TAG: "0.9.0"
+  LEADER_ELECT: "false"
+  # OpenTelemetry Configuration
+  OTEL_TRACING_ENABLED: "false"
+  OTEL_LOGGING_ENABLED: "false"
+  # Using separate endpoints for traces and logs
+  DATABASE_VECTOR_ENABLED: "false"
+  STREAMING_INITIAL_BUF_SIZE: "4Ki"
+  STREAMING_MAX_BUF_SIZE: "1Mi"
+  STREAMING_TIMEOUT: "600s"
+  WATCH_NAMESPACES: ""
+  ZAP_LOG_LEVEL: "info"
+---
+# Source: kagent/templates/ui-nginx-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kagent-ui-config
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+data:
+  nginx.conf: |
+    pid /tmp/nginx.pid;
+    
+    error_log /dev/stderr;
+    
+    events {
+        worker_connections 1024;
+    }
+    
+    http {
+        client_body_temp_path /tmp/nginx/client_temp;
+        proxy_temp_path /tmp/nginx/proxy_temp;
+        fastcgi_temp_path /tmp/nginx/fastcgi_temp;
+        uwsgi_temp_path /tmp/nginx/uwsgi_temp;
+        scgi_temp_path /tmp/nginx/scgi_temp;
+    
+        access_log /dev/stdout;
+    
+        log_format main        '[$time_local] $remote_addr - $remote_user - $request $status $body_bytes_sent $http_referer $http_user_agent $http_x_forwarded_for';
+        log_format upstreamlog '[$time_local] $remote_addr - $remote_user - $server_name $host to: $upstream_addr: $request $status upstream_response_time $upstream_response_time msec $msec request_time $request_time';
+    
+        upstream kagent_ui {
+            server 127.0.0.1:8001;
+        }
+    
+        upstream kagent_ws_backend {
+            server 127.0.0.1:8081;
+        }
+    
+        upstream kagent_backend {
+            server 127.0.0.1:8083;
+        }
+    
+        map $http_upgrade $connection_upgrade {
+            default upgrade;
+            ''      close;
+        }
+    
+        server {
+            listen 8080;
+            server_name localhost;
+    
+            location /a2a/ {
+                proxy_pass http://kagent_ui/a2a/;
+                proxy_http_version 1.1;
+                proxy_set_header Connection '';
+                proxy_set_header Host $host;
+                proxy_set_header X-Forwarded-Host $host;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Origin $scheme://$host;
+                proxy_read_timeout 600s;
+                proxy_send_timeout 600s;
+                proxy_buffering off;
+            }
+    
+            location / {
+                proxy_pass http://kagent_ui;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection 'upgrade';
+                proxy_set_header Host $host;
+                proxy_set_header X-Forwarded-Host $host;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Origin $scheme://$host;
+                proxy_cache_bypass $http_upgrade;
+            }
+    
+            location /health {
+                return 200 'OK';
+            }
+    
+            location /api/ {
+                proxy_pass http://kagent_backend/api/;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection 'upgrade';
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host $server_name;
+                proxy_cache_bypass $http_upgrade;
+            }
+    
+            location /api/ws/ {
+                proxy_pass http://kagent_ws_backend/api/ws/;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection $connection_upgrade;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host $server_name;
+                proxy_read_timeout 300s;
+                proxy_send_timeout 300s;
+                proxy_buffering off;
+            }
+        }
+    }
+    
+  supervisord.conf: |
+    [supervisord]
+    nodaemon=true
+    logfile=/dev/stdout
+    logfile_maxbytes=0
+    loglevel=debug
+    
+    [program:nginx]
+    command=/usr/sbin/nginx -g "daemon off;"
+    autostart=true
+    autorestart=true
+    startretries=5
+    numprocs=1
+    startsecs=0
+    priority=20
+    stdout_logfile=/dev/stdout
+    stdout_logfile_maxbytes=0
+    stderr_logfile=/dev/stderr
+    stderr_logfile_maxbytes=0
+    stdout_events_enabled=true
+    stderr_events_enabled=true
+    
+    [program:nextjs]
+    command=node /app/ui/server.js
+    directory=/app/ui
+    environment=PORT=8001,HOSTNAME="0.0.0.0",NODE_ENV=production,PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    autostart=true
+    autorestart=true
+    startretries=5
+    numprocs=1
+    startsecs=0
+    priority=10
+    stdout_logfile=/dev/stdout
+    stdout_logfile_maxbytes=0
+    stderr_logfile=/dev/stderr
+    stderr_logfile_maxbytes=0
+    stdout_events_enabled=true
+    stderr_events_enabled=true
+---
+# Source: kagent/templates/postgresql.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kagent-postgresql
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    app.kubernetes.io/component: database
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: "local-path"
+  resources:
+    requests:
+      storage: "500Mi"
+---
+# Source: kagent/charts/kagent-tools/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kagent-tools-cluster-admin-role
+  labels:
+    helm.sh/chart: kagent-tools-0.1.3
+    app.kubernetes.io/name: kagent-tools
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.1.3"
+    app.kubernetes.io/managed-by: Helm
+rules:
+  
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  - nonResourceURLs: ["*"]
+    verbs: ["*"]
+---
+# Source: kagent/charts/kmcp/templates/rbac/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kagent-kmcp-manager-role
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups:
+    - ""
+    resources:
+    - configmaps
+    - services
+    - serviceaccounts
+    verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+  - apiGroups:
+    - apps
+    resources:
+    - deployments
+    verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+  - apiGroups:
+    - kagent.dev
+    resources:
+    - mcpservers
+    verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+  - apiGroups:
+    - kagent.dev
+    resources:
+    - mcpservers/finalizers
+    verbs:
+    - update
+  - apiGroups:
+    - kagent.dev
+    resources:
+    - mcpservers/status
+    verbs:
+    - get
+    - patch
+    - update
+---
+# Source: kagent/charts/kmcp/templates/rbac/metrics-auth-clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kagent-kmcp-metrics-auth-role
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+# Source: kagent/charts/kmcp/templates/rbac/metrics-reader-clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kagent-kmcp-metrics-reader
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- nonResourceURLs:
+  - "/metrics"
+  verbs:
+  - get
+---
+# Source: kagent/templates/rbac/getter-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kagent-getter-role
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+rules:
+  - apiGroups:
+    - kagent.dev
+    resources:
+    - agents
+    - sandboxagents
+    - modelconfigs
+    - modelproviderconfigs
+    - toolservers
+    - memories
+    - remotemcpservers
+    - mcpservers
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - kagent.dev
+    resources:
+    - agents/finalizers
+    - sandboxagents/finalizers
+    - modelconfigs/finalizers
+    - modelproviderconfigs/finalizers
+    - toolservers/finalizers
+    - memories/finalizers
+    - remotemcpservers/finalizers
+    - mcpservers/finalizers
+    verbs:
+    - update
+  - apiGroups:
+    - kagent.dev
+    resources:
+    - agents/status
+    - sandboxagents/status
+    - modelconfigs/status
+    - modelproviderconfigs/status
+    - toolservers/status
+    - memories/status
+    - remotemcpservers/status
+    - mcpservers/status
+    verbs:
+    - get
+    - patch
+    - update
+  - apiGroups:
+    - ""
+    resources:
+    - "*"
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - "apps"
+    resources:
+    - "*"
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - "batch"
+    resources:
+    - "*"
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - "rbac.authorization.k8s.io"
+    resources:
+    - "*"
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - gateway.networking.k8s.io
+    resources:
+    - "*"
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - agents.x-k8s.io
+    resources:
+    - sandboxes
+    verbs:
+    - get
+    - list
+    - watch
+---
+# Source: kagent/templates/rbac/writer-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kagent-writer-role
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+rules:
+  - apiGroups:
+    - kagent.dev
+    resources:
+    - agents
+    - sandboxagents
+    - modelconfigs
+    - modelproviderconfigs
+    - toolservers
+    - memories
+    - remotemcpservers
+    - mcpservers
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - kagent.dev
+    resources:
+    - agents/finalizers
+    - sandboxagents/finalizers
+    - modelconfigs/finalizers
+    - modelproviderconfigs/finalizers
+    - toolservers/finalizers
+    - memories/finalizers
+    - remotemcpservers/finalizers
+    - mcpservers/finalizers
+    verbs:
+    - update
+  - apiGroups:
+    - ""
+    resources:
+    - "*"
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - "apps"
+    resources:
+    - "*"
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - "batch"
+    resources:
+    - "*"
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - gateway.networking.k8s.io
+    resources:
+    - "*"
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - agents.x-k8s.io
+    resources:
+    - sandboxes
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+---
+# Source: kagent/charts/kagent-tools/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kagent-tools-cluster-admin-rolebinding
+  labels:
+    helm.sh/chart: kagent-tools-0.1.3
+    app.kubernetes.io/name: kagent-tools
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.1.3"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kagent-tools-cluster-admin-role
+subjects:
+- kind: ServiceAccount
+  name: kagent-tools
+  namespace: kagent
+---
+# Source: kagent/charts/kmcp/templates/rbac/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kagent-kmcp-manager-rolebinding
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kagent-kmcp-manager-role
+subjects:
+- kind: ServiceAccount
+  name: kagent-kmcp-controller-manager
+  namespace: kagent
+---
+# Source: kagent/charts/kmcp/templates/rbac/metrics-auth-clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kagent-kmcp-metrics-auth-rolebinding
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kagent-kmcp-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: kagent-kmcp-controller-manager
+  namespace: kagent
+---
+# Source: kagent/templates/rbac/getter-rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kagent-getter-rolebinding
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kagent-getter-role
+subjects:
+- kind: ServiceAccount
+  name: kagent-controller
+  namespace: kagent
+---
+# Source: kagent/templates/rbac/writer-rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kagent-writer-rolebinding
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kagent-writer-role
+subjects:
+- kind: ServiceAccount
+  name: kagent-controller
+  namespace: kagent
+---
+# Source: kagent/charts/kmcp/templates/rbac/leader-election-role.yaml
+# permissions to do leader election.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kagent-kmcp-leader-election-role
+  namespace: kagent
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+# Source: kagent/charts/kmcp/templates/rbac/leader-election-rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kagent-kmcp-leader-election-rolebinding
+  namespace: kagent
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kagent-kmcp-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: kagent-kmcp-controller-manager
+  namespace: kagent
+---
+# Source: kagent/charts/grafana-mcp/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kagent-grafana-mcp
+  namespace: kagent
+  labels:
+    helm.sh/chart: grafana-mcp-0.9.0
+    app.kubernetes.io/name: grafana-mcp
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: grafana-mcp
+    app.kubernetes.io/instance: kagent
+---
+# Source: kagent/charts/kagent-tools/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kagent-tools
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-tools-0.1.3
+    app.kubernetes.io/name: kagent-tools
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.1.3"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8084
+      targetPort: 8084
+      protocol: TCP
+      name: tools
+  selector:
+    app.kubernetes.io/name: kagent-tools
+    app.kubernetes.io/instance: kagent
+---
+# Source: kagent/charts/kagent-tools/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kagent-tools-metrics
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-tools-0.1.3
+    app.kubernetes.io/name: kagent-tools
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.1.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: metrics
+spec:
+  selector:
+    app.kubernetes.io/name: kagent-tools
+    app.kubernetes.io/instance: kagent
+  ports:
+    - name: prometheus-metrics
+      protocol: TCP
+      port: 8085
+      targetPort: 8085
+---
+# Source: kagent/charts/kmcp/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kagent-kmcp-controller-manager-metrics-service
+  namespace: kagent
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+---
+# Source: kagent/charts/querydoc/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kagent-querydoc
+  namespace: kagent
+  labels:
+    kagent.dev/mcp-service: "true"
+    helm.sh/chart: querydoc-0.9.0
+    app.kubernetes.io/name: querydoc
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "1.1.10"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+      appProtocol: mcp
+  selector:
+    app.kubernetes.io/name: querydoc
+    app.kubernetes.io/instance: kagent
+---
+# Source: kagent/templates/controller-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kagent-controller
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    app.kubernetes.io/component: controller
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8083
+      targetPort: 8083
+      protocol: TCP
+      name: controller
+  selector:
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/component: controller
+---
+# Source: kagent/templates/postgresql.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kagent-postgresql
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/component: database
+---
+# Source: kagent/templates/ui-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kagent-ui
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    app.kubernetes.io/component: ui
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: ui
+  selector:
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/component: ui
+---
+# Source: kagent/charts/grafana-mcp/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kagent-grafana-mcp
+  namespace: kagent
+  labels:
+    helm.sh/chart: grafana-mcp-0.9.0
+    app.kubernetes.io/name: grafana-mcp
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grafana-mcp
+      app.kubernetes.io/instance: kagent
+  template:
+    metadata:
+      annotations:
+        checksum/configmap: 0cb24d7726014073066c59e9ba5cee582860bfcbefac69613bcccccfa6dfe288
+        checksum/secret: c759b7cc4594352dc97d523e7e49250b12bb6a0c362ac4a904d200f2b9e0d7ab
+      labels:
+        app.kubernetes.io/name: grafana-mcp
+        app.kubernetes.io/instance: kagent
+    spec:
+      serviceAccountName: kagent-grafana-mcp
+      containers:
+        - name: grafana-mcp
+          securityContext:
+            {}
+          image: "docker.io/mcp/grafana:latest" 
+          imagePullPolicy: Always
+          args:
+            - --transport
+            - streamable-http
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          envFrom:
+            - configMapRef:
+                name: kagent-grafana-mcp
+            - secretRef:
+                name: "kagent-grafana-mcp"
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+---
+# Source: kagent/charts/kagent-tools/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kagent-tools
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-tools-0.1.3
+    app.kubernetes.io/name: kagent-tools
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.1.3"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kagent-tools
+      app.kubernetes.io/instance: kagent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kagent-tools
+        app.kubernetes.io/instance: kagent
+    spec:
+      affinity:
+
+
+      securityContext:
+        {}
+      serviceAccountName: kagent-tools
+      containers:
+        - name: tools
+          command:
+            - /tool-server
+          args:
+          - "--port"
+          - "8084"
+          - "--metrics-port"
+          - "8085"
+          securityContext:
+            {}
+          image: "ghcr.io/kagent-dev/kagent/tools:0.1.3"
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          env:
+            - name: KAGENT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kagent-tools-openai
+                  key: OPENAI_API_KEY
+                  optional: true # if the secret is not found, the tool will not be available
+            - name: OTEL_TRACING_ENABLED
+              value: "false"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://host.docker.internal:4317"
+            - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+              value: "15"
+            - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+              value: "true"
+            - name: TOKEN_PASSTHROUGH
+              value: "false"
+          ports:
+            - name: http-tools
+              containerPort: 8084
+              protocol: TCP
+            - name: http-metrics
+              containerPort: 8085
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: http-tools
+            initialDelaySeconds: 15
+            periodSeconds: 15
+---
+# Source: kagent/charts/kmcp/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kagent-kmcp-controller-manager
+  namespace: kagent
+  labels:
+    helm.sh/chart: kmcp-0.2.8
+    app.kubernetes.io/name: kmcp
+    app.kubernetes.io/instance: kagent
+    control-plane: controller-manager
+    app.kubernetes.io/version: "0.2.8"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kmcp
+      app.kubernetes.io/instance: kagent
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: kmcp
+        app.kubernetes.io/instance: kagent
+        control-plane: controller-manager
+    spec:
+      serviceAccountName: kagent-kmcp-controller-manager
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: manager
+        image: ghcr.io/kagent-dev/kmcp/controller:0.2.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /manager
+        args:
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=:8443
+        ports:
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
+        - containerPort: 8081
+          name: health
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        volumeMounts: []
+      volumes: []
+      terminationGracePeriodSeconds: 10
+---
+# Source: kagent/charts/querydoc/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kagent-querydoc
+  namespace: kagent
+  labels:
+    helm.sh/chart: querydoc-0.9.0
+    app.kubernetes.io/name: querydoc
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "1.1.10"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: querydoc
+      app.kubernetes.io/instance: kagent
+  template:
+    metadata:
+      annotations:
+        checksum/configmap: a8763504cc85346b45133eb9ce720e4418731f1dd8185772e4ad4a69c36ee11e
+      labels:
+        app.kubernetes.io/name: querydoc
+        app.kubernetes.io/instance: kagent
+    spec:
+      serviceAccountName: kagent-querydoc
+      containers:
+        - name: querydoc
+          image: "ghcr.io/kagent-dev/doc2vec/mcp:1.1.14"
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          envFrom:
+            - configMapRef:
+                name: kagent-querydoc
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+---
+# Source: kagent/templates/controller-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kagent-controller
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kagent
+      app.kubernetes.io/instance: kagent
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      annotations:
+        checksum/configmap: eded92615a67a229456e44e3531f4f29ca86293f70b2767adb069853e8df8ce0
+        checksum/secret: 8442e7561a2d580115efba0ae07a249fcb748fff2d817cc7baa4c5abe383a9a3
+      labels:
+        app.kubernetes.io/name: kagent
+        app.kubernetes.io/instance: kagent
+        app.kubernetes.io/component: controller
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: kagent-controller
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: controller
+          image: "cr.kagent.dev/kagent-dev/kagent/controller:0.9.0"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KAGENT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: AUTH_MODE
+              value: "unsecure"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kagent-postgresql
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DATABASE_URL
+              value: "postgres://kagent:$(POSTGRES_PASSWORD)@kagent-postgresql.kagent.svc.cluster.local:5432/kagent?sslmode=disable"
+          envFrom:
+            - configMapRef:
+                name: kagent-controller
+          ports:
+            - name: http
+              containerPort: 8083
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 2
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            readOnlyRootFilesystem: true
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+            initialDelaySeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+---
+# Source: kagent/templates/postgresql.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kagent-postgresql
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+    app.kubernetes.io/component: database
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kagent
+      app.kubernetes.io/instance: kagent
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kagent
+        app.kubernetes.io/instance: kagent
+        app.kubernetes.io/component: database
+    spec:
+      
+      serviceAccountName: kagent-postgresql
+      securityContext:
+        fsGroup: 999
+        runAsGroup: 999
+        runAsNonRoot: true
+        runAsUser: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgresql
+          image: docker.io/library/postgres:18.3-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_DB
+              value: "kagent"
+            - name: POSTGRES_USER
+              value: "kagent"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kagent-postgresql
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - kagent
+                - -d
+                - kagent
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+            successThreshold: 1
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - kagent
+                - -d
+                - kagent
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: kagent-postgresql
+---
+# Source: kagent/templates/ui-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kagent-ui
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kagent
+      app.kubernetes.io/instance: kagent
+      app.kubernetes.io/component: ui
+  template:
+    metadata:
+      annotations:
+        checksum/ui-config: 625f786429246fdbddeabeac54ae462d89746a00b86a7fd481ff87a4ae6a36ca
+      labels:
+        app.kubernetes.io/name: kagent
+        app.kubernetes.io/instance: kagent
+        app.kubernetes.io/component: ui
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: kagent-ui
+      volumes:
+        - name: nextjs-cache
+          emptyDir:
+            sizeLimit: 100Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 50Mi
+        - name: ui-config
+          configMap:
+            name: kagent-ui-config
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: ui
+          securityContext:
+            readOnlyRootFilesystem: true
+          image: "cr.kagent.dev/kagent-dev/kagent/ui:0.9.0"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NEXT_PUBLIC_BACKEND_URL
+              value: "http://kagent-controller.kagent.svc.cluster.local:8083/api"
+            - name: SSO_REDIRECT_PATH
+              value: "/oauth2/start"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: nextjs-cache
+              mountPath: /app/ui/.next/cache
+            - name: tmp
+              mountPath: /tmp
+            - name: ui-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: ui-config
+              mountPath: /etc/supervisor/conf.d/supervisord.conf
+              subPath: supervisord.conf
+              readOnly: true
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 1
+            initialDelaySeconds: 1
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+---
+# Source: kagent/templates/openshift-route.yaml
+#if route crd exists
+---
+# Source: kagent/templates/modelconfig.yaml
+apiVersion: kagent.dev/v1alpha2
+kind: ModelConfig
+metadata:
+  name: "default-model-config"
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+spec:
+  provider: "OpenAI"
+  model: "gpt-4.1-mini"
+  apiKeySecret: kagent-openai
+  apiKeySecretKey: OPENAI_API_KEY
+---
+# Source: kagent/charts/grafana-mcp/templates/remotemcpserver.yaml
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: kagent-grafana-mcp
+  namespace: kagent
+  labels:
+    helm.sh/chart: grafana-mcp-0.9.0
+    app.kubernetes.io/name: grafana-mcp
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/managed-by: Helm
+spec:
+  description: Grafana MCP server
+  protocol: STREAMABLE_HTTP
+  sseReadTimeout: 5m0s
+  terminateOnClose: true
+  timeout: 30s
+  url: http://kagent-grafana-mcp.kagent:8000/mcp
+---
+# Source: kagent/templates/toolserver-kagent.yaml
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: kagent-tool-server
+  namespace: kagent
+  labels:
+    helm.sh/chart: kagent-0.9.0
+    app.kubernetes.io/name: kagent
+    app.kubernetes.io/instance: kagent
+    app.kubernetes.io/version: "0.9.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kagent
+spec:
+  url: "http://kagent-tools.kagent:8084/mcp"
+  timeout: 30s
+  sseReadTimeout: 5m0s
+  description: "Official KAgent tool server"
