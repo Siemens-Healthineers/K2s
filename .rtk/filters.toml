@@ -1,0 +1,351 @@
+# Project-local RTK filters for K2s development.
+# Commit this file with the repo — used by all K2s developers with RTK installed.
+# Docs: https://github.com/rtk-ai/rtk#custom-filters
+schema_version = 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# K2s PowerShell Phase Logging
+# ─────────────────────────────────────────────────────────────────────────────
+
+[filters.k2s-install]
+description = "Compress K2s install/uninstall PowerShell output"
+match_command = "^(k2s(\\.exe)?\\s+(install|uninstall|start|stop)|pwsh.*InstallK8s|pwsh.*UninstallK8s)"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^VERBOSE:",
+  "^DEBUG:",
+  "^\\[\\w+\\]\\s+(?!ERROR|WARN|FATAL)",
+  "^Start-Phase:",
+  "^Phase .* completed in",
+  "^Write-Log:",
+  "^\\s*Setting up",
+  "^\\s*Configuring",
+  "^\\s*Waiting for",
+]
+keep_lines_matching = [
+  "ERROR",
+  "WARN",
+  "FATAL",
+  "FAILED",
+  "Exception",
+  "^Phase .* FAILED",
+]
+max_lines = 40
+on_empty = "k2s: operation completed successfully"
+
+[filters.k2s-system-package]
+description = "Compress K2s delta packaging output"
+match_command = "(New-K2sDeltaPackage|k2s(\\.exe)?\\s+system\\s+package)"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^\\[Hash\\] Processing file",
+  "^\\[Hash\\] Hashing",
+  "^Hashing file \\d+",
+  "^Copying file \\d+",
+  "^\\[StageCleanup\\]",
+  "^\\[Expand\\] Extracting",
+  "^\\s*Progress:",
+]
+max_lines = 30
+on_empty = "k2s package: completed"
+
+[filters.k2s-addon-enable]
+description = "Compress K2s addon enable/disable output"
+match_command = "^(k2s(\\.exe)?\\s+addons\\s+(enable|disable)|pwsh.*(Enable|Disable)\\.ps1)"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^VERBOSE:",
+  "^\\[\\w+\\]\\s+(?!ERROR|WARN)",
+  "^Waiting for pod",
+  "^\\s*pod/.* condition met",
+  "^\\s*namespace/.* created",
+  "^\\s*configmap/.* created",
+  "^\\s*serviceaccount/.* created",
+  "^\\s*clusterrole.* created",
+  "^\\s*clusterrolebinding.* created",
+  "^\\s*(deployment|service|daemonset|statefulset).* created",
+]
+keep_lines_matching = [
+  "ERROR",
+  "WARN",
+  "FAILED",
+  "^\\s+addon .* enabled",
+  "^\\s+addon .* disabled",
+]
+max_lines = 25
+on_empty = "k2s addon: ok"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PowerShell / Pester Testing
+# ─────────────────────────────────────────────────────────────────────────────
+
+[filters.pester]
+description = "Compress Pester test framework output to failures only"
+match_command = "(Invoke-Pester|\\.tests\\.ps1|execute_all_tests)"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^Running discovery",
+  "^Discovering tests",
+  "^\\s+\\[\\+\\]",
+  "^\\s+Context\\s",
+  "^\\s+Describing\\s",
+  "^\\s+\\[✓\\].*\\d+ms",
+]
+keep_lines_matching = [
+  "^\\s+\\[✗\\]",
+  "^\\s+Expected",
+  "^\\s+But was",
+  "^\\s+at line \\d+",
+  "^Tests Passed:",
+  "^Tests completed",
+  "^Tests Failed:",
+  "FAILED",
+]
+max_lines = 50
+on_empty = "pester: all tests passed"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Go Development (K2s CLI)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Note: `rtk go test` and `rtk go build` have built-in native filters.
+# These TOML rules catch edge cases when Go is invoked via other wrappers.
+
+[filters.bgo-build]
+description = "Compress K2s bgo/bgow/bgol build script output"
+match_command = "^(bgo|bgow|bgol)(\\.cmd)?\\b"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^Building.*\\.exe",
+  "^go: downloading",
+]
+keep_lines_matching = [
+  "^#\\s",
+  ":\\d+:\\d+:",
+  "FAIL",
+  "Error",
+  "cannot",
+  "undefined",
+]
+max_lines = 40
+on_empty = "bgo: build successful"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Kubernetes Operations
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Note: `rtk kubectl pods/logs/services` has built-in native filters.
+# These TOML rules catch kubectl operations not covered by built-in filters.
+
+[filters.kubectl-apply]
+description = "Compress kubectl apply/create output"
+match_command = "^kubectl\\s+(apply|create|delete)\\b"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "\\s+unchanged$",
+]
+max_lines = 30
+
+[[filters.kubectl-apply.match_output]]
+pattern = "unchanged$"
+message = "kubectl: no changes"
+unless = "(error|Error|warning)"
+
+[filters.kubectl-describe]
+description = "Compress kubectl describe — focus on events and conditions"
+match_command = "^kubectl\\s+describe\\b"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^Annotations:",
+  "^Labels:",
+  "^Managed Fields:",
+  "^\\s+Manager:",
+  "^\\s+Operation:",
+  "^\\s+Time:",
+  "^\\s+API Version:",
+  "^\\s+Fields Type:",
+]
+max_lines = 60
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SSH / VM Operations (K2s guest provisioning)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Note: Built-in ssh.toml handles basic SSH banner stripping.
+# These rules target K2s-specific plink/pscp operations.
+
+[filters.plink]
+description = "Compress plink (PuTTY SSH) output"
+match_command = "^plink(\\.exe)?\\b"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^Using keyboard-interactive",
+  "^Access granted",
+  "^Server refused our key",
+  "^login as:",
+  "^Store key in cache",
+]
+max_lines = 100
+truncate_lines_at = 200
+
+[filters.pscp]
+description = "Compress pscp (PuTTY SCP) output"
+match_command = "^pscp(\\.exe)?\\b"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^\\s*\\|.*\\|\\s+\\d+",
+]
+max_lines = 10
+on_empty = "pscp: ok"
+
+[[filters.pscp.match_output]]
+pattern = "^\\S+\\s+\\|\\s+\\d+.*\\|.*100%"
+message = "pscp: transfer complete"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# APT / Debian Package Operations (Guest VM)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[filters.apt-get]
+description = "Compress apt-get output during K2s VM provisioning"
+match_command = "apt(-get)?\\s+(install|update|upgrade)"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^Hit:",
+  "^Get:",
+  "^Ign:",
+  "^Reading package lists",
+  "^Building dependency tree",
+  "^Reading state information",
+  "^The following NEW packages",
+  "^The following packages will be",
+  "^\\d+ upgraded,",
+  "^Need to get",
+  "^After this operation",
+  "^Fetched",
+  "^\\(Reading database",
+  "^Preparing to unpack",
+  "^Unpacking",
+  "^Setting up",
+  "^Processing triggers",
+]
+keep_lines_matching = [
+  "^E:",
+  "^W:",
+  "^Err:",
+  "dpkg: error",
+  "Unable to locate",
+  "dependency problems",
+]
+max_lines = 20
+on_empty = "apt: ok"
+
+[filters.dpkg-query]
+description = "Compress dpkg-query output during delta packaging"
+match_command = "dpkg-query\\b"
+strip_ansi = true
+truncate_lines_at = 80
+max_lines = 50
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MkDocs (Documentation)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[filters.mkdocs]
+description = "Compress mkdocs serve/build output"
+match_command = "^mkdocs\\s+(serve|build)"
+strip_ansi = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^INFO\\s+-\\s+Cleaning",
+  "^INFO\\s+-\\s+Building",
+  "^INFO\\s+-\\s+Reading",
+  "^INFO\\s+-\\s+Copying",
+  "^INFO\\s+-\\s+\\[",
+]
+keep_lines_matching = [
+  "^WARNING",
+  "^ERROR",
+  "Serving on",
+  "built in",
+]
+max_lines = 20
+on_empty = "mkdocs: ok"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Inline Tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[tests.pester]]
+name = "passing tests produce minimal output"
+input = """
+Running discovery in 1 path(s).
+Discovering tests in C:\\ws\\K2s\\addons
+  [+] addons.module.unit.tests.ps1
+Describing Get-EnabledAddons
+  Context When no addons are enabled
+    [✓] Should return empty array 45ms (42ms|3ms)
+  Context When addons are enabled
+    [✓] Should return addon names 23ms (20ms|3ms)
+Tests completed in 0.8s
+Tests Passed: 2, Failed: 0, Skipped: 0
+"""
+expected = "Tests completed in 0.8s\nTests Passed: 2, Failed: 0, Skipped: 0"
+
+[[tests.pester]]
+name = "failed tests show failure details"
+input = """
+Describing Test-AddonDependencies
+  Context With missing dependencies
+    [✗] Should suggest available alternatives 89ms (86ms|3ms)
+      Expected 'ingress' to be in suggestions but got @()
+      at line 145 in C:\\ws\\K2s\\addons\\addons.module.unit.tests.ps1
+Tests Passed: 6, Failed: 1, Skipped: 0
+"""
+expected = "    [✗] Should suggest available alternatives 89ms (86ms|3ms)\n      Expected 'ingress' to be in suggestions but got @()\n      at line 145 in C:\\ws\\K2s\\addons\\addons.module.unit.tests.ps1\nTests Passed: 6, Failed: 1, Skipped: 0"
+
+[[tests.apt-get]]
+name = "successful install produces minimal output"
+input = """
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following NEW packages will be installed:
+  kubeadm kubelet kubectl
+0 upgraded, 3 newly installed, 0 to remove.
+Need to get 45.2 MB of archives.
+Fetched 45.2 MB in 3s (15.1 MB/s)
+Preparing to unpack .../kubeadm_1.31.2_amd64.deb ...
+Unpacking kubeadm (1.31.2-1.1) ...
+Setting up kubeadm (1.31.2-1.1) ...
+Processing triggers for man-db (2.12.0-3) ...
+"""
+expected = "apt: ok"
+
+[[tests.k2s-addon-enable]]
+name = "successful addon enable shows summary"
+input = """
+[Addon] Enabling ingress addon
+namespace/ingress-nginx created
+serviceaccount/ingress-nginx created
+clusterrole.rbac.authorization.k8s.io/ingress-nginx created
+clusterrolebinding.rbac.authorization.k8s.io/ingress-nginx created
+deployment.apps/ingress-nginx-controller created
+service/ingress-nginx-controller created
+Waiting for pod condition Ready for ingress-nginx-controller
+  pod/ingress-nginx-controller-5f8b7-q2m condition met
+  addon ingress enabled
+"""
+expected = "  addon ingress enabled"
+

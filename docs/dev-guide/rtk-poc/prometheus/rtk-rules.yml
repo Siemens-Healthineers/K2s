@@ -1,0 +1,86 @@
+# RTK PoC — Prometheus Alerting Rules
+#
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
+groups:
+  - name: rtk_poc_alerts
+    interval: 5m
+    rules:
+      # ── Exporter Health ──
+      - alert: RtkExporterDown
+        expr: rtk_exporter_up == 0
+        for: 10m
+        labels:
+          severity: warning
+          poc: rtk
+        annotations:
+          summary: "RTK metrics exporter is not collecting data"
+          description: "The RTK metrics exporter cannot query RTK. Check if RTK is installed and the exporter script is running."
+
+      # ── Low Compression ──
+      - alert: RtkLowCompression
+        expr: rtk_savings_percent_avg < 40
+        for: 4h
+        labels:
+          severity: info
+          poc: rtk
+        annotations:
+          summary: "RTK average compression below 40% for 4 hours"
+          description: "RTK is achieving less than 40% average token savings over 4 hours. Short spikes during debugging are normal; sustained low savings may indicate filters need tuning."
+
+      # ── No Activity ──
+      - alert: RtkNoActivity
+        expr: increase(rtk_commands_total[24h]) == 0 and day_of_week() >= 1 and day_of_week() <= 5
+        for: 24h
+        labels:
+          severity: info
+          poc: rtk
+        annotations:
+          summary: "No RTK commands recorded in 24h (weekday)"
+          description: "No commands have been processed by RTK in the last 24 hours on a weekday. Developer may not be using RTK prefix or workstation is idle."
+
+      # ── High Token Volume Without RTK ──
+      - alert: RtkMissedOptimization
+        expr: rtk_compression_ratio > 0.8
+        for: 2h
+        labels:
+          severity: info
+          poc: rtk
+        annotations:
+          summary: "RTK compression ratio too low — possible filter gap"
+          description: "Output/input ratio is above 0.8 (less than 20% reduction). Check if new command types need TOML filters."
+
+      # ── High Overhead ──
+      - alert: RtkHighOverhead
+        expr: rtk_overhead_ms_avg > 100
+        for: 30m
+        labels:
+          severity: warning
+          poc: rtk
+        annotations:
+          summary: "RTK processing overhead above 100ms"
+          description: "Average RTK overhead exceeds 100ms. This may indicate a regex backtracking issue in TOML filters or a very large output being processed."
+
+      # ── Tee Spike (frequent failures) ──
+      - alert: RtkTeeSpike
+        expr: rtk_tee_files_total > 10
+        for: 5m
+        labels:
+          severity: warning
+          poc: rtk
+        annotations:
+          summary: "Many tee recovery files — commands failing frequently"
+          description: "More than 10 tee recovery files exist. This means many RTK-proxied commands are failing, which may indicate filter issues or an underlying tooling problem."
+
+      # ── High Context Pressure ──
+      - alert: RtkContextPressureHigh
+        expr: rtk_context_pressure_ratio > 0.3
+        for: 1h
+        labels:
+          severity: info
+          poc: rtk
+        annotations:
+          summary: "Terminal output consuming >30% of LLM context window"
+          description: "Even with RTK compression, terminal output is estimated to consume more than 30% of the 200K context window. Consider more aggressive filtering or fewer commands per session."
+

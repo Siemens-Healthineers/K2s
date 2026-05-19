@@ -1,0 +1,30 @@
+# RTK Metrics — Prometheus Scrape Configuration
+#
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+#
+# Add this job to your prometheus.yml scrape_configs section.
+# Choose ONE of the two approaches below.
+
+# ─── Option A: HTTP Exporter ───
+# Use when running Start-RtkMetricsExporter.ps1 -Mode http
+scrape_configs:
+  - job_name: 'rtk-poc'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['localhost:9191']
+        labels:
+          team: 'k2s-platform'
+          environment: 'dev'
+          poc: 'rtk-token-optimization'
+
+# ─── Option B: Textfile Collector ───
+# Use when running Start-RtkMetricsExporter.ps1 -Mode textfile
+# Requires node_exporter with --collector.textfile.directory flag
+#
+# node_exporter --collector.textfile.directory="C:\metrics"
+# Start-RtkMetricsExporter.ps1 -Mode textfile -OutputFile "C:\metrics\rtk.prom"
+#
+# No scrape_configs changes needed — node_exporter exposes them automatically.
+
