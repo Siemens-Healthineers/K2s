@@ -104,6 +104,9 @@ function Enable-WindowsSecurityDeployments {
         New-Item -ItemType Directory -Path $securityData -Force | Out-Null
     }
 
+    Write-Log '[Security] Deleting existing Hydra pods to ensure clean init-container re-run' -Console
+    (Invoke-Kubectl -Params 'delete', 'pods', '-l', 'app=hydra', '-n', 'security', '--ignore-not-found').Output | Write-Log
+
     $sqlitePath = "$securityData\db.sqlite"
     if (Test-Path $sqlitePath) {
         Remove-Item -Path $sqlitePath -Force
@@ -120,7 +123,7 @@ function Enable-WindowsSecurityDeployments {
     Invoke-WindowsSecurityYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
 
     Write-Log 'Waiting for windows security deployments..' -Console
-    $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 120)
+    $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 180)
     $winLoginStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=windows-login' -Namespace 'security' -TimeoutSeconds 120)
 
     Write-Log 'Waiting for windows security api to be available..' -Console

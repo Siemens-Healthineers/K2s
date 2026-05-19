@@ -99,6 +99,18 @@ spec:
           workingDir: '%CONTAINER_SANDBOX_MOUNT_POINT%'
           command:
             - "%CONTAINER_SANDBOX_MOUNT_POINT%\\hydra.exe serve all -c %CONTAINER_SANDBOX_MOUNT_POINT%\\config\\hydra.yml --dev"
+          readinessProbe:
+            tcpSocket:
+              port: 4445
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 4445
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
           volumeMounts:
             - name: bindir
               mountPath: 'C:\data'
