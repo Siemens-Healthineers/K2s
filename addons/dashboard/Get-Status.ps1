@@ -6,7 +6,7 @@
 
 Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'dashboard', 'deployment/headlamp').Success
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=30s', '--for=condition=Available', '-n', 'dashboard', 'deployment/headlamp').Success
 
 $isHeadlampRunningProp = @{Name = 'IsHeadlampRunning'; Value = $success; Okay = $success }
 if ($isHeadlampRunningProp.Value -eq $true) {
