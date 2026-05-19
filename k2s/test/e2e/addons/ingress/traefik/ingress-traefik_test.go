@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	testClusterTimeout = time.Minute * 15
+	testClusterTimeout = time.Minute * 10
 	ingressTraefikTest = "ingress-traefik-test"
 )
 

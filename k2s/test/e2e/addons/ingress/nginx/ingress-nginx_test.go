@@ -24,7 +24,7 @@ import (
 	"github.com/onsi/gomega/gstruct"
 )
 
-const testClusterTimeout = time.Minute * 15
+const testClusterTimeout = time.Minute * 10
 
 var (
 	suite      *framework.K2sTestSuite
