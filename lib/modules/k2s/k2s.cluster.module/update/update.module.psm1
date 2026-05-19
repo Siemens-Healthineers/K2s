@@ -93,12 +93,10 @@ function Restore-CoreDnsEtcdConfiguration {
 		
 		# Verify SSH helper is available
 		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
-			# Try relative path first (from k2s.cluster.module/update/ -> ../../k2s.node.module/)
 			$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
 			if (Test-Path -LiteralPath $vmModule) { 
 				Import-Module $vmModule -ErrorAction SilentlyContinue 
 			} else {
-				# Fallback to installed k2s folder
 				$installFolder = Get-ClusterInstalledFolder
 				$vmModule = Join-Path $installFolder 'lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1'
 				if (Test-Path -LiteralPath $vmModule) {
@@ -113,54 +111,116 @@ function Restore-CoreDnsEtcdConfiguration {
 		
 		# Step 1: Recreate etcd secrets for CoreDNS
 		Write-Log "[CoreDNS] Recreating etcd secrets..." -Console:$consoleSwitch
-		$secretCmds = @(
-			'sudo mkdir -p /tmp/etcd-certs && sudo cp /etc/kubernetes/pki/etcd/* /tmp/etcd-certs/ && sudo chmod 444 /tmp/etcd-certs/*',
-			'kubectl delete secret -n kube-system etcd-ca --ignore-not-found=true',
-			'kubectl delete secret -n kube-system etcd-client-for-core-dns --ignore-not-found=true',
-			'kubectl create secret -n kube-system tls etcd-ca --cert=/tmp/etcd-certs/ca.crt --key=/tmp/etcd-certs/ca.key',
-			'kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=/tmp/etcd-certs/healthcheck-client.crt --key=/tmp/etcd-certs/healthcheck-client.key',
-			'sudo rm -rf /tmp/etcd-certs'
-		)
-		foreach ($cmd in $secretCmds) {
-			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $cmd -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		$certCopyResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo mkdir -p /tmp/etcd-certs && sudo cp /etc/kubernetes/pki/etcd/* /tmp/etcd-certs/ && sudo chmod 444 /tmp/etcd-certs/*' -Timeout 30
+		if (-not $certCopyResult.Success) {
+			Write-Log "[CoreDNS][Error] Failed to copy etcd certificates: $($certCopyResult.Output)" -Console:$consoleSwitch
+			return $false
 		}
+		
+		$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete secret -n kube-system etcd-ca --ignore-not-found=true' -Timeout 30
+		Write-Log "[CoreDNS] Delete old etcd-ca secret: Success=$($result.Success)" -Console:$consoleSwitch
+		
+		$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl delete secret -n kube-system etcd-client-for-core-dns --ignore-not-found=true' -Timeout 30
+		Write-Log "[CoreDNS] Delete old etcd-client secret: Success=$($result.Success)" -Console:$consoleSwitch
+		
+		$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl create secret -n kube-system tls etcd-ca --cert=/tmp/etcd-certs/ca.crt --key=/tmp/etcd-certs/ca.key' -Timeout 30
+		if (-not $result.Success) {
+			Write-Log "[CoreDNS][Error] Failed to create etcd-ca secret: $($result.Output)" -Console:$consoleSwitch
+			Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo rm -rf /tmp/etcd-certs' -Timeout 10 -IgnoreErrors:$true | Out-Null
+			return $false
+		}
+		Write-Log "[CoreDNS] Created etcd-ca secret" -Console:$consoleSwitch
+		
+		$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=/tmp/etcd-certs/healthcheck-client.crt --key=/tmp/etcd-certs/healthcheck-client.key' -Timeout 30
+		if (-not $result.Success) {
+			Write-Log "[CoreDNS][Error] Failed to create etcd-client secret: $($result.Output)" -Console:$consoleSwitch
+			Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo rm -rf /tmp/etcd-certs' -Timeout 10 -IgnoreErrors:$true | Out-Null
+			return $false
+		}
+		Write-Log "[CoreDNS] Created etcd-client-for-core-dns secret" -Console:$consoleSwitch
+		
+		Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'sudo rm -rf /tmp/etcd-certs' -Timeout 10 -IgnoreErrors:$true | Out-Null
 		Write-Log "[CoreDNS] etcd secrets recreated" -Console:$consoleSwitch
 		
 		# Step 2: Update CoreDNS configmap to add etcd plugin if missing
 		Write-Log "[CoreDNS] Checking CoreDNS configmap for etcd plugin..." -Console:$consoleSwitch
-		$etcdPluginCheck = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get configmap coredns -n kube-system -o yaml | grep -c "etcd cluster.local" || echo 0' -Timeout 30 -IgnoreErrors:$true).Output
+		$etcdPluginCheck = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get configmap coredns -n kube-system -o yaml | grep -c "etcd cluster.local" || echo 0' -Timeout 30).Output
 		if ($etcdPluginCheck -match '^0') {
 			Write-Log "[CoreDNS] Adding etcd plugin to configmap..." -Console:$consoleSwitch
 			$addEtcdPlugin = "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*prometheus :9153/i\        etcd cluster.local {\n            path /skydns\n            endpoint https://${ControlPlaneIp}:2379\n            tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt\n        }' | kubectl apply -f -"
-			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addEtcdPlugin -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+			$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addEtcdPlugin -Timeout 30
+			if (-not $result.Success) {
+				Write-Log "[CoreDNS][Error] Failed to update configmap: $($result.Output)" -Console:$consoleSwitch
+				return $false
+			}
 			Write-Log "[CoreDNS] etcd plugin added to configmap" -Console:$consoleSwitch
 		} else {
 			Write-Log "[CoreDNS] etcd plugin already present in configmap" -Console:$consoleSwitch
 		}
 		
 		# Step 3: Update CoreDNS deployment to mount etcd certificate volumes if missing
+		# Uses a single atomic kubectl patch to add both volumes AND mounts together,
+		# avoiding the broken intermediate state where volumes exist without mounts.
 		Write-Log "[CoreDNS] Checking CoreDNS deployment for etcd volume mounts..." -Console:$consoleSwitch
-		$volumeCheck = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get deployment coredns -n kube-system -o yaml | grep -c "etcd-ca-cert" || echo 0' -Timeout 30 -IgnoreErrors:$true).Output
+		$volumeCheck = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get deployment coredns -n kube-system -o yaml | grep -c "etcd-ca-cert" || echo 0' -Timeout 30).Output
 		if ($volumeCheck -match '^0') {
-			Write-Log "[CoreDNS] Adding etcd volume definitions to deployment..." -Console:$consoleSwitch
-			$addVolumes = "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -"
-			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addVolumes -Timeout 30 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
-			
-			# Wait for deployment to be available
-			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=60s' -Timeout 90 -IgnoreErrors:$true).Output | Out-Null
-			
-			Write-Log "[CoreDNS] Adding etcd volume mounts to container..." -Console:$consoleSwitch
-			$addMounts = "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -"
-			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addMounts -Timeout 30 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
-			Write-Log "[CoreDNS] etcd volume mounts added to deployment" -Console:$consoleSwitch
+			Write-Log "[CoreDNS] Adding etcd volumes and mounts atomically via kubectl patch..." -Console:$consoleSwitch
+			$patchJson = '[' +
+				'{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"etcd-ca-cert","secret":{"secretName":"etcd-ca"}}},' +
+				'{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"etcd-client-cert","secret":{"secretName":"etcd-client-for-core-dns"}}},' +
+				'{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"mountPath":"/etc/kubernetes/pki/etcd-ca","name":"etcd-ca-cert"}},' +
+				'{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"mountPath":"/etc/kubernetes/pki/etcd-client","name":"etcd-client-cert"}}' +
+				']'
+			# Base64-encode JSON to avoid double-quote stripping during PowerShell->ssh.exe transport
+			$base64Json = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($patchJson))
+			$patchCmd = "echo $base64Json | base64 -d | kubectl patch deployment coredns -n kube-system --type=json --patch-file=/dev/stdin"
+			$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $patchCmd -Timeout 30 -Retries 2
+			if (-not $result.Success) {
+				Write-Log "[CoreDNS][Error] Failed to patch deployment: $($result.Output)" -Console:$consoleSwitch
+				return $false
+			}
+			Write-Log "[CoreDNS] Deployment patched with etcd volumes and mounts" -Console:$consoleSwitch
 		} else {
 			Write-Log "[CoreDNS] etcd volume mounts already present in deployment" -Console:$consoleSwitch
 		}
 		
-		# Step 4: Restart CoreDNS to pick up changes
+		# Step 4: Restart CoreDNS and wait for it to become available
 		Write-Log "[CoreDNS] Restarting CoreDNS deployment..." -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/coredns -n kube-system' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=120s' -Timeout 150 -IgnoreErrors:$true).Output | Out-Null
+		$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/coredns -n kube-system' -Timeout 30
+		if (-not $result.Success) {
+			Write-Log "[CoreDNS][Warn] Rollout restart command failed: $($result.Output)" -Console:$consoleSwitch
+		}
+		
+		$result = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout status deployment/coredns -n kube-system --timeout=120s' -Timeout 150
+		if (-not $result.Success) {
+			Write-Log "[CoreDNS][Warn] Rollout did not complete within timeout: $($result.Output)" -Console:$consoleSwitch
+		}
+		
+		# Step 5: Verify CoreDNS pods are actually running (not CrashLoopBackOff)
+		Write-Log "[CoreDNS] Verifying CoreDNS pod health..." -Console:$consoleSwitch
+		Start-Sleep -Seconds 10
+		$podStatus = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get pods -n kube-system -l k8s-app=kube-dns -o jsonpath=''{range .items[*]}{.status.phase} {.status.containerStatuses[0].ready}{"\n"}{end}''' -Timeout 30
+		if ($podStatus.Success) {
+			$statusLines = ($podStatus.Output -split "`n") | Where-Object { $_ -match '\S' }
+			$allHealthy = $true
+			foreach ($line in $statusLines) {
+				if ($line -notmatch 'Running true') {
+					$allHealthy = $false
+					break
+				}
+			}
+			if ($allHealthy -and $statusLines.Count -gt 0) {
+				Write-Log "[CoreDNS] All CoreDNS pods healthy ($($statusLines.Count) pods running)" -Console:$consoleSwitch
+			} else {
+				Write-Log "[CoreDNS][Warn] Some CoreDNS pods may not be healthy:" -Console:$consoleSwitch
+				$diagResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide' -Timeout 30
+				Write-Log "[CoreDNS][Diag] $($diagResult.Output)" -Console:$consoleSwitch
+				$logsResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl logs -n kube-system -l k8s-app=kube-dns --tail=20 --all-containers 2>&1' -Timeout 30
+				Write-Log "[CoreDNS][Diag] Recent logs: $($logsResult.Output)" -Console:$consoleSwitch
+			}
+		} else {
+			Write-Log "[CoreDNS][Warn] Could not verify pod health: $($podStatus.Output)" -Console:$consoleSwitch
+		}
 		
 		Write-Log "[CoreDNS] Configuration restored successfully" -Console:$consoleSwitch
 		return $true
