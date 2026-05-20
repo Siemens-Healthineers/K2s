@@ -1,274 +1,220 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
 
 $infraModule =   "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
+$networkModule = "$PSScriptRoot\..\..\..\k2s.node.module\windowsnode\network\network.module.psm1"
 
-Import-Module $infraModule, $clusterModule
+Import-Module $infraModule, $clusterModule, $networkModule
 
-function Add-LinuxWorkerNodeOnNewVM {
+function Repair-LinuxWorkerNodeRegistriesConfig {
     Param(
-        [string] $WorkerNodeName = $(throw 'Argument missing: WorkerNodeName'),
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    $duplicateCountOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if [ -f /etc/containers/registries.conf ]; then grep -c '^[[:space:]]*unqualified-search-registries[[:space:]]*=' /etc/containers/registries.conf 2>/dev/null || echo 0; else echo 0; fi" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output.Trim()
+    $duplicateCount = 0
+    [void][int]::TryParse($duplicateCountOutput, [ref]$duplicateCount)
+
+    if ($duplicateCount -le 1) {
+        Write-Log "[RegistryConfig] registries.conf on node $IpAddress has $duplicateCount unqualified-search-registries entries, no repair needed."
+        return
+    }
+
+    # Remove all unqualified-search-registries lines and add a single one at the top
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sh -c 'grep -v \"^[[:space:]]*unqualified-search-registries[[:space:]]*=\" /etc/containers/registries.conf > /tmp/registries.conf.k2s; echo \"unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"]\" | cat - /tmp/registries.conf.k2s > /tmp/registries.conf.final; mv /tmp/registries.conf.final /etc/containers/registries.conf; rm -f /tmp/registries.conf.k2s'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    Write-Log "[RegistryConfig] Restarting crio after registries.conf normalization on node $IpAddress."
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+}
+
+function Clear-LinuxWorkerNodeRoutes {
+    <#
+    .SYNOPSIS
+        Cleans only Kubernetes-related routes on a Linux worker node.
+    .DESCRIPTION
+        Removes control plane CIDR route, pod-network routes (e.g. /24 and /16),
+        and cni0 interface if present. Safe to call multiple times.
+    #>
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    Write-Log "[RouteCleanup] Cleaning Kubernetes-related routes on node $IpAddress" -Console
+
+    # Control plane route (e.g. 172.19.1.0/24)
+    # Keep kernel-connected route (proto kernel scope link), delete only manually-added route.
+    $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    $controlPlaneRoute = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR | head -1" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($controlPlaneRoute)) {
+        if ($controlPlaneRoute -match 'proto kernel|scope link') {
+            Write-Log "[RouteCleanup] Keeping connected route: $controlPlaneRoute"
+        } else {
+            Write-Log "[RouteCleanup] Deleting route: $controlPlaneCIDR"
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+        }
+    } else {
+        Write-Log "[RouteCleanup] Route $controlPlaneCIDR not found, skipping."
+    }
+
+    # Pod routes (e.g. 172.20.0.0/24 via 172.19.1.100 and 172.20.0.0/16 via 172.19.1.1)
+    $podNetworkCIDR = Get-ConfiguredClusterCIDR
+    $podNetworkPrefix = (($podNetworkCIDR -split '/')[0] -split '\.')[0..1] -join '\.'
+    $podRoutes = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route | grep -E '^$podNetworkPrefix\.'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output
+    if (-not [string]::IsNullOrWhiteSpace($podRoutes)) {
+        $podRoutes -split "`n" | ForEach-Object {
+            $routeLine = $_.Trim()
+            $route = ($routeLine -split '\s')[0]
+            if (-not [string]::IsNullOrWhiteSpace($route)) {
+                if ($routeLine -match 'proto kernel|scope link') {
+                    Write-Log "[RouteCleanup] Keeping connected route: $routeLine"
+                } else {
+                    Write-Log "[RouteCleanup] Deleting route: $route"
+                    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $route" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+                }
+            }
+        }
+    } else {
+        Write-Log "[RouteCleanup] No pod routes matching $podNetworkPrefix.* found, skipping."
+    }
+
+    # cni0 interface (created by flannel)
+    $cni0Exists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip link show cni0 2>/dev/null" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+    if ($cni0Exists) {
+        Write-Log "[RouteCleanup] Deleting interface: cni0"
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip link delete cni0" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    } else {
+        Write-Log "[RouteCleanup] cni0 not found, skipping."
+    }
+
+    Write-Log "[RouteCleanup] Kubernetes route cleanup completed" -Console
+}
+
+function Restore-LinuxWorkerNodeRoutes {
+    <#
+    .SYNOPSIS
+        Restores Kubernetes-related routes on a Linux bare-metal worker node.
+    .DESCRIPTION
+        Re-adds control plane CIDR route and pod-network route via Windows host.
+        These routes may be lost after node reboot or network restart.
+        Used during Start-LinuxWorkerNode for bare-metal (HOST) nodes.
+    #>
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of master VM (Linux)')]
-        [long] $MasterVMMemory = 8GB,
-        [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
-        [long] $MasterVMProcessorCount = 6,
-        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
-        [uint64] $MasterDiskSize = 10GB,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy,
-        [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
-        [string]$DnsServers = $(throw 'Argument missing: DnsServers'),
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
-        [switch] $DeleteFilesForOfflineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
-        [switch] $ForceOnlineInstallation = $false
-    )
-
-    Write-Log 'Starting addition of new node...'
-    Write-Log "Setting up $($workerNodeParams.VmName) VM"
-
-    $workerNodeParams = @{
-        Hostname = $WorkerNodeName
-        IpAddress = $IpAddress
-        GatewayIpAddress = Get-ConfiguredKubeSwitchIP
-        DnsServers= $DnsServers
-        VmName = $WorkerNodeName
-        VMMemoryStartupBytes = $MasterVMMemory
-        VMProcessorCount = $MasterVMProcessorCount
-        VMDiskSize = $MasterDiskSize
-        Proxy = $Proxy
-        DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-        ForceOnlineInstallation = $ForceOnlineInstallation
-    }
-    New-LinuxVmAsWorkerNode @workerNodeParams
-
-    $remoteUsername = Get-DefaultUserNameWorkerNode
-    $remoteUser = "$remoteUserName@$IpAddress"
-    $remoteUserPwd = Get-DefaultUserPwdWorkerNode
-
-    Wait-ForSSHConnectionToLinuxVMViaPwd -User $remoteUser -UserPwd $remoteUserPwd
-
-    Write-Log "Copying ZScaler Root CA certificate to node '$WorkerNodeName'"
-    Copy-ToRemoteComputerViaUserAndPwd -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt" -IpAddress $IpAddress
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo update-ca-certificates" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
-    Write-Log "Zscaler certificate added to CA certificates of node '$WorkerNodeName'"
-
-    Write-Log 'Remove previous VM key from known_hosts file'
-    ssh-keygen.exe -R $IpAddress 2>&1 | ForEach-Object { "$_" } | Out-Null
-
-    Copy-LocalPublicSshKeyToRemoteComputer -UserName $remoteUsername -UserPwd $remoteUserPwd -IpAddress $IpAddress
-    Wait-ForSSHConnectionToLinuxVMViaSshKey -User $remoteUser
-
-    (Invoke-CmdOnVmViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$(Get-ConfiguredIPControlPlane)]/' /etc/netplan/10-k2s.yaml" -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart systemd-networkd' -IpAddress $IpAddress).Output | Write-Log
-
-    Join-LinuxNode -NodeName $WorkerNodeName -NodeUserName $remoteUsername -NodeIpAddress $IpAddress
-
-    Remove-VmAccessViaUserAndPwd -IpAddress $IpAddress
-}
-
-function Start-LinuxWorkerNodeOnNewVM {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'Number of processors for VM')]
-        [string] $VmProcessors,
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
-        [switch] $SkipHeaderDisplay = $false,
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
-    )
-
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' started"
-    }
-}
-
-function Stop-LinuxWorkerNodeOnNewVM {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
-        [switch] $SkipHeaderDisplay = $false,
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
-    )
-
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' stopped"
-    }
-}
-
-function Remove-LinuxWorkerNodeOnNewVM {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
-        [switch] $DeleteFilesForOfflineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing header display')]
-        [switch] $SkipHeaderDisplay = $false,
         [string] $NodeName = $(throw 'Argument missing: NodeName')
     )
 
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName'"
+    Write-Log "[RouteRestore] Restoring Kubernetes routes on bare-metal node $NodeName ($IpAddress)" -Console
+
+    # Get Windows host IP that can reach this node
+    $loopbackAdapter = Get-L2BridgeName
+    $windowsHostIpAddress = Get-HostIpAddressForRemoteIp -RemoteIpAddress $IpAddress -ExcludeNetworkInterfaceName $loopbackAdapter
+
+    if ([string]::IsNullOrWhiteSpace($windowsHostIpAddress)) {
+        Write-Log "[RouteRestore] WARNING: Could not determine Windows host IP for node $IpAddress, skipping route restoration"
+        return
     }
 
-    $kubeToolsPath = Get-KubeToolsPath
-    $ipAddress = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="{.status.addresses[?(@.type=='InternalIP')].address}"
-    if ([string]::IsNullOrWhiteSpace($ipAddress)) {
-        throw "Cannot obtain IP address of node '$NodeName'"
+    Write-Log "[RouteRestore] Using Windows host IP: $windowsHostIpAddress"
+
+    # Restore route to control plane network
+    $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR | grep -v 'proto kernel'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+    if ($controlPlaneRouteExists) {
+        Write-Log "[RouteRestore] Route to $controlPlaneCIDR already exists, skipping."
+    } else {
+        Write-Log "[RouteRestore] Adding route to control plane: $controlPlaneCIDR via $windowsHostIpAddress"
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $windowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
     }
 
-    &"$kubeToolsPath\kubectl.exe" drain $NodeName --ignore-daemonsets --delete-emptydir-data 2>&1 | ForEach-Object { "$_" } | Write-Log
-    &"$kubeToolsPath\kubectl.exe" delete node $NodeName 2>&1 | ForEach-Object { "$_" } | Write-Log
-
-    Stop-VirtualMachine -VmName $NodeName -Wait
-    Remove-VirtualMachine $NodeName
-
-    Write-Log 'Remove key from known_hosts file'
-    ssh-keygen.exe -R $ipAddress 2>&1 | ForEach-Object { "$_" } | Out-Null
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName' done."
+    # Restore route to pod network
+    $podNetworkCIDR = Get-ConfiguredClusterCIDR
+    $podNetworkRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $podNetworkCIDR | grep -v 'proto kernel'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+    if ($podNetworkRouteExists) {
+        Write-Log "[RouteRestore] Route to $podNetworkCIDR already exists, skipping."
+    } else {
+        Write-Log "[RouteRestore] Adding route to pod network: $podNetworkCIDR via $windowsHostIpAddress"
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $windowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
     }
+
+    # Ensure IP forwarding is enabled on Windows host interface
+    $networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match [regex]::Escape($windowsHostIpAddress))} | Select-Object -ExpandProperty InterfaceAlias)
+    if (-not [string]::IsNullOrWhiteSpace($networkInterfaceName)) {
+        netsh int ipv4 set int $networkInterfaceName forwarding=enabled | Out-Null
+        Write-Log "[RouteRestore] Enabled IP forwarding on interface '$networkInterfaceName'"
+    }
+
+    Write-Log "[RouteRestore] Route restoration completed" -Console
 }
 
-function Add-LinuxWorkerNodeOnExistingUbuntuVM {
+<#
+.SYNOPSIS
+    Creates persistent routes on a Linux bare-metal worker node.
+.DESCRIPTION
+    Creates a systemd service that adds K2s routes at boot time.
+    This ensures routes survive reboots, DHCP renewals, and network restarts.
+#>
+function Add-PersistentLinuxWorkerNodeRoutes {
     Param(
-        [string] $VmName = $(throw 'Argument missing: VmName'),
-        [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $ClusterIpAddress = $(throw 'Argument missing: ClusterIpAddress'),
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy,
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = ''
+        [string] $WindowsHostIpAddress = $(throw 'Argument missing: WindowsHostIpAddress')
     )
 
-    Write-Log "Prepare the computer $IpAddress for provisioning"
-    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    $podNetworkCIDR = Get-ConfiguredClusterCIDR
 
-    Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    Write-Log "[PersistentRoutes] Creating persistent routes on bare-metal node $IpAddress" -Console
 
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    # Build systemd service content with Unix line endings (LF only)
+    $serviceLines = @(
+        "[Unit]"
+        "Description=K2s Kubernetes Routes"
+        "After=network-online.target"
+        "Wants=network-online.target"
+        ""
+        "[Service]"
+        "Type=oneshot"
+        "RemainAfterExit=yes"
+        "ExecStart=/bin/sh -c 'ip route add $controlPlaneCIDR via $WindowsHostIpAddress 2>/dev/null || true; ip route add $podNetworkCIDR via $WindowsHostIpAddress 2>/dev/null || true'"
+        "ExecStop=/bin/sh -c 'ip route del $controlPlaneCIDR 2>/dev/null || true; ip route del $podNetworkCIDR 2>/dev/null || true'"
+        ""
+        "[Install]"
+        "WantedBy=multi-user.target"
+    )
+    # Join with LF and encode as base64 to avoid line-ending/escaping issues over SSH
+    $serviceContent = $serviceLines -join "`n"
+    $base64Content = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($serviceContent))
 
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
-    $networkPrefix = Get-ConfiguredClusterNetworkPrefix
-    $networkInterfaceName = 'eth0'
-    Add-RemoteIPAddress -UserName $UserName -IPAddress $IpAddress -RemoteIpAddress $ClusterIpAddress -PrefixLength $networkPrefix -RemoteIpAddressGateway $windowsHostIpAddress -DnsEntries $controlPlaneIpAddress -NetworkInterfaceName $networkInterfaceName
-    Disconnect-VMNetworkAdapter -VmName $VmName -ErrorAction Stop
-    $switchName = Get-ControlPlaneNodeDefaultSwitchName
-    Connect-VMNetworkAdapter -VmName $VmName -SwitchName $switchName -ErrorAction Stop
-    Wait-ForSSHConnectionToLinuxVMViaSshKey -User "$UserName@$ClusterIpAddress"
+    # Decode on Linux side and write to file using sudo tee
+    $createServiceCmd = "echo '$base64Content' | base64 -d | sudo tee /etc/systemd/system/k2s-routes.service > /dev/null"
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute $createServiceCmd -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-    $transparentProxy = "http://$($windowsHostIpAddress):8181"
-    Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -UserName $UserName -IpAddress $ClusterIpAddress
+    # Enable and start the service
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo systemctl daemon-reload && sudo systemctl enable k2s-routes.service && sudo systemctl start k2s-routes.service" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 
-    $k8sFormattedNodeName = $NodeName.ToLower()
-    Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $ClusterIpAddress
+    Write-Log "[PersistentRoutes] Persistent routes service created and enabled" -Console
 }
 
-function Remove-LinuxWorkerNodeOnExistingUbuntuVM {
+<#
+.SYNOPSIS
+    Removes persistent routes service from a Linux bare-metal worker node.
+#>
+function Remove-PersistentLinuxWorkerNodeRoutes {
     Param(
-        [string] $VmName = $(throw 'Argument missing: VmName'),
-        [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [switch] $SkipHeaderDisplay = $false
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
     )
 
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName'"
-    }
-
-    Remove-ProxySettingsOnKubenode -UserName $UserName -IpAddress $IpAddress
-
-    $k8sFormattedNodeName = $NodeName.ToLower()
-    $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
-    if ($clusterState -match $k8sFormattedNodeName) {
-        Remove-LinuxNode -NodeName $k8sFormattedNodeName -NodeUserName $UserName -NodeIpAddress $IpAddress
-    }
-
-    Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
-
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if [[ -d /etc/netplan/backup ]]; then find /etc/netplan/backup -maxdepth 1 -type f -exec sudo mv {} /etc/netplan ';';fi" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    Remove-RemoteIPAddress -UserName $UserName -IpAddress $IpAddress
-
-    Disconnect-VMNetworkAdapter -VmName $VmName -ErrorAction Stop
-    Write-Log "Stopping VM $VmName"
-    Stop-VM -Name $VmName -Force -WarningAction SilentlyContinue
-    $state = (Get-VM -Name $VmName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
-    while (!$state) {
-        Write-Log 'Still waiting for stop...'
-        Start-Sleep -s 1
-    }
-    Write-Log "Starting VM $VmName"
-    Start-VM -Name $VmName
-
-    Write-Log "Important: reconnect manually the VM '$VmName' to the corresponding switch."
-    Write-Log "Important: enable swap manually if it was enabled before adding the VM '$VmName' to the cluster."
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName' done."
-    }
+    Write-Log "[PersistentRoutes] Removing persistent routes service from node $IpAddress" -Console
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo systemctl stop k2s-routes.service 2>/dev/null; sudo systemctl disable k2s-routes.service 2>/dev/null; sudo rm -f /etc/systemd/system/k2s-routes.service; sudo systemctl daemon-reload" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
 }
 
-function Start-LinuxWorkerNodeOnExistingVM {
-    Param(
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $NodeName = $(throw 'Argument missing: NodeName'),
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
-        [switch] $SkipHeaderDisplay = $false
-    )
-
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' started"
-    }
-}
-
-function Stop-LinuxWorkerNodeOnExistingVM {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
-        [switch] $SkipHeaderDisplay = $false,
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
-    )
-
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' stopped"
-    }
-}
-
-function Add-LinuxWorkerNodeOnBareMetal {
+function Add-LinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
@@ -277,7 +223,10 @@ function Add-LinuxWorkerNodeOnBareMetal {
         [string] $Proxy = '',
         [string] $AdditionalHooksDir = '',
         [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: installedDistributionOnRemoteComputer'),
-        [string] $NodePackagePath = ''
+        [string] $NodePackagePath = '',
+        [ValidateSet('HOST', 'VM-EXISTING')]
+        [string] $NodeType = 'HOST',
+        [string] $VmName = ''  # Hyper-V VM name (for VM-EXISTING nodes)
     )
 
     $nodeParams = @{
@@ -285,11 +234,17 @@ function Add-LinuxWorkerNodeOnBareMetal {
         IpAddress = $IpAddress
         UserName = $UserName
         Proxy = $Proxy
-        NodeType = 'HOST'
+        NodeType = $NodeType
         Role = 'worker'
         OS = 'linux'
         PodCIDR = '' # will be filled during start of node
     }
+    
+    # Add VmName for VM-EXISTING nodes (needed to find VM during cluster start)
+    if ($VmName) {
+        $nodeParams.VmName = $VmName
+    }
+    
     Add-NodeConfig @nodeParams
 
     Write-Log "Installing node essentials" -Console
@@ -300,14 +255,29 @@ function Add-LinuxWorkerNodeOnBareMetal {
 
     Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath
 
+    Repair-LinuxWorkerNodeRegistriesConfig -UserName $UserName -IpAddress $IpAddress
+
+    # Cleanup Kubernetes-related routes before add/join flow
+    Clear-LinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
+
     $doBeforeJoining = {
         Write-Log "Configuring networking for adding the node" -Console
         # add a route to the cluster network over the Windows host IP address
         $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+        if ($controlPlaneRouteExists) {
+            Write-Log "[Route] Route $controlPlaneCIDR already exists, skipping add."
+        } else {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        }
 
         $podNetworkCIDR = Get-ConfiguredClusterCIDR
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        $podNetworkRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $podNetworkCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+        if ($podNetworkRouteExists) {
+            Write-Log "[Route] Route $podNetworkCIDR already exists, skipping add."
+        } else {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        }
 
         $networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match $WindowsHostIpAddress)} | Select-Object -ExpandProperty InterfaceAlias)
         if ([string]::IsNullOrWhiteSpace($networkInterfaceName)) {
@@ -320,9 +290,14 @@ function Add-LinuxWorkerNodeOnBareMetal {
     Write-Log "Joining new node to the cluster" -Console
     $k8sFormattedNodeName = $NodeName.ToLower()
     Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $IpAddress -PreStepHook $doBeforeJoining
+
+    # For bare-metal (HOST) nodes, create persistent routes so they survive reboots
+    if ($NodeType -eq 'HOST') {
+        Add-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress -WindowsHostIpAddress $WindowsHostIpAddress
+    }
 }
 
-function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
+function Remove-LinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
@@ -331,18 +306,14 @@ function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
     )
     Write-Log "Removing K2s worker node '$NodeName'"
 
+    # Remove persistent routes service only for bare-metal (HOST) nodes
+    $nodeConfig = Get-NodeConfig -NodeName $NodeName
+    if ($null -ne $nodeConfig -and $nodeConfig.NodeType -eq 'HOST') {
+        Remove-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
+    }
+
     $doAfterRemoving = {
-        # delete routes
-        $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-
-        $podNetworkCIDR = Get-ConfiguredClusterCIDR
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $podNetworkCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-
-        # delete network interface 'cni0' that was created by flannel
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip link delete cni0" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-
-        Write-Log "Reconfigured networking for node removal" -Console
+        Clear-LinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
     }
 
     $k8sFormattedNodeName = $NodeName.ToLower()
@@ -360,13 +331,30 @@ function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
     Write-Log "Removing K2s worker node '$NodeName' complete."
 }
 
-function Start-LinuxWorkerNodeOnUbuntuBareMetal {
+function Start-LinuxWorkerNode {
     Param(
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $AdditionalHooksDir = '',
         [switch] $ObtainCIDR = $false
     )
+
+    # Ensure KubeSwitch network profile is Private (Windows can reset it to Public)
+    $switchName = Get-ControlPlaneNodeDefaultSwitchName
+    $switchAlias = "vEthernet ($switchName)"
+    Set-InterfacePrivate -InterfaceAlias $switchAlias
+
+    # For bare-metal (HOST) nodes, restore routes on the Linux side so kubelet can reach the API server
+    $nodeConfig = Get-NodeConfig -NodeName $NodeName
+    if ($null -ne $nodeConfig -and $nodeConfig.NodeType -eq 'HOST') {
+        $userName = $nodeConfig.UserName
+        if (-not [string]::IsNullOrWhiteSpace($userName)) {
+            Write-Log "[Start] Restoring routes on bare-metal node '$NodeName'" -Console
+            Restore-LinuxWorkerNodeRoutes -UserName $userName -IpAddress $IpAddress -NodeName $NodeName
+        } else {
+            Write-Log "[Start] WARNING: Cannot restore routes on bare-metal node '$NodeName' - UserName not found in config"
+        }
+    }
 
     $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName -ObtainCIDR:$ObtainCIDR
     Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
@@ -386,7 +374,7 @@ function Add-WorkerVFPRoute {
     Add-VfpRoute -Name $NodeName -Subnet $ClusterCIDRWorker -Gateway $defaultGateway
 }
 
-function Stop-LinuxWorkerNodeOnUbuntuBareMetal {
+function Stop-LinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $AdditionalHooksDir = '',
@@ -625,16 +613,12 @@ function Test-SupportedWorkerOS {
     throw "OS '$OS' is not supported. Supported: $supportedList"
 }
 
-Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM,
-Start-LinuxWorkerNodeOnNewVM,
-Stop-LinuxWorkerNodeOnNewVM,
-Remove-LinuxWorkerNodeOnNewVM,
-Start-LinuxWorkerNodeOnExistingVM,
-Stop-LinuxWorkerNodeOnExistingVM,
-Add-LinuxWorkerNodeOnExistingUbuntuVM,
-Remove-LinuxWorkerNodeOnExistingUbuntuVM,
-Add-LinuxWorkerNodeOnBareMetal,
-Remove-LinuxWorkerNodeOnUbuntuBareMetal,
-Start-LinuxWorkerNodeOnUbuntuBareMetal,
-Stop-LinuxWorkerNodeOnUbuntuBareMetal,
+Export-ModuleMember -Function Add-LinuxWorkerNode,
+Remove-LinuxWorkerNode,
+Clear-LinuxWorkerNodeRoutes,
+Restore-LinuxWorkerNodeRoutes,
+Add-PersistentLinuxWorkerNodeRoutes,
+Remove-PersistentLinuxWorkerNodeRoutes,
+Start-LinuxWorkerNode,
+Stop-LinuxWorkerNode,
 Test-SupportedWorkerOS

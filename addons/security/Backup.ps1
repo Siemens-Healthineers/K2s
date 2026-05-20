@@ -73,7 +73,7 @@ New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
 
 $script:files = @()
 
-# ── 1. Detect enable flags from live cluster state ──────────────────────────
+# 1. Detect enable flags from live cluster state
 
 Write-Log '[SecurityBackup] Detecting security addon configuration' -Console
 
@@ -122,9 +122,11 @@ if ($oauthDeploy.Success -and -not [string]::IsNullOrWhiteSpace("$($oauthDeploy.
     $hasOAuth2Proxy = $true
 }
 
-Write-Log "[SecurityBackup] Detected config: type=$securityType, ingress=$ingressType, keycloak=$hasKeycloak, hydra=$hasHydra, oauth2proxy=$hasOAuth2Proxy" -Console
+$hasKyverno = Test-KyvernoServiceAvailability
 
-# ── 2. Export CA root Secret ────────────────────────────────────────────────
+Write-Log "[SecurityBackup] Detected config: type=$securityType, ingress=$ingressType, keycloak=$hasKeycloak, hydra=$hasHydra, oauth2proxy=$hasOAuth2Proxy, kyverno=$hasKyverno" -Console
+
+# 2. Export CA root Secret
 
 Write-Log '[SecurityBackup] Exporting CA root certificate Secret' -Console
 
@@ -139,7 +141,7 @@ else {
     Write-Log "[SecurityBackup] Warning: CA root Secret 'ca-issuer-root-secret' not found in cert-manager namespace. TLS trust chain will not be preserved on restore." -Console
 }
 
-# ── 3. Export Keycloak PostgreSQL dump ──────────────────────────────────────
+# 3. Export Keycloak PostgreSQL dump
 
 if ($hasKeycloak) {
     Write-Log '[SecurityBackup] Exporting Keycloak PostgreSQL database' -Console
@@ -159,12 +161,31 @@ else {
     Write-Log '[SecurityBackup] Keycloak not deployed, skipping database dump' -Console
 }
 
-# ── 4. Write backup manifest ───────────────────────────────────────────────
+# 4. Export Kyverno policies
+
+if ($hasKyverno) {
+    Write-Log '[SecurityBackup] Exporting Kyverno policies and exceptions' -Console
+    $kyvernoPoliciesResult = Invoke-Kubectl -Params 'get', 'clusterpolicies,policies,policyexceptions', '-A', '-o', 'yaml'
+    if ($kyvernoPoliciesResult.Success -and -not [string]::IsNullOrWhiteSpace("$($kyvernoPoliciesResult.Output)")) {
+        $kyvernoPoliciesPath = Join-Path $BackupDir 'kyverno-policies.yaml'
+        $kyvernoPoliciesResult.Output | Set-Content -Path $kyvernoPoliciesPath -Encoding UTF8 -Force
+        $script:files += 'kyverno-policies.yaml'
+        Write-Log '[SecurityBackup] Kyverno policies exported' -Console
+    }
+    else {
+        Write-Log '[SecurityBackup] No Kyverno policies found, skipping export' -Console
+    }
+}
+else {
+    Write-Log '[SecurityBackup] Kyverno not deployed, skipping policies export' -Console
+}
+
+# 5. Write backup manifest
 
 $version = 'unknown'
 try { $version = Get-ConfigProductVersion } catch { Write-Log "[SecurityBackup] Could not determine K2s version: $_" }
 
-$manifest = [ordered]@{
+$backupManifest = [ordered]@{
     k2sVersion   = $version
     addon        = 'security'
     implementation = 'security'
@@ -178,11 +199,12 @@ $manifest = [ordered]@{
         omitKeycloak   = (-not $hasKeycloak)
         omitHydra      = (-not $hasHydra)
         omitOAuth2Proxy = (-not $hasOAuth2Proxy)
+        omitPolicyEnf = (-not $hasKyverno)
     }
 }
 
 $manifestPath = Join-Path $BackupDir 'backup.json'
-$manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
+$backupManifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
 
 Write-Log "[SecurityBackup] Backup artifacts prepared ($($script:files.Count) file(s))" -Console
 

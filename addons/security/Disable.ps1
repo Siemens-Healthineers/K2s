@@ -78,6 +78,12 @@ $keyCloakPostgresYaml = Get-KeyCloakPostgresConfig
 
 Remove-WindowsSecurityDeployments
 
+# Uninstall Kyverno policy enforcement if present
+if (Test-KyvernoServiceAvailability) {
+    Write-Log 'Uninstalling Kyverno policy enforcement engine' -Console
+    Uninstall-Kyverno
+}
+
 $needsGatewayApiCrds = $hasNginxGwIngress -or $hasTraefikIngress
 if ($needsGatewayApiCrds) {
     Write-Log 'Gateway API ingress is enabled. Preserving Gateway API CRDs before Linkerd deletion.' -Console

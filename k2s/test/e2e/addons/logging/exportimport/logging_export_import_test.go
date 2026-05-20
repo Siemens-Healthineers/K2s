@@ -35,7 +35,7 @@ var (
 
 func TestLoggingExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "logging Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "logging", "export-import", "system-running"))
+	RunSpecs(t, "logging Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "logging", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -143,11 +143,18 @@ var _ = Describe("logging addon export and import", Ordered, func() {
 	})
 
 	Describe("import logging addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
+
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 

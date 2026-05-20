@@ -5,9 +5,11 @@ package stop
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -34,15 +36,28 @@ var Stopk8sCmd = &cobra.Command{
 func init() {
 	Stopk8sCmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
 	Stopk8sCmd.Flags().BoolP(common.CacheVSwitchFlagName, "", false, common.CacheVSwitchFlagUsage)
+	Stopk8sCmd.Flags().String(common.NodeFlagName, "", common.NodeFlagUsage)
+	Stopk8sCmd.Flags().BoolP("no-wait", "", false, "Skip waiting for node readiness transition (skip the ~50 second wait for NotReady state)")
 	Stopk8sCmd.Flags().SortFlags = false
 	Stopk8sCmd.Flags().PrintDefaults()
 }
 
 func stopk8s(cmd *cobra.Command, args []string) error {
-	cmdSession := common.StartCmdSession(cmd.CommandPath())
-	pterm.Printfln("🛑 Stopping K2s cluster")
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	targetNodeName := strings.TrimSpace(cmd.Flags().Lookup(common.NodeFlagName).Value.String())
+
+	cmdDisplayName := cmd.CommandPath()
+	if targetNodeName != "" {
+		cmdDisplayName = fmt.Sprintf("%s --node %s", cmdDisplayName, targetNodeName)
+	}
+
+	cmdSession := common.StartCmdSession(cmdDisplayName)
+
+	if targetNodeName != "" {
+		pterm.Printfln("🛑 Stopping K2s node '%s'", targetNodeName)
+	} else {
+		pterm.Printfln("🛑 Stopping K2s cluster")
+	}
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
@@ -52,6 +67,15 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
+	}
+
+	if targetNodeName != "" {
+		if err := stopNodeByName(context, cmd.Flags(), targetNodeName); err != nil {
+			return err
+		}
+
+		cmdSession.Finish()
+		return nil
 	}
 
 	err = stopAdditionalNodes(context, cmd.Flags())
@@ -91,6 +115,37 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func stopNodeByName(context *common.CmdContext, flags *pflag.FlagSet, nodeName string) error {
+	clusterConfig, err := cc.Read(context.Config().Host().K2sSetupConfigDir())
+	if err != nil {
+		return err
+	}
+
+	if clusterConfig == nil {
+		return fmt.Errorf("node %q not found: no additional nodes configured", nodeName)
+	}
+
+	node, found := findNodeByName(clusterConfig.Nodes, nodeName)
+	if !found {
+		return fmt.Errorf("node %q not found in additional node configuration", nodeName)
+	}
+
+	stopNodeCmd := buildNodeStopCmd(flags, node, true)
+	slog.Debug("PS command created", "command", stopNodeCmd)
+
+	return powershell.ExecutePs(stopNodeCmd, common.NewPtermWriter())
+}
+
+func findNodeByName(nodes []cc.Node, nodeName string) (cc.Node, bool) {
+	for _, node := range nodes {
+		if strings.EqualFold(strings.TrimSpace(node.Name), nodeName) {
+			return node, true
+		}
+	}
+
+	return cc.Node{}, false
+}
+
 func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet) error {
 	systemStatus, err := status.LoadStatus(context)
 	if err != nil || !systemStatus.RunningState.IsRunning {
@@ -108,7 +163,7 @@ func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet) error
 	}
 
 	for _, node := range clusterConfig.Nodes {
-		startNodeCmd := buildNodeStopCmd(flags, node)
+		startNodeCmd := buildNodeStopCmd(flags, node, false)
 
 		slog.Debug("PS command created", "command", startNodeCmd)
 
@@ -121,16 +176,15 @@ func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet) error
 	return nil
 }
 
-func buildNodeStopCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
+func buildNodeStopCmd(flags *pflag.FlagSet, nodeConfig cc.Node, singleNode bool) string {
 	outputFlag, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 
 	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
 
 	roleType := string(nodeConfig.Role)
 	OsType := string(nodeConfig.OS)
-	nodeType := cc.GetNodeDirectory(string(nodeConfig.NodeType))
 
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", roleType, OsType, nodeType, "Stop.ps1"))
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", roleType, OsType, "bare-metal", "Stop.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"
@@ -142,6 +196,17 @@ func buildNodeStopCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
 
 	if nodeConfig.Name != "" {
 		cmd += " -NodeName " + nodeConfig.Name
+	}
+
+	// -WaitForNotReady (service stop + readiness polling) only applies when
+	// targeting a specific node via --node. Full cluster stop does not need it.
+	if singleNode {
+		cmd += " -SingleNode"
+
+		noWait, _ := strconv.ParseBool(flags.Lookup("no-wait").Value.String())
+		if !noWait {
+			cmd += " -WaitForNotReady"
+		}
 	}
 
 	return cmd

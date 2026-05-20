@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -33,7 +33,7 @@ spec:
         resources:
           requests:
             storage: "1Gi"
-        #storageClassName: "local-path" # when using https://github.com/rancher/local-path-provisioner
+        #storageClassName: "local-path" # when using https://github.com/rancher/local-path-provisioner 
   template:
     metadata:
       name: "opensearch-cluster-master"
@@ -73,24 +73,6 @@ spec:
           name: config-emptydir
       enableServiceLinks: true
       initContainers:
-        - name: fsgroup-volume
-          image: "docker.io/library/busybox:1.37.0"
-          imagePullPolicy: "IfNotPresent"
-          command: ["sh", "-c"]
-          args:
-            - "chown -R 1000:1000 /usr/share/opensearch/data"
-          securityContext:
-            runAsUser: 0
-          resources:
-            limits:
-              cpu: 25m
-              memory: 128Mi
-            requests:
-              cpu: 25m
-              memory: 128Mi
-          volumeMounts:
-            - name: "opensearch-cluster-master"
-              mountPath: /usr/share/opensearch/data
         - name: configfile
           image: "docker.io/opensearchproject/opensearch:3.6.0"
           imagePullPolicy: "IfNotPresent"
@@ -131,7 +113,7 @@ spec:
               port: 9200
             timeoutSeconds: 3
           startupProbe:
-            failureThreshold: 30
+            failureThreshold: 60
             initialDelaySeconds: 5
             periodSeconds: 10
             tcpSocket:
@@ -147,7 +129,7 @@ spec:
           resources:
             requests:
               cpu: 500m
-              memory: 1Gi
+              memory: 768Mi
           env:
             - name: node.name
               valueFrom:
