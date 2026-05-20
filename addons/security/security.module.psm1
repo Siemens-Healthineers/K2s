@@ -120,8 +120,8 @@ function Enable-WindowsSecurityDeployments {
     Invoke-WindowsSecurityYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
 
     Write-Log 'Waiting for windows security deployments..' -Console
-    $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 120)
-    $winLoginStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=windows-login' -Namespace 'security' -TimeoutSeconds 120)
+    $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 300)
+    $winLoginStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=windows-login' -Namespace 'security' -TimeoutSeconds 300)
 
     Write-Log 'Waiting for windows security api to be available..' -Console
     $hydraUrl = 'http://172.19.1.1:4445/admin/clients'
