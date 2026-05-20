@@ -5,24 +5,8 @@
 BeforeAll {
 	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
 	$moduleName = (Import-Module "$PSScriptRoot\upgrade.module.psm1" -PassThru -Force).Name
-
-	if (-not (Get-Command Enable-AddonFromConfig -ErrorAction SilentlyContinue)) {
-		function global:Enable-AddonFromConfig {
-			param (
-				[Parameter(Mandatory = $false)]
-				[pscustomobject] $Config,
-				[Parameter(Mandatory = $false)]
-				[string] $Root
-			)
-		}
-	}
-
-	if (-not (Get-Command Get-EnabledAddons -ErrorAction SilentlyContinue)) {
-		function global:Get-EnabledAddons {
-			return [System.Collections.ArrayList]@()
-		}
-	}
 }
+
 Import-Module "$PSScriptRoot\..\..\..\k2s\k2s.cluster.module"
 Import-Module "$PSScriptRoot\..\..\..\k2s\k2s.infra.module"
 Import-Module "$PSScriptRoot\..\..\..\..\..\addons\addons.module.psm1"
@@ -317,6 +301,17 @@ Describe "RestartCluster" -Tag 'unit', 'ci', 'upgrade' {
 
 Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
+		if (-not (Get-Command Enable-AddonFromConfig -ErrorAction SilentlyContinue)) {
+			function Enable-AddonFromConfig {
+				param (
+					[Parameter(Mandatory = $false)]
+					[pscustomobject] $Config,
+					[Parameter(Mandatory = $false)]
+					[string] $Root
+				)
+			}
+		}
+
 		# Mock the dependencies
 		Mock -ModuleName $moduleName Get-LogFilePath -MockWith { return "C:\Logs\logfile.log" }
 		Mock -ModuleName $moduleName Get-Content -MockWith { return "log content" }
@@ -536,6 +531,12 @@ Describe 'Enable-ClusterIsRunning' -Tag 'unit', 'ci', 'upgrade' {
 
 Describe "PrepareClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
+		if (-not (Get-Command Get-EnabledAddons -ErrorAction SilentlyContinue)) {
+			function Get-EnabledAddons {
+				return [System.Collections.ArrayList]@()
+			}
+		}
+
 		# Mock the dependencies
 		Mock -ModuleName $moduleName Get-SetupInfo -MockWith { return @{ Name = "k2s" } }
 		Mock -ModuleName $moduleName Get-LinuxVMCores -MockWith { return 4 }
