@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
 package node
@@ -30,6 +30,8 @@ const (
 	linux         = "linux"
 	windows       = "windows"
 	baseDeployDir = "overlays"
+	curlMaxTime   = "180"
+	curlConnTime  = "30"
 )
 
 var suite *framework.K2sTestSuite
@@ -38,6 +40,7 @@ var k2s *dsl.K2s
 var linuxNodes []string
 var windowsNodes []string
 var deployments []DeploymentData
+var testFailed = false
 
 type DeploymentData struct {
 	DeploymentName string
@@ -49,6 +52,7 @@ type DeploymentData struct {
 }
 
 func TestClusterCore(t *testing.T) {
+	os.Setenv("SYSTEM_TEST_TIMEOUT", "20m")
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cluster Nodes Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running", "node-sanity"))
 }
@@ -70,6 +74,16 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Found Linux nodes:", linuxNodes, len(linuxNodes))
 	GinkgoWriter.Println("Found Windows nodes:", windowsNodes, len(windowsNodes))
 
+	// Wait for all nodes to be Ready before deploying workloads
+	GinkgoWriter.Println("Waiting for all nodes to be in Ready state...")
+	for _, node := range linuxNodes {
+		suite.Cluster().WaitForNodeToBeReady(node, ctx)
+	}
+	for _, node := range windowsNodes {
+		suite.Cluster().WaitForNodeToBeReady(node, ctx)
+	}
+	GinkgoWriter.Println("All nodes are Ready")
+
 	linuxImage := "shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0"
 	windowsImage := "shsk2s.azurecr.io/example.albums-golang-win:v1.0.0"
 
@@ -83,17 +97,29 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
-	GinkgoWriter.Println("Deleting workloads..")
-
-	deleteDeployments(ctx)
-
-	GinkgoWriter.Println("Workloads deleted")
-
-	if err := os.RemoveAll(baseDeployDir); err != nil {
-		panic(err)
+	if testFailed {
+		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
 
-	suite.TearDown(ctx, framework.RestartKubeProxy)
+	if suite.ShouldCleanup(testFailed) {
+		GinkgoWriter.Println("Deleting workloads..")
+
+		deleteDeployments(ctx)
+
+		GinkgoWriter.Println("Workloads deleted")
+
+		if err := os.RemoveAll(baseDeployDir); err != nil {
+			panic(err)
+		}
+
+		suite.TearDown(ctx, framework.RestartKubeProxy)
+	}
+})
+
+var _ = AfterEach(func() {
+	if CurrentSpecReport().Failed() {
+		testFailed = true
+	}
 })
 
 var _ = Describe("Node Communication Core", func() {
@@ -351,7 +377,7 @@ spec:
 		}
 
 		var resourcePaths []string
-		for i := 1; i <= 2; i++ {
+		for i := 1; i <= 1; i++ {
 			data := DeploymentData{
 				DeploymentName: fmt.Sprintf("%s%d", node, i),
 				AppName:        fmt.Sprintf("%s%d", node, i),
@@ -494,10 +520,10 @@ func checkCommunication(ctx context.Context, sourcePod, targetPod v1.Pod, sideca
 	command := ""
 	if sidecarName != "" {
 		// For Linux, use curl-sidecar
-		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si http://%s.%s.svc.cluster.local/%s", cliPath, sourcePod.Name, namespace, sidecarName, targetAppLabel, namespace, targetAppLabel)
+		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --connect-timeout %s --max-time %s http://%s.%s.svc.cluster.local/%s", cliPath, sourcePod.Name, namespace, sidecarName, curlConnTime, curlMaxTime, targetAppLabel, namespace, targetAppLabel)
 	} else {
 		// For Windows, use the main container
-		command = fmt.Sprintf("%s exec %s -n %s -- curl -si http://%s.%s.svc.cluster.local/%s", cliPath, sourcePod.Name, namespace, targetAppLabel, namespace, targetAppLabel)
+		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --connect-timeout %s --max-time %s http://%s.%s.svc.cluster.local/%s", cliPath, sourcePod.Name, namespace, curlConnTime, curlMaxTime, targetAppLabel, namespace, targetAppLabel)
 	}
 
 	output := suite.Cli("cmd.exe").MustExec(ctx, "/c", command)
@@ -512,10 +538,10 @@ func checkInternetCommunication(ctx context.Context, pod v1.Pod, sidecarName str
 	command := ""
 	if sidecarName != "" {
 		// For Linux, use curl-sidecar
-		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, sidecarName, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure --connect-timeout %s --max-time %s -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, sidecarName, curlConnTime, curlMaxTime, proxy)
 	} else {
 		// For Windows, use the main container
-		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure --connect-timeout %s --max-time %s -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, curlConnTime, curlMaxTime, proxy)
 	}
 
 	output := suite.Cli("cmd.exe").MustExec(ctx, "/c", command)

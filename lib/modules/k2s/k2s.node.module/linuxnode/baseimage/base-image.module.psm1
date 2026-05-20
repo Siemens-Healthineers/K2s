@@ -47,11 +47,14 @@ function Invoke-DownloadLinuxImage {
         [string]$TargetDistribution = 'debian12'
     )
 
+    Write-Log "[LinuxImage] Resolving cloud image for distribution '$TargetDistribution'" -Console
+
     $cloudImage = Get-DistributionCloudImage -OS $TargetDistribution
     $urlRoot = $cloudImage.urlRoot
     $urlFile = $cloudImage.urlFile
 
     $url = "$urlRoot/$urlFile"
+    Write-Log "[LinuxImage] Image URL: $url"
 
     if (-not $OutputPath) {
         $OutputPath = Get-Item '.\'
@@ -60,14 +63,14 @@ function Invoke-DownloadLinuxImage {
     $imgFile = Join-Path $OutputPath $urlFile
 
     if ([System.IO.File]::Exists($imgFile)) {
-        # use Write-Host to not add the entries to the returned stream !
-        # don't use here write-output, because that adds the output to returned value
-        Write-Log "File '$imgFile' already exists. Nothing to do."
+        Write-Log "[LinuxImage] File '$imgFile' already exists, skipping download" -Console
     }
     else {
+        Write-Log "[LinuxImage] Downloading '$urlFile' to '$OutputPath'" -Console
         Invoke-Download $imgFile $url $false $Proxy
+        Write-Log "[LinuxImage] Download completed"
 
-        Write-Log 'Checking file integrity...'
+        Write-Log "[LinuxImage] Verifying file integrity (SHA512)..." -Console
         $allHashes = ''
 
         if ( $Proxy -ne '') {
@@ -76,15 +79,22 @@ function Invoke-DownloadLinuxImage {
             $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke
         }
         else {
+            Write-Log "[LinuxImage] Fetching SHA512SUMS from $urlRoot (no proxy)"
             $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --noproxy '*'
         }
 
-        $sha1Hash = Get-FileHash $imgFile -Algorithm SHA512
+        $computedHash = Get-FileHash $imgFile -Algorithm SHA512
         $m = [regex]::Matches($allHashes, "(?<Hash>\w{128})\s\s$urlFile")
-        if (-not $m[0]) { throw "Cannot get hash for $urlFile." }
+        if (-not $m[0]) { throw "[LinuxImage] Cannot find hash for '$urlFile' in SHA512SUMS" }
         $expectedHash = $m[0].Groups['Hash'].Value
-        if ($sha1Hash.Hash -ne $expectedHash) { throw "Integrity check for '$imgFile' failed." }
-        Write-Log '  ...done'
+        
+        Write-Log "[LinuxImage] Expected hash: $expectedHash"
+        Write-Log "[LinuxImage] Computed hash: $($computedHash.Hash)"
+        
+        if ($computedHash.Hash -ne $expectedHash) { 
+            throw "[LinuxImage] Integrity check failed for '$imgFile' - hash mismatch" 
+        }
+        Write-Log "[LinuxImage] Integrity check passed" -Console
     }
 
     return $imgFile
@@ -546,7 +556,7 @@ Function New-LinuxCloudBasedVirtualMachine {
     $NatName=$NetworkParams.NatName
     $NatIpAddress=$NetworkParams.NatIpAddress
     $dnsEntries = $NetworkParams.DnsIpAddresses
-
+    $ReuseExistingSwitch = [bool]$NetworkParams.ReuseExistingSwitch
     $IsoFileCreatorToolPath = $IsoFileParams.IsoFileCreatorToolPath
     $IsoFileName = $IsoFileParams.IsoFileName
     $IsoContentTemplateSourcePath = $IsoFileParams.SourcePath
@@ -610,25 +620,33 @@ Function New-LinuxCloudBasedVirtualMachine {
 
     Write-Log "Setup the network for provisioning the VM"
 
-    Remove-NetworkForProvisioning -SwitchName $SwitchName -NatName $NatName
-    $networkParams = @{
-        "SwitchName"=$SwitchName
-        "HostIpAddress"=$HostIpAddress
-        "HostIpPrefixLength"=$HostIpPrefixLength
-        "NatName"=$NatName
-        "NatIpAddress"=$NatIpAddress
-    }
-    try {
-        New-NetworkForProvisioning @networkParams
-
-        Write-Log "Attach the VM to a network switch"
+   if ($ReuseExistingSwitch) {
+        Write-Log "Reusing existing switch '$SwitchName' for provisioning VM '$vmName'" -Console
+        Write-Log "Attach the VM to existing network switch '$SwitchName'" -Console
         Connect-VmToSwitch -VmName $vmName -SwitchName $SwitchName
     }
-    catch {
-        Write-Log "[Provisioning] Network setup failed, cleaning up: $_"
+    else {
         Remove-NetworkForProvisioning -SwitchName $SwitchName -NatName $NatName
-        throw
-    }
+        $networkParams = @{
+            "SwitchName"=$SwitchName
+            "HostIpAddress"=$HostIpAddress
+            "HostIpPrefixLength"=$HostIpPrefixLength
+            "NatName"=$NatName
+            "NatIpAddress"=$NatIpAddress
+        }
+        try {
+            New-NetworkForProvisioning @networkParams
+
+            Write-Log "Attach the VM to a network switch"
+            Connect-VmToSwitch -VmName $vmName -SwitchName $SwitchName
+        }
+        catch {
+            Write-Log "[Provisioning] Network setup failed, cleaning up: $_"
+            Remove-NetworkForProvisioning -SwitchName $SwitchName -NatName $NatName
+            throw
+        }
+}
+
 }
 
 <#
@@ -853,5 +871,3 @@ Remove-NetworkForProvisioning,
 Copy-VhdxFile, 
 New-VirtualMachineForBaseImageProvisioning, 
 New-NetworkForProvisioning
-
-

@@ -49,6 +49,15 @@ metadata:
   namespace: security
 spec:
   replicas: 1
+  # Single-replica DB on an RWO hostPath PV: never overlap two pods on the same data
+  # directory. With the default RollingUpdate strategy, a patch-induced rollout (e.g.
+  # Linkerd injection) can briefly schedule the new pod while the old one is still
+  # running its preStop / clean-checkpoint sequence, racing for the volume and
+  # producing exactly the corrupt-WAL / "invalid checkpoint record" PANIC observed
+  # in CI. 'Recreate' guarantees old pod is fully gone (PV released, postmaster.pid
+  # removed) before the new pod starts.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: postgresql
@@ -56,17 +65,42 @@ spec:
     metadata:
       labels:
         app: postgresql
+
     spec:
+      # Allow Postgres enough time to flush dirty buffers and write a clean checkpoint
+      # when the pod is terminated (e.g. during the Linkerd-injection rollout in
+      # security 'enhanced' mode). The default 30s is not enough while Keycloak is
+      # actively performing realm import; an unclean shutdown leaves the WAL in a
+      # state that the next pod can no longer recover from ("invalid checkpoint
+      # record" PANIC), causing CrashLoopBackOff and 400 unauthorized_client errors
+      # from Keycloak (see addons/security/Enable.ps1 postgresql linkerd patch).
+      terminationGracePeriodSeconds: 120
       volumes:
         - name: postgres-pv-storage
           persistentVolumeClaim:
             claimName: postgressql-pvc
       containers:
         - name: postgres
-          image: docker.io/library/postgres:18.3
+          image: docker.io/library/postgres:18.4
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
+          # Graceful shutdown: K8s default sends SIGTERM, which Postgres treats as a
+          # 'smart' shutdown (waits indefinitely for clients to disconnect). With
+          # Keycloak holding long-lived pool connections that never finish, Postgres
+          # eventually gets SIGKILL'd, leaving a corrupt WAL ('invalid checkpoint
+          # record' PANIC on next start, manifesting as Keycloak 400
+          # unauthorized_client / "Unexpected error when authenticating client").
+          # Send SIGINT to PID 1 (Postgres) instead -> 'fast' shutdown that flushes
+          # WAL and writes a clean checkpoint, then wait for postmaster.pid to be
+          # removed, which is the canonical signal that Postgres has fully stopped.
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - 'kill -INT 1 && while [ -f "$PGDATA/postmaster.pid" ]; do sleep 1; done'
           env:
             # Use the Secret created above for database credentials
             - name: POSTGRES_USER

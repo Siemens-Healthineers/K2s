@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2026 Siemens Healthcare GmbH
 # SPDX-License-Identifier: MIT
 
 
@@ -28,7 +28,6 @@ Add-NodeConfig @nodeParams
 
 Supported NodeTypes:
 - HOST          -> Baremetal machine
-- VM-NEW        -> New Provisioned VM from k2s
 - VM-EXISTING   -> Existing VM from the consumer of k2s
 #>
 function Add-NodeConfig {
@@ -40,7 +39,8 @@ function Add-NodeConfig {
         [string] $Role,
         [string] $OS,
         [string] $Proxy,
-        [string] $PodCIDR
+        [string] $PodCIDR,
+        [string] $VmName  # Hyper-V VM name (for VM-EXISTING nodes)
     )
     $clusterFilePath = Get-ClusterDescriptorFilePath
     $json = Get-JsonContent -FilePath $clusterFilePath
@@ -49,6 +49,9 @@ function Add-NodeConfig {
         $json = @{ nodes = @() }
     } elseif (-Not $json.nodes) {
         $json.nodes = @()
+    } else {
+        # Ensure nodes is always an array (single object becomes array of one)
+        $json.nodes = @($json.nodes)
     }
 
     $existingNode = $json.nodes | Where-Object { $_.Name -eq $Name }
@@ -66,6 +69,12 @@ function Add-NodeConfig {
         Proxy     = $Proxy
         PodCIDR   = $PodCIDR
     }
+    
+    # Add VmName for VM-EXISTING nodes (needed to find VM during cluster start)
+    if ($VmName) {
+        $newNode.VmName = $VmName
+    }
+    
     $json.nodes += $newNode
     Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
     Write-Log "Node '$Name' configuration added successfully."
@@ -78,6 +87,10 @@ function Remove-NodeConfig {
     $clusterFilePath = Get-ClusterDescriptorFilePath
     $json = Get-JsonContent -FilePath $clusterFilePath
     if (-Not $json) { return }
+    if (-Not $json.nodes) { return }
+    
+    # Ensure nodes is always an array
+    $json.nodes = @($json.nodes)
 
     $nodeToRemove = $json.nodes | Where-Object { $_.Name -eq $Name }
     if (-Not $nodeToRemove) {
@@ -85,11 +98,7 @@ function Remove-NodeConfig {
         return
     }
 
-    $json.nodes = $json.nodes | Where-Object { $_.Name -ne $Name }
-
-    if (-Not $json.nodes) {
-        $json.nodes = @()
-    }
+    $json.nodes = @($json.nodes | Where-Object { $_.Name -ne $Name })
 
     Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
     Write-Log "Node '$Name' configuration removed successfully."
@@ -102,8 +111,12 @@ function Get-NodeConfig {
     $clusterFilePath = Get-ClusterDescriptorFilePath
     $json = Get-JsonContent -FilePath $clusterFilePath
     if (-Not $json) { return $null }
+    if (-Not $json.nodes) { return $null }
+    
+    # Ensure nodes is always an array
+    $nodes = @($json.nodes)
 
-    $node = $json.nodes | Where-Object { $_.Name -eq $NodeName }
+    $node = $nodes | Where-Object { $_.Name -eq $NodeName }
     if (-Not $node) {
         Write-Log "No node configuration found with the name '$NodeName'."
         return $null
@@ -127,6 +140,10 @@ function Update-NodeConfig {
     $clusterFilePath = Get-ClusterDescriptorFilePath
     $json = Get-JsonContent -FilePath $clusterFilePath
     if (-Not $json) { return }
+    if (-Not $json.nodes) { return }
+    
+    # Ensure nodes is always an array
+    $json.nodes = @($json.nodes)
 
     $nodeToUpdate = $json.nodes | Where-Object { $_.Name -eq $Name }
     if (-Not $nodeToUpdate) {
@@ -148,4 +165,4 @@ function Update-NodeConfig {
 }
 
 Export-ModuleMember -Function Add-NodeConfig, Remove-NodeConfig,
-Get-NodeConfig, Update-NodeConfig
+Get-NodeConfig, Update-NodeConfig, Get-ClusterDescriptorFilePath

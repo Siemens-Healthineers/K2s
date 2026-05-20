@@ -986,7 +986,7 @@ Describe 'Update-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
         Mock -ModuleName $moduleName Update-IngressForAddon { }
-        Mock -ModuleName $moduleName Invoke-Kubectl { }
+        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = '' } }
     }
 
     Context 'security addon not enabled' {
@@ -1083,6 +1083,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName Write-Log { }
 
             $script:downloadArgs = $null
+            $script:downloadedUrls = @()
             $script:downloadProxy = $null
 
             $manifest = [pscustomobject]@{
@@ -1093,6 +1094,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
                                 windows = [pscustomobject]@{
                                     curl = @(
                                         [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
+                                        [pscustomobject]@{ destination = 'bin\\linkerd.exe'; url = 'http://example/linkerd.exe' }
                                     )
                                 }
                             }
@@ -1105,6 +1107,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName Test-Path { return $false }
             Mock -ModuleName $moduleName Invoke-DownloadFile {
                 $script:downloadArgs = $args
+                $script:downloadedUrls += $args[1]
                 $script:downloadProxy = $PSBoundParameters['ProxyToUse']
             }
         }
@@ -1118,6 +1121,9 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             ($script:downloadArgs | Where-Object { $_ -match 'cmctl\.exe$' }).Count | Should -BeGreaterThan 0
             ($script:downloadArgs | Where-Object { $_ -eq 'http://example/cmctl.exe' }).Count | Should -BeGreaterThan 0
             ($script:downloadArgs | Where-Object { $_ -eq 'http://proxy:8080' }).Count | Should -BeGreaterThan 0
+            $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
+            $script:downloadedUrls | Should -Not -Contain 'http://example/linkerd.exe'
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It
         }
     }
 
@@ -1152,6 +1158,48 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
 
                 Should -Invoke Invoke-DownloadFile -Times 0 -Scope Context
             }
+        }
+    }
+
+    Context 'curl section contains a ZIP archive alongside a direct exe' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+
+            $script:downloadedUrls = @()
+
+            $manifest = [pscustomobject]@{
+                spec = [pscustomobject]@{
+                    implementations = @(
+                        [pscustomobject]@{
+                            offline_usage = [pscustomobject]@{
+                                windows = [pscustomobject]@{
+                                    curl = @(
+                                        [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
+                                        [pscustomobject]@{ destination = 'bin\\kyverno.exe'; url = 'http://example/kyverno-cli_v1.17.1_windows_x86_64.zip' }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
+            Mock -ModuleName $moduleName Test-Path { return $false }
+            Mock -ModuleName $moduleName Invoke-DownloadFile {
+                $script:downloadedUrls += $args[1]
+            }
+        }
+
+        It 'downloads the direct exe but skips the ZIP archive' {
+            InModuleScope -ModuleName $moduleName {
+                Install-CmctlCli -ManifestPath 'C:\test\manifest.yaml' -K2sRoot 'C:\k2s'
+            }
+
+            # Only cmctl.exe should be downloaded; the kyverno ZIP is handled by Install-KyvernoCli
+            $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
+            $script:downloadedUrls | Should -Not -Contain 'http://example/kyverno-cli_v1.17.1_windows_x86_64.zip'
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope Context
         }
     }
 }
