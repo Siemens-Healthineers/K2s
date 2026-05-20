@@ -5,6 +5,26 @@
 BeforeAll {
 	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
 	$moduleName = (Import-Module "$PSScriptRoot\upgrade.module.psm1" -PassThru -Force).Name
+
+	# Provide addon command shims in module scope so -ModuleName mocks can always bind.
+	InModuleScope $moduleName {
+		if (-not (Get-Command Enable-AddonFromConfig -ErrorAction SilentlyContinue)) {
+			function Enable-AddonFromConfig {
+				param (
+					[Parameter(Mandatory = $false)]
+					[pscustomobject] $Config,
+					[Parameter(Mandatory = $false)]
+					[string] $Root
+				)
+			}
+		}
+
+		if (-not (Get-Command Get-EnabledAddons -ErrorAction SilentlyContinue)) {
+			function Get-EnabledAddons {
+				return [System.Collections.ArrayList]@()
+			}
+		}
+	}
 }
 Import-Module "$PSScriptRoot\..\..\..\k2s\k2s.cluster.module"
 Import-Module "$PSScriptRoot\..\..\..\k2s\k2s.infra.module"
