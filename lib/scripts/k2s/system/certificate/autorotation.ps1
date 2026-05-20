@@ -136,7 +136,8 @@ function Invoke-PatchKubeletConfig {
 
     # Step 2: patch using sed — single-line bash (no heredoc, SSH-safe)
     # Update existing key if present, otherwise append it
-    $patchCmd = "if sudo grep -q 'rotateCertificates' $kubeletConfigPath; then sudo sed -i 's/rotateCertificates:.*/rotateCertificates: $Value/' $kubeletConfigPath; else echo 'rotateCertificates: $Value' | sudo tee -a $kubeletConfigPath > /dev/null; fi"
+    # Use extended regex to handle optional whitespace around the colon (e.g. 'rotateCertificates :  true')
+    $patchCmd = "if sudo grep -q 'rotateCertificates' $kubeletConfigPath; then sudo sed -i -E 's/rotateCertificates\s*:.*/rotateCertificates: $Value/' $kubeletConfigPath; else echo 'rotateCertificates: $Value' | sudo tee -a $kubeletConfigPath > /dev/null; fi"
     $patchResult = Invoke-CmdOnControlPlaneViaSSHKey $patchCmd -IgnoreErrors
     $patchResult.Output | Write-Log
     if (-not $patchResult.Success) {
@@ -159,14 +160,21 @@ function Get-KubeletAutoRotationStatus {
 
     # Verify config file exists before reading
     $checkResult = Invoke-CmdOnControlPlaneViaSSHKey "test -f $kubeletConfigPath && echo 'exists' || echo 'missing'" -IgnoreErrors
+    if (-not $checkResult.Success -and -not ($checkResult.Output | Where-Object { $_ -match 'exists|missing' })) {
+        throw "[AutoRotation] SSH connection to control plane node failed. Cannot read kubelet config."
+    }
     if (($checkResult.Output | Where-Object { $_ -match 'missing' })) {
         Write-Log "[AutoRotation] Kubelet config file not found at $kubeletConfigPath" -Console
         return 'unknown (config file missing)'
     }
 
     # Single-line bash: check for enabled/disabled/absent — SSH-safe, no heredoc
-    $statusCmd = "if sudo grep -q 'rotateCertificates: true' $kubeletConfigPath; then echo 'enabled'; elif sudo grep -q 'rotateCertificates' $kubeletConfigPath; then echo 'disabled'; else echo 'disabled (key not present)'; fi"
+    # Use flexible grep patterns to handle optional whitespace around the colon (e.g. 'rotateCertificates : true')
+    $statusCmd = "if sudo grep -qE 'rotateCertificates\s*:\s*true' $kubeletConfigPath; then echo 'enabled'; elif sudo grep -q 'rotateCertificates' $kubeletConfigPath; then echo 'disabled'; else echo 'disabled (key not present)'; fi"
     $result = Invoke-CmdOnControlPlaneViaSSHKey $statusCmd -IgnoreErrors
+    if (-not $result.Success -and -not ($result.Output | Where-Object { $_ -match 'enabled|disabled' })) {
+        throw "[AutoRotation] SSH connection to control plane node failed. Cannot determine auto-rotation status."
+    }
     $statusValue = ($result.Output | Where-Object { $_ -match 'enabled|disabled|unknown' } | Select-Object -First 1)
     if ([string]::IsNullOrWhiteSpace($statusValue)) {
         $statusValue = 'disabled (key not present)'
