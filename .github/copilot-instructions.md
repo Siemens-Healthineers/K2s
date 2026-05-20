@@ -123,8 +123,27 @@ When adding a new packaging / diff feature:
 - Test PowerShell modules: Execute unit test files like `addons.module.unit.tests.ps1` with Pester.
 - Run all tests: `powershell -File test/execute_all_tests.ps1`.
 
-## 14. When Unsure
+## 14. Terminal Commands — RTK Token Optimization
+When running terminal commands, prefix them with `rtk` to reduce token consumption in the conversation context. RTK compresses noisy output (test results, kubectl listings, git logs) while preserving errors and debugging information.
+
+- **Use `rtk`** for: `go test`, `go build`, `git status`, `git log`, `git diff`, `kubectl get`, `kubectl describe`, `kubectl logs`
+- **Do NOT use `rtk`** for: commands that pipe output to other commands, interactive commands, or commands where you need exact byte-level output
+- **On errors**: RTK preserves all error messages, file:line references, and exit codes. No debugging information is lost.
+
+Examples:
+```console
+rtk go test ./internal/...          # instead of: go test ./internal/...
+rtk git status                      # instead of: git status
+rtk kubectl get pods -A             # instead of: kubectl get pods -A
+rtk go build ./cmd/k2s              # instead of: go build ./cmd/k2s
+```
+
+If RTK is not installed, the `rtk` prefix will fail. In that case, fall back to running commands without the prefix.
+
+**Toggle**: If the user says "disable rtk", "no rtk", or "rtk off", stop using the `rtk` prefix for the rest of the conversation. If the user says "enable rtk", "rtk on", or "use rtk", resume using it.
+
+## 15. When Unsure
 Prefer searching existing examples (addon scripts, helper functions) before inventing new patterns. Keep new code incremental and testable.
 
 ---
-If a needed pattern isn’t described here, surface a question in PR or propose a minimal extension and document it in this file.
+If a needed pattern isn’t described here, surface a question in PR or propose a minimal extension and document it in this file
