@@ -5,6 +5,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -68,6 +69,13 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	GinkgoWriter.Println("Waiting for Deployments to be ready in namespace <", namespace, ">..")
 
+	// Early detection: check for systemic image pull failures before committing
+	// to the full rollout timeout (~8 min). If all pods are stuck in ErrImagePull
+	// after 60s, the registry is likely unreachable — fail fast with diagnostics.
+	GinkgoWriter.Println("Checking for image pull errors (60s grace period)...")
+	time.Sleep(60 * time.Second)
+	detectSystemicImagePullFailures(ctx)
+
 	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
 
 	for _, deploymentName := range linuxDeploymentNames {
@@ -92,6 +100,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		for _, deploymentName := range winDeploymentNames {
 			suite.Cluster().ExpectDNSToBeResolvableFromHost(ctx, deploymentName, namespace)
 		}
+
+		waitForWindowsWorkloadNetworkReadiness(ctx)
 	}
 
 	GinkgoWriter.Println("Deployments ready for testing")
@@ -125,6 +135,123 @@ var _ = AfterEach(func() {
 		testFailed = true
 	}
 })
+
+// detectSystemicImagePullFailures checks if all pods in the test namespace are
+// stuck in ErrImagePull/ImagePullBackOff, indicating a cluster-wide registry
+// connectivity problem (e.g., broken proxy or auth after an upgrade).
+// Fails immediately with diagnostics instead of waiting the full rollout timeout.
+func detectSystemicImagePullFailures(ctx context.Context) {
+	output, _ := suite.Kubectl().Exec(ctx, "get", "pods", "-n", namespace, "--no-headers",
+		"-o", "custom-columns=NAME:.metadata.name,REASON:.status.containerStatuses[*].state.waiting.reason")
+
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return
+	}
+
+	lines := strings.Split(output, "\n")
+	failCount := 0
+	for _, line := range lines {
+		if strings.Contains(line, "ErrImagePull") || strings.Contains(line, "ImagePullBackOff") {
+			failCount++
+		}
+	}
+
+	if failCount > 0 && failCount == len(lines) {
+		podStatus, _ := suite.Kubectl().Exec(ctx, "get", "pods", "-n", namespace, "-o", "wide")
+		events, _ := suite.Kubectl().Exec(ctx, "get", "events", "-n", namespace,
+			"--sort-by=.lastTimestamp", "--field-selector=reason=Failed")
+		Fail(fmt.Sprintf("All %d pods stuck in image pull failures — container registry may be unreachable after upgrade.\nPod status:\n%s\nRecent failure events:\n%s",
+			failCount, podStatus, events))
+	}
+}
+
+func waitForWindowsWorkloadNetworkReadiness(ctx context.Context) {
+	GinkgoWriter.Println("Waiting for Windows workload network readiness from host and Linux curl pod..")
+
+	deadline := time.Now().Add(suite.TestStepTimeout())
+	pollInterval := suite.TestStepPollInterval()
+	if pollInterval < 5*time.Second {
+		pollInterval = 5 * time.Second
+	}
+	lastFailures := make([]string, 0)
+
+	for {
+		lastFailures = lastFailures[:0]
+
+		for _, deploymentName := range winDeploymentNames {
+			if err := probeDeploymentFromHost(ctx, deploymentName); err != nil {
+				lastFailures = append(lastFailures, fmt.Sprintf("host -> %s: %v", deploymentName, err))
+			}
+
+			if err := probeDeploymentFromCurlPod(ctx, deploymentName); err != nil {
+				lastFailures = append(lastFailures, fmt.Sprintf("curl pod -> %s: %v", deploymentName, err))
+			}
+		}
+
+		if len(lastFailures) == 0 {
+			GinkgoWriter.Println("Windows workload network readiness verified")
+			return
+		}
+
+		if time.Now().After(deadline) {
+			testFailed = true
+			collectWindowsWorkloadNetworkDiagnostics()
+			Fail(fmt.Sprintf("Windows workload network readiness failed after k2s start/reboot within %s:\n%s", suite.TestStepTimeout(), strings.Join(lastFailures, "\n")))
+		}
+
+		GinkgoWriter.Printf("Windows workload network readiness pending: %s\n", strings.Join(lastFailures, "; "))
+		time.Sleep(pollInterval)
+	}
+}
+
+func probeDeploymentFromHost(ctx context.Context, deploymentName string) error {
+	url := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", deploymentName, namespace, deploymentName)
+	_, exitCode := suite.Cli("curl").Exec(ctx, "-sS", "-f", "-m", "10", url)
+	if exitCode != 0 {
+		return fmt.Errorf("curl returned exit code %d for %s", exitCode, url)
+	}
+
+	return nil
+}
+
+func probeDeploymentFromCurlPod(ctx context.Context, deploymentName string) error {
+	url := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", deploymentName, namespace, deploymentName)
+	_, exitCode := suite.Kubectl().Exec(ctx, "exec", "deployment/curl", "-n", namespace, "-c", "curl", "--", "curl", "-sS", "-f", "-m", "10", url)
+	if exitCode != 0 {
+		return fmt.Errorf("kubectl exec curl returned exit code %d for %s", exitCode, url)
+	}
+
+	return nil
+}
+
+func collectWindowsWorkloadNetworkDiagnostics() {
+	GinkgoWriter.Println("Collecting Windows workload network diagnostics after readiness failure..")
+
+	diagCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	runDiagnosticCommand(diagCtx, "get", "nodes", "-o", "wide")
+	runDiagnosticCommand(diagCtx, "get", "pods", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(diagCtx, "get", "services", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(diagCtx, "get", "endpoints", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(diagCtx, "get", "endpointslices", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(diagCtx, "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
+
+	for _, deploymentName := range winDeploymentNames {
+		runDiagnosticCommand(diagCtx, "describe", "deployment", deploymentName, "-n", namespace)
+		runDiagnosticCommand(diagCtx, "describe", "service", deploymentName, "-n", namespace)
+		runDiagnosticCommand(diagCtx, "describe", "pods", "-l", "app="+deploymentName, "-n", namespace)
+	}
+}
+
+func runDiagnosticCommand(ctx context.Context, args ...string) {
+	GinkgoWriter.Printf(">>> DIAG: kubectl %s\n", strings.Join(args, " "))
+	_, exitCode := suite.Kubectl().Exec(ctx, args...)
+	if exitCode != 0 {
+		GinkgoWriter.Printf(">>> DIAG: kubectl %s exited with code %d\n", strings.Join(args, " "), exitCode)
+	}
+}
 
 var _ = Describe("Cluster Core", func() {
 	systemNamespace := "kube-system"

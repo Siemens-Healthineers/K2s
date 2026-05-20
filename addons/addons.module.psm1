@@ -1211,6 +1211,26 @@ function Update-IngressForNginx {
 		$kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
 	}
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
+
+	Write-Log '  [Webhook probe] Waiting for nginx admission webhook to accept connections (up to 120s)...' -Console
+	$probeWaited = 0
+	$probeMaxWait = 120
+	do {
+		$probeResult = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir, '--dry-run=server'
+		$outputText = ($probeResult.Output | ForEach-Object { "$_" }) -join "`n"
+		if ($probeResult.Success -and $outputText -notmatch 'connection refused' -and $outputText -notmatch 'deadline exceeded') {
+			Write-Log "  [Webhook probe] Webhook is accepting connections after ${probeWaited}s" -Console
+			break
+		}
+		$notReadyReason = if ($outputText -match 'deadline exceeded') { 'deadline exceeded' } else { 'connection refused' }
+		Write-Log "  [Webhook probe] Webhook not ready at ${probeWaited}s ($notReadyReason) - waiting 5s..." -Console
+		Start-Sleep -Seconds 5
+		$probeWaited += 5
+	} while ($probeWaited -lt $probeMaxWait)
+	if ($probeWaited -ge $probeMaxWait) {
+		Write-Log '  [Webhook probe] WARNING: webhook did not become reachable within 120s; apply attempts will likely fail' -Console
+	}
+
 	# Retry logic: the admission webhook may transiently reject the ingress if the
 	# controller has not yet fully loaded the ConfigMap (e.g. annotations-risk-level).
 	$maxRetries = 3
@@ -1231,6 +1251,8 @@ function Update-IngressForNginx {
 	}
 	if (-not $applied) {
 		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name) after $maxRetries attempts" -Console
+		throw "[Ingress-Nginx] Failed to apply ingress manifest for '$($props.Name)' after $maxRetries attempts. " +
+			"Check kubectl output above and nginx admission webhook availability."
 	}
 }
 
@@ -1382,12 +1404,27 @@ function Update-IngressForNginxGateway {
 	}
 
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir
-	if ($result.Success) {
-		Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+
+	$maxRetries = 3
+	$retryDelay = 10
+	$applied = $false
+	for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+		$result = Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir, '--request-timeout=30s'
+		if ($result.Success) {
+			Write-Log "  Successfully applied ingress manifest for $($props.Name)" -Console
+			$applied = $true
+			break
+		}
+		Write-Log "  WARNING: Failed to apply ingress manifest for $($props.Name) (attempt $attempt/$maxRetries): $($result.Output)" -Console
+		if ($attempt -lt $maxRetries) {
+			Write-Log "  Retrying in $retryDelay seconds..." -Console
+			Start-Sleep -Seconds $retryDelay
+		}
 	}
-	else {
-		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name): $($result.Output)" -Console
+	if (-not $applied) {
+		Write-Log "  ERROR: Failed to apply ingress manifest for $($props.Name) after $maxRetries attempts" -Console
+		throw "[Ingress-NginxGw] Failed to apply ingress manifest for '$($props.Name)' after $maxRetries attempts. " +
+			"Check kubectl output above and API server availability."
 	}
 }
 
@@ -1659,7 +1696,20 @@ function Install-CmctlCli {
         return
     }
     foreach ($package in $windowsCurlPackages) {
-        $destination = $package.destination
+		$destination = [string]$package.destination
+        $url = $package.url
+		$urlPath = ($url -split '\?')[0]
+		$urlFileName = [System.IO.Path]::GetFileName($urlPath)
+
+		if ($destination -notmatch '(?i)cmctl\.exe' -and $urlFileName -notmatch '(?i)^cmctl') {
+			continue
+		}
+
+        if ($url -match '\.(zip|tar\.gz|tgz)(\?.*)?$') {
+            Write-Log "Skipping archive package '$url' - handled by dedicated installer." -Console
+            continue
+        }
+
         $destination = "$K2sRoot\$destination"
         # Normalize path to ensure Test-Path works correctly
         $destination = [System.IO.Path]::GetFullPath($destination)
@@ -1668,7 +1718,6 @@ function Install-CmctlCli {
             Write-Log "File $destination already exists. Skipping download." -Console
             continue
         }
-        $url = $package.url
         Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
     }
 }

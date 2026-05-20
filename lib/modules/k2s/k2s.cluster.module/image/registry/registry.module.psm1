@@ -24,7 +24,9 @@ function Add-RegistryToSetupJson([string]$Name) {
     $registryAlreadyExists = $parsedSetupJson.Registries | Where-Object { $_ -eq $Name }
     if (!$registryAlreadyExists) {
         $parsedSetupJson.Registries += $Name
-        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $setupJsonFile -Confirm:$false
+        $tempPath = "$setupJsonFile.tmp"
+        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $tempPath -Confirm:$false
+        Move-Item -Path $tempPath -Destination $setupJsonFile -Force
     }
 }
 
@@ -47,7 +49,9 @@ function Remove-RegistryFromSetupJson([string]$Name, [bool]$IsRegex) {
         else {
             $parsedSetupJson.PSObject.Properties.Remove('Registries')
         }
-        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $setupJsonFile -Confirm:$false
+        $tempPath = "$setupJsonFile.tmp"
+        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $tempPath -Confirm:$false
+        Move-Item -Path $tempPath -Destination $setupJsonFile -Force
     }
 }
 

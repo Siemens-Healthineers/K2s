@@ -187,6 +187,12 @@ var _ = Describe("'security' addon", Ordered, func() {
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
 				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
+			),
+			SatisfyAll(
+				HaveField("Name", "IsKyvernoAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The Kyverno policy engine is ready"))),
 			)))
 	})
 
@@ -250,6 +256,12 @@ var _ = Describe("'security' addon", Ordered, func() {
 	It("preserves cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
+		Expect(err).To(BeNil())
+	})
+
+	It("preserves kyverno.exe, the Kyverno CLI", func(ctx context.Context) {
+		kyvernoPath := path.Join(suite.RootDir(), "bin", "kyverno.exe")
+		_, err := os.Stat(kyvernoPath)
 		Expect(err).To(BeNil())
 	})
 
@@ -505,7 +517,7 @@ type omitFlagTestCase struct {
 var _ = Describe("'security' addon with omit flags (basic mode)", Ordered, func() {
 	// Test only "all omit flags" case - covers all omit functionality in one enable/disable cycle
 	It("enables the addon with all omit flags", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "--omitPolicyEnf", "-o")
 	})
 
 	It("prints the status showing all omitted components", func(ctx context.Context) {
@@ -529,6 +541,11 @@ var _ = Describe("'security' addon with omit flags (basic mode)", Ordered, func(
 			HaveField("Value", false),
 			HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
 		)))
+		Expect(addonStatus.Props).To(ContainElement(SatisfyAll(
+			HaveField("Name", "IsKyvernoAvailable"),
+			HaveField("Value", false),
+			HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
+		)))
 	})
 
 	AfterAll(func(ctx context.Context) {
@@ -540,7 +557,7 @@ var _ = Describe("'security' addon with omit flags (basic mode)", Ordered, func(
 var _ = Describe("'security' addon with omit flags (enhanced mode)", Ordered, func() {
 	// Test only "all omit flags" case - covers all omit functionality in one enable/disable cycle
 	It("enables the addon with all omit flags in enhanced mode", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "-o")
+		suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, "-t", "enhanced", "--omitHydra", "--omitKeycloak", "--omitOAuth2Proxy", "--omitPolicyEnf", "-o")
 	})
 
 	It("prints the status showing correct component states", func(ctx context.Context) {

@@ -222,7 +222,7 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
     if (-not [string]::IsNullOrWhiteSpace($NodeName)) {
         $requestedNode = $NodeName.ToLower()
         if ($requestedNode -ne $localNodeName) {
-            if ($NodeType -in @('VM-NEW', 'VM-EXISTING')) {
+            if ($NodeType -eq 'VM-EXISTING') {
                 Write-Log "[ImageFilter] Collecting Windows images from remote VM node '$NodeName'"
                 $output = @(Get-RemoteWindowsNodeImageOutput -VmName $NodeName)
                 $node = $requestedNode
@@ -683,7 +683,7 @@ function Remove-Image([ContainerImage]$ContainerImage, [switch]$Force) {
         }
         elseif ($nodeOs -eq 'windows') {
             $nodeType = "$($clusterNode.NodeType)"
-            if ($nodeType -in @('VM-NEW', 'VM-EXISTING')) {
+            if ($nodeType -eq 'VM-EXISTING') {
                 Write-Log "[ImageRm] Removing image '$imageId' on remote Windows VM node '$nodeName'"
                 $output = Remove-ImageOnWindowsVm -ImageId $imageId -VmName $nodeName -Force:$Force
             }
