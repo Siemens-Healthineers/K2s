@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package dashboard
+package dashboardenabdisable
 
 import (
 	"context"
