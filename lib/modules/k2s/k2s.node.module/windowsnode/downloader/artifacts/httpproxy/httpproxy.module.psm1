@@ -41,7 +41,7 @@ function Install-WinHttpProxy {
 
     &$kubeBinPath\nssm set httpproxy AppStdout "$httpProxyLogDir\httpproxy_stdout.log" | Out-Null
     &$kubeBinPath\nssm set httpproxy AppStderr "$httpProxyLogDir\httpproxy_stderr.log" | Out-Null
-reationDisposition 4 | Out-Null
+    &$kubeBinPath\nssm set httpproxy AppStdoutCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set httpproxy AppStderrCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set httpproxy AppRotateFiles 1 | Out-Null
     &$kubeBinPath\nssm set httpproxy AppRotateOnline 1 | Out-Null
