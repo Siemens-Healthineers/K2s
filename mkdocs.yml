@@ -122,6 +122,7 @@ nav:
       - Networking Architecture: op-manual/networking-architecture.md
       - Running Native Windows Apps (HostProcess & Compartments): op-manual/running-apps-as-hostprocess.md
       - Uninstalling K2s: op-manual/uninstalling-k2s.md
+      - Configuring the Log Folder: op-manual/log-folder.md
       - Sign K2s package: op-manual/signcatalog-k2s.md
       - Code Signing: op-manual/code-signing.md
   - Developer Guide:
