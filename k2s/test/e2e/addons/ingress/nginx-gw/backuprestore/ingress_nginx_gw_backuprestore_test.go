@@ -145,7 +145,7 @@ var _ = Describe("'ingress nginx-gw' addon backup/restore", Ordered, func() {
 
 		k2s.VerifyAddonIsDisabled("ingress", "nginx-gw")
 
-		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", "nginx-gw")
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw", "nginx-gw")
 	})
 
 	It("restores from backup and the annotation is present", func(ctx context.Context) {
