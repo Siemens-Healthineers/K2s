@@ -80,7 +80,8 @@
         "ssh": "~/.ssh",
         "kube": "~/.kube",
         "docker": "~/.docker",
-        "k2s": "C:\\ProgramData\\K2s"
+        "k2s": "C:\\ProgramData\\K2s",
+        "logs": "C:\\var\\log"
     },
     "clusterName": "k2s-cluster",
     "supportedWorkerOS": [
