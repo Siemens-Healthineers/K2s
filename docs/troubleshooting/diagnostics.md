@@ -26,6 +26,8 @@ k2s start
 ## Log Files
 To analyze the log files, browse the directory `<install-drive>\var\log`. The main log file is `k2s.log`.
 
+The log root is configurable; see [Configuring the K2s Log Folder](../op-manual/log-folder.md) for how to relocate it.
+
 ## Dumping *K2s* Debug Information
 To dump *K2s* system information, run:
 ```console
