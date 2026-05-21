@@ -84,7 +84,7 @@ var _ = Describe("core", func() {
 			It("returns silent error", func() {
 
 				cmd := &cobra.Command{}
-				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
+				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", "", ""), nil)
 				cmdContext := common.NewCmdContext(cfg, nil, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 				runtimeConfig := config.NewK2sRuntimeConfig(nil, config.NewK2sInstallConfig("existent", false, "", false, false), nil)
@@ -117,7 +117,7 @@ var _ = Describe("core", func() {
 				It("returns error", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
-					cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
+					cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", "", ""), nil)
 					cmdContext := common.NewCmdContext(cfg, nil, nil)
 					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
@@ -146,7 +146,7 @@ var _ = Describe("core", func() {
 				It("returns error", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
-					cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
+					cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", "", ""), nil)
 					cmdContext := common.NewCmdContext(cfg, nil, nil)
 					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
@@ -171,7 +171,7 @@ var _ = Describe("core", func() {
 			It("returns error", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
+				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", "", ""), nil)
 				cmdContext := common.NewCmdContext(cfg, nil, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
@@ -202,7 +202,7 @@ var _ = Describe("core", func() {
 			It("returns error", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
+				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", "", ""), nil)
 				cmdContext := common.NewCmdContext(cfg, nil, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
@@ -251,7 +251,7 @@ var _ = Describe("core", func() {
 			It("returns prints warning", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", ""), nil)
+				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", "", ""), nil)
 				cmdContext := common.NewCmdContext(cfg, nil, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
