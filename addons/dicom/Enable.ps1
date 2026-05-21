@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -203,13 +203,22 @@ if (!$deploymentsCheck.Success -or $deploymentsCheck.Output -match "No resources
         $deploymentSuccess = $false
     }
     
-    # If all deployments exist, check their status
+    # If all deployments exist, check their status sequentially (postgres first as it's the dependency)
     if ($deploymentSuccess) {
-        $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'dicom', '--timeout=180s')
-        Write-Log $kubectlCmd.Output
-        if (!$kubectlCmd.Success) {
+        Write-Log "Waiting for postgres deployment rollout..." -Console
+        $pgRollout = (Invoke-Kubectl -Params 'rollout', 'status', 'deployment/postgres', '-n', 'dicom', '--timeout=300s')
+        Write-Log $pgRollout.Output
+        if (!$pgRollout.Success) {
             $deploymentSuccess = $false
-            $errMsg = 'DICOM deployments could not be deployed!'
+            $errMsg = 'Postgres deployment could not be deployed!'
+        } else {
+            Write-Log "Waiting for dicom deployment rollout..." -Console
+            $dicomRollout = (Invoke-Kubectl -Params 'rollout', 'status', 'deployment/dicom', '-n', 'dicom', '--timeout=300s')
+            Write-Log $dicomRollout.Output
+            if (!$dicomRollout.Success) {
+                $deploymentSuccess = $false
+                $errMsg = 'DICOM deployment could not be deployed!'
+            }
         }
     } else {
         $errMsg = 'Not all required DICOM deployments were created.'
