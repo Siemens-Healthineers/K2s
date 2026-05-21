@@ -26,15 +26,22 @@ function Install-WinHttpProxy {
 
     $httpProxyLogDir = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'httpproxy'
     mkdir -Force $httpProxyLogDir | Out-Null
+
+    Write-Log '[HttpProxy] Removing httpproxy service if existent'
     Remove-ServiceIfExists 'httpproxy'
-    &$kubeBinPath\nssm install httpproxy "$kubeBinPath\httpproxy.exe"
+
+    &$kubeBinPath\nssm install httpproxy "$kubeBinPath\httpproxy.exe" *>&1 | Out-Null
+
+    if (!(Get-Service -Name 'httpproxy' -ErrorAction SilentlyContinue)) {
+        throw '[HttpProxy] Failed to create httpproxy service'
+    }
     &$kubeBinPath\nssm set httpproxy AppDirectory $kubeBinPath | Out-Null
 
     Set-ProxyConfigInHttpProxy -Proxy:$Proxy -ProxyOverrides:$ProxyOverrides
 
     &$kubeBinPath\nssm set httpproxy AppStdout "$httpProxyLogDir\httpproxy_stdout.log" | Out-Null
     &$kubeBinPath\nssm set httpproxy AppStderr "$httpProxyLogDir\httpproxy_stderr.log" | Out-Null
-    &$kubeBinPath\nssm set httpproxy AppStdoutCreationDisposition 4 | Out-Null
+reationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set httpproxy AppStderrCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set httpproxy AppRotateFiles 1 | Out-Null
     &$kubeBinPath\nssm set httpproxy AppRotateOnline 1 | Out-Null

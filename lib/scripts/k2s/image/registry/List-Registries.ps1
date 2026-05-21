@@ -80,6 +80,12 @@ foreach ($nodeName in $nodeList) {
         continue
     }
 
+    # Check if node is Ready before querying
+    if (-not (Test-NodeReady -NodeName $nodeName -Kind $nodeInfo.Kind)) {
+        Write-TraceLog "[Registry] Node '$nodeName' is not in Ready state - start the node with 'k2s start --node $nodeName' first"
+        continue
+    }
+
     Write-Output "[Registry] === Registries on '$nodeName' (kind=$($nodeInfo.Kind), os=$($nodeInfo.OS)) ==="
 
     if ($nodeInfo.OS -eq 'linux') {

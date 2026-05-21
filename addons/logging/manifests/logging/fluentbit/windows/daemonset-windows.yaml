@@ -27,9 +27,15 @@ spec:
       dnsPolicy: ClusterFirst
       containers:
       - name: fluent-bit-win
-        image: shsk2s.azurecr.io/fluent/fluent-bit:5.0.2 #windows_image
+        image: shsk2s.azurecr.io/fluent/fluent-bit:5.0.3 #windows_image
         args: ["-c", "fluent-bit.conf"]
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            memory: 500Mi
         volumeMounts:
         - name:  fluent-bit-win-parsers
           mountPath: /parsers.conf

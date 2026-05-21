@@ -101,10 +101,14 @@ function Install-WinKubelet {
     mkdir -force "$kubeletConfigDir\etc\kubernetes" | Out-Null
     mkdir -force "$kubeletConfigDir\etc\kubernetes\manifests" | Out-Null
     mkdir -force "$($systemDefaultDriveLetter):\etc\kubernetes\pki" | Out-Null
-    # Prepare for kubelet >= 1.30
-    # mkdir -force "$($global:SystemDriveLetter):\etc\kubernetes\kubelet.conf.d" | Out-Null
-    # Copy-Item -force "$kubePath\smallsetup\00-kubelet-config.conf" "$($global:SystemDriveLetter):\etc\kubernetes\kubelet.conf.d"
+    mkdir -force "$($systemDefaultDriveLetter):\etc\kubernetes\kubelet.conf.d" | Out-Null
     Copy-Item -force "$kubePath\smallsetup\kubeadm-flags.env" $kubeletConfigDir
+
+    # Deploy default kubelet drop-in config (enforceNodeAllocatable disabled for Windows)
+    $defaultDropIn = "$kubePath\smallsetup\common\00-k2s-defaults.conf"
+    if (Test-Path $defaultDropIn) {
+        Copy-Item -Force $defaultDropIn "$($systemDefaultDriveLetter):\etc\kubernetes\kubelet.conf.d\00-k2s-defaults.conf"
+    }
 
     if (!(Test-Path "$kubeletConfigDir\etc\kubernetes\pki")) {
         New-Item -path "$kubeletConfigDir\etc\kubernetes\pki" -type SymbolicLink -value "$($systemDefaultDriveLetter):\etc\kubernetes\pki\" | Out-Null
@@ -119,7 +123,7 @@ function Install-WinKubelet {
     $FileContent = Get-Content -Path "' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\kubeadm-flags.env"
     $global:KubeletArgs = $FileContent.Trim("KUBELET_KUBEADM_ARGS=`"")
     $hn = ($(hostname)).ToLower()
-    $cmd = "' + "&'$kubeToolsPath\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn --enforce-node-allocatable=`"`" "
+    $cmd = "' + "&'$kubeToolsPath\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --config-dir=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\kubelet.conf.d --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn "
 
     Invoke-Expression $cmd'
 

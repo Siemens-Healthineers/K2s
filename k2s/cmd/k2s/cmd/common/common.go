@@ -98,6 +98,9 @@ const (
 	IgnoreIfRunningFlagShort = "i"
 	IgnoreIfRunningFlagUsage = "Skip starting the K2s cluster if it is already running"
 
+	NodeFlagName  = "node"
+	NodeFlagUsage = "Name of a specific node to start/stop"
+
 	PreReqMarker = "[PREREQ-FAILED]"
 )
 
@@ -244,6 +247,9 @@ func (s FailureSeverity) String() string {
 }
 
 func (w *PtermWriter) WriteStdOut(line string) {
+	if strings.TrimSpace(line) == "" {
+		return
+	}
 	if w.ShowProgress {
 		pterm.Printfln("⏳ %s", line)
 	} else {
