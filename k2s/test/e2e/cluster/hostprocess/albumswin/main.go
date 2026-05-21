@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -21,6 +22,8 @@ import (
 	// Sub Repositories
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/siemens-healthineers/k2s/internal/logging"
 )
 
 // album represents data about a record album.
@@ -276,8 +279,9 @@ func main() {
 		)
 	})
 
-	// 3. Optionally log to both stdout and a file under the mounted host path (if writable).
-	logFilePath := "C:/var/log/albumswin/gin.log"
+	// 3. Optionally log to both stdout and a file under the resolved K2s log root (if writable).
+	logFilePath := filepath.Join(logging.RootLogDir(), "albumswin", "gin.log")
+	_ = os.MkdirAll(filepath.Dir(logFilePath), 0o755)
 	if f, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
 		gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
 	} else {

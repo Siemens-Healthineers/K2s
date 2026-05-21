@@ -37,6 +37,7 @@ type configDir struct {
 	Kube string `json:"kube"`
 	K2s  string `json:"k2s"`
 	Ssh  string `json:"ssh"`
+	Logs string `json:"logs"`
 }
 
 func ReadK2sConfig(k2sInstallDir string) (*cconfig.K2sConfig, error) {
@@ -59,7 +60,7 @@ func ReadK2sConfig(k2sInstallDir string) (*cconfig.K2sConfig, error) {
 
 	kubeConfig := cconfig.NewKubeConfig(kubeConfigDir, configJson.ConfigDir.Kube, filepath.Join(kubeConfigDir, definitions.KubeconfigName))
 	sshConfig := cconfig.NewSshConfig(sshDir, configJson.ConfigDir.Ssh, filepath.Join(sshDir, definitions.SSHSubDirName, definitions.SSHPrivateKeyName))
-	hostConfig := cconfig.NewHostConfig(kubeConfig, sshConfig, configJson.ConfigDir.K2s, k2sInstallDir)
+	hostConfig := cconfig.NewHostConfig(kubeConfig, sshConfig, configJson.ConfigDir.K2s, k2sInstallDir, configJson.ConfigDir.Logs)
 	controlPlaneConfig := cconfig.NewControlPlaneConfig(configJson.SmallSetup.ControlPlanIpAddress)
 
 	return cconfig.NewK2sConfig(hostConfig, controlPlaneConfig), nil
