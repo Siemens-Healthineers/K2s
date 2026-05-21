@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/os-support/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/log-folder/">
       
       
-        <link rel="prev" href="../../user-guide/building-container-image/">
+        <link rel="prev" href="../uninstalling-k2s/">
       
       
-        <link rel="next" href="../getting-k2s/">
+        <link rel="next" href="../signcatalog-k2s/">
       
       
         
@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Supported OS Versions - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Configuring the Log Folder - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#supported-os-versions" class="md-skip">
+        <a href="#configuring-the-k2s-log-folder" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Supported OS Versions
+              Configuring the Log Folder
             
           </span>
         </div>
@@ -313,7 +313,7 @@ You're not viewing the latest release version.
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+        <a href="../os-support/" class="md-tabs__link">
           
   
   
@@ -1019,19 +1019,10 @@ You're not viewing the latest release version.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../os-support/" class="md-nav__link">
         
   
   
@@ -1047,7 +1038,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
     </li>
   
 
@@ -1673,10 +1663,37 @@ You're not viewing the latest release version.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../log-folder/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuring the Log Folder
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1692,6 +1709,81 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#resolution-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution Order
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changing-the-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing the Default
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#affected-producers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Affected Producers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uninstall-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uninstall Behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2542,6 +2634,69 @@ You're not viewing the latest release version.
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#resolution-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution Order
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changing-the-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing the Default
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#affected-producers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Affected Producers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uninstall-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uninstall Behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2557,7 +2712,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/os-support.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/log-folder.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2566,77 +2721,102 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="supported-os-versions">Supported <abbr title="Operating System">OS</abbr> Versions</h1>
+<h1 id="configuring-the-k2s-log-folder">Configuring the K2s Log Folder</h1>
+<p>By default <em>K2s</em> writes all log files under <code>&lt;SystemDrive&gt;:\var\log</code> (typically <code>C:\var\log</code>). The log root can be relocated to any directory writable by the <em>Local System</em> account.</p>
+<h2 id="resolution-order">Resolution Order</h2>
+<p>Both the <em>PowerShell</em> and <em>Go</em> code paths resolve the log root through the same fallback chain (first hit wins):</p>
+<ol>
+<li><strong>Environment variable <code>K2S_LOG_ROOT</code></strong> — highest precedence; intended for short-lived overrides (test runs, install sessions).</li>
+<li><strong><code>%ProgramData%\K2s\setup.json</code> → <code>LogRoot</code></strong> — written automatically during <code>k2s install</code> from the resolved value below; consumed at runtime by services and CNI plugins.</li>
+<li><strong><code>cfg/config.json</code> → <code>configDir.logs</code></strong> — build-time / install-time default in the <em>K2s</em> installation tree.</li>
+<li><strong><code>&lt;SystemDrive&gt;:\var\log</code></strong> — legacy fallback when none of the above is set.</li>
+</ol>
+<p>After resolution, environment variables (<code>%ProgramData%</code>, <code>%USERPROFILE%</code>, …) and a leading <code>~</code> are expanded, and the directory is created if missing.</p>
+<h2 id="changing-the-default">Changing the Default</h2>
+<p>Edit the value in <code>cfg/config.json</code> <strong>before</strong> <code>k2s install</code>:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>&quot;configDir&quot;: {
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    &quot;ssh&quot;:    &quot;~/.ssh&quot;,
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    &quot;kube&quot;:   &quot;~/.kube&quot;,
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    &quot;docker&quot;: &quot;~/.docker&quot;,
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    &quot;k2s&quot;:    &quot;C:\\ProgramData\\K2s&quot;,
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    &quot;logs&quot;:   &quot;D:\\K2s-Logs&quot;   // absolute path or env-var pattern
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>}
+</code></pre></div>
+<p>Or set the override at install time:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gp">$</span>env:K2S_LOG_ROOT<span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;D:\K2s-Logs&quot;</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">k2s install</span>
+</code></pre></div>
+<p>The installer persists the resolved value into <code>setup.json</code> so subsequent service starts and Go-based CNI plugins (<code>bridge.exe</code>, <code>vfprules.exe</code>, <code>l4proxy.exe</code>, <code>cplauncher.exe</code>) read it without re-parsing <code>cfg/config.json</code>.</p>
+<h2 id="affected-producers">Affected Producers</h2>
+<p>The configured root contains the following subfolders (created on demand):</p>
 <table>
 <thead>
 <tr>
-<th>Windows</th>
-<th>Version</th>
-<th>Build</th>
+<th>Subfolder</th>
+<th>Producer</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Windows 10, Server 2019</td>
-<td>1809</td>
-<td><code>10.0.17763.xxxx</code></td>
+<td><code>k2s.log</code></td>
+<td><em>K2s</em> orchestrator log (PowerShell + Go)</td>
 </tr>
 <tr>
-<td>Windows 10</td>
-<td>20H2</td>
-<td><code>10.0.19042.xxxx</code></td>
+<td><code>containerd\</code></td>
+<td><code>containerd.exe</code> NSSM service</td>
 </tr>
 <tr>
-<td>Windows 10</td>
-<td>21H2</td>
-<td><code>10.0.19044.xxxx</code></td>
+<td><code>kubelet\</code></td>
+<td><code>kubelet.exe</code> NSSM service</td>
 </tr>
 <tr>
-<td>Windows 10</td>
-<td>22H2</td>
-<td><code>10.0.19045.xxxx</code></td>
+<td><code>kubeproxy\</code></td>
+<td><code>kube-proxy.exe</code> NSSM service</td>
 </tr>
 <tr>
-<td>Windows Server 2022</td>
-<td>21H2</td>
-<td><code>10.0.20348.xxxx</code></td>
+<td><code>flanneld\</code></td>
+<td><code>flanneld.exe</code> NSSM service</td>
 </tr>
 <tr>
-<td>Windows 11</td>
-<td>21H2</td>
-<td><code>10.0.22000.xxxx</code></td>
+<td><code>dnsproxy\</code></td>
+<td><code>dnsproxy.exe</code> NSSM service</td>
 </tr>
 <tr>
-<td>Windows 11</td>
-<td>22H2</td>
-<td><code>10.0.22621.xxxx</code></td>
+<td><code>httpproxy\</code></td>
+<td><code>httpproxy.exe</code> NSSM service</td>
 </tr>
 <tr>
-<td>Windows 11</td>
-<td>23H2</td>
-<td><code>10.0.22631.xxxx</code></td>
+<td><code>windows_exporter\</code></td>
+<td><code>windows_exporter.exe</code> NSSM service</td>
 </tr>
 <tr>
-<td>Windows 11, Server 2025</td>
-<td>24H2</td>
-<td><code>10.0.26100.xxxx</code></td>
+<td><code>containers\</code>, <code>pods\</code></td>
+<td>kubelet pod log redirection</td>
 </tr>
 <tr>
-<td>Windows 11</td>
-<td>25H2</td>
-<td><code>10.0.26200.xxxx</code></td>
-</tr>
-<tr>
-<td>Windows 11</td>
-<td>26H2</td>
-<td><code>10.0.26300.xxxx</code></td>
+<td><code>bridge\</code>, <code>vfprules\</code></td>
+<td><em>K2s</em> CNI helpers (Go)</td>
 </tr>
 </tbody>
 </table>
+<p>In current behavior, <code>pods</code> and <code>containers</code> may still be written under <code>&lt;SystemDrive&gt;:\var\log</code> even after log-root redirection, because their location is controlled by kubelet/container runtime behavior rather than only by K2s service wrapper paths.</p>
+<blockquote>
+<p>⚠️  Kubelet writes a small number of paths unconditionally to <code>&lt;SystemDrive&gt;:\var\lib\kubelet\device-plugins</code>. That tree is <strong>not</strong> moved by this setting; only the log root is configurable.</p>
+</blockquote>
+<h2 id="uninstall-behavior">Uninstall Behavior</h2>
+<p><code>k2s uninstall</code> removes:</p>
+<ol>
+<li>The currently-configured log directory (resolved via the fallback chain).</li>
+<li>The legacy <code>&lt;SystemDrive&gt;:\var</code> tree (only when it still contains the active log root).</li>
+</ol>
+<p>If you relocated the logs <em>after</em> installing, the original <code>\var\log</code> may remain on disk and can be deleted manually.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p>See <a href="../../troubleshooting/diagnostics/">Diagnostics</a> for log inspection. The diagnostics page references <code>&lt;install-drive&gt;\var\log</code> as the default; substitute the resolved root from this page if you reconfigured it.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -2676,7 +2856,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../user-guide/building-container-image/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Building a Container Image">
+          <a href="../uninstalling-k2s/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Uninstalling K2s">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2686,20 +2866,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Building a Container Image
+                Uninstalling K2s
               </div>
             </div>
           </a>
         
         
           
-          <a href="../getting-k2s/" class="md-footer__link md-footer__link--next" aria-label="Next: Getting K2s">
+          <a href="../signcatalog-k2s/" class="md-footer__link md-footer__link--next" aria-label="Next: Sign K2s package">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Getting K2s
+                Sign K2s package
               </div>
             </div>
             <div class="md-footer__button md-icon">
