@@ -195,10 +195,11 @@ function GenerateBomDebian() {
     }
 
     Write-Output 'Generate bom for debian (this may take 5-15 minutes, please wait...)'
-    Write-Output 'Running: trivy rootfs / --scanners license --license-full --format cyclonedx'
+    $trivyRootfsTimeout = '30m'
+    Write-Output "Running: trivy rootfs / --scanners license --license-full --format cyclonedx --timeout $trivyRootfsTimeout"
     Write-Output 'Note: Progress output from trivy may not be visible. The process is running in the background.'
     $startTime = Get-Date
-    ExecCmdMaster -CmdToExecute "sudo HTTPS_PROXY=$kubemasterProxy /usr/bin/trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1" -Retries 6 -Timeout 30
+    ExecCmdMaster -CmdToExecute "sudo HTTPS_PROXY=$kubemasterProxy /usr/bin/trivy rootfs / --scanners license --license-full --format cyclonedx --timeout $trivyRootfsTimeout -o kubemaster.json 2>&1" -Retries 6 -Timeout 30
     $elapsed = (Get-Date) - $startTime
     Write-Output "Debian BOM generation completed in $($elapsed.TotalMinutes.ToString('F2')) minutes"
 
