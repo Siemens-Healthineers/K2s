@@ -50,6 +50,7 @@ By default, the security addon installs all components listed below. You can now
 - `-OmitHydra`: Omits the setup of hydra and the local login implementation (useful if no local user management is needed).
 - `-OmitKeycloak`: Omits the setup of keycloak and its database (useful if you want oauth2-proxy to reference an external OAuth2 provider).
 - `-OmitOAuth2Proxy`: Omits the OAuth2 proxy deployment (useful if you want to use an external authentication proxy or no authentication at all).
+- `-OmitPolicyEnf`: Omits the Kyverno policy enforcement framework (useful if you want to manage admission policies through a different mechanism or none at all).
 
 Example usage:
 
@@ -62,6 +63,9 @@ k2s addons enable security --omitKeycloak
 
 # Omit OAuth2 proxy
 k2s addons enable security --omitOAuth2Proxy
+
+# Omit Kyverno policy enforcement
+k2s addons enable security --omitPolicyEnf
 
 # Omit all authentication components (cert-manager and linkerd only)
 k2s addons enable security --omitHydra --omitKeycloak --omitOAuth2Proxy
@@ -87,6 +91,8 @@ This addon installs workloads needed to secure the network communication by conf
 - [ory hydra](https://github.com/ory/hydra) - using this "headless" OAuth2 and OIDC provider for providing the local user management on the windows host as part of the identity provider. _(Can be omitted with -OmitHydra)_
 
 - [oauth2 proxy](https://github.com/oauth2-proxy/oauth2-proxy) - OAuth2 Proxy offloads the burden of implementing authentication logic from your applications.
+
+- [kyverno](https://kyverno.io/) - policy enforcement framework. `kyverno` acts as a Kubernetes admission controller providing validate, mutate, and generate rules for cluster resources. K2s currently includes the framework without default policies, with `failurePolicy: Ignore` on all webhooks. Default policies may be added later based on feedback and further discussion. _(Can be omitted with -OmitPolicyEnf)_
 
 ## How to use it
 
@@ -199,6 +205,31 @@ Essentially, OAuth2 Proxy offloads the burden of implementing authentication log
 Ory Hydra is an open-source implementation of the OAuth 2.0 authorization framework and the OpenID Connect Core 1.0 specifications.
 Unlike traditional identity platforms that bundle user management, Hydra is designed as a "headless" OAuth2 and OIDC provider. This means it focuses solely on the OAuth2 and OIDC protocols, delegating concerns like user login, consent flows, and user data management to separate, customizable components.
 
+
+### Policy Enforcement with Kyverno
+
+By default, the security addon installs [Kyverno](https://kyverno.io/) as a policy enforcement framework in the `kyverno` namespace. Kyverno acts as a Kubernetes admission controller that can **validate**, **mutate**, and **generate** resources based on policies.
+
+**K2s currently adds the framework only. No default policies are installed.** The `addons/security/manifests/kyverno/policies/` folder is ready for your own policies. This means enabling the security addon with Kyverno changes nothing about your cluster's admission behaviour until you add policies. Default policies may be added later based on feedback and further discussion about what works well across environments.
+
+All Kyverno webhooks are configured with `failurePolicy: Ignore`, ensuring the cluster remains operational even if Kyverno is temporarily unavailable (e.g. during a restart or upgrade).
+
+#### Adding policies
+
+Place `ClusterPolicy` or `Policy` manifest files in `addons/security/manifests/kyverno/policies/` and re-enable the addon, or apply them directly with `kubectl`:
+
+```console
+kubectl apply -f my-policy.yaml
+```
+
+See the [Policy Enforcement Guide](../../docs/security/policy-enforcement.md) for sample policies, audit vs enforce mode, and `PolicyException` usage.
+
+#### Opting out
+
+```powershell
+k2s addons enable security --omitPolicyEnf
+```
+
 ## Backup & Restore
 
 The security addon supports backup and restore through the K2s CLI.
@@ -216,7 +247,8 @@ k2s addons backup security
 | CA root Secret | The `ca-issuer-root-secret` from the `cert-manager` namespace. Preserving this ensures the entire TLS trust chain (cert-manager → linkerd identity → pod mTLS) can be restored without invalidating existing certificates. |
 | Keycloak PostgreSQL database | A `pg_dump` of the Keycloak database containing realms, users, clients, and sessions. The default `demo-app` realm configuration self-heals from a ConfigMap, but any custom realms, users, or clients are only preserved through the database dump. |
 | Enhanced security marker | The `enhancedsecurity.json` file (if present) that records whether `--type enhanced` was used. |
-| Enable parameters | Detected configuration flags (`--type`, `--ingress`, `--omitKeycloak`, `--omitHydra`, `--omitOAuth2Proxy`) stored in `backup.json` so the addon can be re-enabled with the original settings. |
+| Kyverno policies | All `ClusterPolicy`, `Policy`, and `PolicyException` resources exported as `kyverno-policies.yaml` (only present if Kyverno is enabled and at least one policy exists). |
+| Enable parameters | Detected configuration flags (`--type`, `--ingress`, `--omitKeycloak`, `--omitHydra`, `--omitOAuth2Proxy`, `--omitPolicyEnf`) stored in `backup.json` so the addon can be re-enabled with the original settings. |
 
 **What is NOT backed up (self-healing):**
 
@@ -239,6 +271,7 @@ The restore flow:
    - Restarts cert-manager to reconcile derived certificates
    - Scales down Keycloak, drops and restores the PostgreSQL database from the dump, then scales Keycloak back up
    - Restores the enhanced security marker file (if present)
+   - Applies `kyverno-policies.yaml` (if present in the backup) after Kyverno is ready
 
 ## Further Reading
 
@@ -254,6 +287,8 @@ The restore flow:
 - Code: <https://github.com/oauth2-proxy/oauth2-proxy>
 - Docs: <https://www.ory.sh/hydra>
 - Code: <https://github.com/ory/hydra>
+- Docs: <https://kyverno.io/docs/>
+- Code: <https://github.com/kyverno/kyverno>
 
 ## Knowledge Base
 
@@ -267,6 +302,6 @@ The restore flow:
 
   and deleting the settings for your site.
 
-## Guiding principale
+## Guiding Principle
 
 The guiding principle is to provide security as an inherent property of the infrastructure, rather than an optional add-on implemented per application. By deploying components that transparently handle TLS encryption (cert-manager, service mesh), manage identities and tokens (Keycloak), and mediate access (service mesh, API gateways), we abstract away the underlying complexity for application developers. This allows us to move towards a 'secure by default' environment, where essential security mechanisms are automatically applied to workloads simply by deploying them onto the meshed or protected infrastructure, without requiring explicit security code within the application itself.

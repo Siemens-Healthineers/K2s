@@ -5,9 +5,11 @@ package start
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
 
@@ -32,26 +34,52 @@ import (
 var Startk8sCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts K2s cluster on the host machine",
-	RunE:  startk8s,
+	Long: `Starts K2s.
+
+Default behavior (without --node):
+	Starts the full K2s cluster on the host machine.
+
+Node behavior (with --node):
+	Starts only the specified additional node.
+
+Related node stop operation:
+	Use 'k2s stop --node <node-name>' to stop a specific additional node.`,
+	Example: `  # Start full cluster
+	k2s start
+
+	# Start only one additional node
+	k2s start --node worker
+
+	# Stop only one additional node
+	k2s stop --node worker`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) > 0 {
+			return fmt.Errorf("unexpected argument(s): %s. Use '%s --node <node-name>' to start a specific additional node", strings.Join(args, " "), cmd.CommandPath())
+		}
+
+		return nil
+	},
+	RunE: startk8s,
 }
 
 func init() {
 	Startk8sCmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
 	Startk8sCmd.Flags().BoolP(common.AutouseCachedVSwitchFlagName, "", false, common.AutouseCachedVSwitchFlagUsage)
 	Startk8sCmd.Flags().BoolP(common.IgnoreIfRunningFlagName, common.IgnoreIfRunningFlagShort, false, common.IgnoreIfRunningFlagUsage)
+	Startk8sCmd.Flags().String(common.NodeFlagName, "", common.NodeFlagUsage)
 	Startk8sCmd.Flags().SortFlags = false
 	Startk8sCmd.Flags().PrintDefaults()
 }
 
 func startk8s(ccmd *cobra.Command, args []string) error {
-	cmdSession := common.StartCmdSession(ccmd.CommandPath())
-	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
-
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	targetNodeName := strings.TrimSpace(ccmd.Flags().Lookup(common.NodeFlagName).Value.String())
 
-	skipStartIfRunning, err := HandleIgnoreIfRunning(ccmd, func() (bool, error) {
-		return isClusterRunning(context)
-	})
+	cmdSession := common.StartCmdSession(buildStartCmdDisplayName(ccmd, targetNodeName))
+
+	printStartBanner(targetNodeName)
+
+	skipStartIfRunning, err := handleIgnoreIfRunningForClusterStart(ccmd, context, targetNodeName)
 	if err != nil {
 		return err
 	}
@@ -73,6 +101,15 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
 		return err
+	}
+
+	startedSingleNode, err := StartSingleNode(context, ccmd.Flags(), targetNodeName)
+	if err != nil {
+		return err
+	}
+	if startedSingleNode {
+		cmdSession.Finish()
+		return nil
 	}
 
 	tzConfigHandle, err := createTimezoneConfigHandle(context.Config().Host().KubeConfig())
@@ -118,6 +155,76 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func buildStartCmdDisplayName(ccmd *cobra.Command, targetNodeName string) string {
+	cmdDisplayName := ccmd.CommandPath()
+	if targetNodeName != "" {
+		cmdDisplayName = fmt.Sprintf("%s --node %s", cmdDisplayName, targetNodeName)
+	}
+	return cmdDisplayName
+}
+
+func handleIgnoreIfRunningForClusterStart(ccmd *cobra.Command, context *common.CmdContext, targetNodeName string) (bool, error) {
+	if targetNodeName != "" {
+		return false, nil
+	}
+
+	return HandleIgnoreIfRunning(ccmd, func() (bool, error) {
+		return isClusterRunning(context)
+	})
+}
+
+func StartSingleNode(context *common.CmdContext, flags *pflag.FlagSet, targetNodeName string) (bool, error) {
+	if targetNodeName == "" {
+		return false, nil
+	}
+
+	if err := startNodeByName(context, flags, targetNodeName); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func printStartBanner(targetNodeName string) {
+	if targetNodeName != "" {
+		pterm.Printfln("🤖 Starting K2s node '%s'", targetNodeName)
+		return
+	}
+
+	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
+}
+
+func startNodeByName(context *common.CmdContext, flags *pflag.FlagSet, nodeName string) error {
+	clusterConfig, err := cc.Read(context.Config().Host().K2sSetupConfigDir())
+	if err != nil {
+		return err
+	}
+
+	if clusterConfig == nil {
+		return fmt.Errorf("node %q not found: no additional nodes configured", nodeName)
+	}
+
+	node, found := findNodeByName(clusterConfig.Nodes, nodeName)
+	if !found {
+		return fmt.Errorf("node %q not found in additional node configuration", nodeName)
+	}
+
+	startNodeCmd := buildNodeStartCmd(flags, node, true)
+	slog.Debug("PS command created", "command", startNodeCmd)
+
+	return powershell.ExecutePs(startNodeCmd, common.NewPtermWriter())
+}
+
+func findNodeByName(nodes []cc.Node, nodeName string) (cc.Node, bool) {
+	for _, node := range nodes {
+		if strings.EqualFold(strings.TrimSpace(node.Name), nodeName) {
+			return node, true
+		}
+	}
+
+	return cc.Node{}, false
+}
+
 func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) error {
 	clusterConfig, err := cc.Read(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
@@ -129,7 +236,7 @@ func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, conf
 	}
 
 	for _, node := range clusterConfig.Nodes {
-		startNodeCmd := buildNodeStartCmd(flags, node)
+		startNodeCmd := buildNodeStartCmd(flags, node, false)
 
 		slog.Debug("PS command created", "command", startNodeCmd)
 
@@ -177,16 +284,15 @@ func HandleIgnoreIfRunning(ccmd *cobra.Command, clusterIsRunning func() (bool, e
 	return false, nil
 }
 
-func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
+func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node, singleNode bool) string {
 	outputFlag, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 
 	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
 
 	roleType := string(nodeConfig.Role)
 	OsType := string(nodeConfig.OS)
-	nodeType := cc.GetNodeDirectory(string(nodeConfig.NodeType))
 
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", roleType, OsType, nodeType, "Start.ps1"))
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", roleType, OsType, "bare-metal", "Start.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"
@@ -202,6 +308,10 @@ func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
 
 	if nodeConfig.Name != "" {
 		cmd += " -NodeName " + nodeConfig.Name
+	}
+
+	if singleNode {
+		cmd += " -SingleNode"
 	}
 
 	return cmd

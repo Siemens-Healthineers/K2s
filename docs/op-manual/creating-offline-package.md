@@ -38,6 +38,8 @@ k2s system package -d C:\output -n k2s.zip --addons-list none
 
 The `--addons-list` flag works with both *Dev* (default) and *Lite* profiles.
 
+The *Lite* profile reduces package size by excluding optional build artifacts and large intermediate artifacts. Documentation and test code for delivered components remain included: when all addons are packaged, addon tests are included as well; when `--addons-list` limits the delivery, only tests for the selected addons are kept.
+
 When running the aforementioned command and no *K2s* variant has been installed on the current system yet, the [Development-Only Variant](../user-guide/hosting-variants.md#development-only) will be installed in order to create an offline package (which requires an internet connection). If all dependencies are already available locally due to prior installation of *K2s*, the offline package creation does not require internet connection.
 
 ??? info "Offline Package Creation Diagram"

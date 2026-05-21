@@ -108,6 +108,7 @@ $guestIp = ''
 $sshUser = ''
 $sshPwd = ''
 $inProvisioningVhdxPath = ''
+$usesSharedKubeSwitch = $false
 
 $provisioningDir = Join-Path $stagingDir "provisioning"
 $downloadsDir = Join-Path $stagingDir "downloads"
@@ -186,6 +187,7 @@ try {
     $sshUser = $vmContext.SshUser
     $sshPwd = $vmContext.SshPwd
     $inProvisioningVhdxPath = $vmContext.InProvisioningVhdxPath
+    $usesSharedKubeSwitch = $vmContext.UsesSharedKubeSwitch
     $vmProvisioningStarted = $true
 
     # -----------------------------------------------------------------------
@@ -209,6 +211,7 @@ try {
         -UserName              $sshUser `
         -UserPwd               $sshPwd `
         -IpAddress             $guestIp `
+        -Proxy                 $Proxy `
         -TargetPath            $remoteBuildahPkgDir `
         -InstalledDistribution $distributionKey
 
@@ -368,8 +371,13 @@ finally {
             Write-Log "[NodePkg] No VM '$vmName' found for cleanup." -Console
         }
 
-        try { Remove-NetworkForProvisioning -SwitchName $switchName -NatName $natName }
-        catch { Write-Log "[NodePkg] Warning during network cleanup: $($_.Exception.Message)" -Console }
+        if (-not $usesSharedKubeSwitch) {
+            try { Remove-NetworkForProvisioning -SwitchName $switchName -NatName $natName }
+            catch { Write-Log "[NodePkg] Warning during network cleanup: $($_.Exception.Message)" -Console }
+        }
+        else {
+            Write-Log "[NodePkg] Skipping network cleanup because shared KubeSwitch '$switchName' is reused by K2s." -Console
+        }
 
         if (Test-Path $stagingDir) {
             Remove-Item -Path $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
