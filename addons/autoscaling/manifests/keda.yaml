@@ -10475,7 +10475,7 @@ spec:
           httpGet:
             path: /healthz
             port: 8081
-          initialDelaySeconds: 40
+          initialDelaySeconds: 25
         name: keda-operator
         ports:
         - containerPort: 8080
