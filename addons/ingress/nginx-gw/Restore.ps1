@@ -137,7 +137,7 @@ try {
     }
 
     Write-Log "[AddonRestore] Waiting for nginx-gw controller pod to be Ready" -Console
-    Wait-ForPodCondition -Label 'app.kubernetes.io/component=controller' -Namespace 'nginx-gw' -Condition Ready -TimeoutSeconds 180 | Out-Null
+    Wait-ForPodCondition -Label 'app.kubernetes.io/name=nginx-gw' -Namespace 'nginx-gw' -Condition Ready -TimeoutSeconds 180 | Out-Null
 
     if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'Update.ps1')) {
         Write-Log '[AddonRestore] Running nginx-gw Update.ps1' -Console
