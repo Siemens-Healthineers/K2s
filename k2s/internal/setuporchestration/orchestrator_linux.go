@@ -106,6 +106,8 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 		if err := runCommand("kubeadm", "reset", "-f"); err != nil {
 			slog.Warn("[Uninstall] kubeadm reset failed (may already be clean)", "error", err)
 		}
+
+		o.cleanupCriOMirrorDropIns()
 	}
 
 	// Clean up network interfaces created by flannel
@@ -135,6 +137,54 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 
 	slog.Info("[Uninstall] K2s uninstallation complete")
 	return nil
+}
+
+func (o *LinuxOrchestrator) cleanupCriOMirrorDropIns() {
+	removedAny := false
+
+	configPaths, err := filepath.Glob("/etc/containers/registries.conf.d/*.conf")
+	if err != nil {
+		slog.Warn("[Uninstall] Could not enumerate CRI-O registry configs", "error", err)
+		return
+	}
+
+	for _, configPath := range configPaths {
+		content, err := os.ReadFile(configPath)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				slog.Warn("[Uninstall] Could not read CRI-O registry config", "path", configPath, "error", err)
+			}
+			continue
+		}
+
+		if !strings.Contains(string(content), "[[registry.mirror]]") {
+			continue
+		}
+
+		if err := os.Remove(configPath); err != nil {
+			if !os.IsNotExist(err) {
+				slog.Warn("[Uninstall] Could not remove CRI-O registry mirror config", "path", configPath, "error", err)
+			}
+			continue
+		}
+
+		removedAny = true
+		slog.Info("[Uninstall] Removed CRI-O registry mirror config", "path", configPath)
+	}
+
+	if !removedAny {
+		return
+	}
+
+	if err := runCommand("systemctl", "daemon-reload"); err != nil {
+		slog.Warn("[Uninstall] Could not reload systemd after CRI-O registry mirror cleanup", "error", err)
+	}
+
+	if err := runCommand("systemctl", "is-active", "--quiet", "crio"); err == nil {
+		if err := runCommand("systemctl", "restart", "crio"); err != nil {
+			slog.Warn("[Uninstall] Could not restart CRI-O after registry mirror cleanup", "error", err)
+		}
+	}
 }
 
 func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
@@ -249,11 +299,35 @@ func (o *LinuxOrchestrator) installControlPlane(cfg InstallConfig) error {
 		return fmt.Errorf("failed to start containerd: %w", err)
 	}
 
+	// Generate kubeadm init config with KubeletConfiguration
+	initConfig := fmt.Sprintf(`apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+networking:
+  podSubnet: %s
+  serviceSubnet: %s
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+failCgroupV1: false
+`, podNetworkCIDR, servicesCIDR)
+
+	configDir := "/tmp/kubeadm-init"
+	configPath := filepath.Join(configDir, "kubeadm-init.yaml")
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create kubeadm init config directory: %w", err)
+	}
+	if err := os.WriteFile(configPath, []byte(initConfig), 0600); err != nil {
+		return fmt.Errorf("failed to write kubeadm init config: %w", err)
+	}
+
 	// Build kubeadm init arguments
 	args := []string{
 		"init",
-		"--pod-network-cidr=" + podNetworkCIDR,
-		"--service-cidr=" + servicesCIDR,
+		"--config=" + configPath,
 	}
 
 	if cfg.Proxy != "" {
@@ -263,6 +337,9 @@ func (o *LinuxOrchestrator) installControlPlane(cfg InstallConfig) error {
 	if err := runCommand("kubeadm", args...); err != nil {
 		return fmt.Errorf("kubeadm init failed: %w", err)
 	}
+
+	// Clean up temporary config
+	os.Remove(configPath)
 
 	// Enable kubelet to start on boot
 	if err := runCommand("systemctl", "enable", "kubelet"); err != nil {
@@ -514,6 +591,11 @@ func transferWorkerArtifacts(installDir, vmIP string) error {
 		slog.Warn("[Install] Could not create remote cfg directory", "error", err)
 	}
 
+	// Create kubelet drop-in directory for configuration overrides
+	if err := sshExecOnVM(vmIP, `mkdir -Force "C:\etc\kubernetes\kubelet.conf.d"`); err != nil {
+		slog.Warn("[Install] Could not create kubelet drop-in directory", "error", err)
+	}
+
 	cfgFiles := []string{"kubeadm/joinnode.template.yaml", "containerd/config.toml", "cni/net-conf.json"}
 	for _, cf := range cfgFiles {
 		localPath := filepath.Join(cfgDir, cf)
@@ -538,7 +620,7 @@ func installWindowsServices(vmIP string) error {
 	}{
 		{"containerd", `C:\k2s\bin\containerd.exe`, `--config "C:\k2s\cfg\config.toml"`},
 		{"flanneld", `C:\k2s\bin\flannel.exe`, `--kubeconfig-file "C:\k2s\config" --iface=Ethernet --ip-masq --kube-subnet-mgr`},
-		{"kubelet", `C:\k2s\bin\kubelet.exe`, `--config "C:\k2s\cfg\kubelet-config.yaml" --kubeconfig "C:\k2s\config" --hostname-override=%COMPUTERNAME%`},
+		{"kubelet", `C:\k2s\bin\kubelet.exe`, `--config "C:\k2s\cfg\kubelet-config.yaml" --config-dir "C:\etc\kubernetes\kubelet.conf.d" --kubeconfig "C:\k2s\config" --hostname-override=%COMPUTERNAME%`},
 		{"kubeproxy", `C:\k2s\bin\kube-proxy.exe`, `--kubeconfig "C:\k2s\config" --hostname-override=%COMPUTERNAME%`},
 	}
 

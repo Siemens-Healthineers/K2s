@@ -102,7 +102,7 @@ const (
 	PackageVersionToFlagUsage = "Path to the new (target) full package .zip (required if --delta-package is set)"
 
 	ProfileFlagName  = "profile"
-	ProfileFlagUsage = "Packaging profile: Dev (default) or Lite (skips optional parts like documentation, source code etc.)"
+	ProfileFlagUsage = "Packaging profile: Dev (default) or Lite (skips optional build and large intermediate artifacts)"
 
 	AddonsListFlagName  = "addons-list"
 	AddonsListFlagUsage = "Comma-separated list of addons to include (e.g., 'ingress nginx,monitoring,logging'). For ingress, specify implementation: 'ingress nginx' or 'ingress traefik'. Use 'none' to exclude all addons. Default: all addons"

@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 
 ## Introduction
 
-The `logging` addon provides a [Kibana web-based UI](https://github.com/opensearch-project/OpenSearch-Dashboards) for Kubernetes logging. It enables users to analyze container logs from k2s cluster supporting full-text search.
+The `logging` addon provides an [OpenSearch Dashboards web-based UI](https://github.com/opensearch-project/OpenSearch-Dashboards) for Kubernetes logging. It enables users to analyze container logs from k2s cluster supporting full-text search.
 
 ## Getting started
 

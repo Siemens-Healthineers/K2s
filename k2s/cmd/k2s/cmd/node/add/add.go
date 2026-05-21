@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package add
@@ -39,7 +39,15 @@ func NewCmd() *cobra.Command {
 		Use:   "add",
 		Short: "[EXPERIMENTAL] Add a node to the cluster",
 		Long:  "Adds an machine or VM to an existing K2s cluster",
-		RunE:  addNode,
+		Example: `  # Add a Linux worker node (online installation)
+  k2s node add --ip-addr 192.168.1.50 --username admin
+
+  # Add a Linux worker node with a custom hostname
+  k2s node add --ip-addr 192.168.1.50 --username admin --name worker-node-1
+
+  # Add a Linux worker node offline using a node package
+  k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node.zip`,
+		RunE: addNode,
 	}
 	cmd.Flags().StringP(MachineIPAddress, "i", "", MachineIPAddressFlagUsage)
 	cmd.Flags().StringP(MachineUsername, "u", "", MachineUsernameFlagUsage)
@@ -97,6 +105,19 @@ func addNode(ccmd *cobra.Command, args []string) error {
 	machineName := ccmd.Flags().Lookup(MachineName).Value.String()
 	nodePackagePath := ccmd.Flags().Lookup(NodePackagePath).Value.String()
 
+	if machineUserName == "" {
+		return fmt.Errorf("flag --%s is required", MachineUsername)
+	}
+
+	isLocalVM, err := config.DetectLocalVM(machineIpAddress, context.Config().Host().K2sInstallDir())
+	if err != nil {
+		return fmt.Errorf("failed to determine node type: %w", err)
+	}
+
+	if isLocalVM {
+		pterm.Printfln("🖥️  Detected local Hyper-V VM on KubeSwitch network — using local-VM provisioning path")
+	}
+
 	pterm.Printfln("🤖 Adding node to K2s cluster")
 
 	if err := context.Providers().Node.Add(provider.NodeAddConfig{
@@ -105,6 +126,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		NodeName:        machineName,
 		NodePackagePath: nodePackagePath,
 		ShowOutput:      outputFlag,
+		IsLocalVM:       isLocalVM,
 	}); err != nil {
 		return err
 	}

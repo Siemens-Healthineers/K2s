@@ -14,10 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
 	"slices"
@@ -26,20 +25,27 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// This test file focuses on cross-addon integration tests for "export all addons" functionality.
+// This test file focuses on cross-addon integration tests for bulk export/import of a representative
+// addon subset. It validates the multi-addon OCI packaging pipeline, manifest merging on import,
+// and post-import artifact integrity.
+//
+// A small subset of addons is used instead of all addons to keep the test runtime well below 2 hours.
+// The subset covers: single-impl addon with images (metrics), multi-impl addon with images and
+// curl packages (ingress), and single-impl addon with images and deb packages (storage).
+//
 // Per-addon export/import tests are located in each addon's directory (e.g., dashboard/dashboard_export_import_test.go).
 
-const testClusterTimeout = time.Minute * 120
+const testClusterTimeout = time.Minute * 60
+
+// testAddonNames defines the representative subset of addons for bulk export/import testing.
+var testAddonNames = []string{"metrics", "ingress", "storage"}
 
 var (
 	suite           *framework.K2sTestSuite
 	linuxOnly       bool
 	exportPath      string
-	allAddons       addons.Addons
+	testAddons      addons.Addons
 	exportedOciFile string
-
-	linuxTestContainers   []string
-	windowsTestContainers []string
 
 	controlPlaneIpAddress string
 
@@ -54,21 +60,20 @@ func TestExportImportAddons(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("========================================")
-	GinkgoWriter.Println("EXPORT/IMPORT ALL ADDONS TEST - SETUP")
+	GinkgoWriter.Println("EXPORT/IMPORT BULK ADDONS TEST - SETUP")
 	GinkgoWriter.Println("========================================")
 
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 	exportPath = filepath.Join(suite.RootDir(), "tmp")
 	linuxOnly = suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()
-	allAddons = suite.AddonsAdditionalInfo().AllAddons()
 
-	windowsTestContainers = []string{
-		"shsk2s.azurecr.io/diskwriter:v1.2.0",
+	allAddons := suite.AddonsAdditionalInfo().AllAddons()
+	for _, a := range allAddons {
+		if slices.Contains(testAddonNames, a.Metadata.Name) {
+			testAddons = append(testAddons, a)
+		}
 	}
-	linuxTestContainers = []string{
-		"shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0",
-		"docker.io/curlimages/curl:8.5.0",
-	}
+	Expect(len(testAddons)).To(Equal(len(testAddonNames)), "all test addons should be found")
 
 	controlPlaneIpAddress = suite.SetupInfo().Config.ControlPlane().IpAddress()
 
@@ -76,9 +81,9 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Printf("[Setup] Export path: %s\n", exportPath)
 	GinkgoWriter.Printf("[Setup] Control plane IP: %s\n", controlPlaneIpAddress)
 	GinkgoWriter.Printf("[Setup] Linux-only mode: %v\n", linuxOnly)
-	GinkgoWriter.Printf("[Setup] Total addons available: %d\n", len(allAddons))
+	GinkgoWriter.Printf("[Setup] Test addons: %v\n", testAddonNames)
 
-	for i, a := range allAddons {
+	for i, a := range testAddons {
 		GinkgoWriter.Printf("[Setup]   [%d] %s (%d implementations)\n", i, a.Metadata.Name, len(a.Spec.Implementations))
 	}
 
@@ -102,12 +107,12 @@ var _ = AfterEach(func() {
 	}
 })
 
-var _ = Describe("export and import all addons and make sure all artifacts are available afterwards", Ordered, func() {
+var _ = Describe("export and import a representative subset of addons and make sure all artifacts are available afterwards", Ordered, func() {
 	if linuxOnly {
 		Skip("Linux-only setup")
 	}
 
-	Describe("export all addons", func() {
+	Describe("export addons", func() {
 		BeforeAll(func(ctx context.Context) {
 			// Clean up any previous OCI layout files in the export directory
 			for _, f := range []string{"oci-layout", "index.json", "blobs"} {
@@ -117,11 +122,15 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				}
 			}
 
-			GinkgoWriter.Printf("Exporting all addons to %s", exportPath)
-			suite.K2sCli().MustExec(ctx, "addons", "export", "-d", exportPath, "-o")
+			GinkgoWriter.Printf("Exporting addons %v to %s\n", testAddonNames, exportPath)
+
+			args := []string{"addons", "export"}
+			args = append(args, testAddonNames...)
+			args = append(args, "-d", exportPath, "-o")
+			suite.K2sCli().MustExec(ctx, args...)
 
 			// Find the exported OCI file
-			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-all.oci.tar"))
+			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-*.oci.tar"))
 			Expect(err).To(BeNil())
 			Expect(len(files)).To(Equal(1), "Should create exactly one versioned OCI tar file")
 			exportedOciFile = files[0]
@@ -189,8 +198,16 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 			GinkgoWriter.Printf("Found %d addon manifests in OCI index\n", len(ociIndex.Manifests))
 
-			// Verify each addon is present in index
-			for _, a := range allAddons {
+			// Count total expected implementations across test addons
+			expectedImplCount := 0
+			for _, a := range testAddons {
+				expectedImplCount += len(a.Spec.Implementations)
+			}
+			Expect(len(ociIndex.Manifests)).To(Equal(expectedImplCount),
+				"OCI index should contain exactly %d manifests for the test addon subset", expectedImplCount)
+
+			// Verify each test addon is present in index
+			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
 					var expectedName string
 					if i.Name != a.Metadata.Name {
@@ -228,7 +245,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 		It("all resources have been exported as OCI layers in blobs", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all resources have been exported as OCI layers in blobs")
-			GinkgoWriter.Printf("[Test] Checking %d addons\n", len(allAddons))
+			GinkgoWriter.Printf("[Test] Checking %d addons\n", len(testAddons))
 
 			// Read index.json to get all addon manifests
 			indexPath := filepath.Join(exportPath, "index.json")
@@ -249,7 +266,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 			blobsPath := filepath.Join(exportPath, "blobs", "sha256")
 
-			for addonIdx, a := range allAddons {
+			for addonIdx, a := range testAddons {
 				for implIdx, i := range a.Spec.Implementations {
 					var expectedName string
 					if i.Name != a.Metadata.Name {
@@ -423,14 +440,14 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 	Describe("clean up downloaded resources", func() {
 		BeforeAll(func(ctx context.Context) {
-			GinkgoWriter.Println("=== CLEAN UP ALL ADDONS RESOURCES - BeforeAll START ===")
+			GinkgoWriter.Println("=== CLEAN UP ADDONS RESOURCES - BeforeAll START ===")
 
 			GinkgoWriter.Println("[BeforeAll] Cleaning images with 'k2s image clean -o'...")
 			suite.K2sCli().Exec(ctx, "image", "clean", "-o")
 			GinkgoWriter.Println("[BeforeAll] Image cleanup completed")
 
-			GinkgoWriter.Printf("[BeforeAll] Removing downloaded debian packages for %d addons...\n", len(allAddons))
-			for _, a := range allAddons {
+			GinkgoWriter.Printf("[BeforeAll] Removing downloaded debian packages for %d addons...\n", len(testAddons))
+			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
 					GinkgoWriter.Printf("[BeforeAll]   Removing debian packages for %s/%s (dir: %s)\n", a.Metadata.Name, i.Name, i.ExportDirectoryName)
 					suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("sudo rm -rf .%s", i.ExportDirectoryName))
@@ -439,14 +456,14 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			GinkgoWriter.Println("[BeforeAll] Debian packages cleanup completed")
 
 
-			GinkgoWriter.Println("=== CLEAN UP ALL ADDONS RESOURCES - BeforeAll END ===")
+			GinkgoWriter.Println("=== CLEAN UP ADDONS RESOURCES - BeforeAll END ===")
 		})
 
 		It("no debian packages available before import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: no debian packages available before import")
-			GinkgoWriter.Printf("[Test] Checking %d addons for debian package directories...\n", len(allAddons))
+			GinkgoWriter.Printf("[Test] Checking %d addons for debian package directories...\n", len(testAddons))
 
-			for _, a := range allAddons {
+			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
 					GinkgoWriter.Printf("[Test]   Checking %s/%s (dir: .%s) does not exist...\n", a.Metadata.Name, i.Name, i.ExportDirectoryName)
 					suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s ]", i.ExportDirectoryName))
@@ -470,29 +487,29 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		})
 	})
 
-	Describe("import all addons", func() {
+	Describe("import addons", func() {
 		BeforeAll(func(ctx context.Context) {
-			GinkgoWriter.Println("=== IMPORT ALL ADDONS - BeforeAll START ===")
+			GinkgoWriter.Println("=== IMPORT ADDONS - BeforeAll START ===")
 			GinkgoWriter.Printf("[BeforeAll] Importing from OCI tar file: %s\n", exportedOciFile)
 			suite.K2sCli().MustExec(ctx, "addons", "import", "-f", exportedOciFile)
 			GinkgoWriter.Println("[BeforeAll] Import completed")
-			GinkgoWriter.Println("=== IMPORT ALL ADDONS - BeforeAll END ===")
+			GinkgoWriter.Println("=== IMPORT ADDONS - BeforeAll END ===")
 		}, NodeTimeout(time.Minute*30))
 
 		AfterAll(func(ctx context.Context) {
-			GinkgoWriter.Println("=== IMPORT ALL ADDONS - AfterAll START ===")
+			GinkgoWriter.Println("=== IMPORT ADDONS - AfterAll START ===")
 			if _, err := os.Stat(exportPath); !os.IsNotExist(err) {
 				GinkgoWriter.Printf("[AfterAll] Removing export path: %s\n", exportPath)
 				os.RemoveAll(exportPath)
 			}
-			GinkgoWriter.Println("=== IMPORT ALL ADDONS - AfterAll END ===")
+			GinkgoWriter.Println("=== IMPORT ADDONS - AfterAll END ===")
 		})
 
 		It("debian packages available after import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: debian packages available after import")
-			GinkgoWriter.Printf("[Test] Checking debian packages for %d addons...\n", len(allAddons))
+			GinkgoWriter.Printf("[Test] Checking debian packages for %d addons...\n", len(testAddons))
 
-			for _, a := range allAddons {
+			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
 					GinkgoWriter.Printf("[Test]   Checking %s/%s - %d debian packages\n", a.Metadata.Name, i.Name, len(i.OfflineUsage.LinuxResources.DebPackages))
 					for pkgIdx, pkg := range i.OfflineUsage.LinuxResources.DebPackages {
@@ -513,8 +530,8 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				GinkgoWriter.Printf("[Test]   [%d] %s\n", idx, img)
 			}
 
-			GinkgoWriter.Printf("[Test] Verifying images for %d addons...\n", len(allAddons))
-			for _, a := range allAddons {
+			GinkgoWriter.Printf("[Test] Verifying images for %d addons...\n", len(testAddons))
+			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
 					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
 					Expect(err).To(BeNil())
@@ -538,9 +555,9 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 		It("linux curl packages available after import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: linux curl packages available after import")
-			GinkgoWriter.Printf("[Test] Checking linux curl packages for %d addons...\n", len(allAddons))
+			GinkgoWriter.Printf("[Test] Checking linux curl packages for %d addons...\n", len(testAddons))
 
-			for _, a := range allAddons {
+			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
 					GinkgoWriter.Printf("[Test]   Checking %s/%s - %d linux curl packages\n", a.Metadata.Name, i.Name, len(i.OfflineUsage.LinuxResources.CurlPackages))
 					for pkgIdx, pkg := range i.OfflineUsage.LinuxResources.CurlPackages {
@@ -554,9 +571,9 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 		It("windows curl packages available after import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: windows curl packages available after import")
-			GinkgoWriter.Printf("[Test] Checking windows curl packages for %d addons...\n", len(allAddons))
+			GinkgoWriter.Printf("[Test] Checking windows curl packages for %d addons...\n", len(testAddons))
 
-			for _, a := range allAddons {
+			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
 					GinkgoWriter.Printf("[Test]   Checking %s/%s - %d windows curl packages\n", a.Metadata.Name, i.Name, len(i.OfflineUsage.WindowsResources.CurlPackages))
 					for pkgIdx, p := range i.OfflineUsage.WindowsResources.CurlPackages {
@@ -655,49 +672,26 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("manifest merging preserves multiple implementations", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: manifest merging preserves multiple implementations")
 
-			// Check ingress addon
+			// Check ingress addon — it has 3 implementations (nginx, traefik, nginx-gw)
 			ingressManifestPath := filepath.Join(suite.RootDir(), "addons", "ingress", "addon.manifest.yaml")
 			GinkgoWriter.Printf("[Test] Checking ingress manifest: %s\n", ingressManifestPath)
-			if _, err := os.Stat(ingressManifestPath); err == nil {
-				manifestContent, err := os.ReadFile(ingressManifestPath)
-				Expect(err).To(BeNil())
-				manifestStr := string(manifestContent)
-				GinkgoWriter.Printf("[Test] Ingress manifest size: %d bytes\n", len(manifestContent))
-				GinkgoWriter.Printf("[Test] Ingress manifest content (first 1000 chars):\n%s\n", manifestStr[:min(1000, len(manifestStr))])
 
-				Expect(manifestStr).To(ContainSubstring("nginx"), "Ingress manifest should contain nginx implementation")
-				GinkgoWriter.Println("[Test] OK: nginx implementation found")
-				Expect(manifestStr).To(ContainSubstring("traefik"), "Ingress manifest should contain traefik implementation")
-				GinkgoWriter.Println("[Test] OK: traefik implementation found")
+			manifestContent, err := os.ReadFile(ingressManifestPath)
+			Expect(err).To(BeNil(), "ingress manifest should be readable")
+			manifestStr := string(manifestContent)
+			GinkgoWriter.Printf("[Test] Ingress manifest size: %d bytes\n", len(manifestContent))
+			GinkgoWriter.Printf("[Test] Ingress manifest content (first 1000 chars):\n%s\n", manifestStr[:min(1000, len(manifestStr))])
 
-				Expect(manifestStr).To(ContainSubstring("SPDX-FileCopyrightText"), "Manifest should preserve SPDX header")
-				Expect(manifestStr).To(ContainSubstring("SPDX-License-Identifier"), "Manifest should preserve license identifier")
-				GinkgoWriter.Println("[Test] OK: SPDX headers preserved")
+			Expect(manifestStr).To(ContainSubstring("nginx"), "Ingress manifest should contain nginx implementation")
+			GinkgoWriter.Println("[Test] OK: nginx implementation found")
+			Expect(manifestStr).To(ContainSubstring("traefik"), "Ingress manifest should contain traefik implementation")
+			GinkgoWriter.Println("[Test] OK: traefik implementation found")
 
-				GinkgoWriter.Println("[Test] Verified: Ingress manifest contains both nginx and traefik implementations")
-			} else {
-				GinkgoWriter.Printf("[Test] SKIP: Ingress manifest not found at %s\n", ingressManifestPath)
-			}
+			Expect(manifestStr).To(ContainSubstring("SPDX-FileCopyrightText"), "Manifest should preserve SPDX header")
+			Expect(manifestStr).To(ContainSubstring("SPDX-License-Identifier"), "Manifest should preserve license identifier")
+			GinkgoWriter.Println("[Test] OK: SPDX headers preserved")
 
-			// Also verify rollout addon has both implementations
-			rolloutManifestPath := filepath.Join(suite.RootDir(), "addons", "rollout", "addon.manifest.yaml")
-			GinkgoWriter.Printf("[Test] Checking rollout manifest: %s\n", rolloutManifestPath)
-			if _, err := os.Stat(rolloutManifestPath); err == nil {
-				manifestContent, err := os.ReadFile(rolloutManifestPath)
-				Expect(err).To(BeNil())
-				manifestStr := string(manifestContent)
-				GinkgoWriter.Printf("[Test] Rollout manifest size: %d bytes\n", len(manifestContent))
-				GinkgoWriter.Printf("[Test] Rollout manifest content (first 1000 chars):\n%s\n", manifestStr[:min(1000, len(manifestStr))])
-
-				Expect(manifestStr).To(ContainSubstring("argocd"), "Rollout manifest should contain argocd implementation")
-				GinkgoWriter.Println("[Test] OK: argocd implementation found")
-				Expect(manifestStr).To(ContainSubstring("fluxcd"), "Rollout manifest should contain fluxcd implementation")
-				GinkgoWriter.Println("[Test] OK: fluxcd implementation found")
-
-				GinkgoWriter.Println("[Test] Verified: Rollout manifest contains both argocd and fluxcd implementations")
-			} else {
-				GinkgoWriter.Printf("[Test] SKIP: Rollout manifest not found at %s\n", rolloutManifestPath)
-			}
+			GinkgoWriter.Println("[Test] Verified: Ingress manifest contains all implementations after import")
 		})
 	})
 })

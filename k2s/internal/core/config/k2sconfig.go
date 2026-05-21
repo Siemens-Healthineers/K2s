@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"path/filepath"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
@@ -31,6 +32,7 @@ type configJson struct {
 
 type smallSetup struct {
 	ControlPlanIpAddress string `json:"masterIP"`
+	MasterNetworkCIDR    string `json:"masterNetworkCIDR"`
 }
 
 type configDir struct {
@@ -39,8 +41,10 @@ type configDir struct {
 	Ssh  string `json:"ssh"`
 }
 
+const configFileRelPath = "cfg\\config.json"
+
 func ReadK2sConfig(k2sInstallDir string) (*cconfig.K2sConfig, error) {
-	configFilePath := filepath.Join(k2sInstallDir, "cfg\\config.json")
+	configFilePath := filepath.Join(k2sInstallDir, configFileRelPath)
 
 	configJson, err := json.FromFile[configJson](configFilePath)
 	if err != nil {
@@ -68,7 +72,7 @@ func ReadK2sConfig(k2sInstallDir string) (*cconfig.K2sConfig, error) {
 // ReadSupportedWorkerOS returns the list of supported worker OS keys (e.g. "debian12", "debian13")
 // from the supportedWorkerOS array in cfg/config.json.
 func ReadSupportedWorkerOS(k2sInstallDir string) ([]string, error) {
-	configFilePath := filepath.Join(k2sInstallDir, "cfg\\config.json")
+	configFilePath := filepath.Join(k2sInstallDir, configFileRelPath)
 
 	configJson, err := json.FromFile[configJson](configFilePath)
 	if err != nil {
@@ -80,4 +84,34 @@ func ReadSupportedWorkerOS(k2sInstallDir string) ([]string, error) {
 		result = append(result, entry.OS)
 	}
 	return result, nil
+}
+
+func ReadKubeSwitchCIDR(k2sInstallDir string) (string, error) {
+	configFilePath := filepath.Join(k2sInstallDir, configFileRelPath)
+
+	configJson, err := json.FromFile[configJson](configFilePath)
+	if err != nil {
+		return "", fmt.Errorf("error reading config file: %w", err)
+	}
+
+	return configJson.SmallSetup.MasterNetworkCIDR, nil
+}
+
+func DetectLocalVM(ipAddress, installDir string) (bool, error) {
+	cidr, err := ReadKubeSwitchCIDR(installDir)
+	if err != nil {
+		return false, fmt.Errorf("cannot read KubeSwitch CIDR: %w", err)
+	}
+	if cidr == "" {
+		return false, nil
+	}
+	_, network, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return false, fmt.Errorf("invalid KubeSwitch CIDR '%s': %w", cidr, err)
+	}
+	ip := net.ParseIP(ipAddress)
+	if ip == nil {
+		return false, nil
+	}
+	return network.Contains(ip), nil
 }

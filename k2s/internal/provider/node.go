@@ -22,6 +22,7 @@ type NodeAddConfig struct {
 	Role            string
 	NodePackagePath string
 	ShowOutput      bool
+	IsLocalVM       bool
 }
 
 // NodeRemoveConfig holds parameters for removing a node.

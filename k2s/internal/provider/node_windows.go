@@ -114,7 +114,12 @@ func (p *windowsNodeProvider) Add(cfg NodeAddConfig) error {
 	if remoteOS == "windows" {
 		psCmd = utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "worker", "windows", "windows-host", "Add.ps1"))
 	} else {
-		psCmd = utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "worker", "linux", "bare-metal", "Add.ps1"))
+
+	    scriptDir := "bare-metal"
+	if cfg.IsLocalVM {
+		scriptDir = filepath.Join("hyper-v-vm", "existing-vm")
+	}
+		psCmd = utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "worker", "linux", scriptDir, "Add.ps1"))
 	}
 
 	slog.Info("[Node] Adding node", "ip", cfg.IpAddress, "user", cfg.UserName, "os", remoteOS, "script", psCmd)

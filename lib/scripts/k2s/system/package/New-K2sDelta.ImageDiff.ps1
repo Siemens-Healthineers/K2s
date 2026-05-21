@@ -199,9 +199,11 @@ Updated result hashtable.
 function Compare-ImageSets {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [array]$OldImageSet,
         
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [array]$NewImageSet,
         
         [Parameter(Mandatory = $true)]
