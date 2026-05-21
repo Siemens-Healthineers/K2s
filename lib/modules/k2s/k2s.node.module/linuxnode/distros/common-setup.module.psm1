@@ -524,8 +524,10 @@ Function Remove-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubeadm' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubectl' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubelet' 
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P cri-tools' 
 
     &$executeRemoteCommand 'sudo rm -f /etc/containers/registries.conf'
+    &$executeRemoteCommand 'sudo sh -c ''for f in /etc/containers/registries.conf.d/*.conf; do [ -f "$f" ] || continue; if grep -q "^[[:space:]]*\[\[registry\.mirror\]\]" "$f"; then rm -f "$f"; fi; done'''
     &$executeRemoteCommand 'sudo rm -f /etc/cni/net.d/100-crio-bridge.conf'
     &$executeRemoteCommand 'sudo rm -drf /root/.config/containers'
     &$executeRemoteCommand 'sudo rm -drf /etc/systemd/system/crio.service.d'
@@ -559,6 +561,7 @@ Function Get-BuildahDebPackagesFromInternet {
         [string]$UserPwd = '',
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$Proxy = '',
         [string]$TargetPath = $(throw 'Argument missing: TargetPath'),
         [string]$InstalledDistribution = 'debian12'
     )
@@ -571,7 +574,7 @@ Function Get-BuildahDebPackagesFromInternet {
                         -UserName $UserName `
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
-                        -Arguments @($TargetPath) `
+                        -Arguments @($TargetPath, $Proxy) `
                         -CleanupAfterExecution `
                         -Retries 2
 
@@ -735,8 +738,14 @@ function Install-DnsServer {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    $executeRemoteCommand = {
+        param(
+            $Command = $(throw 'Argument missing: Command'),
+            [switch]$IgnoreErrors = $false,
+            [string]$RepairCmd = $null,
+            [uint16]$Retries = 0
+        )
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
     }
 
     Write-Log 'Remove existing DNS server'
@@ -744,8 +753,8 @@ function Install-DnsServer {
     &$executeRemoteCommand 'sudo systemctl stop systemd-resolved' 
 
     Write-Log 'Install custom DNS server'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' -Retries 2 -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' -Retries 2 -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
 
     Write-Log 'Stop custom DNS server'
     &$executeRemoteCommand 'sudo systemctl stop dnsmasq'
@@ -1088,7 +1097,8 @@ Function Set-UpMasterNode {
         [string] $NetworkInterfaceName = $(throw 'Argument missing: NetworkInterfaceName'),
         [ScriptBlock] $Hook = $(throw 'Argument missing: Hook'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string] $ClusterName = $(throw 'Argument missing: ClusterName')
+        [string] $ClusterName = $(throw 'Argument missing: ClusterName'),
+        [switch] $ForceOnlineInstallation = $false
     )
 
     $remoteUser = "$UserName@$IpAddress"
@@ -1144,16 +1154,21 @@ failCgroupV1: false
 "@
 
     # Pre-pull Kubernetes images with retries to isolate network issues from kubeadm init
-    Write-Log "[KubeInit] Pre-pulling Kubernetes images for version $K8sVersion" -Console
-    if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
-        $prePullResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -UserName $UserName -IpAddress $IpAddress -Retries 3 -Timeout 30
+    if ($ForceOnlineInstallation) {
+        Write-Log "[KubeInit] Pre-pulling Kubernetes images for version $K8sVersion" -Console
+        if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+            $prePullResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -UserName $UserName -IpAddress $IpAddress -Retries 3 -Timeout 30
+        }
+        else {
+            $prePullResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries 3 -Timeout 30
+        }
+        $prePullResult.Output | Write-Log
+        if (-not $prePullResult.Success) {
+            throw '[KubeInit] Pre-pulling Kubernetes images failed after retries. Check proxy settings and network connectivity to container registry (registry.k8s.io).'
+        }
     }
     else {
-        $prePullResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo kubeadm config images pull --kubernetes-version $K8sVersion" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries 3 -Timeout 30
-    }
-    $prePullResult.Output | Write-Log
-    if (-not $prePullResult.Success) {
-        Write-Log '[KubeInit] WARNING: Pre-pulling images failed, kubeadm init will attempt to pull them' -Console
+        Write-Log "[KubeInit] Skipping image pre-pull (offline install - images already included in base image)" -Console
     }
 
     &$executeRemoteCommand 'mkdir -p ~/tmp/kubeadm-init'
@@ -1467,9 +1482,14 @@ function Install-HelmAndYqOnKubeMaster
     }
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo chmod +x $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo sed -i 's/\r$//' $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd).Output | Write-Log
-    
-    Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
+    $installResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd
+    $installResult.Output | Write-Log
+    if (-not $installResult.Success) {
+        Write-Log "[InstallHelmYq] WARNING: install-helm-yq.sh failed on $IpAddress. Helm/yq may not be available. Check network connectivity and proxy settings." -Console
+    }
+    else {
+        Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
+    }
 }
 
 function Set-HypervDynamicMemory

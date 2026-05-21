@@ -58,7 +58,7 @@ var _ = Describe("system dump", func() {
 		defer r.Close()
 
 		var foundSetupJson, foundClusterDir, foundHostDir bool
-		var foundHostProcesses, foundKubemasterProcesses, foundKubemasterSystemdUnits bool
+		var foundHostProcesses, foundHostResources, foundKubemasterProcesses, foundKubemasterResources, foundKubemasterSystemdUnits bool
 		for _, f := range r.File {
 			GinkgoWriter.Printf("Found file in zip: %s\n", f.Name)
 			if strings.HasSuffix(f.Name, "/config/setup.json") || strings.HasSuffix(f.Name, "\\config\\setup.json") {
@@ -73,8 +73,14 @@ var _ = Describe("system dump", func() {
 			if strings.HasSuffix(f.Name, "/host/processes.txt") || strings.HasSuffix(f.Name, "\\host\\processes.txt") {
 				foundHostProcesses = true
 			}
+			if strings.HasSuffix(f.Name, "/host/resources.txt") || strings.HasSuffix(f.Name, "\\host\\resources.txt") {
+				foundHostResources = true
+			}
 			if strings.HasSuffix(f.Name, "-processes.txt") && (strings.Contains(f.Name, "/node/") || strings.Contains(f.Name, "\\node\\")) {
 				foundKubemasterProcesses = true
+			}
+			if strings.HasSuffix(f.Name, "-resources.txt") && (strings.Contains(f.Name, "/node/") || strings.Contains(f.Name, "\\node\\")) {
+				foundKubemasterResources = true
 			}
 			if strings.HasSuffix(f.Name, "-systemd-units.txt") && (strings.Contains(f.Name, "/node/") || strings.Contains(f.Name, "\\node\\")) {
 				foundKubemasterSystemdUnits = true
@@ -84,7 +90,9 @@ var _ = Describe("system dump", func() {
 		Expect(foundClusterDir).To(BeTrue(), "cluster folder not found in dump zip")
 		Expect(foundHostDir).To(BeTrue(), "host folder not found in dump zip")
 		Expect(foundHostProcesses).To(BeTrue(), "processes.txt not found in host folder of dump zip")
+		Expect(foundHostResources).To(BeTrue(), "resources.txt not found in host folder of dump zip")
 		Expect(foundKubemasterProcesses).To(BeTrue(), "processes.txt not found in node folder of dump zip for kubemaster")
+		Expect(foundKubemasterResources).To(BeTrue(), "resources.txt not found in node folder of dump zip for kubemaster")
 		Expect(foundKubemasterSystemdUnits).To(BeTrue(), "systemd-units.txt not found in node folder of dump zip for kubemaster")
 	})
 })

@@ -126,6 +126,7 @@ k2s start [flags]
 |------|-------|-------------|
 | `--ignore-if-running` | `-i` | Skip if already running |
 | `--autouse-cached-vswitch` | | Re-use the cached vSwitch (cbr0 / KubeSwitch) |
+| `--node` | | Start only the specified additional node |
 | `--additional-hooks-dir` | | Directory with additional hook scripts |
 
 ---
@@ -141,6 +142,7 @@ k2s stop [flags]
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--cache-vswitch` | | Cache vswitches for cluster connectivity |
+| `--node` | | Stop only the specified additional node |
 | `--additional-hooks-dir` | | Directory with additional hook scripts |
 
 ---
@@ -478,7 +480,7 @@ k2s system package [flags]
 | `--package-version-to` | | Target full-package zip (required with `--delta-package`) |
 | `--certificate` | `-c` | Code-signing certificate (.pfx) |
 | `--password` | `-w` | Certificate password |
-| `--profile` | | Packaging profile: `Dev` (default) or `Lite` |
+| `--profile` | | Packaging profile: `Dev` (default) or `Lite`; Lite skips optional build and large intermediate artifacts |
 | `--addons-list` | | Comma-separated addons to include |
 | `--master-cpus` | | CPUs for master VM |
 | `--master-memory` | | Memory for master VM |

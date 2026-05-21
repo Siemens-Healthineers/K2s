@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package dsl
@@ -17,12 +17,16 @@ func (k2s *K2s) Start(ctx context.Context) *K2sCmdResult {
 	return k2s.runCmd(ctx, "start")
 }
 
+func (k2s *K2s) Stop(ctx context.Context) *K2sCmdResult {
+	return k2s.runCmd(ctx, "stop")
+}
+
 func (k2s *K2s) AddNode(ctx context.Context) *K2sCmdResult {
 	return k2s.runCmd(ctx, "node", "add", "-i", "ip", "-u", "user")
 }
 
-func (k2s *K2s) RemoveNode(ctx context.Context) *K2sCmdResult {
-	return k2s.runCmd(ctx, "node", "remove", "-m", "machine")
+func (k2s *K2s) RemoveNode(ctx context.Context, nodeName string) *K2sCmdResult {
+	return k2s.runCmd(ctx, "node", "remove", "-m", nodeName)
 }
 
 func (k2s *K2s) RemoveImage(ctx context.Context) *K2sCmdResult {
@@ -54,4 +58,12 @@ func (k2s *K2s) runCmd(ctx context.Context, cliArgs ...string) *K2sCmdResult {
 		output:   output,
 		exitCode: cli.ExitCode(exitCode),
 	}
+}
+
+func (k2s *K2s) StartNode(ctx context.Context, nodeName string) *K2sCmdResult {
+	return k2s.runCmd(ctx, "start", "--node", nodeName)
+}
+
+func (k2s *K2s) StopNode(ctx context.Context, nodeName string) *K2sCmdResult {
+	return k2s.runCmd(ctx, "stop", "--node", nodeName)
 }

@@ -38,7 +38,9 @@ Param (
 	[parameter(Mandatory = $false, HelpMessage = 'Omit keycloak and use external oauth2 provider')]
 	[switch] $OmitKeycloak,
 	[parameter(Mandatory = $false, HelpMessage = 'Omit OAuth2 proxy deployment')]
-	[switch] $OmitOAuth2Proxy
+	[switch] $OmitOAuth2Proxy,
+	[parameter(Mandatory = $false, HelpMessage = 'Omit Kyverno policy enforcement engine')]
+	[switch] $OmitPolicyEnf
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -231,24 +233,7 @@ try {
 	# Enhanced Security is on
 	if (Confirm-EnhancedSecurityOn($Type)) {
 
-		# Download linkerd
-		Write-Log 'Downloading linkerd executable' -Console
-		$manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
-		$k2sRoot = "$PSScriptRoot\..\.."
-		$windowsLinkerdPackages = $manifest.spec.implementations[0].offline_usage.windows.linkerd
-		if ($windowsLinkerdPackages) {
-			foreach ($package in $windowsLinkerdPackages) {
-				$destination = $package.destination
-				$destination = "$k2sRoot\$destination"
-				if (!(Test-Path $destination)) {
-					$url = $package.url
-					Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
-				}
-				else {
-					Write-Log "File $destination already exists. Skipping download."
-				}
-			}
-		}
+		Install-LinkerdCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
 
 		# generate linkerd config
 		Write-Log 'Creating linkerd config files' -Console
@@ -398,7 +383,7 @@ try {
 			}
 			$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-outbound-ports\":\"4444\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'keycloak', '-n', 'security', '-p', $annotations3).Output | Write-Log
-			$annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
+			$annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\",\"config.linkerd.io/proxy-await\":\"enabled\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'postgresql', '-n', 'security', '-p', $annotations4).Output | Write-Log
 			# wait for pods to be ready
 			Write-Log 'Waiting for security pods to be ready' -Console
@@ -413,6 +398,30 @@ try {
 			}
 		}
 	}
+
+	# Kyverno policy enforcement
+	if (-not $OmitPolicyEnf) {
+		Write-Log 'Installing Kyverno policy enforcement engine' -Console
+		Install-KyvernoCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
+		Install-Kyverno -Proxy $Proxy
+		Write-Log 'Kyverno policy enforcement engine installed successfully' -Console
+	} else {
+		Write-Log 'Omitting Kyverno policy enforcement engine as per flag.' -Console
+	}
+
+	Write-Log '[Security] Waiting for security-stack deployments to reach Available state...' -Console
+	$stabilizationNamespaces = [System.Collections.Generic.List[string]]@('security', 'cert-manager')
+	if (Confirm-EnhancedSecurityOn($Type)) { $stabilizationNamespaces.Add('linkerd') }
+
+	foreach ($ns in $stabilizationNamespaces) {
+		Write-Log "[Security] Waiting for deployments in namespace '$ns' to be Available..." -Console
+		$waitResult = Invoke-Kubectl -Params 'wait', '--for=condition=Available', 'deployment', '--all', '-n', $ns, '--timeout=120s'
+		$waitResult.Output | Write-Log
+		if ($waitResult.Success -ne $true) {
+			Write-Log "[Security] Warning: some deployments in '$ns' did not reach Available state within 120s. Continuing." -Console
+		}
+	}
+	Write-Log '[Security] Security-stack stabilisation complete.' -Console
 }
 catch {
 	Write-Log 'Exception happened during enable of addon' -Console

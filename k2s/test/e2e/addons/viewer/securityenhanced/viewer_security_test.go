@@ -69,7 +69,6 @@ var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: Enabling security addon in enhanced mode")
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
 			suite.K2sCli().MustExec(ctx, args...)
-			time.Sleep(30 * time.Second)
 			GinkgoWriter.Println(">>> TEST: Security addon enabled")
 		})
 
@@ -117,7 +116,6 @@ var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: Enabling security addon in enhanced mode")
 			args := []string{"addons", "enable", "security", "-t", "enhanced", "-o"}
 			suite.K2sCli().MustExec(ctx, args...)
-			time.Sleep(30 * time.Second)
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "viewer")
 			GinkgoWriter.Println(">>> TEST: Security addon enabled and linkerd injection verified")
 		})

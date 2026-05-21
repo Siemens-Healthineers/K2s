@@ -13,10 +13,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync/atomic"
-	"time"
 	"syscall"
+	"time"
 	"unsafe"
 
 	// Sub Repositories
@@ -43,7 +44,7 @@ var albums = []album{
 
 // Health state tracking
 var (
-	startedAt         time.Time // set in main() to capture actual process resume time
+	startedAt        time.Time // set in main() to capture actual process resume time
 	readinessFlag    int32     // 0 = not ready, 1 = ready
 	livenessFailures int32     // increment on simulated failures (for future extension)
 )
@@ -127,7 +128,39 @@ func SetCurrentThreadCompartmentId(compartmentId uint32) error {
 	return nil
 }
 
+// hasNonLoopbackIP returns true if any non-loopback interface has at least one IP address.
+func hasNonLoopbackIP() bool {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return false
+	}
+	for _, i := range interfaces {
+		if i.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := i.Addrs()
+		if err != nil {
+			continue
+		}
+		if len(addrs) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func DumpNetworkInterfaces() {
+	// Poll until a non-loopback interface has an IP address assigned.
+	// After a compartment switch the vEthernet adapter may be visible before
+	// the CNI has finished assigning its IP, so we retry for up to 30 s.
+	const maxWait = 30 * time.Second
+	const pollInterval = 2 * time.Second
+	deadline := time.Now().Add(maxWait)
+	for !hasNonLoopbackIP() && time.Now().Before(deadline) {
+		fmt.Printf("Waiting for non-loopback IP (retrying for up to %s)...\n", time.Until(deadline).Truncate(time.Second))
+		time.Sleep(pollInterval)
+	}
+
 	// Get a list of all network interfaces
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -243,6 +276,8 @@ func main() {
 	if compartmentId != "" {
 		num, err := strconv.Atoi(compartmentId)
 		if err == nil {
+			// Pin goroutine to this OS thread — compartment IDs are per-thread.
+			runtime.LockOSThread()
 			fmt.Println("Using compartment id: ", compartmentId)
 			err := SetCurrentThreadCompartmentId(uint32(num))
 			if err != nil {
@@ -309,6 +344,8 @@ func main() {
 
 	// Launch health server concurrently.
 	go func() {
+		// Pin goroutine to this OS thread — compartment IDs are per-thread.
+		runtime.LockOSThread()
 		// Switch to the anchor pod's network compartment so the health server
 		// binds to the same compartment as the main app server.  Both servers
 		// are only reachable via the anchor pod's IP (through kube-proxy /

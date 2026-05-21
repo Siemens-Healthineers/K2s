@@ -277,7 +277,11 @@ function Set-ConfigValue {
 
     $json | Add-Member -Name $Key -Value $Value -MemberType NoteProperty -Force
 
-    $json | ConvertTo-Json -Depth 32 | Set-Content -Force $Path # default object depth appears to be 2
+    # Atomic write: write to temp file first, then rename to prevent corruption
+    # if the process is interrupted mid-write (e.g., VM I/O hiccup during upgrade).
+    $tempPath = "$Path.tmp"
+    $json | ConvertTo-Json -Depth 32 | Set-Content -Force $tempPath
+    Move-Item -Path $tempPath -Destination $Path -Force
 }
 
 <#
@@ -478,7 +482,7 @@ function Get-MinimalProvisioningBaseImageDiskSize {
     return 10GB
 }
 function Get-DefaultK8sVersion {
-    return 'v1.35.4'
+    return 'v1.35.5'
 }
 
 <#

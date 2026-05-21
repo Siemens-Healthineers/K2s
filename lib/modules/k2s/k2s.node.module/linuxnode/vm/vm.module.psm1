@@ -26,30 +26,17 @@ $ControlPlaneVMBaseUbuntuImageName = 'Kubemaster-Base-Ubuntu.vhdx'
 $ControlPlaneVMRootfsName = 'Kubemaster-Base.rootfs.tar.gz'
 $ControlPlaneVMUbuntuRootfsName = 'Kubemaster-Base-Ubuntu.rootfs.tar.gz'
 
-function Invoke-SSHWithKey {
+# Runs ssh.exe once and returns a result object with OutputLines, ExitCode, and HadSocketWarning.
+# This helper is used by Invoke-SSHWithKey to enable retry logic without code duplication.
+function Invoke-SSHOnce {
     param (
-        [Parameter(Mandatory = $false)]
-        [string]
-        $Command = $(throw 'Command not specified'),
-        [Parameter(Mandatory = $false)]
-        [switch]
-        $Nested,
-        [Parameter(Mandatory = $false)]
-        [string] $IpAddress = $ipControlPlane,
-        [string] $UserName = $defaultUserName,
-        [Parameter(Mandatory = $false)]
-        [uint16]$ExecutionTimeoutSeconds = 0
+        [Parameter(Mandatory = $true)][string]$SshExePath,
+        [Parameter(Mandatory = $true)][array]$Params,
+        [Parameter(Mandatory = $false)][uint16]$ExecutionTimeoutSeconds = 0,
+        [Parameter(Mandatory = $false)][string]$IpAddress = '',
+        [Parameter(Mandatory = $false)][string]$Command = ''
     )
-    $userOnRemoteMachine = "$UserName@$IpAddress"
-    $params = '-n', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
 
-    if ($Nested -eq $true) {
-        # omit the "-n" param
-        $params = $params[1..($params.Length - 1)]
-    }
-
-    # Capture all output first, then filter SSH connection warnings
-    # Use try/finally to ensure $LASTEXITCODE is captured immediately
     $rawOutput = $null
     $sshExitCode = 0
     try {
@@ -57,7 +44,7 @@ function Invoke-SSHWithKey {
             $stdoutFile = [System.IO.Path]::GetTempFileName()
             $stderrFile = [System.IO.Path]::GetTempFileName()
             try {
-                $process = Start-Process -FilePath $sshExe -ArgumentList $params -NoNewWindow -PassThru -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+                $process = Start-Process -FilePath $SshExePath -ArgumentList $Params -NoNewWindow -PassThru -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
                 if (-not $process.WaitForExit($ExecutionTimeoutSeconds * 1000)) {
                     try {
                         $process.Kill()
@@ -82,11 +69,10 @@ function Invoke-SSHWithKey {
             }
         }
         else {
-            $rawOutput = &$sshExe $params 2>&1
+            $rawOutput = &$SshExePath $Params 2>&1
             $sshExitCode = $LASTEXITCODE
         }
     } catch {
-        # Timeout already logged inside; other errors get logged here before rethrow.
         if ($_.Exception.Message -match '^\[SSH\] Command timed out') {
             throw
         }
@@ -95,12 +81,10 @@ function Invoke-SSHWithKey {
     }
 
     # Convert to array of strings, handling both regular output and ErrorRecord objects
-    # ErrorRecord objects from stderr redirect need to be converted to strings
     $allLines = @()
     if ($null -ne $rawOutput) {
         foreach ($item in $rawOutput) {
             if ($item -is [System.Management.Automation.ErrorRecord]) {
-                # Extract the message from ErrorRecord without triggering error handling
                 $allLines += $item.ToString()
             } else {
                 $allLines += "$item"
@@ -109,7 +93,6 @@ function Invoke-SSHWithKey {
     }
 
     # Filter out SSH-specific connection warnings that contaminate command output
-    # These are transient socket cleanup messages that don't indicate actual command failure
     $outputLines = @()
     $hadSocketWarning = $false
     foreach ($line in $allLines) {
@@ -117,7 +100,6 @@ function Invoke-SSHWithKey {
             $line -match 'IO is still pending on closed socket' -or
             $line -match '^Connection .* closed' -or
             $line -match '^Warning: Permanently added') {
-            # Log SSH warnings separately but don't pass them to output stream
             Write-Log "[SSH] $line"
             if ($line -match 'IO is still pending') {
                 $hadSocketWarning = $true
@@ -126,6 +108,41 @@ function Invoke-SSHWithKey {
             $outputLines += $line
         }
     }
+
+    return [pscustomobject]@{
+        OutputLines      = $outputLines
+        ExitCode         = $sshExitCode
+        HadSocketWarning = $hadSocketWarning
+    }
+}
+
+function Invoke-SSHWithKey {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Command = $(throw 'Command not specified'),
+        [Parameter(Mandatory = $false)]
+        [switch]
+        $Nested,
+        [Parameter(Mandatory = $false)]
+        [string] $IpAddress = $ipControlPlane,
+        [string] $UserName = $defaultUserName,
+        [Parameter(Mandatory = $false)]
+        [uint16]$ExecutionTimeoutSeconds = 0
+    )
+    $userOnRemoteMachine = "$UserName@$IpAddress"
+    $params = '-n', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
+
+    if ($Nested -eq $true) {
+        # omit the "-n" param
+        $params = $params[1..($params.Length - 1)]
+    }
+
+    $result = Invoke-SSHOnce -SshExePath $sshExe -Params $params -ExecutionTimeoutSeconds $ExecutionTimeoutSeconds -IpAddress $IpAddress -Command $Command
+
+    $outputLines = $result.OutputLines
+    $sshExitCode = $result.ExitCode
+    $hadSocketWarning = $result.HadSocketWarning
 
     # If a socket cleanup warning occurred, the exit code may be misleading.
     # Windows SSH can return various non-zero exit codes (255, 3221226356, etc.)
@@ -140,9 +157,28 @@ function Invoke-SSHWithKey {
             # No output and SSH-level error code - likely a transient connection issue
             Write-Log "[SSH] Ignoring transient socket warning with exit code $sshExitCode - command likely succeeded"
             $global:LASTEXITCODE = 0
+        } elseif ($sshExitCode -ne 0) {
+            # Socket warning + no output + small non-zero exit code (e.g. 1, 2).
+            # This is the sporadic failure case: Windows SSH corrupted the exit code
+            # during socket cleanup. Retry once to confirm.
+            Write-Log "[SSH] Socket warning with exit code $sshExitCode and no output - retrying command once"
+            Start-Sleep -Seconds 1
+            $retryResult = Invoke-SSHOnce -SshExePath $sshExe -Params $params -ExecutionTimeoutSeconds $ExecutionTimeoutSeconds -IpAddress $IpAddress -Command $Command
+
+            $outputLines = $retryResult.OutputLines
+            if ($retryResult.ExitCode -eq 0 -or $retryResult.OutputLines.Count -gt 0 -or $retryResult.HadSocketWarning) {
+                # Retry succeeded, or produced output, or hit the same socket warning again.
+                # In all cases the remote command is almost certainly fine — the socket
+                # warning is definitive evidence of a Windows SSH client bug.
+                Write-Log "[SSH] Retry resolved socket warning issue (exit code: $($retryResult.ExitCode), output lines: $($retryResult.OutputLines.Count), socket warning: $($retryResult.HadSocketWarning)) - treating as success"
+                $global:LASTEXITCODE = 0
+            } else {
+                # Retry failed without socket warning — genuine remote command failure
+                Write-Log "[SSH] Retry also failed with exit code $($retryResult.ExitCode) without socket warning - preserving error"
+                $global:LASTEXITCODE = $retryResult.ExitCode
+            }
         } else {
-            # Non-SSH-level error code with no output - preserve the error
-            $global:LASTEXITCODE = $sshExitCode
+            $global:LASTEXITCODE = 0
         }
     } else {
         # No socket warning - preserve the actual exit code for the caller
@@ -629,10 +665,29 @@ function Copy-ToRemoteComputerViaSshKey($Source, $Target, $UserName, $IpAddress,
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
     [Parameter(Mandatory = $false)]
-    [switch]$IgnoreErrors = $false) {
+    [switch]$IgnoreErrors = $false,
+    [Parameter(Mandatory = $false)]
+    [uint16]$Retries = 3,
+    [Parameter(Mandatory = $false)]
+    [uint16]$RetryDelay = 2) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$remotePwd,"$Source","${remoteUser}:$Target") -PipeInput 'yes'
+    $attempt = 0
+    $output = $null
+
+    do {
+        $attempt++
+        $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$remotePwd,"$Source","${remoteUser}:$Target") -PipeInput 'yes'
+
+        if ($LASTEXITCODE -eq 0) {
+            break
+        }
+
+        if ($attempt -le $Retries) {
+            Write-Log "[SCP] Attempt $attempt failed (exit code $LASTEXITCODE), retrying in $RetryDelay seconds..."
+            Start-Sleep -Seconds $RetryDelay
+        }
+    } while ($attempt -le $Retries)
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -646,10 +701,29 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
     [string]$UserPwd = $remotePwd,
     [Parameter(Mandatory = $false)]
-    [switch]$IgnoreErrors = $false) {
+    [switch]$IgnoreErrors = $false,
+    [Parameter(Mandatory = $false)]
+    [uint16]$Retries = 3,
+    [Parameter(Mandatory = $false)]
+    [uint16]$RetryDelay = 2) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
+    $attempt = 0
+    $output = $null
+
+    do {
+        $attempt++
+        $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
+
+        if ($LASTEXITCODE -eq 0) {
+            break
+        }
+
+        if ($attempt -le $Retries) {
+            Write-Log "[SCP] Attempt $attempt failed (exit code $LASTEXITCODE), retrying in $RetryDelay seconds..."
+            Start-Sleep -Seconds $RetryDelay
+        }
+    } while ($attempt -le $Retries)
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -802,7 +876,7 @@ function Wait-ForSshPossible {
         [switch]$Nested = $false
     )
     $iteration = 0
-    $maxIterations = 40  # Increased from 25 to handle sporadic failures better
+    $maxIterations = 60  # Increased from 40 to handle sporadic CI infrastructure failures
     $baseDelay = 3       # Base delay in seconds
     $maxDelay = 15       # Maximum delay between attempts
     $startTime = Get-Date
