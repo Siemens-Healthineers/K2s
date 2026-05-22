@@ -13,6 +13,92 @@ $script:NestedLogging = $false   # Shall be used when we need to capture output 
 # logging
 $k2sLogFilePart = ':\var\log\k2s.log'
 $k2sLogFile = (Get-SystemDriveLetter) + $k2sLogFilePart
+$script:LogPathResolved = $false
+
+<#
+.SYNOPSIS
+Resolves the configured K2s log root directory.
+
+.DESCRIPTION
+Fallback chain (first hit wins):
+  1. Environment variable K2S_LOG_ROOT
+  2. setup.json -> LogRoot (under ProgramData\K2s)
+  3. cfg/config.json -> configDir.logs
+  4. <SystemDrive>:\var\log (legacy)
+
+The returned path is environment-expanded and created if missing.
+#>
+function Get-ConfiguredLogDirectory {
+    [CmdletBinding()]
+    param()
+
+    $raw = $null
+    if ($env:K2S_LOG_ROOT) {
+        $raw = $env:K2S_LOG_ROOT
+    }
+    else {
+        try {
+            $kubePath = Get-KubePath
+            $setupJsonPath = Join-Path -Path 'C:\ProgramData\K2s' -ChildPath 'setup.json'
+            if (Test-Path -Path $setupJsonPath) {
+                $setupJson = Get-Content -Path $setupJsonPath -Raw | ConvertFrom-Json
+                if ($setupJson -and $setupJson.PSObject.Properties.Name -contains 'LogRoot' -and $setupJson.LogRoot) {
+                    $raw = $setupJson.LogRoot
+                }
+            }
+            if (-not $raw) {
+                $cfgPath = Join-Path -Path $kubePath -ChildPath 'cfg\config.json'
+                if (Test-Path -Path $cfgPath) {
+                    $cfgJson = Get-Content -Path $cfgPath -Raw | ConvertFrom-Json
+                    if ($cfgJson -and $cfgJson.configDir -and $cfgJson.configDir.PSObject.Properties.Name -contains 'logs' -and $cfgJson.configDir.logs) {
+                        $raw = $cfgJson.configDir.logs
+                    }
+                }
+            }
+        }
+        catch {
+            # Best-effort resolution; fall through to legacy default.
+        }
+        if (-not $raw) {
+            $raw = "$(Get-SystemDriveLetter):\var\log"
+        }
+    }
+
+    $resolved = [Environment]::ExpandEnvironmentVariables($raw)
+    if ($resolved -like '~*') {
+        $resolved = $resolved -replace '^~', $env:USERPROFILE
+    }
+
+    if (-not (Test-Path -Path $resolved)) {
+        New-Item -Path $resolved -ItemType Directory -Force | Out-Null
+    }
+    return (Resolve-Path -Path $resolved).Path
+}
+
+<#
+.SYNOPSIS
+Resolves the log file path from the configured log root and updates the cached value.
+
+.DESCRIPTION
+Updates the script-scope cache $k2sLogFile to point to <ConfiguredLogDir>\k2s.log.
+Safe to call multiple times. Tests that override $k2sLogFile via InModuleScope can
+suppress this behavior with -Force:$false (default skips when already resolved).
+#>
+function Update-LogFilePathFromConfig {
+    [CmdletBinding()]
+    param(
+        [switch] $Force
+    )
+    if (-not $Force -and $script:LogPathResolved) { return }
+    try {
+        $dir = Get-ConfiguredLogDirectory
+        $script:k2sLogFile = Join-Path -Path $dir -ChildPath 'k2s.log'
+        $script:LogPathResolved = $true
+    }
+    catch {
+        # Keep legacy default if resolution fails.
+    }
+}
 
 <#
 .SYNOPSIS
@@ -41,6 +127,7 @@ function Initialize-Logging {
     Write-Verbose "Initializing log module with ShowLogs:$ShowLogs, Nested:$Nested"
     $script:ConsoleLogging = $ShowLogs
     $script:NestedLogging = $Nested
+    Update-LogFilePathFromConfig
 }
 
 <#
@@ -390,25 +477,75 @@ function Save-k2sLogDirectory {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Remove var folder after saving logs')]
         [switch] $RemoveVar = $false,
-        [Parameter(Mandatory = $false, HelpMessage = 'Custom var log directory for testing')]
-        [string] $VarLogDirectory = 'C:\var\log'
+        [Parameter(Mandatory = $false, HelpMessage = 'Override source log directory (defaults to the configured/active K2s log root)')]
+        [string] $VarLogDirectory = ''
     )
 
     if (!(Test-Path "$env:TEMP")) {
         New-Item -Path "$env:TEMP" -ItemType Directory | Out-Null
     }
 
+    # Resolve source log directory: explicit param > active resolver > legacy default.
+    if ([string]::IsNullOrWhiteSpace($VarLogDirectory)) {
+        try {
+            $VarLogDirectory = Get-ConfiguredLogDirectory
+        }
+        catch {
+            $VarLogDirectory = "$(Get-SystemDriveLetter):\var\log"
+        }
+    }
+
     $destinationFolder = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss)"
-    Copy-Item -Path $VarLogDirectory -Destination $destinationFolder -Force -Recurse
-    Compress-Archive -Path $destinationFolder -DestinationPath "$destinationFolder.zip" -CompressionLevel Optimal -Force
+
+    # Collect logs from primary location, plus any kubelet-managed paths under
+    # <SystemDrive>:\var\log (pods/containers) which kubelet hardcodes.
+    New-Item -Path $destinationFolder -ItemType Directory -Force | Out-Null
+    if (Test-Path $VarLogDirectory) {
+        Copy-Item -Path "$VarLogDirectory\*" -Destination $destinationFolder -Force -Recurse -ErrorAction SilentlyContinue
+    }
+    else {
+        Write-Log "Source log directory '$VarLogDirectory' not found - skipping log copy" -Console
+    }
+
+    $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
+    $legacyVarLog = "$($systemDriveLetter):\var\log"
+    if ((Test-Path $legacyVarLog) -and ($VarLogDirectory.TrimEnd('\') -ne $legacyVarLog.TrimEnd('\'))) {
+        $legacyTarget = Join-Path $destinationFolder 'system-drive-var-log'
+        New-Item -Path $legacyTarget -ItemType Directory -Force | Out-Null
+        Copy-Item -Path "$legacyVarLog\*" -Destination $legacyTarget -Force -Recurse -ErrorAction SilentlyContinue
+    }
+
+    Compress-Archive -Path "$destinationFolder\*" -DestinationPath "$destinationFolder.zip" -CompressionLevel Optimal -Force
     Remove-Item -Path "$destinationFolder" -Force -Recurse -ErrorAction SilentlyContinue
 
-    Write-Log "Logs backed up in $destinationFolder.zip" -Console
+    Write-Log "Logs backed up in $destinationFolder.zip (source: $VarLogDirectory)" -Console
 
     if ($RemoveVar) {
+        # Determine the active log root from the configured/resolved log file path so we don't
+        # accidentally delete a custom log location *outside* the source tree, but still preserve
+        # the legacy behavior of cleaning up <SystemDrive>:\var when no relocation is configured.
+        $activeLogRoot = $null
+        try {
+            if ($script:k2sLogFile) {
+                $activeLogRoot = Split-Path -Path $script:k2sLogFile -Parent
+            }
+        }
+        catch {
+            $activeLogRoot = $null
+        }
+
+        $legacyVarRoot = "$((Get-Item $env:SystemDrive).PSDrive.Name):\var"
+        $legacyVarRootInstall = "$(Get-SystemDriveLetter):\var"
+
+        # Only nuke the entire <drive>:\var tree when the active log root is still inside it.
+        # If the operator relocated the logs elsewhere, only that directory is removed.
+        if ($activeLogRoot -and ($activeLogRoot -notlike "$legacyVarRoot*") -and ($activeLogRoot -notlike "$legacyVarRootInstall*")) {
+            Remove-Item -Path $activeLogRoot -Force -Recurse -ErrorAction SilentlyContinue
+        }
+
         # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
         # kubelet.exe writes hardcoded to '<system drive>:\var\lib\kubelet\device-plugins' (see '\pkg\kubelet\cm\devicemanager\manager.go' under https://github.com/kubernetes/kubernetes.git)
-        $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name       
+        $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
         Remove-Item -Path "$($systemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
         if ($(Get-SystemDriveLetter) -ne "$systemDriveLetter") {
             Remove-Item -Path "$(Get-SystemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
@@ -431,4 +568,4 @@ function Get-DurationInSeconds {
 }
 
 Export-ModuleMember -Variable k2sLogFilePart, k2sLogFile
-Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory, Get-LogFilePath, Get-LogFilePathPart, Get-DurationInSeconds
+Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory, Get-LogFilePath, Get-LogFilePathPart, Get-DurationInSeconds, Get-ConfiguredLogDirectory, Update-LogFilePathFromConfig
