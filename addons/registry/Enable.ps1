@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -79,6 +79,15 @@ Write-Log 'Creating authentication files and secrets' -Console
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /registry').Output | Write-Log
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/auth 2>&1').Output | Write-Log
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/repository 2>&1').Output | Write-Log
+
+# Create registry directories on all Linux worker nodes so the pod can be scheduled on any node
+$clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
+if ($clusterDescriptor -and $clusterDescriptor.nodes) {
+    @($clusterDescriptor.nodes) | Where-Object { $_.OS -eq 'linux' -and $_.Role -eq 'worker' } | ForEach-Object {
+        Write-Log "[Registry] Creating /registry on worker node $($_.Name) ($($_.IpAddress))" -Console
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -m 777 -p /registry && sudo mkdir -m 777 -p /registry/auth && sudo mkdir -m 777 -p /registry/repository' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
+    }
+}
 
 # Create secrets
 (Invoke-Kubectl -Params 'create', 'namespace', 'registry').Output | Write-Log

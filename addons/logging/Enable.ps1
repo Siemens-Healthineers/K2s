@@ -85,6 +85,16 @@ if ($Ingress -ne 'none') {
 
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
 
+# Create logging directory on all Linux worker nodes so the pod can be scheduled on any node
+$clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
+if ($clusterDescriptor -and $clusterDescriptor.nodes) {
+    @($clusterDescriptor.nodes) | Where-Object { $_.OS -eq 'linux' -and $_.Role -eq 'worker' } | ForEach-Object {
+        Write-Log "[Logging] Creating /logging on worker node $($_.Name) ($($_.IpAddress))" -Console
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -m 777 -p /logging' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
+    }
+}
+
 # OpenSearch requires vm.max_map_count >= 262144; set it persistently so it survives reboots
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144').Output | Write-Log
 

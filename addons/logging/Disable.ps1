@@ -117,6 +117,16 @@ else {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/sysctl.d/99-opensearch.conf').Output | Write-Log
 }
 
+# Clean up logging directory and sysctl config on all Linux worker nodes
+$clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
+if ($clusterDescriptor -and $clusterDescriptor.nodes) {
+    @($clusterDescriptor.nodes) | Where-Object { $_.OS -eq 'linux' -and $_.Role -eq 'worker' } | ForEach-Object {
+        Write-Log "[Logging] Removing /logging on worker node $($_.Name) ($($_.IpAddress))" -Console
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /logging' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/sysctl.d/99-opensearch.conf' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
+    }
+}
+
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
 
 Write-Log 'Logging Stack uninstalled successfully' -Console

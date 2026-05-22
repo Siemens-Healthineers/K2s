@@ -12,16 +12,13 @@ spec:
     storage: 5Gi
   accessModes:
   - ReadWriteOnce
-  local:
+  hostPath:
     path: /logging
+    type: DirectoryOrCreate
   nodeAffinity:
     required:
       nodeSelectorTerms:
       - matchExpressions:
-        - key: kubernetes.io/hostname
-          operator: In
-          values:
-          - kubemaster
         - key: kubernetes.io/os
           operator: In
           values:
