@@ -37,7 +37,7 @@ function Invoke-DeployWindowsExporterArtifacts($windowsNodeArtifactsDirectory) {
 
 function Install-WindowsExporter {
 
-    $logDir = "$(Get-SystemDriveLetter):\var\log\windows_exporter"
+    $logDir = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'windows_exporter'
     if (!(Test-Path($logDir))) {
         mkdir $logDir -Force | Out-Null
     }
