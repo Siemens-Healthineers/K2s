@@ -80,7 +80,7 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			GinkgoWriter.Println(">>> TEST: Enabling ingress-nginx-gw addon")
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "controller", "nginx-gw")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "nginx-gw", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "nginx-gw")
 			GinkgoWriter.Println(">>> TEST: Ingress-nginx verified with linkerd injection")
 		})

@@ -95,7 +95,7 @@ function Invoke-DeployKubetoolKubectl($windowsNodeArtifactsDirectory) {
 
 function Install-WinKubelet {
     Write-Log 'Registering kubelet service'
-    mkdir -force "$($systemDefaultDriveLetter):\var\log\kubelet" | Out-Null
+    mkdir -Force (Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'kubelet') | Out-Null
 
     mkdir -force "$kubeletConfigDir\etc" | Out-Null
     mkdir -force "$kubeletConfigDir\etc\kubernetes" | Out-Null
@@ -145,8 +145,10 @@ function Install-WinKubelet {
     &$kubeBinPath\nssm set kubelet AppEnvironmentExtra $envVars | Out-Null
     Write-Log "Kubelet service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
     
-    &$kubeBinPath\nssm set kubelet AppStdout "$($systemDefaultDriveLetter):\var\log\kubelet\kubelet_stdout.log" | Out-Null
-    &$kubeBinPath\nssm set kubelet AppStderr "$($systemDefaultDriveLetter):\var\log\kubelet\kubelet_stderr.log" | Out-Null
+    $kubeletLogDir = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'kubelet'
+    if (-not (Test-Path $kubeletLogDir)) { mkdir -Force $kubeletLogDir | Out-Null }
+    &$kubeBinPath\nssm set kubelet AppStdout "$kubeletLogDir\kubelet_stdout.log" | Out-Null
+    &$kubeBinPath\nssm set kubelet AppStderr "$kubeletLogDir\kubelet_stderr.log" | Out-Null
     &$kubeBinPath\nssm set kubelet AppStdoutCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set kubelet AppStderrCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set kubelet AppRotateFiles 1 | Out-Null
@@ -158,7 +160,8 @@ function Install-WinKubelet {
 
 function Install-WinKubeProxy {
     Write-Log 'Registering kubeproxy service'
-    mkdir -force "$($systemDefaultDriveLetter):\var\log\kubeproxy" | Out-Null
+    $kubeProxyLogDir = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'kubeproxy'
+    mkdir -force $kubeProxyLogDir | Out-Null
 
     &$kubeBinPath\nssm install kubeproxy "$kubeToolsPath\kube-proxy.exe"
     &$kubeBinPath\nssm set kubeproxy AppDirectory "$kubeToolsPath" | Out-Null
@@ -180,8 +183,8 @@ function Install-WinKubeProxy {
     Write-Log "Kube-proxy service configured to use HTTP proxy: $httpProxyUrl with NO_PROXY: $noProxyValue"
     
     &$kubeBinPath\nssm set kubeproxy DependOnService kubelet | Out-Null
-    &$kubeBinPath\nssm set kubeproxy AppStdout "$($systemDefaultDriveLetter):\var\log\kubeproxy\kubeproxy_stdout.log" | Out-Null
-    &$kubeBinPath\nssm set kubeproxy AppStderr "$($systemDefaultDriveLetter):\var\log\kubeproxy\kubeproxy_stderr.log" | Out-Null
+    &$kubeBinPath\nssm set kubeproxy AppStdout "$kubeProxyLogDir\kubeproxy_stdout.log" | Out-Null
+    &$kubeBinPath\nssm set kubeproxy AppStderr "$kubeProxyLogDir\kubeproxy_stderr.log" | Out-Null
     &$kubeBinPath\nssm set kubeproxy AppStdoutCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set kubeproxy AppStderrCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set kubeproxy AppRotateFiles 1 | Out-Null
