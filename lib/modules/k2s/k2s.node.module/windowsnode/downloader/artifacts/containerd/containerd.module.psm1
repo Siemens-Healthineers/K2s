@@ -307,14 +307,14 @@ timeout: 30
     Set-UserTokenForRegistryInConfig "$kubePath\cfg\containerd\config.toml" | Out-Null
 
 
-    $target = "$(Get-SystemDriveLetter):\var\log\containerd"
+    $target = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'containerd'
     Remove-Item -Path $target -Force -Recurse -ErrorAction SilentlyContinue | Out-Null
-    mkdir "$(Get-SystemDriveLetter):\var\log\containerd" -ErrorAction SilentlyContinue | Out-Null
+    mkdir $target -ErrorAction SilentlyContinue | Out-Null
     &$kubeBinPath\nssm install containerd $kubePath\bin\containerd\containerd.exe *>&1 | ForEach-Object { $_.Trim() }
     &$kubeBinPath\nssm set containerd AppDirectory $kubePath\bin\containerd | Out-Null
-    &$kubeBinPath\nssm set containerd AppParameters "--log-file=\`"$(Get-SystemDriveLetter):\var\log\containerd\logs.log\`" --config \`"$kubePath\cfg\containerd\config.toml\`"" | Out-Null
-    &$kubeBinPath\nssm set containerd AppStdout "$(Get-SystemDriveLetter):\var\log\containerd\containerd_stdout.log" | Out-Null
-    &$kubeBinPath\nssm set containerd AppStderr "$(Get-SystemDriveLetter):\var\log\containerd\containerd_stderr.log" | Out-Null
+    &$kubeBinPath\nssm set containerd AppParameters "--log-file=\`"$target\logs.log\`" --config \`"$kubePath\cfg\containerd\config.toml\`"" | Out-Null
+    &$kubeBinPath\nssm set containerd AppStdout "$target\containerd_stdout.log" | Out-Null
+    &$kubeBinPath\nssm set containerd AppStderr "$target\containerd_stderr.log" | Out-Null
     &$kubeBinPath\nssm set containerd AppStdoutCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set containerd AppStderrCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set containerd AppRotateFiles 1 | Out-Null
