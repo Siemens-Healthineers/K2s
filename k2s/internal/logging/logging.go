@@ -4,6 +4,7 @@
 package logging
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -12,20 +13,155 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/host"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 )
 
-// RootLogDir returns K2s' central log directory
+// LogRootEnvVar is the environment variable that overrides the configured log root directory.
+// When set, it takes precedence over setup.json and cfg/config.json.
+const LogRootEnvVar = "K2S_LOG_ROOT"
+
+// setupJsonLogRootKey is the top-level key in setup.json holding the persisted log root.
+const setupJsonLogRootKey = "LogRoot"
+
+// k2sLogFileName is the global K2s log file name.
+const k2sLogFileName = "k2s.log"
+
+var (
+	rootLogDirOnce  sync.Once
+	rootLogDirValue string
+)
+
+// RootLogDir returns K2s' central log directory.
+//
+// Resolution order (first hit wins):
+//  1. environment variable K2S_LOG_ROOT
+//  2. setup.json -> LogRoot (persisted at install time, under K2sConfigDir())
+//  3. cfg/config.json -> configDir.logs (build-time default; only when k2sInstallDir is discoverable)
+//  4. <SystemDrive>:\var\log (legacy fallback)
+//
+// The result is environment-expanded and the directory is created if missing.
+// Result is memoized; tests must reset via ResetRootLogDirCache.
 func RootLogDir() string {
-	return filepath.Join(host.SystemDrive(), "var", "log")
+	rootLogDirOnce.Do(func() {
+		rootLogDirValue = resolveRootLogDir()
+	})
+	return rootLogDirValue
+}
+
+// ResetRootLogDirCache clears the memoized RootLogDir value. Intended for tests only.
+func ResetRootLogDirCache() {
+	rootLogDirOnce = sync.Once{}
+	rootLogDirValue = ""
 }
 
 // GlobalLogFilePath returns K2s' global log file path
 func GlobalLogFilePath() string {
-	return filepath.Join(RootLogDir(), "k2s.log")
+	return filepath.Join(RootLogDir(), k2sLogFileName)
+}
+
+func resolveRootLogDir() string {
+	candidates := []func() string{
+		readLogRootFromEnv,
+		readLogRootFromSetupJson,
+		readLogRootFromConfigJson,
+	}
+	for _, fn := range candidates {
+		if v := fn(); v != "" {
+			return ensureLogDir(expandPath(v))
+		}
+	}
+	return ensureLogDir(filepath.Join(host.SystemDrive(), "var", "log"))
+}
+
+func readLogRootFromEnv() string {
+	return strings.TrimSpace(os.Getenv(LogRootEnvVar))
+}
+
+func readLogRootFromSetupJson() string {
+	path := filepath.Join(host.K2sConfigDir(), definitions.K2sRuntimeConfigFileName)
+	return readJsonStringField(path, setupJsonLogRootKey)
+}
+
+func readLogRootFromConfigJson() string {
+	installDir := os.Getenv("K2S_INSTALL_DIR")
+	if installDir == "" {
+		// Best-effort fallback: try the executable's directory chain.
+		if exe, err := os.Executable(); err == nil {
+			installDir = findInstallDirFromExe(exe)
+		}
+	}
+	if installDir == "" {
+		return ""
+	}
+	path := filepath.Join(installDir, "cfg", "config.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var raw struct {
+		ConfigDir struct {
+			Logs string `json:"logs"`
+		} `json:"configDir"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(raw.ConfigDir.Logs)
+}
+
+// findInstallDirFromExe walks up from the executable directory looking for cfg/config.json.
+func findInstallDirFromExe(exe string) string {
+	dir := filepath.Dir(exe)
+	for i := 0; i < 6; i++ {
+		if _, err := os.Stat(filepath.Join(dir, "cfg", "config.json")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+	return ""
+}
+
+func readJsonStringField(path, key string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return ""
+	}
+	v, ok := m[key].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(v)
+}
+
+func expandPath(p string) string {
+	expanded := os.ExpandEnv(p)
+	if strings.HasPrefix(expanded, "~") {
+		if home, err := os.UserHomeDir(); err == nil {
+			expanded = filepath.Join(home, strings.TrimPrefix(expanded, "~"))
+		}
+	}
+	return filepath.Clean(expanded)
+}
+
+func ensureLogDir(p string) string {
+	if p == "" {
+		return p
+	}
+	_ = os.MkdirAll(p, fs.ModePerm)
+	return p
 }
 
 // InitializeLogFile creates the log directory and file if not existing
