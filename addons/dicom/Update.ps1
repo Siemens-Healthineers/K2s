@@ -88,7 +88,7 @@ if ($EnhancedSecurityEnabled) {
         $postgresExists = (Invoke-Kubectl -Params 'get', 'deployment', 'postgres', '-n', 'dicom', '--ignore-not-found').Success
         
         if ($dicomExists) {
-            $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/opaque-ports\":null,\"linkerd.io/inject\":null}}}}}'
+            $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/opaque-ports\":null,\"config.linkerd.io/skip-outbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
             Write-Log "Removing Linkerd annotations from dicom deployment" -Console
             (Invoke-Kubectl -Params 'patch', 'deployment', 'dicom', '-n', 'dicom', '-p', $annotations).Output | Write-Log
         }
