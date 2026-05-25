@@ -193,6 +193,40 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 			Expect(output).To(Equal("/usr/lib/wsl/lib/nvidia-smi"))
 		})
 
+		It("CDI spec contains directory mounts for full GPU library access", func(ctx context.Context) {
+			// Get the device plugin pod name
+			podName := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "gpu-node", "-l", "k8s-app=nvidia-device-plugin", "-o", "jsonpath={.items[0].metadata.name}")
+
+			// Read the CDI spec
+			output := suite.Kubectl().MustExec(ctx, "exec", "-n", "gpu-node", podName, "--", "cat", "/var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json")
+
+			// Verify directory mounts are present (required for OpenGL via D3D12 and CUDA)
+			Expect(output).To(ContainSubstring(`"containerPath":"/usr/lib/wsl/lib"`), "CDI spec should mount /usr/lib/wsl/lib directory")
+			Expect(output).To(ContainSubstring(`"containerPath":"/usr/lib/wsl/drivers"`), "CDI spec should mount /usr/lib/wsl/drivers directory")
+		})
+
+		It("CDI spec contains LD_LIBRARY_PATH environment variable", func(ctx context.Context) {
+			podName := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "gpu-node", "-l", "k8s-app=nvidia-device-plugin", "-o", "jsonpath={.items[0].metadata.name}")
+
+			output := suite.Kubectl().MustExec(ctx, "exec", "-n", "gpu-node", podName, "--", "cat", "/var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json")
+
+			Expect(output).To(ContainSubstring(`LD_LIBRARY_PATH=/usr/lib/wsl/lib`), "CDI spec should set LD_LIBRARY_PATH for workload pods")
+		})
+
+		It("workload pod has access to GPU libraries including OpenGL support", func(ctx context.Context) {
+			// Verify the CUDA workload pod can see the mounted GPU libraries
+			// libnvwgf2umx.so is required for OpenGL via D3D12 translation in WSL2
+			output := suite.Kubectl().MustExec(ctx, "exec", podName, "-n", namespace, "--", "ls", "/usr/lib/wsl/lib/")
+
+			Expect(output).To(ContainSubstring("libcuda.so"), "workload should have access to libcuda.so")
+			Expect(output).To(ContainSubstring("libd3d12.so"), "workload should have access to libd3d12.so for D3D12 support")
+
+			// Check /usr/lib/wsl/drivers is mounted and contains libnvwgf2umx.so (OpenGL -> D3D12 translator)
+			output = suite.Kubectl().MustExec(ctx, "exec", podName, "-n", namespace, "--", "find", "/usr/lib/wsl/drivers", "-name", "libnvwgf2umx.so")
+
+			Expect(output).To(ContainSubstring("libnvwgf2umx.so"), "workload should have access to libnvwgf2umx.so for OpenGL support")
+		})
+
 	})
 
 	Describe("disables cleanly", func() {
