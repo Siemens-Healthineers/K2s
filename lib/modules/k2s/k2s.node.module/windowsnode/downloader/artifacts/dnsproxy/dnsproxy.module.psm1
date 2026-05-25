@@ -23,7 +23,7 @@ function Invoke-DownloadDnsProxyArtifacts($downloadsBaseDirectory, $Proxy) {
     Write-Log "Create folder '$dnsproxyDownloadsDirectory'"
     mkdir $dnsproxyDownloadsDirectory | Out-Null
     Write-Log 'Download dnsproxy'
-    Invoke-DownloadFile "$compressedFile" https://github.com/AdguardTeam/dnsproxy/releases/download/v0.81.3/dnsproxy-windows-amd64-v0.81.3.zip $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/AdguardTeam/dnsproxy/releases/download/v0.81.4/dnsproxy-windows-amd64-v0.81.4.zip $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     $ErrorActionPreference = 'SilentlyContinue'
@@ -50,7 +50,7 @@ function Install-WinDnsProxy {
     )
 
     Write-Log 'Registering dnsproxy service'
-    mkdir -Force "$(Get-SystemDriveLetter):\var\log\dnsproxy" | Out-Null
+    mkdir -Force (Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'dnsproxy') | Out-Null
     &$kubeBinPath\nssm install dnsproxy $kubeBinPath\dnsproxy.exe
     &$kubeBinPath\nssm set dnsproxy AppDirectory $kubeBinPath | Out-Null
 
@@ -85,8 +85,10 @@ listen-addrs:
     $configContent | Set-Content "$kubeBinPath\dnsproxy.yaml" -Force
 
     &$kubeBinPath\nssm set dnsproxy AppParameters " --config-path=\`"$kubeBinPath\dnsproxy.yaml\`" " | Out-Null
-    &$kubeBinPath\nssm set dnsproxy AppStdout "$(Get-SystemDriveLetter):\var\log\dnsproxy\dnsproxy_stdout.log" | Out-Null
-    &$kubeBinPath\nssm set dnsproxy AppStderr "$(Get-SystemDriveLetter):\var\log\dnsproxy\dnsproxy_stderr.log" | Out-Null
+    $dnsProxyLogDir = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'dnsproxy'
+    if (-not (Test-Path $dnsProxyLogDir)) { mkdir -Force $dnsProxyLogDir | Out-Null }
+    &$kubeBinPath\nssm set dnsproxy AppStdout "$dnsProxyLogDir\dnsproxy_stdout.log" | Out-Null
+    &$kubeBinPath\nssm set dnsproxy AppStderr "$dnsProxyLogDir\dnsproxy_stderr.log" | Out-Null
     &$kubeBinPath\nssm set dnsproxy AppStdoutCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set dnsproxy AppStderrCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set dnsproxy AppRotateFiles 1 | Out-Null

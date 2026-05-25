@@ -150,7 +150,7 @@ if ($deployment) {
         Remove-Item -Path $deploymentPatchFile -Force
     }
 }
-$clusterRole = kubectl get clusterrole nginx-gw -o json 2>$null | ConvertFrom-Json
+$clusterRole = kubectl get clusterrole nginx-gw-controller -o json 2>$null | ConvertFrom-Json
 if ($clusterRole) {
     $ruleIndex = -1
     for ($i = 0; $i -lt $clusterRole.rules.Count; $i++) {
@@ -165,10 +165,10 @@ if ($clusterRole) {
         $clusterRolePatchFile = [System.IO.Path]::GetTempFileName()
         $clusterRolePatch = "[{`"op`":`"remove`",`"path`":`"/rules/$ruleIndex`"}]"
         Set-Content -Path $clusterRolePatchFile -Value $clusterRolePatch -NoNewline
-        kubectl patch clusterrole nginx-gw --type=json --patch-file $clusterRolePatchFile 2>&1 | Write-Log
+        kubectl patch clusterrole nginx-gw-controller --type=json --patch-file $clusterRolePatchFile 2>&1 | Write-Log
         Remove-Item -Path $clusterRolePatchFile -Force
         Write-Log '  Restarting controller pod...' -Console
-        kubectl delete pod -l app.kubernetes.io/name=nginx-gateway -n nginx-gw 2>&1 | Write-Log
+        kubectl delete pod -l app.kubernetes.io/name=nginx-gw -n nginx-gw 2>&1 | Write-Log
     }
 }
 
