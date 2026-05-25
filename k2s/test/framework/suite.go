@@ -8,12 +8,12 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"path"
 	"path/filepath"
 	"reflect"
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/definitions"
+	"github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 	"github.com/siemens-healthineers/k2s/test/framework/os"
 
@@ -300,5 +300,5 @@ func determineRootDir() string {
 }
 
 func (s *K2sTestSuite) LogsDir() string {
-	return path.Join("C:\\var\\log")
+	return logging.RootLogDir()
 }
