@@ -41,18 +41,28 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("logging", func() {
 	Describe("RootLogDir", Label("integration"), func() {
-		It("returns root log dir on Windows system drive", func() {
+		It("returns root log dir from K2S_LOG_ROOT env var when set", func() {
+			tempDir := GinkgoT().TempDir()
+			GinkgoT().Setenv(logging.LogRootEnvVar, tempDir)
+			logging.ResetRootLogDirCache()
+			DeferCleanup(func() { logging.ResetRootLogDirCache() })
+
 			dir := logging.RootLogDir()
 
-			Expect(dir).To(Equal("C:\\var\\log"))
+			Expect(dir).To(Equal(filepath.Clean(tempDir)))
 		})
 	})
 
 	Describe("GlobalLogFilePath", Label("integration"), func() {
-		It("returns global file path on Windows system drive", func() {
-			dir := logging.GlobalLogFilePath()
+		It("returns global log file path under the configured root", func() {
+			tempDir := GinkgoT().TempDir()
+			GinkgoT().Setenv(logging.LogRootEnvVar, tempDir)
+			logging.ResetRootLogDirCache()
+			DeferCleanup(func() { logging.ResetRootLogDirCache() })
 
-			Expect(dir).To(Equal("C:\\var\\log\\k2s.log"))
+			path := logging.GlobalLogFilePath()
+
+			Expect(path).To(Equal(filepath.Join(filepath.Clean(tempDir), "k2s.log")))
 		})
 	})
 
