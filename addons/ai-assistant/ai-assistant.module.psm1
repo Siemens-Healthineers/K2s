@@ -51,6 +51,18 @@ function Get-KagentCorePath {
     return "$(Get-KagentManifestsDir)\kagent.yaml"
 }
 
+function Get-KagentA2aProxyPath {
+    return "$(Get-KagentManifestsDir)\a2a-proxy.yaml"
+}
+
+function Get-KagentMcpPreprocessorPath {
+    return "$(Get-KagentManifestsDir)\mcp-preprocessor.yaml"
+}
+
+function Get-KagentToolsRbacPath {
+    return "$(Get-KagentManifestsDir)\k2s-tools-rbac.yaml"
+}
+
 function Get-KagentLocalPathProvisionerPath {
     return "$(Get-KagentManifestsDir)\local-path-provisioner.yaml"
 }
@@ -119,6 +131,27 @@ function Install-KagentFramework {
     $ingResult.Output | Write-Log
     if (-not $ingResult.Success) {
         Write-Log '[AI-Assistant] Warning: Kagent ingress apply failed — SSE streaming may be impaired.' -Console
+    }
+
+    Write-Log '[AI-Assistant] Applying k2s-tools RBAC (read-only cluster access)...' -Console
+    $rbacResult = Invoke-Kubectl -Params 'apply', '-f', (Get-KagentToolsRbacPath)
+    $rbacResult.Output | Write-Log
+    if (-not $rbacResult.Success) {
+        Write-Log '[AI-Assistant] Warning: k2s-tools RBAC apply failed.' -Console
+    }
+
+    Write-Log '[AI-Assistant] Deploying mcp-preprocessor (tool output preprocessing proxy)...' -Console
+    $mcpResult = Invoke-Kubectl -Params 'apply', '-f', (Get-KagentMcpPreprocessorPath)
+    $mcpResult.Output | Write-Log
+    if (-not $mcpResult.Success) {
+        Write-Log '[AI-Assistant] Warning: mcp-preprocessor apply failed.' -Console
+    }
+
+    Write-Log '[AI-Assistant] Deploying a2a-proxy (A2A/shortcut proxy)...' -Console
+    $a2aResult = Invoke-Kubectl -Params 'apply', '-f', (Get-KagentA2aProxyPath)
+    $a2aResult.Output | Write-Log
+    if (-not $a2aResult.Success) {
+        Write-Log '[AI-Assistant] Warning: a2a-proxy apply failed.' -Console
     }
 }
 
@@ -330,6 +363,43 @@ function Invoke-OllamaModelPull {
 
 <#
 .SYNOPSIS
+Configures Ollama keep_alive to prevent cold-start model unloading during active usage.
+Sends a lightweight generate request with keep_alive parameter to pin the model in memory.
+Gracefully degrades if Ollama is not reachable (non-fatal).
+.PARAMETER Model
+The model name to keep alive.
+.PARAMETER KeepAlive
+Duration string for keep_alive (default: "30m"). Set to "0" to disable.
+#>
+function Set-OllamaKeepAlive {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string] $Model,
+        [Parameter(Mandatory = $false)]
+        [string] $KeepAlive = '30m'
+    )
+
+    Write-Log "[AI-Assistant] Setting Ollama keep_alive=$KeepAlive for model '$Model'..." -Console
+
+    # Use kubectl exec to curl the Ollama API from inside the cluster
+    $payload = @{ model = $Model; keep_alive = $KeepAlive; prompt = ''; stream = $false } | ConvertTo-Json -Compress
+    $curlCmd = "curl -s -X POST http://172.19.1.1:11434/api/generate -H 'Content-Type: application/json' -d '$payload' --max-time 10"
+
+    $result = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 15 -CmdToExecute $curlCmd
+    if ($result.Output -match '"done"') {
+        Write-Log "[AI-Assistant] Ollama keep_alive configured: model '$Model' will stay loaded for $KeepAlive." -Console
+    }
+    else {
+        Write-Log "[AI-Assistant] Warning: Could not set Ollama keep_alive (non-fatal). Model may unload after idle timeout." -Console
+        Write-Log "[AI-Assistant] Ollama response: $($result.Output)" -Console
+    }
+}
+
+# ── Kagent Proxy Service for Headlamp (original) ──────────────────────────────
+
+<#
+.SYNOPSIS
 Creates a proxy Service in the 'default' namespace that routes to the Kagent
 controller. Enables the Headlamp K8s apiserver proxy path to work.
 #>
@@ -438,7 +508,16 @@ function Remove-AiAssistantResources {
     Remove-OllamaAgent
     Remove-KagentProxyService
 
-    # ── Kagent framework ───────────────────────────────────────────────────────
+    # ── Kagent framework ───────────────────────────────────────────────────
+    Write-Log '[AI-Assistant] Removing a2a-proxy...' -Console
+    (Invoke-Kubectl -Params 'delete', '-f', (Get-KagentA2aProxyPath), '--ignore-not-found').Output | Write-Log
+
+    Write-Log '[AI-Assistant] Removing mcp-preprocessor...' -Console
+    (Invoke-Kubectl -Params 'delete', '-f', (Get-KagentMcpPreprocessorPath), '--ignore-not-found').Output | Write-Log
+
+    Write-Log '[AI-Assistant] Removing k2s-tools RBAC...' -Console
+    (Invoke-Kubectl -Params 'delete', '-f', (Get-KagentToolsRbacPath), '--ignore-not-found').Output | Write-Log
+
     Write-Log '[AI-Assistant] Removing Kagent ingress...' -Console
     (Invoke-Kubectl -Params 'delete', '-f', (Get-KagentIngressPath), '--ignore-not-found').Output | Write-Log
 
@@ -545,11 +624,13 @@ Export-ModuleMember -Function `
     Get-AiAssistantManifestsDir, Get-OllamaManifestPath, `
     Get-KagentManifestsDir, Get-KagentNamespacePath, Get-KagentCrdsPath, `
     Get-KagentCorePath, Get-KagentLocalPathProvisionerPath, `
+    Get-KagentA2aProxyPath, Get-KagentMcpPreprocessorPath, Get-KagentToolsRbacPath, `
     Get-KagentCopilotAgentPath, Get-KagentOllamaAgentPath, Get-KagentIngressPath, `
     Install-KagentFramework, Wait-ForKagentAvailable, `
     Install-CopilotAgent, Remove-CopilotAgent, `
     Install-OllamaAgent, Remove-OllamaAgent, `
     New-OllamaDataDirectory, New-ZscalerCaConfigMap, Invoke-OllamaModelPull, `
+    Set-OllamaKeepAlive, `
     Set-KagentProxyService, Remove-KagentProxyService, `
     Remove-LegacyHolmesResources, Remove-AiAssistantResources, `
     Write-AiAssistantUsageForUser, Write-BrowserWarningForUser

@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 # Kagent A2A API Ingress — enables Headlamp AI Assistant plugin and external
-# clients to reach the Kagent controller's A2A endpoint.
+# clients to reach the Kagent controller's A2A endpoint via the auto-confirmation proxy.
+# The proxy auto-confirms ONLY approved read-only tools; all other tools pass through.
 # Accessible at: http://<node-ip>/kagent/api/a2a/kagent/<agent-name>
 ---
 apiVersion: networking.k8s.io/v1
@@ -36,9 +37,9 @@ spec:
         paths:
           - backend:
               service:
-                name: kagent-controller
+                name: a2a-proxy
                 port:
-                  number: 8083
+                  number: 8082
             pathType: ImplementationSpecific
             path: /kagent/(.*)
 ---
@@ -72,7 +73,7 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: kagent-controller
+                name: a2a-proxy
                 port:
-                  number: 8083
+                  number: 8082
 

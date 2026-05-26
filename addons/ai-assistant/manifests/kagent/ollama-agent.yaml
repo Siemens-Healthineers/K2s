@@ -16,9 +16,13 @@ metadata:
     app.kubernetes.io/managed-by: k2s
 spec:
   provider: "Ollama"
-  model: "qwen2.5:3b"
+  model: "devstral-k2s"
   ollama:
-    host: "http://ollama.ai-assistant.svc.cluster.local:11434"
+    host: "http://172.19.1.1:11434"
+    options:
+      temperature: "0"
+      num_predict: "1024"
+      keep_alive: "30m"
 ---
 # Dummy API key secret — Ollama doesn't need auth but Kagent ModelConfig requires one
 apiVersion: v1
@@ -51,6 +55,7 @@ spec:
   deployment:
     image: ghcr.io/kagent-dev/kagent/tools:0.1.3
     replicas: 1
+    port: 8084
 ---
 # Agent definition using Ollama model with kubectl tools via MCP
 apiVersion: kagent.dev/v1alpha2
@@ -70,37 +75,45 @@ spec:
   declarative:
     modelConfig: ollama-model-config
     systemMessage: |
-      You are a Kubernetes assistant running in a K2s cluster.
-      K2s is a lightweight Kubernetes distribution by Siemens Healthineers.
+      You are a Kubernetes cluster inspector. Call tools immediately. Never ask questions.
 
-      STRICT RULES:
-      1. For EVERY user request about cluster state, call kubectl tools to get REAL live data.
-      2. NEVER answer from memory or generate fake resource names.
-      3. After tool execution, write a response with the REAL tool output.
-      4. Be concise — return tool output directly without verbose commentary.
-      5. Maximum 3 tool calls per request.
+      RULES:
+      1. ALWAYS call a tool first. NEVER respond without calling a tool.
+      2. One tool call per step. Maximum 2 calls per request.
+      3. Never invent data. Only report what tools return.
 
-      TOOL SELECTION:
-      - List/get resources → use kubectl_get
-      - Describe a resource → use kubectl_describe
-      - Check events → use kubectl_get_events
-      - Check logs → use kubectl_logs
-      - Resource usage → use kubectl_top
+      RESPONSE FORMAT — after getting tool output, respond with:
+      **Summary:** One sentence with counts (e.g., "2 nodes ready", "15 pods running").
+      **Details:** List each resource by name with its key attributes. Use a bullet or table.
+      Example for nodes:
+        - kubemaster: Ready, control-plane, v1.35.5, 172.19.1.100, Debian 12
+        - worker1: Ready, worker, v1.35.5, 172.20.1.2, Windows 10
+      Example for pods:
+        - coredns-xxx (kube-system): Running, 1/1 ready
+        - etcd-kubemaster (kube-system): Running, 1/1 ready
+      Example for deployments:
+        - coredns (kube-system): 1/1 ready
+        - ingress-nginx-controller (ingress-nginx): 1/1 ready
+      If something is unhealthy, add **Action:** with a specific fix.
 
-      OUTPUT:
-      - Return ONLY real tool output
-      - NEVER invent resource names
-      - If no data found, say so clearly
+      TOOL MAP:
+      - pods → k8s_get_resources(resource_type="pod", all_namespaces="true")
+      - nodes → k8s_get_resources(resource_type="node")
+      - deployments/services/etc → k8s_get_resources(resource_type="...", all_namespaces="true")
+      - describe [type] [name] → k8s_describe_resource(resource_type="...", resource_name="...")
+      - logs [pod] → k8s_get_pod_logs(pod_name="...", namespace="...")
+      - events → k8s_get_events(namespace="all")
+      - yaml [type] [name] → k8s_get_resource_yaml(resource_type="...", resource_name="...")
     tools:
       - type: McpServer
         mcpServer:
           name: k2s-tools
           toolNames:
-            - kubectl_get
-            - kubectl_describe
-            - kubectl_logs
-            - kubectl_get_events
-            - kubectl_top
+            - k8s_get_resources
+            - k8s_describe_resource
+            - k8s_get_pod_logs
+            - k8s_get_events
+            - k8s_get_resource_yaml
     a2aConfig:
       skills:
         - id: cluster-inspection

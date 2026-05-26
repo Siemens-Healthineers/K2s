@@ -1,0 +1,112 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# MCP Preprocessor — sits between kagent-controller and k2s-tools MCP server.
+# Applies deterministic output preprocessing (truncation, bounded output,
+# error-line preservation) BEFORE the model sees tool results.
+#
+# Phase 1: Injects --tail=100 for log retrieval
+# Phase 2: Hard line/token truncation with structural integrity
+#
+# Rollback: kubectl delete -f mcp-preprocessor.yaml
+#           Then revert ollama-agent.yaml to use McpServer k2s-tools directly
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-preprocessor
+  namespace: kagent
+  labels:
+    app.kubernetes.io/name: mcp-preprocessor
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-preprocessor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcp-preprocessor
+        app.kubernetes.io/part-of: ai-assistant
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8084"
+        prometheus.io/path: "/metrics"
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: mcp-preprocessor
+          image: shsk2s.azurecr.io/mcp-preprocessor:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "-addr=:8084"
+            - "-upstream=http://k2s-tools.kagent.svc.cluster.local:8084"
+          ports:
+            - name: http
+              containerPort: 8084
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 200m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 16Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-preprocessor
+  namespace: kagent
+  labels:
+    app.kubernetes.io/name: mcp-preprocessor
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8084
+      targetPort: 8084
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: mcp-preprocessor
+---
+# RemoteMCPServer CRD — tells kagent-controller to reach tools via the preprocessor
+apiVersion: kagent.dev/v1alpha2
+kind: RemoteMCPServer
+metadata:
+  name: k2s-tools-processed
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  url: "http://mcp-preprocessor.kagent.svc.cluster.local:8084/mcp"
+  timeout: 60s
+  sseReadTimeout: 5m0s
+  description: "K2s MCP tools with output preprocessing (bounded context)"
+

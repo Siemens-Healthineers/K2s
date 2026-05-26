@@ -1,0 +1,141 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# A2A Auto-Confirmation Proxy
+# Sits between the ingress and kagent-controller. Automatically confirms
+# tool invocations for approved read-only tools (k8s_get_*, k8s_describe_*,
+# k8s_get_pod_logs, k8s_get_events, k8s_get_resource_yaml).
+# Unknown or write tools are NEVER auto-confirmed — they pass through as
+# "input-required" for the human operator.
+#
+# Rollback: kubectl delete -f a2a-proxy.yaml
+#           Then restore kagent-ingress.yaml to point to kagent-controller:8083
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a2a-proxy-config
+  namespace: kagent
+  labels:
+    app.kubernetes.io/name: a2a-proxy
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+data:
+  # Upstream kagent-controller address
+  UPSTREAM: "http://kagent-controller.kagent.svc.cluster.local:8083"
+  # MCP preprocessor address (for query shortcuts — bypasses LLM)
+  MCP_UPSTREAM: "http://mcp-preprocessor.kagent.svc.cluster.local:8084"
+  # Ollama URL for reachability monitoring
+  OLLAMA_URL: "http://172.19.1.1:11434"
+  # Listen address
+  ADDR: ":8082"
+  # Max auto-confirmation attempts per task (safety limit)
+  MAX_CONFIRM_RETRIES: "3"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a2a-proxy
+  namespace: kagent
+  labels:
+    app.kubernetes.io/name: a2a-proxy
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-proxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: a2a-proxy
+        app.kubernetes.io/part-of: ai-assistant
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+        prometheus.io/path: "/metrics"
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: a2a-proxy
+          image: shsk2s.azurecr.io/a2a-proxy:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "-addr=$(ADDR)"
+            - "-upstream=$(UPSTREAM)"
+            - "-mcp-upstream=$(MCP_UPSTREAM)"
+            - "-max-confirm-retries=$(MAX_CONFIRM_RETRIES)"
+          env:
+            - name: UPSTREAM
+              valueFrom:
+                configMapKeyRef:
+                  name: a2a-proxy-config
+                  key: UPSTREAM
+            - name: MCP_UPSTREAM
+              valueFrom:
+                configMapKeyRef:
+                  name: a2a-proxy-config
+                  key: MCP_UPSTREAM
+            - name: ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: a2a-proxy-config
+                  key: ADDR
+            - name: MAX_CONFIRM_RETRIES
+              valueFrom:
+                configMapKeyRef:
+                  name: a2a-proxy-config
+                  key: MAX_CONFIRM_RETRIES
+          ports:
+            - name: http
+              containerPort: 8082
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 200m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 16Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: a2a-proxy
+  namespace: kagent
+  labels:
+    app.kubernetes.io/name: a2a-proxy
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8082
+      targetPort: 8082
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: a2a-proxy
+

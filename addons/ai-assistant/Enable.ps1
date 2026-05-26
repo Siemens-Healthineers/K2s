@@ -166,6 +166,8 @@ try {
     }
     else {
         Install-OllamaAgent -Model $Model
+        # Pin model in memory to prevent cold-start latency
+        Set-OllamaKeepAlive -Model $Model -KeepAlive '30m'
     }
 }
 catch {
