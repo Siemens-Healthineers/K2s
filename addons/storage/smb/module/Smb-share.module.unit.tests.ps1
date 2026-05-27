@@ -493,7 +493,7 @@ Describe 'New-StorageClassManifest' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
     Context 'valid template' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-Content { return 'line1', 'name: SC_NAME', 'line3', 'source: SC_SOURCE', 'line 5' } -ParameterFilter { $Path -match '\\manifests\\base\\storage-classes\\template_StorageClass.yaml' }
+            Mock -ModuleName $moduleName Get-Content { return 'line1', 'name: SC_NAME', 'line3', 'source: SC_SOURCE', 'mountOptions:', 'MOUNT_OPTIONS' } -ParameterFilter { $Path -match '\\manifests\\base\\storage-classes\\template_StorageClass.yaml' }
             Mock -ModuleName $moduleName Write-Log {}
             Mock -ModuleName $moduleName Convert-ToUnixPath { return 'unix-path' } -ParameterFilter { $Path -eq 'remote-path' }
             Mock -ModuleName $moduleName Set-Content {}
@@ -512,6 +512,48 @@ Describe 'New-StorageClassManifest' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         It 'creates new manifest file' {
             InModuleScope -ModuleName $moduleName {                
                 Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter { $Path -match '\\manifests\\base\\storage-classes\\generated_my-storage-class.yaml' }
+            }
+        }
+
+        It 'generates default mount options when Config not provided' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter { $Value[0] -match 'noperm' -and $Value[0] -match 'noserverino' }
+            }
+        }
+    }
+
+    Context 'valid template with POSIX config' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-Content { return 'name: SC_NAME', 'source: SC_SOURCE', 'reclaimPolicy: SC_RECLAIM_POLICY', 'mountOptions:', 'MOUNT_OPTIONS' } -ParameterFilter { $Path -match '\\manifests\\base\\storage-classes\\template_StorageClass.yaml' }
+            Mock -ModuleName $moduleName Write-Log {}
+            Mock -ModuleName $moduleName Convert-ToUnixPath { return 'unix-path' } -ParameterFilter { $Path -eq 'remote-path' }
+            Mock -ModuleName $moduleName Set-Content {}
+
+            InModuleScope -ModuleName $moduleName {
+                $posixConfig = [pscustomobject]@{
+                    SmbDialect            = '3.1.1'
+                    EnablePosixExtensions = $true
+                    UseServerInode        = $false
+                }
+                New-StorageClassManifest -RemotePath 'remote-path' -StorageClassName 'posix-sc' -Config $posixConfig
+            }
+        }
+
+        It 'does not include noperm in POSIX mode' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter { $Value[0] -notmatch 'noperm' }
+            }
+        }
+
+        It 'includes handletimeout in POSIX mode' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter { $Value[0] -match 'handletimeout=60000' }
+            }
+        }
+
+        It 'includes noserverino when UseServerInode is false' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter { $Value[0] -match 'noserverino' }
             }
         }
     }
@@ -1771,6 +1813,56 @@ Describe 'Get-StorageConfigFromRaw' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 $actual[1].LinuxShareName | Should -Be 'linux-smb-shareD'
                 $actual[1].LinuxHostRemotePath | Should -Be '\\control-plane-ip\linux-smb-shareD'
                 $actual[1].StorageClassName | Should -Be 'sc2'
+            }
+        }
+
+        It 'defaults POSIX fields when not specified' {
+            InModuleScope -ModuleName $moduleName {
+                $config = @{
+                    winMountPath     = 'win\dir';
+                    linuxMountPath   = 'linux\dir';
+                    storageClassName = 'sc1'
+                }
+
+                $actual = Get-StorageConfigFromRaw -RawConfig $config
+
+                $actual[0].SmbDialect | Should -Be 'auto'
+                $actual[0].EnablePosixExtensions | Should -BeFalse
+                $actual[0].UseServerInode | Should -BeFalse
+            }
+        }
+
+        It 'parses POSIX fields when specified' {
+            InModuleScope -ModuleName $moduleName {
+                $config = @{
+                    winMountPath           = 'win\dir';
+                    linuxMountPath         = 'linux\dir';
+                    storageClassName       = 'sc1';
+                    smbDialect             = '3.1.1';
+                    enablePosixExtensions  = $true;
+                    useServerInode         = $true
+                }
+
+                $actual = Get-StorageConfigFromRaw -RawConfig $config
+
+                $actual[0].SmbDialect | Should -Be '3.1.1'
+                $actual[0].EnablePosixExtensions | Should -BeTrue
+                $actual[0].UseServerInode | Should -BeTrue
+            }
+        }
+
+        It 'defaults invalid smbDialect to auto' {
+            InModuleScope -ModuleName $moduleName {
+                $config = @{
+                    winMountPath     = 'win\dir';
+                    linuxMountPath   = 'linux\dir';
+                    storageClassName = 'sc1';
+                    smbDialect       = 'invalid'
+                }
+
+                $actual = Get-StorageConfigFromRaw -RawConfig $config
+
+                $actual[0].SmbDialect | Should -Be 'auto'
             }
         }
     }

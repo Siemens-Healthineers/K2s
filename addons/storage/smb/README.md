@@ -73,5 +73,24 @@ Ensure each shared folder mapping includes a unique storageClassName to avoid co
 
 
  
+
+## SMB 3.1.1 POSIX Extensions
+
+The addon supports opt-in SMB 3.1.1 POSIX extensions per storage entry.
+This is useful for workloads that require POSIX semantics on an SMB share hosted by a Linux Samba server.
+
+### Configuration
+
+Add the following optional fields to your SmbStorage.json entries:
+
+- **smbDialect** (default: auto) - SMB protocol version for fstab mounts. Valid: auto, 3, 3.0, 3.1.1.
+- **enablePosixExtensions** (default: false) - Removes noperm from mount options, adds handletimeout=60000, configures Samba for POSIX.
+- **useServerInode** (default: false) - When true with POSIX, omits noserverino from mount options.
+
+### Limitations
+
+- POSIX extensions are only meaningful with a Linux SMB host (Samba).
+- The smbDialect field affects fstab mounts only. StorageClass mounts use the CSI driver negotiation.
+- Omitting all three fields preserves the existing default behavior.
 ## Examples
 - [Example Workloads](../../../k2s/test/e2e/addons/storage/workloads/)
