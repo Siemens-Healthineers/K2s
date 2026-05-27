@@ -351,8 +351,8 @@ Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 			Should -Invoke Invoke-ClusterUninstall -Exactly 1 -Scope It
 			Should -Invoke Invoke-ClusterInstall -Exactly 1 -Scope It
 			Should -Invoke Invoke-UpgradeBackupRestoreHooks -Exactly 1 -Scope It -ParameterFilter { $HookType -eq "Restore" -and $BackupDir -eq $hooksBackupPath.Value }
-			Should -Invoke Import-NotNamespacedResources -Exactly 1 -Scope It
-			Should -Invoke Import-NamespacedResources -Exactly 1 -Scope It
+			Should -Invoke Import-NotNamespacedResources -Exactly 1 -Scope It -ParameterFilter { $folderResources -eq 'C:\Backup\NotNamespaced' }
+			Should -Invoke Import-NamespacedResources -Exactly 1 -Scope It -ParameterFilter { $folderNamespaces -eq 'C:\Backup\Namespaced' }
 			Should -Invoke Restore-LogFile -Exactly 1 -Scope It
 			Should -Invoke Write-Log -Times 1 -Scope It
 			Should -Invoke Write-Progress -Times 1 -Scope It
@@ -375,8 +375,8 @@ Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 			Should -Invoke  Invoke-ClusterUninstall -Exactly 1 -Scope It
 			Should -Invoke Invoke-ClusterInstall -Exactly 1 -Scope It
 			Should -Invoke Invoke-UpgradeBackupRestoreHooks -Exactly 0 -Scope It -ParameterFilter { $HookType -eq "Restore" -and $BackupDir -eq $hooksBackupPath.Value }
-			Should -Invoke Import-NotNamespacedResources -Exactly 1 -Scope It
-			Should -Invoke Import-NamespacedResources -Exactly 1 -Scope It
+			Should -Invoke Import-NotNamespacedResources -Exactly 1 -Scope It -ParameterFilter { $folderResources -eq 'C:\Backup\NotNamespaced' }
+			Should -Invoke Import-NamespacedResources -Exactly 1 -Scope It -ParameterFilter { $folderNamespaces -eq 'C:\Backup\Namespaced' }
 			Should -Invoke Restore-LogFile -Exactly 1 -Scope It
 			Should -Invoke Write-Log -Times 1 -Scope It
 			Should -Invoke Write-Progress -Times 1 -Scope It
