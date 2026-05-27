@@ -322,6 +322,7 @@ Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 		Mock -ModuleName $moduleName Out-File
 		Mock -ModuleName $moduleName Wait-ForAPIServerInGivenKubePath
 		Mock -ModuleName $moduleName Get-KubeBinPathGivenKubePath -MockWith { return "C:\KubeBinPath" }
+		Mock -ModuleName $moduleName Enable-AddonFromConfig
 	}
 
 	It "should perform cluster upgrade with execute hooks successfully" {
@@ -385,6 +386,69 @@ Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 			$logFilePathBeforeUninstall = [ref]"C:\Backup\logfile.log"
 	
 			{ PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom "C:\K2sPath" -Config "config.yaml" -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall } | Should -Throw "Uninstall failed"
+		}
+	}
+
+	It 'calls Enable-AddonFromConfig for each addon in enabledAddonsList' {
+		InModuleScope $moduleName {
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
+			$coresVM = [ref]'2'
+			$storageVM = [ref]'100GB'
+			$enabledAddonsList = [System.Collections.ArrayList]@(
+				[pscustomobject]@{ Name = 'dashboard' },
+				[pscustomobject]@{ Name = 'metrics' }
+			)
+			$hooksBackupPath = [ref]'C:\Backup\Hooks'
+			$logFilePathBeforeUninstall = [ref]'C:\Backup\logfile.log'
+
+			Mock Invoke-ClusterUninstall
+			Mock Enable-AddonFromConfig
+
+			PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom 'C:\K2sPath' -Config 'config.yaml' -Proxy 'http://proxy' -BackupDir 'C:\Backup' -AdditionalHooksDir 'C:\Hooks' -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+
+			Should -Invoke Enable-AddonFromConfig -Times 1 -Scope It -ParameterFilter { $Config.Name -eq 'dashboard' }
+			Should -Invoke Enable-AddonFromConfig -Times 1 -Scope It -ParameterFilter { $Config.Name -eq 'metrics' }
+			Should -Invoke Enable-AddonFromConfig -Times 2 -Scope It
+		}
+	}
+
+	It 'calls Enable-AddonFromConfig with Implementation set to first implementation when addon has implementations' {
+		InModuleScope $moduleName {
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
+			$coresVM = [ref]'2'
+			$storageVM = [ref]'100GB'
+			$enabledAddonsList = [System.Collections.ArrayList]@(
+				[pscustomobject]@{ Name = 'ingress'; Implementations = @('traefik') }
+			)
+			$hooksBackupPath = [ref]'C:\Backup\Hooks'
+			$logFilePathBeforeUninstall = [ref]'C:\Backup\logfile.log'
+
+			Mock Invoke-ClusterUninstall
+			Mock Enable-AddonFromConfig
+
+			PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom 'C:\K2sPath' -Config 'config.yaml' -Proxy 'http://proxy' -BackupDir 'C:\Backup' -AdditionalHooksDir 'C:\Hooks' -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+
+			Should -Invoke Enable-AddonFromConfig -Times 1 -Scope It -ParameterFilter { $Config.Name -eq 'ingress' -and $Config.Implementation -eq 'traefik' }
+		}
+	}
+
+	It 'logs warning but does not throw when Enable-AddonFromConfig fails for an addon' {
+		InModuleScope $moduleName {
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
+			$coresVM = [ref]'2'
+			$storageVM = [ref]'100GB'
+			$enabledAddonsList = [System.Collections.ArrayList]@(
+				[pscustomobject]@{ Name = 'logging' }
+			)
+			$hooksBackupPath = [ref]'C:\Backup\Hooks'
+			$logFilePathBeforeUninstall = [ref]'C:\Backup\logfile.log'
+
+			Mock Invoke-ClusterUninstall
+			Mock Enable-AddonFromConfig { throw 'addon enable failed' }
+
+			{ PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom 'C:\K2sPath' -Config 'config.yaml' -Proxy 'http://proxy' -BackupDir 'C:\Backup' -AdditionalHooksDir 'C:\Hooks' -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall } | Should -Not -Throw
+
+			Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter { $Messages -match "Warning.*logging" }
 		}
 	}
 }
