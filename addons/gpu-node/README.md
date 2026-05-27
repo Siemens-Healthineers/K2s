@@ -71,6 +71,62 @@ kubectl delete pod gpu-test
 Expected output includes `Test PASSED`. Works on both Hyper-V GPU-PV and WSL2 setups.
 
 
+## External GPU Worker Nodes
+
+In addition to the KubeMaster VM, you can add external Linux machines with NVIDIA GPUs as GPU-capable worker nodes. This allows scaling GPU workloads across multiple physical machines.
+
+### Prerequisites for External GPU Workers
+
+1. **NVIDIA kernel drivers** must be pre-installed on the external Linux machine
+2. The machine must be accessible via SSH from the K2s host
+3. The machine must have a physical network connection (not on the KubeSwitch)
+
+### Adding a GPU-Capable External Worker
+
+```console
+# Online installation (downloads NVIDIA Container Toolkit from internet)
+k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu
+
+# Offline installation (uses pre-packaged artifacts)
+k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu --node-package C:\packages\debian13-node-gpu.zip
+```
+
+The `--enable-gpu` flag instructs K2s to:
+1. Verify NVIDIA drivers are installed and functional (nvidia-smi)
+2. Install the NVIDIA Container Toolkit packages
+3. Configure CRI-O with CDI support
+4. Label the node with `gpu=true`, `accelerator=nvidia`, and `k2s.io/gpu-node=true`
+
+### Creating an Offline GPU Node Package
+
+To add GPU workers in air-gapped environments:
+
+```console
+# Create a node package with GPU support
+k2s system package --node-package --os debian13 --include-gpu --target-dir C:\packages --name debian13-node-gpu.zip
+
+# Transfer the package to the air-gapped environment and use it
+k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu --node-package C:\packages\debian13-node-gpu.zip
+```
+
+### Lifecycle Considerations
+
+- **Order-independent**: GPU workers can be added before or after enabling the gpu-node addon
+- **The addon must be enabled** for GPU workloads to run: `k2s addons enable gpu-node`
+- **Labels coordinate scheduling**: The NVIDIA device plugin DaemonSet targets nodes with `k2s.io/gpu-node=true`
+- **Disabling the addon** removes the device plugin but preserves GPU configuration on external workers
+
+### Check GPU Worker Status
+
+```console
+# View all GPU-capable nodes
+kubectl get nodes -l k2s.io/gpu-node=true
+
+# Check addon status including external workers
+k2s addons status gpu-node
+```
+
+
 ## Backup and restore
 
 The gpu-node addon supports backup and restore via the `k2s` CLI for consistency with other addons.
@@ -87,6 +143,7 @@ Because gpu-node is a **pure infrastructure addon** (Hyper-V GPU passthrough, NV
 - NVIDIA driver files and WSL2 kernel on the control-plane VM (reinstalled by enable)
 - NVIDIA Container Toolkit APT packages (reinstalled by enable)
 - NVIDIA Device Plugin Deployment and DCGM Exporter DaemonSet (reapplied from static manifests by enable)
+- GPU configuration on external worker nodes (preserved; workers remain GPU-capable)
 
 ### Commands
 

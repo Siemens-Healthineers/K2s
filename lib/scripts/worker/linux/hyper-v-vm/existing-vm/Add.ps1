@@ -11,6 +11,7 @@ Param(
     [string] $WindowsHostIpAddress = '',
     [string] $Proxy = '',
     [string] $NodePackagePath = '',
+    [switch] $EnableGPU = $false,
     [switch] $ShowLogs = $false
 )
 
@@ -21,6 +22,12 @@ $linuxWorkerCommon = "$PSScriptRoot\..\..\common\LinuxWorkerNode.Common.ps1"
 . $linuxWorkerCommon
 
 Initialize-LinuxWorkerScriptEnvironment -ShowLogs:$ShowLogs -IncludePuttyTools
+
+# Import GPU worker module if GPU support is requested
+if ($EnableGPU) {
+    $gpuWorkerModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\linuxnode\setup\gpu-worker.module.psm1"
+    Import-Module $gpuWorkerModule
+}
 
 $ErrorActionPreference = 'Stop'
 
@@ -134,6 +141,12 @@ $workerNodeParams = @{
     VmName = $VmName  # Hyper-V VM name (detected earlier via MAC address)
 }
 Add-LinuxWorkerNode @workerNodeParams
+
+# Initialize GPU support if requested
+if ($EnableGPU) {
+    Write-Log '[NodeAdd] GPU support requested - initializing GPU configuration' -Console
+    Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $NodeName -Proxy $transparentProxy -NodePackagePath $NodePackagePath
+}
 
 Write-Log 'Starting worker node' -Console
 & "$PSScriptRoot\..\..\bare-metal\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName -ObtainCIDR:$true
