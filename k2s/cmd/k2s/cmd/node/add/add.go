@@ -32,6 +32,8 @@ const (
 	MachineRoleFlagUsage      = "Role of the machine as a node"
 	NodePackagePath           = "node-package"
 	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet."
+	EnableGPU                 = "enable-gpu"
+	EnableGPUFlagUsage        = "Configure the node as GPU-capable. Requires NVIDIA drivers to be pre-installed on the target machine. K2s will verify driver availability, install NVIDIA Container Toolkit, configure CRI-O/CDI, and label the node for GPU workloads."
 )
 
 func NewCmd() *cobra.Command {
@@ -46,7 +48,13 @@ func NewCmd() *cobra.Command {
   k2s node add --ip-addr 192.168.1.50 --username admin --name worker-node-1
 
   # Add a Linux worker node offline using a node package
-  k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node.zip`,
+  k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node.zip
+
+  # Add a GPU-capable Linux worker node (requires NVIDIA drivers pre-installed)
+  k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu
+
+  # Add a GPU-capable Linux worker node offline
+  k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu --node-package C:\packages\debian13-node-gpu.zip`,
 		RunE: addNode,
 	}
 	cmd.Flags().StringP(MachineIPAddress, "i", "", MachineIPAddressFlagUsage)
@@ -54,6 +62,7 @@ func NewCmd() *cobra.Command {
 	cmd.Flags().StringP(MachineName, "m", "", MachineNameFlagUsage)
 	cmd.Flags().StringP(MachineRole, "r", "worker", MachineRoleFlagUsage)
 	cmd.Flags().StringP(NodePackagePath, "p", "", NodePackagePathFlagUsage)
+	cmd.Flags().BoolP(EnableGPU, "g", false, EnableGPUFlagUsage)
 
 	cmd.MarkFlagRequired(MachineIPAddress)
 	cmd.MarkFlagRequired(MachineUsername)
@@ -105,6 +114,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 	machineIpAddress := ccmd.Flags().Lookup(MachineIPAddress).Value.String()
 	machineName := ccmd.Flags().Lookup(MachineName).Value.String()
 	nodePackagePath := ccmd.Flags().Lookup(NodePackagePath).Value.String()
+	enableGPU, _ := ccmd.Flags().GetBool(EnableGPU)
 
 	if machineUserName == "" {
 		return fmt.Errorf("flag --%s is required", MachineUsername)
@@ -119,6 +129,10 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		pterm.Printfln("🖥️  Detected local Hyper-V VM on KubeSwitch network — using local-VM provisioning path")
 	}
 
+	if enableGPU {
+		pterm.Printfln("🎮 GPU support requested — will verify NVIDIA driver and configure container toolkit")
+	}
+
 	pterm.Printfln("🤖 Adding node to K2s cluster")
 
 	if err := context.Providers().Node.Add(provider.NodeAddConfig{
@@ -128,6 +142,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		NodePackagePath: nodePackagePath,
 		ShowOutput:      outputFlag,
 		IsLocalVM:       isLocalVM,
+		EnableGPU:       enableGPU,
 	}); err != nil {
 		return err
 	}

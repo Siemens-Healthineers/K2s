@@ -49,6 +49,9 @@ func (p *windowsNodeProvider) Add(cfg NodeAddConfig) error {
 	if cfg.ShowOutput {
 		params += " -ShowLogs"
 	}
+	if cfg.EnableGPU {
+		params += " -EnableGPU"
+	}
 
 	return powershell.ExecutePs(psCmd+params, p.stdWriter)
 }

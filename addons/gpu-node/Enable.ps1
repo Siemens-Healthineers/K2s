@@ -501,8 +501,23 @@ Write-Log 'KubeMaster configured successfully as GPU node' -Console
 
 # Label the node so workloads can use nodeSelector: gpu=true.
 $labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
-Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true and accelerator=nvidia" -Console
-(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
+Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true, accelerator=nvidia, and k2s.io/gpu-node=true" -Console
+(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', 'k2s.io/gpu-node=true', '--overwrite').Output | Write-Log
+
+# Check for any external GPU-labeled worker nodes
+Write-Log '[gpu-node] Checking for external GPU-capable worker nodes...' -Console
+$allGpuNodes = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'k2s.io/gpu-node=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
+if (![string]::IsNullOrWhiteSpace($allGpuNodes)) {
+    $gpuNodeList = $allGpuNodes -split '\s+'
+    $externalGpuNodes = $gpuNodeList | Where-Object { $_ -ne $labelNodeName }
+    if ($externalGpuNodes.Count -gt 0) {
+        Write-Log "[gpu-node] Found $($externalGpuNodes.Count) external GPU-capable worker node(s):" -Console
+        foreach ($node in $externalGpuNodes) {
+            Write-Log "[gpu-node]   - $node" -Console
+        }
+        Write-Log '[gpu-node] These nodes will receive the NVIDIA device plugin DaemonSet pods.' -Console
+    }
+}
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node' })
 

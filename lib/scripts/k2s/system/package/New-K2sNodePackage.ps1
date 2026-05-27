@@ -52,6 +52,9 @@ param (
     [Parameter(Mandatory = $false, HelpMessage = 'HTTP proxy for package downloads inside the VM')]
     [string] $Proxy = '',
 
+    [Parameter(Mandatory = $false, HelpMessage = 'Include NVIDIA Container Toolkit packages for GPU support')]
+    [switch] $IncludeGpu = $false,
+
     [Parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
 
@@ -116,9 +119,11 @@ $packagesDir = Join-Path $stagingDir "packages"
 $packagesByOsDir = Join-Path $packagesDir $distributionKey
 $k8sPkgDir = Join-Path $packagesByOsDir "kubernetes"
 $buildahPkgDir = Join-Path $packagesByOsDir "buildah"
+$gpuPkgDir = Join-Path $packagesByOsDir "gpu-packages"
 $imagesDir = Join-Path $stagingDir "images"
 $remoteK8sPkgDir = "/tmp/k2s-k8s-packages"
 $remoteBuildahPkgDir = "/tmp/k2s-buildah-packages"
+$remoteGpuPkgDir = "/tmp/k2s-gpu-packages"
 $remoteImagesExportDir = "/tmp/k2s-images"
 $vmProvisioningStarted = $false
 
@@ -127,6 +132,9 @@ New-Item -Path $packagesDir -ItemType Directory -Force | Out-Null
 New-Item -Path $packagesByOsDir -ItemType Directory -Force | Out-Null
 New-Item -Path $k8sPkgDir -ItemType Directory -Force | Out-Null
 New-Item -Path $buildahPkgDir -ItemType Directory -Force | Out-Null
+if ($IncludeGpu) {
+    New-Item -Path $gpuPkgDir -ItemType Directory -Force | Out-Null
+}
 
 # ---------------------------------------------------------------------------
 # Validate inputs
@@ -239,6 +247,55 @@ try {
         -InstalledDistribution $distributionKey
 
     # -----------------------------------------------------------------------
+    # Phase 7.5 (optional) - Download NVIDIA Container Toolkit packages
+    # -----------------------------------------------------------------------
+    if ($IncludeGpu) {
+        Write-Log "[NodePkg] === Phase 7.5: Downloading NVIDIA Container Toolkit packages (GPU support) ===" -Console
+        
+        $remoteUser = "$sshUser@$guestIp"
+        $proxyEnv = ''
+        $curlProxy = ''
+        if (![string]::IsNullOrWhiteSpace($Proxy)) {
+            $proxyEnv = "http_proxy=$Proxy https_proxy=$Proxy "
+            $curlProxy = "-x $Proxy"
+        }
+
+        # Add NVIDIA Container Toolkit repository
+        $repoSetupCmd = @"
+curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && \
+curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | \
+sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+"@
+        Write-Log "[NodePkg] Setting up NVIDIA repository..." -Console
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
+
+        # Update apt
+        $updateCmd = "${proxyEnv}sudo apt-get update"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $updateCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
+
+        # Download GPU packages
+        $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-runtime', 'nvidia-container-toolkit')
+        $gpuPackagesStr = $gpuPackages -join ' '
+        
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteGpuPkgDir && cd $remoteGpuPkgDir && sudo chown -R _apt:root ." -RemoteUser $remoteUser -RemoteUserPwd $sshPwd).Output | Write-Log
+
+        foreach ($pkg in $gpuPackages) {
+            Write-Log "[NodePkg] Downloading GPU package: $pkg" -Console
+            # Download the package and its dependencies
+            $downloadCmd = "cd $remoteGpuPkgDir && ${proxyEnv}sudo apt-get download $pkg 2>&1"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $downloadCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
+            
+            # Download dependencies
+            $depsCmd = "cd $remoteGpuPkgDir && ${proxyEnv}sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r ${proxyEnv}sudo apt-get download 2>&1 || true"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $depsCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
+        }
+
+        $remoteGpuDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $remoteGpuPkgDir/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
+        Write-Log "[NodePkg] GPU packages downloaded: $($remoteGpuDebCount.Trim())" -Console
+    }
+
+    # -----------------------------------------------------------------------
     # Phase 8 - Pull and export Kubernetes/flannel images from VM
     # -----------------------------------------------------------------------
     Write-Log "[NodePkg] === Phase 8: Pulling and exporting container images inside VM ===" -Console
@@ -330,6 +387,19 @@ try {
         -UserName  $sshUser `
         -UserPwd   $sshPwd
 
+    if ($IncludeGpu) {
+        Write-Log "[NodePkg] Copying GPU packages from VM to Windows..." -Console
+        Copy-FromRemoteComputerViaUserAndPwd `
+            -Source    "$remoteGpuPkgDir/*" `
+            -Target    $gpuPkgDir `
+            -IpAddress $guestIp `
+            -UserName  $sshUser `
+            -UserPwd   $sshPwd
+        
+        $localGpuDebCount = @(Get-ChildItem -Path $gpuPkgDir -Filter '*.deb' -File -ErrorAction SilentlyContinue).Count
+        Write-Log "[NodePkg] Local GPU package count: $localGpuDebCount" -Console
+    }
+
     Assert-PackagesDownloaded -K8sPath $k8sPkgDir -BuildahPath $buildahPkgDir
 
     # -----------------------------------------------------------------------
@@ -339,8 +409,15 @@ try {
     New-Item -Path $TargetDirectory -ItemType Directory -Force | Out-Null
     $zipTarget = Join-Path $TargetDirectory $ZipPackageFileName
     if (Test-Path $zipTarget) { Remove-Item $zipTarget -Force }
-    Compress-Archive -Path @($packagesDir, $imagesDir) -DestinationPath $zipTarget -Force
-    Write-Log "[NodePkg] Node package zip created: $zipTarget" -Console
+    
+    $zipContents = @($packagesDir, $imagesDir)
+    $gpuIncludedMsg = ''
+    if ($IncludeGpu) {
+        $gpuIncludedMsg = ' (with GPU support)'
+    }
+    
+    Compress-Archive -Path $zipContents -DestinationPath $zipTarget -Force
+    Write-Log "[NodePkg] Node package zip created$gpuIncludedMsg: $zipTarget" -Console
     Write-Log "[NodePkg] Package creation for '$distributionKey' completed successfully." -Console
 }
 catch {
