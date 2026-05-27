@@ -8,10 +8,10 @@ metadata:
   name: nginx-gw-controller
   namespace: nginx-gw
   labels:
-    helm.sh/chart: nginx-gateway-fabric-2.6.1
+    helm.sh/chart: nginx-gateway-fabric-2.6.2
     app.kubernetes.io/name: nginx-gw
     app.kubernetes.io/instance: nginx-gw
-    app.kubernetes.io/version: "2.6.1"
+    app.kubernetes.io/version: "2.6.2"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -58,8 +58,8 @@ spec:
                 fieldRef:
                   fieldPath: metadata.labels['app.kubernetes.io/instance']
             - name: IMAGE_NAME
-              value: ghcr.io/nginx/nginx-gateway-fabric:2.6.1
-          image: ghcr.io/nginx/nginx-gateway-fabric:2.6.1
+              value: ghcr.io/nginx/nginx-gateway-fabric:2.6.2
+          image: ghcr.io/nginx/nginx-gateway-fabric:2.6.2
           imagePullPolicy: IfNotPresent
           name: nginx-gateway
           ports:
