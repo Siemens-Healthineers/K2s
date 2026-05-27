@@ -456,10 +456,8 @@ Describe 'Enable-ClusterIsRunning' -Tag 'unit', 'ci', 'upgrade' {
 
 Describe "PrepareClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
-		if (-not (Get-Command Get-EnabledAddons -ErrorAction SilentlyContinue)) {
-			function global:Get-EnabledAddons {
-				return [System.Collections.ArrayList]@()
-			}
+		function global:Get-EnabledAddons {
+			return [System.Collections.ArrayList]@()
 		}
 
 		# Mock the dependencies
