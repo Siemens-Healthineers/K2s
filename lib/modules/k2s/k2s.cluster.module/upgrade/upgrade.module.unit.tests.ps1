@@ -456,6 +456,12 @@ Describe 'Enable-ClusterIsRunning' -Tag 'unit', 'ci', 'upgrade' {
 
 Describe "PrepareClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
+		if (-not (Get-Command Get-EnabledAddons -ErrorAction SilentlyContinue)) {
+			function global:Get-EnabledAddons {
+				return [System.Collections.ArrayList]@()
+			}
+		}
+
 		# Mock the dependencies
 		Mock -ModuleName $moduleName Get-SetupInfo -MockWith { return @{ Name = "k2s" } }
 		Mock -ModuleName $moduleName Get-LinuxVMCores -MockWith { return 4 }
