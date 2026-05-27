@@ -20,13 +20,6 @@ spec:
       labels:
         app: orthanc
     spec:
-      initContainers:
-        - name: wait-for-postgres
-          image: docker.io/library/postgres:18.4
-          command:
-            - sh
-            - -c
-            - until pg_isready -h postgres -p 5432 -U orthanc; do echo "Waiting for PostgreSQL..."; sleep 2; done
       containers:
         - name: orthanc
           image: docker.io/jodogne/orthanc-plugins:1.12.11
