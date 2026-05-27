@@ -214,7 +214,7 @@ function Restart-PodsWithLinkerdAnnotation {
 
     # Add annotations to dicom/orthanc deployment
     if ($dicomExists) {
-        $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"8042,4242\",\"config.linkerd.io/skip-outbound-ports\":\"5432\"}}}}}'
+        $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"8042,4242\"}}}}}'
         Write-Log "Patching dicom deployment with linkerd annotations" -Console
         (Invoke-Kubectl -Params 'patch', 'deployment', 'dicom', '-n', $namespace, '-p', $annotations).Output | Write-Log
     } else {
