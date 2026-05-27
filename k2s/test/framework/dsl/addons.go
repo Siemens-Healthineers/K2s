@@ -12,6 +12,8 @@ import (
 )
 
 func (k2s *K2s) IsAddonEnabled(name string, implementation ...string) bool {
+	k2s.suite.SetupInfo().ReloadRuntimeConfig()
+
 	impl := ""
 	if len(implementation) > 0 {
 		impl = implementation[0]
