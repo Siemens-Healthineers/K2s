@@ -23,6 +23,7 @@ type NodeAddConfig struct {
 	NodePackagePath string
 	ShowOutput      bool
 	IsLocalVM       bool
+	EnableGPU       bool // When true, configures the node as GPU-capable (requires NVIDIA driver pre-installed)
 }
 
 // NodeRemoveConfig holds parameters for removing a node.

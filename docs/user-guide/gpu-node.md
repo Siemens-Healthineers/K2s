@@ -73,9 +73,10 @@ The status output reports:
 |----------|-------------|
 | `IsDevicePluginRunning` | Whether the NVIDIA Device Plugin DaemonSet is ready |
 | `IsDCGMExporterRunning` | Whether the DCGM metrics exporter is running (see [Known Limitations](#known-limitations)) |
-| `NodeGpuLabels` | Whether the node has `gpu=true` and `accelerator=nvidia` labels |
+| `NodeGpuLabels` | Whether the control-plane node has `gpu=true`, `accelerator=nvidia`, and `k2s.io/gpu-node=true` labels |
 | `GpuAllocatable` | Number of GPU slots advertised to Kubernetes (reflects time-slicing replicas) |
 | `GpuInUse` | Number of GPU slots currently held by running pods |
+| `ExternalGpuWorkers` | Count and names of external GPU-capable worker nodes (added via `k2s node add --enable-gpu`) |
 
 ---
 
@@ -183,6 +184,59 @@ k2s addons import gpu-node -f C:\Exports\gpu-node_*.oci.tar
 
 # Now enable normally — no internet required:
 k2s addons enable gpu-node
+```
+
+---
+
+## External GPU Worker Nodes
+
+In addition to the KubeMaster VM, you can add external Linux machines with NVIDIA GPUs as GPU-capable worker nodes. This enables scaling GPU workloads across multiple physical machines.
+
+### Prerequisites
+
+1. **NVIDIA kernel drivers** must be pre-installed on the external Linux machine. Verify with `nvidia-smi`.
+2. The machine must be accessible via SSH from the K2s Windows host.
+3. The machine must be on a physical network (not the virtual KubeSwitch network).
+
+### Adding a GPU Worker Online
+
+```console
+k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu
+```
+
+This verifies NVIDIA drivers, installs the NVIDIA Container Toolkit, configures CRI-O for GPU support, and labels the node.
+
+### Adding a GPU Worker Offline
+
+First, create a GPU-enabled node package on a machine with internet access:
+
+```console
+k2s system package --node-package --os debian13 --include-gpu --target-dir C:\packages --name debian13-gpu.zip
+```
+
+Then on the air-gapped environment:
+
+```console
+k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu --node-package C:\packages\debian13-gpu.zip
+```
+
+### Lifecycle Notes
+
+| Scenario | Behavior |
+|----------|----------|
+| GPU worker added **before** addon enabled | Worker is labeled; device plugin deploys when addon is enabled |
+| GPU worker added **after** addon enabled | Worker is labeled; device plugin pod starts automatically |
+| Addon disabled | Device plugin removed; GPU labels preserved on workers |
+| Addon re-enabled | Device plugin redeploys to all GPU-labeled nodes |
+
+### Checking GPU Workers
+
+```console
+# List all GPU-capable nodes
+kubectl get nodes -l k2s.io/gpu-node=true
+
+# Check addon status (includes external worker count)
+k2s addons status gpu-node
 ```
 
 ---
