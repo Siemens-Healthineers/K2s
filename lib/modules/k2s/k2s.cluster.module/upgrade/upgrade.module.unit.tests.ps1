@@ -301,6 +301,15 @@ Describe "RestartCluster" -Tag 'unit', 'ci', 'upgrade' {
 
 Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
+		function global:Enable-AddonFromConfig {
+			param (
+				[Parameter(Mandatory = $false)]
+				[pscustomobject] $Config,
+				[Parameter(Mandatory = $false)]
+				[string] $Root
+			)
+		}
+
 		# Mock the dependencies
 		Mock -ModuleName $moduleName Get-LogFilePath -MockWith { return "C:\Logs\logfile.log" }
 		Mock -ModuleName $moduleName Get-Content -MockWith { return "log content" }
