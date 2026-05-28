@@ -1003,7 +1003,7 @@ function Restore-LogFile {
 
 	if (Test-Path -Path $LogFile) {
 		$file = Split-Path $LogFile -Leaf
-		$restore = "$($systemDriveLetter):\var\log\$file"
+		$restore = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath $file
 		Copy-Item -Path $LogFile -Destination $restore
 	}
 }
@@ -1019,8 +1019,9 @@ function Get-ProductVersionGivenKubePath {
 
 function Restore-MergeLogFiles {
 	Write-Log "Merge all logs to $logFilePath" -Console
-	$merge = "$($systemDriveLetter):\var\log\k2supgrade.log"
-	$intermediate = "$($systemDriveLetter):\var\log\k2s*.log"
+	$logRoot = Get-ConfiguredLogDirectory
+	$merge = Join-Path -Path $logRoot -ChildPath 'k2supgrade.log'
+	$intermediate = Join-Path -Path $logRoot -ChildPath 'k2s*.log'
 
 	try {
 		# Ensure UTF-8 even for legacy encodings
