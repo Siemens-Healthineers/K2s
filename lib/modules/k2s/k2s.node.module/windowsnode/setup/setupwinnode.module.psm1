@@ -34,7 +34,7 @@ function Initialize-Networking {
     mkdir -force "$(Get-SystemDriveLetter):\opt\cni\bin" | Out-Null
     mkdir -force "$(Get-SystemDriveLetter):\run" | Out-Null
     mkdir -force "$(Get-SystemDriveLetter):\run\flannel" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\var\log\flanneld" | Out-Null
+    mkdir -force (Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'flanneld') | Out-Null
     mkdir -force "$(Get-SystemDriveLetter):\var\lib" | Out-Null
 
     $r = Get-NetFirewallRule -DisplayName 'kubelet' 2> $null;
