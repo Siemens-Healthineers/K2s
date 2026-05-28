@@ -54,7 +54,7 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 		suite.Kubectl().MustExec(ctx, "delete", "-k", "workloads", "--ignore-not-found")
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", nginxGw, "-o")
 
-		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", nginxGw)
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw", nginxGw)
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", ingressNginxGwTest)
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux2", ingressNginxGwTest)
 	})
@@ -203,7 +203,7 @@ var _ = Describe("'ingress nginx-gw' addon with --omitCertMgr", Ordered, func() 
 		if k2s.IsAddonEnabled("ingress", nginxGw) {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", nginxGw, "-o")
 			k2s.VerifyAddonIsDisabled("ingress", nginxGw)
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", nginxGw)
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw", nginxGw)
 		}
 	})
 
@@ -274,6 +274,6 @@ var _ = Describe("'ingress nginx-gw' addon with --omitCertMgr", Ordered, func() 
 
 		k2s.VerifyAddonIsDisabled("ingress", nginxGw)
 
-		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", nginxGw)
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw", nginxGw)
 	})
 })

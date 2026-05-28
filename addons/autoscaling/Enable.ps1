@@ -86,7 +86,7 @@ if (-not $applyResult.Success) {
 
 $applyResult.Output | Write-Log
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app=keda-operator' -Namespace 'autoscaling' -TimeoutSeconds 120)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app=keda-operator' -Namespace 'autoscaling' -TimeoutSeconds 300)
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All KEDA pods could not become ready. Please use kubectl describe for more details.`nInstallation of keda failed."
     if ($EncodeStructuredOutput -eq $true) {

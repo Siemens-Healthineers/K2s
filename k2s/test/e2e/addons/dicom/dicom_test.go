@@ -237,7 +237,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
 					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
-					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw-controller", "nginx-gw")
+					suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw", "nginx-gw")
 				}
 			})
 

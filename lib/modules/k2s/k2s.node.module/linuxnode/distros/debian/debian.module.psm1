@@ -94,7 +94,7 @@ function Copy-CloudInitFiles {
         [string]$IpAddress = $(throw "Argument missing: IpAddress")
     )
     $source = '/var/log/cloud-init*'
-    $target = "$(Get-SystemDriveLetter):\var\log\cloud-init"
+    $target = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'cloud-init'
     Remove-Item -Path $target -Force -Recurse -ErrorAction SilentlyContinue | Out-Null
     mkdir $target -ErrorAction SilentlyContinue | Out-Null
 
