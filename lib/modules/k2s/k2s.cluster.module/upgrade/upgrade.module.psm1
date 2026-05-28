@@ -1428,12 +1428,12 @@ function PerformClusterUpgrade {
 			if ($ShowProgress -eq $true) {
 				Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
 			}
-			Import-NotNamespacedResources -folderResources $BackupDir -ExePath $kubeExeFolder
+			Import-NotNamespacedResources -folderResources (Join-Path $BackupDir 'NotNamespaced') -ExePath $kubeExeFolder
 			
 			if ($ShowProgress -eq $true) {
 				Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8.5/10' -PercentComplete 85 -CurrentOperation 'Apply namespaced resources, please wait..'
 			}
-			Import-NamespacedResources -folderNamespaces $BackupDir -ExePath $kubeExeFolder
+			Import-NamespacedResources -folderNamespaces (Join-Path $BackupDir 'Namespaced') -ExePath $kubeExeFolder
 		}
 
 		# re-enable previously enabled addons
