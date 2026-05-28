@@ -738,8 +738,14 @@ function Install-DnsServer {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    $executeRemoteCommand = {
+        param(
+            $Command = $(throw 'Argument missing: Command'),
+            [switch]$IgnoreErrors = $false,
+            [string]$RepairCmd = $null,
+            [uint16]$Retries = 0
+        )
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
     }
 
     Write-Log 'Remove existing DNS server'
@@ -747,8 +753,8 @@ function Install-DnsServer {
     &$executeRemoteCommand 'sudo systemctl stop systemd-resolved' 
 
     Write-Log 'Install custom DNS server'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' -Retries 2 -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' -Retries 2 -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install'
 
     Write-Log 'Stop custom DNS server'
     &$executeRemoteCommand 'sudo systemctl stop dnsmasq'
@@ -771,7 +777,7 @@ function Get-FlannelImages {
 
     Write-Log 'Get images used by flannel'
 
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.0-flannel1'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.1-flannel1'
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.28.4'
 }
 
