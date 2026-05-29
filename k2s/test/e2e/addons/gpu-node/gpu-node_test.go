@@ -193,6 +193,71 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 			Expect(output).To(Equal("/usr/lib/wsl/lib/nvidia-smi"))
 		})
 
+		It("CDI spec contains directory mounts for full GPU library access", func(ctx context.Context) {
+			// Get the device plugin pod name
+			podName := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "gpu-node", "-l", "k8s-app=nvidia-device-plugin", "-o", "jsonpath={.items[0].metadata.name}")
+
+			// Read the CDI spec
+			output := suite.Kubectl().MustExec(ctx, "exec", "-n", "gpu-node", podName, "--", "cat", "/var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json")
+
+			// Verify directory mounts are present (required for OpenGL via D3D12 and CUDA)
+			Expect(output).To(ContainSubstring(`"containerPath":"/usr/lib/wsl/lib"`), "CDI spec should mount /usr/lib/wsl/lib directory")
+			Expect(output).To(ContainSubstring(`"containerPath":"/usr/lib/wsl/drivers"`), "CDI spec should mount /usr/lib/wsl/drivers directory")
+		})
+
+		It("CDI spec contains LD_LIBRARY_PATH environment variable", func(ctx context.Context) {
+			podName := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", "gpu-node", "-l", "k8s-app=nvidia-device-plugin", "-o", "jsonpath={.items[0].metadata.name}")
+
+			output := suite.Kubectl().MustExec(ctx, "exec", "-n", "gpu-node", podName, "--", "cat", "/var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json")
+
+			Expect(output).To(ContainSubstring(`LD_LIBRARY_PATH=/usr/lib/wsl/lib`), "CDI spec should set LD_LIBRARY_PATH for workload pods")
+		})
+
+		It("workload pod has access to GPU libraries including OpenGL support", func(ctx context.Context) {
+			// The cuda-vector-add pod completes and exits, so we use kubectl run to create a temporary pod
+			// that checks library access. This verifies the CDI mounts are working for workload pods.
+			gpuLibsTestPod := "gpu-libs-test"
+
+			// Clean up any previous test pod
+			suite.Kubectl().Exec(ctx, "delete", "pod", gpuLibsTestPod, "-n", namespace, "--ignore-not-found")
+
+			// Run a pod that checks /usr/lib/wsl/lib and exits
+			output := suite.Kubectl().MustExec(ctx, "run", gpuLibsTestPod, "-n", namespace,
+				"--image=busybox:latest",
+				"--restart=Never",
+				"--overrides", `{"spec":{"containers":[{"name":"gpu-libs-test","image":"busybox:latest","command":["ls","-la","/usr/lib/wsl/lib/"],"resources":{"limits":{"nvidia.com/gpu":"1"}}}]}}`,
+				"--timeout=60s")
+
+			// Wait for pod to complete
+			suite.Cluster().ExpectPodToBeCompleted(gpuLibsTestPod, namespace)
+
+			// Get the logs which contain the ls output
+			output = suite.Kubectl().MustExec(ctx, "logs", gpuLibsTestPod, "-n", namespace)
+
+			Expect(output).To(ContainSubstring("libcuda.so"), "workload should have access to libcuda.so")
+			Expect(output).To(ContainSubstring("libd3d12.so"), "workload should have access to libd3d12.so for D3D12 support")
+
+			// Run another pod to check /usr/lib/wsl/drivers for libnvwgf2umx.so (OpenGL -> D3D12 translator)
+			gpuDriversTestPod := "gpu-drivers-test"
+			suite.Kubectl().Exec(ctx, "delete", "pod", gpuDriversTestPod, "-n", namespace, "--ignore-not-found")
+
+			suite.Kubectl().MustExec(ctx, "run", gpuDriversTestPod, "-n", namespace,
+				"--image=busybox:latest",
+				"--restart=Never",
+				"--overrides", `{"spec":{"containers":[{"name":"gpu-drivers-test","image":"busybox:latest","command":["find","/usr/lib/wsl/drivers","-name","libnvwgf2umx.so"],"resources":{"limits":{"nvidia.com/gpu":"1"}}}]}}`,
+				"--timeout=60s")
+
+			suite.Cluster().ExpectPodToBeCompleted(gpuDriversTestPod, namespace)
+
+			output = suite.Kubectl().MustExec(ctx, "logs", gpuDriversTestPod, "-n", namespace)
+
+			Expect(output).To(ContainSubstring("libnvwgf2umx.so"), "workload should have access to libnvwgf2umx.so for OpenGL support")
+
+			// Cleanup test pods
+			suite.Kubectl().Exec(ctx, "delete", "pod", gpuLibsTestPod, "-n", namespace, "--ignore-not-found")
+			suite.Kubectl().Exec(ctx, "delete", "pod", gpuDriversTestPod, "-n", namespace, "--ignore-not-found")
+		})
+
 	})
 
 	Describe("disables cleanly", func() {
