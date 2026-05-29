@@ -651,7 +651,7 @@
     {
       "group": "https://github.com/prometheus/prometheus",
       "name": "prometheus",
-      "version": "v3.11.3",
+      "version": "v3.12.0",
       "description": "Systems and service monitoring toolkit - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -668,7 +668,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus/prometheus@v3.11.3",
+      "purl": "pkg:github/prometheus/prometheus@v3.12.0",
       "type": "container"
     },
     {
