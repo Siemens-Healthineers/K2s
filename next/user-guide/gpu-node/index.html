@@ -3045,7 +3045,34 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">        </span><span class="nt">limits</span><span class="p">:</span>
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">          </span><span class="nt">nvidia.com/gpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 </code></pre></div>
-<p>The NVIDIA Device Plugin allocates a GPU slot and injects the device into the container via CDI annotations. The container gains access to <code>/dev/dxg</code> and the NVIDIA driver libraries under <code>/usr/lib/wsl/</code>.</p>
+<p>The NVIDIA Device Plugin allocates a GPU slot and injects the following into the container via CDI annotations:</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Device</td>
+<td><code>/dev/dxg</code></td>
+<td>DirectX GPU device for WSL2/GPU-PV</td>
+</tr>
+<tr>
+<td>Libraries</td>
+<td><code>/usr/lib/wsl/lib</code></td>
+<td>CUDA runtime (<code>libcuda.so</code>), D3D12 (<code>libd3d12.so</code>), dxcore (<code>libdxcore.so</code>)</td>
+</tr>
+<tr>
+<td>Drivers</td>
+<td><code>/usr/lib/wsl/drivers</code></td>
+<td>Vendor-specific drivers (e.g., <code>libnvwgf2umx.so</code> for NVIDIA OpenGL via D3D12)</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>LD_LIBRARY_PATH</code> environment variable is also set to <code>/usr/lib/wsl/lib</code> so that applications can discover GPU libraries at runtime.</p>
 <h3 id="targeting-the-gpu-node-explicitly">Targeting the GPU node explicitly</h3>
 <p>The control-plane node is automatically labeled <code>gpu=true</code> and <code>accelerator=nvidia</code> when the addon is enabled. Use these labels in <code>nodeSelector</code> to pin GPU workloads to it:</p>
 <div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">spec</span><span class="p">:</span>
