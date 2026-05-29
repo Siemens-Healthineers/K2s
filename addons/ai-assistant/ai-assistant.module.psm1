@@ -396,99 +396,79 @@ function Set-OllamaKeepAlive {
     }
 }
 
-# ── Kagent Proxy Service for Headlamp (original) ──────────────────────────────
+# ── Kagent Proxy Service for Headlamp ──────────────────────────────────────────
 
 <#
 .SYNOPSIS
-Creates a proxy Service in the 'default' namespace that routes to the Kagent
-controller. Enables the Headlamp K8s apiserver proxy path to work.
+No-op — the Headlamp AI Assistant plugin is patched at deploy time (via the
+ai-assistant-kagent-patch initContainer) to call a2a-proxy:8082 in the kagent
+namespace directly. No additional proxy service is needed.
+Previously this created a legacy ExternalName service which is no longer used.
 #>
 function Set-KagentProxyService {
     [CmdletBinding()]
     Param()
-
-    Write-Log '[AI-Assistant] Deploying Kagent proxy service in default namespace...' -Console
-
-    $manifest = @"
-apiVersion: v1
-kind: Service
-metadata:
-  name: kagent-proxy
-  namespace: default
-  labels:
-    app.kubernetes.io/name: kagent-proxy
-    app.kubernetes.io/part-of: ai-assistant
-    app.kubernetes.io/managed-by: k2s
-spec:
-  type: ExternalName
-  externalName: kagent-controller.kagent.svc.cluster.local
-  ports:
-    - name: a2a
-      port: 8083
-      targetPort: 8083
-      protocol: TCP
-"@
-
-    $tmpFile = [System.IO.Path]::GetTempFileName() + '.yaml'
-    Set-Content -Path $tmpFile -Value $manifest -Encoding UTF8
-    $result = Invoke-Kubectl -Params 'apply', '-f', $tmpFile
-    $result.Output | Write-Log
-    Remove-Item -Path $tmpFile -Force -ErrorAction SilentlyContinue
-
-    if (-not $result.Success) {
-        Write-Log '[AI-Assistant] Warning: Failed to create Kagent proxy service in default namespace.' -Console
-    }
-    else {
-        Write-Log '[AI-Assistant] Kagent proxy service ready in default namespace.' -Console
-    }
+    Write-Log '[AI-Assistant] Plugin patched to use a2a-proxy.kagent directly — no proxy service needed.' -Console
 }
 
 <#
 .SYNOPSIS
-Removes the Kagent proxy service from the default namespace.
+Removes any legacy proxy services from previous addon versions.
 #>
 function Remove-KagentProxyService {
     [CmdletBinding()]
     Param()
-    Write-Log '[AI-Assistant] Removing Kagent proxy service from default namespace...' -Console
-    (Invoke-Kubectl -Params 'delete', 'service', 'kagent-proxy', '-n', 'default', '--ignore-not-found').Output | Write-Log
+    Write-Log '[AI-Assistant] Removing any legacy proxy services...' -Console
+    # Legacy K8s resource names from pre-Kagent era — must match actual cluster objects
+    foreach ($svcName in @('holmesgpt-holmes', 'kagent-proxy')) {
+        (Invoke-Kubectl -Params 'delete', 'service', $svcName, '-n', 'default', '--ignore-not-found').Output | Write-Log
+    }
 }
 
-# ── Cleanup: Legacy HolmesGPT resources ───────────────────────────────────────
+# ── Cleanup: Legacy agent resources ────────────────────────────────────────
 
 <#
 .SYNOPSIS
-Removes legacy HolmesGPT resources from previous addon versions.
+Removes legacy agent resources from previous addon versions (pre-Kagent era).
 Called during enable/update to clean up before deploying Kagent.
+The resource names below are actual K8s object names that exist in clusters
+upgrading from the old version — they must match exactly.
 #>
-function Remove-LegacyHolmesResources {
+function Remove-LegacyAgentResources {
     [CmdletBinding()]
     Param()
-    Write-Log '[AI-Assistant] Cleaning up legacy HolmesGPT resources (if any)...' -Console
+    Write-Log '[AI-Assistant] Cleaning up legacy agent resources (if any)...' -Console
 
-    # HolmesGPT proxy in default namespace
-    (Invoke-Kubectl -Params 'delete', 'deployment',  'holmesgpt-proxy',       '-n', 'default', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'configmap',   'holmesgpt-proxy-config','-n', 'default', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'configmap',   'holmesgpt-nginx-conf',  '-n', 'default', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'service',     'holmesgpt-holmes',      '-n', 'default', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'endpointslice', 'holmesgpt-holmes-k2s', '-n', 'default', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'endpoints',     'holmesgpt-holmes',     '-n', 'default', '--ignore-not-found').Output | Write-Log
+    # Resource kind → (name, namespace) pairs for legacy objects
+    $legacyResources = @(
+        # default namespace: old Python proxy + wiring
+        @{ Kind = 'deployment';     Name = 'holmesgpt-proxy';        Namespace = 'default' }
+        @{ Kind = 'configmap';      Name = 'holmesgpt-proxy-config'; Namespace = 'default' }
+        @{ Kind = 'configmap';      Name = 'holmesgpt-nginx-conf';   Namespace = 'default' }
+        @{ Kind = 'endpointslice';  Name = 'holmesgpt-holmes-k2s';   Namespace = 'default' }
+        @{ Kind = 'endpoints';      Name = 'holmesgpt-holmes';       Namespace = 'default' }
+        # ai-assistant namespace: old agent deployment + config
+        @{ Kind = 'deployment';     Name = 'holmesgpt-holmes';           Namespace = 'ai-assistant' }
+        @{ Kind = 'service';        Name = 'holmesgpt-holmes';           Namespace = 'ai-assistant' }
+        @{ Kind = 'configmap';      Name = 'holmesgpt-model-config';     Namespace = 'ai-assistant' }
+        @{ Kind = 'configmap';      Name = 'holmesgpt-prompt-overrides'; Namespace = 'ai-assistant' }
+        @{ Kind = 'configmap';      Name = 'holmesgpt-toolset-overrides';Namespace = 'ai-assistant' }
+        @{ Kind = 'serviceaccount'; Name = 'holmesgpt';                  Namespace = 'ai-assistant' }
+        # ai-assistant namespace: old SSE ingress
+        @{ Kind = 'ingress';        Name = 'holmesgpt-sse-direct';       Namespace = 'ai-assistant' }
+        @{ Kind = 'service';        Name = 'holmesgpt-proxy-bridge';     Namespace = 'ai-assistant' }
+    )
+    foreach ($r in $legacyResources) {
+        (Invoke-Kubectl -Params 'delete', $r.Kind, $r.Name, '-n', $r.Namespace, '--ignore-not-found').Output | Write-Log
+    }
 
-    # HolmesGPT in ai-assistant namespace
-    (Invoke-Kubectl -Params 'delete', 'deployment',    'holmesgpt-holmes',        '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'service',       'holmesgpt-holmes',        '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'configmap',     'holmesgpt-model-config',  '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'configmap',     'holmesgpt-prompt-overrides', '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'configmap',     'holmesgpt-toolset-overrides', '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'serviceaccount', 'holmesgpt',            '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
-
-    # Cluster-scoped RBAC
-    (Invoke-Kubectl -Params 'delete', 'clusterrolebinding', 'holmesgpt-reader', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'clusterrole',        'holmesgpt-reader', '--ignore-not-found').Output | Write-Log
-
-    # SSE ingress
-    (Invoke-Kubectl -Params 'delete', 'ingress', 'holmesgpt-sse-direct',    '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', 'service', 'holmesgpt-proxy-bridge',  '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
+    # Cluster-scoped RBAC (no namespace)
+    foreach ($rbac in @(
+        @{ Kind = 'clusterrolebinding'; Name = 'holmesgpt-reader' }
+        @{ Kind = 'clusterrole';        Name = 'holmesgpt-reader' }
+    )) {
+        (Invoke-Kubectl -Params 'delete', $rbac.Kind, $rbac.Name, '--ignore-not-found').Output | Write-Log
+    }
 }
 
 # ── Full resource removal ─────────────────────────────────────────────────────
@@ -533,8 +513,8 @@ function Remove-AiAssistantResources {
     Write-Log '[AI-Assistant] Removing Kagent namespace...' -Console
     (Invoke-Kubectl -Params 'delete', 'namespace', 'kagent', '--ignore-not-found').Output | Write-Log
 
-    # ── Legacy HolmesGPT (in case of upgrade from old version) ─────────────────
-    Remove-LegacyHolmesResources
+    # ── Legacy agent cleanup (in case of upgrade from old version) ──────────────
+    Remove-LegacyAgentResources
 
     # ── Ollama ─────────────────────────────────────────────────────────────────
     Write-Log '[AI-Assistant] Removing Ollama resources...' -Console
@@ -632,6 +612,6 @@ Export-ModuleMember -Function `
     New-OllamaDataDirectory, New-ZscalerCaConfigMap, Invoke-OllamaModelPull, `
     Set-OllamaKeepAlive, `
     Set-KagentProxyService, Remove-KagentProxyService, `
-    Remove-LegacyHolmesResources, Remove-AiAssistantResources, `
+    Remove-LegacyAgentResources, Remove-AiAssistantResources, `
     Write-AiAssistantUsageForUser, Write-BrowserWarningForUser
 `

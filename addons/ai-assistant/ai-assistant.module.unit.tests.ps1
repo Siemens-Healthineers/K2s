@@ -16,15 +16,6 @@ Describe 'Get-OllamaManifestPath' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
     }
 }
 
-Describe 'Get-HolmesManifestPath' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
-    It 'returns a path ending with holmesgpt\holmesgpt.yaml' {
-        InModuleScope $moduleName {
-            $result = Get-HolmesManifestPath
-            $result | Should -BeLike '*\holmesgpt\holmesgpt.yaml'
-        }
-    }
-}
-
 Describe 'Get-AiAssistantManifestsDir' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
     It 'returns a path ending with manifests' {
         InModuleScope $moduleName {
@@ -34,38 +25,38 @@ Describe 'Get-AiAssistantManifestsDir' -Tag 'unit', 'ci', 'addon', 'ai-assistant
     }
 }
 
-Describe 'Set-HolmesModelConfig' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
-    Context 'manifest file is applied successfully' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Get-HolmesManifestPath { return 'TestDrive:\holmesgpt.yaml' }
-            Set-Content -Path 'TestDrive:\holmesgpt.yaml' -Value 'model: MODEL_PLACEHOLDER' -Encoding UTF8
-            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'configmap/holmesgpt-model-config applied' } }
-            Mock -ModuleName $moduleName Write-Log {}
-        }
-
-        It 'substitutes MODEL_PLACEHOLDER with the provided model name' {
-            InModuleScope $moduleName {
-                # We check that Invoke-Kubectl is called (the substituted file is applied)
-                { Set-HolmesModelConfig -Model 'mistral' } | Should -Not -Throw
-                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                    $Params -contains 'apply' -and $Params -contains '-f'
-                }
-            }
+Describe 'Get-KagentManifestsDir' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
+    It 'returns a path ending with kagent' {
+        InModuleScope $moduleName {
+            $result = Get-KagentManifestsDir
+            $result | Should -BeLike '*\kagent'
         }
     }
+}
 
-    Context 'kubectl apply fails' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Get-HolmesManifestPath { return 'TestDrive:\holmesgpt.yaml' }
-            Set-Content -Path 'TestDrive:\holmesgpt.yaml' -Value 'model: MODEL_PLACEHOLDER' -Encoding UTF8
-            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $false; Output = 'Error: something went wrong' } }
-            Mock -ModuleName $moduleName Write-Log {}
+Describe 'Get-KagentCrdsPath' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
+    It 'returns a path ending with kagent-crds.yaml' {
+        InModuleScope $moduleName {
+            $result = Get-KagentCrdsPath
+            $result | Should -BeLike '*\kagent-crds.yaml'
         }
+    }
+}
 
-        It 'throws when kubectl apply fails' {
-            InModuleScope $moduleName {
-                { Set-HolmesModelConfig -Model 'mistral' } | Should -Throw "*Failed to apply HolmesGPT manifests*"
-            }
+Describe 'Get-KagentCorePath' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
+    It 'returns a path ending with kagent.yaml' {
+        InModuleScope $moduleName {
+            $result = Get-KagentCorePath
+            $result | Should -BeLike '*\kagent.yaml'
+        }
+    }
+}
+
+Describe 'Get-KagentA2aProxyPath' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
+    It 'returns a path ending with a2a-proxy.yaml' {
+        InModuleScope $moduleName {
+            $result = Get-KagentA2aProxyPath
+            $result | Should -BeLike '*\a2a-proxy.yaml'
         }
     }
 }
@@ -95,12 +86,13 @@ Describe 'New-ZscalerCaConfigMap' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-Path { return $false }
             Mock -ModuleName $moduleName Write-Log {}
+             Mock -ModuleName $moduleName Invoke-Kubectl {}
         }
 
         It 'skips ConfigMap creation when cert file is missing' {
             InModuleScope $moduleName {
                 { New-ZscalerCaConfigMap } | Should -Not -Throw
-                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ErrorAction SilentlyContinue
+                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ModuleName $moduleName
             }
         }
 
@@ -115,40 +107,41 @@ Describe 'New-ZscalerCaConfigMap' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
     }
 }
 
-Describe 'Wait-ForHolmesAvailable' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
-    Context 'HolmesGPT pod becomes ready' {
+Describe 'Wait-ForKagentAvailable' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
+    Context 'Kagent controller becomes ready' {
         BeforeAll {
             Mock -ModuleName $moduleName Wait-ForPodCondition { return $true }
+            Mock -ModuleName $moduleName Write-Log {}
         }
 
         It 'returns true' {
             InModuleScope $moduleName {
-                $result = Wait-ForHolmesAvailable
+                $result = Wait-ForKagentAvailable
                 $result | Should -Be $true
             }
         }
 
-        It 'calls Wait-ForPodCondition with correct label, namespace, and timeout' {
+        It 'calls Wait-ForPodCondition with correct label and namespace' {
             InModuleScope $moduleName {
-                Wait-ForHolmesAvailable
+                Wait-ForKagentAvailable
                 Should -Invoke Wait-ForPodCondition -Times 1 -Scope Context -ParameterFilter {
-                    $Label -eq 'app=holmesgpt' -and
-                    $Namespace -eq 'ai-assistant' -and
-                    $Condition -eq 'Ready' -and
-                    $TimeoutSeconds -eq 120
+                    $Label -match 'kagent' -and
+                    $Namespace -eq 'kagent' -and
+                    $Condition -eq 'Ready'
                 }
             }
         }
     }
 
-    Context 'HolmesGPT pod does not become ready' {
+    Context 'Kagent controller does not become ready' {
         BeforeAll {
             Mock -ModuleName $moduleName Wait-ForPodCondition { return $false }
+            Mock -ModuleName $moduleName Write-Log {}
         }
 
         It 'returns false' {
             InModuleScope $moduleName {
-                $result = Wait-ForHolmesAvailable
+                $result = Wait-ForKagentAvailable
                 $result | Should -Be $false
             }
         }
@@ -211,7 +204,7 @@ Describe 'Invoke-OllamaModelPull' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
     }
 }
 
-Describe 'Remove-HolmesProxyEndpoints' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
+Describe 'Remove-KagentProxyService' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
     BeforeAll {
         Mock -ModuleName $moduleName Invoke-Kubectl {
             return [pscustomobject]@{ Success = $true; Output = '' }
@@ -219,25 +212,12 @@ Describe 'Remove-HolmesProxyEndpoints' -Tag 'unit', 'ci', 'addon', 'ai-assistant
         Mock -ModuleName $moduleName Write-Log {}
     }
 
-    It 'deletes the holmesgpt-holmes endpoints in default namespace' {
+    It 'deletes legacy proxy services in default namespace' {
         InModuleScope $moduleName {
-            Remove-HolmesProxyEndpoints
-            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                $Params -contains 'delete' -and
-                $Params -contains 'endpoints' -and
-                $Params -contains 'holmesgpt-holmes' -and
-                $Params -contains 'default'
-            }
-        }
-    }
-
-    It 'deletes the holmesgpt-holmes service in default namespace' {
-        InModuleScope $moduleName {
-            Remove-HolmesProxyEndpoints
-            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+            Remove-KagentProxyService
+            Should -Invoke Invoke-Kubectl -Scope It -ParameterFilter {
                 $Params -contains 'delete' -and
                 $Params -contains 'service' -and
-                $Params -contains 'holmesgpt-holmes' -and
                 $Params -contains 'default'
             }
         }
@@ -250,14 +230,17 @@ Describe 'Remove-AiAssistantResources' -Tag 'unit', 'ci', 'addon', 'ai-assistant
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 return [pscustomobject]@{ Success = $true; Output = '' }
             }
-            Mock -ModuleName $moduleName Remove-HolmesProxyEndpoints {}
+            Mock -ModuleName $moduleName Remove-CopilotAgent {}
+            Mock -ModuleName $moduleName Remove-OllamaAgent {}
+            Mock -ModuleName $moduleName Remove-KagentProxyService {}
+            Mock -ModuleName $moduleName Remove-LegacyAgentResources {}
             Mock -ModuleName $moduleName Write-Log {}
         }
 
-        It 'calls Remove-HolmesProxyEndpoints' {
+        It 'calls Remove-LegacyAgentResources' {
             InModuleScope $moduleName {
                 Remove-AiAssistantResources
-                Should -Invoke Remove-HolmesProxyEndpoints -Times 1 -Scope It
+                Should -Invoke Remove-LegacyAgentResources -Times 1 -Scope It
             }
         }
 
@@ -279,14 +262,11 @@ Describe 'Remove-AiAssistantResources' -Tag 'unit', 'ci', 'addon', 'ai-assistant
             }
         }
 
-        It 'deletes the cluster-scoped RBAC resources' {
+        It 'deletes the kagent namespace' {
             InModuleScope $moduleName {
                 Remove-AiAssistantResources
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                    $Params -contains 'delete' -and $Params -contains 'clusterrolebinding' -and $Params -contains 'holmesgpt-reader'
-                }
-                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                    $Params -contains 'delete' -and $Params -contains 'clusterrole' -and $Params -contains 'holmesgpt-reader'
+                    $Params -contains 'delete' -and $Params -contains 'namespace' -and $Params -contains 'kagent'
                 }
             }
         }
@@ -297,7 +277,10 @@ Describe 'Remove-AiAssistantResources' -Tag 'unit', 'ci', 'addon', 'ai-assistant
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 return [pscustomobject]@{ Success = $true; Output = '' }
             }
-            Mock -ModuleName $moduleName Remove-HolmesProxyEndpoints {}
+            Mock -ModuleName $moduleName Remove-CopilotAgent {}
+            Mock -ModuleName $moduleName Remove-OllamaAgent {}
+            Mock -ModuleName $moduleName Remove-KagentProxyService {}
+            Mock -ModuleName $moduleName Remove-LegacyAgentResources {}
             Mock -ModuleName $moduleName Write-Log {}
         }
 
@@ -318,15 +301,6 @@ Describe 'Remove-AiAssistantResources' -Tag 'unit', 'ci', 'addon', 'ai-assistant
                 }
             }
         }
-
-        It 'still removes HolmesGPT workload resources even when KeepModelData is set' {
-            InModuleScope $moduleName {
-                Remove-AiAssistantResources -KeepModelData
-                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                    $Params -contains 'delete' -and $Params -contains 'deployment' -and $Params -contains 'holmesgpt-holmes'
-                }
-            }
-        }
     }
 }
 
@@ -335,54 +309,18 @@ Describe 'Write-AiAssistantUsageForUser' -Tag 'unit', 'ci', 'addon', 'ai-assista
         Mock -ModuleName $moduleName Write-Log {}
     }
 
-    It 'writes multiple log messages' {
+    It 'writes log messages' {
         InModuleScope $moduleName {
             Write-AiAssistantUsageForUser
             Should -Invoke Write-Log -Times 1 -Scope It
         }
     }
 
-    It 'mentions Ollama in usage notes' {
+    It 'mentions Kagent in usage notes' {
         InModuleScope $moduleName {
             Write-AiAssistantUsageForUser
             Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
-                ($Messages -join ' ') -match 'Ollama'
-            }
-        }
-    }
-
-    It 'mentions HolmesGPT in usage notes' {
-        InModuleScope $moduleName {
-            Write-AiAssistantUsageForUser
-            Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
-                ($Messages -join ' ') -match 'HolmesGPT'
-            }
-        }
-    }
-
-    It 'shows the default model name when no model is provided' {
-        InModuleScope $moduleName {
-            Write-AiAssistantUsageForUser
-            Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
-                ($Messages -join ' ') -match 'llama3\.2'
-            }
-        }
-    }
-
-    It 'shows the supplied model name when a model is provided' {
-        InModuleScope $moduleName {
-            Write-AiAssistantUsageForUser -Model 'mistral'
-            Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
-                ($Messages -join ' ') -match 'mistral'
-            }
-        }
-    }
-
-    It 'mentions the Ollama port-forward command' {
-        InModuleScope $moduleName {
-            Write-AiAssistantUsageForUser
-            Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
-                ($Messages -join ' ') -match '11434'
+                ($Messages -join ' ') -match 'Kagent'
             }
         }
     }
@@ -403,30 +341,58 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         }
     }
 
-    It 'exports Get-HolmesManifestPath' {
+    It 'exports Get-KagentManifestsDir' {
         InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'Get-HolmesManifestPath' -ErrorAction SilentlyContinue
+            $fn = Get-Command -Module $moduleName -Name 'Get-KagentManifestsDir' -ErrorAction SilentlyContinue
             $fn | Should -Not -BeNullOrEmpty
         }
     }
 
-    It 'exports Set-HolmesModelConfig' {
+    It 'exports Install-KagentFramework' {
         InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'Set-HolmesModelConfig' -ErrorAction SilentlyContinue
+            $fn = Get-Command -Module $moduleName -Name 'Install-KagentFramework' -ErrorAction SilentlyContinue
             $fn | Should -Not -BeNullOrEmpty
         }
     }
 
-    It 'exports Set-HolmesProxyEndpoints' {
+    It 'exports Wait-ForKagentAvailable' {
         InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'Set-HolmesProxyEndpoints' -ErrorAction SilentlyContinue
+            $fn = Get-Command -Module $moduleName -Name 'Wait-ForKagentAvailable' -ErrorAction SilentlyContinue
             $fn | Should -Not -BeNullOrEmpty
         }
     }
 
-    It 'exports Remove-HolmesProxyEndpoints' {
+    It 'exports Install-CopilotAgent' {
         InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'Remove-HolmesProxyEndpoints' -ErrorAction SilentlyContinue
+            $fn = Get-Command -Module $moduleName -Name 'Install-CopilotAgent' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'exports Install-OllamaAgent' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Install-OllamaAgent' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'exports Set-KagentProxyService' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Set-KagentProxyService' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'exports Remove-KagentProxyService' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Remove-KagentProxyService' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'exports Remove-LegacyAgentResources' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Remove-LegacyAgentResources' -ErrorAction SilentlyContinue
             $fn | Should -Not -BeNullOrEmpty
         }
     }
@@ -452,13 +418,6 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         }
     }
 
-    It 'exports Wait-ForHolmesAvailable' {
-        InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'Wait-ForHolmesAvailable' -ErrorAction SilentlyContinue
-            $fn | Should -Not -BeNullOrEmpty
-        }
-    }
-
     It 'exports Remove-AiAssistantResources' {
         InModuleScope $moduleName {
             $fn = Get-Command -Module $moduleName -Name 'Remove-AiAssistantResources' -ErrorAction SilentlyContinue
@@ -473,4 +432,3 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         }
     }
 }
-

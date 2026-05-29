@@ -80,6 +80,17 @@ func main() {
 		},
 	}
 
+	// AG-UI compatibility handler — bridges legacy Headlamp plugin to A2A/shortcuts
+	aguiHandler := &aguiCompatHandler{
+		upstream:    upstreamURL,
+		mcpUpstream: mcpUpstreamURL,
+		proxy:       proxy,
+		scRouter:    scRouter,
+		client: &http.Client{
+			Timeout: 600 * time.Second,
+		},
+	}
+
 	// Start Ollama reachability monitor (background, 30s interval)
 	newOllamaMonitor(*ollamaURL)
 	slog.Info("Ollama monitor started", "url", *ollamaURL)
@@ -88,6 +99,12 @@ func main() {
 	reverseProxy.FlushInterval = -1 // stream immediately
 
 	mux := http.NewServeMux()
+	// AG-UI compatibility — translates legacy Headlamp plugin requests to A2A/shortcuts
+	mux.HandleFunc("/api/agui/chat", aguiHandler.handleAGUI)
+	mux.HandleFunc("/api/agui/chat/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
 	// Query shortcuts — deterministic fast-path, bypasses LLM
 	mux.HandleFunc("/api/shortcuts", scRouter.handleShortcuts)
 	// Cluster overview — parallel tool calls, no LLM

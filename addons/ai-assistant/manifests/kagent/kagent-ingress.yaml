@@ -43,9 +43,9 @@ spec:
             pathType: ImplementationSpecific
             path: /kagent/(.*)
 ---
-# SSE Direct-Route Ingress for Headlamp integration
-# Intercepts the Headlamp K8s apiserver proxy path for the kagent service
-# so SSE streaming works without buffering.
+# SSE Direct-Route Ingress for Headlamp AI Assistant plugin
+# The plugin calls a2a-proxy:8082 in kagent namespace via K8s apiserver proxy.
+# This ingress intercepts that path to disable nginx buffering for SSE streams.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -69,11 +69,101 @@ spec:
     - host: k2s.cluster.local
       http:
         paths:
-          - path: /dashboard/clusters/[^/]+/api/v1/namespaces/kagent/services/kagent-controller:8083/proxy/api(/|$)(.*)
+          # Intercept K8s apiserver proxy path for a2a-proxy service
+          - path: /dashboard/clusters/[^/]+/api/v1/namespaces/kagent/services/a2a-proxy:8082/proxy/api(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
               service:
                 name: a2a-proxy
                 port:
                   number: 8082
-
+---
+# Kagent UI Ingress — exposes the Kagent web UI
+# The Kagent UI (Next.js) requires serving at / as it doesn't support subpath.
+# Routes: /_next (assets), /agents (pages), /icon (favicon)
+# Entry point: https://k2s.cluster.local/agents/kagent/k2s-assistant/chat
+# Convenience redirect: /kagent-ui → /agents
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kagent-ui-ingress
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Connection "";
+      add_header X-Accel-Buffering no always;
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - k2s.cluster.local
+      secretName: k2s-cluster-local-tls
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /_next
+            pathType: Prefix
+            backend:
+              service:
+                name: kagent-ui
+                port:
+                  number: 8080
+          - path: /agents
+            pathType: Prefix
+            backend:
+              service:
+                name: kagent-ui
+                port:
+                  number: 8080
+          - path: /a2a
+            pathType: Prefix
+            backend:
+              service:
+                name: kagent-ui
+                port:
+                  number: 8080
+          - path: /icon
+            pathType: Prefix
+            backend:
+              service:
+                name: kagent-ui
+                port:
+                  number: 8080
+---
+# Kagent UI convenience redirect: /kagent-ui → /agents/kagent/k2s-assistant/chat
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kagent-ui-redirect
+  namespace: kagent
+  labels:
+    app.kubernetes.io/part-of: ai-assistant
+    app.kubernetes.io/managed-by: k2s
+  annotations:
+    nginx.ingress.kubernetes.io/permanent-redirect: "https://k2s.cluster.local/agents/kagent/k2s-assistant/chat"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - k2s.cluster.local
+      secretName: k2s-cluster-local-tls
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /kagent-ui
+            pathType: Prefix
+            backend:
+              service:
+                name: kagent-ui
+                port:
+                  number: 8080

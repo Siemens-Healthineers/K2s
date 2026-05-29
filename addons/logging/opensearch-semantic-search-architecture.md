@@ -539,7 +539,7 @@ No manual steps required - the index is ready when enable completes.
 
 ## 9. Integration with the K2s AI Assistant
 
-The semantic log search complements the existing AI Assistant (HolmesGPT + Ollama).
+The semantic log search complements the existing AI Assistant (Kagent + Ollama).
 
 ### 9.1 Current Integration
 
@@ -555,9 +555,9 @@ User opens demo.html (port-forward :9090)
                (shown side-by-side for comparison)
 ```
 
-### 9.2 Future RAG Integration with HolmesGPT
+### 9.2 Future RAG Integration with Kagent
 
-Wire the log search as a HolmesGPT tool for incident analysis:
+Wire the log search as a Kagent tool for incident analysis:
 
 ```yaml
 # kubernetes.yaml toolset extension
@@ -642,7 +642,7 @@ namespace: ai-assistant  (shared Ollama - pre-existing prerequisite)
 |  namespace: dashboard                                                 |
 |  +----------------------------+                                       |
 |  |  Headlamp + AI plugin      |                                       |
-|  |  Chat: HolmesGPT (k8s AI) |                                       |
+|  |  Chat: Kagent (k8s AI)    |                                       |
 |  +----------------------------+                                       |
 +-----------------------------------------------------------------------+
          ^                    ^
@@ -935,7 +935,7 @@ Query anytime (even months later):
 
 ```
 Alert fires: pod CrashLoopBackOff
-    -> HolmesGPT called (existing today)
+    -> Kagent called (existing today)
     -> ALSO: semantic log search for similar past incidents
     -> ALSO: search K2s docs for known issue patterns
     -> Combined: root cause + historical context + fix recommendation
@@ -1105,6 +1105,6 @@ search over keyword matching.
 The OpenSearch semantic search stack transforms K2s log exploration from simple keyword grep
 into **meaning-based discovery** - letting engineers find related errors, understand cascading
 failures, and investigate incidents by describing *what happened*, not by remembering *exact
-log text*. Combined with the existing AI Assistant (HolmesGPT + Ollama), it forms the
+log text*. Combined with the existing AI Assistant (Kagent + Ollama), it forms the
 foundation for fully AI-driven incident response in the K2s platform.
 

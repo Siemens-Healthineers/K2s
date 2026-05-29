@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 # AI Assistant Addon — Testing Checklist
 
 Use this checklist when validating the `ai-assistant` addon.  
-The addon deploys **Ollama** (local LLM runtime) + **HolmesGPT** (Kubernetes AI agent) + injects the **AI Assistant plugin** into the Headlamp dashboard.
+The addon deploys the **Kagent** AI agent framework (with optional **Ollama** local LLM runtime) and injects the **AI Assistant plugin** into the Headlamp dashboard.
 
 > **How to use this file:**  
 > Work top-to-bottom. Complete each numbered section before moving to the next.  
@@ -64,25 +64,21 @@ This takes **5–15 minutes** on first run (model download). Watch progress:
 kubectl get pods -n ai-assistant -w
 ```
 
-Wait until both pods show `Running`:
+Wait until pods show `Running`:
 
 ```
-ollama-xxxx          1/1   Running
-holmesgpt-holmes-xxxx  1/1   Running
+kubectl get pods -n kagent
+kubectl get pods -n ai-assistant    # (ollama provider only)
 ```
 
 ---
 
-### Step 4 — Configure the plugin in Headlamp
+### Step 4 — Verify the plugin in Headlamp
 
-1. In Headlamp, go to **Settings → Plugins → AI Assistant**
-2. Under **Provider**, select **Local Models**
-3. Set **Base URL** to: `http://ollama.ai-assistant.svc.cluster.local:11434`
-4. Set **Model** to: `qwen2.5:7b`
-5. Click **Save**
-6. Click the **AI icon** (robot icon) in the top-right app bar
-
-The chat panel should open on the right side.
+1. In Headlamp, reload the page (`F5`)
+2. Look for the **AI icon** (robot icon) in the top-right app bar
+3. Click the AI icon — the chat panel should open on the right side
+4. The plugin auto-connects to the Kagent A2A proxy — no manual configuration needed
 
 ---
 
@@ -116,27 +112,27 @@ kubectl exec -n ai-assistant deployment/ollama -- ollama list
 
 ---
 
-### 1.3 — HolmesGPT is running
+### 1.3 — Kagent controller is running
 
 ```console
-kubectl wait --for=condition=Available deployment/holmesgpt-holmes -n ai-assistant --timeout=120s
-kubectl logs -n ai-assistant deployment/holmesgpt-holmes --tail=20
+kubectl wait --for=condition=Available deployment/kagent-controller -n kagent --timeout=120s
+kubectl logs -n kagent deployment/kagent-controller --tail=20
 ```
 
-- [ ] `deployment/holmesgpt-holmes` becomes Available
-- [ ] Logs show the AG-UI server started (look for `Uvicorn running` or `Starting server`)
+- [ ] `deployment/kagent-controller` becomes Available
+- [ ] Logs show the controller started successfully
 
 ---
 
-### 1.4 — Cross-namespace proxy is wired
+### 1.4 — A2A proxy is running
 
 ```console
-kubectl get endpoints holmesgpt-holmes -n default -o yaml
-kubectl get svc holmesgpt-holmes -n ai-assistant -o jsonpath='{.spec.clusterIP}'
+kubectl get pods -n kagent -l app=a2a-proxy
+kubectl get svc a2a-proxy -n kagent
 ```
 
-- [ ] Endpoints object exists in `default` namespace
-- [ ] The IP shown in the Endpoints `subsets[].addresses[].ip` matches the ClusterIP from the second command
+- [ ] A2A proxy pod is `Running`
+- [ ] Service `a2a-proxy` exists on port 8082
 
 ---
 
@@ -163,9 +159,9 @@ kubectl rollout status deployment headlamp -n dashboard --timeout=120s
 k2s addons status ai-assistant
 ```
 
-- [ ] `IsOllamaRunning      = True`
-- [ ] `IsHolmesGptRunning   = True`
-- [ ] `IsHolmesProxyWired   = True`
+- [ ] `IsOllamaRunning      = True` (ollama provider only)
+- [ ] `IsKagentRunning      = True`
+- [ ] `IsA2aProxyRunning    = True`
 - [ ] `IsAiPluginInjected   = True`
 
 ---
@@ -192,16 +188,16 @@ Verify the plugin loaded correctly in the browser before running chat tests.
 
 ---
 
-### 2.3 — Holmes indicator is Connected
+### 2.3 — K2s AI indicator is Connected
 
 - [ ] Open the chat panel
-- [ ] Look for the **Holmes** status indicator (small dot or label near the top of the panel)
+- [ ] Look for the **K2s AI** status indicator (small dot or label near the top of the panel)
 - [ ] It shows **Connected** (green)
 
 If it shows **Disconnected**, check:
 ```console
-kubectl get pods -n ai-assistant -l app=holmesgpt
-kubectl get endpoints holmesgpt-holmes -n default
+kubectl get pods -n kagent
+kubectl get svc a2a-proxy -n kagent
 ```
 
 ---
@@ -210,14 +206,13 @@ kubectl get endpoints holmesgpt-holmes -n default
 
 - [ ] Go to **Settings → Plugins → AI Assistant** (or click gear icon inside the chat panel)
 - [ ] Page loads without errors
-- [ ] Provider dropdown shows **Local Models** selected
-- [ ] Base URL and Model fields show the values you configured in Setup Step 4
+- [ ] K2s AI plugin settings are visible
 
 ---
 
 ## Section 3 — Practical Chat Scenarios
 
-> **Before each scenario:** The chat panel must be open and Holmes must show **Connected**.  
+> **Before each scenario:** The chat panel must be open and K2s AI must show **Connected**.  
 > Type the exact prompt shown, press Enter or click Send, and wait for the full response.
 
 ---
@@ -237,7 +232,7 @@ How is the cluster doing? Give me a health summary.
 - [ ] Response arrives within 60 seconds
 - [ ] Response mentions node(s) — e.g. "1 node is Ready" or similar
 - [ ] Response mentions running namespaces or workloads
-- [ ] Holmes indicator stays **Connected** throughout
+- [ ] K2s AI indicator stays **Connected** throughout
 
 **Cross-check with kubectl:**
 ```console
@@ -251,7 +246,7 @@ The AI answer should roughly reflect what these two commands show. It does not n
 
 ### Chat Scenario B — "Why is my nginx pod failing?" (CrashLoopBackOff)
 
-**Purpose:** Test Holmes diagnosis of a crashing pod. The most common real-world debugging scenario.
+**Purpose:** Test K2s AI diagnosis of a crashing pod. The most common real-world debugging scenario.
 
 **Setup — create a pod that always crashes:**
 ```console
@@ -495,9 +490,9 @@ What is running in the ai-assistant namespace?
 ```
 
 **What to check:**
-- [ ] Response lists the `ollama` deployment
-- [ ] Response lists the `holmesgpt-holmes` deployment
-- [ ] Response mentions the `ollama-models` PVC or storage
+- [ ] Response lists the `ollama` deployment (if using ollama provider)
+- [ ] Response mentions relevant pods and services
+- [ ] Response mentions the `ollama-models` PVC or storage (if using ollama provider)
 - [ ] Response does **not** confuse `ai-assistant` namespace with `dashboard` or `default`
 
 **Cross-check:**
@@ -560,13 +555,12 @@ After the command completes, verify each resource is gone:
 
 ```console
 kubectl get ns ai-assistant
-kubectl get clusterrole holmesgpt-reader
-kubectl get clusterrolebinding holmesgpt-reader
-kubectl get svc holmesgpt-holmes -n default
-kubectl get endpoints holmesgpt-holmes -n default
+kubectl get ns kagent
+kubectl get agents -A
+kubectl get pods -n kagent
 ```
 
-- [ ] All five commands return `not found`
+- [ ] All commands return `not found` or empty results
 
 ```console
 kubectl get deployment headlamp -n dashboard \
@@ -608,7 +602,7 @@ kubectl get ns ai-assistant
 - [ ] All deployments, services, and RBAC are gone:
   ```console
   kubectl get deploy,svc -n ai-assistant
-  kubectl get clusterrole holmesgpt-reader
+  kubectl get pods -n kagent
   ```
 
 Re-enable and check model is not re-downloaded:
@@ -663,9 +657,9 @@ k2s addons enable ai-assistant --model phi3
   ```console
   kubectl exec -n ai-assistant deployment/ollama -- ollama list
   ```
-- [ ] ConfigMap contains `phi3`:
+- [ ] Agent definition contains `phi3`:
   ```console
-  kubectl get configmap holmesgpt-model-config -n ai-assistant -o jsonpath='{.data}'
+  kubectl get agents -n kagent -o yaml | Select-String phi3
   ```
 
 Cleanup:
@@ -675,10 +669,10 @@ k2s addons disable ai-assistant
 
 ---
 
-### 5.4 — RBAC: HolmesGPT cannot write to the cluster
+### 5.4 — RBAC: Kagent tools cannot write to the cluster
 
 ```console
-kubectl get clusterrole holmesgpt-reader \
+kubectl get clusterrole k2s-tools-reader \
   -o jsonpath='{range .rules[*]}{.verbs}{"\n"}{end}'
 ```
 

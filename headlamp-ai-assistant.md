@@ -116,54 +116,55 @@ Headlamp plugin (React/TypeScript)
   – POSTs to: /api/v1/namespaces/default/services/holmesgpt-holmes:80/proxy/api/agui/chat
   – Streams SSE response back
         │
-        ▼ (via K8s API Server proxy)
-holmesgpt-proxy Pod  [default namespace · python:3.11-alpine]
+        ▼ (via K8s API Server proxy OR nginx ingress SSE intercept)
+a2a-proxy Pod  [kagent namespace · shsk2s.azurecr.io/a2a-proxy:v1.0.0]
   ┌──────────────────────────────────────────────────────┐
-  │  REQUEST interceptor:                                │
-  │   • Injects strict system prompt via ag_ui context[] │
-  │   • Forces single-tool-call deterministic mode       │
+  │  AG-UI Compatibility Layer:                          │
+  │   • Accepts legacy AG-UI POST /api/agui/chat         │
+  │   • Extracts user query from RunAgentInput messages  │
   │                                                      │
-  │  RESPONSE SSE filter (per-event, not buffered):      │
-  │   • Parses JSON envelope of every SSE event          │
-  │   • TEXT_MESSAGE_CONTENT: filters delta string       │
-  │     – Keeps kubectl tabular rows + k8s identifiers   │
-  │     – Drops LLM prose commentary                     │
-  │     – Suppresses empty delta="" (pydantic guard)     │
-  │   • All other event types: pass through unchanged    │
-  │   • JSON envelope is NEVER broken                    │
+  │  IF shortcut matched (deterministic fast-path):      │
+  │   → Calls mcp-preprocessor tools directly            │
+  │   → Returns formatted result as AG-UI SSE stream     │
+  │   → Sub-second response, no LLM needed              │
+  │                                                      │
+  │  ELSE (free-form query):                             │
+  │   → Converts to A2A tasks/send JSON-RPC             │
+  │   → Forwards to kagent-controller                    │
+  │   → Auto-confirms approved read-only tool calls      │
+  │   → Converts A2A response back to AG-UI SSE stream  │
   └──────────────────────────────────────────────────────┘
         │
-        ▼
-holmesgpt-holmes Pod  [ai-assistant namespace · holmes:0.19.1]
+        ▼ (only for free-form queries)
+kagent-controller Pod  [kagent namespace]
   ┌──────────────────────────────────────────────────────┐
-  │  AG-UI server (uvicorn/FastAPI)                      │
-  │  Custom Jinja2 prompt overrides (ConfigMap subPath): │
-  │   • generic_ask_conversation.jinja2 → strict rules   │
-  │   • _general_instructions.jinja2   → no TodoWrite    │
-  │  Toolset override: kubernetes.yaml (nodes fix)       │
-  │  MAX_STEPS=3 · LLM_REQUEST_TIMEOUT=600s              │
+  │  Kagent A2A server (CNCF agent framework)            │
+  │  Agent: copilot-cli OR k2s-assistant (ollama)        │
+  │  MCP tools: k8s_get_resources, k8s_describe, etc.   │
+  │  Human-in-the-loop confirmation for write tools      │
   └──────────────────────────────────────────────────────┘
-        │  LiteLLM → OpenAI-compatible REST
-        │  http://172.19.1.1:11434/v1 (host bridge IP)
+        │  LLM inference (OpenAI-compatible REST)
         ▼
 Ollama Pod  [ai-assistant namespace · ollama:0.9.1]
   ┌──────────────────────────────────────────────────────┐
-  │  Model: qwen2.5:7b (default) or user-selected        │
+  │  Model: devstral / qwen2.5:7b (default) or selected │
   │  PVC: ollama-models (20 GiB, local path /data/ollama)│
-  │  CPU: up to 4 cores · Memory: up to 8 GiB            │
+  │  CPU: up to 4 cores · Memory: up to 8 GiB           │
   │  GPU: optional (requires node label gpu=true)        │
   └──────────────────────────────────────────────────────┘
 ```
 
 ### 3.2 Cross-Namespace Proxy Design
 
-A key engineering challenge: the Headlamp plugin hardcodes `HOLMES_SERVICE_NAMESPACE=default` and uses the K8s API Server proxy path. Kubernetes 1.35 rejects selectorless ClusterIP services via the proxy handler. The solution is a real Python proxy pod in `default` that:
+A key engineering challenge: the Headlamp plugin hardcodes `HOLMES_SERVICE_NAMESPACE=default` and uses the K8s API Server proxy path with service name `holmesgpt-holmes`. The solution is a compatibility shim:
 
-1. Has a proper `spec.selector` → K8s API server accepts the proxy request.
-2. Injects the strict system prompt into every request before forwarding to `ai-assistant` namespace.
-3. Filters verbose SSE output so the UI only receives clean, structured data.
+1. An ExternalName Service named `holmesgpt-holmes` in `default` namespace routes to `a2a-proxy.kagent.svc.cluster.local`.
+2. The a2a-proxy has an AG-UI compatibility layer that translates the old protocol to the new A2A/shortcuts system.
+3. For shortcut-eligible queries (nodes, pods, health, etc.), the response is deterministic and sub-second — no LLM needed.
+4. For free-form queries, the request is translated to A2A JSON-RPC and forwarded to kagent-controller.
+5. An nginx ingress rule intercepts the K8s apiserver proxy path to bypass buffering for SSE streaming.
 
-This avoids direct ingress exposure of HolmesGPT and keeps all traffic through the K8s API server's built-in auth/authz.
+This allows the existing Headlamp plugin (v0.2.0-alpha) to work transparently with the kagent backend without any plugin changes.
 
 ### 3.3 RBAC Model
 

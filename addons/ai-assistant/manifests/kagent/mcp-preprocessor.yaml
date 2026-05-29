@@ -40,7 +40,7 @@ spec:
         kubernetes.io/os: linux
       containers:
         - name: mcp-preprocessor
-          image: shsk2s.azurecr.io/mcp-preprocessor:latest
+          image: shsk2s.azurecr.io/mcp-preprocessor:v1.0.0
           imagePullPolicy: IfNotPresent
           args:
             - "-addr=:8084"

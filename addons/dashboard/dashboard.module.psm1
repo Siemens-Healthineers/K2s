@@ -294,6 +294,61 @@ function Sync-HeadlampPlugins {
     if ($monitoringEnabled) { $containers += New-PluginInitContainer -Name 'prometheus-plugin'    -Image 'shsk2s.azurecr.io/headlamp-plugin-prometheus:0.8.2' }
     if ($aiEnabled)         { $containers += New-PluginInitContainer -Name 'ai-assistant-plugin'  -Image 'shsk2s.azurecr.io/headlamp-plugin-ai-assistant:0.2.0-alpha' }
 
+    # Patch AI Assistant plugin to use kagent (a2a-proxy) instead of legacy backend.
+    # Rewrites the service endpoint, then does a blanket sweep of ALL remaining
+    # legacy references (identifiers, UI labels, tooltips, etc.).
+    # Uses find to locate JS files dynamically — the subdirectory name inside the
+    # plugin image may vary between versions.
+    if ($aiEnabled) {
+        $sedExpr = @(
+            # ── 1. Critical functional replacement: service endpoint ──────────
+            's|"holmesgpt-holmes",dB=80,fB="default"|"a2a-proxy",dB=8082,fB="kagent"|g'
+            # ── 2. Compound names (replace before the broad sweep so we get
+            #       clean target names rather than partial matches) ─────────────
+            's|HolmesGPT|K2s AI Agent|g'
+            's|holmesgpt|k2s-ai-agent|g'
+            's|HOLMESGPT|K2S-AI-AGENT|g'
+            's|HolmesAgent|KagentProxy|g'
+            's|holmesAgent|kagentProxy|g'
+            's|holmes-agent|kagent-proxy|g'
+            's|holmes_agent|kagent_proxy|g'
+            's|HOLMES_AGENT|KAGENT_PROXY|g'
+            # ── 3. Blanket sweep: catch every remaining occurrence ────────────
+            's|Holmes|K2s AI|g'
+            's|holmes|k2s-ai|g'
+            's|HOLMES|K2S-AI|g'
+        ) -join ';'
+        # Use find to locate ALL files under /headlamp-plugins and apply sed.
+        # Covers JS, JSON, HTML, CSS, source maps — any file that could contain
+        # legacy branding. Binary files are harmless (sed skips non-matching lines).
+        # Diagnostic: list files before/after and count remaining matches.
+        $patchScript = @"
+echo '[kagent-patch] Listing all plugin files...'
+find /headlamp-plugins -type f
+echo '[kagent-patch] Applying sed replacements to all files...'
+find /headlamp-plugins -type f -exec sed -i '$sedExpr' {} +
+REMAINING=`$(grep -r -i -c 'holmes' /headlamp-plugins/ 2>/dev/null | grep -v ':0$' || true)
+if [ -n "`$REMAINING" ]; then
+  echo "[kagent-patch] WARNING: residual matches: `$REMAINING"
+else
+  echo '[kagent-patch] All legacy references replaced successfully.'
+fi
+"@
+        $containers += @{
+            name            = 'ai-assistant-kagent-patch'
+            image           = 'docker.io/library/busybox:1.37'
+            imagePullPolicy = 'IfNotPresent'
+            command         = @('/bin/sh', '-c', $patchScript)
+            volumeMounts    = @(@{ name = 'headlamp-plugins'; mountPath = '/headlamp-plugins' })
+            securityContext = @{
+                allowPrivilegeEscalation = $false
+                capabilities             = @{ drop = @('ALL') }
+                runAsNonRoot             = $false
+                seccompProfile           = @{ type = 'RuntimeDefault' }
+            }
+        }
+    }
+
     Apply-HeadlampPluginPatch -InitContainers $containers
     Write-Log "[Dashboard] Plugin sync complete ($($containers.Count) plugin(s) active)" -Console
 }

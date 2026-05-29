@@ -92,8 +92,8 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ai-assistant'})) -eq 
     Write-Log $errMsg -Error
     exit 1
 }
-# -- Clean up legacy HolmesGPT resources from previous versions
-Remove-LegacyHolmesResources
+# -- Clean up legacy agent resources from previous versions
+Remove-LegacyAgentResources
 # -- Deploy Ollama (only for ollama provider)
 if ($Provider -eq 'ollama') {
     Write-Log '[AI-Assistant] Deploying Ollama (local LLM runtime)...' -Console

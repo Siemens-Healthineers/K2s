@@ -48,6 +48,8 @@ type shortcutDefinition struct {
 // shortcuts is the ordered list of shortcut definitions.
 // Order matters: more specific patterns must come before general ones.
 var shortcuts = []shortcutDefinition{
+	// Help — must be first
+	{Pattern: "help", Handler: handleHelpShortcut},
 	// Investigation plans (multi-step deterministic workflows)
 	{Pattern: "why is pod ", Handler: handlePodCrashInvestigation},
 	{Pattern: "why pod ", Handler: handlePodCrashInvestigation},
@@ -66,6 +68,44 @@ var shortcuts = []shortcutDefinition{
 	{Pattern: "ns ", Handler: handleNamespaceShortcut},
 	{Pattern: "pods", Handler: handlePodsShortcut},
 	{Pattern: "pod ", Handler: handlePodShortcut},
+}
+
+// handleHelpShortcut returns all available shortcuts grouped by category.
+func handleHelpShortcut(sr *shortcutRouter, query string) (*shortcutResponse, error) {
+	details := `CLUSTER OVERVIEW
+  health          Cluster health summary (nodes, pods, warnings)
+  status          Component status (ollama, mcp, k2s-tools, kubernetes-api)
+  nodes           Node list with status and versions
+  pods            All pods across namespaces with counts
+  top             Pod resource overview sorted by status
+  errors          Warning events from last 15 minutes (deduplicated)
+  restarts        Pods with restart counts
+
+RESOURCE INSPECTION
+  ns <namespace>          Pods in a specific namespace
+  pod <name> [ns]         Describe a pod
+  logs <pod> [ns] [ctr]   Tail logs (50 lines)
+  deploy <name> [ns]      Deployment rollout status and conditions
+
+DIAGNOSTICS
+  diagnose <pod> [ns]     Multi-step crash investigation (describe+events+logs)
+  why is pod <pod> crashing    Same as diagnose
+  crashloop <pod>              Same as diagnose
+
+SYSTEM
+  status          Component health probes
+  help            This help text
+
+All shortcuts execute deterministically without LLM. Sub-second response.
+For free-form queries, use the kagent-ui chat (requires Ollama).`
+
+	return &shortcutResponse{
+		Type:      "shortcut",
+		Query:     "help",
+		Status:    "14 shortcuts available across 4 categories",
+		Details:   details,
+		Followups: []string{"health", "status", "nodes"},
+	}, nil
 }
 
 func (sr *shortcutRouter) handleShortcuts(w http.ResponseWriter, r *http.Request) {

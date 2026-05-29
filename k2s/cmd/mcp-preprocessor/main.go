@@ -122,6 +122,8 @@ func main() {
 	})
 
 	slog.Info("mcp-preprocessor starting", "component", "mcp-preprocessor", "addr", *listenAddr, "upstream", *upstream)
+	slog.Info("[MCPPreprocessor] Startup validation", "toolLimits", len(toolLimits), "defaultMaxLines", defaultLimit.MaxLines, "defaultMaxTokens", defaultLimit.MaxTokens, "logTailDefault", defaultLogTailLines)
+	slog.Info("[MCPPreprocessor] Upstream target", "url", *upstream, "timeout", "60s")
 	if err := http.ListenAndServe(*listenAddr, mux); err != nil {
 		slog.Error("Server failed", "error", err)
 		os.Exit(1)
@@ -138,16 +140,16 @@ type preprocessor struct {
 // ensureSession establishes an MCP session with the upstream server.
 // Retries with backoff on failure. Called on startup and when session becomes invalid.
 func (pp *preprocessor) ensureSession() {
-	for {
+	for attempt := 1; ; attempt++ {
 		err := pp.initializeSession()
 		if err == nil {
 			pp.sessionMu.RLock()
 			sid := pp.sessionID
 			pp.sessionMu.RUnlock()
-			slog.Info("[MCPPreprocessor] Session established with upstream", "sessionId", sid)
+			slog.Info("[MCPPreprocessor] READY — MCP session established with upstream", "sessionId", sid, "attempts", attempt)
 			return
 		}
-		slog.Warn("[MCPPreprocessor] Failed to initialize upstream session, retrying in 5s", "error", err)
+		slog.Warn("[MCPPreprocessor] Upstream not ready, retrying session initialization", "error", err, "attempt", attempt, "retryIn", "5s")
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -221,6 +223,60 @@ func (pp *preprocessor) invalidateAndReconnect() {
 	pp.sessionID = ""
 	pp.sessionMu.Unlock()
 	go pp.ensureSession()
+}
+
+// sessionKeepalive sends a periodic lightweight ping to the upstream to keep the MCP session alive.
+// Runs every 60 seconds. If the session is found invalid, triggers reconnection immediately.
+// This prevents cold-start latency on the first request after idle periods.
+func (pp *preprocessor) sessionKeepalive() {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		sid := pp.getSessionID()
+		if sid == "" {
+			// No session yet — ensureSession is handling it
+			continue
+		}
+
+		// Send a lightweight "ping" (list tools) to validate session
+		pingReq := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      "keepalive",
+			"method":  "tools/list",
+			"params":  map[string]interface{}{},
+		}
+		body, _ := json.Marshal(pingReq)
+
+		targetURL := *pp.upstream
+		targetURL.Path = "/mcp"
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL.String(), bytes.NewReader(body))
+		if err != nil {
+			cancel()
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Mcp-Session-Id", sid)
+
+		resp, err := pp.client.Do(req)
+		cancel()
+		if err != nil {
+			slog.Warn("[MCPPreprocessor] Session keepalive failed, reconnecting", "error", err)
+			pp.invalidateAndReconnect()
+			continue
+		}
+		io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode == http.StatusBadRequest {
+			slog.Warn("[MCPPreprocessor] Session expired during keepalive, reconnecting")
+			pp.invalidateAndReconnect()
+		} else {
+			slog.Debug("[MCPPreprocessor] Session keepalive OK", "sessionId", sid)
+		}
+	}
 }
 
 // MCP JSON-RPC types

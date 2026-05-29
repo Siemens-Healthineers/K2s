@@ -61,7 +61,7 @@ spec:
         kubernetes.io/os: linux
       containers:
         - name: a2a-proxy
-          image: shsk2s.azurecr.io/a2a-proxy:latest
+          image: shsk2s.azurecr.io/a2a-proxy:v1.0.0
           imagePullPolicy: IfNotPresent
           args:
             - "-addr=$(ADDR)"
