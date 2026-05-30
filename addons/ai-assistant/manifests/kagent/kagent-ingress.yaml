@@ -102,10 +102,6 @@ metadata:
       add_header X-Accel-Buffering no always;
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - k2s.cluster.local
-      secretName: k2s-cluster-local-tls
   rules:
     - host: k2s.cluster.local
       http:
@@ -152,10 +148,6 @@ metadata:
     nginx.ingress.kubernetes.io/permanent-redirect: "https://k2s.cluster.local/agents/kagent/k2s-assistant/chat"
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - k2s.cluster.local
-      secretName: k2s-cluster-local-tls
   rules:
     - host: k2s.cluster.local
       http:

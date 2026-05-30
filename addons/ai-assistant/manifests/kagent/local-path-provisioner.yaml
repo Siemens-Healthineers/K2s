@@ -76,7 +76,7 @@ data:
           effect: NoSchedule
       containers:
         - name: helper-pod
-          image: docker.io/library/busybox:latest
+          image: docker.io/flannel/flannel:v0.28.4
           imagePullPolicy: IfNotPresent
   setup: |-
     #!/bin/sh

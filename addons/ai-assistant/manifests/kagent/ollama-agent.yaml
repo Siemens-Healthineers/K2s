@@ -16,7 +16,7 @@ metadata:
     app.kubernetes.io/managed-by: k2s
 spec:
   provider: "Ollama"
-  model: "devstral-k2s"
+  model: "MODEL_PLACEHOLDER"
   ollama:
     host: "http://172.19.1.1:11434"
     options:

@@ -40,8 +40,9 @@ spec:
         kubernetes.io/os: linux
       containers:
         - name: mcp-preprocessor
-          image: shsk2s.azurecr.io/mcp-preprocessor:v1.0.0
-          imagePullPolicy: IfNotPresent
+          image: shsk2s.azurecr.io/mcp-preprocessor:latest
+          imagePullPolicy: Never
+          command: ["/mcp-preprocessor"]
           args:
             - "-addr=:8084"
             - "-upstream=http://k2s-tools.kagent.svc.cluster.local:8084"

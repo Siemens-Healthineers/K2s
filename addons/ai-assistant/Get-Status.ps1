@@ -66,20 +66,19 @@ $isOllamaRunningProp.Message = if ($activeProvider -ne 'ollama') {
     "Ollama is not running. Check: kubectl get pods -n ai-assistant -l app=ollama"
 }
 
-# ── Kagent Proxy Service (default namespace) ──────────────────────────────────
-$proxyExists = -not [string]::IsNullOrWhiteSpace(
-    (Invoke-Kubectl -Params 'get', 'service', 'kagent-proxy', '-n', 'default', '--ignore-not-found', '-o', 'name').Output
-)
+# ── A2A Proxy (kagent namespace) ───────────────────────────────────────────────
+$proxyReady = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available',
+    'deployment/a2a-proxy', '-n', 'kagent').Success
 
 $isProxyWiredProp = @{
-    Name  = 'IsKagentProxyWired'
-    Value = $proxyExists
-    Okay  = $proxyExists
+    Name  = 'IsA2aProxyRunning'
+    Value = $proxyReady
+    Okay  = $proxyReady
 }
-$isProxyWiredProp.Message = if ($proxyExists) {
-    'Kagent proxy service is wired in default namespace'
+$isProxyWiredProp.Message = if ($proxyReady) {
+    'A2A proxy is running in kagent namespace'
 } else {
-    "Kagent proxy service missing in default namespace. Fix: k2s addons update ai-assistant"
+    "A2A proxy is not running. Fix: k2s addons update ai-assistant"
 }
 
 # ── Kagent Ingress ────────────────────────────────────────────────────────────

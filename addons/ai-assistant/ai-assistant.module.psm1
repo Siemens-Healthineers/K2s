@@ -83,6 +83,77 @@ function Get-KagentIngressPath {
 
 <#
 .SYNOPSIS
+Builds the a2a-proxy and mcp-preprocessor container images on the control plane node.
+These are locally-built Go binaries that need to be containerized via buildah
+and loaded into CRI-O storage so Kubernetes can use them with imagePullPolicy: Never.
+#>
+function Build-LocalProxyImages {
+    [CmdletBinding()]
+    Param()
+
+    $a2aProxyBin = "$PSScriptRoot\..\..\bin\a2a-proxy"
+    $mcpPreprocessorBin = "$PSScriptRoot\..\..\bin\mcp-preprocessor"
+
+    if (-not (Test-Path $a2aProxyBin)) {
+        throw "[AI-Assistant] a2a-proxy binary not found at '$a2aProxyBin'. Run 'bgol' to build Linux binaries first."
+    }
+    if (-not (Test-Path $mcpPreprocessorBin)) {
+        throw "[AI-Assistant] mcp-preprocessor binary not found at '$mcpPreprocessorBin'. Run 'bgol' to build Linux binaries first."
+    }
+
+    # Check if images already exist on the node
+    $existingImages = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute 'sudo crictl images 2>/dev/null | grep -c "a2a-proxy\|mcp-preprocessor" || echo 0').Output
+    if ($existingImages -match '^\s*2\s*$') {
+        Write-Log '[AI-Assistant] a2a-proxy and mcp-preprocessor images already present on node — skipping build.' -Console
+        return
+    }
+
+    Write-Log '[AI-Assistant] Copying proxy binaries to control plane node...' -Console
+    Copy-ToControlPlaneViaSSHKey -Source $a2aProxyBin -Target '/tmp/a2a-proxy'
+    Copy-ToControlPlaneViaSSHKey -Source $mcpPreprocessorBin -Target '/tmp/mcp-preprocessor'
+
+    Write-Log '[AI-Assistant] Making binaries executable...' -Console
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute 'chmod +x /tmp/a2a-proxy /tmp/mcp-preprocessor').Output | Write-Log
+
+    Write-Log '[AI-Assistant] Building a2a-proxy container image via buildah...' -Console
+    $buildA2a = @(
+        'sudo buildah from --name a2a-build scratch'
+        'sudo buildah copy a2a-build /tmp/a2a-proxy /a2a-proxy'
+        'sudo buildah config --entrypoint ''["/a2a-proxy"]'' a2a-build'
+        'sudo buildah config --user 65534:65534 a2a-build'
+        'sudo buildah commit a2a-build shsk2s.azurecr.io/a2a-proxy:latest'
+        'sudo buildah rm a2a-build'
+    ) -join ' && '
+    $r = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 60 -CmdToExecute $buildA2a
+    $r.Output | Write-Log
+    if ($r.Output -match 'error') {
+        Write-Log "[AI-Assistant] Warning: a2a-proxy image build may have issues: $($r.Output)" -Console
+    }
+
+    Write-Log '[AI-Assistant] Building mcp-preprocessor container image via buildah...' -Console
+    $buildMcp = @(
+        'sudo buildah from --name mcp-build scratch'
+        'sudo buildah copy mcp-build /tmp/mcp-preprocessor /mcp-preprocessor'
+        'sudo buildah config --entrypoint ''["/mcp-preprocessor"]'' mcp-build'
+        'sudo buildah config --user 65534:65534 mcp-build'
+        'sudo buildah commit mcp-build shsk2s.azurecr.io/mcp-preprocessor:latest'
+        'sudo buildah rm mcp-build'
+    ) -join ' && '
+    $r = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 60 -CmdToExecute $buildMcp
+    $r.Output | Write-Log
+    if ($r.Output -match 'error') {
+        Write-Log "[AI-Assistant] Warning: mcp-preprocessor image build may have issues: $($r.Output)" -Console
+    }
+
+    Write-Log '[AI-Assistant] Copying images to CRI-O storage...' -Console
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo buildah push shsk2s.azurecr.io/a2a-proxy:latest containers-storage:shsk2s.azurecr.io/a2a-proxy:latest 2>&1').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo buildah push shsk2s.azurecr.io/mcp-preprocessor:latest containers-storage:shsk2s.azurecr.io/mcp-preprocessor:latest 2>&1').Output | Write-Log
+
+    Write-Log '[AI-Assistant] Local proxy images built and available to CRI-O.' -Console
+}
+
+<#
+.SYNOPSIS
 Deploys the Kagent framework (CRDs, controller, UI, tools, PostgreSQL).
 This is shared infrastructure used by both copilot and ollama providers.
 #>
@@ -139,6 +210,9 @@ function Install-KagentFramework {
     if (-not $rbacResult.Success) {
         Write-Log '[AI-Assistant] Warning: k2s-tools RBAC apply failed.' -Console
     }
+
+    Write-Log '[AI-Assistant] Building local proxy images (a2a-proxy, mcp-preprocessor)...' -Console
+    Build-LocalProxyImages
 
     Write-Log '[AI-Assistant] Deploying mcp-preprocessor (tool output preprocessing proxy)...' -Console
     $mcpResult = Invoke-Kubectl -Params 'apply', '-f', (Get-KagentMcpPreprocessorPath)
@@ -606,7 +680,7 @@ Export-ModuleMember -Function `
     Get-KagentCorePath, Get-KagentLocalPathProvisionerPath, `
     Get-KagentA2aProxyPath, Get-KagentMcpPreprocessorPath, Get-KagentToolsRbacPath, `
     Get-KagentCopilotAgentPath, Get-KagentOllamaAgentPath, Get-KagentIngressPath, `
-    Install-KagentFramework, Wait-ForKagentAvailable, `
+    Install-KagentFramework, Wait-ForKagentAvailable, Build-LocalProxyImages, `
     Install-CopilotAgent, Remove-CopilotAgent, `
     Install-OllamaAgent, Remove-OllamaAgent, `
     New-OllamaDataDirectory, New-ZscalerCaConfigMap, Invoke-OllamaModelPull, `
