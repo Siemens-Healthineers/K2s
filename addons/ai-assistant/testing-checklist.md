@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 # AI Assistant Addon — Testing Checklist
 
 Use this checklist when validating the `ai-assistant` addon.  
-The addon deploys the **Kagent** AI agent framework (with optional **Ollama** local LLM runtime) and injects the **AI Assistant plugin** into the Headlamp dashboard.
+The addon deploys the **Kagent** AI agent framework (with optional **Ollama** local LLM runtime) with **Kagent UI** as the sole AI interface.
 
 > **How to use this file:**  
 > Work top-to-bottom. Complete each numbered section before moving to the next.  
@@ -17,36 +17,36 @@ The addon deploys the **Kagent** AI agent framework (with optional **Ollama** lo
 
 ## One-time Setup (do this first, once per test session)
 
-### Step 1 — Install K2s and enable dashboard
+### Step 1 — Install K2s and enable ingress
 
 ```console
 k2s install -f
-k2s addons enable dashboard --ingress nginx
+k2s addons enable ingress nginx
 ```
 
-Verify dashboard is up:
+Verify ingress is up:
 
 ```console
-k2s addons status dashboard
+kubectl get pods -n ingress-nginx
 ```
-
-Expected output includes: `IsHeadlampRunning = True`
 
 ---
 
-### Step 2 — Open Headlamp in your browser
+### Step 2 — Open Kagent UI in your browser
 
-```console
-kubectl port-forward svc/headlamp -n dashboard 4466:4466
+After enabling the addon (Step 3), access Kagent UI via:
+
+**Option A — Ingress (requires `k2s.cluster.local` in hosts file):**
+```
+https://k2s.cluster.local/agents/kagent/k2s-assistant/chat
 ```
 
-Open: `http://localhost:4466/dashboard/`
-
-Generate a login token and paste it into the login screen:
-
+**Option B — Port-forward:**
 ```console
-kubectl -n dashboard create token headlamp --duration 8h
+kubectl port-forward svc/kagent-ui -n kagent 8080:8080
 ```
+
+Open: `http://localhost:8080`
 
 Keep this browser tab open for the entire test session.
 
@@ -73,12 +73,12 @@ kubectl get pods -n ai-assistant    # (ollama provider only)
 
 ---
 
-### Step 4 — Verify the plugin in Headlamp
+### Step 4 — Verify the Kagent UI
 
-1. In Headlamp, reload the page (`F5`)
-2. Look for the **AI icon** (robot icon) in the top-right app bar
-3. Click the AI icon — the chat panel should open on the right side
-4. The plugin auto-connects to the Kagent A2A proxy — no manual configuration needed
+1. Open the Kagent UI (see Step 2)
+2. The UI should show available agents (e.g. `k2s-assistant` or `copilot-cli`)
+3. Click on the agent to open the chat interface
+4. The UI auto-connects to the Kagent controller — no manual configuration needed
 
 ---
 
@@ -136,20 +136,19 @@ kubectl get svc a2a-proxy -n kagent
 
 ---
 
-### 1.5 — Plugin is injected into Headlamp
+### 1.5 — Kagent UI is running
 
 ```console
-kubectl get deployment headlamp -n dashboard \
-  -o jsonpath='{.spec.template.spec.initContainers[*].name}'
+kubectl wait --for=condition=Available deployment/kagent-ui -n kagent --timeout=120s
 ```
 
-- [ ] Output includes `ai-assistant-plugin`
+- [ ] `deployment/kagent-ui` becomes Available
 
 ```console
-kubectl rollout status deployment headlamp -n dashboard --timeout=120s
+kubectl get svc kagent-ui -n kagent
 ```
 
-- [ ] Headlamp rollout completes with no errors
+- [ ] Service `kagent-ui` exists on port 8080
 
 ---
 
@@ -162,57 +161,55 @@ k2s addons status ai-assistant
 - [ ] `IsOllamaRunning      = True` (ollama provider only)
 - [ ] `IsKagentRunning      = True`
 - [ ] `IsA2aProxyRunning    = True`
-- [ ] `IsAiPluginInjected   = True`
+- [ ] `IsKagentUiRunning    = True`
 
 ---
 
-## Section 2 — Headlamp UI Checks
+## Section 2 — Kagent UI Checks
 
-Verify the plugin loaded correctly in the browser before running chat tests.
-
----
-
-### 2.1 — AI icon is visible
-
-- [ ] Reload Headlamp (`F5`)
-- [ ] A robot/AI icon appears in the **top-right app bar**
-- [ ] Hovering over it shows tooltip: `AI Assistant`
+Verify the Kagent UI loaded correctly in the browser before running chat tests.
 
 ---
 
-### 2.2 — Chat panel opens and closes
+### 2.1 — Kagent UI is accessible
 
-- [ ] Click the AI icon → chat panel slides in from the right
-- [ ] Click the AI icon again → chat panel closes
-- [ ] Panel can be resized by dragging its left edge (cursor changes to `↔`)
+- [ ] Open the Kagent UI URL (see Step 2)
+- [ ] The page loads without errors
+- [ ] Agent list or chat interface is visible
 
 ---
 
-### 2.3 — K2s AI indicator is Connected
+### 2.2 — Agent is listed and selectable
 
-- [ ] Open the chat panel
-- [ ] Look for the **K2s AI** status indicator (small dot or label near the top of the panel)
-- [ ] It shows **Connected** (green)
+- [ ] At least one agent is visible (e.g. `k2s-assistant` or `copilot-cli`)
+- [ ] Clicking the agent opens the chat interface
+- [ ] Chat input field is visible and accepts text
 
-If it shows **Disconnected**, check:
+---
+
+### 2.3 — Agent status is healthy
+
+- [ ] The selected agent shows a healthy/connected status
+- [ ] No error banners or connection failures displayed
+
+If connection fails, check:
 ```console
 kubectl get pods -n kagent
-kubectl get svc a2a-proxy -n kagent
+kubectl get svc kagent-controller -n kagent
 ```
 
 ---
 
-### 2.4 — Settings page is accessible
+### 2.4 — Chat history is accessible
 
-- [ ] Go to **Settings → Plugins → AI Assistant** (or click gear icon inside the chat panel)
-- [ ] Page loads without errors
-- [ ] K2s AI plugin settings are visible
+- [ ] Previous conversations (if any) are listed in sidebar
+- [ ] New conversation can be started
 
 ---
 
 ## Section 3 — Practical Chat Scenarios
 
-> **Before each scenario:** The chat panel must be open and K2s AI must show **Connected**.  
+> **Before each scenario:** The Kagent UI must be open and the agent must show a healthy status.  
 > Type the exact prompt shown, press Enter or click Send, and wait for the full response.
 
 ---
@@ -232,7 +229,7 @@ How is the cluster doing? Give me a health summary.
 - [ ] Response arrives within 60 seconds
 - [ ] Response mentions node(s) — e.g. "1 node is Ready" or similar
 - [ ] Response mentions running namespaces or workloads
-- [ ] K2s AI indicator stays **Connected** throughout
+- [ ] Agent status stays healthy throughout
 
 **Cross-check with kubectl:**
 ```console
@@ -507,35 +504,35 @@ kubectl get pvc -n ai-assistant
 
 **Purpose:** Verify the chat remembers context within the same session.
 
-**No setup needed.** Use the same open chat panel (do NOT click New Chat / Reset).
+**No setup needed.** Use the same open chat session (do NOT click New Chat / Reset).
 
 **Message 1 — ask about deployments:**
 ```
-How many deployments are in the dashboard namespace?
+How many deployments are in the kagent namespace?
 ```
 
-Note the answer — it should say `1` (the `headlamp` deployment).
+Note the answer — it should list the kagent deployments.
 
 **Message 2 — follow up without repeating context:**
 ```
-How many pods does that deployment have running?
+How many pods does the controller deployment have running?
 ```
 
 **What to check:**
-- [ ] Message 2 response correctly refers to the `headlamp` deployment from Message 1
+- [ ] Message 2 response correctly refers to the `kagent-controller` deployment from Message 1
 - [ ] Response does **not** ask "which deployment?" — it uses session context
 - [ ] Answer matches:
   ```console
-  kubectl get pods -n dashboard -l app.kubernetes.io/name=headlamp
+  kubectl get pods -n kagent -l app.kubernetes.io/component=controller
   ```
 
 **Message 3 — test reset:**
-- Click the **New Chat** or **Reset** button (broom/trash icon) in the chat panel
+- Click the **New Chat** or **Reset** button in the Kagent UI
 - Type: `What were we just talking about?`
 
 **What to check:**
 - [ ] After reset, the AI responds with no memory of the previous conversation
-- [ ] Response does not reference `headlamp` or `dashboard` unprompted
+- [ ] Response does not reference `kagent-controller` unprompted
 
 ---
 
@@ -562,20 +559,7 @@ kubectl get pods -n kagent
 
 - [ ] All commands return `not found` or empty results
 
-```console
-kubectl get deployment headlamp -n dashboard \
-  -o jsonpath='{.spec.template.spec.initContainers[*].name}'
-```
-
-- [ ] Output is **empty** (ai-assistant-plugin is gone)
-
-```console
-kubectl rollout status deployment headlamp -n dashboard --timeout=120s
-```
-
-- [ ] Headlamp rollout completes — no crashloop
-
-- [ ] Reload Headlamp in the browser — **AI icon is gone** from the app bar
+- [ ] The Kagent UI URL is no longer accessible (returns 404 or connection refused)
 
 ---
 

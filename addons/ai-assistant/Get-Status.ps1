@@ -49,8 +49,14 @@ $isProviderProp.Message = if ($activeProvider -eq 'copilot') {
 # ── Ollama (only checked if ollama provider is active) ────────────────────────
 $ollamaReady = $false
 if ($activeProvider -eq 'ollama') {
-    $ollamaReady = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available',
-        '-n', 'ai-assistant', 'deployment/ollama').Success
+    # Check Windows Ollama service/process health
+    try {
+        $r = curl.exe -s http://localhost:11434/api/tags --max-time 3 2>&1
+        $ollamaReady = ($r -match '"models"')
+    }
+    catch {
+        $ollamaReady = $false
+    }
 }
 
 $isOllamaRunningProp = @{
@@ -61,9 +67,9 @@ $isOllamaRunningProp = @{
 $isOllamaRunningProp.Message = if ($activeProvider -ne 'ollama') {
     'Ollama not needed (copilot provider active)'
 } elseif ($ollamaReady) {
-    'Ollama LLM runtime is running'
+    'Ollama LLM runtime is running (Windows host, GPU-accelerated)'
 } else {
-    "Ollama is not running. Check: kubectl get pods -n ai-assistant -l app=ollama"
+    "Ollama is not running on Windows host. Check: Get-Service K2sOllama"
 }
 
 # ── A2A Proxy (kagent namespace) ───────────────────────────────────────────────
@@ -98,21 +104,19 @@ $isIngressProp.Message = if ($ingressReady) {
     "Kagent ingress missing or not ready. Fix: k2s addons update ai-assistant"
 }
 
-# ── Plugin injection ──────────────────────────────────────────────────────────
-$initContainerRaw = (Invoke-Kubectl -Params 'get', 'deployment', 'headlamp', '-n', 'dashboard',
-    '-o', 'jsonpath={.spec.template.spec.initContainers[*].name}', '--ignore-not-found').Output
+# ── Kagent UI ──────────────────────────────────────────────────────────────────
+$kagentUiReady = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available',
+    '-n', 'kagent', 'deployment/kagent-ui').Success
 
-$pluginInjected = [bool]($initContainerRaw -match 'ai-assistant-plugin')
-
-$isPluginInjectedProp = @{
-    Name  = 'IsAiPluginInjected'
-    Value = $pluginInjected
-    Okay  = $pluginInjected
+$isKagentUiProp = @{
+    Name  = 'IsKagentUiRunning'
+    Value = $kagentUiReady
+    Okay  = $kagentUiReady
 }
-$isPluginInjectedProp.Message = if ($pluginInjected) {
-    'AI Assistant plugin is injected into Headlamp'
+$isKagentUiProp.Message = if ($kagentUiReady) {
+    'Kagent UI is running (access via: https://k2s.cluster.local/agents)'
 } else {
-    "AI Assistant plugin is NOT injected into Headlamp. Try: k2s addons disable ai-assistant; k2s addons enable ai-assistant"
+    "Kagent UI is not running. Check: kubectl get pods -n kagent -l app.kubernetes.io/component=ui"
 }
 
-return , @($isKagentRunningProp, $isProviderProp, $isOllamaRunningProp, $isProxyWiredProp, $isIngressProp, $isPluginInjectedProp)
+return , @($isKagentRunningProp, $isProviderProp, $isOllamaRunningProp, $isProxyWiredProp, $isIngressProp, $isKagentUiProp)

@@ -30,10 +30,9 @@ Param (
 $clusterModule      = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule        = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule       = "$PSScriptRoot\..\addons.module.psm1"
-$dashboardModule    = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 $aiModule           = "$PSScriptRoot\ai-assistant.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $dashboardModule, $aiModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $aiModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -60,12 +59,9 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ai-assistant'})) -ne 
     exit 1
 }
 
-# ── Remove from setup.json first so Sync-HeadlampPlugins sees it as disabled ─
+# ── Remove from setup.json ─────────────────────────────────────────────────────
 Remove-AddonFromSetupJson -Addon ([pscustomobject]@{Name = 'ai-assistant' })
 
-# ── Remove plugin from Headlamp ───────────────────────────────────────────────
-Write-Log '[AI-Assistant] Removing AI Assistant plugin from Headlamp...' -Console
-Sync-HeadlampPlugins
 
 # ── Tear down Kubernetes workloads ────────────────────────────────────────────
 Write-Log '[AI-Assistant] Removing AI Assistant workloads...' -Console

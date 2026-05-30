@@ -4,10 +4,18 @@ SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# Headlamp AI Assistant — Complete Analysis & Future Roadmap
+# ⚠️ SUPERSEDED — Headlamp AI Assistant — Complete Analysis & Future Roadmap
 
-> **Document date:** April 14, 2026  
-> **Status:** Live on K2s cluster (kubemaster · Kubernetes v1.35.3)  
+> **This document is obsolete as of May 30, 2026 (Phase 1).**
+>
+> The Headlamp AI plugin integration has been removed. The **Kagent UI** is now
+> the sole AI interface for K2s. See `addons/ai-assistant/README.md` and
+> `addons/ai-assistant/ai-assistant-status.md` for current architecture.
+
+---
+
+> **Original document date:** April 14, 2026  
+> **Status:** ARCHIVED — Headlamp AI plugin removed in Phase 1  
 > **Plugin version:** `0.2.0-alpha`  
 > **Audience:** K2s developers, platform engineers, DevOps practitioners
 

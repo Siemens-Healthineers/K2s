@@ -6,9 +6,8 @@
 
 <#
 .SYNOPSIS
-Re-syncs the AI Assistant addon: re-applies Kagent manifests, re-wires proxy,
-and re-injects the Headlamp plugin. Typically needed after a full cluster
-reinstall or after a Headlamp upgrade.
+Re-syncs the AI Assistant addon: re-applies Kagent manifests and re-deploys
+the active agent. Typically needed after a full cluster reinstall.
 
 .EXAMPLE
 k2s addons update ai-assistant
@@ -26,10 +25,9 @@ Param (
 $clusterModule      = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule        = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule       = "$PSScriptRoot\..\addons.module.psm1"
-$dashboardModule    = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 $aiModule           = "$PSScriptRoot\ai-assistant.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $dashboardModule, $aiModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $aiModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -124,27 +122,7 @@ if ([string]::IsNullOrWhiteSpace($copilotAgent) -and [string]::IsNullOrWhiteSpac
     Write-Log '[AI-Assistant] No active agent found. Consider re-enabling: k2s addons disable ai-assistant; k2s addons enable ai-assistant' -Console
 }
 
-# ── Re-wire proxy service ─────────────────────────────────────────────────────
-Write-Log '[AI-Assistant] Re-wiring Kagent proxy service...' -Console
-try {
-    Set-KagentProxyService
-}
-catch {
-    $errMsg = "[AI-Assistant] Failed to re-wire proxy service: $($_.Exception.Message)"
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-    Write-Log $errMsg -Error
-    exit 1
-}
-
-# ── Re-sync Headlamp plugin ───────────────────────────────────────────────────
-Write-Log '[AI-Assistant] Re-syncing Headlamp plugin injection...' -Console
-Sync-HeadlampPlugins
-
-Write-Log '[AI-Assistant] Update complete. The AI Assistant should now be reachable in Headlamp.' -Console
+Write-Log '[AI-Assistant] Update complete.' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

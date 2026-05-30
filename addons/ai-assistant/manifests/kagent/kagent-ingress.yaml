@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Kagent A2A API Ingress — enables Headlamp AI Assistant plugin and external
-# clients to reach the Kagent controller's A2A endpoint via the auto-confirmation proxy.
+# Kagent A2A API Ingress — enables external clients to reach the Kagent
+# controller's A2A endpoint via the auto-confirmation proxy.
 # The proxy auto-confirms ONLY approved read-only tools; all other tools pass through.
 # Accessible at: http://<node-ip>/kagent/api/a2a/kagent/<agent-name>
 ---
@@ -33,6 +33,16 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: a2a-proxy
+                port:
+                  number: 8082
+            pathType: ImplementationSpecific
+            path: /kagent/(.*)
     - http:
         paths:
           - backend:
@@ -42,41 +52,6 @@ spec:
                   number: 8082
             pathType: ImplementationSpecific
             path: /kagent/(.*)
----
-# SSE Direct-Route Ingress for Headlamp AI Assistant plugin
-# The plugin calls a2a-proxy:8082 in kagent namespace via K8s apiserver proxy.
-# This ingress intercepts that path to disable nginx buffering for SSE streams.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: kagent-sse-direct
-  namespace: kagent
-  labels:
-    app.kubernetes.io/part-of: ai-assistant
-    app.kubernetes.io/managed-by: k2s
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: "/api/$2"
-    nginx.ingress.kubernetes.io/proxy-buffering: "off"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header Connection "";
-      add_header X-Accel-Buffering no always;
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: k2s.cluster.local
-      http:
-        paths:
-          # Intercept K8s apiserver proxy path for a2a-proxy service
-          - path: /dashboard/clusters/[^/]+/api/v1/namespaces/kagent/services/a2a-proxy:8082/proxy/api(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: a2a-proxy
-                port:
-                  number: 8082
 ---
 # Kagent UI Ingress — exposes the Kagent web UI
 # The Kagent UI (Next.js) requires serving at / as it doesn't support subpath.

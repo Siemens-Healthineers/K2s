@@ -6,7 +6,7 @@
 
 <#
 .SYNOPSIS
-AI Assistant addon module — provider-abstracted backend for Headlamp AI integration.
+AI Assistant addon module — provider-abstracted backend for K2s AI integration.
 
 .DESCRIPTION
 Supports two agent providers:
@@ -14,8 +14,7 @@ Supports two agent providers:
   - 'ollama'   : Kagent + Ollama local model (offline/air-gapped, no external deps)
 
 Both providers deploy the Kagent framework (controller, UI, tools, PostgreSQL)
-as the agent orchestration layer. The difference is which agent backend is
-registered and how the LLM is accessed.
+as the agent orchestration layer. The Kagent UI serves as the sole AI interface.
 #>
 
 $infraModule    = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -197,11 +196,11 @@ function Install-KagentFramework {
         throw '[AI-Assistant] Failed to apply Kagent core manifests'
     }
 
-    Write-Log '[AI-Assistant] Applying Kagent ingress for Headlamp integration...' -Console
+    Write-Log '[AI-Assistant] Applying Kagent ingress for external access...' -Console
     $ingResult = Invoke-Kubectl -Params 'apply', '-f', (Get-KagentIngressPath)
     $ingResult.Output | Write-Log
     if (-not $ingResult.Success) {
-        Write-Log '[AI-Assistant] Warning: Kagent ingress apply failed — SSE streaming may be impaired.' -Console
+        Write-Log '[AI-Assistant] Warning: Kagent ingress apply failed — external access may be impaired.' -Console
     }
 
     Write-Log '[AI-Assistant] Applying k2s-tools RBAC (read-only cluster access)...' -Console
@@ -344,68 +343,183 @@ function Remove-OllamaAgent {
     (Invoke-Kubectl -Params 'delete', '-f', (Get-KagentOllamaAgentPath), '--ignore-not-found').Output | Write-Log
 }
 
-# ── Ollama Deployment (shared for ollama provider) ────────────────────────────
+# ── Windows Ollama Runtime Management ─────────────────────────────────────────
+
+$script:OllamaServiceName = 'K2sOllama'
 
 <#
 .SYNOPSIS
-Creates the /data/ollama directory on the kubemaster Linux node via SSH.
-Idempotent — safe to call when the directory already exists.
+Returns the path to the Ollama executable on the Windows host.
 #>
-function New-OllamaDataDirectory {
+function Get-OllamaExePath {
     [CmdletBinding()]
     Param()
-    Write-Log '[AI-Assistant] Creating /data/ollama on kubemaster...' -Console
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute 'sudo mkdir -m 777 -p /data/ollama').Output | Write-Log
-    Write-Log '[AI-Assistant] /data/ollama directory ready.' -Console
+    $ollamaCmd = Get-Command 'ollama' -ErrorAction SilentlyContinue
+    if ($ollamaCmd) { return $ollamaCmd.Source }
+    $defaultPath = "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
+    if (Test-Path $defaultPath) { return $defaultPath }
+    throw '[AI-Assistant] Ollama is not installed. Install from https://ollama.com/download/windows'
 }
 
 <#
 .SYNOPSIS
-Creates (or updates) the 'zscaler-ca' ConfigMap in the ai-assistant namespace.
-Idempotent — safe to call when the ConfigMap already exists.
+Ensures Ollama is running as a Windows service with auto-start and auto-restart.
+Uses nssm to create a resilient service from the Ollama executable.
+Idempotent — safe to call if service already exists.
 #>
-function New-ZscalerCaConfigMap {
+function Install-OllamaWindowsService {
     [CmdletBinding()]
     Param()
 
-    Write-Log '[AI-Assistant] Creating ZScaler CA ConfigMap for Ollama proxy trust...' -Console
+    $nssmExe = "$PSScriptRoot\..\..\bin\nssm.exe"
+    $ollamaExe = Get-OllamaExePath
+    $svcName = $script:OllamaServiceName
 
-    $certPath = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/setup/certificate/ZScalerRootCA.crt"
-    $certPath = [System.IO.Path]::GetFullPath($certPath)
+    Write-Log "[AI-Assistant] Configuring Ollama as Windows service '$svcName'..." -Console
 
-    if (-not (Test-Path $certPath)) {
-        Write-Log "[AI-Assistant] Warning: ZScaler CA cert not found at '$certPath' — skipping ConfigMap." -Console
+    # Check if service already exists and Ollama is responding
+    $existingSvc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+    if ($existingSvc) {
+        $alreadyHealthy = Test-OllamaWindowsHealth
+        if ($alreadyHealthy) {
+            Write-Log "[AI-Assistant] Service '$svcName' already running and healthy." -Console
+            return
+        }
+    }
+
+    # Stop the desktop Ollama app (tray app) — we'll manage it via service
+    $ollamaProcesses = Get-Process -Name 'ollama' -ErrorAction SilentlyContinue
+    if ($ollamaProcesses -and -not $existingSvc) {
+        Write-Log '[AI-Assistant] Stopping Ollama desktop app (will run as service instead)...' -Console
+        $ollamaProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
+
+    # Install service via nssm if not already installed
+    if (-not $existingSvc) {
+        Write-Log "[AI-Assistant] Installing service via nssm..." -Console
+        & $nssmExe install $svcName $ollamaExe serve 2>&1 | Write-Log
+        & $nssmExe set $svcName DisplayName 'K2s Ollama LLM Service' 2>&1 | Write-Log
+        & $nssmExe set $svcName Description 'Local LLM runtime for K2s AI Assistant addon' 2>&1 | Write-Log
+        & $nssmExe set $svcName Start SERVICE_AUTO_START 2>&1 | Write-Log
+        & $nssmExe set $svcName AppRestartDelay 5000 2>&1 | Write-Log
+        & $nssmExe set $svcName AppExit Default Restart 2>&1 | Write-Log
+        # Environment: bind to all interfaces
+        & $nssmExe set $svcName AppEnvironmentExtra "OLLAMA_HOST=0.0.0.0" 2>&1 | Write-Log
+        & $nssmExe set $svcName AppStdout "$env:LOCALAPPDATA\K2s\logs\ollama-stdout.log" 2>&1 | Write-Log
+        & $nssmExe set $svcName AppStderr "$env:LOCALAPPDATA\K2s\logs\ollama-stderr.log" 2>&1 | Write-Log
+        & $nssmExe set $svcName AppRotateFiles 1 2>&1 | Write-Log
+        & $nssmExe set $svcName AppRotateBytes 10485760 2>&1 | Write-Log
+
+        # Ensure log directory exists
+        New-Item -ItemType Directory -Path "$env:LOCALAPPDATA\K2s\logs" -Force | Out-Null
+    }
+
+    # Start the service
+    Write-Log "[AI-Assistant] Starting service '$svcName'..." -Console
+    Start-Service -Name $svcName -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
+
+    # Verify Ollama is actually responding (nssm may report 'Paused' for apps that
+    # don't implement SCM pause protocol — this is normal for Ollama)
+    $ready = Wait-ForOllamaReady -TimeoutSeconds 15
+    if (-not $ready) {
+        $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+        throw "[AI-Assistant] Failed to start Ollama service. Status: $($svc.Status). Check: nssm status $svcName"
+    }
+    Write-Log "[AI-Assistant] Ollama service running (PID: $((Get-Process ollama -ErrorAction SilentlyContinue | Select-Object -First 1).Id))." -Console
+}
+
+<#
+.SYNOPSIS
+Stops and optionally removes the Ollama Windows service.
+#>
+function Remove-OllamaWindowsService {
+    [CmdletBinding()]
+    Param(
+        [switch] $KeepInstalled = $false
+    )
+    $svcName = $script:OllamaServiceName
+    $nssmExe = "$PSScriptRoot\..\..\bin\nssm.exe"
+
+    $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+    if (-not $svc) {
+        Write-Log "[AI-Assistant] Service '$svcName' not found — nothing to remove." -Console
         return
     }
 
-    # Ensure the namespace exists before creating the ConfigMap
-    $nsResult = Invoke-Kubectl -Params 'create', 'namespace', 'ai-assistant', '--dry-run=client', '-o', 'yaml'
-    $nsTmpYaml = [System.IO.Path]::GetTempFileName() + '.yaml'
-    $nsResult.Output | Set-Content $nsTmpYaml -Encoding UTF8
-    (Invoke-Kubectl -Params 'apply', '-f', $nsTmpYaml).Output | Write-Log
-    Remove-Item $nsTmpYaml -Force -ErrorAction SilentlyContinue
+    Write-Log "[AI-Assistant] Stopping Ollama service..." -Console
+    Stop-Service -Name $svcName -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
 
-    # Strip SPDX header lines — keep only the PEM block
-    $lines = Get-Content $certPath
-    $pemLines = $lines | Where-Object { $_ -notmatch '^\s*#' }
-    $tmpPem = [System.IO.Path]::GetTempFileName() + '.pem'
-    $pemLines | Set-Content $tmpPem -Encoding ASCII
-
-    $r = Invoke-Kubectl -Params 'create', 'configmap', 'zscaler-ca',
-        '-n', 'ai-assistant',
-        "--from-file=ZScalerRootCA.pem=$tmpPem",
-        '--dry-run=client', '-o', 'yaml'
-    $tmpYaml = [System.IO.Path]::GetTempFileName() + '.yaml'
-    $r.Output | Set-Content $tmpYaml -Encoding UTF8
-    (Invoke-Kubectl -Params 'apply', '-f', $tmpYaml).Output | Write-Log
-    Remove-Item $tmpYaml, $tmpPem -Force -ErrorAction SilentlyContinue
-
-    Write-Log '[AI-Assistant] ZScaler CA ConfigMap ready.' -Console
+    if (-not $KeepInstalled) {
+        Write-Log "[AI-Assistant] Removing Ollama service..." -Console
+        & $nssmExe remove $svcName confirm 2>&1 | Write-Log
+    }
 }
 
 <#
 .SYNOPSIS
-Pulls an Ollama model by running 'ollama pull' inside the Ollama pod.
+Configures Windows Firewall to allow inbound connections to Ollama from the K2s bridge network.
+Idempotent — safe to call if rule already exists.
+#>
+function Set-OllamaFirewallRule {
+    [CmdletBinding()]
+    Param()
+    $ruleName = 'K2s-Ollama-Inbound'
+    $existing = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Log "[AI-Assistant] Firewall rule '$ruleName' already exists." -Console
+        return
+    }
+    Write-Log "[AI-Assistant] Adding firewall rule '$ruleName' (TCP 11434 from K2s subnets)..." -Console
+    New-NetFirewallRule -DisplayName $ruleName `
+        -Direction Inbound -Action Allow -Protocol TCP -LocalPort 11434 `
+        -RemoteAddress @('172.19.0.0/16', '172.20.0.0/16', '172.21.0.0/16') `
+        -Description 'Allow Ollama LLM access from K2s Kubernetes pods' | Out-Null
+    Write-Log "[AI-Assistant] Firewall rule created." -Console
+}
+
+<#
+.SYNOPSIS
+Removes the Ollama firewall rule.
+#>
+function Remove-OllamaFirewallRule {
+    [CmdletBinding()]
+    Param()
+    $ruleName = 'K2s-Ollama-Inbound'
+    Remove-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+    Write-Log "[AI-Assistant] Firewall rule '$ruleName' removed." -Console
+}
+
+<#
+.SYNOPSIS
+Waits for Ollama to be reachable on the host.
+#>
+function Wait-ForOllamaReady {
+    [CmdletBinding()]
+    Param(
+        [int] $TimeoutSeconds = 60
+    )
+    Write-Log "[AI-Assistant] Waiting for Ollama to be ready at http://localhost:11434..." -Console
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $r = curl.exe -s http://localhost:11434/api/tags --max-time 3 2>&1
+            if ($r -match '"models"') {
+                Write-Log "[AI-Assistant] Ollama is ready." -Console
+                return $true
+            }
+        }
+        catch {}
+        Start-Sleep -Seconds 2
+    }
+    return $false
+}
+
+<#
+.SYNOPSIS
+Pulls an Ollama model on the Windows host.
 #>
 function Invoke-OllamaModelPull {
     [CmdletBinding()]
@@ -414,26 +528,51 @@ function Invoke-OllamaModelPull {
         [string] $Model
     )
 
-    Write-Log "[AI-Assistant] Waiting for Ollama pod to be ready..." -Console
-    $ollamaReady = Wait-ForPodCondition -Condition Ready -Label 'app=ollama' -Namespace 'ai-assistant' -TimeoutSeconds 1600
-    if (-not $ollamaReady) {
-        throw '[AI-Assistant] Ollama pod did not become ready within 1600s. Check: kubectl describe pod -n ai-assistant -l app=ollama'
+    # Ensure Ollama is ready
+    $ready = Wait-ForOllamaReady -TimeoutSeconds 30
+    if (-not $ready) {
+        throw '[AI-Assistant] Ollama is not responding on localhost:11434. Check service status.'
     }
 
-    Write-Log "[AI-Assistant] Pulling Ollama model '$Model' (kubectl exec into pod)..." -Console
-    Write-Log "[AI-Assistant] (This may take several minutes for a new model — existing models complete in seconds)" -Console
-
-    $pullResult = Invoke-Kubectl -Params 'exec', '-n', 'ai-assistant', 'deployment/ollama',
-        '--', 'ollama', 'pull', $Model
-    $pullResult.Output | Write-Log
-
-    if (-not $pullResult.Success) {
-        throw "[AI-Assistant] 'ollama pull $Model' failed. See log for details."
+    # Check if model already exists
+    $tags = curl.exe -s http://localhost:11434/api/tags --max-time 5 2>&1
+    if ($tags -match [regex]::Escape($Model)) {
+        Write-Log "[AI-Assistant] Model '$Model' already available — skipping pull." -Console
+        return
     }
-    Write-Log "[AI-Assistant] Model '$Model' pulled successfully." -Console
+
+    Write-Log "[AI-Assistant] Pulling Ollama model '$Model'..." -Console
+    Write-Log "[AI-Assistant] (This may take several minutes for new models)" -Console
+
+    $ollamaExe = Get-OllamaExePath
+    & $ollamaExe pull $Model 2>&1 | ForEach-Object { Write-Log "[AI-Assistant] $_" }
+
+    # Verify
+    $tags = curl.exe -s http://localhost:11434/api/tags --max-time 5 2>&1
+    if ($tags -notmatch [regex]::Escape($Model)) {
+        throw "[AI-Assistant] Model '$Model' pull did not complete successfully."
+    }
+    Write-Log "[AI-Assistant] Model '$Model' ready." -Console
 }
 
-# ── Kagent Proxy Service for Headlamp ─────────────────────────────────────────
+<#
+.SYNOPSIS
+Checks if Ollama is running and responsive on the Windows host.
+Returns $true if healthy.
+#>
+function Test-OllamaWindowsHealth {
+    [CmdletBinding()]
+    Param()
+    try {
+        $r = curl.exe -s http://localhost:11434/api/tags --max-time 3 2>&1
+        return ($r -match '"models"')
+    }
+    catch {
+        return $false
+    }
+}
+
+# ── Ollama Keep-Alive ──────────────────────────────────────────────────────────
 
 <#
 .SYNOPSIS
@@ -456,34 +595,30 @@ function Set-OllamaKeepAlive {
 
     Write-Log "[AI-Assistant] Setting Ollama keep_alive=$KeepAlive for model '$Model'..." -Console
 
-    # Use kubectl exec to curl the Ollama API from inside the cluster
+    # Use curl directly from host since Ollama is accessible on the bridge interface (172.19.1.1:11434)
     $payload = @{ model = $Model; keep_alive = $KeepAlive; prompt = ''; stream = $false } | ConvertTo-Json -Compress
-    $curlCmd = "curl -s -X POST http://172.19.1.1:11434/api/generate -H 'Content-Type: application/json' -d '$payload' --max-time 10"
+    $payloadFile = [System.IO.Path]::GetTempFileName()
+    try {
+        [System.IO.File]::WriteAllText($payloadFile, $payload)
+        $curlExe = "$PSScriptRoot\..\..\bin\curl.exe"
+        if (-not (Test-Path $curlExe)) { $curlExe = 'curl.exe' }
+        $curlResult = & $curlExe -s -X POST 'http://172.19.1.1:11434/api/generate' -H 'Content-Type: application/json' -d "@$payloadFile" --max-time 10 2>&1
+        $output = $curlResult -join ''
+    }
+    finally {
+        Remove-Item -Path $payloadFile -Force -ErrorAction SilentlyContinue
+    }
 
-    $result = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 15 -CmdToExecute $curlCmd
-    if ($result.Output -match '"done"') {
+    if ($output -match '"done"') {
         Write-Log "[AI-Assistant] Ollama keep_alive configured: model '$Model' will stay loaded for $KeepAlive." -Console
     }
     else {
         Write-Log "[AI-Assistant] Warning: Could not set Ollama keep_alive (non-fatal). Model may unload after idle timeout." -Console
-        Write-Log "[AI-Assistant] Ollama response: $($result.Output)" -Console
+        Write-Log "[AI-Assistant] Ollama response: $output" -Console
     }
 }
 
-# ── Kagent Proxy Service for Headlamp ──────────────────────────────────────────
-
-<#
-.SYNOPSIS
-No-op — the Headlamp AI Assistant plugin is patched at deploy time (via the
-ai-assistant-kagent-patch initContainer) to call a2a-proxy:8082 in the kagent
-namespace directly. No additional proxy service is needed.
-Previously this created a legacy ExternalName service which is no longer used.
-#>
-function Set-KagentProxyService {
-    [CmdletBinding()]
-    Param()
-    Write-Log '[AI-Assistant] Plugin patched to use a2a-proxy.kagent directly — no proxy service needed.' -Console
-}
+# ── Legacy Proxy Cleanup ──────────────────────────────────────────────────────
 
 <#
 .SYNOPSIS
@@ -531,6 +666,8 @@ function Remove-LegacyAgentResources {
         # ai-assistant namespace: old SSE ingress
         @{ Kind = 'ingress';        Name = 'holmesgpt-sse-direct';       Namespace = 'ai-assistant' }
         @{ Kind = 'service';        Name = 'holmesgpt-proxy-bridge';     Namespace = 'ai-assistant' }
+        # kagent namespace: obsolete Headlamp SSE direct-route ingress
+        @{ Kind = 'ingress';        Name = 'kagent-sse-direct';          Namespace = 'kagent' }
     )
     foreach ($r in $legacyResources) {
         (Invoke-Kubectl -Params 'delete', $r.Kind, $r.Name, '-n', $r.Namespace, '--ignore-not-found').Output | Write-Log
@@ -590,19 +727,22 @@ function Remove-AiAssistantResources {
     # ── Legacy agent cleanup (in case of upgrade from old version) ──────────────
     Remove-LegacyAgentResources
 
-    # ── Ollama ─────────────────────────────────────────────────────────────────
-    Write-Log '[AI-Assistant] Removing Ollama resources...' -Console
+    # ── Ollama (Windows service) ─────────────────────────────────────────────────
+    Write-Log '[AI-Assistant] Removing Ollama Windows service...' -Console
+    Remove-OllamaWindowsService -KeepInstalled:$KeepModelData
+    Remove-OllamaFirewallRule
+
+    # Clean up any legacy K8s Ollama resources (from older versions)
     (Invoke-Kubectl -Params 'delete', 'deployment',     'ollama', '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', 'service',        'ollama', '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
     (Invoke-Kubectl -Params 'delete', 'serviceaccount', 'ollama', '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
 
     if ($KeepModelData) {
-        Write-Log '[AI-Assistant] Ollama PVC/PV preserved — namespace kept for PVC residency.' -Console
+        Write-Log '[AI-Assistant] Ollama models preserved on Windows host.' -Console
     }
     else {
         (Invoke-Kubectl -Params 'delete', 'pvc', 'ollama-models', '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
         (Invoke-Kubectl -Params 'delete', 'pv', 'ollama-models-pv', '--ignore-not-found').Output | Write-Log
-        Write-Log '[AI-Assistant] Deleting ai-assistant namespace...' -Console
         (Invoke-Kubectl -Params 'delete', 'namespace', 'ai-assistant', '--ignore-not-found').Output | Write-Log
     }
 }
@@ -647,27 +787,17 @@ $providerInfo
    Internal: http://kagent-controller.kagent.svc.cluster.local:8083/api/a2a/kagent/<agent-name>
    Ingress:  http://<node-ip>/kagent/api/a2a/kagent/<agent-name>
 
- Kagent UI:
-   Access via: kubectl port-forward svc/kagent-ui -n kagent 8080:8080
-   Then open: http://localhost:8080
+ Kagent UI (primary AI interface):
+   Ingress:  https://k2s.cluster.local/agents/kagent/k2s-assistant/chat
+   Or via port-forward:
+     kubectl port-forward svc/kagent-ui -n kagent 8080:8080
+     Then open: http://localhost:8080
 
- To use with Headlamp:
-   1. Open the Headlamp dashboard:
-      k2s addons status dashboard   (shows the URL / port-forward command)
-   2. Click the AI icon in the top-right app bar of Headlamp.
-   3. The AI Assistant plugin connects to Kagent via the K8s apiserver proxy.
 
  To check agent status:
    kubectl get agents -n kagent
    kubectl get pods -n kagent
 
-"@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
-}
-
-function Write-BrowserWarningForUser {
-    @"
-
- ⚠  BROWSER NOTE: Use Chrome, Edge, or Firefox. Safari may block SSE streams.
 
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
@@ -683,9 +813,12 @@ Export-ModuleMember -Function `
     Install-KagentFramework, Wait-ForKagentAvailable, Build-LocalProxyImages, `
     Install-CopilotAgent, Remove-CopilotAgent, `
     Install-OllamaAgent, Remove-OllamaAgent, `
-    New-OllamaDataDirectory, New-ZscalerCaConfigMap, Invoke-OllamaModelPull, `
+    Install-OllamaWindowsService, Remove-OllamaWindowsService, `
+    Set-OllamaFirewallRule, Remove-OllamaFirewallRule, `
+    Wait-ForOllamaReady, Test-OllamaWindowsHealth, `
+    Get-OllamaExePath, Invoke-OllamaModelPull, `
     Set-OllamaKeepAlive, `
-    Set-KagentProxyService, Remove-KagentProxyService, `
+    Remove-KagentProxyService, `
     Remove-LegacyAgentResources, Remove-AiAssistantResources, `
-    Write-AiAssistantUsageForUser, Write-BrowserWarningForUser
+    Write-AiAssistantUsageForUser
 `

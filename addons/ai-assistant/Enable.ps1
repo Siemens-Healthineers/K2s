@@ -40,9 +40,8 @@ Param (
 $clusterModule      = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule        = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule       = "$PSScriptRoot\..\addons.module.psm1"
-$dashboardModule    = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 $aiModule           = "$PSScriptRoot\ai-assistant.module.psm1"
-Import-Module $clusterModule, $infraModule, $addonsModule, $dashboardModule, $aiModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $aiModule
 Initialize-Logging -ShowLogs:$ShowLogs
 # -- Override from $Config if supplied
 if ($Config) {
@@ -69,18 +68,7 @@ if ($setupInfo.Name -ne 'k2s') {
     Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
 }
-# -- Prerequisite: dashboard addon must be enabled
-if ((Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'dashboard'})) -ne $true) {
-    $errMsg = "Addon 'ai-assistant' requires the 'dashboard' addon to be enabled first.`n" +
-              "Run: k2s addons enable dashboard"
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-    Write-Log $errMsg -Error
-    exit 1
-}
+
 # -- Already enabled?
 if ((Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ai-assistant'})) -eq $true) {
     $errMsg = "Addon 'ai-assistant' is already enabled, nothing to do."
@@ -96,13 +84,18 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ai-assistant'})) -eq 
 Remove-LegacyAgentResources
 # -- Deploy Ollama (only for ollama provider)
 if ($Provider -eq 'ollama') {
-    Write-Log '[AI-Assistant] Deploying Ollama (local LLM runtime)...' -Console
-    New-OllamaDataDirectory
-    New-ZscalerCaConfigMap
-    $ollamaResult = Invoke-Kubectl -Params 'apply', '-f', (Get-OllamaManifestPath)
-    $ollamaResult.Output | Write-Log
-    if (-not $ollamaResult.Success) {
-        $errMsg = '[AI-Assistant] Failed to apply Ollama manifests.'
+    Write-Log '[AI-Assistant] Configuring Ollama on Windows host (GPU-accelerated)...' -Console
+
+    # Install/start as a resilient Windows service
+    Install-OllamaWindowsService
+
+    # Configure firewall for K8s subnet access
+    Set-OllamaFirewallRule
+
+    # Wait for Ollama API to be ready
+    $ollamaReady = Wait-ForOllamaReady -TimeoutSeconds 60
+    if (-not $ollamaReady) {
+        $errMsg = '[AI-Assistant] Ollama is not responding on localhost:11434 after service start.'
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -111,13 +104,8 @@ if ($Provider -eq 'ollama') {
         Write-Log $errMsg -Error
         exit 1
     }
-    # Optional: patch GPU node-selector onto the Ollama deployment
-    if ($Gpu) {
-        Write-Log '[AI-Assistant] Patching Ollama deployment for GPU acceleration...' -Console
-        $gpuPatch = '{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/os":"linux","gpu":"true"},"containers":[{"name":"ollama","resources":{"limits":{"nvidia.com/gpu":"1"}}}]}}}}'
-        (Invoke-Kubectl -Params 'patch', 'deployment', 'ollama', '-n', 'ai-assistant', '-p', $gpuPatch).Output | Write-Log
-    }
-    # Pull the model (waits for pod ready first)
+
+    # Pull the model
     try {
         Invoke-OllamaModelPull -Model $Model
     }
@@ -131,6 +119,10 @@ if ($Provider -eq 'ollama') {
         Write-Log $errMsg -Error
         exit 1
     }
+
+    # Remove legacy K8s Ollama deployment if still present
+    (Invoke-Kubectl -Params 'delete', 'deployment', 'ollama', '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'service', 'ollama', '-n', 'ai-assistant', '--ignore-not-found').Output | Write-Log
 }
 # -- Deploy Kagent Framework
 Write-Log '[AI-Assistant] Deploying Kagent framework...' -Console
@@ -180,28 +172,10 @@ catch {
     Write-Log $errMsg -Error
     exit 1
 }
-# -- Wire proxy service for Headlamp
-try {
-    Set-KagentProxyService
-}
-catch {
-    $errMsg = "Failed to configure Kagent proxy service: $($_.Exception.Message)"
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-    Write-Log $errMsg -Error
-    exit 1
-}
-# -- Persist to setup.json BEFORE plugin sync
+# -- Persist to setup.json
 Add-AddonToSetupJson -Addon ([pscustomobject]@{Name = 'ai-assistant' })
-# -- Inject AI Assistant plugin into Headlamp
-Write-Log '[AI-Assistant] Injecting AI Assistant plugin into Headlamp...' -Console
-Sync-HeadlampPlugins
 Write-Log '[AI-Assistant] AI Assistant addon enabled successfully.' -Console
 Write-AiAssistantUsageForUser -Provider $Provider -Model $Model
-Write-BrowserWarningForUser
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }

@@ -4,7 +4,33 @@ SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# Headlamp AI Assistant — Complete Analysis & Future Roadmap
+# ⚠️ SUPERSEDED — Headlamp AI Assistant
+
+> **This document is obsolete as of May 30, 2026 (Phase 1).**
+>
+> The Headlamp AI plugin integration has been removed. The **Kagent UI** is now
+> the sole AI interface for K2s. See `addons/ai-assistant/README.md` and
+> `addons/ai-assistant/ai-assistant-status.md` for current architecture.
+>
+> **What was removed:**
+> - Headlamp AI plugin injection (init-container pattern)
+> - AG-UI compatibility layer (legacy protocol adapter in a2a-proxy)
+> - SSE direct-route ingress for Headlamp
+> - Dashboard addon dependency
+> - HolmesGPT compatibility logic
+>
+> **What is preserved:**
+> - Kagent UI (sole AI interface)
+> - kagent-controller (A2A agent orchestration)
+> - a2a-proxy (deterministic + conversational workflow router)
+> - mcp-preprocessor (tool output preprocessing)
+> - k2s-tools (read-only cluster access RBAC)
+> - All deterministic and conversational workflows
+> - Ollama (unchanged, not moved)
+
+---
+
+# Headlamp AI Assistant — Complete Analysis & Future Roadmap (ARCHIVED)
 
 **Document date:** April 14, 2026  
 **Status:** Live on K2s cluster (kubemaster · Kubernetes v1.35.3)  
