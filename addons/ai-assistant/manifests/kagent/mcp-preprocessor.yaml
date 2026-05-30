@@ -6,6 +6,10 @@
 # Applies deterministic output preprocessing (truncation, bounded output,
 # error-line preservation) BEFORE the model sees tool results.
 #
+# The Agent references k2s-tools-processed (RemoteMCPServer) which routes
+# LLM-initiated tool calls through this preprocessor for output bounding.
+# The a2a-proxy also uses this for query shortcuts (bypasses LLM).
+#
 # Phase 1: Injects --tail=100 for log retrieval
 # Phase 2: Hard line/token truncation with structural integrity
 #

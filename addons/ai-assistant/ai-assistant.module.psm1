@@ -30,9 +30,6 @@ function Get-AiAssistantManifestsDir {
     return "$PSScriptRoot\manifests"
 }
 
-function Get-OllamaManifestPath {
-    return "$PSScriptRoot\manifests\ollama\ollama.yaml"
-}
 
 function Get-KagentManifestsDir {
     return "$PSScriptRoot\manifests\kagent"
@@ -148,6 +145,19 @@ function Build-LocalProxyImages {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo buildah push shsk2s.azurecr.io/a2a-proxy:latest containers-storage:shsk2s.azurecr.io/a2a-proxy:latest 2>&1').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo buildah push shsk2s.azurecr.io/mcp-preprocessor:latest containers-storage:shsk2s.azurecr.io/mcp-preprocessor:latest 2>&1').Output | Write-Log
 
+    # Verify images are actually visible in CRI-O storage
+    Write-Log '[AI-Assistant] Verifying images in CRI-O storage...' -Console
+    $verifyResult = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute 'sudo crictl images 2>/dev/null | grep -E "a2a-proxy|mcp-preprocessor" || echo "NONE_FOUND"').Output
+    if ($verifyResult -match 'NONE_FOUND') {
+        Write-Log '[AI-Assistant] Warning: Images not visible via crictl. Trying alternative push method...' -Console
+        # Alternative: use skopeo to copy from containers-storage to containers-storage (sometimes needed with CRI-O)
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo skopeo copy containers-storage:shsk2s.azurecr.io/a2a-proxy:latest containers-storage:shsk2s.azurecr.io/a2a-proxy:latest 2>&1 || true').Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo skopeo copy containers-storage:shsk2s.azurecr.io/mcp-preprocessor:latest containers-storage:shsk2s.azurecr.io/mcp-preprocessor:latest 2>&1 || true').Output | Write-Log
+    }
+    else {
+        Write-Log "[AI-Assistant] Verified: $verifyResult" -Console
+    }
+
     Write-Log '[AI-Assistant] Local proxy images built and available to CRI-O.' -Console
 }
 
@@ -226,6 +236,81 @@ function Install-KagentFramework {
     if (-not $a2aResult.Success) {
         Write-Log '[AI-Assistant] Warning: a2a-proxy apply failed.' -Console
     }
+
+    # Wait for critical dependencies to be ready before proceeding.
+    # The kagent-controller needs PostgreSQL to start, and needs mcp-preprocessor/tools
+    # to register MCP tool servers. On fresh installs, image pulls can take 2-3+ minutes.
+    # These waits are NON-FATAL — the enable flow continues regardless, and the
+    # post-agent controller restart ensures eventual reconciliation.
+    # We use a helper that swallows all errors to prevent exceptions from propagating
+    # (PowerShell try/catch can miss certain terminating errors depending on ErrorActionPreference).
+    Write-Log '[AI-Assistant] Waiting for PostgreSQL to be ready (required by controller)...' -Console
+    $pgReady = Wait-ForKagentDependency -Label 'app.kubernetes.io/name=kagent-postgresql' -TimeoutSeconds 240 -ComponentName 'PostgreSQL'
+    if (-not $pgReady) {
+        Write-Log '[AI-Assistant] Warning: PostgreSQL not ready in 240s — controller may crash-loop until DB is available.' -Console
+    }
+
+    Write-Log '[AI-Assistant] Waiting for mcp-preprocessor to be ready...' -Console
+    $mcpReady = Wait-ForKagentDependency -Label 'app.kubernetes.io/name=mcp-preprocessor' -TimeoutSeconds 120 -ComponentName 'mcp-preprocessor'
+    if (-not $mcpReady) {
+        Write-Log '[AI-Assistant] Warning: mcp-preprocessor not ready in 120s — will reconcile after controller restart.' -Console
+    }
+
+    Write-Log '[AI-Assistant] Waiting for kagent-tools to be ready...' -Console
+    $toolsReady = Wait-ForKagentDependency -Label 'app.kubernetes.io/name=kagent-tools' -TimeoutSeconds 60 -ComponentName 'kagent-tools'
+    if (-not $toolsReady) {
+        Write-Log '[AI-Assistant] Warning: kagent-tools not ready in 60s — will reconcile after controller restart.' -Console
+    }
+}
+
+<#
+.SYNOPSIS
+Non-fatal wait helper for Kagent dependencies during installation.
+Returns $true if the dependency became ready, $false otherwise.
+Swallows all exceptions to prevent propagation regardless of ErrorActionPreference.
+#>
+function Wait-ForKagentDependency {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string] $Label,
+        [int] $TimeoutSeconds = 120,
+        [string] $ComponentName = 'component'
+    )
+
+    # Use Invoke-Kubectl directly with 'wait' to avoid Wait-ForPodCondition throwing
+    # through try/catch boundaries (PowerShell exception propagation edge cases).
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $result = $null
+        try {
+            $result = Invoke-Kubectl -Params 'wait', 'pod', '-l', $Label, '-n', 'kagent',
+                '--for=condition=ready', '--timeout=10s'
+        }
+        catch {
+            # Swallow — kubectl not available or other transient issue
+        }
+        if ($result -and $result.Success -and $result.Output -match '(condition met|condition satisfied)') {
+            Write-Log "[AI-Assistant] $ComponentName is ready." -Console
+            return $true
+        }
+        if ($result -and $result.Output -match 'no matching resources found') {
+            # Pod doesn't exist yet, keep polling
+            Start-Sleep -Seconds 5
+            continue
+        }
+        if ($result -and -not $result.Success) {
+            # Timed out or error — keep trying until overall deadline
+            Start-Sleep -Seconds 5
+            continue
+        }
+        # Success but ambiguous output — treat as ready (backward compat)
+        if ($result -and $result.Success) {
+            return $true
+        }
+        Start-Sleep -Seconds 5
+    }
+    return $false
 }
 
 <#
@@ -620,67 +705,6 @@ function Set-OllamaKeepAlive {
 
 # ── Legacy Proxy Cleanup ──────────────────────────────────────────────────────
 
-<#
-.SYNOPSIS
-Removes any legacy proxy services from previous addon versions.
-#>
-function Remove-KagentProxyService {
-    [CmdletBinding()]
-    Param()
-    Write-Log '[AI-Assistant] Removing any legacy proxy services...' -Console
-    # Legacy K8s resource names from pre-Kagent era — must match actual cluster objects
-    foreach ($svcName in @('holmesgpt-holmes', 'kagent-proxy')) {
-        (Invoke-Kubectl -Params 'delete', 'service', $svcName, '-n', 'default', '--ignore-not-found').Output | Write-Log
-    }
-}
-
-# ── Cleanup: Legacy agent resources ────────────────────────────────────────
-
-<#
-.SYNOPSIS
-Removes legacy agent resources from previous addon versions (pre-Kagent era).
-Called during enable/update to clean up before deploying Kagent.
-The resource names below are actual K8s object names that exist in clusters
-upgrading from the old version — they must match exactly.
-#>
-function Remove-LegacyAgentResources {
-    [CmdletBinding()]
-    Param()
-    Write-Log '[AI-Assistant] Cleaning up legacy agent resources (if any)...' -Console
-
-    # Resource kind → (name, namespace) pairs for legacy objects
-    $legacyResources = @(
-        # default namespace: old Python proxy + wiring
-        @{ Kind = 'deployment';     Name = 'holmesgpt-proxy';        Namespace = 'default' }
-        @{ Kind = 'configmap';      Name = 'holmesgpt-proxy-config'; Namespace = 'default' }
-        @{ Kind = 'configmap';      Name = 'holmesgpt-nginx-conf';   Namespace = 'default' }
-        @{ Kind = 'endpointslice';  Name = 'holmesgpt-holmes-k2s';   Namespace = 'default' }
-        @{ Kind = 'endpoints';      Name = 'holmesgpt-holmes';       Namespace = 'default' }
-        # ai-assistant namespace: old agent deployment + config
-        @{ Kind = 'deployment';     Name = 'holmesgpt-holmes';           Namespace = 'ai-assistant' }
-        @{ Kind = 'service';        Name = 'holmesgpt-holmes';           Namespace = 'ai-assistant' }
-        @{ Kind = 'configmap';      Name = 'holmesgpt-model-config';     Namespace = 'ai-assistant' }
-        @{ Kind = 'configmap';      Name = 'holmesgpt-prompt-overrides'; Namespace = 'ai-assistant' }
-        @{ Kind = 'configmap';      Name = 'holmesgpt-toolset-overrides';Namespace = 'ai-assistant' }
-        @{ Kind = 'serviceaccount'; Name = 'holmesgpt';                  Namespace = 'ai-assistant' }
-        # ai-assistant namespace: old SSE ingress
-        @{ Kind = 'ingress';        Name = 'holmesgpt-sse-direct';       Namespace = 'ai-assistant' }
-        @{ Kind = 'service';        Name = 'holmesgpt-proxy-bridge';     Namespace = 'ai-assistant' }
-        # kagent namespace: obsolete Headlamp SSE direct-route ingress
-        @{ Kind = 'ingress';        Name = 'kagent-sse-direct';          Namespace = 'kagent' }
-    )
-    foreach ($r in $legacyResources) {
-        (Invoke-Kubectl -Params 'delete', $r.Kind, $r.Name, '-n', $r.Namespace, '--ignore-not-found').Output | Write-Log
-    }
-
-    # Cluster-scoped RBAC (no namespace)
-    foreach ($rbac in @(
-        @{ Kind = 'clusterrolebinding'; Name = 'holmesgpt-reader' }
-        @{ Kind = 'clusterrole';        Name = 'holmesgpt-reader' }
-    )) {
-        (Invoke-Kubectl -Params 'delete', $rbac.Kind, $rbac.Name, '--ignore-not-found').Output | Write-Log
-    }
-}
 
 # ── Full resource removal ─────────────────────────────────────────────────────
 
@@ -697,7 +721,6 @@ function Remove-AiAssistantResources {
     # ── Kagent agent resources ─────────────────────────────────────────────────
     Remove-CopilotAgent
     Remove-OllamaAgent
-    Remove-KagentProxyService
 
     # ── Kagent framework ───────────────────────────────────────────────────
     Write-Log '[AI-Assistant] Removing a2a-proxy...' -Console
@@ -724,8 +747,6 @@ function Remove-AiAssistantResources {
     Write-Log '[AI-Assistant] Removing Kagent namespace...' -Console
     (Invoke-Kubectl -Params 'delete', 'namespace', 'kagent', '--ignore-not-found').Output | Write-Log
 
-    # ── Legacy agent cleanup (in case of upgrade from old version) ──────────────
-    Remove-LegacyAgentResources
 
     # ── Ollama (Windows service) ─────────────────────────────────────────────────
     Write-Log '[AI-Assistant] Removing Ollama Windows service...' -Console
@@ -805,12 +826,12 @@ $providerInfo
 # ── Module exports ────────────────────────────────────────────────────────────
 
 Export-ModuleMember -Function `
-    Get-AiAssistantManifestsDir, Get-OllamaManifestPath, `
+    Get-AiAssistantManifestsDir, `
     Get-KagentManifestsDir, Get-KagentNamespacePath, Get-KagentCrdsPath, `
     Get-KagentCorePath, Get-KagentLocalPathProvisionerPath, `
     Get-KagentA2aProxyPath, Get-KagentMcpPreprocessorPath, Get-KagentToolsRbacPath, `
     Get-KagentCopilotAgentPath, Get-KagentOllamaAgentPath, Get-KagentIngressPath, `
-    Install-KagentFramework, Wait-ForKagentAvailable, Build-LocalProxyImages, `
+    Install-KagentFramework, Wait-ForKagentAvailable, Wait-ForKagentDependency, Build-LocalProxyImages, `
     Install-CopilotAgent, Remove-CopilotAgent, `
     Install-OllamaAgent, Remove-OllamaAgent, `
     Install-OllamaWindowsService, Remove-OllamaWindowsService, `
@@ -818,7 +839,6 @@ Export-ModuleMember -Function `
     Wait-ForOllamaReady, Test-OllamaWindowsHealth, `
     Get-OllamaExePath, Invoke-OllamaModelPull, `
     Set-OllamaKeepAlive, `
-    Remove-KagentProxyService, `
-    Remove-LegacyAgentResources, Remove-AiAssistantResources, `
+    Remove-AiAssistantResources, `
     Write-AiAssistantUsageForUser
 `

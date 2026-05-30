@@ -56,8 +56,6 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ai-assistant'})) -ne 
     exit 1
 }
 
-# ── Clean up legacy agent resources (migration from old version) ───────────────
-Remove-LegacyAgentResources
 
 # ── Re-apply Kagent framework ─────────────────────────────────────────────────
 Write-Log '[AI-Assistant] Re-applying Kagent framework manifests...' -Console

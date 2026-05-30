@@ -108,6 +108,8 @@ var a2aMetrics = struct {
 	upstreamErrorTotal *atomic.Int64
 	taskCompletedTotal *counter
 	taskDuration       *histogram
+	ttftDuration       *histogram // time-to-first-token
+	streamingTotal     *counter   // streaming completions by source
 }{
 	requestsTotal:      newCounter(),
 	requestDuration:    newHistogram([]float64{0.1, 0.5, 1, 5, 10, 30, 60, 120}),
@@ -115,6 +117,8 @@ var a2aMetrics = struct {
 	upstreamErrorTotal: &atomic.Int64{},
 	taskCompletedTotal: newCounter(),
 	taskDuration:       newHistogram([]float64{1, 5, 10, 30, 60, 120, 300}),
+	ttftDuration:       newHistogram([]float64{0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5}),
+	streamingTotal:     newCounter(),
 }
 
 func metricsHandler(w http.ResponseWriter, r *http.Request) {
@@ -154,6 +158,16 @@ func metricsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// ai_assistant_ollama_reachable (gauge from Ollama monitor)
 	writeOllamaMetric(&sb)
+
+	// ai_assistant_ttft_seconds (time-to-first-token)
+	sb.WriteString("# HELP ai_assistant_ttft_seconds Time-to-first-token (thinking indicator delivery)\n")
+	sb.WriteString("# TYPE ai_assistant_ttft_seconds histogram\n")
+	writeHistogram(&sb, "ai_assistant_ttft_seconds", a2aMetrics.ttftDuration)
+
+	// ai_assistant_streaming_total (streaming completions by source)
+	sb.WriteString("# HELP ai_assistant_streaming_total Streaming response completions\n")
+	sb.WriteString("# TYPE ai_assistant_streaming_total counter\n")
+	writeCounter(&sb, "ai_assistant_streaming_total", a2aMetrics.streamingTotal)
 
 	_, _ = w.Write([]byte(sb.String()))
 }
@@ -228,5 +242,16 @@ func recordUpstreamError() {
 func recordTaskCompleted(state string, duration time.Duration) {
 	a2aMetrics.taskCompletedTotal.Inc(fmt.Sprintf(`state="%s"`, state))
 	a2aMetrics.taskDuration.Observe("", duration.Seconds())
+}
+
+// recordTTFT records the time-to-first-token (thinking indicator delivery latency).
+func recordTTFT(duration time.Duration) {
+	a2aMetrics.ttftDuration.Observe("", duration.Seconds())
+}
+
+// recordStreamingCompletion records a streaming response completion.
+func recordStreamingCompletion(source string, totalDuration, ttft time.Duration) {
+	a2aMetrics.streamingTotal.Inc(fmt.Sprintf(`source="%s"`, source))
+	a2aMetrics.requestDuration.Observe(fmt.Sprintf(`type="streaming",source="%s"`, source), totalDuration.Seconds())
 }
 

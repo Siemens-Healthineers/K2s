@@ -55,20 +55,21 @@ Keep this browser tab open for the entire test session.
 ### Step 3 — Enable the AI Assistant addon
 
 ```console
-k2s addons enable ai-assistant
+k2s addons enable ai-assistant --provider ollama
 ```
 
-This takes **5–15 minutes** on first run (model download). Watch progress:
+This takes **5–15 minutes** on first run (model download + Kagent framework deploy).
+
+Wait until Kagent pods show `Running`:
 
 ```console
-kubectl get pods -n ai-assistant -w
+kubectl get pods -n kagent -w
 ```
 
-Wait until pods show `Running`:
+For Ollama provider, also verify the Windows service is running:
 
-```
-kubectl get pods -n kagent
-kubectl get pods -n ai-assistant    # (ollama provider only)
+```console
+Get-Service K2sOllama
 ```
 
 ---
@@ -88,27 +89,30 @@ After `k2s addons enable ai-assistant` completes, run these commands to verify t
 
 ---
 
-### 1.1 — Namespace and storage
+### 1.1 — Ollama Windows service is running (ollama provider only)
 
 ```console
-kubectl get ns ai-assistant
-kubectl get pvc ollama-models -n ai-assistant
+Get-Service K2sOllama
+curl.exe -s http://localhost:11434/api/tags
 ```
 
-- [ ] Namespace `ai-assistant` exists
-- [ ] PVC `ollama-models` is in `Bound` state with 20Gi
+- [ ] Service `K2sOllama` is in `Running` state
+- [ ] `/api/tags` response contains the configured model (e.g. `qwen2.5:7b`)
+
+To list loaded models:
+```console
+ollama list
+```
 
 ---
 
-### 1.2 — Ollama is running and model is available
+### 1.2 — Kagent namespace exists
 
 ```console
-kubectl wait --for=condition=Available deployment/ollama -n ai-assistant --timeout=300s
-kubectl exec -n ai-assistant deployment/ollama -- ollama list
+kubectl get ns kagent
 ```
 
-- [ ] `deployment/ollama` becomes Available within 5 minutes
-- [ ] `ollama list` shows `qwen2.5:7b` in the output
+- [ ] Namespace `kagent` exists
 
 ---
 
@@ -158,10 +162,11 @@ kubectl get svc kagent-ui -n kagent
 k2s addons status ai-assistant
 ```
 
-- [ ] `IsOllamaRunning      = True` (ollama provider only)
-- [ ] `IsKagentRunning      = True`
-- [ ] `IsA2aProxyRunning    = True`
-- [ ] `IsKagentUiRunning    = True`
+- [ ] `IsOllamaRunning          = True` (ollama provider only)
+- [ ] `IsKagentControllerRunning = True`
+- [ ] `IsA2aProxyRunning         = True`
+- [ ] `IsKagentUiRunning         = True`
+- [ ] `IsKagentIngressReady      = True`
 
 ---
 
@@ -475,27 +480,25 @@ kubectl delete pod resource-hog -n default
 
 ---
 
-### Chat Scenario I — "What is running in the ai-assistant namespace?"
+### Chat Scenario I — "What is running in the kagent namespace?"
 
 **Purpose:** Test namespace-scoped resource discovery. Confirms the AI scopes queries correctly without confusion.
 
-**No setup needed** — the ai-assistant namespace is already running.
+**No setup needed** — the kagent namespace is already running.
 
 **Type this prompt:**
 ```
-What is running in the ai-assistant namespace?
+What is running in the kagent namespace?
 ```
 
 **What to check:**
-- [ ] Response lists the `ollama` deployment (if using ollama provider)
+- [ ] Response lists deployments such as `kagent-controller`, `kagent-ui`, `a2a-proxy`
 - [ ] Response mentions relevant pods and services
-- [ ] Response mentions the `ollama-models` PVC or storage (if using ollama provider)
-- [ ] Response does **not** confuse `ai-assistant` namespace with `dashboard` or `default`
+- [ ] Response does **not** confuse `kagent` namespace with `dashboard` or `default`
 
 **Cross-check:**
 ```console
-kubectl get all -n ai-assistant
-kubectl get pvc -n ai-assistant
+kubectl get all -n kagent
 ```
 
 ---
@@ -567,7 +570,7 @@ kubectl get pods -n kagent
 
 Re-enable first:
 ```console
-k2s addons enable ai-assistant
+k2s addons enable ai-assistant --provider ollama
 ```
 
 Wait for it to be ready, then disable with flag:
@@ -575,27 +578,26 @@ Wait for it to be ready, then disable with flag:
 k2s addons disable ai-assistant --keep-model-data
 ```
 
-Check:
+Check that Ollama service is stopped but models are preserved:
 ```console
-kubectl get pvc ollama-models -n ai-assistant
-kubectl get ns ai-assistant
+Get-Service K2sOllama
+# Service should still exist (stopped but not removed)
 ```
 
-- [ ] PVC `ollama-models` still exists and is `Bound`
-- [ ] Namespace `ai-assistant` still exists (needed to keep the PVC)
-- [ ] All deployments, services, and RBAC are gone:
+- [ ] K2sOllama service exists (stopped or absent — nssm service retained)
+- [ ] Ollama model data on disk is preserved (check `~/.ollama/models`)
+- [ ] All Kagent deployments, services, and RBAC in `kagent` namespace are gone:
   ```console
-  kubectl get deploy,svc -n ai-assistant
-  kubectl get pods -n kagent
+  kubectl get deploy,svc -n kagent
   ```
 
 Re-enable and check model is not re-downloaded:
 ```console
-k2s addons enable ai-assistant
-kubectl logs -n ai-assistant deployment/ollama --since=3m | Select-String -Pattern "pull"
+k2s addons enable ai-assistant --provider ollama
+ollama list
 ```
 
-- [ ] No `pull` lines in the logs — model was already on the PVC
+- [ ] Model was already available — no re-download required
 
 ---
 
@@ -634,12 +636,12 @@ _(second call while already disabled)_
 ### 5.3 — Enable with a different model
 
 ```console
-k2s addons enable ai-assistant --model phi3
+k2s addons enable ai-assistant --provider ollama --model phi3
 ```
 
 - [ ] `ollama list` shows `phi3`:
   ```console
-  kubectl exec -n ai-assistant deployment/ollama -- ollama list
+  ollama list
   ```
 - [ ] Agent definition contains `phi3`:
   ```console
@@ -664,18 +666,18 @@ kubectl get clusterrole k2s-tools-reader \
 
 ---
 
-### 5.5 — Additional model survives Ollama pod restart
+### 5.5 — Additional model survives Ollama service restart
 
 ```console
-kubectl exec -n ai-assistant deployment/ollama -- ollama pull tinyllama
-kubectl exec -n ai-assistant deployment/ollama -- ollama list
-kubectl rollout restart deployment/ollama -n ai-assistant
-kubectl rollout status deployment/ollama -n ai-assistant --timeout=120s
-kubectl exec -n ai-assistant deployment/ollama -- ollama list
+ollama pull tinyllama
+ollama list
+Restart-Service K2sOllama
+Start-Sleep -Seconds 5
+ollama list
 ```
 
 - [ ] `tinyllama` appears in `ollama list` before the restart
-- [ ] `tinyllama` still appears in `ollama list` after the restart (stored on PVC)
+- [ ] `tinyllama` still appears in `ollama list` after the restart (stored on disk)
 
 ---
 

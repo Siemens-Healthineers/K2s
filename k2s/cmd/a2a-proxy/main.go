@@ -28,7 +28,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const cliName = "a2a-proxy"
 
 // approvedTools is the allowlist of MCP tools that may be auto-confirmed.
 // These are strictly read-only Kubernetes inspection tools.
@@ -139,13 +138,6 @@ type a2aProxy struct {
 	client            *http.Client
 }
 
-// a2aRequest represents the JSON-RPC envelope for A2A.
-type a2aRequest struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id,omitempty"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params"`
-}
 
 // a2aResponse represents the JSON-RPC response envelope.
 type a2aResponse struct {

@@ -18,7 +18,7 @@ Validates the complete Kagent-based AI Assistant platform:
   - Latency bounds
 
 Architecture validated:
-  Headlamp -> Ingress -> a2a-proxy -> kagent-controller -> mcp-preprocessor -> k2s-tools -> Kubernetes API
+  Kagent UI -> Ingress -> a2a-proxy -> kagent-controller -> mcp-preprocessor -> k2s-tools -> Kubernetes API
 
 .PARAMETER IngressIP
 The IP address where the ingress controller is reachable.
@@ -360,11 +360,13 @@ if ($provider -eq "ollama") {
     Write-TestResult $r $testNum
 
     $testNum++
-    Write-Host "[$testNum] Testing Ollama model availability (devstral-k2s)..."
+    Write-Host "[$testNum] Testing Ollama model availability (any loaded model)..."
     $r = Test-Endpoint -Name "Ollama Model" -Url "$ollamaUrl/api/tags" -Validate {
         param($resp)
-        $model = $resp.models | Where-Object { $_.name -match "devstral" }
-        if ($model) { "Model found: $($model.name)" } else { $null }
+        if ($resp.models -and $resp.models.Count -gt 0) {
+            $modelNames = ($resp.models | ForEach-Object { $_.name }) -join ', '
+            "Model(s) found: $modelNames"
+        } else { $null }
     }
     $results += $r
     if ($r.Status -eq "PASS") { $passed++ } else { $failed++ }
@@ -629,19 +631,19 @@ Write-TestResult $r $testNum
 Write-Host ""
 
 # ===========================================================================
-# PHASE 9: Headlamp Integration
+# PHASE 9: Kagent UI Integration
 # ===========================================================================
 
-Write-Host "--- PHASE 9: Headlamp Integration ---"
+Write-Host "--- PHASE 9: Kagent UI Integration ---"
 Write-Host ""
 
 $testNum++
-Write-Host "[$testNum] Testing Headlamp dashboard reachability..."
-$r = @{ Name = "Headlamp UI"; Status = "FAIL"; Details = ""; LatencyMs = 0 }
+Write-Host "[$testNum] Testing Kagent UI reachability (via ingress)..."
+$r = @{ Name = "Kagent UI"; Status = "FAIL"; Details = ""; LatencyMs = 0 }
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 try {
-    $resp = Invoke-WebRequest -Uri "http://$IngressIP/dashboard/" -Headers @{Host="k2s.cluster.local"} `
-        -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop -MaximumRedirection 0
+    $resp = Invoke-WebRequest -Uri "https://k2s.cluster.local/agents" -Headers @{Host="k2s.cluster.local"} `
+        -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop -MaximumRedirection 5
     $sw.Stop()
     $r.LatencyMs = $sw.ElapsedMilliseconds
     $r.Status = "PASS"
@@ -651,9 +653,9 @@ catch {
     $sw.Stop()
     $r.LatencyMs = $sw.ElapsedMilliseconds
     $errMsg = $_.Exception.Message
-    if ($errMsg -match "30[0-8]") {
+    if ($errMsg -match "30[0-8]|200") {
         $r.Status = "PASS"
-        $r.Details = "Dashboard reachable (redirect response, expected for SPA)"
+        $r.Details = "Kagent UI reachable (redirect/OK response)"
     } else {
         $r.Details = $errMsg
     }

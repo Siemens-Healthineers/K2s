@@ -80,11 +80,48 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ai-assistant'})) -eq 
     Write-Log $errMsg -Error
     exit 1
 }
-# -- Clean up legacy agent resources from previous versions
-Remove-LegacyAgentResources
+# -- Check ingress prerequisite
+$ingressEnabled = (Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ingress'; Implementation = 'nginx' })) -or
+    (Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ingress'; Implementation = 'traefik' })) -or
+    (Test-IsAddonEnabled -Addon ([pscustomobject]@{Name = 'ingress'; Implementation = 'nginx-gw' }))
+if (-not $ingressEnabled) {
+    $errMsg = "Addon 'ingress' is not enabled. The AI Assistant requires an ingress controller for external access to the Kagent UI.`n" +
+        "Please enable an ingress addon first:`n" +
+        "  k2s addons enable ingress nginx`n" +
+        'Alternatively, you can use port-forwarding after enabling (without ingress):`n' +
+        '  kubectl port-forward svc/kagent-ui -n kagent 8080:8080'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
 # -- Deploy Ollama (only for ollama provider)
 if ($Provider -eq 'ollama') {
     Write-Log '[AI-Assistant] Configuring Ollama on Windows host (GPU-accelerated)...' -Console
+
+    # Validate Ollama is installed before proceeding
+    try {
+        $null = Get-OllamaExePath
+    }
+    catch {
+        $errMsg = "[AI-Assistant] Ollama is not installed on this machine.`n" +
+            "The 'ollama' provider requires Ollama to be installed on the Windows host.`n`n" +
+            "To install Ollama:`n" +
+            "  1. Download from https://ollama.com/download/windows`n" +
+            "  2. Run the installer`n" +
+            "  3. Verify installation: ollama --version`n`n" +
+            'Then re-run: k2s addons enable ai-assistant --provider ollama'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
 
     # Install/start as a resilient Windows service
     Install-OllamaWindowsService
@@ -140,9 +177,16 @@ catch {
     exit 1
 }
 Write-Log '[AI-Assistant] Waiting for Kagent controller to be ready...' -Console
-$kagentReady = Wait-ForKagentAvailable
+$kagentReady = Wait-ForKagentDependency -Label 'app.kubernetes.io/component=controller,app.kubernetes.io/name=kagent' -TimeoutSeconds 300 -ComponentName 'kagent-controller'
 if (-not $kagentReady) {
-    $errMsg = '[AI-Assistant] Kagent controller did not become ready within 300s. Check: kubectl get pods -n kagent'
+    # Controller not ready — might be crash-looping waiting for PostgreSQL.
+    # Attempt a rollout restart to trigger reconciliation once deps are up.
+    Write-Log '[AI-Assistant] Controller not ready yet — attempting restart to clear crash-loop...' -Console
+    (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment/kagent-controller', '-n', 'kagent').Output | Write-Log
+    $kagentReady = Wait-ForKagentDependency -Label 'app.kubernetes.io/component=controller,app.kubernetes.io/name=kagent' -TimeoutSeconds 180 -ComponentName 'kagent-controller'
+}
+if (-not $kagentReady) {
+    $errMsg = '[AI-Assistant] Kagent controller did not become ready within timeout. Check: kubectl get pods -n kagent; kubectl logs -n kagent -l app.kubernetes.io/name=kagent'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -171,6 +215,33 @@ catch {
     }
     Write-Log $errMsg -Error
     exit 1
+}
+# -- Wait for agent pod and reconcile controller
+# The kagent-controller starts reconciling immediately on deploy but the agent and
+# k2s-tools pods may not be ready yet, causing stale connection-refused errors.
+# Waiting for the agent deployment then restarting the controller eliminates this race.
+Write-Log '[AI-Assistant] Waiting for agent deployment to be created and ready...' -Console
+$agentDeployName = if ($Provider -eq 'copilot') { 'copilot-cli' } else { 'k2s-assistant' }
+$agentReady = $false
+$deadline = (Get-Date).AddSeconds(180)
+while ((Get-Date) -lt $deadline) {
+    $waitResult = Invoke-Kubectl -Params 'wait', '--for=condition=Available', `
+        "deployment/$agentDeployName", '-n', 'kagent', '--timeout=10s'
+    if ($waitResult.Success) {
+        $agentReady = $true
+        break
+    }
+    Start-Sleep -Seconds 5
+}
+if ($agentReady) {
+    Write-Log '[AI-Assistant] Agent deployment ready. Restarting controller for clean reconciliation...' -Console
+    (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment/kagent-controller', '-n', 'kagent').Output | Write-Log
+    $null = Invoke-Kubectl -Params 'rollout', 'status', 'deployment/kagent-controller', '-n', 'kagent', '--timeout=90s'
+    Write-Log '[AI-Assistant] Controller reconciled.' -Console
+}
+else {
+    Write-Log '[AI-Assistant] Warning: Agent deployment did not become ready in 180s. The UI may show errors until reconciliation completes.' -Console
+    Write-Log "[AI-Assistant] Check: kubectl get deploy $agentDeployName -n kagent" -Console
 }
 # -- Persist to setup.json
 Add-AddonToSetupJson -Addon ([pscustomobject]@{Name = 'ai-assistant' })

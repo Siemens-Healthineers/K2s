@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 
 # AI Assistant Addon — Architecture & Status
 
-> **Last updated:** May 30, 2026 — Phase B complete. Ollama moved to Windows host with GPU acceleration. 10x latency improvement.
+> **Last updated:** May 30, 2026 — Phase B complete. Ollama moved to Windows host with GPU acceleration. 10x latency improvement. Production-readiness fixes: ingress prerequisite validation, Ollama-not-installed structured error, docs site entry.
 
 ---
 
@@ -193,7 +193,6 @@ All Copilot components above, plus:
 | `manifests/kagent/copilot-cli-agent.yaml` | Copilot CLI BYO agent definition |
 | `manifests/kagent/ollama-agent.yaml` | Ollama-backed agent definition |
 | `manifests/kagent/local-path-provisioner.yaml` | StorageClass for Kagent PVCs |
-| `manifests/ollama/ollama.yaml` | Ollama deployment + PV/PVC |
 
 ---
 
@@ -206,20 +205,7 @@ The Kagent UI is the sole AI interface:
 
 ---
 
-## 5. Legacy Resource Cleanup
-
-`Remove-LegacyAgentResources` (in `ai-assistant.module.psm1`) deletes resources
-from the pre-Kagent era during enable/update. This includes:
-- HolmesGPT deployments, services, and config maps
-- Legacy SSE ingress resources
-- Old proxy services
-
-These kubectl delete commands reference actual K8s resource names that may exist
-in clusters being upgraded — these references are intentional.
-
----
-
-## 6. Quick Reference
+## 5. Quick Reference
 
 ```console
 # Check Kagent controller status
@@ -232,8 +218,9 @@ kubectl get agents -n kagent
 kubectl get pods -n kagent -l app=a2a-proxy
 
 # Check Ollama (ollama provider only)
-kubectl get pods -n ai-assistant -l app=ollama
-kubectl exec -n ai-assistant deployment/ollama -- ollama list
+Get-Service K2sOllama
+curl.exe -s http://localhost:11434/api/tags
+ollama list
 
 # Kagent UI (via ingress)
 # https://k2s.cluster.local/agents/kagent/k2s-assistant/chat
@@ -252,11 +239,11 @@ k2s addons update ai-assistant
 | # | Fix | File(s) |
 |---|-----|---------|
 | 3.0 | **Kagent migration** — Replaced legacy agent with Kagent framework. Dual-provider architecture (copilot/ollama). | `ai-assistant.module.psm1`, `Enable.ps1`, `Update.ps1`, `manifests/kagent/*` |
-| 3.1 | **Legacy cleanup** — `Remove-LegacyAgentResources` removes all pre-Kagent resources on enable/update | `ai-assistant.module.psm1` |
 | 4.0 | **Phase 1: Headlamp removal** — Removed all Headlamp AI plugin injection, AG-UI compatibility layer references, SSE direct ingress, and dashboard dependency. Kagent UI is now the sole AI interface. | `Enable.ps1`, `Disable.ps1`, `Update.ps1`, `Get-Status.ps1`, `ai-assistant.module.psm1`, `dashboard.module.psm1`, `kagent-ingress.yaml`, `addon.manifest.yaml` |
 | 4.1 | **Phase 2: Ollama keep_alive fix** — JSON payload was corrupted during SSH/plink transport. Changed to curl Ollama directly from Windows host via bridge interface. | `ai-assistant.module.psm1` |
 | 4.2 | **Phase 2: Ingress HTTPS routing** — kagent-controller-ingress needed explicit `k2s.cluster.local` host rule for API paths to work over HTTPS (as called by Kagent UI). | `manifests/kagent/kagent-ingress.yaml` |
 | 5.0 | **Phase B: Ollama Windows migration** — Moved Ollama from Linux K8s pod (CPU-only) to Windows host service (GPU-accelerated). 10x raw inference improvement. K2sOllama nssm service with auto-start/restart. | `ai-assistant.module.psm1`, `Enable.ps1`, `Get-Status.ps1` |
+| 6.0 | **Production-readiness fixes** — Added ingress prerequisite validation in Enable.ps1. Replaced raw Ollama-not-installed stack trace with structured error and download URL. Added AI Assistant section to docs/user-guide/addons.md. Removed stale manifests/ollama/ollama.yaml references. Added unit tests for new validations. | `Enable.ps1`, `ai-assistant.module.unit.tests.ps1`, `docs/user-guide/addons.md`, `README.md`, `ai-assistant-status.md` |
 
 ---
 
@@ -267,12 +254,11 @@ k2s addons update ai-assistant
 | File | State |
 |------|-------|
 | `ai-assistant.module.psm1` | ✅ Clean — Kagent-based, dual-provider, no Headlamp dependency |
-| `Enable.ps1` | ✅ Clean — Kagent framework + provider deployment (no dashboard prereq) |
+| `Enable.ps1` | ✅ Clean — Kagent framework + provider deployment, ingress prerequisite check, structured Ollama-not-installed error |
 | `Update.ps1` | ✅ Clean — Kagent update flow |
 | `Disable.ps1` | ✅ Clean — full teardown with optional `--keep-model-data` |
 | `Get-Status.ps1` | ✅ Clean — Kagent status checks (Kagent UI instead of plugin injection) |
 | `manifests/kagent/*` | ✅ Kagent framework manifests (SSE direct ingress removed) |
-| `manifests/ollama/ollama.yaml` | ✅ Ollama deployment manifest |
 
 ### Live cluster (after enable)
 

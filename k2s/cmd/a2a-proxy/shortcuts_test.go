@@ -500,3 +500,430 @@ func parseURL(rawURL string) (*url.URL, error) {
 	return url.Parse(rawURL)
 }
 
+// --- Phrase Alias Rewrite Tests ---
+
+func TestRewriteQuery_ExactMatches(t *testing.T) {
+	tests := []struct {
+		input       string
+		wantQuery   string
+		wantAlias   string
+	}{
+		// Pods
+		{"show all pods", "pods", "show all pods"},
+		{"show me all pods", "pods", "show me all pods"},
+		{"show pods", "pods", "show pods"},
+		{"show me pods", "pods", "show me pods"},
+		{"list all pods", "pods", "list all pods"},
+		{"list pods", "pods", "list pods"},
+		{"get all pods", "pods", "get all pods"},
+		{"get pods", "pods", "get pods"},
+		{"what pods are running", "pods", "what pods are running"},
+		{"which pods are running", "pods", "which pods are running"},
+
+		// Unhealthy/Restarting
+		{"show unhealthy pods", "restarts", "show unhealthy pods"},
+		{"show restarting pods", "restarts", "show restarting pods"},
+		{"show crashed pods", "restarts", "show crashed pods"},
+		{"show failing pods", "restarts", "show failing pods"},
+		{"show failed pods", "restarts", "show failed pods"},
+		{"list unhealthy pods", "restarts", "list unhealthy pods"},
+		{"list restarting pods", "restarts", "list restarting pods"},
+		{"pods with restarts", "restarts", "pods with restarts"},
+		{"pods restarting", "restarts", "pods restarting"},
+		{"which pods are unhealthy", "restarts", "which pods are unhealthy"},
+		{"which pods are restarting", "restarts", "which pods are restarting"},
+		{"which pods are failing", "restarts", "which pods are failing"},
+		{"what is crashing", "restarts", "what is crashing"},
+		{"what is restarting", "restarts", "what is restarting"},
+
+		// Nodes
+		{"show nodes", "nodes", "show nodes"},
+		{"show me nodes", "nodes", "show me nodes"},
+		{"show all nodes", "nodes", "show all nodes"},
+		{"list nodes", "nodes", "list nodes"},
+		{"get nodes", "nodes", "get nodes"},
+		{"show node health", "health", "show node health"},
+		{"show node status", "nodes", "show node status"},
+		{"node status", "nodes", "node status"},
+		{"node health", "health", "node health"},
+		{"what nodes are available", "nodes", "what nodes are available"},
+
+		// Health
+		{"show health", "health", "show health"},
+		{"show cluster health", "health", "show cluster health"},
+		{"show me cluster health", "health", "show me cluster health"},
+		{"summarize cluster health", "health", "summarize cluster health"},
+		{"cluster health", "health", "cluster health"},
+		{"cluster overview", "health", "cluster overview"},
+		{"cluster summary", "health", "cluster summary"},
+		{"how is the cluster", "health", "how is the cluster"},
+		{"is the cluster healthy", "health", "is the cluster healthy"},
+		{"is everything running", "health", "is everything running"},
+
+		// Status
+		{"check status", "status", "check status"},
+		{"check cluster status", "status", "check cluster status"},
+		{"show status", "status", "show status"},
+		{"show system status", "status", "show system status"},
+		{"system status", "status", "system status"},
+		{"component status", "status", "component status"},
+		{"platform status", "status", "platform status"},
+		{"what is the status", "status", "what is the status"},
+
+		// Events/Errors
+		{"show events", "errors", "show events"},
+		{"show warning events", "errors", "show warning events"},
+		{"show warnings", "errors", "show warnings"},
+		{"show errors", "errors", "show errors"},
+		{"show me errors", "errors", "show me errors"},
+		{"show recent errors", "errors", "show recent errors"},
+		{"show recent events", "errors", "show recent events"},
+		{"list events", "errors", "list events"},
+		{"list errors", "errors", "list errors"},
+		{"list warnings", "errors", "list warnings"},
+		{"get events", "errors", "get events"},
+		{"what warnings are there", "errors", "what warnings are there"},
+		{"any errors", "errors", "any errors"},
+		{"any warnings", "errors", "any warnings"},
+		{"recent errors", "errors", "recent errors"},
+		{"recent warnings", "errors", "recent warnings"},
+		{"recent events", "errors", "recent events"},
+
+		// Top
+		{"show top", "top", "show top"},
+		{"resource usage", "top", "resource usage"},
+		{"show resource usage", "top", "show resource usage"},
+
+		// Help
+		{"what can you do", "help", "what can you do"},
+		{"show commands", "help", "show commands"},
+		{"list commands", "help", "list commands"},
+		{"available commands", "help", "available commands"},
+
+		// Deployments (no argument — show all)
+		{"show deployments", "pods", "show deployments"},
+		{"show all deployments", "pods", "show all deployments"},
+		{"list deployments", "pods", "list deployments"},
+		{"get deployments", "pods", "get deployments"},
+	}
+
+	for _, tc := range tests {
+		got, alias := rewriteQuery(tc.input)
+		if got != tc.wantQuery {
+			t.Errorf("rewriteQuery(%q) = %q, want %q", tc.input, got, tc.wantQuery)
+		}
+		if alias != tc.wantAlias {
+			t.Errorf("rewriteQuery(%q) alias = %q, want %q", tc.input, alias, tc.wantAlias)
+		}
+	}
+}
+
+func TestRewriteQuery_WithArguments(t *testing.T) {
+	tests := []struct {
+		input     string
+		wantQuery string
+		wantAlias string
+	}{
+		// Deployments with argument carry-forward
+		{"show deployment nginx", "deploy nginx", "show deployment "},
+		{"show deploy myapp", "deploy myapp", "show deploy "},
+		{"check deployment frontend", "deploy frontend", "check deployment "},
+		{"get deployment api-server", "deploy api-server", "get deployment "},
+		{"describe deployment web", "deploy web", "describe deployment "},
+		{"deployment status api", "deploy api", "deployment status "},
+
+		// Logs with argument carry-forward
+		{"show logs my-pod", "logs my-pod", "show logs "},
+		{"show me logs nginx", "logs nginx", "show me logs "},
+		{"get logs api-server", "logs api-server", "get logs "},
+		{"tail logs my-pod", "logs my-pod", "tail logs "},
+		{"tail my-pod", "logs my-pod", "tail "},
+
+		// Diagnose with argument carry-forward
+		{"investigate pod crash-pod", "diagnose crash-pod", "investigate pod "},
+		{"investigate crash-pod", "diagnose crash-pod", "investigate "},
+		{"troubleshoot pod web-server", "diagnose web-server", "troubleshoot pod "},
+		{"troubleshoot api-pod", "diagnose api-pod", "troubleshoot "},
+		{"debug pod failing-app", "diagnose failing-app", "debug pod "},
+		{"debug failing-app", "diagnose failing-app", "debug "},
+
+		// Namespace with argument carry-forward
+		{"show namespace kube-system", "ns kube-system", "show namespace "},
+		{"show ns monitoring", "ns monitoring", "show ns "},
+		{"pods in default", "ns default", "pods in "},
+		{"list pods in kube-system", "ns kube-system", "list pods in "},
+		{"show pods in monitoring", "ns monitoring", "show pods in "},
+
+		// Why is -> why is pod (carry-forward)
+		{"why is nginx crashing", "why is pod nginx crashing", "why is "},
+	}
+
+	for _, tc := range tests {
+		got, alias := rewriteQuery(tc.input)
+		if got != tc.wantQuery {
+			t.Errorf("rewriteQuery(%q) = %q, want %q", tc.input, got, tc.wantQuery)
+		}
+		if alias != tc.wantAlias {
+			t.Errorf("rewriteQuery(%q) alias = %q, want %q", tc.input, alias, tc.wantAlias)
+		}
+	}
+}
+
+func TestRewriteQuery_NoMatch(t *testing.T) {
+	queries := []string{
+		"something random",
+		"how do I scale a deployment",
+		"explain kubernetes networking",
+		"what is a pod",
+		"create namespace test",
+		"delete pod nginx",
+		"apply manifest",
+	}
+
+	for _, q := range queries {
+		got, alias := rewriteQuery(q)
+		if got != q {
+			t.Errorf("rewriteQuery(%q) should return unchanged, got %q", q, got)
+		}
+		if alias != "" {
+			t.Errorf("rewriteQuery(%q) should have empty alias, got %q", q, alias)
+		}
+	}
+}
+
+func TestRewriteQuery_CaseInsensitive(t *testing.T) {
+	// rewriteQuery expects lowercased input (caller responsibility),
+	// verify it works with pre-lowercased input
+	got, alias := rewriteQuery("show all pods")
+	if got != "pods" || alias == "" {
+		t.Errorf("expected rewrite to 'pods', got %q (alias=%q)", got, alias)
+	}
+}
+
+func TestPhraseAliasEndToEnd_PodsShortcut(t *testing.T) {
+	mockMCP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		result := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"result": map[string]interface{}{
+				"content": []map[string]interface{}{
+					{"type": "text", "text": "NAMESPACE NAME READY STATUS RESTARTS AGE\ndefault pod-1 1/1 Running 0 1d\n"},
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(result)
+	}))
+	defer mockMCP.Close()
+
+	mcpURL, _ := parseURL(mockMCP.URL)
+	sr := &shortcutRouter{
+		mcpUpstream: mcpURL,
+		client:      mockMCP.Client(),
+	}
+
+	// "show all pods" should rewrite to "pods" and match the pods shortcut
+	body := `{"query":"show all pods"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/shortcuts", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	sr.handleShortcuts(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for 'show all pods', got %d", w.Code)
+	}
+
+	var resp shortcutResponse
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Type != "shortcut" {
+		t.Errorf("expected type 'shortcut', got '%s'", resp.Type)
+	}
+}
+
+func TestPhraseAliasEndToEnd_HealthShortcut(t *testing.T) {
+	mockMCP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		result := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"result": map[string]interface{}{
+				"content": []map[string]interface{}{
+					{"type": "text", "text": "NAME STATUS ROLES AGE\nkubemaster Ready control-plane 10d\n"},
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(result)
+	}))
+	defer mockMCP.Close()
+
+	mcpURL, _ := parseURL(mockMCP.URL)
+	sr := &shortcutRouter{
+		mcpUpstream: mcpURL,
+		client:      mockMCP.Client(),
+	}
+
+	// "summarize cluster health" should rewrite to "health"
+	body := `{"query":"summarize cluster health"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/shortcuts", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	sr.handleShortcuts(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for 'summarize cluster health', got %d", w.Code)
+	}
+
+	var resp shortcutResponse
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp.Type != "shortcut" {
+		t.Errorf("expected type 'shortcut', got '%s'", resp.Type)
+	}
+}
+
+func TestPhraseAliasEndToEnd_NoMatchFallsThrough(t *testing.T) {
+	sr := &shortcutRouter{
+		client: &http.Client{},
+	}
+
+	// A non-matching phrase should still return 404
+	body := `{"query":"explain kubernetes networking"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/shortcuts", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	sr.handleShortcuts(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for non-matching query, got %d", w.Code)
+	}
+}
+
+func TestPhraseAliasEndToEnd_RestartsShortcut(t *testing.T) {
+	mockMCP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		result := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"result": map[string]interface{}{
+				"content": []map[string]interface{}{
+					{"type": "text", "text": "NAMESPACE NAME READY STATUS RESTARTS AGE\ndefault pod-1 1/1 Running 3 1d\n"},
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(result)
+	}))
+	defer mockMCP.Close()
+
+	mcpURL, _ := parseURL(mockMCP.URL)
+	sr := &shortcutRouter{
+		mcpUpstream: mcpURL,
+		client:      mockMCP.Client(),
+	}
+
+	// "show unhealthy pods" should rewrite to "restarts"
+	body := `{"query":"show unhealthy pods"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/shortcuts", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	sr.handleShortcuts(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for 'show unhealthy pods', got %d", w.Code)
+	}
+}
+
+func TestPhraseAliasEndToEnd_ErrorsShortcut(t *testing.T) {
+	mockMCP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		result := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"result": map[string]interface{}{
+				"content": []map[string]interface{}{
+					{"type": "text", "text": ""},
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(result)
+	}))
+	defer mockMCP.Close()
+
+	mcpURL, _ := parseURL(mockMCP.URL)
+	sr := &shortcutRouter{
+		mcpUpstream: mcpURL,
+		client:      mockMCP.Client(),
+	}
+
+	// "show warning events" should rewrite to "errors"
+	body := `{"query":"show warning events"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/shortcuts", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	sr.handleShortcuts(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for 'show warning events', got %d", w.Code)
+	}
+}
+
+func TestPhraseAliasEndToEnd_StatusShortcut(t *testing.T) {
+	mockMCP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		result := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"result": map[string]interface{}{
+				"content": []map[string]interface{}{
+					{"type": "text", "text": "ok"},
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(result)
+	}))
+	defer mockMCP.Close()
+
+	mcpURL, _ := parseURL(mockMCP.URL)
+	sr := &shortcutRouter{
+		mcpUpstream: mcpURL,
+		client:      mockMCP.Client(),
+	}
+
+	// "check cluster status" should rewrite to "status"
+	body := `{"query":"check cluster status"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/shortcuts", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	sr.handleShortcuts(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for 'check cluster status', got %d", w.Code)
+	}
+}
+
+func TestPhraseAliasCoverage_AllExamplesFromSpec(t *testing.T) {
+	// These are the exact examples from the M3 task specification
+	specExamples := []struct {
+		phrase   string
+		wantTarget string // expected canonical shortcut prefix
+	}{
+		{"show all pods", "pods"},
+		{"list pods", "pods"},
+		{"get pods", "pods"},
+		{"show node health", "health"},
+		{"summarize cluster health", "health"},
+		{"show warning events", "errors"},
+		{"show restarting pods", "restarts"},
+		{"show unhealthy pods", "restarts"},
+		{"check cluster status", "status"},
+	}
+
+	for _, tc := range specExamples {
+		got, alias := rewriteQuery(tc.phrase)
+		if !strings.HasPrefix(got, tc.wantTarget) {
+			t.Errorf("M3 spec example %q: rewriteQuery returned %q, expected prefix %q", tc.phrase, got, tc.wantTarget)
+		}
+		if alias == "" {
+			t.Errorf("M3 spec example %q: should match an alias but didn't", tc.phrase)
+		}
+	}
+}

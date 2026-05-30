@@ -73,8 +73,25 @@ k2s addons disable ai-assistant --keep-model-data
 
 ## Prerequisites
 
-1. For `copilot` provider: GitHub PAT with "Copilot Requests" permission
-2. For `copilot` provider: Container registry secret for `shsk2s.azurecr.io` (the Copilot CLI wrapper image)
+### All providers
+
+1. **K2s cluster installed and running** — `k2s install` must have completed successfully
+2. **Ingress addon enabled** — required for external access to Kagent UI:
+   ```console
+   k2s addons enable ingress nginx
+   ```
+3. **DNS resolution for `k2s.cluster.local`** — ensure your hosts file maps `k2s.cluster.local` to the ingress IP (typically `172.19.1.100`). K2s usually configures this during install.
+
+### Copilot provider (connected mode)
+
+4. GitHub PAT with **"Copilot Requests"** permission
+5. Container registry secret for `shsk2s.azurecr.io` (the Copilot CLI wrapper image)
+
+### Ollama provider (offline mode)
+
+6. **Ollama installed on the Windows host** — download from <https://ollama.com/download/windows>
+7. **GPU (optional but recommended)** — NVIDIA GPU with CUDA support for accelerated inference. Without a GPU, inference runs on CPU (significantly slower).
+8. Sufficient disk space for model storage (~5GB for `qwen2.5:7b`)
 
 ## Accessing the AI Interface
 
@@ -105,4 +122,44 @@ kubectl port-forward svc/kagent-ui -n kagent 8080:8080
 | `manifests/kagent/copilot-cli-agent.yaml` | Copilot CLI BYO Agent CR + RBAC |
 | `manifests/kagent/ollama-agent.yaml` | Ollama-backed Agent CR + ModelConfig |
 | `manifests/kagent/kagent-ingress.yaml` | Ingress for A2A API + Kagent UI |
-| `manifests/ollama/ollama.yaml` | Ollama deployment (offline provider only) |
+
+## Checking Status
+
+```console
+k2s addons status ai-assistant
+```
+
+All components should report as healthy. For detailed checks:
+
+```console
+# Kagent pods
+kubectl get pods -n kagent
+
+# Registered agents
+kubectl get agents -n kagent
+
+# Ollama service (ollama provider only)
+Get-Service K2sOllama
+curl.exe -s http://localhost:11434/api/tags
+```
+
+## Troubleshooting
+
+| Problem | Check | Fix |
+|---------|-------|-----|
+| Kagent UI not loading | `kubectl get pods -n kagent -l app.kubernetes.io/component=ui` | `k2s addons update ai-assistant` |
+| Agent not listed in UI | `kubectl get agents -n kagent` | Check agent CR: `kubectl describe agent k2s-assistant -n kagent` |
+| Ollama not responding | `Get-Service K2sOllama` and `curl.exe -s http://localhost:11434/` | `Restart-Service K2sOllama` |
+| Slow first response | Expected — model loads into memory on first query (~10-30s cold start) | Subsequent queries will be fast (~6-7s) |
+| Ingress returns 404 | `kubectl get ingress -n kagent` | Ensure ingress addon is enabled: `k2s addons enable ingress nginx` |
+| `k2s.cluster.local` unreachable | Check hosts file: `type C:\Windows\System32\drivers\etc\hosts` | Add `172.19.1.100 k2s.cluster.local` |
+| Model pull fails | Check disk space and Ollama logs: `Get-Content "$env:LOCALAPPDATA\K2s\logs\ollama-stderr.log"` | Free disk space or choose a smaller model |
+
+## Update
+
+To re-apply manifests after changes or after a cluster reinstall:
+
+```console
+k2s addons update ai-assistant
+```
+

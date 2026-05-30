@@ -7,14 +7,6 @@ BeforeAll {
     $moduleName = (Import-Module "$PSScriptRoot\ai-assistant.module.psm1" -PassThru -Force).Name
 }
 
-Describe 'Get-OllamaManifestPath' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
-    It 'returns a path ending with ollama\ollama.yaml' {
-        InModuleScope $moduleName {
-            $result = Get-OllamaManifestPath
-            $result | Should -BeLike '*\ollama\ollama.yaml'
-        }
-    }
-}
 
 Describe 'Get-AiAssistantManifestsDir' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
     It 'returns a path ending with manifests' {
@@ -61,51 +53,6 @@ Describe 'Get-KagentA2aProxyPath' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
     }
 }
 
-Describe 'New-OllamaDataDirectory' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
-    Context 'SSH command succeeds' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey {
-                return [pscustomobject]@{ Output = '' }
-            }
-            Mock -ModuleName $moduleName Write-Log {}
-        }
-
-        It 'calls Invoke-CmdOnControlPlaneViaSSHKey with mkdir command' {
-            InModuleScope $moduleName {
-                { New-OllamaDataDirectory } | Should -Not -Throw
-                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 1 -Scope It -ParameterFilter {
-                    $CmdToExecute -match 'mkdir' -and $CmdToExecute -match '/data/ollama'
-                }
-            }
-        }
-    }
-}
-
-Describe 'New-ZscalerCaConfigMap' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
-    Context 'cert file does not exist' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Test-Path { return $false }
-            Mock -ModuleName $moduleName Write-Log {}
-             Mock -ModuleName $moduleName Invoke-Kubectl {}
-        }
-
-        It 'skips ConfigMap creation when cert file is missing' {
-            InModuleScope $moduleName {
-                { New-ZscalerCaConfigMap } | Should -Not -Throw
-                Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ModuleName $moduleName
-            }
-        }
-
-        It 'logs a warning about missing cert' {
-            InModuleScope $moduleName {
-                New-ZscalerCaConfigMap
-                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
-                    ($Messages -join ' ') -match 'Warning' -or ($_ -match 'Warning')
-                }
-            }
-        }
-    }
-}
 
 Describe 'Wait-ForKagentAvailable' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
     Context 'Kagent controller becomes ready' {
@@ -149,76 +96,30 @@ Describe 'Wait-ForKagentAvailable' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
 }
 
 Describe 'Invoke-OllamaModelPull' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
-    Context 'Ollama is ready and model pull succeeds' {
+    Context 'Ollama is ready and model already exists' {
         BeforeAll {
-            Mock -ModuleName $moduleName Wait-ForPodCondition { return $true }
-            Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $true; Output = 'pulling manifest ... success' }
-            }
+            Mock -ModuleName $moduleName Wait-ForOllamaReady { return $true }
             Mock -ModuleName $moduleName Write-Log {}
+            # curl.exe returns tags containing the model
+            Mock -ModuleName $moduleName curl.exe { return '{"models":[{"name":"qwen2.5:7b"}]}' }
         }
 
-        It 'does not throw when model pull succeeds' {
+        It 'skips pull when model already available' {
             InModuleScope $moduleName {
                 { Invoke-OllamaModelPull -Model 'qwen2.5:7b' } | Should -Not -Throw
             }
         }
-
-        It 'calls kubectl exec with ollama pull' {
-            InModuleScope $moduleName {
-                Invoke-OllamaModelPull -Model 'qwen2.5:7b'
-                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                    $Params -contains 'exec' -and $Params -contains 'pull' -and $Params -contains 'qwen2.5:7b'
-                }
-            }
-        }
     }
 
-    Context 'Ollama pod does not become ready' {
+    Context 'Ollama is not ready' {
         BeforeAll {
-            Mock -ModuleName $moduleName Wait-ForPodCondition { return $false }
+            Mock -ModuleName $moduleName Wait-ForOllamaReady { return $false }
             Mock -ModuleName $moduleName Write-Log {}
         }
 
-        It 'throws when Ollama pod is not ready within timeout' {
+        It 'throws when Ollama is not responding' {
             InModuleScope $moduleName {
-                { Invoke-OllamaModelPull -Model 'qwen2.5:7b' } | Should -Throw '*Ollama pod did not become ready*'
-            }
-        }
-    }
-
-    Context 'ollama pull command fails' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Wait-ForPodCondition { return $true }
-            Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $false; Output = 'Error: pull failed' }
-            }
-            Mock -ModuleName $moduleName Write-Log {}
-        }
-
-        It 'throws when ollama pull returns failure' {
-            InModuleScope $moduleName {
-                { Invoke-OllamaModelPull -Model 'qwen2.5:7b' } | Should -Throw "*ollama pull qwen2.5:7b*failed*"
-            }
-        }
-    }
-}
-
-Describe 'Remove-KagentProxyService' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
-    BeforeAll {
-        Mock -ModuleName $moduleName Invoke-Kubectl {
-            return [pscustomobject]@{ Success = $true; Output = '' }
-        }
-        Mock -ModuleName $moduleName Write-Log {}
-    }
-
-    It 'deletes legacy proxy services in default namespace' {
-        InModuleScope $moduleName {
-            Remove-KagentProxyService
-            Should -Invoke Invoke-Kubectl -Scope It -ParameterFilter {
-                $Params -contains 'delete' -and
-                $Params -contains 'service' -and
-                $Params -contains 'default'
+                { Invoke-OllamaModelPull -Model 'qwen2.5:7b' } | Should -Throw '*not responding*'
             }
         }
     }
@@ -232,17 +133,9 @@ Describe 'Remove-AiAssistantResources' -Tag 'unit', 'ci', 'addon', 'ai-assistant
             }
             Mock -ModuleName $moduleName Remove-CopilotAgent {}
             Mock -ModuleName $moduleName Remove-OllamaAgent {}
-            Mock -ModuleName $moduleName Remove-KagentProxyService {}
-            Mock -ModuleName $moduleName Remove-LegacyAgentResources {}
             Mock -ModuleName $moduleName Write-Log {}
         }
 
-        It 'calls Remove-LegacyAgentResources' {
-            InModuleScope $moduleName {
-                Remove-AiAssistantResources
-                Should -Invoke Remove-LegacyAgentResources -Times 1 -Scope It
-            }
-        }
 
         It 'deletes the ai-assistant namespace' {
             InModuleScope $moduleName {
@@ -279,8 +172,6 @@ Describe 'Remove-AiAssistantResources' -Tag 'unit', 'ci', 'addon', 'ai-assistant
             }
             Mock -ModuleName $moduleName Remove-CopilotAgent {}
             Mock -ModuleName $moduleName Remove-OllamaAgent {}
-            Mock -ModuleName $moduleName Remove-KagentProxyService {}
-            Mock -ModuleName $moduleName Remove-LegacyAgentResources {}
             Mock -ModuleName $moduleName Write-Log {}
         }
 
@@ -334,13 +225,6 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         }
     }
 
-    It 'exports Get-OllamaManifestPath' {
-        InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'Get-OllamaManifestPath' -ErrorAction SilentlyContinue
-            $fn | Should -Not -BeNullOrEmpty
-        }
-    }
-
     It 'exports Get-KagentManifestsDir' {
         InModuleScope $moduleName {
             $fn = Get-Command -Module $moduleName -Name 'Get-KagentManifestsDir' -ErrorAction SilentlyContinue
@@ -376,37 +260,23 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         }
     }
 
-    It 'exports Set-KagentProxyService' {
+    It 'exports Install-OllamaWindowsService' {
         InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'Set-KagentProxyService' -ErrorAction SilentlyContinue
+            $fn = Get-Command -Module $moduleName -Name 'Install-OllamaWindowsService' -ErrorAction SilentlyContinue
             $fn | Should -Not -BeNullOrEmpty
         }
     }
 
-    It 'exports Remove-KagentProxyService' {
+    It 'exports Wait-ForOllamaReady' {
         InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'Remove-KagentProxyService' -ErrorAction SilentlyContinue
+            $fn = Get-Command -Module $moduleName -Name 'Wait-ForOllamaReady' -ErrorAction SilentlyContinue
             $fn | Should -Not -BeNullOrEmpty
         }
     }
 
-    It 'exports Remove-LegacyAgentResources' {
+    It 'exports Set-OllamaKeepAlive' {
         InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'Remove-LegacyAgentResources' -ErrorAction SilentlyContinue
-            $fn | Should -Not -BeNullOrEmpty
-        }
-    }
-
-    It 'exports New-OllamaDataDirectory' {
-        InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'New-OllamaDataDirectory' -ErrorAction SilentlyContinue
-            $fn | Should -Not -BeNullOrEmpty
-        }
-    }
-
-    It 'exports New-ZscalerCaConfigMap' {
-        InModuleScope $moduleName {
-            $fn = Get-Command -Module $moduleName -Name 'New-ZscalerCaConfigMap' -ErrorAction SilentlyContinue
+            $fn = Get-Command -Module $moduleName -Name 'Set-OllamaKeepAlive' -ErrorAction SilentlyContinue
             $fn | Should -Not -BeNullOrEmpty
         }
     }
@@ -429,6 +299,71 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         InModuleScope $moduleName {
             $fn = Get-Command -Module $moduleName -Name 'Write-AiAssistantUsageForUser' -ErrorAction SilentlyContinue
             $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'exports Get-OllamaExePath' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Get-OllamaExePath' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'exports Test-OllamaWindowsHealth' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Test-OllamaWindowsHealth' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'exports Remove-OllamaWindowsService' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Remove-OllamaWindowsService' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+}
+
+Describe 'Get-OllamaExePath' -Tag 'unit', 'ci', 'addon', 'ai-assistant' {
+    Context 'Ollama is not installed' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-Command { return $null }
+            Mock -ModuleName $moduleName Test-Path { return $false }
+        }
+
+        It 'throws a descriptive error with download URL' {
+            InModuleScope $moduleName {
+                { Get-OllamaExePath } | Should -Throw '*Ollama is not installed*'
+            }
+        }
+    }
+
+    Context 'Ollama is on PATH' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-Command {
+                return [pscustomobject]@{ Source = 'C:\Tools\ollama.exe' }
+            }
+        }
+
+        It 'returns the PATH-based exe location' {
+            InModuleScope $moduleName {
+                $result = Get-OllamaExePath
+                $result | Should -Be 'C:\Tools\ollama.exe'
+            }
+        }
+    }
+
+    Context 'Ollama is at default install path' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-Command { return $null }
+            Mock -ModuleName $moduleName Test-Path { return $true }
+        }
+
+        It 'returns the default path' {
+            InModuleScope $moduleName {
+                $result = Get-OllamaExePath
+                $result | Should -BeLike '*Ollama\ollama.exe'
+            }
         }
     }
 }

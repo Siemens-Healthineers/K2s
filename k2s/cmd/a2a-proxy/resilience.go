@@ -23,14 +23,6 @@ import (
 // No retries — a failed call returns a structured timeout result immediately.
 const toolCallTimeout = 10 * time.Second
 
-// toolCallResult captures the outcome of a single tool call with metadata.
-type toolCallResult struct {
-	Data       string        `json:"data,omitempty"`
-	Error      string        `json:"error,omitempty"`
-	TimedOut   bool          `json:"timed_out,omitempty"`
-	Elapsed    time.Duration `json:"-"`
-	Confidence string        `json:"confidence"` // "high", "partial", "low"
-}
 
 // callToolWithTimeout invokes callTool with per-call timeout enforcement.
 // Returns empty string and error on timeout — never hangs.
@@ -69,7 +61,6 @@ const (
 	ErrKubernetesUnreachable = "kubernetes_api_unreachable"
 	ErrResourceNotFound      = "resource_not_found"
 	ErrPreprocessingFailure  = "preprocessing_failure"
-	ErrInvalidRequest        = "invalid_request"
 )
 
 // structuredError represents a deterministic, operator-friendly error.
@@ -467,10 +458,6 @@ func handleStatusShortcut(sr *shortcutRouter, query string) (*shortcutResponse, 
 
 // --- Partial Result Annotations ---
 
-// annotateUnavailable returns an annotation string when a data source failed.
-func annotateUnavailable(source string) string {
-	return fmt.Sprintf("[%s: data unavailable]", source)
-}
 
 // computeConfidence determines data confidence based on failures.
 // Returns "high" (all sources ok), "partial" (some failed), "low" (most failed).
@@ -534,13 +521,6 @@ func handleShortcutError(w http.ResponseWriter, err error, query string, start t
 	writeStructuredError(w, http.StatusInternalServerError, se)
 }
 
-// --- Ollama URL Helper ---
-
-// ollamaURLFromMCPUpstream derives Ollama URL from known architecture.
-// In K2s, Ollama runs on Windows host at 172.19.1.1:11434.
-func ollamaURLFromFlag() string {
-	return "http://172.19.1.1:11434"
-}
 
 // --- Helpers for partial result annotation in overview ---
 

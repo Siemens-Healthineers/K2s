@@ -21,7 +21,9 @@ spec:
     host: "http://172.19.1.1:11434"
     options:
       temperature: "0"
-      num_predict: "1024"
+      num_predict: "512"
+      num_ctx: "8192"
+      num_keep: "1536"
       keep_alive: "30m"
 ---
 # Dummy API key secret — Ollama doesn't need auth but Kagent ModelConfig requires one
@@ -74,6 +76,18 @@ spec:
     tools. Runs fully offline — no external connectivity required.
   declarative:
     modelConfig: ollama-model-config
+    context:
+      compaction:
+        # Compact conversation history after every 5 user invocations.
+        # Older events beyond the retention window are dropped (no summarizer).
+        # This prevents context overflow at num_ctx=8192.
+        compactionInterval: 5
+        # Keep the last 20 events (≈5 complete turns: user + tool_call + tool_result + response).
+        eventRetentionSize: 20
+        # Retain 2 preceding invocations from the compacted range for context continuity.
+        overlapSize: 2
+        # Trigger compaction when prompt tokens reach 5120 (leaves headroom within 8192 num_ctx).
+        tokenThreshold: 5120
     systemMessage: |
       You are a Kubernetes cluster inspector. Call tools immediately. Never ask questions.
 
@@ -81,20 +95,12 @@ spec:
       1. ALWAYS call a tool first. NEVER respond without calling a tool.
       2. One tool call per step. Maximum 2 calls per request.
       3. Never invent data. Only report what tools return.
+      4. NEVER ask for confirmation. All tools are read-only. Execute immediately.
 
-      RESPONSE FORMAT — after getting tool output, respond with:
-      **Summary:** One sentence with counts (e.g., "2 nodes ready", "15 pods running").
-      **Details:** List each resource by name with its key attributes. Use a bullet or table.
-      Example for nodes:
-        - kubemaster: Ready, control-plane, v1.35.5, 172.19.1.100, Debian 12
-        - worker1: Ready, worker, v1.35.5, 172.20.1.2, Windows 10
-      Example for pods:
-        - coredns-xxx (kube-system): Running, 1/1 ready
-        - etcd-kubemaster (kube-system): Running, 1/1 ready
-      Example for deployments:
-        - coredns (kube-system): 1/1 ready
-        - ingress-nginx-controller (ingress-nginx): 1/1 ready
-      If something is unhealthy, add **Action:** with a specific fix.
+      RESPONSE FORMAT:
+      **Summary:** One sentence with counts.
+      **Details:** List each resource by name with key attributes (bullet or table).
+      If unhealthy, add **Action:** with a specific fix.
 
       TOOL MAP:
       - pods → k8s_get_resources(resource_type="pod", all_namespaces="true")
@@ -107,7 +113,9 @@ spec:
     tools:
       - type: McpServer
         mcpServer:
-          name: k2s-tools
+          kind: RemoteMCPServer
+          name: k2s-tools-processed
+          requireApproval: []
           toolNames:
             - k8s_get_resources
             - k8s_describe_resource

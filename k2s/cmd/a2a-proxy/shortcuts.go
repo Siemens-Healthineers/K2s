@@ -70,6 +70,175 @@ var shortcuts = []shortcutDefinition{
 	{Pattern: "pod ", Handler: handlePodShortcut},
 }
 
+// phraseAliases maps common operator phrases to their canonical shortcut form.
+// Each entry is a prefix phrase that, when matched, rewrites the query to the
+// canonical form before shortcut matching. This is a deterministic, zero-LLM
+// optimization that routes natural-language operational queries to existing shortcuts.
+//
+// Design principles:
+//   - Only map phrases with UNAMBIGUOUS intent to a single shortcut
+//   - Preserve any trailing arguments (e.g., "show deployment nginx" → "deploy nginx")
+//   - More specific phrases must come before general ones (longer prefixes first)
+//   - All matching is case-insensitive (queries are lowercased before comparison)
+var phraseAliases = []struct {
+	Phrase    string // lowercased prefix to match
+	Canonical string // canonical shortcut form to rewrite to
+	StripArgs bool   // if true, discard everything after the phrase (canonical is complete)
+}{
+	// --- Pods ---
+	{"show all pods", "pods", true},
+	{"show me all pods", "pods", true},
+	{"show pods in ", "ns ", false},
+	{"show pods", "pods", true},
+	{"show me pods", "pods", true},
+	{"list all pods", "pods", true},
+	{"list pods in ", "ns ", false},
+	{"list pods", "pods", true},
+	{"get all pods", "pods", true},
+	{"get pods", "pods", true},
+	{"what pods are running", "pods", true},
+	{"which pods are running", "pods", true},
+
+	// --- Unhealthy/Restarting Pods ---
+	{"show unhealthy pods", "restarts", true},
+	{"show restarting pods", "restarts", true},
+	{"show crashed pods", "restarts", true},
+	{"show failing pods", "restarts", true},
+	{"show failed pods", "restarts", true},
+	{"list unhealthy pods", "restarts", true},
+	{"list restarting pods", "restarts", true},
+	{"pods with restarts", "restarts", true},
+	{"pods restarting", "restarts", true},
+	{"which pods are unhealthy", "restarts", true},
+	{"which pods are restarting", "restarts", true},
+	{"which pods are failing", "restarts", true},
+	{"what is crashing", "restarts", true},
+	{"what is restarting", "restarts", true},
+
+	// --- Nodes ---
+	{"show nodes", "nodes", true},
+	{"show me nodes", "nodes", true},
+	{"show all nodes", "nodes", true},
+	{"list nodes", "nodes", true},
+	{"get nodes", "nodes", true},
+	{"show node health", "health", true},
+	{"show node status", "nodes", true},
+	{"node status", "nodes", true},
+	{"node health", "health", true},
+	{"what nodes are available", "nodes", true},
+
+	// --- Health ---
+	{"show health", "health", true},
+	{"show cluster health", "health", true},
+	{"show me cluster health", "health", true},
+	{"summarize cluster health", "health", true},
+	{"cluster health", "health", true},
+	{"cluster overview", "health", true},
+	{"cluster summary", "health", true},
+	{"how is the cluster", "health", true},
+	{"is the cluster healthy", "health", true},
+	{"is everything running", "health", true},
+
+	// --- Status ---
+	{"check status", "status", true},
+	{"check cluster status", "status", true},
+	{"show status", "status", true},
+	{"show system status", "status", true},
+	{"system status", "status", true},
+	{"component status", "status", true},
+	{"platform status", "status", true},
+	{"what is the status", "status", true},
+
+	// --- Events/Errors ---
+	{"show events", "errors", true},
+	{"show warning events", "errors", true},
+	{"show warnings", "errors", true},
+	{"show errors", "errors", true},
+	{"show me errors", "errors", true},
+	{"show recent errors", "errors", true},
+	{"show recent events", "errors", true},
+	{"list events", "errors", true},
+	{"list errors", "errors", true},
+	{"list warnings", "errors", true},
+	{"get events", "errors", true},
+	{"what warnings are there", "errors", true},
+	{"any errors", "errors", true},
+	{"any warnings", "errors", true},
+	{"recent errors", "errors", true},
+	{"recent warnings", "errors", true},
+	{"recent events", "errors", true},
+
+	// --- Deployments (with argument carry-forward) ---
+	{"show deployment ", "deploy ", false},
+	{"show deploy ", "deploy ", false},
+	{"check deployment ", "deploy ", false},
+	{"check deploy ", "deploy ", false},
+	{"deployment status ", "deploy ", false},
+	{"get deployment ", "deploy ", false},
+	{"describe deployment ", "deploy ", false},
+
+	// --- Deployments (no argument — show all) ---
+	{"show deployments", "pods", true},
+	{"show all deployments", "pods", true},
+	{"list deployments", "pods", true},
+	{"get deployments", "pods", true},
+
+	// --- Logs (with argument carry-forward) ---
+	{"show logs ", "logs ", false},
+	{"show me logs ", "logs ", false},
+	{"get logs ", "logs ", false},
+	{"show log ", "logs ", false},
+	{"tail logs ", "logs ", false},
+	{"tail ", "logs ", false},
+
+	// --- Diagnose (with argument carry-forward) ---
+	{"investigate pod ", "diagnose ", false},
+	{"investigate ", "diagnose ", false},
+	{"troubleshoot pod ", "diagnose ", false},
+	{"troubleshoot ", "diagnose ", false},
+	{"debug pod ", "diagnose ", false},
+	{"debug ", "diagnose ", false},
+	{"why is ", "why is pod ", false},
+
+	// --- Namespace (with argument carry-forward) ---
+	{"show namespace ", "ns ", false},
+	{"show ns ", "ns ", false},
+	{"pods in ", "ns ", false},
+
+	// --- Top ---
+	{"show top", "top", true},
+	{"resource usage", "top", true},
+	{"show resource usage", "top", true},
+
+	// --- Help ---
+	{"what can you do", "help", true},
+	{"show commands", "help", true},
+	{"list commands", "help", true},
+	{"available commands", "help", true},
+}
+
+// rewriteQuery applies phraseAliases to rewrite a natural-language query to its
+// canonical shortcut form. Returns the rewritten query and the matched alias phrase
+// (empty string if no alias matched). The input query must already be lowercased.
+func rewriteQuery(query string) (rewritten string, matchedAlias string) {
+	for _, alias := range phraseAliases {
+		if strings.HasPrefix(query, alias.Phrase) {
+			if alias.StripArgs {
+				return alias.Canonical, alias.Phrase
+			}
+			// Carry forward the trailing arguments after the matched phrase
+			tail := strings.TrimSpace(query[len(alias.Phrase):])
+			return alias.Canonical + tail, alias.Phrase
+		}
+	}
+	return query, ""
+}
+
+// recordPhraseAlias records a phrase alias rewrite for metrics/observability.
+func recordPhraseAlias(alias string) {
+	a2aMetrics.requestsTotal.Inc(fmt.Sprintf(`status="2xx",type="phrase_alias",alias="%s"`, alias))
+}
+
 // handleHelpShortcut returns all available shortcuts grouped by category.
 func handleHelpShortcut(sr *shortcutRouter, query string) (*shortcutResponse, error) {
 	details := `CLUSTER OVERVIEW
@@ -97,6 +266,7 @@ SYSTEM
   help            This help text
 
 All shortcuts execute deterministically without LLM. Sub-second response.
+Natural-language phrases (e.g. "show all pods", "list nodes") are auto-rewritten.
 For free-form queries, use the kagent-ui chat (requires Ollama).`
 
 	return &shortcutResponse{
@@ -136,6 +306,15 @@ func (sr *shortcutRouter) handleShortcuts(w http.ResponseWriter, r *http.Request
 	if query == "" {
 		http.Error(w, `{"error":"empty query"}`, http.StatusBadRequest)
 		return
+	}
+
+	// Apply phrase aliases — rewrite natural-language phrases to canonical shortcut form
+	rewritten, alias := rewriteQuery(query)
+	if alias != "" {
+		slog.Info("[Shortcuts] Phrase alias matched", "original", query, "rewritten", rewritten, "alias", alias)
+		query = rewritten
+		req.Query = rewritten // pass canonical form to handler
+		recordPhraseAlias(alias)
 	}
 
 	// Match against shortcuts
