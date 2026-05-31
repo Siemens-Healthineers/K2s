@@ -43,6 +43,7 @@ Deploying individual workloads (e.g., manually installing an ingress controller,
 
 | Addon | Description |
 |-------|-------------|
+| **ai-assistant** | AI Assistant — Kagent AI agent framework with Copilot CLI or Ollama backend |
 | **autoscaling** | Horizontal workload scaling based on external events with KEDA |
 | **dashboard** | Headlamp - Kubernetes Dashboard (kubernetes-sigs) |
 | **dicom** | DICOM server based on Orthanc |
@@ -64,6 +65,62 @@ Deploying individual workloads (e.g., manually installing an ingress controller,
 ## Addon Configuration Details
 
 This section documents the CLI flags available for each addon. Flags without defaults are optional unless marked otherwise.
+
+### ai-assistant
+
+Deploys [Kagent](https://kagent.dev){target="_blank"} (a CNCF Kubernetes-native AI agent framework) with a configurable backend provider. The **Kagent UI** is the sole AI interface.
+
+**Providers:**
+
+| Provider | Flag | Connectivity | Description |
+|----------|------|-------------|-------------|
+| `copilot` (default) | `--provider copilot` | Connected | Kagent + Copilot CLI BYO agent. Requires a GitHub PAT with "Copilot Requests" permission. |
+| `ollama` | `--provider ollama` | Offline | Kagent + Ollama local LLM. Fully air-gapped. Requires [Ollama](https://ollama.com/download/windows){target="_blank"} installed on the Windows host. |
+
+| Enable Flag | Type | Default | Description |
+|-------------|------|---------|-------------|
+| `--provider` | string | `copilot` | Agent provider: `copilot` (connected) or `ollama` (offline) |
+| `--model` | string | `qwen2.5:7b` | Ollama model to pull and use (only for `ollama` provider) |
+| `--github-token` | string | `""` | GitHub PAT with Copilot Requests permission (only for `copilot` provider) |
+| `--gpu` | boolean | `false` | Enable GPU acceleration for Ollama |
+
+| Disable Flag | Type | Default | Description |
+|-------------|------|---------|-------------|
+| `--keep-model-data` | boolean | `false` | Preserve the Ollama Windows service so downloaded models survive a re-enable. Model data at `~/.ollama/models` is never auto-deleted. |
+
+**Prerequisites:**
+
+- **Ingress addon** must be enabled for external access to the Kagent UI
+- **Ollama provider:** Ollama must be installed on the Windows host before enabling
+- **Copilot provider:** A GitHub PAT with "Copilot Requests" permission
+
+```console
+# Connected mode (default) — uses GitHub Copilot CLI
+k2s addons enable ai-assistant --github-token ghp_xxx
+
+# Offline mode — uses local Ollama LLM
+k2s addons enable ai-assistant --provider ollama
+
+# Offline with specific model
+k2s addons enable ai-assistant --provider ollama --model mistral
+
+# Disable (removes everything)
+k2s addons disable ai-assistant
+
+# Disable but keep downloaded models
+k2s addons disable ai-assistant --keep-model-data
+```
+
+**Accessing the AI interface:**
+
+The Kagent UI is accessible via ingress at `https://k2s.cluster.local/agents/kagent/k2s-assistant/chat`, or via port-forward:
+
+```console
+kubectl port-forward svc/kagent-ui -n kagent 8080:8080
+# Then open http://localhost:8080
+```
+
+For full details including architecture, troubleshooting, and provider-specific requirements, see the [AI Assistant addon README](https://github.com/Siemens-Healthineers/K2s/tree/main/addons/ai-assistant/README.md){target="_blank"}.
 
 ### ingress
 
