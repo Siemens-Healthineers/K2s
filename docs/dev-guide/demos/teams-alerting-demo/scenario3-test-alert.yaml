@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-test-alert
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    app: kube-prometheus-stack
+spec:
+  groups:
+    - name: demo-alerts.test
+      rules:
+        - alert: DemoTestAlert
+          expr: vector(1)
+          for: 10s
+          labels:
+            severity: demo
+            team: k2s
+            scenario: "pipeline-test"
+            environment: "demo"
+          annotations:
+            summary: "🧪 Demo Test Alert - Pipeline Validation"
+            description: |
+              This is a test alert to validate the complete alerting pipeline:
+              Prometheus → Alertmanager → Teams Webhook → K2s-Alerts Channel
+              
+              This alert is intentional and can be safely ignored.
+              It will resolve automatically when the test rule is removed.
+            purpose: "Alerting pipeline validation for K2s demo"
+

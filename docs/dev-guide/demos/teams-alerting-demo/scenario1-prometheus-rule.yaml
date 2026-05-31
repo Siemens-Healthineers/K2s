@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nginx-demo-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    app: kube-prometheus-stack
+spec:
+  groups:
+    - name: demo-alerts.nginx
+      rules:
+        - alert: NginxDemoPodUnavailable
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="demo-alerts",
+              deployment="nginx-demo"
+            } == 0
+          for: 1s
+          labels:
+            severity: demo
+            team: k2s
+            scenario: "nginx-availability"
+          annotations:
+            summary: "🚨 Nginx Demo Pod Unavailable"
+            description: |
+              Deployment nginx-demo in namespace demo-alerts has fewer available replicas than desired.
+              Current available: {{ $value }}
+              Expected: {{ with printf `kube_deployment_spec_replicas{namespace="demo-alerts",deployment="nginx-demo"}` | query }}{{ . | first | value }}{{ end }}
+            runbook_url: "https://github.com/siemens-healthineers/K2s/docs/dev-guide/demos/teams-alerting-demo"
+            dashboard_url: "http://localhost:9090/graph?g0.expr=kube_deployment_status_replicas_available%7Bnamespace%3D%22demo-alerts%22%7D"
+

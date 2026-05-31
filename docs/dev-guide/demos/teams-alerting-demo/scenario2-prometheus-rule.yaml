@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: webapp-replica-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    app: kube-prometheus-stack
+spec:
+  groups:
+    - name: demo-alerts.replicas
+      rules:
+        - alert: WebAppReplicasMismatch
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="demo-alerts",
+              deployment="webapp-demo"
+            } < kube_deployment_spec_replicas{
+              namespace="demo-alerts",
+              deployment="webapp-demo"
+            }
+          for: 20s
+          labels:
+            severity: demo
+            team: k2s
+            scenario: "replica-mismatch"
+          annotations:
+            summary: "⚠️ WebApp Replica Count Mismatch"
+            description: |
+              Deployment webapp-demo has {{ $value }} available replicas but desires more.
+              This indicates a pod scheduling or health issue.
+            impact: "Reduced availability - not all instances serving traffic"
+            action: "Check pod events and node resources"
+

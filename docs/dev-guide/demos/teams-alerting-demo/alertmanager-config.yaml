@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+#
+# This patches the ACTUAL Alertmanager secret used by kube-prometheus-stack.
+# The secret name is: alertmanager-kube-prometheus-stack-alertmanager
+# Key: alertmanager.yaml
+#
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-kube-prometheus-stack-alertmanager
+  namespace: monitoring
+stringData:
+  alertmanager.yaml: |
+    global:
+      resolve_timeout: 1m
+    route:
+      receiver: default
+      group_by:
+        - alertname
+        - namespace
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      routes:
+        - match:
+            severity: demo
+          receiver: teams-k2s-alerts
+          group_wait: 10s
+          group_interval: 10s
+          repeat_interval: 5m
+    receivers:
+      - name: default
+      - name: teams-k2s-alerts
+        webhook_configs:
+          - url: http://alert-relay.monitoring.svc:9095/
+            send_resolved: true
+    inhibit_rules:
+      - source_match:
+          severity: critical
+        target_match:
+          severity: warning
+        equal:
+          - alertname
+          - namespace
+    templates: []
+

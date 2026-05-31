@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-alerts
+  labels:
+    name: demo-alerts
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-demo
+  namespace: demo-alerts
+  labels:
+    app: webapp-demo
+    demo: alerting
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webapp-demo
+  template:
+    metadata:
+      labels:
+        app: webapp-demo
+        demo: alerting
+    spec:
+      containers:
+        - name: webapp
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi
+            requests:
+              cpu: 25m
+              memory: 32Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+

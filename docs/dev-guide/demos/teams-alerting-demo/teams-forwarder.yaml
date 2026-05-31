@@ -1,0 +1,147 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+#
+# Alert Relay: Receives Alertmanager webhooks, formats a readable text message,
+# and POSTs {"text":"..."} to Power Automate which posts to Teams.
+# This solves the Content-Type incompatibility between prometheus-msteams and Power Automate.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-relay-script
+  namespace: monitoring
+data:
+  relay.py: |
+    import http.server
+    import json
+    import urllib.request
+    import ssl
+    import os
+
+    POWER_AUTOMATE_URL = os.environ.get("POWER_AUTOMATE_URL", "")
+
+    def build_adaptive_card(data):
+        status = data.get('status', 'unknown')
+        alerts = data.get('alerts', [])
+        color = "attention" if status == 'firing' else "good"
+        body = []
+        for a in alerts:
+            name = a.get('labels', {}).get('alertname', 'Unknown')
+            ns = a.get('labels', {}).get('namespace', '')
+            severity = a.get('labels', {}).get('severity', '')
+            summary = a.get('annotations', {}).get('summary', '')
+            desc = a.get('annotations', {}).get('description', '')
+            state = a.get('status', status)
+            icon = "\U0001f6a8" if state == 'firing' else "\u2705"
+            title = f"{icon} [{state.upper()}] {name}"
+            body.append({"type": "TextBlock", "text": title, "size": "Medium", "weight": "Bolder", "color": "Attention" if state == "firing" else "Good"})
+            if summary:
+                body.append({"type": "TextBlock", "text": summary, "wrap": True})
+            facts = []
+            if ns:
+                facts.append({"title": "Namespace", "value": ns})
+            if severity:
+                facts.append({"title": "Severity", "value": severity})
+            if facts:
+                body.append({"type": "FactSet", "facts": facts})
+            if desc:
+                body.append({"type": "TextBlock", "text": desc[:300], "wrap": True, "isSubtle": True, "size": "Small"})
+            body.append({"type": "TextBlock", "text": " ", "separator": True})
+        card = {
+            "type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.4",
+            "body": body if body else [{"type": "TextBlock", "text": f"Alert status: {status}"}]
+        }
+        return card
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body)
+                card = build_adaptive_card(data)
+                payload = json.dumps(card).encode()
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                req = urllib.request.Request(
+                    POWER_AUTOMATE_URL,
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                resp = urllib.request.urlopen(req, context=ctx, timeout=15)
+                print(f"[Relay] Forwarded {len(data.get('alerts',[]))} alert(s) -> HTTP {resp.status}", flush=True)
+                self.send_response(200)
+            except Exception as e:
+                print(f"[Relay] Error: {e}", flush=True)
+                self.send_response(500)
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            pass
+
+    print("[Relay] Starting alert relay on :9095", flush=True)
+    http.server.HTTPServer(('', 9095), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-relay
+  namespace: monitoring
+  labels:
+    app: alert-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-relay
+  template:
+    metadata:
+      labels:
+        app: alert-relay
+    spec:
+      containers:
+        - name: relay
+          image: python:3.11-alpine
+          command: ["python", "/app/relay.py"]
+          ports:
+            - containerPort: 9095
+              name: http
+          env:
+            - name: POWER_AUTOMATE_URL
+              value: "https://default5dbf1add202a4b8d815bbf0fb024e0.33.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/672be5dca4e443b3be3cd83d510f0949/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=uNuwpnJxWJcB4Lpxgm5iBc-c_lhXWbcT2qOE7odUfNA"
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 25m
+              memory: 32Mi
+      volumes:
+        - name: script
+          configMap:
+            name: alert-relay-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-relay
+  namespace: monitoring
+  labels:
+    app: alert-relay
+spec:
+  selector:
+    app: alert-relay
+  ports:
+    - port: 9095
+      targetPort: 9095
+      protocol: TCP
+      name: http
+  type: ClusterIP
+
