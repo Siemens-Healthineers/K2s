@@ -929,4 +929,4 @@ Get-L2BridgeSwitchName,
 Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
 Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand,
-Wait-ForServiceStopped, Test-KubeSwitchPrivateProfile, Get-NodePodCIDRFromKubectl
+Wait-ForServiceStopped, Test-KubeSwitchPrivateProfile, Get-NodePodCIDRFromKubectl, Get-ConfiguredClusterCIDRForFlannel
