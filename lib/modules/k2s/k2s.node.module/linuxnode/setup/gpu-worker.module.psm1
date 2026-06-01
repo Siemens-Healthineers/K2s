@@ -19,8 +19,8 @@
     - The node must be accessible via SSH
 #>
 
-$infraModule = "$PSScriptRoot/../../../../k2s.infra.module/k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../../k2s.cluster.module/k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
 
 Import-Module $infraModule, $clusterModule
 
@@ -28,6 +28,186 @@ Import-Module $infraModule, $clusterModule
 $script:GpuLabelKey = 'k2s.io/gpu-node'
 $script:GpuLabel = 'gpu'
 $script:AcceleratorLabel = 'accelerator'
+
+<#
+.SYNOPSIS
+    Detects if an NVIDIA GPU is physically present on the target Linux node.
+
+.DESCRIPTION
+    Uses lspci to check for NVIDIA GPU hardware. This check is performed before any
+    driver verification to determine if GPU setup should proceed at all.
+    
+    This function does NOT throw errors - it returns a result object indicating
+    whether an NVIDIA GPU was detected.
+
+.PARAMETER UserName
+    SSH username for the remote node.
+
+.PARAMETER IpAddress
+    IP address of the remote node.
+
+.OUTPUTS
+    Returns a hashtable with:
+    - Present: $true if NVIDIA GPU detected, $false otherwise
+    - GpuInfo: String describing the detected GPU(s), or reason for no detection
+    - OtherGpu: $true if non-NVIDIA GPU detected (AMD, Intel, etc.)
+#>
+function Test-NvidiaGpuPresent {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $UserName,
+        [Parameter(Mandatory = $true)]
+        [string] $IpAddress
+    )
+
+    Write-Log "[GPU] Checking for NVIDIA GPU hardware on node $IpAddress" -Console
+
+    $result = @{
+        Present  = $false
+        GpuInfo  = ''
+        OtherGpu = $false
+    }
+
+    # Hyper-V/WSL GPU-PV path: prefer runtime verification via nvidia-smi.
+    # This mirrors the kube-master gpu-node addon checks which validate
+    # /usr/lib/wsl/lib/nvidia-smi availability instead of relying only on lspci vendor strings.
+    $smiCandidates = @(
+        '/usr/lib/wsl/lib/nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>&1',
+        'nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>&1'
+    )
+
+    foreach ($smiCmd in $smiCandidates) {
+        $smiResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $smiCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+        $smiOutput = if ($smiResult.Output -is [array]) { $smiResult.Output -join "`n" } else { [string]$smiResult.Output }
+        if (
+            $smiResult.Success -and
+            ![string]::IsNullOrWhiteSpace($smiOutput) -and
+            $smiOutput -notmatch 'No devices were found|NVIDIA-SMI has failed|command not found|not found|failed'
+        ) {
+            $result.Present = $true
+            $result.GpuInfo = "NVIDIA runtime detected via nvidia-smi: $($smiOutput.Trim())"
+            Write-Log "[GPU] $($result.GpuInfo)" -Console
+            return $result
+        }
+    }
+
+    # Check if lspci is available
+    $lspciCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which lspci 2>/dev/null || echo "NOT_FOUND"' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+    if ($lspciCheck.Output -match 'NOT_FOUND' -or [string]::IsNullOrWhiteSpace($lspciCheck.Output)) {
+        # lspci not available, try alternative method with /sys
+        Write-Log "[GPU] lspci not found, checking /sys/bus/pci/devices for GPU" -Console
+        $sysCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'grep -l "0x03" /sys/bus/pci/devices/*/class 2>/dev/null | head -5' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+        if ([string]::IsNullOrWhiteSpace($sysCheck.Output)) {
+            $result.GpuInfo = 'No GPU hardware detected (lspci not available and no VGA devices in /sys)'
+            Write-Log "[GPU] $($result.GpuInfo)" -Console
+            return $result
+        }
+    }
+
+    # Query for all VGA/3D controllers
+    $gpuQuery = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'lspci 2>/dev/null | grep -iE "VGA|3D|Display" || echo "NO_GPU"' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+    
+    if ($gpuQuery.Output -match 'NO_GPU' -or [string]::IsNullOrWhiteSpace($gpuQuery.Output)) {
+        $result.GpuInfo = 'No GPU hardware detected on this node'
+        Write-Log "[GPU] $($result.GpuInfo)" -Console
+        return $result
+    }
+
+    $gpuLines = $gpuQuery.Output -split "`n" | Where-Object { $_ -match '\S' }
+    
+    # Check for NVIDIA GPU
+    $nvidiaGpus = $gpuLines | Where-Object { $_ -match 'NVIDIA' }
+    if ($nvidiaGpus) {
+        $result.Present = $true
+        $result.GpuInfo = ($nvidiaGpus | ForEach-Object { $_.Trim() }) -join '; '
+        Write-Log "[GPU] NVIDIA GPU detected: $($result.GpuInfo)" -Console
+        return $result
+    }
+
+    # Check for other GPU vendors (AMD, Intel, etc.)
+    $otherGpus = $gpuLines | Where-Object { $_ -match 'AMD|ATI|Intel|Radeon|Matrox|ASPEED' }
+    if ($otherGpus) {
+        $result.OtherGpu = $true
+        $result.GpuInfo = "Non-NVIDIA GPU detected: $(($otherGpus | ForEach-Object { $_.Trim() }) -join '; ')"
+        Write-Log "[GPU] $($result.GpuInfo) - NVIDIA GPU setup will be skipped" -Console
+        return $result
+    }
+
+    # Unknown GPU or virtual display
+    $result.GpuInfo = "Unknown/virtual display adapter detected: $(($gpuLines | ForEach-Object { $_.Trim() }) -join '; ')"
+    Write-Log "[GPU] $($result.GpuInfo)" -Console
+    return $result
+}
+
+<#
+.SYNOPSIS
+    Checks if offline GPU packages are available in the node package.
+
+.DESCRIPTION
+    Looks for the NVidia/gpu-packages folder in the node package directory to determine
+    if GPU packages were included when the package was created with --include-gpu.
+
+.PARAMETER NodePackagePath
+    Path to the extracted node package directory.
+
+.OUTPUTS
+    Returns a hashtable with:
+    - Available: $true if GPU packages folder exists with .deb files
+    - PackagesDir: Path to the GPU packages directory (if found)
+    - PackageCount: Number of .deb files found
+#>
+function Test-OfflineGpuPackagesAvailable {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string] $NodePackagePath = ''
+    )
+
+    $result = @{
+        Available    = $false
+        PackagesDir  = ''
+        PackageCount = 0
+    }
+
+    if ([string]::IsNullOrWhiteSpace($NodePackagePath)) {
+        return $result
+    }
+
+    # Check for gpu-packages directory in the extracted node package
+    # The node package structure is: packages/<os>/gpu-packages/
+    $potentialPaths = @(
+        (Join-Path $NodePackagePath 'packages' '*' 'nvidia-gpu'),  # packages/debian13/nvidia-gpu (primary)
+        (Join-Path $NodePackagePath 'packages' '*' 'gpu-packages'),          # packages/debian13/gpu-packages (legacy)
+        (Join-Path $NodePackagePath 'nvidia-gpu'),                   # nvidia-gpu (flat)
+        (Join-Path $NodePackagePath 'gpu-packages'),                          # gpu-packages (flat, legacy)
+        (Join-Path $NodePackagePath 'nvidia-container-toolkit')               # nvidia-container-toolkit
+    )
+
+    foreach ($pathPattern in $potentialPaths) {
+        $foundPaths = @(Get-ChildItem -Path $pathPattern -Directory -ErrorAction SilentlyContinue)
+        if ($foundPaths.Count -gt 0) {
+            $gpuDir = $foundPaths[0].FullName
+            $debFiles = @(Get-ChildItem -Path $gpuDir -Filter '*.deb' -File -ErrorAction SilentlyContinue)
+            if ($debFiles.Count -gt 0) {
+                $result.Available = $true
+                $result.PackagesDir = $gpuDir
+                $result.PackageCount = $debFiles.Count
+                return $result
+            }
+        }
+        # Also check if the path itself exists (for non-wildcard paths)
+        if (Test-Path $pathPattern -PathType Container) {
+            $debFiles = @(Get-ChildItem -Path $pathPattern -Filter '*.deb' -File -ErrorAction SilentlyContinue)
+            if ($debFiles.Count -gt 0) {
+                $result.Available = $true
+                $result.PackagesDir = $pathPattern
+                $result.PackageCount = $debFiles.Count
+                return $result
+            }
+        }
+    }
+
+    return $result
+}
 
 <#
 .SYNOPSIS
@@ -71,7 +251,7 @@ Prerequisites for GPU support:
 2. Reboot the machine after driver installation
 3. Verify with: nvidia-smi
 
-After installing drivers, re-run the node add command with --enable-gpu.
+After installing drivers, re-run the node add command.
 "@
         throw $errMsg
     }
@@ -93,7 +273,7 @@ Please resolve the driver issue and try again.
         throw $errMsg
     }
 
-    Write-Log "[GPU] NVIDIA driver verified on $IpAddress: $($nvidiaSmiResult.Output)" -Console
+    Write-Log "[GPU] NVIDIA driver verified on ${IpAddress}: $($nvidiaSmiResult.Output)" -Console
     return $true
 }
 
@@ -241,13 +421,14 @@ function Install-NvidiaContainerToolkitOffline {
     # Look for GPU packages in the node package directory
     $gpuPackagesDir = ''
     if (![string]::IsNullOrWhiteSpace($NodePackagePath)) {
-        # Check for gpu-packages directory in the extracted node package
-        # The node package structure is: packages/<os>/gpu-packages/
-        $potentialPaths = @(
-            (Join-Path $NodePackagePath 'packages' '*' 'gpu-packages'),  # packages/debian13/gpu-packages
-            (Join-Path $NodePackagePath 'gpu-packages'),                  # gpu-packages (flat)
-            (Join-Path $NodePackagePath 'packages' 'gpu'),                # packages/gpu
-            (Join-Path $NodePackagePath 'nvidia-container-toolkit')       # nvidia-container-toolkit
+        # Check for nvidia-gpu directory in the extracted node package
+        # The node package structure is: packages/<os>/nvidia-gpu/
+        $possibleGpuPaths = @(
+            (Join-Path $NodePackagePath 'packages' '*' 'nvidia-gpu'),  # packages/debian13/nvidia-gpu (primary)
+            (Join-Path $NodePackagePath 'packages' '*' 'gpu-packages'),          # packages/debian13/gpu-packages (legacy)
+            (Join-Path $NodePackagePath 'nvidia-gpu'),                   # nvidia-gpu (flat)
+            (Join-Path $NodePackagePath 'gpu-packages'),                          # gpu-packages (flat, legacy)
+            (Join-Path $NodePackagePath 'nvidia-container-toolkit')               # nvidia-container-toolkit
         )
         foreach ($pathPattern in $potentialPaths) {
             $foundPaths = @(Get-ChildItem -Path $pathPattern -Directory -ErrorAction SilentlyContinue)
@@ -266,7 +447,7 @@ function Install-NvidiaContainerToolkitOffline {
     # Also check linuxnode artifacts directory
     if ([string]::IsNullOrWhiteSpace($gpuPackagesDir)) {
         $linuxNodeDir = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
-        $linuxNodeGpuPath = Join-Path $linuxNodeDir 'gpu-packages'
+        $linuxNodeGpuPath = Join-Path $linuxNodeDir 'nvidia-gpu'
         if (Test-Path $linuxNodeGpuPath) {
             $gpuPackagesDir = $linuxNodeGpuPath
         }
@@ -279,7 +460,7 @@ To enable GPU support offline, create a node package that includes GPU artifacts
   k2s system package --node-package --os debian13 --include-gpu --target-dir C:\output --name debian13-node-gpu.zip
 
 Then use:
-  k2s node add --ip-addr <ip> --username <user> --enable-gpu --node-package <path-to-package>
+  k2s node add --ip-addr <ip> --username <user> --node-package <path-to-package>
 "@
     }
 
@@ -290,7 +471,7 @@ Then use:
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "rm -rf $remoteGpuDir && mkdir -p $remoteGpuDir" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     
     # Copy all .deb files
-    Copy-ToRemoteComputerViaSSHKey -Source "$gpuPackagesDir\*.deb" -Target $remoteGpuDir -UserName $UserName -IpAddress $IpAddress
+    Copy-ToRemoteComputerViaSshKey -Source "$gpuPackagesDir\*.deb" -Target $remoteGpuDir -UserName $UserName -IpAddress $IpAddress
 
     # Install packages
     $installCmd = "cd $remoteGpuDir && sudo dpkg -i *.deb 2>&1"
@@ -340,16 +521,9 @@ function Set-CrioGpuConfiguration {
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/cdi && sudo chmod 755 /etc/cdi' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
 
     # Configure CRI-O to enable CDI devices
-    $crioConfigCmd = @'
-sudo mkdir -p /etc/crio/crio.conf.d
-cat <<'EOF' | sudo tee /etc/crio/crio.conf.d/99-nvidia-gpu.conf
-[crio.runtime]
-# Enable CDI for device injection
-enable_cdi = true
-cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
-EOF
-'@
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute $crioConfigCmd -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    # Use printf with escaped newlines to avoid heredoc issues when SSH collapses multi-line commands
+    $crioConfigCmd = 'sudo mkdir -p /etc/crio/crio.conf.d && printf ''[crio.runtime]\n# Enable CDI for device injection\nenable_cdi = true\ncdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]\n'' | sudo tee /etc/crio/crio.conf.d/99-nvidia-gpu.conf'
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute $crioConfigCmd -UserName $UserName -IpAddress $IpAddress -Timeout 10).Output | Write-Log
 
     # Restart CRI-O to apply changes
     Write-Log "[GPU] Restarting CRI-O to apply GPU configuration..." -Console
@@ -363,6 +537,85 @@ EOF
     }
 
     Write-Log "[GPU] CRI-O GPU configuration complete on $IpAddress" -Console
+}
+
+<#
+.SYNOPSIS
+    Ensures NVIDIA device plugin container images are available on a worker node.
+
+.DESCRIPTION
+    Checks if required GPU images are present. For offline installations, images
+    are already loaded during node setup via Copy-KubernetesImagesFromControlPlaneToRemoteComputer.
+    For online installations, pulls the images via buildah/crictl.
+
+.PARAMETER UserName
+    SSH username for the remote node.
+
+.PARAMETER IpAddress
+    IP address of the remote node.
+
+.PARAMETER Proxy
+    Optional HTTP proxy for image pulls (online mode only).
+#>
+function Install-GpuDevicePluginImages {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $UserName,
+        [Parameter(Mandatory = $true)]
+        [string] $IpAddress,
+        [Parameter(Mandatory = $false)]
+        [string] $Proxy = ''
+    )
+
+    Write-Log "[GPU] Ensuring device plugin images are available on $IpAddress" -Console
+
+    # Images required for GPU support (same as Enable.ps1)
+    $images = @(
+        'nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
+        'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
+    )
+
+    # Build proxy environment if provided
+    $proxyEnv = ''
+    if (![string]::IsNullOrWhiteSpace($Proxy)) {
+        $proxyEnv = "HTTPS_PROXY=http://$Proxy HTTP_PROXY=http://$Proxy "
+    }
+
+    foreach ($image in $images) {
+        # Skip if already present (e.g., loaded from offline package during node setup)
+        $alreadyPresent = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo crictl inspecti '$image' >/dev/null 2>&1 && echo present || echo missing" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output
+        if ($alreadyPresent -match 'present') {
+            Write-Log "[GPU] Image already present: $image" -Console
+            continue
+        }
+
+        # Online mode: pull image
+        Write-Log "[GPU] Pulling image: $image" -Console
+
+        # Try buildah pull (shares storage with CRI-O)
+        $pullCmd = "${proxyEnv}sudo buildah pull '$image' 2>&1"
+        $pullResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $pullCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+        $pullResult.Output | Write-Log
+
+        if (!$pullResult.Success) {
+            # Fallback: try crictl pull
+            Write-Log "[GPU] buildah pull failed, trying crictl pull..." -Console
+            $crictlCmd = "${proxyEnv}sudo crictl pull '$image' 2>&1"
+            $crictlResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $crictlCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+            $crictlResult.Output | Write-Log
+
+            if (!$crictlResult.Success) {
+                Write-Log "[GPU] WARNING: Failed to pull image '$image' - the device plugin pod may stall waiting for the image" -Console
+                Write-Log "[GPU] For offline support, create node package with: k2s system package node --include-gpu" -Console
+            } else {
+                Write-Log "[GPU] Image pulled successfully via crictl: $image" -Console
+            }
+        } else {
+            Write-Log "[GPU] Image pulled successfully: $image" -Console
+        }
+    }
+
+    Write-Log "[GPU] Device plugin images check complete on $IpAddress" -Console
 }
 
 <#
@@ -411,7 +664,8 @@ function Set-GpuNodeLabels {
     1. Verifies NVIDIA driver availability
     2. Installs NVIDIA Container Toolkit
     3. Configures CRI-O for GPU support
-    4. Labels the node for GPU workloads
+    4. Pre-pulls NVIDIA device plugin images
+    5. Labels the node for GPU workloads
 
 .PARAMETER UserName
     SSH username for the remote node.
@@ -456,7 +710,10 @@ function Initialize-GpuWorkerNode {
     # Step 3: Configure CRI-O
     Set-CrioGpuConfiguration -UserName $UserName -IpAddress $IpAddress
 
-    # Step 4: Label the node
+    # Step 4: Ensure device plugin images are available (already loaded for offline, pulls for online)
+    Install-GpuDevicePluginImages -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
+    # Step 5: Label the node
     Set-GpuNodeLabels -NodeName $NodeName
 
     Write-Log '[GPU] ======================================' -Console

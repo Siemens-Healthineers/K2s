@@ -133,7 +133,7 @@ if (![string]::IsNullOrWhiteSpace($nodeName)) {
 
 # Note: GPU labels on external worker nodes are NOT removed during addon disable.
 # The k2s.io/gpu-node label on workers indicates they have been configured for GPU support
-# via 'k2s node add --enable-gpu'. Users can manually remove labels if needed:
+# when NVIDIA GPU was detected during node addition. Users can manually remove labels if needed:
 #   kubectl label node <worker-name> gpu- accelerator- k2s.io/gpu-node-
 Write-Log '[gpu-node] Note: GPU labels on external worker nodes are preserved. Remove manually if needed.' -Console
 

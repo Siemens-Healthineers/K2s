@@ -119,7 +119,7 @@ $packagesDir = Join-Path $stagingDir "packages"
 $packagesByOsDir = Join-Path $packagesDir $distributionKey
 $k8sPkgDir = Join-Path $packagesByOsDir "kubernetes"
 $buildahPkgDir = Join-Path $packagesByOsDir "buildah"
-$gpuPkgDir = Join-Path $packagesByOsDir "gpu-packages"
+$gpuPkgDir = Join-Path $packagesByOsDir "nvidia-gpu"
 $imagesDir = Join-Path $stagingDir "images"
 $remoteK8sPkgDir = "/tmp/k2s-k8s-packages"
 $remoteBuildahPkgDir = "/tmp/k2s-buildah-packages"
@@ -260,13 +260,8 @@ try {
             $curlProxy = "-x $Proxy"
         }
 
-        # Add NVIDIA Container Toolkit repository
-        $repoSetupCmd = @"
-curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && \
-curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | \
-sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-"@
+        # Add NVIDIA Container Toolkit repository (single line to avoid CRLF issues)
+        $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
         Write-Log "[NodePkg] Setting up NVIDIA repository..." -Console
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
 
@@ -315,6 +310,20 @@ sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
         -UserPwd   $sshPwd `
         -IpAddress $guestIp
 
+    # Pull GPU images if --include-gpu is specified
+    if ($IncludeGpu) {
+        Write-Log '[NodePkg] Pulling GPU container images (device plugin, DCGM exporter)...' -Console
+        $gpuImages = @(
+            'nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
+            'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
+        )
+        foreach ($gpuImg in $gpuImages) {
+            Write-Log "[NodePkg] Pulling GPU image: $gpuImg" -Console
+            $pullCmd = "sudo buildah pull '$gpuImg' 2>&1"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $pullCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
+        }
+    }
+
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
 
     # Build export list from crictl JSON to avoid fragile text parsing.
@@ -329,6 +338,10 @@ sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
                 continue
             }
             if ($repoTag -like 'registry.k8s.io/*' -or $repoTag -like 'docker.io/flannel/*') {
+                $imageRefsToExport += $repoTag
+            }
+            # Include GPU images when --include-gpu is specified
+            if ($IncludeGpu -and $repoTag -like 'nvcr.io/*') {
                 $imageRefsToExport += $repoTag
             }
         }
@@ -417,7 +430,7 @@ sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
     }
     
     Compress-Archive -Path $zipContents -DestinationPath $zipTarget -Force
-    Write-Log "[NodePkg] Node package zip created$gpuIncludedMsg: $zipTarget" -Console
+    Write-Log "[NodePkg] Node package zip created${gpuIncludedMsg}: $zipTarget" -Console
     Write-Log "[NodePkg] Package creation for '$distributionKey' completed successfully." -Console
 }
 catch {
