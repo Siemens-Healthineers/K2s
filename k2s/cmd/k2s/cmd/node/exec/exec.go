@@ -43,7 +43,7 @@ k2s node exec -i 172.19.1.100 -u remote -c "echo 'Hello, World!'" -r
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "exec",
-		Short:   "[EXPERIMENTAL] Executes a command on a remote node.",
+		Short:   "Executes a command on a remote node.",
 		Long:    longDescription,
 		Example: example,
 		RunE:    exec,
