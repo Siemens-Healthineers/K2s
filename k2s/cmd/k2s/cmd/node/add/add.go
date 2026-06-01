@@ -23,13 +23,13 @@ import (
 
 const (
 	MachineName               = "name"
-	MachineNameFlagUsage      = "Hostname of the machine"
+	MachineNameFlagUsage      = "Hostname of the node"
 	MachineIPAddress          = "ip-addr"
-	MachineIPAddressFlagUsage = "IP Address of the machine"
+	MachineIPAddressFlagUsage = "IP address of the node"
 	MachineUsername           = "username"
-	MachineUsernameFlagUsage  = "Username of the machine for remote connection"
+	MachineUsernameFlagUsage  = "Username of the node for remote connection"
 	MachineRole               = "role"
-	MachineRoleFlagUsage      = "Role of the machine as a node"
+	MachineRoleFlagUsage      = "Role of the node"
 	NodePackagePath           = "node-package"
 	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet."
 )
@@ -37,8 +37,8 @@ const (
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "[EXPERIMENTAL] Add a node to the cluster",
-		Long:  "Adds an machine or VM to an existing K2s cluster",
+		Short: "Add a node to the cluster",
+		Long:  "Adds a node to an existing K2s cluster. Currently, the supported onboarding workflow covers Linux worker nodes on physical machines or existing VMs. Support for Windows worker nodes will follow.",
 		Example: `  # Add a Linux worker node (online installation)
   k2s node add --ip-addr 192.168.1.50 --username admin
 
