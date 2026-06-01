@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -74,6 +74,15 @@ Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'registry' })
 
 if ($DeleteImages) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
+
+    # Clean up registry directory on all Linux worker nodes
+    $clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
+    if ($clusterDescriptor -and $clusterDescriptor.nodes) {
+        @($clusterDescriptor.nodes) | Where-Object { $_.OS -eq 'linux' -and $_.Role -eq 'worker' } | ForEach-Object {
+            Write-Log "[Registry] Removing /registry on worker node $($_.Name) ($($_.IpAddress))" -Console
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /registry' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
+        }
+    }
 }
 
 Remove-CoreDNSHostEntry -Hostname 'k2s.registry.local'
