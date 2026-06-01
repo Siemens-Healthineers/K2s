@@ -558,6 +558,9 @@ Describe 'Add-K2sHostsToNoProxyEnvVar' -Tag 'unit', 'ci', 'proxy' {
     It 'adds K2s hosts to existing NO_PROXY environment variable' {
         InModuleScope $moduleName {
             Mock Get-K2sHosts { return @('localhost', '127.0.0.1', '.local') }
+            $script:noProxyBaselineFp = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-no-proxy-baseline-add-$PID.txt"
+            $originalMachineNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+            $originalProcessNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Process")
             
             [Environment]::SetEnvironmentVariable("NO_PROXY", "existing.com,another.com", "Machine")
             
@@ -569,8 +572,34 @@ Describe 'Add-K2sHostsToNoProxyEnvVar' -Tag 'unit', 'ci', 'proxy' {
                 $result | Should -Match 'existing.com'
             }
             finally {
-                [Environment]::SetEnvironmentVariable("NO_PROXY", $null, "Machine")
-                [Environment]::SetEnvironmentVariable("NO_PROXY", $null, "Process")
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalMachineNoProxy, "Machine")
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalProcessNoProxy, "Process")
+                Remove-Item -Path $script:noProxyBaselineFp -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'stores the original NO_PROXY value before adding K2s hosts' {
+        InModuleScope $moduleName {
+            Mock Get-K2sHosts { return @('localhost', '127.0.0.1') }
+            $script:noProxyBaselineFp = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-no-proxy-baseline-store-$PID.txt"
+            $originalMachineNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+            $originalProcessNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Process")
+            
+            [Environment]::SetEnvironmentVariable("NO_PROXY", " existing.com, localhost ", "Machine")
+            
+            try {
+                Add-K2sHostsToNoProxyEnvVar
+                $baseline = Get-Content -Path $script:noProxyBaselineFp -Raw
+                $result = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+                
+                $baseline.Trim() | Should -Be 'existing.com,localhost'
+                $result | Should -Be '127.0.0.1,existing.com,localhost'
+            }
+            finally {
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalMachineNoProxy, "Machine")
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalProcessNoProxy, "Process")
+                Remove-Item -Path $script:noProxyBaselineFp -Force -ErrorAction SilentlyContinue
             }
         }
     }
@@ -578,21 +607,84 @@ Describe 'Add-K2sHostsToNoProxyEnvVar' -Tag 'unit', 'ci', 'proxy' {
 }
 
 Describe 'Remove-K2sHostsFromNoProxyEnvVar' -Tag 'unit', 'ci', 'proxy' {
-    It 'removes K2s hosts from NO_PROXY environment variable' {
+    It 'preserves K2s hosts that existed before K2s changed NO_PROXY' {
         InModuleScope $moduleName {
             Mock Get-K2sHosts { return @('localhost', '127.0.0.1', '.local') }
+            $script:noProxyBaselineFp = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-no-proxy-baseline-preserve-$PID.txt"
+            $originalMachineNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+            $originalProcessNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Process")
             
+            Set-Content -Path $script:noProxyBaselineFp -Value 'localhost,existing.com'
             [Environment]::SetEnvironmentVariable("NO_PROXY", "localhost,existing.com,127.0.0.1,.local", "Machine")
             
             try {
                 Remove-K2sHostsFromNoProxyEnvVar
                 
                 $result = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
-                $result | Should -Be 'existing.com'
+                $result | Should -Be 'existing.com,localhost'
+                Test-Path -Path $script:noProxyBaselineFp | Should -Be $false
             }
             finally {
-                [Environment]::SetEnvironmentVariable("NO_PROXY", $null, "Machine")
-                [Environment]::SetEnvironmentVariable("NO_PROXY", $null, "Process")
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalMachineNoProxy, "Machine")
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalProcessNoProxy, "Process")
+                Remove-Item -Path $script:noProxyBaselineFp -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'keeps required K2s hosts across an add and remove lifecycle when they were pre-existing' {
+        InModuleScope $moduleName {
+            Mock Get-K2sHosts { return @('localhost', '127.0.0.1', '::1', '172.19.1.100', '172.20.0.0/16', '172.21.0.0/16', '.local', '.cluster.local') }
+            $script:noProxyBaselineFp = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-no-proxy-baseline-lifecycle-$PID.txt"
+            $originalMachineNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+            $originalProcessNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Process")
+            $preExistingNoProxy = '.cluster.local,.local,::1,127.0.0.1,172.19.1.100,172.20.0.0/16,172.21.0.0/16,localhost,172.19.1.0/24,carbonk8s.dev,svc.cluster.local'
+            
+            [Environment]::SetEnvironmentVariable("NO_PROXY", $preExistingNoProxy, "Machine")
+            
+            try {
+                Add-K2sHostsToNoProxyEnvVar
+                Remove-K2sHostsFromNoProxyEnvVar
+                
+                $result = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine") -split ','
+                $result | Should -Contain '.cluster.local'
+                $result | Should -Contain '.local'
+                $result | Should -Contain '::1'
+                $result | Should -Contain '127.0.0.1'
+                $result | Should -Contain '172.19.1.100'
+                $result | Should -Contain '172.20.0.0/16'
+                $result | Should -Contain '172.21.0.0/16'
+                $result | Should -Contain 'localhost'
+                $result | Should -Contain 'carbonk8s.dev'
+                $result | Should -Contain 'svc.cluster.local'
+            }
+            finally {
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalMachineNoProxy, "Machine")
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalProcessNoProxy, "Process")
+                Remove-Item -Path $script:noProxyBaselineFp -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'keeps NO_PROXY unchanged when no baseline is available' {
+        InModuleScope $moduleName {
+            Mock Get-K2sHosts { return @('localhost', '127.0.0.1', '.local') }
+            $script:noProxyBaselineFp = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-no-proxy-baseline-missing-$PID.txt"
+            $originalMachineNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+            $originalProcessNoProxy = [Environment]::GetEnvironmentVariable("NO_PROXY", "Process")
+            
+            Remove-Item -Path $script:noProxyBaselineFp -Force -ErrorAction SilentlyContinue
+            [Environment]::SetEnvironmentVariable("NO_PROXY", "localhost,existing.com,127.0.0.1,.local", "Machine")
+            
+            try {
+                Remove-K2sHostsFromNoProxyEnvVar
+                
+                [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine") | Should -Be 'localhost,existing.com,127.0.0.1,.local'
+            }
+            finally {
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalMachineNoProxy, "Machine")
+                [Environment]::SetEnvironmentVariable("NO_PROXY", $originalProcessNoProxy, "Process")
+                Remove-Item -Path $script:noProxyBaselineFp -Force -ErrorAction SilentlyContinue
             }
         }
     }
