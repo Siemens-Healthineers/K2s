@@ -521,8 +521,14 @@ function Set-CrioGpuConfiguration {
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/cdi && sudo chmod 755 /etc/cdi' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
 
     # Configure CRI-O to enable CDI devices
-    # Use printf with escaped newlines to avoid heredoc issues when SSH collapses multi-line commands
-    $crioConfigCmd = 'sudo mkdir -p /etc/crio/crio.conf.d && printf ''[crio.runtime]\n# Enable CDI for device injection\nenable_cdi = true\ncdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]\n'' | sudo tee /etc/crio/crio.conf.d/99-nvidia-gpu.conf'
+    # Use base64 encoding to avoid all shell quoting issues when passing through SSH
+    $crioConfig = @'
+[crio.runtime]
+enable_cdi = true
+cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
+'@
+    $crioConfigBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($crioConfig))
+    $crioConfigCmd = "sudo mkdir -p /etc/crio/crio.conf.d && echo '$crioConfigBase64' | base64 -d | sudo tee /etc/crio/crio.conf.d/99-nvidia-gpu.conf"
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute $crioConfigCmd -UserName $UserName -IpAddress $IpAddress -Timeout 10).Output | Write-Log
 
     # Restart CRI-O to apply changes
