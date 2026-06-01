@@ -4800,13 +4800,10 @@ SPDX-License-Identifier: MIT
 </table>
 <hr />
 <h2 id="node">node</h2>
-<div class="admonition warning">
-<p class="admonition-title">Experimental</p>
-<p>All <code>node</code> subcommands are experimental.</p>
-</div>
-<p>Manage additional cluster nodes (physical machines or VMs).</p>
+<p>Manage additional cluster nodes.</p>
+<p>Currently, <code>node</code> commands document and support additional Linux worker nodes on physical hosts or existing VMs. Support for Windows worker nodes will follow.</p>
 <h3 id="node-add">node add</h3>
-<p>Add a node to the cluster.</p>
+<p>Add a node to the cluster. Currently, this is documented for Linux worker nodes.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="go">k2s node add [flags]</span>
 </code></pre></div>
 <table>
@@ -4821,7 +4818,7 @@ SPDX-License-Identifier: MIT
 <tr>
 <td><code>--ip-addr</code></td>
 <td><code>-i</code></td>
-<td><strong>Required.</strong> <abbr title="Internet Protocol">IP</abbr> address of the machine</td>
+<td><strong>Required.</strong> <abbr title="Internet Protocol">IP</abbr> address of the node</td>
 </tr>
 <tr>
 <td><code>--username</code></td>
@@ -4831,7 +4828,7 @@ SPDX-License-Identifier: MIT
 <tr>
 <td><code>--name</code></td>
 <td><code>-m</code></td>
-<td>Hostname</td>
+<td>Hostname of the node</td>
 </tr>
 <tr>
 <td><code>--role</code></td>
@@ -4862,12 +4859,12 @@ SPDX-License-Identifier: MIT
 <tr>
 <td><code>--name</code></td>
 <td><code>-m</code></td>
-<td><strong>Required.</strong> Hostname of the machine</td>
+<td><strong>Required.</strong> Hostname of the node</td>
 </tr>
 </tbody>
 </table>
 <h3 id="node-copy">node copy</h3>
-<p>Copy files or folders between host and node.</p>
+<p>Copy files or folders between the host and a node.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="go">k2s node copy [flags]</span>
 </code></pre></div>
 <table>
