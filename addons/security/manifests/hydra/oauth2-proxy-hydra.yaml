@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: docker.io/library/redis:8.6.3
+          image: docker.io/library/redis:8.8.0
           ports:
             - containerPort: 6379
           resources:
