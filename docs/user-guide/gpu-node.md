@@ -73,7 +73,7 @@ The status output reports:
 |----------|-------------|
 | `IsDevicePluginRunning` | Whether the NVIDIA Device Plugin DaemonSet is ready |
 | `IsDCGMExporterRunning` | Whether the DCGM metrics exporter is running (see [Known Limitations](#known-limitations)) |
-| `NodeGpuLabels` | Whether the control-plane node has `gpu=true`, `accelerator=nvidia`, and `k2s.io/gpu-node=true` labels |
+| `NodeGpuLabels` | Whether the control-plane node has `gpu=true` and `accelerator=nvidia` labels |
 | `GpuAllocatable` | Number of GPU slots advertised to Kubernetes (reflects time-slicing replicas) |
 | `GpuInUse` | Number of GPU slots currently held by running pods |
 | `ExternalGpuWorkers` | Count and names of external GPU-capable worker nodes (auto-detected when NVIDIA GPU is present) |
@@ -237,7 +237,7 @@ GPU support is configured automatically if the node has an NVIDIA GPU **and** th
 
 ```console
 # List all GPU-capable nodes
-kubectl get nodes -l k2s.io/gpu-node=true
+kubectl get nodes -l gpu=true
 
 # Check addon status (includes external worker count)
 k2s addons status gpu-node
