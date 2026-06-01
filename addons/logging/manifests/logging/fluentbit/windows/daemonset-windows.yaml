@@ -30,18 +30,6 @@ spec:
         image: shsk2s.azurecr.io/fluent/fluent-bit:5.0.6 #windows_image
         args: ["-c", "fluent-bit.conf"]
         imagePullPolicy: IfNotPresent
-        ports:
-          - name: http
-            containerPort: 2020
-            protocol: TCP
-        livenessProbe:
-          httpGet:
-            path: /
-            port: http
-        readinessProbe:
-          httpGet:
-            path: /api/v1/health
-            port: http
         resources:
           requests:
             cpu: 100m

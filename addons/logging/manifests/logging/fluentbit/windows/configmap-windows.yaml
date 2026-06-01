@@ -135,7 +135,7 @@ data:
         # HTTP Server
         # ===========
         # Enable/Disable the built-in HTTP Server for metrics
-        http_server  On
+        http_server  Off
         http_listen  0.0.0.0
         http_port    2020
 
