@@ -429,31 +429,6 @@ if ($installFailed) { exit 1 }
 # nvidia-container-toolkit packages are still needed for CRI-O CDI container edits.
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
 
-# Configure CRI-O to enable CDI for GPU device injection
-Write-Log '[gpu-node] Configuring CRI-O for CDI device injection' -Console
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -p /etc/cdi && sudo chmod 755 /etc/cdi' -IgnoreErrors).Output | Write-Log
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml 2>&1 || true' -IgnoreErrors).Output | Write-Log
-
-# Use printf to write CRI-O config - avoids heredoc issues when passed through SSH
-$crioConfigCmd = 'sudo mkdir -p /etc/crio/crio.conf.d && printf ''[crio.runtime]\nenable_cdi = true\ncdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]\n'' | sudo tee /etc/crio/crio.conf.d/99-nvidia-gpu.conf'
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute $crioConfigCmd).Output | Write-Log
-
-# Restart CRI-O to apply CDI configuration
-Write-Log '[gpu-node] Restarting CRI-O to apply CDI configuration' -Console
-$crioRestart = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo systemctl restart crio'
-if (!$crioRestart.Success) {
-    $errMsg = "CRI-O failed to restart after CDI configuration. Check 'journalctl -xeu crio.service' on the control plane for details."
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-    Write-Log $errMsg -Error
-    exit 1
-}
-
-# Wait for CRI-O to stabilize
-Start-Sleep -Seconds 3
 
 Wait-ForAPIServer
 
@@ -470,6 +445,12 @@ if ($TimeSlices -gt 1) {
     # Apply default ConfigMap (no sharing section — exclusive GPU access per pod).
     (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\time-slicing-config-default.yaml").Output | Write-Log
 }
+
+# Label the node BEFORE deploying the device plugin, so the DaemonSet can schedule pods.
+# The device plugin DaemonSet has nodeSelector: k2s.io/gpu-node=true
+$labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
+Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true, accelerator=nvidia, and k2s.io/gpu-node=true" -Console
+(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', 'k2s.io/gpu-node=true', '--overwrite').Output | Write-Log
 
 # Apply Nvidia device plugin — ConfigMap content determines time-slicing behavior.
 Write-Log 'Installing Nvidia Device Plugin' -Console
@@ -524,11 +505,6 @@ if ($TimeSlices -gt 1) {
     Write-Log "[gpu-node] GPU time-slicing enabled: $TimeSlices virtual GPU slots available (pods share 1 physical GPU)" -Console
 }
 Write-Log 'KubeMaster configured successfully as GPU node' -Console
-
-# Label the node so workloads can use nodeSelector: gpu=true.
-$labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
-Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true, accelerator=nvidia, and k2s.io/gpu-node=true" -Console
-(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', 'k2s.io/gpu-node=true', '--overwrite').Output | Write-Log
 
 # Check for any external GPU-labeled worker nodes
 Write-Log '[gpu-node] Checking for external GPU-capable worker nodes...' -Console
