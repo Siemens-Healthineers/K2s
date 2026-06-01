@@ -447,10 +447,10 @@ if ($TimeSlices -gt 1) {
 }
 
 # Label the node BEFORE deploying the device plugin, so the DaemonSet can schedule pods.
-# The device plugin DaemonSet has nodeSelector: k2s.io/gpu-node=true
+# The device plugin DaemonSet has nodeSelector: gpu=true
 $labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
-Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true, accelerator=nvidia, and k2s.io/gpu-node=true" -Console
-(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', 'k2s.io/gpu-node=true', '--overwrite').Output | Write-Log
+Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true and accelerator=nvidia" -Console
+(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
 
 # Apply Nvidia device plugin — ConfigMap content determines time-slicing behavior.
 Write-Log 'Installing Nvidia Device Plugin' -Console
@@ -508,7 +508,7 @@ Write-Log 'KubeMaster configured successfully as GPU node' -Console
 
 # Check for any external GPU-labeled worker nodes
 Write-Log '[gpu-node] Checking for external GPU-capable worker nodes...' -Console
-$allGpuNodes = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'k2s.io/gpu-node=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
+$allGpuNodes = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
 if (![string]::IsNullOrWhiteSpace($allGpuNodes)) {
     $gpuNodeList = $allGpuNodes -split '\s+'
     $externalGpuNodes = $gpuNodeList | Where-Object { $_ -ne $labelNodeName }

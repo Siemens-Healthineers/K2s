@@ -41,14 +41,11 @@ $controlPlaneNodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role
 $nodeLabelsRaw = (Invoke-Kubectl -Params 'get', 'node', $controlPlaneNodeName, '-o', 'jsonpath={.metadata.labels}').Output
 $hasGpuLabel = $nodeLabelsRaw -match '"gpu":"true"'
 $hasAcceleratorLabel = $nodeLabelsRaw -match '"accelerator":"nvidia"'
-$hasK2sGpuLabel = $nodeLabelsRaw -match '"k2s\.io/gpu-node":"true"'
-$labelsOkay = $hasGpuLabel -and $hasAcceleratorLabel -and $hasK2sGpuLabel
+$labelsOkay = $hasGpuLabel -and $hasAcceleratorLabel
 $nodeLabelsMessage = if ($labelsOkay) {
-    "Node '$controlPlaneNodeName' has gpu=true, accelerator=nvidia, and k2s.io/gpu-node=true labels"
-} elseif (!$hasGpuLabel -and !$hasAcceleratorLabel -and !$hasK2sGpuLabel) {
-    'Node is missing gpu=true, accelerator=nvidia, and k2s.io/gpu-node=true labels - re-enable the addon to apply them'
-} elseif (!$hasK2sGpuLabel) {
-    'Node is missing k2s.io/gpu-node=true label - re-enable the addon to apply it'
+    "Node '$controlPlaneNodeName' has gpu=true and accelerator=nvidia labels"
+} elseif (!$hasGpuLabel -and !$hasAcceleratorLabel) {
+    'Node is missing gpu=true and accelerator=nvidia labels - re-enable the addon to apply them'
 } elseif (!$hasGpuLabel) {
     'Node is missing gpu=true label - re-enable the addon to apply it'
 } else {
@@ -81,7 +78,7 @@ $gpuInUseProp = @{Name = 'GpuInUse'; Value = $true; Okay = $true }
 $gpuInUseProp.Message = "$gpuInUse of $gpuAllocatable GPU $inUseLabel in use"
 
 # Check for external GPU-capable worker nodes
-$allGpuNodesRaw = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'k2s.io/gpu-node=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
+$allGpuNodesRaw = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
 $allGpuNodes = if (![string]::IsNullOrWhiteSpace($allGpuNodesRaw)) { $allGpuNodesRaw -split '\s+' } else { @() }
 $externalGpuNodes = $allGpuNodes | Where-Object { $_ -ne $controlPlaneNodeName }
 $externalGpuWorkersProp = @{Name = 'ExternalGpuWorkers'; Value = $true; Okay = $true }

@@ -128,13 +128,13 @@ if (!$WSL) {
 $nodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role.kubernetes.io/control-plane', '-o', 'jsonpath={.items[0].metadata.name}').Output
 if (![string]::IsNullOrWhiteSpace($nodeName)) {
     Write-Log "[gpu-node] Removing GPU labels from control plane node '$nodeName'" -Console
-    (Invoke-Kubectl -Params 'label', 'node', $nodeName, 'gpu-', 'accelerator-', 'k2s.io/gpu-node-').Output | Write-Log
+    (Invoke-Kubectl -Params 'label', 'node', $nodeName, 'gpu-', 'accelerator-').Output | Write-Log
 }
 
 # Note: GPU labels on external worker nodes are NOT removed during addon disable.
-# The k2s.io/gpu-node label on workers indicates they have been configured for GPU support
+# The gpu=true label on workers indicates they have been configured for GPU support
 # when NVIDIA GPU was detected during node addition. Users can manually remove labels if needed:
-#   kubectl label node <worker-name> gpu- accelerator- k2s.io/gpu-node-
+#   kubectl label node <worker-name> gpu- accelerator-
 Write-Log '[gpu-node] Note: GPU labels on external worker nodes are preserved. Remove manually if needed.' -Console
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node' })
