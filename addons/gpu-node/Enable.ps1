@@ -429,6 +429,32 @@ if ($installFailed) { exit 1 }
 # nvidia-container-toolkit packages are still needed for CRI-O CDI container edits.
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
 
+# Configure CRI-O to enable CDI for GPU device injection
+Write-Log '[gpu-node] Configuring CRI-O for CDI device injection' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -p /etc/cdi && sudo chmod 755 /etc/cdi' -IgnoreErrors).Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml 2>&1 || true' -IgnoreErrors).Output | Write-Log
+
+# Use printf to write CRI-O config - avoids heredoc issues when passed through SSH
+$crioConfigCmd = 'sudo mkdir -p /etc/crio/crio.conf.d && printf ''[crio.runtime]\nenable_cdi = true\ncdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]\n'' | sudo tee /etc/crio/crio.conf.d/99-nvidia-gpu.conf'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute $crioConfigCmd).Output | Write-Log
+
+# Restart CRI-O to apply CDI configuration
+Write-Log '[gpu-node] Restarting CRI-O to apply CDI configuration' -Console
+$crioRestart = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 30 -CmdToExecute 'sudo systemctl restart crio'
+if (!$crioRestart.Success) {
+    $errMsg = "CRI-O failed to restart after CDI configuration. Check 'journalctl -xeu crio.service' on the control plane for details."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+# Wait for CRI-O to stabilize
+Start-Sleep -Seconds 3
+
 Wait-ForAPIServer
 
 if ($TimeSlices -gt 1) {

@@ -89,7 +89,7 @@ if ($externalGpuNodes.Count -gt 0) {
     $nodeListStr = $externalGpuNodes -join ', '
     $externalGpuWorkersProp.Message = "$($externalGpuNodes.Count) external GPU worker(s): $nodeListStr"
 } else {
-    $externalGpuWorkersProp.Message = 'No external GPU workers configured (add with: k2s node add --enable-gpu)'
+    $externalGpuWorkersProp.Message = 'No external GPU workers configured (workers with NVIDIA GPUs are automatically configured when added)'
 }
 
 return $isDevicePluginRunningProp, $isDCGMExporterRunningProp, $nodeGpuLabelsProp, $gpuAllocatableProp, $gpuInUseProp, $externalGpuWorkersProp

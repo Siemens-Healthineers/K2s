@@ -11,7 +11,6 @@ Param(
     [string] $WindowsHostIpAddress = '',
     [string] $Proxy = '',
     [string] $NodePackagePath = '',
-    [switch] $EnableGPU = $false,
     [switch] $ShowLogs = $false
 )
 
@@ -23,11 +22,9 @@ $linuxWorkerCommon = "$PSScriptRoot\..\common\LinuxWorkerNode.Common.ps1"
 
 Initialize-LinuxWorkerScriptEnvironment -ShowLogs:$ShowLogs -IncludePuttyTools
 
-# Import GPU worker module if GPU support is requested
-if ($EnableGPU) {
-    $gpuWorkerModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\linuxnode\setup\gpu-worker.module.psm1"
-    Import-Module $gpuWorkerModule
-}
+# Import GPU worker module for GPU detection and configuration
+$gpuWorkerModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\linuxnode\setup\gpu-worker.module.psm1"
+Import-Module $gpuWorkerModule
 
 $ErrorActionPreference = 'Stop'
 
@@ -94,10 +91,39 @@ $workerNodeParams = @{
 
 Add-LinuxWorkerNode @workerNodeParams
 
-# Initialize GPU support if requested
-if ($EnableGPU) {
-    Write-Log '[NodeAdd] GPU support requested - initializing GPU configuration' -Console
-    Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $NodeName -Proxy $Proxy -NodePackagePath $NodePackagePath
+# -----------------------------------------------------------------------
+# GPU Auto-Detection and Configuration
+# -----------------------------------------------------------------------
+Write-Log '[NodeAdd] Checking for NVIDIA GPU hardware on node...' -Console
+
+$gpuDetection = Test-NvidiaGpuPresent -UserName $UserName -IpAddress $IpAddress
+$isOfflineInstall = ![string]::IsNullOrWhiteSpace($NodePackagePath)
+
+if ($gpuDetection.Present) {
+    Write-Log "[NodeAdd] NVIDIA GPU detected: $($gpuDetection.GpuInfo)" -Console
+    
+    if ($isOfflineInstall) {
+        # Offline installation: check if GPU packages are available in the node package
+        $gpuPackages = Test-OfflineGpuPackagesAvailable -NodePackagePath $NodePackagePath
+        if ($gpuPackages.Available) {
+            Write-Log "[NodeAdd] Offline GPU packages found ($($gpuPackages.PackageCount) packages) - initializing GPU configuration" -Console
+            Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $NodeName -Proxy $Proxy -NodePackagePath $NodePackagePath
+        } else {
+            Write-Log "[NodeAdd] NVIDIA GPU detected but no GPU packages in node package." -Console
+            Write-Log "[NodeAdd] To enable GPU support offline, create a node package with --include-gpu:" -Console
+            Write-Log "[NodeAdd]   k2s system package --node-package --os <os> --include-gpu --target-dir <dir> --name <name>.zip" -Console
+            Write-Log "[NodeAdd] Skipping GPU configuration." -Console
+        }
+    } else {
+        # Online installation: automatically install GPU packages
+        Write-Log '[NodeAdd] Online installation with NVIDIA GPU - installing GPU packages automatically' -Console
+        Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $NodeName -Proxy $Proxy -NodePackagePath ''
+    }
+} elseif ($gpuDetection.OtherGpu) {
+    Write-Log "[NodeAdd] Non-NVIDIA GPU detected: $($gpuDetection.GpuInfo)" -Console
+    Write-Log "[NodeAdd] K2s GPU support is currently available only for NVIDIA GPUs. Skipping GPU configuration." -Console
+} else {
+    Write-Log "[NodeAdd] No NVIDIA GPU hardware detected on node. Skipping GPU configuration." -Console
 }
 
 Write-Log 'Starting worker node' -Console
