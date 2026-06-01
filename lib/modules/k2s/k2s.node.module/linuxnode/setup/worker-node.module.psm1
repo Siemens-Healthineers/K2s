@@ -313,7 +313,7 @@ function Add-LinuxWorkerNode {
                 # Online mode: download GPU packages and pull images from internet
                 Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $k8sFormattedNodeName -Proxy $Proxy
             } else {
-                Write-Log "[GPU] No NVIDIA GPU detected on node $IpAddress - skipping GPU initialization"
+                Write-Log "[GPU] No NVIDIA GPU detected on node $IpAddress - skipping GPU initialization" -Console
             }
         } catch {
             Write-Log "[GPU] GPU detection/initialization skipped due to error: $_" -Console
