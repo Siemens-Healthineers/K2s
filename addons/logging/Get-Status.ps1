@@ -34,7 +34,7 @@ if (-not $omitOpensearch) {
     } 
 }
 
-$success = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=30s').Success
+$success = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=120s').Success
 
 $areDaemonsetsRunningProp = @{Name = 'AreDaemonsetsRunning'; Value = $success; Okay = $success }
 if ($areDaemonsetsRunningProp.Value -eq $true) {
