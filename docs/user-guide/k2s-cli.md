@@ -591,14 +591,13 @@ k2s system reset network [flags]
 
 ## node
 
-!!! warning "Experimental"
-    All `node` subcommands are experimental.
+Manage additional cluster nodes.
 
-Manage additional cluster nodes (physical machines or VMs).
+Currently, `node` commands document and support additional Linux worker nodes on physical hosts or existing VMs. Support for Windows worker nodes will follow.
 
 ### node add
 
-Add a node to the cluster.
+Add a node to the cluster. Currently, this is documented for Linux worker nodes.
 
 ```console
 k2s node add [flags]
@@ -606,9 +605,9 @@ k2s node add [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--ip-addr` | `-i` | **Required.** IP address of the machine |
+| `--ip-addr` | `-i` | **Required.** IP address of the node |
 | `--username` | `-u` | **Required.** SSH username |
-| `--name` | `-m` | Hostname |
+| `--name` | `-m` | Hostname of the node |
 | `--role` | `-r` | Node role (default `worker`) |
 | `--node-package` | `-p` | Path to a node package ZIP for offline installation |
 
@@ -624,11 +623,11 @@ k2s node remove [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--name` | `-m` | **Required.** Hostname of the machine |
+| `--name` | `-m` | **Required.** Hostname of the node |
 
 ### node copy
 
-Copy files or folders between host and node.
+Copy files or folders between the host and a node.
 
 ```console
 k2s node copy [flags]
