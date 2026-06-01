@@ -30,7 +30,7 @@ Param(
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType,
-    [string] $StorageNode = $(Get-ConfigControlPlaneNodeHostname)
+    [string] $StorageNode
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -84,14 +84,33 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
-
-# OpenSearch requires vm.max_map_count >= 262144; set it persistently so it survives reboots
-$sysctlResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144'
-if ($sysctlResult.ExitCode -ne 0) {
-    Write-Log "Warning: sysctl vm.max_map_count setting failed with exit code $($sysctlResult.ExitCode)" -Console
+if ([string]::IsNullOrEmpty($StorageNode)) {
+    $StorageNode = Get-ConfigControlPlaneNodeHostname
 }
-$sysctlResult.Output | Write-Log
+
+$controlPlaneHostname = Get-ConfigControlPlaneNodeHostname
+if ($StorageNode -eq $controlPlaneHostname) {
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
+
+    # OpenSearch requires vm.max_map_count >= 262144; set it persistently so it survives reboots
+    $sysctlResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144'
+    if (-not $sysctlResult.Success) {
+        Write-Log "Warning: sysctl vm.max_map_count setting failed" -Console
+    }
+    $sysctlResult.Output | Write-Log
+} else {
+    $clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
+    $workerNode = @($clusterDescriptor.nodes) | Where-Object { $_.Name -eq $StorageNode } | Select-Object -First 1
+    if (-not $workerNode) { throw "Storage node '$StorageNode' not found in cluster descriptor" }
+    (Invoke-CmdOnVmViaSSHKey -IpAddress $workerNode.IpAddress -UserName $workerNode.Username -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
+
+    # OpenSearch requires vm.max_map_count >= 262144; set it persistently so it survives reboots
+    $sysctlResult = Invoke-CmdOnVmViaSSHKey -IpAddress $workerNode.IpAddress -UserName $workerNode.Username -Timeout 2 -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144'
+    if (-not $sysctlResult.Success) {
+        Write-Log "Warning: sysctl vm.max_map_count setting failed" -Console
+    }
+    $sysctlResult.Output | Write-Log
+}
 
 $manifestsPath = "$PSScriptRoot\manifests\logging"
 

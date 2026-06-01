@@ -76,19 +76,26 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-# Create folder structure for certificates and authentication files
-Write-Log 'Creating authentication files and secrets' -Console
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /registry').Output | Write-Log
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/auth 2>&1').Output | Write-Log
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/repository 2>&1').Output | Write-Log
-
-# Create secrets
-(Invoke-Kubectl -Params 'create', 'namespace', 'registry').Output | Write-Log
-
 # Inject storage node hostname into PV manifest
 if ([string]::IsNullOrEmpty($StorageNode)) {
     $StorageNode = Get-ConfigControlPlaneNodeHostname
 }
+
+# Create folder structure for certificates and authentication files
+Write-Log 'Creating authentication files and secrets' -Console
+$controlPlaneHostname = Get-ConfigControlPlaneNodeHostname
+if ($StorageNode -eq $controlPlaneHostname) {
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -p /registry /registry/auth /registry/repository').Output | Write-Log
+} else {
+    $clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
+    $workerNode = @($clusterDescriptor.nodes) | Where-Object { $_.Name -eq $StorageNode } | Select-Object -First 1
+    if (-not $workerNode) { throw "Storage node '$StorageNode' not found in cluster descriptor" }
+    (Invoke-CmdOnVmViaSSHKey -IpAddress $workerNode.IpAddress -UserName $workerNode.Username -Timeout 2 -CmdToExecute 'sudo mkdir -p /registry /registry/auth /registry/repository').Output | Write-Log
+}
+
+# Create secrets
+(Invoke-Kubectl -Params 'create', 'namespace', 'registry').Output | Write-Log
+
 $pvFile = "$PSScriptRoot\manifests\registry\persistent-volume.yaml"
 $pvOrig = [System.IO.File]::ReadAllText($pvFile)
 [System.IO.File]::WriteAllText($pvFile, $pvOrig.Replace('__STORAGE_NODE__', $StorageNode))
