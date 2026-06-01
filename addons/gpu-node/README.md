@@ -83,34 +83,40 @@ In addition to the KubeMaster VM, you can add external Linux machines with NVIDI
 
 ### Adding a GPU-Capable External Worker
 
-```console
-# Online installation (downloads NVIDIA Container Toolkit from internet)
-k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu
+GPU support is **automatically detected and configured** when adding a node. K2s checks for NVIDIA GPU hardware on the target machine and configures GPU support if detected.
 
-# Offline installation (uses pre-packaged artifacts)
-k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu --node-package C:\packages\debian13-node-gpu.zip
+```console
+# Online installation - GPU support auto-detected and configured if NVIDIA GPU present
+k2s node add --ip-addr 192.168.1.50 --username admin
+
+# Offline installation - GPU packages used automatically if included in the node package
+k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node-gpu.zip
 ```
 
-The `--enable-gpu` flag instructs K2s to:
-1. Verify NVIDIA drivers are installed and functional (nvidia-smi)
-2. Install the NVIDIA Container Toolkit packages
-3. Configure CRI-O with CDI support
-4. Label the node with `gpu=true`, `accelerator=nvidia`, and `k2s.io/gpu-node=true`
+When an NVIDIA GPU is detected, K2s automatically:
+1. Verifies NVIDIA drivers are installed and functional (nvidia-smi)
+2. Installs the NVIDIA Container Toolkit packages (online) or copies from node package (offline)
+3. Configures CRI-O with CDI support
+4. Labels the node with `gpu=true`, `accelerator=nvidia`, and `k2s.io/gpu-node=true`
+
+If no NVIDIA GPU is detected (or a non-NVIDIA GPU like AMD/Intel is present), GPU configuration is skipped automatically.
 
 ### Creating an Offline GPU Node Package
 
 To add GPU workers in air-gapped environments:
 
 ```console
-# Create a node package with GPU support
+# Create a node package with GPU support (use --include-gpu to include NVIDIA packages)
 k2s system package --node-package --os debian13 --include-gpu --target-dir C:\packages --name debian13-node-gpu.zip
 
 # Transfer the package to the air-gapped environment and use it
-k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu --node-package C:\packages\debian13-node-gpu.zip
+# GPU support will be configured automatically if the node has an NVIDIA GPU
+k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node-gpu.zip
 ```
 
 ### Lifecycle Considerations
 
+- **Automatic GPU detection**: GPU workers are automatically configured when an NVIDIA GPU is detected during node addition
 - **Order-independent**: GPU workers can be added before or after enabling the gpu-node addon
 - **The addon must be enabled** for GPU workloads to run: `k2s addons enable gpu-node`
 - **Labels coordinate scheduling**: The NVIDIA device plugin DaemonSet targets nodes with `k2s.io/gpu-node=true`

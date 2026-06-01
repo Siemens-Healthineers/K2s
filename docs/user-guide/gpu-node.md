@@ -76,7 +76,7 @@ The status output reports:
 | `NodeGpuLabels` | Whether the control-plane node has `gpu=true`, `accelerator=nvidia`, and `k2s.io/gpu-node=true` labels |
 | `GpuAllocatable` | Number of GPU slots advertised to Kubernetes (reflects time-slicing replicas) |
 | `GpuInUse` | Number of GPU slots currently held by running pods |
-| `ExternalGpuWorkers` | Count and names of external GPU-capable worker nodes (added via `k2s node add --enable-gpu`) |
+| `ExternalGpuWorkers` | Count and names of external GPU-capable worker nodes (auto-detected when NVIDIA GPU is present) |
 
 ---
 
@@ -200,11 +200,13 @@ In addition to the KubeMaster VM, you can add external Linux machines with NVIDI
 
 ### Adding a GPU Worker Online
 
+GPU support is **automatically detected and configured** when adding a node. K2s checks for NVIDIA GPU hardware on the target machine:
+
 ```console
-k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu
+k2s node add --ip-addr 192.168.1.50 --username admin
 ```
 
-This verifies NVIDIA drivers, installs the NVIDIA Container Toolkit, configures CRI-O for GPU support, and labels the node.
+If an NVIDIA GPU is detected, K2s automatically verifies drivers, installs the NVIDIA Container Toolkit, configures CRI-O for GPU support, and labels the node. If no NVIDIA GPU is detected (or a non-NVIDIA GPU is present), GPU configuration is skipped.
 
 ### Adding a GPU Worker Offline
 
@@ -217,8 +219,10 @@ k2s system package --node-package --os debian13 --include-gpu --target-dir C:\pa
 Then on the air-gapped environment:
 
 ```console
-k2s node add --ip-addr 192.168.1.50 --username admin --enable-gpu --node-package C:\packages\debian13-gpu.zip
+k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-gpu.zip
 ```
+
+GPU support is configured automatically if the node has an NVIDIA GPU **and** the node package includes GPU packages (created with `--include-gpu`).
 
 ### Lifecycle Notes
 
