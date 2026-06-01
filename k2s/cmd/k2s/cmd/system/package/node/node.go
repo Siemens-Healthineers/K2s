@@ -24,7 +24,7 @@ const (
 	OSFlagUsage = "Target Linux distribution and version combined (e.g. debian12, debian13)"
 
 	IncludeGpuFlagName  = "include-gpu"
-	IncludeGpuFlagUsage = "Include NVIDIA Container Toolkit packages for GPU support. Use with --node-package to create a GPU-enabled node package."
+	IncludeGpuFlagUsage = "Include NVIDIA Container Toolkit packages for GPU support. When 'k2s node add' uses a package built with this flag, it automatically detects if the target node has an NVIDIA GPU and configures GPU support (installs container toolkit, configures CRI-O, labels the node)."
 
 	DeltaPackageFlagName       = "delta-package"
 	PackageVersionFromFlagName = "package-version-from"

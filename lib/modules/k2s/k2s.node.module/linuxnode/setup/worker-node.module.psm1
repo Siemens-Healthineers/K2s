@@ -6,8 +6,9 @@
 $infraModule =   "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
 $networkModule = "$PSScriptRoot\..\..\..\k2s.node.module\windowsnode\network\network.module.psm1"
+$gpuWorkerModule = "$PSScriptRoot\gpu-worker.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $networkModule
+Import-Module $infraModule, $clusterModule, $networkModule, $gpuWorkerModule
 
 function Repair-LinuxWorkerNodeRegistriesConfig {
     Param(
@@ -298,6 +299,25 @@ function Add-LinuxWorkerNode {
     # For bare-metal (HOST) nodes, create persistent routes so they survive reboots
     if ($NodeType -eq 'HOST') {
         Add-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress -WindowsHostIpAddress $WindowsHostIpAddress
+    }
+
+    # GPU support: detect NVIDIA GPU and initialize if present (online mode only)
+    if ([string]::IsNullOrWhiteSpace($NodePackagePath)) {
+        try {
+            # Test if NVIDIA driver is available on the node by running nvidia-smi
+            $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'nvidia-smi -L 2>/dev/null' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+            if ($nvidiaSmiCheck.Success -and $nvidiaSmiCheck.Output -match 'GPU \d+:') {
+                $gpuInfo = $nvidiaSmiCheck.Output.Trim()
+                Write-Log "[GPU] NVIDIA GPU detected on node ${IpAddress}: $gpuInfo" -Console
+                
+                # Online mode: download GPU packages and pull images from internet
+                Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $k8sFormattedNodeName -Proxy $Proxy
+            } else {
+                Write-Log "[GPU] No NVIDIA GPU detected on node $IpAddress - skipping GPU initialization"
+            }
+        } catch {
+            Write-Log "[GPU] GPU detection/initialization skipped due to error: $_" -Console
+        }
     }
 }
 

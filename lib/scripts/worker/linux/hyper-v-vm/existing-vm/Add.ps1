@@ -139,44 +139,8 @@ $workerNodeParams = @{
 }
 Add-LinuxWorkerNode @workerNodeParams
 
-# -----------------------------------------------------------------------
-# GPU Auto-Detection and Configuration
-# -----------------------------------------------------------------------
-Write-Log '[NodeAdd] Checking for NVIDIA GPU hardware on node...' -Console
-
-$gpuDetection = Test-NvidiaGpuPresent -UserName $UserName -IpAddress $IpAddress
-$isOfflineInstall = ![string]::IsNullOrWhiteSpace($NodePackagePath)
-
-if ($gpuDetection.Present) {
-    Write-Log "[NodeAdd] NVIDIA GPU detected: $($gpuDetection.GpuInfo)" -Console
-    
-    if ($isOfflineInstall) {
-        # Offline installation: check if GPU packages are available in the node package
-        $gpuPackages = Test-OfflineGpuPackagesAvailable -NodePackagePath $NodePackagePath
-        if ($gpuPackages.Available) {
-            Write-Log "[NodeAdd] Offline GPU packages found ($($gpuPackages.PackageCount) packages) - initializing GPU configuration" -Console
-            Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $NodeName -Proxy $transparentProxy -NodePackagePath $NodePackagePath
-        } else {
-            Write-Log "[NodeAdd] NVIDIA GPU detected but no GPU packages in node package." -Console
-            Write-Log "[NodeAdd] To enable GPU support offline, create a node package with --include-gpu:" -Console
-            Write-Log "[NodeAdd]   k2s system package --node-package --os <os> --include-gpu --target-dir <dir> --name <name>.zip" -Console
-            Write-Log "[NodeAdd] Skipping GPU configuration." -Console
-        }
-    } else {
-        # Online installation: automatically install GPU packages
-        Write-Log '[NodeAdd] Online installation with NVIDIA GPU - installing GPU packages automatically' -Console
-        Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $NodeName -Proxy $transparentProxy -NodePackagePath ''
-    }
-} elseif ($gpuDetection.OtherGpu) {
-    Write-Log "[NodeAdd] Non-NVIDIA GPU detected: $($gpuDetection.GpuInfo)" -Console
-    Write-Log "[NodeAdd] K2s GPU support is currently available only for NVIDIA GPUs. Skipping GPU configuration." -Console
-} else {
-    Write-Log "[NodeAdd] No NVIDIA GPU hardware detected on node. Skipping GPU configuration." -Console
-}
-
 Write-Log 'Starting worker node' -Console
 & "$PSScriptRoot\..\..\bare-metal\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName -ObtainCIDR:$true
-
 
 Write-Log "Current state of cluster nodes:" -Console
 Start-Sleep 2

@@ -31,7 +31,7 @@ const (
 	MachineRole               = "role"
 	MachineRoleFlagUsage      = "Role of the machine as a node"
 	NodePackagePath           = "node-package"
-	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet."
+	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet. If the package was created with --include-gpu and an NVIDIA GPU is detected on the target node, GPU support is automatically configured (NVIDIA Container Toolkit installed, CRI-O configured, node labeled)."
 )
 
 func NewCmd() *cobra.Command {
