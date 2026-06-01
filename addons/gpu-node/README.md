@@ -97,7 +97,7 @@ When an NVIDIA GPU is detected, K2s automatically:
 1. Verifies NVIDIA drivers are installed and functional (nvidia-smi)
 2. Installs the NVIDIA Container Toolkit packages (online) or copies from node package (offline)
 3. Configures CRI-O with CDI support
-4. Labels the node with `gpu=true`, `accelerator=nvidia`, and `k2s.io/gpu-node=true`
+4. Labels the node with `gpu=true` and `accelerator=nvidia`
 
 If no NVIDIA GPU is detected (or a non-NVIDIA GPU like AMD/Intel is present), GPU configuration is skipped automatically.
 
@@ -119,14 +119,14 @@ k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\
 - **Automatic GPU detection**: GPU workers are automatically configured when an NVIDIA GPU is detected during node addition
 - **Order-independent**: GPU workers can be added before or after enabling the gpu-node addon
 - **The addon must be enabled** for GPU workloads to run: `k2s addons enable gpu-node`
-- **Labels coordinate scheduling**: The NVIDIA device plugin DaemonSet targets nodes with `k2s.io/gpu-node=true`
+- **Labels coordinate scheduling**: The NVIDIA device plugin DaemonSet targets nodes with `gpu=true`
 - **Disabling the addon** removes the device plugin but preserves GPU configuration on external workers
 
 ### Check GPU Worker Status
 
 ```console
 # View all GPU-capable nodes
-kubectl get nodes -l k2s.io/gpu-node=true
+kubectl get nodes -l gpu=true
 
 # Check addon status including external workers
 k2s addons status gpu-node

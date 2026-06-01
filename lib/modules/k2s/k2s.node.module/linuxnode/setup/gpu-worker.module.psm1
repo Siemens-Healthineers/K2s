@@ -25,8 +25,7 @@ $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.p
 Import-Module $infraModule, $clusterModule
 
 # GPU node label keys used by K2s
-$script:GpuLabelKey = 'k2s.io/gpu-node'
-$script:GpuLabel = 'gpu'
+$script:GpuLabelKey = 'gpu'
 $script:AcceleratorLabel = 'accelerator'
 
 <#
@@ -649,7 +648,6 @@ function Set-GpuNodeLabels {
     # Apply GPU labels
     $labels = @(
         "$script:GpuLabelKey=true",
-        "$script:GpuLabel=true",
         "$script:AcceleratorLabel=nvidia"
     )
 
@@ -770,7 +768,6 @@ function Remove-GpuWorkerNodeConfiguration {
     # Remove GPU labels
     $labels = @(
         "$script:GpuLabelKey-",
-        "$script:GpuLabel-",
         "$script:AcceleratorLabel-"
     )
 
