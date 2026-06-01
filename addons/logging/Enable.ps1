@@ -29,7 +29,8 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [string] $StorageNode = $(Get-ConfigControlPlaneNodeHostname)
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -85,18 +86,12 @@ if ($Ingress -ne 'none') {
 
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
 
-# Create logging directory on all Linux worker nodes so the pod can be scheduled on any node
-$clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
-if ($clusterDescriptor -and $clusterDescriptor.nodes) {
-    @($clusterDescriptor.nodes) | Where-Object { $_.OS -eq 'linux' -and $_.Role -eq 'worker' } | ForEach-Object {
-        Write-Log "[Logging] Creating /logging on worker node $($_.Name) ($($_.IpAddress))" -Console
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -m 777 -p /logging' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
-    }
-}
-
 # OpenSearch requires vm.max_map_count >= 262144; set it persistently so it survives reboots
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144').Output | Write-Log
+$sysctlResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144'
+if ($sysctlResult.ExitCode -ne 0) {
+    Write-Log "Warning: sysctl vm.max_map_count setting failed with exit code $($sysctlResult.ExitCode)" -Console
+}
+$sysctlResult.Output | Write-Log
 
 $manifestsPath = "$PSScriptRoot\manifests\logging"
 
@@ -153,7 +148,17 @@ else {
 
     (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
 
-    $createResult = Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\"
+    # Inject storage node hostname into PV manifest
+    $pvFile = "$PSScriptRoot\manifests\logging\opensearch\persistentvolume.yaml"
+    $pvOrig = [System.IO.File]::ReadAllText($pvFile)
+    [System.IO.File]::WriteAllText($pvFile, $pvOrig.Replace('__STORAGE_NODE__', $StorageNode))
+    try {
+        $createResult = Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\"
+    }
+    finally {
+        # Restore PV manifest placeholder
+        [System.IO.File]::WriteAllText($pvFile, $pvOrig)
+    }
     $createResult.Output | Write-Log
     if (!$createResult.Success) { Stop-WithError "Failed to create logging resources: $($createResult.Output)" }
 

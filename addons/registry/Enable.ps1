@@ -25,7 +25,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Node for persistent storage (default: control plane)')]
+    [string] $StorageNode
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -80,21 +82,25 @@ Write-Log 'Creating authentication files and secrets' -Console
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/auth 2>&1').Output | Write-Log
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/repository 2>&1').Output | Write-Log
 
-# Create registry directories on all Linux worker nodes so the pod can be scheduled on any node
-$clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
-if ($clusterDescriptor -and $clusterDescriptor.nodes) {
-    @($clusterDescriptor.nodes) | Where-Object { $_.OS -eq 'linux' -and $_.Role -eq 'worker' } | ForEach-Object {
-        Write-Log "[Registry] Creating /registry on worker node $($_.Name) ($($_.IpAddress))" -Console
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -m 777 -p /registry && sudo mkdir -m 777 -p /registry/auth && sudo mkdir -m 777 -p /registry/repository' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
-    }
-}
-
 # Create secrets
 (Invoke-Kubectl -Params 'create', 'namespace', 'registry').Output | Write-Log
 
-# Apply registry pod with persistent volume
-Write-Log 'Creating local registry' -Console
-(Invoke-Kubectl -Params 'apply', '-k', "$PSScriptRoot\manifests\registry").Output | Write-Log
+# Inject storage node hostname into PV manifest
+if ([string]::IsNullOrEmpty($StorageNode)) {
+    $StorageNode = Get-ConfigControlPlaneNodeHostname
+}
+$pvFile = "$PSScriptRoot\manifests\registry\persistent-volume.yaml"
+$pvOrig = [System.IO.File]::ReadAllText($pvFile)
+[System.IO.File]::WriteAllText($pvFile, $pvOrig.Replace('__STORAGE_NODE__', $StorageNode))
+try {
+    # Apply registry pod with persistent volume
+    Write-Log 'Creating local registry' -Console
+    (Invoke-Kubectl -Params 'apply', '-k', "$PSScriptRoot\manifests\registry").Output | Write-Log
+}
+finally {
+    # Restore PV manifest placeholder
+    [System.IO.File]::WriteAllText($pvFile, $pvOrig)
+}
 
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'registry', '--timeout=300s')
 Write-Log $kubectlCmd.Output

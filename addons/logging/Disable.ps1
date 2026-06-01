@@ -17,7 +17,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will delete images and storage data')]
+    [switch] $DeleteImages = $false
 )
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -118,12 +120,14 @@ else {
 }
 
 # Clean up logging directory and sysctl config on all Linux worker nodes
-$clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
-if ($clusterDescriptor -and $clusterDescriptor.nodes) {
-    @($clusterDescriptor.nodes) | Where-Object { $_.OS -eq 'linux' -and $_.Role -eq 'worker' } | ForEach-Object {
-        Write-Log "[Logging] Removing /logging on worker node $($_.Name) ($($_.IpAddress))" -Console
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /logging' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/sysctl.d/99-opensearch.conf' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
+if ($DeleteImages) {
+    $clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
+    if ($clusterDescriptor -and $clusterDescriptor.nodes) {
+        @($clusterDescriptor.nodes) | Where-Object { $_.OS -eq 'linux' -and $_.Role -eq 'worker' } | ForEach-Object {
+            Write-Log "[Logging] Removing /logging on worker node $($_.Name) ($($_.IpAddress))" -Console
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /logging' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/sysctl.d/99-opensearch.conf' -IpAddress $_.IpAddress -UserName $_.Username -Timeout 2).Output | Write-Log
+        }
     }
 }
 
