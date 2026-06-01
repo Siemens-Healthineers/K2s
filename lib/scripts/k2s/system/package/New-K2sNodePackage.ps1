@@ -251,43 +251,12 @@ try {
     # -----------------------------------------------------------------------
     if ($IncludeGpu) {
         Write-Log "[NodePkg] === Phase 7.5: Downloading NVIDIA Container Toolkit packages (GPU support) ===" -Console
-        
-        $remoteUser = "$sshUser@$guestIp"
-        $proxyEnv = ''
-        $curlProxy = ''
-        if (![string]::IsNullOrWhiteSpace($Proxy)) {
-            $proxyEnv = "http_proxy=$Proxy https_proxy=$Proxy "
-            $curlProxy = "-x $Proxy"
-        }
-
-        # Add NVIDIA Container Toolkit repository (single line to avoid CRLF issues)
-        $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
-        Write-Log "[NodePkg] Setting up NVIDIA repository..." -Console
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
-
-        # Update apt
-        $updateCmd = "${proxyEnv}sudo apt-get update"
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $updateCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
-
-        # Download GPU packages
-        $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-runtime', 'nvidia-container-toolkit')
-        $gpuPackagesStr = $gpuPackages -join ' '
-        
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteGpuPkgDir && cd $remoteGpuPkgDir && sudo chown -R _apt:root ." -RemoteUser $remoteUser -RemoteUserPwd $sshPwd).Output | Write-Log
-
-        foreach ($pkg in $gpuPackages) {
-            Write-Log "[NodePkg] Downloading GPU package: $pkg" -Console
-            # Download the package and its dependencies
-            $downloadCmd = "cd $remoteGpuPkgDir && ${proxyEnv}sudo apt-get download $pkg 2>&1"
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $downloadCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
-            
-            # Download dependencies
-            $depsCmd = "cd $remoteGpuPkgDir && ${proxyEnv}sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r ${proxyEnv}sudo apt-get download 2>&1 || true"
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $depsCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
-        }
-
-        $remoteGpuDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $remoteGpuPkgDir/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
-        Write-Log "[NodePkg] GPU packages downloaded: $($remoteGpuDebCount.Trim())" -Console
+        Get-NvidiaGpuDebPackagesFromInternet `
+            -UserName   $sshUser `
+            -UserPwd    $sshPwd `
+            -IpAddress  $guestIp `
+            -Proxy      $Proxy `
+            -TargetPath $remoteGpuPkgDir
     }
 
     # -----------------------------------------------------------------------
@@ -312,16 +281,10 @@ try {
 
     # Pull GPU images if --include-gpu is specified
     if ($IncludeGpu) {
-        Write-Log '[NodePkg] Pulling GPU container images (device plugin, DCGM exporter)...' -Console
-        $gpuImages = @(
-            'nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
-            'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
-        )
-        foreach ($gpuImg in $gpuImages) {
-            Write-Log "[NodePkg] Pulling GPU image: $gpuImg" -Console
-            $pullCmd = "sudo buildah pull '$gpuImg' 2>&1"
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $pullCmd -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
-        }
+        Get-GpuContainerImages `
+            -UserName  $sshUser `
+            -UserPwd   $sshPwd `
+            -IpAddress $guestIp
     }
 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log

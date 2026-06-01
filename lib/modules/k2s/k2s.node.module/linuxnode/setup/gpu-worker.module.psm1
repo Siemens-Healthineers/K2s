@@ -30,116 +30,6 @@ $script:AcceleratorLabel = 'accelerator'
 
 <#
 .SYNOPSIS
-    Detects if an NVIDIA GPU is physically present on the target Linux node.
-
-.DESCRIPTION
-    Uses lspci to check for NVIDIA GPU hardware. This check is performed before any
-    driver verification to determine if GPU setup should proceed at all.
-    
-    This function does NOT throw errors - it returns a result object indicating
-    whether an NVIDIA GPU was detected.
-
-.PARAMETER UserName
-    SSH username for the remote node.
-
-.PARAMETER IpAddress
-    IP address of the remote node.
-
-.OUTPUTS
-    Returns a hashtable with:
-    - Present: $true if NVIDIA GPU detected, $false otherwise
-    - GpuInfo: String describing the detected GPU(s), or reason for no detection
-    - OtherGpu: $true if non-NVIDIA GPU detected (AMD, Intel, etc.)
-#>
-function Test-NvidiaGpuPresent {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string] $UserName,
-        [Parameter(Mandatory = $true)]
-        [string] $IpAddress
-    )
-
-    Write-Log "[GPU] Checking for NVIDIA GPU hardware on node $IpAddress" -Console
-
-    $result = @{
-        Present  = $false
-        GpuInfo  = ''
-        OtherGpu = $false
-    }
-
-    # Hyper-V/WSL GPU-PV path: prefer runtime verification via nvidia-smi.
-    # This mirrors the kube-master gpu-node addon checks which validate
-    # /usr/lib/wsl/lib/nvidia-smi availability instead of relying only on lspci vendor strings.
-    $smiCandidates = @(
-        '/usr/lib/wsl/lib/nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>&1',
-        'nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>&1'
-    )
-
-    foreach ($smiCmd in $smiCandidates) {
-        $smiResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $smiCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
-        $smiOutput = if ($smiResult.Output -is [array]) { $smiResult.Output -join "`n" } else { [string]$smiResult.Output }
-        if (
-            $smiResult.Success -and
-            ![string]::IsNullOrWhiteSpace($smiOutput) -and
-            $smiOutput -notmatch 'No devices were found|NVIDIA-SMI has failed|command not found|not found|failed'
-        ) {
-            $result.Present = $true
-            $result.GpuInfo = "NVIDIA runtime detected via nvidia-smi: $($smiOutput.Trim())"
-            Write-Log "[GPU] $($result.GpuInfo)" -Console
-            return $result
-        }
-    }
-
-    # Check if lspci is available
-    $lspciCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which lspci 2>/dev/null || echo "NOT_FOUND"' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
-    if ($lspciCheck.Output -match 'NOT_FOUND' -or [string]::IsNullOrWhiteSpace($lspciCheck.Output)) {
-        # lspci not available, try alternative method with /sys
-        Write-Log "[GPU] lspci not found, checking /sys/bus/pci/devices for GPU" -Console
-        $sysCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'grep -l "0x03" /sys/bus/pci/devices/*/class 2>/dev/null | head -5' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
-        if ([string]::IsNullOrWhiteSpace($sysCheck.Output)) {
-            $result.GpuInfo = 'No GPU hardware detected (lspci not available and no VGA devices in /sys)'
-            Write-Log "[GPU] $($result.GpuInfo)" -Console
-            return $result
-        }
-    }
-
-    # Query for all VGA/3D controllers
-    $gpuQuery = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'lspci 2>/dev/null | grep -iE "VGA|3D|Display" || echo "NO_GPU"' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
-    
-    if ($gpuQuery.Output -match 'NO_GPU' -or [string]::IsNullOrWhiteSpace($gpuQuery.Output)) {
-        $result.GpuInfo = 'No GPU hardware detected on this node'
-        Write-Log "[GPU] $($result.GpuInfo)" -Console
-        return $result
-    }
-
-    $gpuLines = $gpuQuery.Output -split "`n" | Where-Object { $_ -match '\S' }
-    
-    # Check for NVIDIA GPU
-    $nvidiaGpus = $gpuLines | Where-Object { $_ -match 'NVIDIA' }
-    if ($nvidiaGpus) {
-        $result.Present = $true
-        $result.GpuInfo = ($nvidiaGpus | ForEach-Object { $_.Trim() }) -join '; '
-        Write-Log "[GPU] NVIDIA GPU detected: $($result.GpuInfo)" -Console
-        return $result
-    }
-
-    # Check for other GPU vendors (AMD, Intel, etc.)
-    $otherGpus = $gpuLines | Where-Object { $_ -match 'AMD|ATI|Intel|Radeon|Matrox|ASPEED' }
-    if ($otherGpus) {
-        $result.OtherGpu = $true
-        $result.GpuInfo = "Non-NVIDIA GPU detected: $(($otherGpus | ForEach-Object { $_.Trim() }) -join '; ')"
-        Write-Log "[GPU] $($result.GpuInfo) - NVIDIA GPU setup will be skipped" -Console
-        return $result
-    }
-
-    # Unknown GPU or virtual display
-    $result.GpuInfo = "Unknown/virtual display adapter detected: $(($gpuLines | ForEach-Object { $_.Trim() }) -join '; ')"
-    Write-Log "[GPU] $($result.GpuInfo)" -Console
-    return $result
-}
-
-<#
-.SYNOPSIS
     Checks if offline GPU packages are available in the node package.
 
 .DESCRIPTION
@@ -665,11 +555,10 @@ function Set-GpuNodeLabels {
 
 .DESCRIPTION
     Orchestrates the complete GPU setup process:
-    1. Verifies NVIDIA driver availability
-    2. Installs NVIDIA Container Toolkit
-    3. Configures CRI-O for GPU support
-    4. Pre-pulls NVIDIA device plugin images
-    5. Labels the node for GPU workloads
+    1. Installs NVIDIA Container Toolkit
+    2. Configures CRI-O for GPU support
+    3. Pre-pulls NVIDIA device plugin images
+    4. Labels the node for GPU workloads
 
 .PARAMETER UserName
     SSH username for the remote node.
@@ -704,20 +593,17 @@ function Initialize-GpuWorkerNode {
     Write-Log "[GPU] Initializing GPU support for worker node $NodeName ($IpAddress)" -Console
     Write-Log '[GPU] ======================================' -Console
 
-    # Step 1: Verify NVIDIA driver
-    Test-NvidiaDriverAvailable -UserName $UserName -IpAddress $IpAddress
-
-    # Step 2: Install NVIDIA Container Toolkit
+    # Step 1: Install NVIDIA Container Toolkit
     $offline = ![string]::IsNullOrWhiteSpace($NodePackagePath)
     Install-NvidiaContainerToolkit -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -Offline:$offline -NodePackagePath $NodePackagePath
 
-    # Step 3: Configure CRI-O
+    # Step 2: Configure CRI-O
     Set-CrioGpuConfiguration -UserName $UserName -IpAddress $IpAddress
 
-    # Step 4: Ensure device plugin images are available (already loaded for offline, pulls for online)
+    # Step 3: Ensure device plugin images are available (already loaded for offline, pulls for online)
     Install-GpuDevicePluginImages -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
-    # Step 5: Label the node
+    # Step 4: Label the node
     Set-GpuNodeLabels -NodeName $NodeName
 
     Write-Log '[GPU] ======================================' -Console
