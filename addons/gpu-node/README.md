@@ -68,6 +68,18 @@ kubectl logs gpu-test
 kubectl delete pod gpu-test
 ```
 
+## GPU Libraries Injected via CDI
+
+The NVIDIA Device Plugin uses CDI (Container Device Interface) to inject GPU resources into containers. When a pod requests `nvidia.com/gpu`, the following are automatically mounted:
+
+| Resource | Path | Purpose |
+|----------|------|---------|
+| Device | `/dev/dxg` | DirectX GPU device for WSL2/GPU-PV |
+| Libraries | `/usr/lib/wsl/lib` | CUDA runtime (`libcuda.so`), D3D12 (`libd3d12.so`), dxcore (`libdxcore.so`) |
+| Drivers | `/usr/lib/wsl/drivers` | Vendor-specific drivers (e.g., `libnvwgf2umx.so` for NVIDIA OpenGL) |
+
+The `LD_LIBRARY_PATH` environment variable is also set to `/usr/lib/wsl/lib` so that applications can discover these libraries at runtime.
+
 Expected output includes `Test PASSED`. Works on both Hyper-V GPU-PV and WSL2 setups.
 
 
