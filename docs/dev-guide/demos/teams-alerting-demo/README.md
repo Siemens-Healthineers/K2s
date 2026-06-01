@@ -252,3 +252,144 @@ docs/dev-guide/demos/teams-alerting-demo/
   - Action: "Post card in a chat or channel" (Teams) using `triggerBody()` as the card content
 - Network access from cluster to `*.powerplatform.com:443`
 
+---
+
+## What We Added on Top of kube-prometheus-stack
+
+The **monitoring addon** (`k2s addons enable monitoring`) installs `kube-prometheus-stack` which provides:
+- Prometheus (metrics collection & alerting engine)
+- Alertmanager (alert routing, grouping, silencing)
+- Grafana (dashboards)
+- kube-state-metrics (Kubernetes object metrics)
+- node-exporter (host-level metrics)
+
+**None of these were modified.** We added the following components to enable the Teams integration:
+
+| What We Added | Type | Namespace | Purpose |
+|---------------|------|-----------|---------|
+| `alert-relay` Deployment | Pod (python:3.11-alpine) | monitoring | Converts Alertmanager webhook format → Adaptive Card JSON for Power Automate |
+| `alert-relay` Service | ClusterIP :9095 | monitoring | Exposes the relay pod to Alertmanager within the cluster |
+| `alert-relay-script` ConfigMap | ConfigMap | monitoring | Contains the Python relay script (mounted into the pod) |
+| `alertmanager-kube-prometheus-stack-alertmanager` Secret (patched) | Secret | monitoring | Added `teams-k2s-alerts` route + receiver to existing Alertmanager config |
+| `nginx-demo-alerts` PrometheusRule | CRD | monitoring | Defines the `NginxDemoPodUnavailable` alert rule |
+| `nginx-demo` Deployment + Service | Pod (nginx:1.25-alpine) | demo-alerts | Demo target application that we scale to 0 to trigger alerts |
+| `demo-alerts` Namespace | Namespace | — | Isolated namespace for the demo app |
+| Power Automate Flow (external) | Cloud service | — | Receives Adaptive Card webhook, posts to Teams channel |
+
+### Why Each Component is Needed
+
+**Alert Relay** — Alertmanager can send webhooks natively, but Power Automate's "Post card in a chat or channel" action requires a **valid Adaptive Card JSON** as the request body. Alertmanager sends its own JSON format (with `alerts[]`, `groupLabels`, etc.). The relay bridges this gap by transforming Alertmanager's format into an Adaptive Card.
+
+**Alertmanager Config Patch** — kube-prometheus-stack's Alertmanager uses a specific secret (`alertmanager-kube-prometheus-stack-alertmanager`) for its config. We patch it to add a routing rule: any alert with `severity: demo` gets sent to our relay webhook. Without this, alerts go to the `default` receiver (which does nothing).
+
+**PrometheusRule** — Tells Prometheus what condition to alert on. Must have label `release: kube-prometheus-stack` to be picked up by the Prometheus Operator. Without this, Prometheus doesn't know to watch our demo deployment.
+
+**Demo App** — A simple nginx pod that we can kill (scale to 0) and revive (scale to 1) to trigger/resolve alerts on demand.
+
+**Power Automate** — Microsoft's cloud automation platform. It provides the webhook URL and handles the "last mile" delivery from our cluster to a Teams channel. This is needed because Teams doesn't expose a direct incoming webhook API anymore (legacy Office 365 connectors were retired).
+
+### What Stays After Cleanup
+
+After `.\demo.ps1 cleanup`:
+- ❌ Removed: alert-relay, nginx-demo, demo-alerts namespace, PrometheusRule
+- ⚠️ Remains: Alertmanager config patch (teams route stays in the secret — harmless, just routes to a non-existent service)
+- ✅ Unchanged: All kube-prometheus-stack components (Prometheus, Grafana, etc.)
+
+---
+
+## Alternative Approaches to Achieve Teams Alerting
+
+There are multiple ways to get Prometheus alerts into Microsoft Teams. Here's a comparison of the options:
+
+### Option A: Alert Relay + Power Automate (What We Use) ✅
+
+```
+Alertmanager → webhook → Alert Relay pod → Power Automate → Teams
+```
+
+| Pros | Cons |
+|------|------|
+| Full control over card formatting | Requires Power Automate license/flow |
+| Works with new Teams Workflow webhooks | Extra pod in cluster |
+| Adaptive Cards look professional | Depends on external cloud service |
+| Supports firing + resolved notifications | |
+
+### Option B: Alertmanager Native `msteams_configs` (Alertmanager v0.27+)
+
+```
+Alertmanager → msteams_configs → Teams Workflow webhook directly
+```
+
+| Pros | Cons |
+|------|------|
+| No extra pod needed | Only works with Teams Workflow webhook URLs (not Power Automate HTTP triggers) |
+| Built into Alertmanager | Limited card customization |
+| Simplest setup | Requires Alertmanager 0.27+ |
+
+**Config example:**
+```yaml
+receivers:
+  - name: teams
+    msteams_configs:
+      - webhook_url: "https://your-org.webhook.office.com/..."
+```
+
+### Option C: prometheus-msteams Forwarder (Legacy)
+
+```
+Alertmanager → webhook → prometheus-msteams pod → Teams connector
+```
+
+| Pros | Cons |
+|------|------|
+| Well-known OSS project | Uses deprecated Office 365 connectors (retired by Microsoft) |
+| Pre-built Docker image | Sends `Content-Type: application/octet-stream` — breaks Power Automate |
+| Template support | MessageCard format is legacy, not Adaptive Card |
+
+### Option D: Grafana Alerting → Teams
+
+```
+Prometheus → Grafana evaluates alerts → Grafana contact point → Teams webhook
+```
+
+| Pros | Cons |
+|------|------|
+| UI-based alert rule creation | Bypasses Alertmanager (loses grouping/inhibition) |
+| Built-in Teams contact point | Alert rules live in Grafana, not as PrometheusRules in Git |
+| No extra components | Dual alerting path (Prometheus + Grafana) can be confusing |
+
+### Option E: Custom Webhook + Azure Function / Logic App
+
+```
+Alertmanager → webhook → Azure Function → Teams
+```
+
+| Pros | Cons |
+|------|------|
+| Serverless (no pod) | Requires Azure subscription |
+| Can do complex transformations | More infrastructure outside cluster |
+| Auto-scales | Latency from cold starts |
+
+### Option F: Email-based (Alertmanager → SMTP → Teams Channel Email)
+
+```
+Alertmanager → email_configs → Teams channel email address
+```
+
+| Pros | Cons |
+|------|------|
+| No extra components | Slow (email delivery can take minutes) |
+| Built into Alertmanager | Plain text, no rich formatting |
+| Works offline with local SMTP | Looks unprofessional in Teams |
+| | Requires SMTP server accessible from cluster |
+
+---
+
+### Why We Chose Option A
+
+1. **Power Automate is already available** in our Microsoft 365 tenant — no extra cost
+2. **Adaptive Cards** provide rich, professional-looking notifications with structured data
+3. **Full control** over what appears in the card (we format it ourselves in the relay)
+4. **Works with `send_resolved: true`** — Teams gets both firing and resolution notifications
+5. **No dependency on deprecated APIs** — Office 365 connectors were retired, Workflow webhooks require Adaptive Card format anyway
+6. **Portable pattern** — the relay can be pointed at any webhook (Slack, Discord, etc.) by changing the URL and payload format
