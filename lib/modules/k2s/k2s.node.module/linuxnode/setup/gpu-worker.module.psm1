@@ -56,8 +56,9 @@ function Test-NvidiaDriverAvailable {
 
     Write-Log "[GPU] Verifying NVIDIA driver availability on node $IpAddress" -Console
 
-    # Check if nvidia-smi exists and is executable
-    $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which nvidia-smi 2>/dev/null || echo "NOT_FOUND"' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+    # Find nvidia-smi in known locations (standard PATH, GPU-PV path, common install paths)
+    $findNvidiaSmiCmd = 'for p in nvidia-smi /usr/lib/wsl/lib/nvidia-smi /usr/bin/nvidia-smi /usr/local/bin/nvidia-smi; do command -v "$p" >/dev/null 2>&1 && echo "$p" && exit 0; done; echo "NOT_FOUND"'
+    $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute $findNvidiaSmiCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
     if ($nvidiaSmiCheck.Output -match 'NOT_FOUND' -or [string]::IsNullOrWhiteSpace($nvidiaSmiCheck.Output)) {
         $errMsg = @"
 [GPU] NVIDIA driver not found on node $IpAddress.
@@ -67,6 +68,7 @@ Prerequisites for GPU support:
 1. Install NVIDIA drivers on the Linux machine:
    - For Debian/Ubuntu: https://wiki.debian.org/NvidiaGraphicsDrivers
    - Or use the official NVIDIA driver installer: https://www.nvidia.com/Download/index.aspx
+   - For GPU-PV (Hyper-V): Copy drivers from Windows host to /usr/lib/wsl/lib/
 2. Reboot the machine after driver installation
 3. Verify with: nvidia-smi
 
@@ -75,8 +77,11 @@ After installing drivers, re-run the node add command.
         throw $errMsg
     }
 
+    $nvidiaSmiPath = $nvidiaSmiCheck.Output.Trim()
+    Write-Log "[GPU] Found nvidia-smi at: $nvidiaSmiPath"
+
     # Verify nvidia-smi runs successfully and can query the GPU
-    $nvidiaSmiResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>&1' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+    $nvidiaSmiResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute "$nvidiaSmiPath --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>&1" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
     if (!$nvidiaSmiResult.Success -or [string]::IsNullOrWhiteSpace($nvidiaSmiResult.Output)) {
         $errMsg = @"
 [GPU] NVIDIA driver is installed but nvidia-smi failed on node $IpAddress.
@@ -134,8 +139,6 @@ function Install-NvidiaContainerToolkit {
         [string] $NodePackagePath = ''
     )
 
-    Write-Log "[GPU] Installing NVIDIA Container Toolkit on node $IpAddress" -Console
-
     $requiredPackages = @(
         'libnvidia-container1',
         'libnvidia-container-tools',
@@ -189,26 +192,37 @@ function Install-NvidiaContainerToolkitOnline {
 
     Write-Log "[GPU] Installing NVIDIA Container Toolkit (online) on $IpAddress" -Console
 
+    # If no proxy specified, use K2s's HTTP proxy (same as gpu-node addon)
+    # Worker nodes on the internal K2s network need the proxy to reach the internet
+    if ([string]::IsNullOrWhiteSpace($Proxy)) {
+        $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
+        if (![string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
+            $Proxy = "${kubeSwitchIp}:8181"
+            Write-Log "[GPU] Using K2s HTTP proxy: $Proxy"
+        }
+    }
+
     $proxyEnv = ''
     $curlProxy = ''
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
-        $proxyEnv = "http_proxy=$Proxy https_proxy=$Proxy "
+        # apt-get requires full URL with http:// prefix for proxy environment variables
+        $proxyEnv = "http_proxy=http://$Proxy https_proxy=http://$Proxy "
         $curlProxy = "-x $Proxy"
     }
 
-    # Add NVIDIA Container Toolkit repository
-    $repoSetupCmd = @"
-curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && \
-curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | \
-sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-"@
+    Write-Log "[GPU] Setting up NVIDIA apt repository (proxy='$Proxy')" -Console
+    
+    $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+    
     $repoResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $repoSetupCmd -UserName $UserName -IpAddress $IpAddress
+    Write-Log "[GPU] Repo setup result - Success: $($repoResult.Success), Output: $($repoResult.Output)"
     if (!$repoResult.Success) {
         throw "[GPU] Failed to set up NVIDIA repository on $IpAddress. Ensure the node has internet access or use --node-package for offline installation."
     }
 
-    # Update apt and install packages
+    $verifySourcesCmd = 'cat /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null || echo "FILE_NOT_FOUND"'
+    $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifySourcesCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+
     $updateCmd = "${proxyEnv}sudo apt-get update"
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute $updateCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
 
@@ -399,6 +413,15 @@ function Install-GpuDevicePluginImages {
         'nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
         'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
     )
+
+    # If no proxy specified, use K2s's HTTP proxy
+    if ([string]::IsNullOrWhiteSpace($Proxy)) {
+        $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
+        if (![string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
+            $Proxy = "${kubeSwitchIp}:8181"
+            Write-Log "[GPU] Using K2s HTTP proxy for image pulls: $Proxy"
+        }
+    }
 
     # Build proxy environment if provided
     $proxyEnv = ''
