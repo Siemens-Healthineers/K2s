@@ -258,7 +258,24 @@ function Add-LinuxWorkerNode {
 
     Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer
 
-    Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath
+    # GPU detection: Check if NVIDIA GPU is present on the node (for both online and offline modes)
+    # This determines whether to copy/install GPU packages and images
+    $gpuDetected = $false
+    try {
+        $findNvidiaSmiCmd = 'for p in nvidia-smi /usr/lib/wsl/lib/nvidia-smi /usr/bin/nvidia-smi /usr/local/bin/nvidia-smi; do command -v "$p" >/dev/null 2>&1 && "$p" -L 2>/dev/null && exit 0; done; exit 1'
+        $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute $findNvidiaSmiCmd -UserName $UserName -IpAddress $IpAddress -Timeout 10 -IgnoreErrors
+        if ($nvidiaSmiCheck.Success -and $nvidiaSmiCheck.Output -match 'GPU \d+:') {
+            $gpuInfo = $nvidiaSmiCheck.Output.Trim()
+            Write-Log "[GPU] NVIDIA GPU detected on node ${IpAddress}: $gpuInfo" -Console
+            $gpuDetected = $true
+        } else {
+            Write-Log "[GPU] No NVIDIA GPU detected on node $IpAddress - GPU packages will be skipped" -Console
+        }
+    } catch {
+        Write-Log "[GPU] GPU detection failed: $_ - GPU packages will be skipped" -Console
+    }
+
+    Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath -SkipGpuPackages:(!$gpuDetected)
 
     Repair-LinuxWorkerNodeRegistriesConfig -UserName $UserName -IpAddress $IpAddress
 
@@ -301,25 +318,16 @@ function Add-LinuxWorkerNode {
         Add-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress -WindowsHostIpAddress $WindowsHostIpAddress
     }
 
-    # GPU support: detect NVIDIA GPU and initialize if present (online mode only)
-    if ([string]::IsNullOrWhiteSpace($NodePackagePath)) {
+    # GPU support: initialize if GPU was detected earlier
+    if ($gpuDetected) {
         try {
-            # Find nvidia-smi in known locations (standard PATH, GPU-PV path, common install paths)
-            # Use longer timeout as nvidia-smi with GPU-PV can take a moment on first run
-            $findNvidiaSmiCmd = 'for p in nvidia-smi /usr/lib/wsl/lib/nvidia-smi /usr/bin/nvidia-smi /usr/local/bin/nvidia-smi; do command -v "$p" >/dev/null 2>&1 && "$p" -L 2>/dev/null && exit 0; done; exit 1'
-            $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute $findNvidiaSmiCmd -UserName $UserName -IpAddress $IpAddress -Timeout 10 -IgnoreErrors
-            Write-Log "[GPU] nvidia-smi check result - Success: $($nvidiaSmiCheck.Success), Output: '$($nvidiaSmiCheck.Output)'"
-            if ($nvidiaSmiCheck.Success -and $nvidiaSmiCheck.Output -match 'GPU \d+:') {
-                $gpuInfo = $nvidiaSmiCheck.Output.Trim()
-                Write-Log "[GPU] NVIDIA GPU detected on node ${IpAddress}: $gpuInfo" -Console
-                
-                # Online mode: download GPU packages and pull images from internet
+            $offline = [string]::IsNullOrWhiteSpace($NodePackagePath)
+            if ($offline) {
+                Write-Log "[GPU] Initializing GPU support (online mode) for node $k8sFormattedNodeName" -Console
                 Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $k8sFormattedNodeName -Proxy $Proxy
-            } else {
-                Write-Log "[GPU] No NVIDIA GPU detected on node $IpAddress - skipping GPU initialization" -Console
             }
         } catch {
-            Write-Log "[GPU] GPU detection/initialization skipped due to error: $_" -Console
+            Write-Log "[GPU] GPU initialization failed: $_ - node will be added without GPU support" -Console
         }
     }
 }
@@ -482,7 +490,8 @@ function Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer {
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $Proxy = '',
         [string] $installedDistributionOnRemoteComputer = $(throw 'Argument missing: InstalledDistribution'),
-        [string] $NodePackagePath = ''
+        [string] $NodePackagePath = '',
+        [switch] $SkipGpuPackages = $false
     )
 
     # ---------------------------------------------------------------------------
@@ -494,6 +503,9 @@ function Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer {
         }
 
         Write-Log "[NodeAdd] --node-package supplied: '$NodePackagePath'. Using offline installation." -Console
+        if ($SkipGpuPackages) {
+            Write-Log "[NodeAdd] Skipping GPU packages (no NVIDIA GPU detected on node)" -Console
+        }
 
         # Extract zip to a temp staging area
         $extractTempPath = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-node-pkg-extract-$([guid]::NewGuid().ToString().Substring(0, 8))"
@@ -539,14 +551,70 @@ function Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer {
             Remove-Item -Path $linuxNodeImagesPath -Recurse -Force
         }
 
-        # Copy packages and images from extracted zip into linuxnode
+        # Copy packages from extracted zip into linuxnode
+        # If SkipGpuPackages is set, exclude nvidia-gpu folder
         New-Item -Path $linuxNodePackagesByOsPath -ItemType Directory -Force | Out-Null
-        Write-Log "[NodeAdd] Copying packages from node package into '$linuxNodePackagesByOsPath'" -Console
-        Copy-Item -Path "$zipPackagesPathToUse\*" -Destination $linuxNodePackagesByOsPath -Recurse -Force
+        if ($SkipGpuPackages) {
+            # Check if nvidia-gpu folder exists in the source
+            $nvidiaGpuFolder = Join-Path $zipPackagesPathToUse 'nvidia-gpu'
+            $hasNvidiaGpuFolder = Test-Path $nvidiaGpuFolder
 
+            # Copy packages excluding nvidia-gpu folder
+            $itemsToCopy = Get-ChildItem -Path $zipPackagesPathToUse | Where-Object { $_.Name -ne 'nvidia-gpu' }
+            foreach ($item in $itemsToCopy) {
+                Copy-Item -Path $item.FullName -Destination $linuxNodePackagesByOsPath -Recurse -Force
+            }
+            if ($hasNvidiaGpuFolder) {
+                Write-Log "[NodeAdd] Copied packages (excluding nvidia-gpu) from node package into '$linuxNodePackagesByOsPath'" -Console
+            } else {
+                Write-Log "[NodeAdd] Copied packages from node package into '$linuxNodePackagesByOsPath'" -Console
+            }
+        } else {
+            Write-Log "[NodeAdd] Copying packages from node package into '$linuxNodePackagesByOsPath'" -Console
+            Copy-Item -Path "$zipPackagesPathToUse\*" -Destination $linuxNodePackagesByOsPath -Recurse -Force
+        }
+
+        # Copy images from extracted zip into linuxnode
+        # If SkipGpuPackages is set, exclude GPU-related images (device-plugin, dcgm-exporter)
         if (Test-Path $zipImagesPath) {
-            Write-Log "[NodeAdd] Copying images from node package into '$linuxNodeDir\images'" -Console
-            Copy-Item -Path $zipImagesPath -Destination $linuxNodeDir -Recurse -Force
+            if ($SkipGpuPackages) {
+                # Check if GPU images exist in the source
+                $gpuImagePatterns = @('*device-plugin*', '*dcgm*')
+                $allImages = Get-ChildItem -Path $zipImagesPath -File
+                $gpuImagesFound = $allImages | Where-Object {
+                    $fileName = $_.Name
+                    foreach ($pattern in $gpuImagePatterns) {
+                        if ($fileName -like $pattern) { return $true }
+                    }
+                    return $false
+                }
+                $hasGpuImages = ($gpuImagesFound | Measure-Object).Count -gt 0
+
+                # Copy images excluding GPU-related tar files
+                $imagesToCopy = $allImages | Where-Object {
+                    $fileName = $_.Name
+                    $isGpuImage = $false
+                    foreach ($pattern in $gpuImagePatterns) {
+                        if ($fileName -like $pattern) {
+                            $isGpuImage = $true
+                            break
+                        }
+                    }
+                    -not $isGpuImage
+                }
+                New-Item -Path $linuxNodeImagesPath -ItemType Directory -Force | Out-Null
+                foreach ($image in $imagesToCopy) {
+                    Copy-Item -Path $image.FullName -Destination $linuxNodeImagesPath -Force
+                }
+                if ($hasGpuImages) {
+                    Write-Log "[NodeAdd] Copied images (excluding GPU images) from node package into '$linuxNodeImagesPath'" -Console
+                } else {
+                    Write-Log "[NodeAdd] Copied images from node package into '$linuxNodeImagesPath'" -Console
+                }
+            } else {
+                Write-Log "[NodeAdd] Copying images from node package into '$linuxNodeDir\images'" -Console
+                Copy-Item -Path $zipImagesPath -Destination $linuxNodeDir -Recurse -Force
+            }
         } else {
             Write-Log "[NodeAdd] WARNING: 'images' folder not found in node package. Skipping image copy." -Console
         }

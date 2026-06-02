@@ -30,79 +30,6 @@ $script:AcceleratorLabel = 'accelerator'
 
 <#
 .SYNOPSIS
-    Verifies that NVIDIA drivers are installed and functional on the target Linux node.
-
-.DESCRIPTION
-    Checks that nvidia-smi is available and returns valid output on the remote Linux machine.
-    This is a prerequisite check before GPU setup can proceed.
-
-.PARAMETER UserName
-    SSH username for the remote node.
-
-.PARAMETER IpAddress
-    IP address of the remote node.
-
-.OUTPUTS
-    Returns $true if NVIDIA drivers are functional, $false otherwise.
-    Throws an error with a clear message if drivers are not found.
-#>
-function Test-NvidiaDriverAvailable {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string] $UserName,
-        [Parameter(Mandatory = $true)]
-        [string] $IpAddress
-    )
-
-    Write-Log "[GPU] Verifying NVIDIA driver availability on node $IpAddress" -Console
-
-    # Find nvidia-smi in known locations (standard PATH, GPU-PV path, common install paths)
-    $findNvidiaSmiCmd = 'for p in nvidia-smi /usr/lib/wsl/lib/nvidia-smi /usr/bin/nvidia-smi /usr/local/bin/nvidia-smi; do command -v "$p" >/dev/null 2>&1 && echo "$p" && exit 0; done; echo "NOT_FOUND"'
-    $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute $findNvidiaSmiCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
-    if ($nvidiaSmiCheck.Output -match 'NOT_FOUND' -or [string]::IsNullOrWhiteSpace($nvidiaSmiCheck.Output)) {
-        $errMsg = @"
-[GPU] NVIDIA driver not found on node $IpAddress.
-The nvidia-smi command is not available, which indicates the NVIDIA kernel driver is not installed.
-
-Prerequisites for GPU support:
-1. Install NVIDIA drivers on the Linux machine:
-   - For Debian/Ubuntu: https://wiki.debian.org/NvidiaGraphicsDrivers
-   - Or use the official NVIDIA driver installer: https://www.nvidia.com/Download/index.aspx
-   - For GPU-PV (Hyper-V): Copy drivers from Windows host to /usr/lib/wsl/lib/
-2. Reboot the machine after driver installation
-3. Verify with: nvidia-smi
-
-After installing drivers, re-run the node add command.
-"@
-        throw $errMsg
-    }
-
-    $nvidiaSmiPath = $nvidiaSmiCheck.Output.Trim()
-    Write-Log "[GPU] Found nvidia-smi at: $nvidiaSmiPath"
-
-    # Verify nvidia-smi runs successfully and can query the GPU
-    $nvidiaSmiResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute "$nvidiaSmiPath --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>&1" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
-    if (!$nvidiaSmiResult.Success -or [string]::IsNullOrWhiteSpace($nvidiaSmiResult.Output)) {
-        $errMsg = @"
-[GPU] NVIDIA driver is installed but nvidia-smi failed on node $IpAddress.
-This could indicate:
-- Driver/kernel mismatch (try rebooting the machine)
-- No NVIDIA GPU hardware detected
-- Driver initialization failure
-
-nvidia-smi output: $($nvidiaSmiResult.Output)
-
-Please resolve the driver issue and try again.
-"@
-        throw $errMsg
-    }
-
-    Write-Log "[GPU] NVIDIA driver verified on ${IpAddress}: $($nvidiaSmiResult.Output)" -Console
-    return $true
-}
-
-<#
-.SYNOPSIS
     Installs and configures the NVIDIA Container Toolkit on the target Linux node.
 
 .DESCRIPTION
@@ -136,7 +63,7 @@ function Install-NvidiaContainerToolkit {
         [Parameter(Mandatory = $false)]
         [switch] $Offline = $false,
         [Parameter(Mandatory = $false)]
-        [string] $NodePackagePath = ''
+        [string] $OsName = ''
     )
 
     $requiredPackages = @(
@@ -161,12 +88,7 @@ function Install-NvidiaContainerToolkit {
         return
     }
 
-    if ($Offline) {
-        Install-NvidiaContainerToolkitOffline -UserName $UserName -IpAddress $IpAddress -NodePackagePath $NodePackagePath
-    } else {
-        Install-NvidiaContainerToolkitOnline -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
-    }
-
+    Install-NvidiaContainerToolkitOnline -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
     # Verify installation
     $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'dpkg -l nvidia-container-toolkit 2>/dev/null | grep -q "^ii"' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
     if (!$verifyResult.Success) {
@@ -232,92 +154,6 @@ function Install-NvidiaContainerToolkitOnline {
 
     if (!$installResult.Success) {
         throw "[GPU] Failed to install NVIDIA Container Toolkit packages on $IpAddress"
-    }
-}
-
-<#
-.SYNOPSIS
-    Installs NVIDIA Container Toolkit packages from pre-downloaded packages.
-#>
-function Install-NvidiaContainerToolkitOffline {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string] $UserName,
-        [Parameter(Mandatory = $true)]
-        [string] $IpAddress,
-        [Parameter(Mandatory = $false)]
-        [string] $NodePackagePath = ''
-    )
-
-    Write-Log "[GPU] Installing NVIDIA Container Toolkit (offline) on $IpAddress" -Console
-
-    # Look for GPU packages in the node package directory
-    $gpuPackagesDir = ''
-    if (![string]::IsNullOrWhiteSpace($NodePackagePath)) {
-        # Check for nvidia-gpu directory in the extracted node package
-        # The node package structure is: packages/<os>/nvidia-gpu/
-        $possibleGpuPaths = @(
-            (Join-Path $NodePackagePath 'packages' '*' 'nvidia-gpu'),  # packages/debian13/nvidia-gpu (primary)
-            (Join-Path $NodePackagePath 'packages' '*' 'gpu-packages'),          # packages/debian13/gpu-packages (legacy)
-            (Join-Path $NodePackagePath 'nvidia-gpu'),                   # nvidia-gpu (flat)
-            (Join-Path $NodePackagePath 'gpu-packages'),                          # gpu-packages (flat, legacy)
-            (Join-Path $NodePackagePath 'nvidia-container-toolkit')               # nvidia-container-toolkit
-        )
-        foreach ($pathPattern in $potentialPaths) {
-            $foundPaths = @(Get-ChildItem -Path $pathPattern -Directory -ErrorAction SilentlyContinue)
-            if ($foundPaths.Count -gt 0) {
-                $gpuPackagesDir = $foundPaths[0].FullName
-                break
-            }
-            # Also check if the path itself exists (for non-wildcard paths)
-            if (Test-Path $pathPattern -PathType Container) {
-                $gpuPackagesDir = $pathPattern
-                break
-            }
-        }
-    }
-
-    # Also check linuxnode artifacts directory
-    if ([string]::IsNullOrWhiteSpace($gpuPackagesDir)) {
-        $linuxNodeDir = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
-        $linuxNodeGpuPath = Join-Path $linuxNodeDir 'nvidia-gpu'
-        if (Test-Path $linuxNodeGpuPath) {
-            $gpuPackagesDir = $linuxNodeGpuPath
-        }
-    }
-
-    if ([string]::IsNullOrWhiteSpace($gpuPackagesDir) -or !(Test-Path $gpuPackagesDir)) {
-        throw @"
-[GPU] Offline GPU packages not found.
-To enable GPU support offline, create a node package that includes GPU artifacts:
-  k2s system package --node-package --os debian13 --include-gpu --target-dir C:\output --name debian13-node-gpu.zip
-
-Then use:
-  k2s node add --ip-addr <ip> --username <user> --node-package <path-to-package>
-"@
-    }
-
-    Write-Log "[GPU] Found GPU packages at: $gpuPackagesDir" -Console
-
-    # Copy GPU packages to remote node
-    $remoteGpuDir = '/tmp/k2s-gpu-packages'
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "rm -rf $remoteGpuDir && mkdir -p $remoteGpuDir" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    
-    # Copy all .deb files
-    Copy-ToRemoteComputerViaSshKey -Source "$gpuPackagesDir\*.deb" -Target $remoteGpuDir -UserName $UserName -IpAddress $IpAddress
-
-    # Install packages
-    $installCmd = "cd $remoteGpuDir && sudo dpkg -i *.deb 2>&1"
-    $installResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $installCmd -UserName $UserName -IpAddress $IpAddress
-    $installResult.Output | Write-Log
-
-    # Clean up
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "rm -rf $remoteGpuDir" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-
-    if (!$installResult.Success) {
-        # Try to fix broken dependencies and reinstall
-        Write-Log "[GPU] Initial install had issues, attempting to fix dependencies..." -Console
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo apt-get --fix-broken install -y' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
     }
 }
 
@@ -539,7 +375,9 @@ function Initialize-GpuWorkerNode {
         [Parameter(Mandatory = $false)]
         [string] $Proxy = '',
         [Parameter(Mandatory = $false)]
-        [string] $NodePackagePath = ''
+        [switch] $Offline = $false,
+        [Parameter(Mandatory = $false)]
+        [string] $OsName = ''
     )
 
     Write-Log '[GPU] ======================================' -Console
@@ -547,8 +385,7 @@ function Initialize-GpuWorkerNode {
     Write-Log '[GPU] ======================================' -Console
 
     # Step 1: Install NVIDIA Container Toolkit
-    $offline = ![string]::IsNullOrWhiteSpace($NodePackagePath)
-    Install-NvidiaContainerToolkit -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -Offline:$offline -NodePackagePath $NodePackagePath
+    Install-NvidiaContainerToolkit -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -Offline:$Offline -OsName $OsName
 
     # Step 2: Configure CRI-O
     Set-CrioGpuConfiguration -UserName $UserName -IpAddress $IpAddress
@@ -568,68 +405,9 @@ function Initialize-GpuWorkerNode {
     Write-Log '[GPU] ======================================' -Console
 }
 
-<#
-.SYNOPSIS
-    Removes GPU configuration from a Linux worker node.
-
-.DESCRIPTION
-    Cleans up GPU labels and optionally removes NVIDIA Container Toolkit.
-
-.PARAMETER NodeName
-    Kubernetes node name.
-
-.PARAMETER UserName
-    SSH username for the remote node.
-
-.PARAMETER IpAddress
-    IP address of the remote node.
-
-.PARAMETER RemovePackages
-    When set, also removes NVIDIA Container Toolkit packages.
-#>
-function Remove-GpuWorkerNodeConfiguration {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string] $NodeName,
-        [Parameter(Mandatory = $false)]
-        [string] $UserName = '',
-        [Parameter(Mandatory = $false)]
-        [string] $IpAddress = '',
-        [Parameter(Mandatory = $false)]
-        [switch] $RemovePackages = $false
-    )
-
-    Write-Log "[GPU] Removing GPU configuration from node '$NodeName'" -Console
-
-    $kubeToolsPath = Get-KubeToolsPath
-    $kubectl = "$kubeToolsPath\kubectl.exe"
-
-    # Remove GPU labels
-    $labels = @(
-        "$script:GpuLabelKey-",
-        "$script:AcceleratorLabel-"
-    )
-
-    foreach ($label in $labels) {
-        $result = & $kubectl label node $NodeName.ToLower() $label 2>&1
-        Write-Log "[GPU] Removed label: $result"
-    }
-
-    # Optionally remove packages
-    if ($RemovePackages -and ![string]::IsNullOrWhiteSpace($UserName) -and ![string]::IsNullOrWhiteSpace($IpAddress)) {
-        Write-Log "[GPU] Removing NVIDIA Container Toolkit packages from $IpAddress" -Console
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo apt-get remove -y nvidia-container-toolkit libnvidia-container1 libnvidia-container-tools nvidia-container-runtime 2>/dev/null || true' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/crio/crio.conf.d/99-nvidia-gpu.conf' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-    }
-
-    Write-Log "[GPU] GPU configuration removed from node '$NodeName'" -Console
-}
-
 # Export module functions
-Export-ModuleMember -Function Test-NvidiaDriverAvailable,
+Export-ModuleMember -Function `
     Install-NvidiaContainerToolkit,
     Set-CrioGpuConfiguration,
     Set-GpuNodeLabels,
-    Initialize-GpuWorkerNode,
-    Remove-GpuWorkerNodeConfiguration
+    Initialize-GpuWorkerNode
