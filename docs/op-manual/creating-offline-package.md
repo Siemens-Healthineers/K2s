@@ -104,6 +104,40 @@ k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnect
 
 See [Extending K2s cluster](extending-k2s-cluster.md) for the complete node onboarding workflow.
 
+### GPU-Enabled Node Package
+
+To add a Linux worker node **with GPU support** in an air-gapped environment, include the NVIDIA Container Toolkit packages in the node package:
+
+```console
+k2s system package --node-package --os debian13 --include-gpu --target-dir C:\output --name debian13-node-gpu.zip
+```
+
+The `--include-gpu` flag downloads and bundles:
+
+| Component | Purpose |
+|-----------|---------|
+| `libnvidia-container1` | Low-level library for container GPU access |
+| `libnvidia-container-tools` | CLI tools for NVIDIA container runtime |
+| `nvidia-container-runtime` | OCI-compliant runtime wrapper |
+| `nvidia-container-toolkit` | High-level toolkit and configuration |
+| GPU device plugin image | Kubernetes device plugin for GPU scheduling |
+
+When using a GPU-enabled node package:
+
+```console
+k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package C:\output\debian13-node-gpu.zip
+```
+
+K2s automatically detects if the target node has an NVIDIA GPU and configures GPU support:
+
+- If an NVIDIA GPU is detected → installs toolkit from package, configures CRI-O, labels node
+- If no NVIDIA GPU is detected → skips GPU configuration, node joins as regular worker
+
+!!! warning "NVIDIA Drivers Required"
+    The target node must have NVIDIA kernel drivers pre-installed. Verify with `nvidia-smi` before running `k2s node add`. K2s does **not** install kernel drivers.
+
+See [GPU Node addon](../user-guide/gpu-node.md#external-gpu-worker-nodes) for complete GPU worker documentation.
+
 ## Addons Offline Package
 To enable addons without an internet connection being available, the required binaries can be exported to an offline package as well.
 
