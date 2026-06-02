@@ -304,8 +304,11 @@ function Add-LinuxWorkerNode {
     # GPU support: detect NVIDIA GPU and initialize if present (online mode only)
     if ([string]::IsNullOrWhiteSpace($NodePackagePath)) {
         try {
-            # Test if NVIDIA driver is available on the node by running nvidia-smi
-            $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'nvidia-smi -L 2>/dev/null' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+            # Find nvidia-smi in known locations (standard PATH, GPU-PV path, common install paths)
+            # Use longer timeout as nvidia-smi with GPU-PV can take a moment on first run
+            $findNvidiaSmiCmd = 'for p in nvidia-smi /usr/lib/wsl/lib/nvidia-smi /usr/bin/nvidia-smi /usr/local/bin/nvidia-smi; do command -v "$p" >/dev/null 2>&1 && "$p" -L 2>/dev/null && exit 0; done; exit 1'
+            $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute $findNvidiaSmiCmd -UserName $UserName -IpAddress $IpAddress -Timeout 10 -IgnoreErrors
+            Write-Log "[GPU] nvidia-smi check result - Success: $($nvidiaSmiCheck.Success), Output: '$($nvidiaSmiCheck.Output)'"
             if ($nvidiaSmiCheck.Success -and $nvidiaSmiCheck.Output -match 'GPU \d+:') {
                 $gpuInfo = $nvidiaSmiCheck.Output.Trim()
                 Write-Log "[GPU] NVIDIA GPU detected on node ${IpAddress}: $gpuInfo" -Console
