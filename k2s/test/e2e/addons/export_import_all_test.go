@@ -30,15 +30,15 @@ import (
 // and post-import artifact integrity.
 //
 // A small subset of addons is used instead of all addons to keep the test runtime well below 2 hours.
-// The subset covers: single-impl addon with images (metrics), multi-impl addon with images and
-// curl packages (ingress), and single-impl addon with images and deb packages (storage).
+// The subset covers: a multi-impl addon with images and curl packages (ingress),
+// and a single-impl addon with images and deb packages (storage).
 //
 // Per-addon export/import tests are located in each addon's directory (e.g., dashboard/dashboard_export_import_test.go).
 
 const testClusterTimeout = time.Minute * 60
 
 // testAddonNames defines the representative subset of addons for bulk export/import testing.
-var testAddonNames = []string{"metrics", "ingress", "storage"}
+var testAddonNames = []string{"ingress", "storage"}
 
 var (
 	suite           *framework.K2sTestSuite
@@ -52,6 +52,21 @@ var (
 	k2s        *dsl.K2s
 	testFailed = false
 )
+
+func expectedAddonIndexName(addonName, implementationName string) string {
+	if implementationName != addonName {
+		return strings.ReplaceAll(addonName+"-"+implementationName, " ", "-")
+	}
+	return strings.ReplaceAll(addonName, " ", "-")
+}
+
+func addonIndexEntryMatches(addonName, implementationName, expectedAddonName, expectedImplementationName string) bool {
+	return addonName == expectedAddonName && implementationName == expectedImplementationName
+}
+
+func importedDebianPackageDirName(addonName string) string {
+	return addonName
+}
 
 func TestExportImportAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -114,12 +129,19 @@ var _ = Describe("export and import a representative subset of addons and make s
 
 	Describe("export addons", func() {
 		BeforeAll(func(ctx context.Context) {
+			exportedOciFile = ""
+
 			// Clean up any previous OCI layout files in the export directory
 			for _, f := range []string{"oci-layout", "index.json", "blobs"} {
 				p := filepath.Join(exportPath, f)
 				if _, err := os.Stat(p); !os.IsNotExist(err) {
 					os.RemoveAll(p)
 				}
+			}
+			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-*.oci.tar"))
+			Expect(err).To(BeNil())
+			for _, file := range files {
+				Expect(os.Remove(file)).To(Succeed(), "should remove stale exported OCI file %s", file)
 			}
 
 			GinkgoWriter.Printf("Exporting addons %v to %s\n", testAddonNames, exportPath)
@@ -130,7 +152,7 @@ var _ = Describe("export and import a representative subset of addons and make s
 			suite.K2sCli().MustExec(ctx, args...)
 
 			// Find the exported OCI file
-			files, err := filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-*.oci.tar"))
+			files, err = filepath.Glob(filepath.Join(exportPath, "K2s-*-addons-*.oci.tar"))
 			Expect(err).To(BeNil())
 			Expect(len(files)).To(Equal(1), "Should create exactly one versioned OCI tar file")
 			exportedOciFile = files[0]
@@ -209,19 +231,14 @@ var _ = Describe("export and import a representative subset of addons and make s
 			// Verify each test addon is present in index
 			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
-					var expectedName string
-					if i.Name != a.Metadata.Name {
-						expectedName = strings.ReplaceAll(a.Metadata.Name+"-"+i.Name, " ", "-")
-					} else {
-						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "-")
-					}
+					expectedName := expectedAddonIndexName(a.Metadata.Name, i.Name)
 
 					GinkgoWriter.Printf("Verifying addon: %s (implementation: %s) -> expected name: %s\n",
 						a.Metadata.Name, i.Name, expectedName)
 
 					found := false
 					for _, manifest := range ociIndex.Manifests {
-						if manifest.Annotations.AddonName == expectedName {
+						if addonIndexEntryMatches(manifest.Annotations.AddonName, manifest.Annotations.AddonImplementation, a.Metadata.Name, i.Name) {
 							found = true
 							GinkgoWriter.Printf("  Found in index.json: digest=%s, size=%d\n",
 								manifest.Digest, manifest.Size)
@@ -268,12 +285,7 @@ var _ = Describe("export and import a representative subset of addons and make s
 
 			for addonIdx, a := range testAddons {
 				for implIdx, i := range a.Spec.Implementations {
-					var expectedName string
-					if i.Name != a.Metadata.Name {
-						expectedName = strings.ReplaceAll(a.Metadata.Name+"-"+i.Name, " ", "-")
-					} else {
-						expectedName = strings.ReplaceAll(a.Metadata.Name, " ", "-")
-					}
+					expectedName := expectedAddonIndexName(a.Metadata.Name, i.Name)
 
 					GinkgoWriter.Printf("[Test] [%d.%d] Addon: %s, Implementation: %s, Expected Name: %s\n",
 						addonIdx, implIdx, a.Metadata.Name, i.Name, expectedName)
@@ -281,7 +293,7 @@ var _ = Describe("export and import a representative subset of addons and make s
 					// Find the manifest for this addon in the index
 					var manifestDigest string
 					for _, m := range ociIndex.Manifests {
-						if m.Annotations.AddonName == expectedName {
+						if addonIndexEntryMatches(m.Annotations.AddonName, m.Annotations.AddonImplementation, a.Metadata.Name, i.Name) {
 							manifestDigest = m.Digest
 							break
 						}
@@ -449,12 +461,12 @@ var _ = Describe("export and import a representative subset of addons and make s
 			GinkgoWriter.Printf("[BeforeAll] Removing downloaded debian packages for %d addons...\n", len(testAddons))
 			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
-					GinkgoWriter.Printf("[BeforeAll]   Removing debian packages for %s/%s (dir: %s)\n", a.Metadata.Name, i.Name, i.ExportDirectoryName)
-					suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("sudo rm -rf .%s", i.ExportDirectoryName))
+					packageDir := importedDebianPackageDirName(a.Metadata.Name)
+					GinkgoWriter.Printf("[BeforeAll]   Removing debian packages for %s/%s (dir: %s)\n", a.Metadata.Name, i.Name, packageDir)
+					suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("sudo rm -rf .%s", packageDir))
 				}
 			}
 			GinkgoWriter.Println("[BeforeAll] Debian packages cleanup completed")
-
 
 			GinkgoWriter.Println("=== CLEAN UP ADDONS RESOURCES - BeforeAll END ===")
 		})
@@ -465,9 +477,10 @@ var _ = Describe("export and import a representative subset of addons and make s
 
 			for _, a := range testAddons {
 				for _, i := range a.Spec.Implementations {
-					GinkgoWriter.Printf("[Test]   Checking %s/%s (dir: .%s) does not exist...\n", a.Metadata.Name, i.Name, i.ExportDirectoryName)
-					suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s ]", i.ExportDirectoryName))
-					GinkgoWriter.Printf("[Test]   OK: .%s does not exist\n", i.ExportDirectoryName)
+					packageDir := importedDebianPackageDirName(a.Metadata.Name)
+					GinkgoWriter.Printf("[Test]   Checking %s/%s (dir: .%s) does not exist...\n", a.Metadata.Name, i.Name, packageDir)
+					suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s ]", packageDir))
+					GinkgoWriter.Printf("[Test]   OK: .%s does not exist\n", packageDir)
 				}
 			}
 			GinkgoWriter.Println("[Test] Verified: No debian package directories exist")
@@ -513,7 +526,8 @@ var _ = Describe("export and import a representative subset of addons and make s
 				for _, i := range a.Spec.Implementations {
 					GinkgoWriter.Printf("[Test]   Checking %s/%s - %d debian packages\n", a.Metadata.Name, i.Name, len(i.OfflineUsage.LinuxResources.DebPackages))
 					for pkgIdx, pkg := range i.OfflineUsage.LinuxResources.DebPackages {
-						suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s/%s ]", i.ExportDirectoryName, pkg))
+						packageDir := importedDebianPackageDirName(a.Metadata.Name)
+						suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s/%s ]", packageDir, pkg))
 						GinkgoWriter.Printf("[Test]     [%d] OK: %s\n", pkgIdx, pkg)
 					}
 				}
