@@ -18,7 +18,7 @@ import (
 
 const (
 	NodePackageFlagName  = "node-package"
-	NodePackageFlagUsage = "Creates a zip package containing Linux node packages (kubelet, kubeadm, kubectl, CRI-O, buildah) for the specified OS and version"
+	NodePackageFlagUsage = "Creates a zip package containing Linux node packages (kubelet, kubeadm, kubectl, CRI-O, buildah) for the specified OS and version; requires an existing K2s cluster and --proxy http://172.19.1.1:8181"
 
 	OSFlagName  = "os"
 	OSFlagUsage = "Target Linux distribution and version combined (e.g. debian12, debian13)"
