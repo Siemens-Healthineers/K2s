@@ -64,7 +64,7 @@ graph TD
 
 To add a Linux worker node to an existing cluster without internet access on that node, create a **node package**.
 
-No installed *K2s* cluster is required to create this node package. You can run the command directly from the extracted *K2s* repository or release directory.
+Node package creation requires an existing *K2s* cluster on the machine where you run the command, and it must use the local cluster proxy `http://172.19.1.1:8181`.
 
 Inspect the available options:
 
@@ -75,32 +75,29 @@ k2s system package -h
 Example from a local directory using `k2s.exe` directly:
 
 ```console
-.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip"
+.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip" --proxy http://172.19.1.1:8181
 ```
 
 Create an OS-specific node package ZIP:
 
 ```console
-k2s system package --node-package --os debian12 --target-dir C:\output --name debian12-node.zip
+k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
 ```
 
 Example for Debian 13:
 
 ```console
-k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip
+k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip" -p http://172.19.1.1:8181
 ```
 
 Then add the node by passing the package to `k2s node add`:
 
 ```console
-k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package C:\output\debian13-node.zip
+k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package C:\out\debian13-node.zip
 ```
 
 !!! note
     The node package is intended for extending an existing cluster with a Linux worker node. It is separate from the full offline installation package used for installing *K2s* itself.
-
-!!! note
-    Creating the node package does not require that *K2s* is already installed on the current machine.
 
 See [Extending K2s cluster](extending-k2s-cluster.md) for the complete node onboarding workflow.
 
