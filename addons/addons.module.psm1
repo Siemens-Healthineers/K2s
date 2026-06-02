@@ -1513,18 +1513,16 @@ function Resolve-AddonImportPath {
         [string]$AddonImplementation
     )
 
-    $implementationName = $null
-    $isMultiImpl = $AddonImplementation -and $AddonImplementation -ne $AddonName
-    $baseAddonName = if ($isMultiImpl -and $AddonName -match '^([^-]+)-(.+)$') {
-        $implementationName = $matches[2]
-        $matches[1]
-    } else {
-        $AddonName
+	if ([string]::IsNullOrWhiteSpace($AddonImplementation) -or $AddonImplementation -eq $AddonName) {
+		return @{
+			BaseAddonName      = $AddonName
+			ImplementationName = $null
+		}
     }
 
     return @{
-        BaseAddonName      = $baseAddonName
-        ImplementationName = $implementationName
+		BaseAddonName      = $AddonName
+		ImplementationName = $AddonImplementation
     }
 }
 
