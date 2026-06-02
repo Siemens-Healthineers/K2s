@@ -464,11 +464,13 @@ k2s system upgrade [flags]
 
 ### system package
 
-Build a *K2s* zip package (optionally offline, delta, or code-signed).
+Build a *K2s* zip package (optionally offline, delta, or code-signed), or create a node package for offline worker node installation.
 
 ```console
 k2s system package [flags]
 ```
+
+**Full Package Flags**
 
 | Flag | Short | Description |
 |------|-------|-------------|
@@ -487,6 +489,29 @@ k2s system package [flags]
 | `--master-disk` | | Disk for master VM |
 | `--proxy` | `-p` | HTTP proxy |
 | `--k8s-bins` | | Path to locally built Kubernetes binaries |
+
+**Node Package Flags**
+
+| Flag | Description |
+|------|-------------|
+| `--node-package` | Create a Linux worker node package (use with `--os`) |
+| `--os` | Target Linux distribution (e.g., `debian12`, `debian13`). Required with `--node-package`. |
+| `--include-gpu` | Include NVIDIA Container Toolkit packages for GPU support |
+
+**Examples**
+
+```console
+# Create offline K2s package
+k2s system package -d C:\output -n k2s-offline.zip --for-offline-installation
+
+# Create node package for Debian 13
+k2s system package --node-package --os debian13 -d C:\output -n debian13-node.zip
+
+# Create GPU-enabled node package
+k2s system package --node-package --os debian13 --include-gpu -d C:\output -n debian13-gpu.zip
+```
+
+See [Creating Offline Package](../op-manual/creating-offline-package.md) for detailed workflows.
 
 ### system backup
 
