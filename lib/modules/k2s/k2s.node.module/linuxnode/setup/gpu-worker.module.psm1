@@ -88,7 +88,12 @@ function Install-NvidiaContainerToolkit {
         return
     }
 
-    Install-NvidiaContainerToolkitOnline -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    if ($Offline) {
+        Install-NvidiaContainerToolkitOffline -UserName $UserName -IpAddress $IpAddress -OsName $OsName
+    } else {
+        Install-NvidiaContainerToolkitOnline -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    }
+
     # Verify installation
     $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'dpkg -l nvidia-container-toolkit 2>/dev/null | grep -q "^ii"' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
     if (!$verifyResult.Success) {
@@ -96,6 +101,70 @@ function Install-NvidiaContainerToolkit {
     }
 
     Write-Log "[GPU] NVIDIA Container Toolkit installed successfully on $IpAddress" -Console
+}
+
+<#
+.SYNOPSIS
+    Installs NVIDIA Container Toolkit packages from pre-downloaded packages (offline mode).
+#>
+function Install-NvidiaContainerToolkitOffline {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $UserName,
+        [Parameter(Mandatory = $true)]
+        [string] $IpAddress,
+        [Parameter(Mandatory = $false)]
+        [string] $OsName = ''
+    )
+
+    Write-Log "[GPU] Installing NVIDIA Container Toolkit (offline) on $IpAddress" -Console
+
+    # GPU packages are at: linuxnode/packages/<os>/nvidia-gpu/
+    $linuxNodeDir = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
+    $gpuPackagesDir = Join-Path $linuxNodeDir 'packages' $OsName 'nvidia-gpu'
+
+    if ([string]::IsNullOrWhiteSpace($OsName) -or !(Test-Path $gpuPackagesDir)) {
+        throw @"
+[GPU] Offline GPU packages not found at: $gpuPackagesDir
+To enable GPU support offline, create a node package that includes GPU artifacts:
+  k2s system package --node-package --os $OsName --include-gpu --target-dir C:\output --name node-gpu.zip
+
+Then use:
+  k2s node add --ip-addr <ip> --username <user> --node-package <path-to-package>
+"@
+    }
+
+    Write-Log "[GPU] Found GPU packages at: $gpuPackagesDir" -Console
+
+    # Copy GPU packages to remote node
+    $remoteGpuDir = '/tmp/k2s-gpu-packages'
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "rm -rf $remoteGpuDir && mkdir -p $remoteGpuDir" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+    # Copy all .deb files
+    $debFiles = Get-ChildItem -Path $gpuPackagesDir -Filter '*.deb' -File
+    if ($debFiles.Count -eq 0) {
+        throw "[GPU] No .deb files found in $gpuPackagesDir"
+    }
+
+    Write-Log "[GPU] Copying $($debFiles.Count) .deb files to remote node" -Console
+    foreach ($deb in $debFiles) {
+        Copy-ToRemoteComputerViaSshKey -Source $deb.FullName -Target $remoteGpuDir -UserName $UserName -IpAddress $IpAddress
+    }
+
+    # Install packages
+    Write-Log "[GPU] Installing GPU packages on remote node" -Console
+    $installCmd = "cd $remoteGpuDir && sudo dpkg -i *.deb 2>&1"
+    $installResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $installCmd -UserName $UserName -IpAddress $IpAddress
+    $installResult.Output | Write-Log
+
+    # Fix any broken dependencies
+    if (!$installResult.Success) {
+        Write-Log "[GPU] Fixing broken dependencies..." -Console
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo apt-get --fix-broken install -y' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    }
+
+    # Clean up
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "rm -rf $remoteGpuDir" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
 }
 
 <#
@@ -382,16 +451,23 @@ function Initialize-GpuWorkerNode {
 
     Write-Log '[GPU] ======================================' -Console
     Write-Log "[GPU] Initializing GPU support for worker node $NodeName ($IpAddress)" -Console
+    Write-Log "[GPU] Mode: $(if ($Offline) { 'offline' } else { 'online' })" -Console
     Write-Log '[GPU] ======================================' -Console
 
-    # Step 1: Install NVIDIA Container Toolkit
+    # Step 1: Install NVIDIA Container Toolkit (offline: from .deb files, online: from apt)
     Install-NvidiaContainerToolkit -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -Offline:$Offline -OsName $OsName
 
     # Step 2: Configure CRI-O
     Set-CrioGpuConfiguration -UserName $UserName -IpAddress $IpAddress
 
-    # Step 3: Ensure device plugin images are available (already loaded for offline, pulls for online)
-    Install-GpuDevicePluginImages -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    # Step 3: Ensure device plugin images are available
+    # For offline mode, images are already loaded from the node package during Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer
+    # For online mode, pull the images
+    if (-not $Offline) {
+        Install-GpuDevicePluginImages -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    } else {
+        Write-Log "[GPU] Skipping image pull (offline mode - images loaded from node package)" -Console
+    }
 
     # Step 4: Label the node
     Set-GpuNodeLabels -NodeName $NodeName
@@ -410,4 +486,4 @@ Export-ModuleMember -Function `
     Install-NvidiaContainerToolkit,
     Set-CrioGpuConfiguration,
     Set-GpuNodeLabels,
-    Initialize-GpuWorkerNode
+    Initialize-GpuWorkerNode,Install-NvidiaContainerToolkitOffline

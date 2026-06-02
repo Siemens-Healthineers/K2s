@@ -321,8 +321,11 @@ function Add-LinuxWorkerNode {
     # GPU support: initialize if GPU was detected earlier
     if ($gpuDetected) {
         try {
-            $offline = [string]::IsNullOrWhiteSpace($NodePackagePath)
+            $offline = ![string]::IsNullOrWhiteSpace($NodePackagePath)
             if ($offline) {
+                Write-Log "[GPU] Initializing GPU support (offline mode) for node $k8sFormattedNodeName" -Console
+                Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $k8sFormattedNodeName -Proxy $Proxy -Offline -OsName $installedDistributionOnRemoteComputer
+            } else {
                 Write-Log "[GPU] Initializing GPU support (online mode) for node $k8sFormattedNodeName" -Console
                 Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $k8sFormattedNodeName -Proxy $Proxy
             }
