@@ -192,37 +192,62 @@ k2s addons enable gpu-node
 
 In addition to the KubeMaster VM, you can add external Linux machines with NVIDIA GPUs as GPU-capable worker nodes. This enables scaling GPU workloads across multiple physical machines.
 
-### Prerequisites
+### Prerequisites for External GPU Workers
 
-1. **NVIDIA kernel drivers** must be pre-installed on the external Linux machine. Verify with `nvidia-smi`.
-2. The machine must be accessible via SSH from the K2s Windows host.
-3. The machine must be on a physical network (not the virtual KubeSwitch network).
+| Requirement | Details |
+|-------------|---------|
+| **NVIDIA kernel drivers** | Must be pre-installed on the external Linux machine. Verify with `nvidia-smi`. |
 
-### Adding a GPU Worker Online
+!!! warning "Driver Installation"
+    K2s does **not** install NVIDIA kernel drivers. Install them using your distribution's package manager or NVIDIA's official installer **before** running `k2s node add`.
 
-GPU support is **automatically detected and configured** when adding a node. K2s checks for NVIDIA GPU hardware on the target machine:
+### Online Workflow (Internet Available)
+
+When the target machine has internet access, GPU support is **automatically detected and configured**:
 
 ```console
 k2s node add --ip-addr 192.168.1.50 --username admin
 ```
 
-If an NVIDIA GPU is detected, K2s automatically verifies drivers, installs the NVIDIA Container Toolkit, configures CRI-O for GPU support, and labels the node. If no NVIDIA GPU is detected (or a non-NVIDIA GPU is present), GPU configuration is skipped.
+**What happens automatically when an NVIDIA GPU is detected:**
 
-### Adding a GPU Worker Offline
+1. Verifies NVIDIA drivers are functional (`nvidia-smi`)
+2. Downloads and installs NVIDIA Container Toolkit packages
+3. Configures CRI-O runtime with CDI (Container Device Interface) support
+4. Labels the node with `gpu=true` and `accelerator=nvidia`
 
-First, create a GPU-enabled node package on a machine with internet access:
+If no NVIDIA GPU is detected (or a non-NVIDIA GPU like AMD/Intel is present), GPU configuration is skipped and the node joins as a regular worker.
+
+### Offline Workflow (Air-Gapped Environment)
+
+For environments without internet access, create a GPU-enabled node package first.
+
+**Step 1: Create the GPU node package** (on a machine with internet)
 
 ```console
 k2s system package --node-package --os debian13 --include-gpu --target-dir C:\packages --name debian13-gpu.zip
 ```
 
-Then on the air-gapped environment:
+The `--include-gpu` flag downloads and bundles:
+
+- NVIDIA Container Toolkit `.deb` packages (`libnvidia-container1`, `libnvidia-container-tools`, `nvidia-container-runtime`, `nvidia-container-toolkit`)
+- GPU device plugin container image (`nvcr.io/nvidia/k8s-device-plugin`)
+
+**Step 2: Transfer the package** to the air-gapped environment.
+
+**Step 3: Add the GPU worker node**
 
 ```console
 k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-gpu.zip
 ```
 
-GPU support is configured automatically if the node has an NVIDIA GPU **and** the node package includes GPU packages (created with `--include-gpu`).
+GPU support is configured automatically if:
+
+- The target node has an NVIDIA GPU (detected via `nvidia-smi`)
+- The node package includes GPU packages (created with `--include-gpu`)
+
+!!! note "Without `--include-gpu`"
+    If the node package was created **without** `--include-gpu`, GPU configuration will be skipped even if the target has an NVIDIA GPU. Create a new package with `--include-gpu` to enable GPU support.
 
 ### Lifecycle Notes
 
