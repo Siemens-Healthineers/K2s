@@ -1673,10 +1673,10 @@ Describe 'Resolve-AddonImportPath' -Tag 'unit', 'ci', 'addon' {
         }
     }
 
-    Context 'multi-implementation addon (ingress-nginx)' {
-        It 'splits into base addon and implementation' {
+    Context 'multi-implementation addon (ingress nginx)' {
+        It 'uses addon name as base and implementation annotation as subfolder' {
             InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'ingress-nginx' -AddonImplementation 'nginx'
+                $result = Resolve-AddonImportPath -AddonName 'ingress' -AddonImplementation 'nginx'
 
                 $result.BaseAddonName | Should -Be 'ingress'
                 $result.ImplementationName | Should -Be 'nginx'
@@ -1684,13 +1684,35 @@ Describe 'Resolve-AddonImportPath' -Tag 'unit', 'ci', 'addon' {
         }
     }
 
-    Context 'multi-implementation addon (ingress-traefik)' {
-        It 'splits into base addon and implementation' {
+    Context 'multi-implementation addon (ingress traefik)' {
+        It 'uses addon name as base and implementation annotation as subfolder' {
             InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'ingress-traefik' -AddonImplementation 'traefik'
+                $result = Resolve-AddonImportPath -AddonName 'ingress' -AddonImplementation 'traefik'
 
                 $result.BaseAddonName | Should -Be 'ingress'
                 $result.ImplementationName | Should -Be 'traefik'
+            }
+        }
+    }
+
+    Context 'multi-implementation addon with hyphen in implementation' {
+        It 'keeps the complete implementation name' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'ingress' -AddonImplementation 'nginx-gw'
+
+                $result.BaseAddonName | Should -Be 'ingress'
+                $result.ImplementationName | Should -Be 'nginx-gw'
+            }
+        }
+    }
+
+    Context 'hyphenated addon with different implementation metadata' {
+        It 'does not split the addon name at the hyphen' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'gpu-node' -AddonImplementation 'node'
+
+                $result.BaseAddonName | Should -Be 'gpu-node'
+                $result.ImplementationName | Should -Be 'node'
             }
         }
     }

@@ -40,44 +40,6 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 
-<#
-.SYNOPSIS
-Resolves the base addon folder name and optional implementation subdirectory
-from the OCI annotation values stored during export.
-
-Export.ps1 stores:
-  vnd.k2s.addon.name           = $manifest.metadata.name   (e.g. "dashboard", "ingress")
-  vnd.k2s.addon.implementation = $implementation.name       (e.g. "dashboard", "nginx")
-
-Import rule (mirrors Export.ps1 $dirPath logic):
-  - name == implementation  -> single-implementation addon
-      BaseAddonName      = name        (destination: addons/<name>)
-      ImplementationName = $null
-  - name != implementation  -> multi-implementation addon
-      BaseAddonName      = name        (destination: addons/<name>/<implementation>)
-      ImplementationName = implementation
-#>
-function Resolve-AddonImportPath {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$AddonName,
-        [Parameter(Mandatory = $false)]
-        [string]$AddonImplementation
-    )
-
-    if ([string]::IsNullOrWhiteSpace($AddonImplementation) -or $AddonImplementation -eq $AddonName) {
-        return [PSCustomObject]@{
-            BaseAddonName      = $AddonName
-            ImplementationName = $null
-        }
-    }
-
-    return [PSCustomObject]@{
-        BaseAddonName      = $AddonName
-        ImplementationName = $AddonImplementation
-    }
-}
-
 $tmpDir = "$env:TEMP\$(Get-Date -Format ddMMyyyy-HHmmss)-tmp-extracted-addons"
 $extractionFolder = $tmpDir
 
@@ -228,10 +190,31 @@ if ($indexManifest.mediaType -and $indexManifest.mediaType -ne 'application/vnd.
 
 $exportedAddons = @()
 foreach ($manifest in $indexManifest.manifests) {
+    $addonName = $manifest.annotations.'vnd.k2s.addon.name'
+    $addonImplementation = $manifest.annotations.'vnd.k2s.addon.implementation'
+    $addonVersion = $manifest.annotations.'org.opencontainers.image.version'
+
+    if ($manifest.digest) {
+        try {
+            $innerManifest = Get-JsonBlobByDigest -BlobsDir $blobsDir -Digest $manifest.digest
+            if ($innerManifest.annotations) {
+                $innerAddonName = $innerManifest.annotations.'vnd.k2s.addon.name'
+                if ($innerAddonName) {
+                    $addonName = $innerAddonName
+                    $addonImplementation = $innerManifest.annotations.'vnd.k2s.addon.implementation'
+                    $addonVersion = $innerManifest.annotations.'org.opencontainers.image.version'
+                }
+            }
+        }
+        catch {
+            Write-Log "Warning: Could not read addon annotations from manifest blob $($manifest.digest): $_" -Console
+        }
+    }
+
     $exportedAddons += @{
-        name = $manifest.annotations.'vnd.k2s.addon.name'
-        implementation = $manifest.annotations.'vnd.k2s.addon.implementation'
-        version = $manifest.annotations.'org.opencontainers.image.version'
+        name = $addonName
+        implementation = $addonImplementation
+        version = $addonVersion
         manifestDigest = $manifest.digest
         manifestSize = $manifest.size
     }
@@ -248,40 +231,45 @@ if ($null -eq $exportedAddons -or $exportedAddons.Count -lt 1) {
     exit 1
 }
 
-# Combine unquoted multi-word addon names (e.g., ingress nginx -> ingress-nginx)
-$processedNames = @()
-$i = 0
-while ($i -lt $Names.Count) {
-    $currentName = $Names[$i]
-    
-    if ($i + 1 -lt $Names.Count) {
-        $nextName = $Names[$i + 1]
-        $combinedName = "$currentName-$nextName"
-        $matchesCombined = $exportedAddons | Where-Object { $_.name -eq $combinedName }
-        
-        if ($matchesCombined) {
-            Write-Log "Recognized multi-word addon: '$currentName $nextName' -> '$combinedName'"
-            $processedNames += $combinedName
-            $i += 2
-            continue
-        }
-    }
-    
-    $processedNames += $currentName
-    $i++
-}
+# Resolve requested addon names. A request can be a base addon (`ingress`), a quoted
+# implementation (`ingress traefik`), or two unquoted tokens (`ingress traefik`).
+if ($Names.Count -gt 0) {
+    $i = 0
+    while ($i -lt $Names.Count) {
+        $name = $Names[$i]
+        $parts = @($name -split '\s+' | Where-Object { $_ })
+        $requestedName = $name
+        $requestedImplementation = $null
 
-if ($processedNames.Count -gt 0) {
-    foreach ($name in $processedNames) {
-        $normalizedName = $name -replace '\s+', '-'
-        $foundAddons = $exportedAddons | Where-Object { $_.name -eq $normalizedName }
-        if ($null -eq $foundAddons) {
-            $foundAddons = $exportedAddons | Where-Object { $_.name -eq $name }
+        if ($parts.Count -gt 1) {
+            $requestedName = $parts[0]
+            $requestedImplementation = ($parts[1..($parts.Count - 1)] -join '-')
         }
-        if ($null -eq $foundAddons) {
-            # Try matching by implementation name suffix
-            $foundAddons = $exportedAddons | Where-Object { $_.name -like "*-${name}" }
+        elseif ($i + 1 -lt $Names.Count) {
+            $nextName = $Names[$i + 1]
+            $matchesImplementation = $exportedAddons | Where-Object { $_.name -eq $name -and $_.implementation -eq $nextName }
+
+            if ($matchesImplementation) {
+                Write-Log "Recognized addon implementation: '$name $nextName'" -Console
+                $addonsToImport += $matchesImplementation
+                $i += 2
+                continue
+            }
         }
+
+        $normalizedName = $requestedName -replace '\s+', '-'
+        if ($requestedImplementation) {
+            $foundAddons = $exportedAddons | Where-Object { ($_.name -eq $normalizedName -or $_.name -eq $requestedName) -and $_.implementation -eq $requestedImplementation }
+        }
+        else {
+            $foundAddons = $exportedAddons | Where-Object { $_.name -eq $normalizedName -or $_.name -eq $requestedName }
+        }
+
+        if ($null -eq $foundAddons -and -not $requestedImplementation) {
+            # Accept legacy flattened requests like ingress-traefik for corrected metadata.
+            $foundAddons = $exportedAddons | Where-Object { "$($_.name)-$($_.implementation)" -eq $normalizedName }
+        }
+
         if ($null -eq $foundAddons) {
             Remove-Item -Force $tmpDir -Recurse -Confirm:$False -ErrorAction SilentlyContinue
             $errMsg = "Addon '$name' not found in OCI artifact for import!"
@@ -294,10 +282,11 @@ if ($processedNames.Count -gt 0) {
             exit 1
         }
         $addonsToImport += $foundAddons
+        $i++
     }
 
     # Deduplicate in case of multiple matches
-    $addonsToImport = $addonsToImport | Sort-Object -Property { $_.name } -Unique
+    $addonsToImport = $addonsToImport | Sort-Object -Property { $_.name }, { $_.implementation } -Unique
 }
 else {
     $addonsToImport = $exportedAddons

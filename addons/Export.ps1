@@ -858,6 +858,7 @@ try {
             # Track manifest reference for index.json
             $addonManifestReferences += @{
                 dirName = $addonFolderName
+                baseAddonName = $manifest.metadata.name
                 implementation = $implementation.name
                 version = $addonVersion
                 manifestDigest = $manifestBlobResult.Digest
@@ -903,7 +904,7 @@ try {
             annotations = @{
                 'org.opencontainers.image.ref.name' = "v$($addonRef.version)"
                 'org.opencontainers.image.version' = $addonRef.version
-                'vnd.k2s.addon.name' = $addonRef.dirName
+                'vnd.k2s.addon.name' = $addonRef.baseAddonName
                 'vnd.k2s.addon.implementation' = $addonRef.implementation
             }
         }
