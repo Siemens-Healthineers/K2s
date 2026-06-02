@@ -3684,9 +3684,11 @@ SPDX-License-Identifier: MIT
 <p>Both full node packages and node delta packages are created with the <code>--node-package</code> flag.</p>
 <h3 id="full-node-package">Full Node Package</h3>
 <p>A full node package bundles everything needed for a fresh node installation or a full node upgrade.</p>
+<p>Creating a full node package requires an existing <em>K2s</em> cluster on the machine where you run the command, and it must use the local cluster proxy <code>http://172.19.1.1:8181</code>.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s system package --node-package --os debian12 `</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">    -d C:\packages `</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="go">    -n debian12-node-v1.8.0.zip</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">  --target-dir &quot;C:\out&quot; `</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="go">  --name &quot;debian12-node.zip&quot; `</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="go">  -p http://172.19.1.1:8181</span>
 </code></pre></div>
 <h4 id="full-node-package-parameters">Full Node Package Parameters</h4>
 <table>
@@ -3717,6 +3719,11 @@ SPDX-License-Identifier: MIT
 <td><code>-n, --name</code></td>
 <td>Yes</td>
 <td>Output ZIP file name</td>
+</tr>
+<tr>
+<td><code>-p, --proxy</code></td>
+<td>Yes</td>
+<td>Local cluster proxy, <code>http://172.19.1.1:8181</code></td>
 </tr>
 <tr>
 <td><code>-o, --output</code></td>
