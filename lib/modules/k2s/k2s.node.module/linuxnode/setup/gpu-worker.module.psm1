@@ -121,7 +121,7 @@ function Install-NvidiaContainerToolkitOffline {
 
     # GPU packages are at: linuxnode/packages/<os>/nvidia-gpu/
     $linuxNodeDir = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
-    $gpuPackagesDir = Join-Path $linuxNodeDir 'packages' $OsName 'nvidia-gpu'
+    $gpuPackagesDir = Join-Path (Join-Path (Join-Path $linuxNodeDir 'packages') $OsName) 'nvidia-gpu'
 
     if ([string]::IsNullOrWhiteSpace($OsName) -or !(Test-Path $gpuPackagesDir)) {
         throw @"
