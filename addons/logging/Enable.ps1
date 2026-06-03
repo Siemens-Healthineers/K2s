@@ -29,7 +29,8 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [string] $StorageNode
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -83,10 +84,33 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
+if ([string]::IsNullOrEmpty($StorageNode)) {
+    $StorageNode = Get-ConfigControlPlaneNodeHostname
+}
 
-# OpenSearch requires vm.max_map_count >= 262144; set it persistently so it survives reboots
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144').Output | Write-Log
+$controlPlaneHostname = Get-ConfigControlPlaneNodeHostname
+if ($StorageNode -eq $controlPlaneHostname) {
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
+
+    # OpenSearch requires vm.max_map_count >= 262144; set it persistently so it survives reboots
+    $sysctlResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144'
+    if (-not $sysctlResult.Success) {
+        Write-Log "Warning: sysctl vm.max_map_count setting failed" -Console
+    }
+    $sysctlResult.Output | Write-Log
+} else {
+    $clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
+    $workerNode = @($clusterDescriptor.nodes) | Where-Object { $_.Name -eq $StorageNode } | Select-Object -First 1
+    if (-not $workerNode) { throw "Storage node '$StorageNode' not found in cluster descriptor" }
+    (Invoke-CmdOnVmViaSSHKey -IpAddress $workerNode.IpAddress -UserName $workerNode.Username -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
+
+    # OpenSearch requires vm.max_map_count >= 262144; set it persistently so it survives reboots
+    $sysctlResult = Invoke-CmdOnVmViaSSHKey -IpAddress $workerNode.IpAddress -UserName $workerNode.Username -Timeout 2 -CmdToExecute 'echo "vm.max_map_count=262144" | sudo tee /etc/sysctl.d/99-opensearch.conf && sudo sysctl -w vm.max_map_count=262144'
+    if (-not $sysctlResult.Success) {
+        Write-Log "Warning: sysctl vm.max_map_count setting failed" -Console
+    }
+    $sysctlResult.Output | Write-Log
+}
 
 $manifestsPath = "$PSScriptRoot\manifests\logging"
 
@@ -143,7 +167,17 @@ else {
 
     (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
 
-    $createResult = Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\"
+    # Inject storage node hostname into PV manifest
+    $pvFile = "$PSScriptRoot\manifests\logging\opensearch\persistentvolume.yaml"
+    $pvOrig = [System.IO.File]::ReadAllText($pvFile)
+    [System.IO.File]::WriteAllText($pvFile, $pvOrig.Replace('__STORAGE_NODE__', $StorageNode))
+    try {
+        $createResult = Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\"
+    }
+    finally {
+        # Restore PV manifest placeholder
+        [System.IO.File]::WriteAllText($pvFile, $pvOrig)
+    }
     $createResult.Output | Write-Log
     if (!$createResult.Success) { Stop-WithError "Failed to create logging resources: $($createResult.Output)" }
 

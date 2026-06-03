@@ -171,16 +171,10 @@ function Start-WindowsWorkerNode {
     $startTime = Get-Date
 
     Write-Log 'Ensuring service log directories exists'
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\flanneld"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\httpproxy"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\kubelet"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containers"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\pods"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\bridge"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
+    $logRoot = Get-ConfiguredLogDirectory
+    foreach ($sub in @('containerd', 'dnsproxy', 'dockerd', 'flanneld', 'httpproxy', 'kubelet', 'containers', 'pods', 'bridge', 'vfprules')) {
+        EnsureDirectoryPathExists -DirPath (Join-Path -Path $logRoot -ChildPath $sub)
+    }
 
     $kubePath = Get-KubePath
     Import-Module "$kubePath\smallsetup\hns.v2.psm1" -WarningAction:SilentlyContinue -Force
@@ -294,7 +288,8 @@ function Wait-NetworkL2BridgeReady {
         elseif ($cbr0Stopwatch.Elapsed.TotalSeconds -gt 150) {
             Stop-Service flanneld
             Write-Output "FAIL: No cbr0 switch found, timeout. Aborting.`n"
-            Write-Output 'For troubleshooting look into the log file C:\var\log\flanneld'
+            $flannelLogHint = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'flanneld'
+            Write-Output "For troubleshooting look into the log file $flannelLogHint"
             Write-Output ''
             throw 'Timeout: flanneld failed to create cbr0 switch'
         }
@@ -345,9 +340,10 @@ function Stop-WindowsWorkerNode {
     }
 
     Write-Log 'Removing old logfiles'
-    Remove-Item -Force "$(Get-SystemDriveLetter):\var\log\flanneld\flannel*.*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-    Remove-Item -Force "$(Get-SystemDriveLetter):\var\log\kubelet\*.*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-    Remove-Item -Force "$(Get-SystemDriveLetter):\var\log\kubeproxy\*.*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+    $logRoot = Get-ConfiguredLogDirectory
+    Remove-Item -Force (Join-Path -Path $logRoot -ChildPath 'flanneld\flannel*.*') -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+    Remove-Item -Force (Join-Path -Path $logRoot -ChildPath 'kubelet\*.*') -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+    Remove-Item -Force (Join-Path -Path $logRoot -ChildPath 'kubeproxy\*.*') -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 
     if ($shallRestartDocker) {
         Start-ServiceProcess 'docker'

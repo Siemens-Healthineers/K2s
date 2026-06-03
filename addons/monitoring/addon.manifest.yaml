@@ -41,6 +41,10 @@ spec:
                     - nginx
                     - nginx-gw
                     - traefik
+              - name: omitGrafana
+                description: Omit Grafana web UI; deploy only Prometheus, Alertmanager, and exporters
+                type: boolean
+                default: false
             examples:
               - cmd: k2s addons enable monitoring
                 comment: Enable monitoring in k2s
@@ -48,11 +52,15 @@ spec:
                 comment: Enable monitoring with detailed logs
               - cmd: k2s addons enable monitoring --ingress traefik
                 comment: Enable monitoring in k2s with ingress traefik
+              - cmd: k2s addons enable monitoring --omitGrafana
+                comment: Enable monitoring without Grafana web UI (Prometheus, Alertmanager, and exporters only)
           script:
             subPath: Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
+              - cliFlagName: omitGrafana
+                scriptParameterName: OmitGrafana
         disable:
           cli:
             examples:

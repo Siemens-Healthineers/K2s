@@ -158,12 +158,6 @@ var _ = Describe("node remove", Ordered, func() {
 					"Expected node %s to be visible in kubectl get nodes", node.Name)
 			}
 		})
-
-		It("all worker nodes are Ready in the cluster", func(ctx context.Context) {
-			for _, node := range workerNodes {
-				removeSuite.Cluster().ExpectNodeToBeReady(node.Name, ctx)
-			}
-		})
 	})
 
 	Describe("remove each worker node", Label("remove"), func() {

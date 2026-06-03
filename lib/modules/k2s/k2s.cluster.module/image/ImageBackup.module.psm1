@@ -564,8 +564,8 @@ function Backup-K2sImages {
         $manifestPath = Join-Path $BackupDirectory "manifest.json"
         $backupManifest | ConvertTo-Json -Depth 10 | Out-File -FilePath $manifestPath -Encoding UTF8
 
-        # Create backup log in C:\var\log
-        $logDirectory = "C:\var\log"
+        # Create backup log in the configured log directory
+        $logDirectory = Get-ConfiguredLogDirectory
         if (-not (Test-Path $logDirectory)) {
             New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
         }
@@ -709,8 +709,8 @@ function Restore-K2sImages {
             }
         }
         
-        # Create restore log in C:\var\log
-        $logDirectory = "C:\var\log"
+        # Create restore log in the configured log directory
+        $logDirectory = Get-ConfiguredLogDirectory
         if (-not (Test-Path $logDirectory)) {
             New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
         }

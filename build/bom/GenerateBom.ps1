@@ -47,7 +47,7 @@ function EnsureTrivy() {
     }
 
     $compressedFile = "$global:BinPath\trivy.zip"
-    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_windows-64bit.zip' $true -ProxyToUse $Proxy
+    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.71.0/trivy_0.71.0_windows-64bit.zip' $true -ProxyToUse $Proxy
 
     # Extract the archive.
     Write-Output "Extract archive to '$global:BinPath"
@@ -175,25 +175,31 @@ function GenerateBomDebian() {
     Write-Output 'Generate bom for debian packages'
 
     $hostname = Get-ControlPlaneNodeHostname
+    $trivyVersion = '0.71.0'
+    $kubemasterProxy = 'http://172.19.1.1:8181'
+    $trivyUrl = "https://github.com/aquasecurity/trivy/releases/download/v${trivyVersion}/trivy_${trivyVersion}_Linux-64bit.tar.gz"
 
-    $trivyInstalled = $(ExecCmdMaster 'which /usr/local/bin/trivy' -NoLog)
-    if ($trivyInstalled -match '/bin/trivy') {
+    $trivyInstalled = $(ExecCmdMaster 'sudo /usr/bin/trivy --version' -NoLog -IgnoreErrors)
+    if ($trivyInstalled -match 'Version') {
         Write-Output "Trivy already available in VM $hostname"
     }
     else {
         Write-Output "Install trivy into $hostname"
-        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_Linux-64bit.tar.gz 2>&1'
-        ExecCmdMaster 'sudo tar -xzf ./trivy_0.70.0_Linux-64bit.tar.gz trivy'
-        ExecCmdMaster 'sudo rm ./trivy_0.70.0_Linux-64bit.tar.gz'
-        ExecCmdMaster 'sudo mv ./trivy /usr/local/bin/'
-        ExecCmdMaster 'sudo chmod +x /usr/local/bin/trivy'
+        $installTrivyCommand = "curl --proxy $kubemasterProxy -fsSL -o /tmp/trivy.tar.gz '$trivyUrl' && " +
+            'tar -xzf /tmp/trivy.tar.gz -C /tmp trivy && ' +
+            'sudo mv /tmp/trivy /usr/bin/trivy && ' +
+            'sudo chmod +x /usr/bin/trivy && ' +
+            'rm -f /tmp/trivy.tar.gz && ' +
+            'sudo trivy --version'
+        ExecCmdMaster $installTrivyCommand -Timeout 30
     }
 
     Write-Output 'Generate bom for debian (this may take 5-15 minutes, please wait...)'
-    Write-Output 'Running: trivy rootfs / --scanners license --license-full --format cyclonedx'
+    $trivyRootfsTimeout = '30m'
+    Write-Output "Running: trivy rootfs / --scanners license --license-full --format cyclonedx --timeout $trivyRootfsTimeout"
     Write-Output 'Note: Progress output from trivy may not be visible. The process is running in the background.'
     $startTime = Get-Date
-    ExecCmdMaster -CmdToExecute 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1' -Retries 6 -Timeout 30
+    ExecCmdMaster -CmdToExecute "sudo HTTPS_PROXY=$kubemasterProxy /usr/bin/trivy rootfs / --scanners license --license-full --format cyclonedx --timeout $trivyRootfsTimeout -o kubemaster.json 2>&1" -Retries 6 -Timeout 30
     $elapsed = (Get-Date) - $startTime
     Write-Output "Debian BOM generation completed in $($elapsed.TotalMinutes.ToString('F2')) minutes"
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package autoscaling
+package autoscalingenabdisable
 
 import (
 	"context"

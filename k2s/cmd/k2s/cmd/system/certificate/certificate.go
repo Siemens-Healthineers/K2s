@@ -12,4 +12,5 @@ var CertificateCmd = &cobra.Command{
 
 func init() {
 	CertificateCmd.AddCommand(renewCmd)
+	CertificateCmd.AddCommand(autoRotationCmd)
 }

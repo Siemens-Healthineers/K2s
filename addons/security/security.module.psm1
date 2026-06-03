@@ -120,8 +120,8 @@ function Enable-WindowsSecurityDeployments {
     Invoke-WindowsSecurityYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
 
     Write-Log 'Waiting for windows security deployments..' -Console
-    $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 120)
-    $winLoginStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=windows-login' -Namespace 'security' -TimeoutSeconds 120)
+    $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 300)
+    $winLoginStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=windows-login' -Namespace 'security' -TimeoutSeconds 300)
 
     Write-Log 'Waiting for windows security api to be available..' -Console
     $hydraUrl = 'http://172.19.1.1:4445/admin/clients'
@@ -207,7 +207,7 @@ chrome://net-internals/#hsts
 .DESCRIPTION
 Waits for the keycloak pods to be available.
 #>
-function Wait-ForKeyCloakAvailable($waiTime = 240) {
+function Wait-ForKeyCloakAvailable($waiTime = 900) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds $waiTime)
 }
 
@@ -324,7 +324,7 @@ function Wait-ForLinkerdAvailable {
     # Linkerd control plane (especially linkerd-destination with 3 containers) may need
     # 1-2 restart cycles on a loaded single-node cluster before probes pass consistently.
     # 600s (10 min) allows for BackOff + restart + stabilization.
-    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 300)
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 180)
 }
 
 <#
@@ -863,7 +863,6 @@ function Install-Kyverno {
     }
 
     $maxAttempts = 3
-    $retryDelaySec = 60
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         $result = Invoke-Helm -Params $helmArgs
         $result.Output | Write-Log
@@ -883,7 +882,7 @@ function Install-Kyverno {
                 'etcdserver: request timed out'    { 'etcd request timeout'; break }
                 default                            { 'transient Helm error' }
             }
-            Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed ($reason) -- purging and retrying in ${retryDelaySec}s" -Console
+            Write-Log "[Kyverno] Helm install attempt $attempt/$maxAttempts failed ($reason) -- purging and retrying" -Console
 
             $purgeResult = Invoke-Helm -Params @('uninstall', 'kyverno', '-n', $kyvernoNamespace, '--no-hooks')
             $purgeResult.Output | Write-Log
@@ -892,17 +891,61 @@ function Install-Kyverno {
                 (Invoke-Kubectl -Params 'delete', 'secret', '-n', $kyvernoNamespace,
                     '-l', 'owner=helm,name=kyverno', '--ignore-not-found').Output | Write-Log
             }
-            Start-Sleep -Seconds $retryDelaySec
+
+            # Delete stale services to release ClusterIPs before retry
+            Write-Log "[Kyverno] Deleting services in namespace '$kyvernoNamespace' to release ClusterIPs..." -Console
+            (Invoke-Kubectl -Params 'delete', 'svc', '--all', '-n', $kyvernoNamespace, '--force', '--grace-period=0', '--ignore-not-found').Output | Write-Log
+
+            # Wait for services to be fully removed (ClusterIP allocator releases IPs)
+            $waitMax = 30
+            for ($w = 0; $w -lt $waitMax; $w++) {
+                $svcs = (Invoke-Kubectl -Params 'get', 'svc', '-n', $kyvernoNamespace, '--no-headers', '--ignore-not-found').Output
+                if ([string]::IsNullOrWhiteSpace($svcs)) {
+                    Write-Log '[Kyverno] All services deleted, ClusterIPs released' -Console
+                    break
+                }
+                Write-Log "[Kyverno] Waiting for service cleanup... ($w/$waitMax)" -Console
+                Start-Sleep -Seconds 1
+            }
+            Start-Sleep -Seconds 5  # Allow ClusterIP allocator to fully sync
             continue
         }
 
         throw "[Kyverno] Helm install failed: $($result.Output)"
     }
 
-    Write-Log '[Kyverno] Waiting for Kyverno controllers to be ready (up to 900s)...' -Console
-    $kyvernoReady = Wait-ForKyvernoAvailable -TimeoutSeconds 900
+    Write-Log '[Kyverno] Waiting for Kyverno controllers to be ready (up to 1200s)...' -Console
+    # After a Helm retry, old pods from the failed attempt may still be in Terminating state.
+    # kubectl wait picks up ALL pods matching the label (including Terminating ones) and will
+    # never succeed for them. Wait for terminating pods to fully disappear first.
+    $terminatingWaitMax = 60
+    for ($tw = 0; $tw -lt $terminatingWaitMax; $tw++) {
+        # Use jsonpath to find pods with a deletionTimestamp (= Terminating).
+        # This avoids false positives on Pending/ContainerCreating pods from the new install.
+        $terminatingPods = (Invoke-Kubectl -Params 'get', 'pods', '-n', $kyvernoNamespace,
+            '-l', 'app.kubernetes.io/instance=kyverno',
+            '-o', 'jsonpath={.items[?(@.metadata.deletionTimestamp)].metadata.name}',
+            '--ignore-not-found').Output
+        if ([string]::IsNullOrWhiteSpace($terminatingPods)) {
+            Write-Log '[Kyverno] No terminating pods found, proceeding with readiness wait' -Console
+            break
+        }
+        if ($tw % 10 -eq 0) {
+            Write-Log "[Kyverno] Waiting for terminating pods to clear ($tw/$terminatingWaitMax): $terminatingPods" -Console
+        }
+        Start-Sleep -Seconds 2
+    }
+    if ($tw -ge $terminatingWaitMax) {
+        Write-Log '[Kyverno] Warning: terminating pods did not clear within 120s, proceeding anyway' -Console
+    }
+
+    # The admission-controller pod needs its TLS certificate secret
+    # (kyverno-svc.kyverno.svc.kyverno-tls-pair) to pass startup probes.
+    # When cert-manager is under load (serving linkerd, ingress, trust-manager),
+    # TLS provisioning can take 12-15 minutes. Use 1200s to provide headroom.
+    $kyvernoReady = Wait-ForKyvernoAvailable -TimeoutSeconds 1200
     if (-not $kyvernoReady) {
-        throw '[Kyverno] Controllers did not become ready within 900s. Check kubectl describe pod -n kyverno for details.'
+        throw '[Kyverno] Controllers did not become ready within 1200s. Check kubectl describe pod -n kyverno for details.'
     }
 
     # Apply bundled/user-provided policies (webhook is now live).

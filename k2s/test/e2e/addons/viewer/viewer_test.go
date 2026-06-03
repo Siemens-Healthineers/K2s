@@ -209,7 +209,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				k2s.VerifyAddonIsDisabled("viewer")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx", "nginx-gw")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gw", "nginx-gw")
 			})
 
 			It("is in enabled state and reachable through k2s.cluster.local", func(ctx context.Context) {

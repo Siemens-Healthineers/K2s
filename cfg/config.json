@@ -70,7 +70,7 @@
             }
         },
         "backup": {
-            "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gateway,gpu-node,ingress-nginx,kubevirt,monitoring,registry,dicom,ingress-traefik,logging,security,viewer,storage-smb,linkerd,cert-manager,dashboard,autoscaling,metrics,rollout",
+            "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gw,gpu-node,ingress-nginx,kubevirt,monitoring,registry,dicom,ingress-traefik,logging,security,viewer,storage-smb,linkerd,cert-manager,dashboard,autoscaling,metrics,rollout",
             "excludednamespacedresources": "endpoints,endpointslices",
             "excludedclusterresources": "componentstatuses,nodes,csinodes,ipaddresses,certificatesigningrequests,storageclasses,servicecidrs,apiservices,flowschemas,prioritylevelconfigurations,ingressclasses,runtimeclasses,storageclasses",
             "excludedaddonpersistentvolumes": "postgresql-pv-volume,dicom-pv-volume,orthanc-pv,registry-pv,smb-static-pv,opensearch-cluster-master-pv"
@@ -80,7 +80,8 @@
         "ssh": "~/.ssh",
         "kube": "~/.kube",
         "docker": "~/.docker",
-        "k2s": "C:\\ProgramData\\K2s"
+        "k2s": "C:\\ProgramData\\K2s",
+        "logs": "C:\\var\\log"
     },
     "clusterName": "k2s-cluster",
     "supportedWorkerOS": [

@@ -1175,7 +1175,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
                                 windows = [pscustomobject]@{
                                     curl = @(
                                         [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
-                                        [pscustomobject]@{ destination = 'bin\\kyverno.exe'; url = 'http://example/kyverno-cli_v1.17.1_windows_x86_64.zip' }
+                                        [pscustomobject]@{ destination = 'bin\\kyverno.exe'; url = 'http://example/kyverno-cli_v1.18.1_windows_x86_64.zip' }
                                     )
                                 }
                             }
@@ -1198,7 +1198,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
 
             # Only cmctl.exe should be downloaded; the kyverno ZIP is handled by Install-KyvernoCli
             $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
-            $script:downloadedUrls | Should -Not -Contain 'http://example/kyverno-cli_v1.17.1_windows_x86_64.zip'
+            $script:downloadedUrls | Should -Not -Contain 'http://example/kyverno-cli_v1.18.1_windows_x86_64.zip'
             Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope Context
         }
     }
@@ -1673,10 +1673,10 @@ Describe 'Resolve-AddonImportPath' -Tag 'unit', 'ci', 'addon' {
         }
     }
 
-    Context 'multi-implementation addon (ingress-nginx)' {
-        It 'splits into base addon and implementation' {
+    Context 'multi-implementation addon (ingress nginx)' {
+        It 'uses addon name as base and implementation annotation as subfolder' {
             InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'ingress-nginx' -AddonImplementation 'nginx'
+                $result = Resolve-AddonImportPath -AddonName 'ingress' -AddonImplementation 'nginx'
 
                 $result.BaseAddonName | Should -Be 'ingress'
                 $result.ImplementationName | Should -Be 'nginx'
@@ -1684,13 +1684,35 @@ Describe 'Resolve-AddonImportPath' -Tag 'unit', 'ci', 'addon' {
         }
     }
 
-    Context 'multi-implementation addon (ingress-traefik)' {
-        It 'splits into base addon and implementation' {
+    Context 'multi-implementation addon (ingress traefik)' {
+        It 'uses addon name as base and implementation annotation as subfolder' {
             InModuleScope -ModuleName $moduleName {
-                $result = Resolve-AddonImportPath -AddonName 'ingress-traefik' -AddonImplementation 'traefik'
+                $result = Resolve-AddonImportPath -AddonName 'ingress' -AddonImplementation 'traefik'
 
                 $result.BaseAddonName | Should -Be 'ingress'
                 $result.ImplementationName | Should -Be 'traefik'
+            }
+        }
+    }
+
+    Context 'multi-implementation addon with hyphen in implementation' {
+        It 'keeps the complete implementation name' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'ingress' -AddonImplementation 'nginx-gw'
+
+                $result.BaseAddonName | Should -Be 'ingress'
+                $result.ImplementationName | Should -Be 'nginx-gw'
+            }
+        }
+    }
+
+    Context 'hyphenated addon with different implementation metadata' {
+        It 'does not split the addon name at the hyphen' {
+            InModuleScope -ModuleName $moduleName {
+                $result = Resolve-AddonImportPath -AddonName 'gpu-node' -AddonImplementation 'node'
+
+                $result.BaseAddonName | Should -Be 'gpu-node'
+                $result.ImplementationName | Should -Be 'node'
             }
         }
     }

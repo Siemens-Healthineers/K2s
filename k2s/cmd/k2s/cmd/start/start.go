@@ -291,9 +291,8 @@ func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node, singleNode bool
 
 	roleType := string(nodeConfig.Role)
 	OsType := string(nodeConfig.OS)
-	nodeType := cc.GetNodeDirectory(string(nodeConfig.NodeType))
 
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", roleType, OsType, nodeType, "Start.ps1"))
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", roleType, OsType, "bare-metal", "Start.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"

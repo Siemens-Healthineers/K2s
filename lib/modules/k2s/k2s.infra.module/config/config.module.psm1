@@ -427,6 +427,29 @@ function Set-ConfigControlPlaneNodeHostname($hostname) {
     Write-Log "Saved VM hostname '$hostname' in file '$SetupJsonFile'"
 }
 
+<#
+.SYNOPSIS
+Returns the persisted log root from setup.json (key 'LogRoot') or $null when unset.
+#>
+function Get-ConfigLogRoot {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'LogRoot'
+}
+
+<#
+.SYNOPSIS
+Persists the resolved log root directory into setup.json under key 'LogRoot'.
+.DESCRIPTION
+Written at install time so that later script invocations and Go tools resolve the same
+configured log directory without re-reading cfg/config.json.
+#>
+function Set-ConfigLogRoot {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $Value
+    )
+    Set-ConfigValue -Path $SetupJsonFile -Key 'LogRoot' -Value $Value
+}
+
 function Get-ConfigVMNodeHostname () {
     $hostname = Get-ConfigValue -Path $SetupJsonFile -Key 'VMNodeHostname'
 
@@ -459,7 +482,7 @@ function Get-MinimalProvisioningBaseImageDiskSize {
     return 10GB
 }
 function Get-DefaultK8sVersion {
-    return 'v1.35.4'
+    return 'v1.35.5'
 }
 
 <#
@@ -570,6 +593,8 @@ Set-ConfigProductVersion,
 Get-ConfigHostGW,
 Set-ConfigHostGW,
 Set-ConfigControlPlaneNodeHostname,
+Get-ConfigLogRoot,
+Set-ConfigLogRoot,
 Get-ControlPlaneNodeDefaultSwitchName,
 Get-ConfigVMNodeHostname,
 Set-ConfigVMNodeHostname,

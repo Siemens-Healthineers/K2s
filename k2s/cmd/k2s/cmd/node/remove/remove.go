@@ -21,14 +21,14 @@ import (
 
 const (
 	MachineName          = "name"
-	MachineNameFlagUsage = "Hostname of the machine"
+	MachineNameFlagUsage = "Hostname of the node"
 )
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
-		Short: "[EXPERIMENTAL] Remove a node from the cluster",
-		Long:  "Removes machine or VM from K2s cluster",
+		Short: "Remove a node from the cluster",
+		Long:  "Removes a node from a K2s cluster",
 		Example: `  # Remove a worker node by its hostname
   k2s node remove --name worker-node-1`,
 		RunE: removeNode,

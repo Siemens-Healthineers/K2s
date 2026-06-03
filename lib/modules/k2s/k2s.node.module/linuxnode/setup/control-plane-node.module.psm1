@@ -139,6 +139,7 @@ function New-ControlPlaneNodeOnNewVM {
         NetworkInterfaceName = $(Get-NetworkInterfaceName)
         Hook                 = $addToControlPlane
         ClusterName          = $clusterName
+        ForceOnlineInstallation = $ForceOnlineInstallation
     }
     Set-UpMasterNode @masterNodeParams
 

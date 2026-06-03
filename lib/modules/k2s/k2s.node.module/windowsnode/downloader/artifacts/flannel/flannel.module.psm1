@@ -94,7 +94,7 @@ function Invoke-DeployCniFlannelArtifacts($windowsNodeArtifactsDirectory) {
 
 function Install-WinFlannel {
     Write-Log 'Registering flanneld service'
-    mkdir -Force "$(Get-SystemDriveLetter):\var\log\flanneld" | Out-Null
+    mkdir -Force (Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'flanneld') | Out-Null
     &$kubeBinPath\nssm install flanneld "$kubeBinPath\cni\flanneld.exe"
     $adapterName = Get-L2BridgeName
     Write-Log "Using network adapter '$adapterName'"
@@ -124,8 +124,10 @@ function Install-WinFlannel {
 
     &$kubeBinPath\nssm set flanneld AppParameters "--kubeconfig-file=\`"$kubePath\config\`" --iface=$ipaddress --ip-masq=1 --kube-subnet-mgr=1" | Out-Null
     &$kubeBinPath\nssm set flanneld AppDirectory "$(Get-SystemDriveLetter):\" | Out-Null
-    &$kubeBinPath\nssm set flanneld AppStdout "$(Get-SystemDriveLetter):\var\log\flanneld\flanneld_stdout.log" | Out-Null
-    &$kubeBinPath\nssm set flanneld AppStderr "$(Get-SystemDriveLetter):\var\log\flanneld\flanneld_stderr.log" | Out-Null
+    $flanneldLogDir = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'flanneld'
+    if (-not (Test-Path $flanneldLogDir)) { mkdir -Force $flanneldLogDir | Out-Null }
+    &$kubeBinPath\nssm set flanneld AppStdout "$flanneldLogDir\flanneld_stdout.log" | Out-Null
+    &$kubeBinPath\nssm set flanneld AppStderr "$flanneldLogDir\flanneld_stderr.log" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStdoutCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set flanneld AppStderrCreationDisposition 4 | Out-Null
     &$kubeBinPath\nssm set flanneld AppRotateFiles 1 | Out-Null

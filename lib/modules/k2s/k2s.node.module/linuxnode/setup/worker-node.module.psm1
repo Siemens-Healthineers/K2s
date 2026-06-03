@@ -93,6 +93,132 @@ function Clear-LinuxWorkerNodeRoutes {
     Write-Log "[RouteCleanup] Kubernetes route cleanup completed" -Console
 }
 
+function Restore-LinuxWorkerNodeRoutes {
+    <#
+    .SYNOPSIS
+        Restores Kubernetes-related routes on a Linux bare-metal worker node.
+    .DESCRIPTION
+        Re-adds control plane CIDR route and pod-network route via Windows host.
+        These routes may be lost after node reboot or network restart.
+        Used during Start-LinuxWorkerNode for bare-metal (HOST) nodes.
+    #>
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $NodeName = $(throw 'Argument missing: NodeName')
+    )
+
+    Write-Log "[RouteRestore] Restoring Kubernetes routes on bare-metal node $NodeName ($IpAddress)" -Console
+
+    # Get Windows host IP that can reach this node
+    $loopbackAdapter = Get-L2BridgeName
+    $windowsHostIpAddress = Get-HostIpAddressForRemoteIp -RemoteIpAddress $IpAddress -ExcludeNetworkInterfaceName $loopbackAdapter
+
+    if ([string]::IsNullOrWhiteSpace($windowsHostIpAddress)) {
+        Write-Log "[RouteRestore] WARNING: Could not determine Windows host IP for node $IpAddress, skipping route restoration"
+        return
+    }
+
+    Write-Log "[RouteRestore] Using Windows host IP: $windowsHostIpAddress"
+
+    # Restore route to control plane network
+    $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR | grep -v 'proto kernel'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+    if ($controlPlaneRouteExists) {
+        Write-Log "[RouteRestore] Route to $controlPlaneCIDR already exists, skipping."
+    } else {
+        Write-Log "[RouteRestore] Adding route to control plane: $controlPlaneCIDR via $windowsHostIpAddress"
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $windowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    }
+
+    # Restore route to pod network
+    $podNetworkCIDR = Get-ConfiguredClusterCIDR
+    $podNetworkRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $podNetworkCIDR | grep -v 'proto kernel'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+    if ($podNetworkRouteExists) {
+        Write-Log "[RouteRestore] Route to $podNetworkCIDR already exists, skipping."
+    } else {
+        Write-Log "[RouteRestore] Adding route to pod network: $podNetworkCIDR via $windowsHostIpAddress"
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $windowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    }
+
+    # Ensure IP forwarding is enabled on Windows host interface
+    $networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match [regex]::Escape($windowsHostIpAddress))} | Select-Object -ExpandProperty InterfaceAlias)
+    if (-not [string]::IsNullOrWhiteSpace($networkInterfaceName)) {
+        netsh int ipv4 set int $networkInterfaceName forwarding=enabled | Out-Null
+        Write-Log "[RouteRestore] Enabled IP forwarding on interface '$networkInterfaceName'"
+    }
+
+    Write-Log "[RouteRestore] Route restoration completed" -Console
+}
+
+<#
+.SYNOPSIS
+    Creates persistent routes on a Linux bare-metal worker node.
+.DESCRIPTION
+    Creates a systemd service that adds K2s routes at boot time.
+    This ensures routes survive reboots, DHCP renewals, and network restarts.
+#>
+function Add-PersistentLinuxWorkerNodeRoutes {
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $WindowsHostIpAddress = $(throw 'Argument missing: WindowsHostIpAddress')
+    )
+
+    $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    $podNetworkCIDR = Get-ConfiguredClusterCIDR
+
+    Write-Log "[PersistentRoutes] Creating persistent routes on bare-metal node $IpAddress" -Console
+
+    # Key design decisions:
+    # - PartOf=systemd-networkd.service: Ensures this service restarts when networkd restarts
+    #   (networkd flushes manually-added routes on restart, so we must re-add them)
+    # - After=systemd-networkd.service: Ensures routes are added after network is configured
+    # - No ExecStop that deletes routes: Avoids accidental route deletion on service stop/restart
+    # - Retry loop: DHCP may not be fully ready when network-online.target is reached
+    $serviceLines = @(
+        "[Unit]"
+        "Description=K2s Kubernetes Routes"
+        "After=network-online.target systemd-networkd.service"
+        "Wants=network-online.target"
+        "PartOf=systemd-networkd.service"
+        ""
+        "[Service]"
+        "Type=oneshot"
+        "RemainAfterExit=yes"
+        "ExecStart=/bin/sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do ping -c 1 -W 2 $WindowsHostIpAddress >/dev/null 2>&1 && break; sleep 2; done; ip route replace $controlPlaneCIDR via $WindowsHostIpAddress; ip route replace $podNetworkCIDR via $WindowsHostIpAddress'"
+        ""
+        "[Install]"
+        "WantedBy=multi-user.target"
+    )
+    # Join with LF and encode as base64 to avoid line-ending/escaping issues over SSH
+    $serviceContent = $serviceLines -join "`n"
+    $base64Content = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($serviceContent))
+
+    # Decode on Linux side and write to file using sudo tee
+    $createServiceCmd = "echo '$base64Content' | base64 -d | sudo tee /etc/systemd/system/k2s-routes.service > /dev/null"
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute $createServiceCmd -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+    # Enable and start the service
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo systemctl daemon-reload && sudo systemctl enable k2s-routes.service && sudo systemctl start k2s-routes.service" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+    Write-Log "[PersistentRoutes] Persistent routes service created and enabled" -Console
+}
+
+<#
+.SYNOPSIS
+    Removes persistent routes service from a Linux bare-metal worker node.
+#>
+function Remove-PersistentLinuxWorkerNodeRoutes {
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    Write-Log "[PersistentRoutes] Removing persistent routes service from node $IpAddress" -Console
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo systemctl stop k2s-routes.service 2>/dev/null; sudo systemctl disable k2s-routes.service 2>/dev/null; sudo rm -f /etc/systemd/system/k2s-routes.service; sudo systemctl daemon-reload" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+}
+
 function Add-LinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
@@ -169,6 +295,11 @@ function Add-LinuxWorkerNode {
     Write-Log "Joining new node to the cluster" -Console
     $k8sFormattedNodeName = $NodeName.ToLower()
     Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $IpAddress -PreStepHook $doBeforeJoining
+
+    # For bare-metal (HOST) nodes, create persistent routes so they survive reboots
+    if ($NodeType -eq 'HOST') {
+        Add-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress -WindowsHostIpAddress $WindowsHostIpAddress
+    }
 }
 
 function Remove-LinuxWorkerNode {
@@ -179,6 +310,12 @@ function Remove-LinuxWorkerNode {
         [string] $AdditionalHooksDir = ''
     )
     Write-Log "Removing K2s worker node '$NodeName'"
+
+    # Remove persistent routes service only for bare-metal (HOST) nodes
+    $nodeConfig = Get-NodeConfig -NodeName $NodeName
+    if ($null -ne $nodeConfig -and $nodeConfig.NodeType -eq 'HOST') {
+        Remove-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
+    }
 
     $doAfterRemoving = {
         Clear-LinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
@@ -211,6 +348,18 @@ function Start-LinuxWorkerNode {
     $switchName = Get-ControlPlaneNodeDefaultSwitchName
     $switchAlias = "vEthernet ($switchName)"
     Set-InterfacePrivate -InterfaceAlias $switchAlias
+
+    # For bare-metal (HOST) nodes, restore routes on the Linux side so kubelet can reach the API server
+    $nodeConfig = Get-NodeConfig -NodeName $NodeName
+    if ($null -ne $nodeConfig -and $nodeConfig.NodeType -eq 'HOST') {
+        $userName = $nodeConfig.UserName
+        if (-not [string]::IsNullOrWhiteSpace($userName)) {
+            Write-Log "[Start] Restoring routes on bare-metal node '$NodeName'" -Console
+            Restore-LinuxWorkerNodeRoutes -UserName $userName -IpAddress $IpAddress -NodeName $NodeName
+        } else {
+            Write-Log "[Start] WARNING: Cannot restore routes on bare-metal node '$NodeName' - UserName not found in config"
+        }
+    }
 
     $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName -ObtainCIDR:$ObtainCIDR
     Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
@@ -472,6 +621,9 @@ function Test-SupportedWorkerOS {
 Export-ModuleMember -Function Add-LinuxWorkerNode,
 Remove-LinuxWorkerNode,
 Clear-LinuxWorkerNodeRoutes,
+Restore-LinuxWorkerNodeRoutes,
+Add-PersistentLinuxWorkerNodeRoutes,
+Remove-PersistentLinuxWorkerNodeRoutes,
 Start-LinuxWorkerNode,
 Stop-LinuxWorkerNode,
 Test-SupportedWorkerOS

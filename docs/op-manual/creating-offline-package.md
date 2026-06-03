@@ -38,6 +38,8 @@ k2s system package -d C:\output -n k2s.zip --addons-list none
 
 The `--addons-list` flag works with both *Dev* (default) and *Lite* profiles.
 
+The *Lite* profile reduces package size by excluding optional build artifacts and large intermediate artifacts. Documentation and test code for delivered components remain included: when all addons are packaged, addon tests are included as well; when `--addons-list` limits the delivery, only tests for the selected addons are kept.
+
 When running the aforementioned command and no *K2s* variant has been installed on the current system yet, the [Development-Only Variant](../user-guide/hosting-variants.md#development-only) will be installed in order to create an offline package (which requires an internet connection). If all dependencies are already available locally due to prior installation of *K2s*, the offline package creation does not require internet connection.
 
 ??? info "Offline Package Creation Diagram"
@@ -62,7 +64,7 @@ graph TD
 
 To add a Linux worker node to an existing cluster without internet access on that node, create a **node package**.
 
-No installed *K2s* cluster is required to create this node package. You can run the command directly from the extracted *K2s* repository or release directory.
+Node package creation requires an existing *K2s* cluster on the machine where you run the command, and it must use the local cluster proxy `http://172.19.1.1:8181`.
 
 Inspect the available options:
 
@@ -73,32 +75,29 @@ k2s system package -h
 Example from a local directory using `k2s.exe` directly:
 
 ```console
-.\k2s.exe system package --node-package --os debian13 --target-dir "D:\Linuxpackagetest" --name "debian13.zip"
+.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip" --proxy http://172.19.1.1:8181
 ```
 
 Create an OS-specific node package ZIP:
 
 ```console
-k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip
+k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
 ```
 
 Example for Debian 13:
 
 ```console
-k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip
+k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip" -p http://172.19.1.1:8181
 ```
 
 Then add the node by passing the package to `k2s node add`:
 
 ```console
-k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package C:\output\debian13-node.zip
+k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package C:\out\debian13-node.zip
 ```
 
 !!! note
     The node package is intended for extending an existing cluster with a Linux worker node. It is separate from the full offline installation package used for installing *K2s* itself.
-
-!!! note
-    Creating the node package does not require that *K2s* is already installed on the current machine.
 
 See [Extending K2s cluster](extending-k2s-cluster.md) for the complete node onboarding workflow.
 

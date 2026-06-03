@@ -214,3 +214,65 @@ Describe "Write-Log Function Tests" {
         }
     }
 }
+
+Describe "Get-ConfiguredLogDirectory" {
+    BeforeEach {
+        $script:savedEnv = $env:K2S_LOG_ROOT
+    }
+
+    AfterEach {
+        if ($null -eq $script:savedEnv) {
+            Remove-Item Env:K2S_LOG_ROOT -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:K2S_LOG_ROOT = $script:savedEnv
+        }
+    }
+
+    It "honors the K2S_LOG_ROOT environment variable when set" {
+        # Arrange
+        $tempDir = Join-Path $env:TEMP ("k2s-logroot-" + [Guid]::NewGuid())
+        $env:K2S_LOG_ROOT = $tempDir
+        try {
+            # Act
+            $result = Get-ConfiguredLogDirectory
+            # Assert
+            $result | Should -Be (Resolve-Path $tempDir).Path
+            Test-Path $tempDir | Should -Be $true
+        }
+        finally {
+            Remove-Item -Path $tempDir -Force -Recurse -ErrorAction SilentlyContinue
+        }
+    }
+
+    It "expands environment variables embedded in the value" {
+        # Arrange
+        $tempDir = Join-Path $env:TEMP ("k2s-logroot-env-" + [Guid]::NewGuid())
+        $env:K2S_LOG_ROOT = '%TEMP%\' + (Split-Path -Leaf $tempDir)
+        try {
+            # Act
+            $result = Get-ConfiguredLogDirectory
+            # Assert
+            $result | Should -Be (Resolve-Path $tempDir).Path
+        }
+        finally {
+            Remove-Item -Path $tempDir -Force -Recurse -ErrorAction SilentlyContinue
+        }
+    }
+
+    It "creates the directory if it does not yet exist" {
+        # Arrange
+        $tempDir = Join-Path $env:TEMP ("k2s-logroot-mkdir-" + [Guid]::NewGuid())
+        Test-Path $tempDir | Should -Be $false
+        $env:K2S_LOG_ROOT = $tempDir
+        try {
+            # Act
+            Get-ConfiguredLogDirectory | Out-Null
+            # Assert
+            Test-Path $tempDir | Should -Be $true
+        }
+        finally {
+            Remove-Item -Path $tempDir -Force -Recurse -ErrorAction SilentlyContinue
+        }
+    }
+}

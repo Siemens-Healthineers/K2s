@@ -206,6 +206,22 @@ var _ = Describe("Upgrade Validation", func() {
 			}
 		})
 	})
+
+	Describe("Addon Preservation", Label("upgrade-addon-validation"), func() {
+		It("metrics addon is re-enabled and reported as enabled after upgrade", func(ctx SpecContext) {
+			if !k2s.IsAddonEnabled("metrics") {
+				Skip("metrics addon was not enabled before upgrade, skipping re-enable check")
+			}
+
+			// Verify setup.json reflects the addon as enabled
+			k2s.VerifyAddonIsEnabled("metrics")
+
+			// Verify the CLI also reports the addon as enabled
+			output := suite.K2sCli().MustExec(ctx, "addons", "status", "metrics")
+			Expect(output).To(MatchRegexp(`Addon .+metrics.+ is .+enabled.+`),
+				"metrics addon should be reported as enabled after upgrade")
+		})
+	})
 })
 
 func isPodReady(pod corev1.Pod) bool {

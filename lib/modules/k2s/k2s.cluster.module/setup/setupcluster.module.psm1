@@ -412,8 +412,9 @@ function Remove-LinuxNode {
         [scriptblock] $PostStepHook = {}
     )
 
-    (Invoke-Kubectl -Params @('drain', "$NodeName", '--ignore-daemonsets', '--delete-emptydir-data')).Output | ForEach-Object { "$_" } | Write-Log
-    (Invoke-Kubectl -Params @('delete', 'node', "$NodeName")).Output | ForEach-Object { "$_" } | Write-Log
+    # Use --force --grace-period=0 --timeout=60s to avoid hanging on NotReady nodes
+    (Invoke-Kubectl -Params @('drain', "$NodeName", '--ignore-daemonsets', '--delete-emptydir-data', '--force', '--grace-period=0', '--timeout=60s')).Output | ForEach-Object { "$_" } | Write-Log
+    (Invoke-Kubectl -Params @('delete', 'node', "$NodeName", '--ignore-not-found')).Output | ForEach-Object { "$_" } | Write-Log
     
     # delete control plane route only if it exists and is not a connected/kernel route
     $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR

@@ -2292,7 +2292,7 @@ spec:
     spec:
       containers:
         - name: keycloak
-          image: quay.io/keycloak/keycloak:24.0.2
+          image: quay.io/keycloak/keycloak:26.6.2
           args:
             # Use 'start' command for production
             - start
@@ -2301,7 +2301,8 @@ spec:
             # Only include --import-realm if you are using a realm import file for initial setup
             # For ongoing realm management, you might use the admin console or Keycloak CRs/Operator
             - '--import-realm'
-            - '--proxy=edge'
+            - '--proxy-headers=xforwarded'
+            - '--http-enabled=true'
             - '--http-relative-path=keycloak'
             # Add health check arguments for 'start' mode
             - '--health-enabled=true'
@@ -2317,8 +2318,6 @@ spec:
                 secretKeyRef:
                   name: keycloak-admin-password
                   key: PASSWORD
-            - name: KC_PROXY
-              value: 'edge'
             - name: HTTP_PROXY
               value: http://172.19.1.1:8181
             - name: HTTPS_PROXY
@@ -2346,15 +2345,24 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            - name: management
+              containerPort: 9000
           readinessProbe:
             httpGet:
-              path: /keycloak/realms/master
-              port: 8080
+              path: /keycloak/health/ready
+              port: 9000
             initialDelaySeconds: 30 # Increase delay for production
             periodSeconds: 10
             timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 5 # Increase failure threshold
+            failureThreshold: 30
+          startupProbe:
+            httpGet:
+              path: /keycloak/health/ready
+              port: 9000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
 
           # livenessProbe:
           #   # Add a liveness probe for production

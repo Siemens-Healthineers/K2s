@@ -25,12 +25,12 @@ spec:
             - cr.l5d.io/linkerd/controller:edge-25.4.4
             - shsk2s.azurecr.io/linkerd/proxy:edge-25.4.4
             - shsk2s.azurecr.io/linkerd/proxy-init:v2.4.2
-            - reg.kyverno.io/kyverno/kyverno:v1.17.1
-            - reg.kyverno.io/kyverno/kyvernopre:v1.17.1
-            - reg.kyverno.io/kyverno/background-controller:v1.17.1
-            - reg.kyverno.io/kyverno/cleanup-controller:v1.17.1
-            - reg.kyverno.io/kyverno/reports-controller:v1.17.1
-            - reg.kyverno.io/kyverno/kyverno-cli:v1.17.1
+            - reg.kyverno.io/kyverno/kyverno:v1.18.1
+            - reg.kyverno.io/kyverno/kyvernopre:v1.18.1
+            - reg.kyverno.io/kyverno/background-controller:v1.18.1
+            - reg.kyverno.io/kyverno/cleanup-controller:v1.18.1
+            - reg.kyverno.io/kyverno/reports-controller:v1.18.1
+            - reg.kyverno.io/kyverno/kyverno-cli:v1.18.1
           additionalImagesFiles:
             - ../common/manifests/external-dns/deployment.yaml
             - ../common/manifests/certmanager/cert-manager.yaml
@@ -41,7 +41,7 @@ spec:
           curl:
             - url: https://github.com/cert-manager/cmctl/releases/download/v2.5.0/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
-            - url: https://github.com/kyverno/kyverno/releases/download/v1.17.1/kyverno-cli_v1.17.1_windows_x86_64.zip
+            - url: https://github.com/kyverno/kyverno/releases/download/v1.18.1/kyverno-cli_v1.18.1_windows_x86_64.zip
               destination: bin\kyverno.exe
             - url: https://github.com/linkerd/linkerd2/releases/download/edge-25.4.4/linkerd2-cli-edge-25.4.4-windows.exe
               destination: bin\linkerd.exe

@@ -29,6 +29,7 @@ func TestSystemDump(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(200*time.Millisecond),
+		framework.ClusterTestStepTimeout(15*time.Minute),
 	)
 })
 

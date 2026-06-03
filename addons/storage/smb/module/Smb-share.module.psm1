@@ -14,7 +14,7 @@ $AddonName = 'storage'
 $ImplementationName = 'smb'
 
 $localHooksDir = "$PSScriptRoot\..\hooks"
-$logFile = "$(Get-SystemDriveLetter):\var\log\ssh_smbSetup.log"
+$logFile = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'ssh_smbSetup.log'
 
 $smbUserName = 'remotesmb'
 $smbFullUserNameWin = "$env:computername\$smbUserName"

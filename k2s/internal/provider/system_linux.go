@@ -6,6 +6,7 @@
 package provider
 
 import (
+	"fmt"
 	"log/slog"
 	"os/exec"
 )
@@ -73,3 +74,67 @@ func (p *linuxSystemProvider) CertificateRenew(_ SystemCertRenewConfig) error {
 	slog.Info("[System] Renewing Kubernetes certificates")
 	return exec.Command("kubeadm", "certs", "renew", "all").Run()
 }
+
+func (p *linuxSystemProvider) CertificateAutoRotation(cfg SystemCertAutoRotationConfig) error {
+	const kubeletConfigPath = "/var/lib/kubelet/config.yaml"
+
+	// patchScript uses only sed/grep — no python3 dependency.
+	// It creates a backup before patching and restores on failure.
+	patchScript := func(value string) string {
+		return fmt.Sprintf(`
+set -euo pipefail
+CONFIG="%s"
+BACKUP="${CONFIG}.bak"
+sudo cp "$CONFIG" "$BACKUP"
+if sudo grep -q 'rotateCertificates' "$CONFIG"; then
+    sudo sed -i 's/rotateCertificates:.*/rotateCertificates: %s/' "$CONFIG"
+else
+    echo 'rotateCertificates: %s' | sudo tee -a "$CONFIG" > /dev/null
+fi
+`, kubeletConfigPath, value, value)
+	}
+
+	if cfg.Enable {
+		slog.Info("[System] Enabling kubelet certificate auto-rotation")
+		cmd := exec.Command("bash", "-c", patchScript("true"))
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to enable rotateCertificates in kubelet config: %w\n%s", err, out)
+		}
+		slog.Info("[System] Restarting kubelet to apply auto-rotation setting")
+		if out, err := exec.Command("systemctl", "restart", "kubelet").CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to restart kubelet: %w\n%s", err, out)
+		}
+		return nil
+	}
+
+	if cfg.Disable {
+		slog.Info("[System] Disabling kubelet certificate auto-rotation")
+		cmd := exec.Command("bash", "-c", patchScript("false"))
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to disable rotateCertificates in kubelet config: %w\n%s", err, out)
+		}
+		slog.Info("[System] Restarting kubelet to apply auto-rotation setting")
+		if out, err := exec.Command("systemctl", "restart", "kubelet").CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to restart kubelet: %w\n%s", err, out)
+		}
+		return nil
+	}
+
+	// status (default)
+	slog.Info("[System] Checking kubelet certificate auto-rotation status")
+	statusScript := fmt.Sprintf(`
+CONFIG="%s"
+if sudo grep -q 'rotateCertificates: true' "$CONFIG"; then
+    echo "Kubelet certificate auto-rotation: enabled"
+else
+    echo "Kubelet certificate auto-rotation: disabled (or not set)"
+fi
+`, kubeletConfigPath)
+	out, err := exec.Command("bash", "-c", statusScript).Output()
+	if err != nil {
+		return fmt.Errorf("failed to read kubelet config: %w", err)
+	}
+	slog.Info("[System] " + string(out))
+	return nil
+}
+

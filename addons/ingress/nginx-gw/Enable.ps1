@@ -207,7 +207,7 @@ $nginxProxyTemplate = Get-Content "$PSScriptRoot\manifests\nginxproxy.yaml" -Raw
 $nginxProxyYaml = $nginxProxyTemplate.Replace('__CONTROL_PLANE_IP__', $controlPlaneIp)
 $nginxProxyYaml | & kubectl apply --server-side --force-conflicts -f -
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'nginx-gw' -TimeoutSeconds 300)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=nginx-gw' -Namespace 'nginx-gw' -TimeoutSeconds 300)
 
  if ($allPodsAreUp -ne $true) {
     $errMsg = "All ingress nginx pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress nginx failed."

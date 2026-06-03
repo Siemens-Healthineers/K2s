@@ -59,6 +59,17 @@ $productVersion = Get-ProductVersion
 Set-ConfigProductVersion -Value $productVersion
 Set-ConfigInstallFolder -Value $installationPath
 
+# Persist resolved log root so non-installed Go tools (CNI plugins started by kubelet)
+# and later script invocations pick up the configured directory cheaply via setup.json.
+try {
+    $resolvedLogRoot = Get-ConfiguredLogDirectory
+    Set-ConfigLogRoot -Value $resolvedLogRoot
+    Update-LogFilePathFromConfig -Force
+}
+catch {
+    Write-Log "Could not persist resolved log root: $_"
+}
+
 # set defaults for unset arguments
 $KubernetesVersion = Get-DefaultK8sVersion
 

@@ -13,6 +13,7 @@ type HostConfig struct {
 	sshConfig         *SSHConfig
 	k2sSetupConfigDir string
 	k2sInstallDir     string
+	logsDir           string
 }
 
 type KubeConfig struct { // TODO: dir + files really necessary?
@@ -44,12 +45,13 @@ func NewControlPlaneConfig(ipAddr string) *ControlPlaneConfig {
 	}
 }
 
-func NewHostConfig(kubeConfig *KubeConfig, sshConfig *SSHConfig, k2sSetupConfigDir, k2sInstallDir string) *HostConfig {
+func NewHostConfig(kubeConfig *KubeConfig, sshConfig *SSHConfig, k2sSetupConfigDir, k2sInstallDir, logsDir string) *HostConfig {
 	return &HostConfig{
 		kubeConfig:        kubeConfig,
 		sshConfig:         sshConfig,
 		k2sSetupConfigDir: k2sSetupConfigDir,
 		k2sInstallDir:     k2sInstallDir,
+		logsDir:           logsDir,
 	}
 }
 
@@ -82,6 +84,12 @@ func (h *HostConfig) K2sSetupConfigDir() string {
 
 func (h *HostConfig) K2sInstallDir() string {
 	return h.k2sInstallDir
+}
+
+// LogsDir returns the configured root log directory from cfg/config.json (configDir.logs).
+// May be empty if the key is not set; consumers should fall back to logging.RootLogDir() in that case.
+func (h *HostConfig) LogsDir() string {
+	return h.logsDir
 }
 
 func (c *HostConfig) KubeConfig() *KubeConfig {

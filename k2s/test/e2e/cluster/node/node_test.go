@@ -74,6 +74,16 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Found Linux nodes:", linuxNodes, len(linuxNodes))
 	GinkgoWriter.Println("Found Windows nodes:", windowsNodes, len(windowsNodes))
 
+	// Wait for all nodes to be Ready before deploying workloads
+	GinkgoWriter.Println("Waiting for all nodes to be in Ready state...")
+	for _, node := range linuxNodes {
+		suite.Cluster().WaitForNodeToBeReady(node, ctx)
+	}
+	for _, node := range windowsNodes {
+		suite.Cluster().WaitForNodeToBeReady(node, ctx)
+	}
+	GinkgoWriter.Println("All nodes are Ready")
+
 	linuxImage := "shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0"
 	windowsImage := "shsk2s.azurecr.io/example.albums-golang-win:v1.0.0"
 

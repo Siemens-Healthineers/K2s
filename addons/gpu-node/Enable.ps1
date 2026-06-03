@@ -105,6 +105,60 @@ if ($null -eq $wslLibDir) {
 
 Write-Log "[gpu-node] WSL lib directory resolved to: $wslLibDir" -Console
 
+$nvidiaDriverDirectory = $null
+if (!$WSL) {
+    $nvidiaVideoControllers = @(Get-CimInstance -ClassName Win32_VideoController | Where-Object { $_.Name -match 'NVIDIA' })
+    $installedDisplayDriver = $nvidiaVideoControllers | ForEach-Object { $_.InstalledDisplayDrivers } | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1
+    $installedDisplayDriverFile = if (![string]::IsNullOrWhiteSpace($installedDisplayDriver)) {
+        ($installedDisplayDriver -split ',') | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1
+    }
+
+    if ($nvidiaVideoControllers.Count -eq 0 -or [string]::IsNullOrWhiteSpace($installedDisplayDriverFile)) {
+        $errMsg = "No NVIDIA GPU with installed display driver was detected on this Windows host.`n" +
+            "The gpu-node addon requires a supported NVIDIA GPU and WSL-compatible NVIDIA drivers.`n" +
+            "Install the NVIDIA driver from https://www.nvidia.com/Download/index.aspx on a machine with NVIDIA hardware, reboot, and try again."
+
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
+    }
+
+    $nvidiaDriverDirectory = Split-Path $installedDisplayDriverFile
+    if ([string]::IsNullOrWhiteSpace($nvidiaDriverDirectory) -or !(Test-Path -Path $nvidiaDriverDirectory)) {
+        $errMsg = "NVIDIA driver metadata was found, but the driver directory could not be resolved: '$installedDisplayDriverFile'.`n" +
+            'Reinstall the NVIDIA driver, reboot the machine, and try enabling the gpu-node addon again.'
+
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
+    }
+
+    if (!(Test-Path -Path (Join-Path $nvidiaLibDir 'nvidia-smi'))) {
+        $errMsg = "NVIDIA WSL driver files were not found in '$nvidiaLibDir'.`n" +
+            "The gpu-node addon requires NVIDIA's WSL driver components, including nvidia-smi.`n" +
+            'Reinstall a WSL-compatible NVIDIA driver, reboot the machine, and try enabling the gpu-node addon again.'
+
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
+    }
+}
+
 if ($WSL) {
     $success = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute '[ -f /usr/lib/wsl/lib/libdxcore.so ]').Success
     if (!$success) {
@@ -218,8 +272,6 @@ else {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     Write-Log 'Copying drivers' -Console
-    $installedDisplayDriver = Get-CimInstance -ClassName Win32_VideoController | Where-Object { $_.Name -match 'NVIDIA' } | ForEach-Object { $_.InstalledDisplayDrivers }
-    $drivers = Split-Path ($installedDisplayDriver -split ',')[0]
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .nvidiadrivers/lib').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .nvidiadrivers/drivers').Output | Write-Log
@@ -232,7 +284,7 @@ else {
         Write-Log "[gpu-node] Merging WSL GPU libs from '$wslLibDir'" -Console
         Copy-ToControlPlaneViaSSHKey "$wslLibDir\*" '.nvidiadrivers/lib'
     }
-    Copy-ToControlPlaneViaSSHKey $drivers '.nvidiadrivers/drivers'
+    Copy-ToControlPlaneViaSSHKey $nvidiaDriverDirectory '.nvidiadrivers/drivers'
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /usr/lib/wsl').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -p /usr/lib/wsl/lib').Output | Write-Log
@@ -260,7 +312,7 @@ else {
 
     # Apply WSL2 Kernel
     Write-Log 'Changing linux kernel' -Console
-    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.20.1'
+    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.26.3'
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .microsoft-standard-wsl2').Output | Write-Log
     $command = "container=`$(sudo buildah from $microsoftStandardWSL2 2> /dev/null)  && mountpoint=`$(sudo buildah mount `$container) && sudo find `$mountpoint -iname *.deb | xargs sudo cp -t .microsoft-standard-wsl2 && sudo buildah unmount `$container && sudo buildah rm `$container > /dev/null 2>&1"
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $command).Output | Write-Log
@@ -380,7 +432,7 @@ try {
         Write-Log '[gpu-node] Pre-pulling images via SSH tunnel (buildah)' -Console
 
         $images = @(
-            'nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
+            'nvcr.io/nvidia/k8s-device-plugin:v0.19.2'
             'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
         )
         foreach ($image in $images) {

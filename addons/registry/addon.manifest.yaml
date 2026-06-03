@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -34,14 +34,22 @@ spec:
                     - nginx
                     - nginx-gw
                     - traefik
+              - name: snode
+                shorthand: s
+                default: ""
+                description: Node to use for persistent volume storage (defaults to control-plane)
             examples:
               - cmd: k2s addons enable registry
                 comment: Enable registry in k2s
+              - cmd: k2s addons enable registry --snode worker1
+                comment: Enable registry with storage on worker1
               - cmd: k2s addons enable registry --ingress traefik
                 comment: Enable addon registry in k2s with traefik ingress controller
           script:
             subPath: Enable.ps1
             parameterMappings:
+              - cliFlagName: snode
+                scriptParameterName: StorageNode
               - cliFlagName: ingress
                 scriptParameterName: Ingress
         disable:

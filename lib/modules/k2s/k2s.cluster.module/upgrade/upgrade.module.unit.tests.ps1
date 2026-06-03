@@ -6,6 +6,7 @@ BeforeAll {
 	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
 	$moduleName = (Import-Module "$PSScriptRoot\upgrade.module.psm1" -PassThru -Force).Name
 }
+
 Import-Module "$PSScriptRoot\..\..\..\k2s\k2s.cluster.module"
 Import-Module "$PSScriptRoot\..\..\..\k2s\k2s.infra.module"
 Import-Module "$PSScriptRoot\..\..\..\..\..\addons\addons.module.psm1"
@@ -147,7 +148,7 @@ Describe 'Remove-SetupConfigIfExisting' -Tag 'unit', 'ci', 'upgrade' {
 	}
 }
 
-Describe "Restart-ClusterIfBuildVersionMismatch" {
+Describe "Restart-ClusterIfBuildVersionMismatch" -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
 		$log = [System.Collections.ArrayList]@()
 		Mock -ModuleName $moduleName RestartCluster  {  }
@@ -222,7 +223,7 @@ Describe "Restart-ClusterIfBuildVersionMismatch" {
 	}
 }
 
-Describe "RestartCluster" {
+Describe "RestartCluster" -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
 		$log = [System.Collections.ArrayList]@()
 		Mock -ModuleName $moduleName Write-Log {
@@ -298,8 +299,17 @@ Describe "RestartCluster" {
 	}
 }
 
-Describe "PerformClusterUpgrade" {
+Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
+		function global:Enable-AddonFromConfig {
+			param (
+				[Parameter(Mandatory = $false)]
+				[pscustomobject] $Config,
+				[Parameter(Mandatory = $false)]
+				[string] $Root
+			)
+		}
+
 		# Mock the dependencies
 		Mock -ModuleName $moduleName Get-LogFilePath -MockWith { return "C:\Logs\logfile.log" }
 		Mock -ModuleName $moduleName Get-Content -MockWith { return "log content" }
@@ -321,6 +331,7 @@ Describe "PerformClusterUpgrade" {
 		Mock -ModuleName $moduleName Out-File
 		Mock -ModuleName $moduleName Wait-ForAPIServerInGivenKubePath
 		Mock -ModuleName $moduleName Get-KubeBinPathGivenKubePath -MockWith { return "C:\KubeBinPath" }
+		Mock -ModuleName $moduleName Enable-AddonFromConfig
 	}
 
 	It "should perform cluster upgrade with execute hooks successfully" {
@@ -386,10 +397,73 @@ Describe "PerformClusterUpgrade" {
 			{ PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom "C:\K2sPath" -Config "config.yaml" -Proxy "http://proxy" -BackupDir "C:\Backup" -AdditionalHooksDir "C:\Hooks" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall } | Should -Throw "Uninstall failed"
 		}
 	}
+
+	It 'calls Enable-AddonFromConfig for each addon in enabledAddonsList' {
+		InModuleScope $moduleName {
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
+			$coresVM = [ref]'2'
+			$storageVM = [ref]'100GB'
+			$enabledAddonsList = [System.Collections.ArrayList]@(
+				[pscustomobject]@{ Name = 'dashboard' },
+				[pscustomobject]@{ Name = 'metrics' }
+			)
+			$hooksBackupPath = [ref]'C:\Backup\Hooks'
+			$logFilePathBeforeUninstall = [ref]'C:\Backup\logfile.log'
+
+			Mock Invoke-ClusterUninstall
+			Mock Enable-AddonFromConfig
+
+			PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom 'C:\K2sPath' -Config 'config.yaml' -Proxy 'http://proxy' -BackupDir 'C:\Backup' -AdditionalHooksDir 'C:\Hooks' -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+
+			Should -Invoke Enable-AddonFromConfig -Times 1 -Scope It -ParameterFilter { $Config.Name -eq 'dashboard' }
+			Should -Invoke Enable-AddonFromConfig -Times 1 -Scope It -ParameterFilter { $Config.Name -eq 'metrics' }
+			Should -Invoke Enable-AddonFromConfig -Times 2 -Scope It
+		}
+	}
+
+	It 'calls Enable-AddonFromConfig with Implementation set to first implementation when addon has implementations' {
+		InModuleScope $moduleName {
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
+			$coresVM = [ref]'2'
+			$storageVM = [ref]'100GB'
+			$enabledAddonsList = [System.Collections.ArrayList]@(
+				[pscustomobject]@{ Name = 'ingress'; Implementations = @('traefik') }
+			)
+			$hooksBackupPath = [ref]'C:\Backup\Hooks'
+			$logFilePathBeforeUninstall = [ref]'C:\Backup\logfile.log'
+
+			Mock Invoke-ClusterUninstall
+			Mock Enable-AddonFromConfig
+
+			PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom 'C:\K2sPath' -Config 'config.yaml' -Proxy 'http://proxy' -BackupDir 'C:\Backup' -AdditionalHooksDir 'C:\Hooks' -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+
+			Should -Invoke Enable-AddonFromConfig -Times 1 -Scope It -ParameterFilter { $Config.Name -eq 'ingress' -and $Config.Implementation -eq 'traefik' }
+		}
+	}
+
+	It 'logs warning but does not throw when Enable-AddonFromConfig fails for an addon' {
+		InModuleScope $moduleName {
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
+			$coresVM = [ref]'2'
+			$storageVM = [ref]'100GB'
+			$enabledAddonsList = [System.Collections.ArrayList]@(
+				[pscustomobject]@{ Name = 'logging' }
+			)
+			$hooksBackupPath = [ref]'C:\Backup\Hooks'
+			$logFilePathBeforeUninstall = [ref]'C:\Backup\logfile.log'
+
+			Mock Invoke-ClusterUninstall
+			Mock Enable-AddonFromConfig { throw 'addon enable failed' }
+
+			{ PerformClusterUpgrade -ShowProgress -DeleteFiles -ShowLogs -K2sPathToInstallFrom 'C:\K2sPath' -Config 'config.yaml' -Proxy 'http://proxy' -BackupDir 'C:\Backup' -AdditionalHooksDir 'C:\Hooks' -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall } | Should -Not -Throw
+
+			Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter { $Messages -match "Warning.*logging" }
+		}
+	}
 }
 
 
-Describe 'Enable-ClusterIsRunning'{
+Describe 'Enable-ClusterIsRunning' -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
 		$log = [System.Collections.ArrayList]@()
 		Mock -ModuleName $moduleName Write-Log { $log.Add($Messages) | Out-Null }
@@ -453,8 +527,12 @@ Describe 'Enable-ClusterIsRunning'{
 	}
 }
 
-Describe "PrepareClusterUpgrade" {
+Describe "PrepareClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
+		function global:Get-EnabledAddons {
+			return [System.Collections.ArrayList]@()
+		}
+
 		# Mock the dependencies
 		Mock -ModuleName $moduleName Get-SetupInfo -MockWith { return @{ Name = "k2s" } }
 		Mock -ModuleName $moduleName Get-LinuxVMCores -MockWith { return 4 }

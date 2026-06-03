@@ -147,7 +147,7 @@ function Enable-NginxGatewaySnippetsFilter {
     }
 
     # Check if ClusterRole has snippetsfilters permissions
-    $clusterRole = kubectl get clusterrole nginx-gw -o json 2>$null | ConvertFrom-Json
+    $clusterRole = kubectl get clusterrole nginx-gw-controller -o json 2>$null | ConvertFrom-Json
     $hasSnippetsFilterPermission = $false
 
     foreach ($rule in $clusterRole.rules) {
@@ -167,11 +167,11 @@ function Enable-NginxGatewaySnippetsFilter {
         $clusterRolePatch = '[{"op":"add","path":"/rules/-","value":{"apiGroups":["gateway.nginx.org"],"resources":["snippetsfilters"],"verbs":["list","watch"]}}]'
         Set-Content -Path $clusterRolePatchFile -Value $clusterRolePatch -NoNewline
         
-        kubectl patch clusterrole nginx-gw --type=json --patch-file $clusterRolePatchFile 2>&1 | Write-Log
+        kubectl patch clusterrole nginx-gw-controller --type=json --patch-file $clusterRolePatchFile 2>&1 | Write-Log
         Remove-Item -Path $clusterRolePatchFile -Force
         
         Write-Log '  Restarting controller pod to apply changes' -Console
-        kubectl delete pod -l app.kubernetes.io/name=nginx-gateway -n nginx-gw 2>&1 | Write-Log
+        kubectl delete pod -l app.kubernetes.io/name=nginx-gw -n nginx-gw 2>&1 | Write-Log
     }
 
     Write-Log 'SnippetsFilter support enabled for NGINX Gateway' -Console

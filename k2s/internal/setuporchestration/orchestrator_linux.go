@@ -106,6 +106,8 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 		if err := runCommand("kubeadm", "reset", "-f"); err != nil {
 			slog.Warn("[Uninstall] kubeadm reset failed (may already be clean)", "error", err)
 		}
+
+		o.cleanupCriOMirrorDropIns()
 	}
 
 	// Clean up network interfaces created by flannel
@@ -135,6 +137,54 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 
 	slog.Info("[Uninstall] K2s uninstallation complete")
 	return nil
+}
+
+func (o *LinuxOrchestrator) cleanupCriOMirrorDropIns() {
+	removedAny := false
+
+	configPaths, err := filepath.Glob("/etc/containers/registries.conf.d/*.conf")
+	if err != nil {
+		slog.Warn("[Uninstall] Could not enumerate CRI-O registry configs", "error", err)
+		return
+	}
+
+	for _, configPath := range configPaths {
+		content, err := os.ReadFile(configPath)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				slog.Warn("[Uninstall] Could not read CRI-O registry config", "path", configPath, "error", err)
+			}
+			continue
+		}
+
+		if !strings.Contains(string(content), "[[registry.mirror]]") {
+			continue
+		}
+
+		if err := os.Remove(configPath); err != nil {
+			if !os.IsNotExist(err) {
+				slog.Warn("[Uninstall] Could not remove CRI-O registry mirror config", "path", configPath, "error", err)
+			}
+			continue
+		}
+
+		removedAny = true
+		slog.Info("[Uninstall] Removed CRI-O registry mirror config", "path", configPath)
+	}
+
+	if !removedAny {
+		return
+	}
+
+	if err := runCommand("systemctl", "daemon-reload"); err != nil {
+		slog.Warn("[Uninstall] Could not reload systemd after CRI-O registry mirror cleanup", "error", err)
+	}
+
+	if err := runCommand("systemctl", "is-active", "--quiet", "crio"); err == nil {
+		if err := runCommand("systemctl", "restart", "crio"); err != nil {
+			slog.Warn("[Uninstall] Could not restart CRI-O after registry mirror cleanup", "error", err)
+		}
+	}
 }
 
 func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
