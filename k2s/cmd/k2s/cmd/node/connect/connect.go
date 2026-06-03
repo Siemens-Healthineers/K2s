@@ -39,7 +39,7 @@ k2s node connect -i 172.19.1.100 -u remote
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connect",
-		Short:   "[EXPERIMENTAL] Connects to a remote node.",
+		Short:   "Connects to a remote node.",
 		Long:    longDescription,
 		Example: example,
 		RunE:    connect,

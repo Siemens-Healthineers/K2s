@@ -21,7 +21,7 @@ spec:
         - key: kubernetes.io/hostname
           operator: In
           values:
-          - kubemaster
+          - __STORAGE_NODE__
         - key: kubernetes.io/os
           operator: In
           values:

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -36,23 +36,25 @@ spec:
           command:
             - sh
             - -c
-            - while true; do curl -f http://localhost:8042/patients > /dev/null && echo 'OK' > /tmp/healthy || echo 'FAIL' > /tmp/healthy; sleep 5; done
+            - while true; do curl -sf http://localhost:8042/patients > /dev/null 2>&1 && echo 'OK' > /tmp/healthy || echo 'FAIL' > /tmp/healthy; sleep 5; done
           readinessProbe:
             exec:
               command:
-                - cat
-                - /tmp/healthy
-            initialDelaySeconds: 10
+                - sh
+                - -c
+                - grep -q OK /tmp/healthy
+            initialDelaySeconds: 15
             periodSeconds: 5
-            timeoutSeconds: 1
+            timeoutSeconds: 2
           livenessProbe:
             exec:
               command:
-                - cat
-                - /tmp/healthy
-            initialDelaySeconds: 30
+                - sh
+                - -c
+                - grep -q OK /tmp/healthy
+            initialDelaySeconds: 60
             periodSeconds: 15
-            timeoutSeconds: 1
+            timeoutSeconds: 2
       volumes:
         - name: orthanc-storage
           persistentVolumeClaim:
