@@ -34,7 +34,7 @@ The copy command behaves similar to the 'cp' command on Linux:
 - If the target contains a folder with the same name as the source folder, all files will be copied into it, overwriting existing files that match the source files.
 	
 Remote node paths can but do not need to contain a tilde (~) since the working directory will always be the home directory of the node user, e.g.
-'~/my-file' equals to 'my-file' equals to '/home/<user>/my-file' (Linux) or 'c:\users\<user>\my-file' (Windows). Locally (on the host), the working directory is the current working directory of the command execution.
+'~/my-file' equals to 'my-file' equals to '/home/<user>/my-file'. Locally (on the host), the working directory is the current working directory of the command execution.
 `
 	example = `# Copy a file from host to node, e.g. to home dir
 	k2s node copy -i 172.19.1.100 -u remote -s C:\path\to\my-file -t ~/
@@ -60,7 +60,7 @@ Remote node paths can but do not need to contain a tilde (~) since the working d
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "copy",
-		Short:   "[EXPERIMENTAL] Copies files/folders between host and nodes.",
+		Short:   "Copies files/folders between host and nodes.",
 		Long:    longDescription,
 		Example: example,
 		RunE:    copy,

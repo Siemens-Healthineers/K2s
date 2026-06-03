@@ -10,7 +10,7 @@
         "type": "application",
         "group": "aquasecurity",
         "name": "trivy",
-        "version": "0.70.0"
+        "version": "0.71.0"
       }
     ],
     "authors": [
@@ -651,7 +651,7 @@
     {
       "group": "https://github.com/prometheus/prometheus",
       "name": "prometheus",
-      "version": "v3.11.3",
+      "version": "v3.12.0",
       "description": "Systems and service monitoring toolkit - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -668,7 +668,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus/prometheus@v3.11.3",
+      "purl": "pkg:github/prometheus/prometheus@v3.12.0",
       "type": "container"
     },
     {
@@ -720,7 +720,7 @@
     {
       "group": "https://github.com/kubernetes/kube-state-metrics",
       "name": "kube-state-metrics",
-      "version": "v2.19.0",
+      "version": "v2.20.0",
       "description": "Service that generates metrics about the state of Kubernetes objects - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -737,7 +737,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/kubernetes/kube-state-metrics@v2.19.0",
+      "purl": "pkg:github/kubernetes/kube-state-metrics@v2.20.0",
       "type": "container"
     },
     {
