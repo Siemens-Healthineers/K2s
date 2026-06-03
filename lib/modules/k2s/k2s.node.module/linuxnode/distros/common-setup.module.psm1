@@ -832,8 +832,7 @@ function Get-NvidiaGpuDebPackagesFromInternet {
     # Create target directory
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $TargetPath && cd $TargetPath && sudo chown -R _apt:root ." -RemoteUser $remoteUser -RemoteUserPwd $UserPwd).Output | Write-Log
 
-    # Download GPU packages and their dependencies
-    $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-runtime', 'nvidia-container-toolkit')
+    $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-toolkit-base', 'nvidia-container-runtime', 'nvidia-container-toolkit')
     foreach ($pkg in $gpuPackages) {
         Write-Log "[GpuPkg] Downloading GPU package: $pkg"
         # Download the package

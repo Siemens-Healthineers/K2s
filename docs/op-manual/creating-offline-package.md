@@ -114,8 +114,7 @@ The `--include-gpu` flag downloads and bundles:
 | Component | Purpose |
 |-----------|---------|
 | `libnvidia-container1` | Low-level library for container GPU access |
-| `libnvidia-container-tools` | CLI tools for NVIDIA container runtime |
-| `nvidia-container-runtime` | OCI-compliant runtime wrapper |
+| `libnvidia-container-tools` | CLI tools for NVIDIA container runtime || `nvidia-container-toolkit-base` | Base library for nvidia-container-toolkit || `nvidia-container-runtime` | OCI-compliant runtime wrapper |
 | `nvidia-container-toolkit` | High-level toolkit and configuration |
 | GPU device plugin image | Kubernetes device plugin for GPU scheduling |
 
