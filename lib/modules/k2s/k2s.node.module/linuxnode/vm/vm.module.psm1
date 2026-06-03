@@ -716,10 +716,7 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
 
     do {
         $attempt++
-        # Use SSH keepalive options to prevent connection timeouts during large file transfers
-        # ServerAliveInterval: send keepalive every 60 seconds
-        # ServerAliveCountMax: allow 30 missed keepalives before disconnect (30 min total)
-        $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,'-o',"ServerAliveInterval=60",'-o',"ServerAliveCountMax=$([math]::Ceiling($timeoutSeconds / 60))","$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
+        $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
 
         if ($LASTEXITCODE -eq 0) {
             break
