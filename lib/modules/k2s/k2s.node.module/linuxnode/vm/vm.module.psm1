@@ -882,7 +882,7 @@ function Wait-ForSshPossible {
         [switch]$Nested = $false
     )
     $iteration = 0
-    $maxIterations = 40  # Increased from 25 to handle sporadic failures better
+    $maxIterations = 60  # Increased from 40 to handle sporadic CI infrastructure failures
     $baseDelay = 3       # Base delay in seconds
     $maxDelay = 15       # Maximum delay between attempts
     $startTime = Get-Date

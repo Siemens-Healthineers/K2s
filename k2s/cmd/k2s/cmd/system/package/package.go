@@ -44,12 +44,13 @@ var (
 	k2s system package --delta-package --target-dir "C:\tmp" --name "k2s-delta-1.4.0-to-1.4.1.zip" --package-version-from "C:\tmp\k2s-1.4.0.zip" --package-version-to "C:\tmp\k2s-1.4.1.zip"
 
 	# Creates a node package with Linux worker node artifacts for a specific OS
-	k2s system package --node-package --os debian13 --target-dir "C:\output" --name "debian13-node.zip"
+	# Requires an existing K2s cluster and the local cluster proxy
+	k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" --proxy http://172.19.1.1:8181
 
 	# Creates a node-only delta package (between two node package zips)
 	k2s system package --node-package --delta-package --package-version-from "C:\tmp\debian13-node-v1.7.0.zip" --package-version-to "C:\tmp\debian13-node-v1.8.0.zip" --target-dir "C:\output" --name "debian13-node-delta-v1.7.0-to-v1.8.0.zip"
 
-	Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
+	Note: For non-node packages, if offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
 	`
 
 	PackageCmd = &cobra.Command{
@@ -71,7 +72,7 @@ const (
 	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
 
 	ProxyFlagName  = "proxy"
-	ProxyFlagUsage = "HTTP proxy if available to be used"
+	ProxyFlagUsage = "HTTP proxy if available to be used; required for --node-package, use the local cluster proxy http://172.19.1.1:8181"
 
 	TargetDirectoryFlagName  = "target-dir"
 	TargetDirectoryFlagUsage = "Target directory"
@@ -102,7 +103,7 @@ const (
 	PackageVersionToFlagUsage = "Path to the new (target) full package .zip (required if --delta-package is set)"
 
 	ProfileFlagName  = "profile"
-	ProfileFlagUsage = "Packaging profile: Dev (default) or Lite (skips optional parts like documentation, source code etc.)"
+	ProfileFlagUsage = "Packaging profile: Dev (default) or Lite (skips optional build and large intermediate artifacts)"
 
 	AddonsListFlagName  = "addons-list"
 	AddonsListFlagUsage = "Comma-separated list of addons to include (e.g., 'ingress nginx,monitoring,logging'). For ingress, specify implementation: 'ingress nginx' or 'ingress traefik'. Use 'none' to exclude all addons. Default: all addons"

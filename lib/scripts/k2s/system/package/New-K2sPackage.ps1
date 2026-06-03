@@ -138,7 +138,6 @@ Write-Log "[Addons] Discovered $($allAddonPaths.Count) addon implementations" -C
 if ($Profile -eq 'Lite') {
     Write-Log '[Profile] Applying Lite profile exclusions for reduced package size' -Console
     $liteExclude = @(
-        (Join-Path $kubePath 'docs'),
         (Join-Path $kubePath 'build'),
         (Join-Path $kubePath 'bin/Kubemaster-Base.rootfs.tar.gz')
     )
@@ -225,10 +224,8 @@ if ($Profile -eq 'Lite') {
         
         Write-Log "[Profile+Addons] Lite profile with selected addons: $($selectedAddons -join ', ')" -Console
     } else {
-        # No addons list specified: include ALL addons (default behavior)
-        # But still exclude the test folders entirely
-        $liteExclude += (Join-Path $kubePath 'k2s/test/e2e/addons')
-        Write-Log "[Profile] Lite profile: including all addons (default)" -Console
+        # No addons list specified: include ALL addons and their tests (default behavior)
+        Write-Log "[Profile] Lite profile: including all addons and addon tests (default)" -Console
     }
     
     foreach ($p in $liteExclude) {

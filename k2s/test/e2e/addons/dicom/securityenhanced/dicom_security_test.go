@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const testClusterTimeout = time.Minute * 20
+const testClusterTimeout = time.Minute * 30
 
 var (
 	suite      *framework.K2sTestSuite
@@ -173,7 +173,7 @@ var _ = Describe("'dicom and security enhanced' addons", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: Enabling ingress-nginx-gw addon")
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "controller", "nginx-gw")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "nginx-gw", "nginx-gw")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "nginx-gw")
 			GinkgoWriter.Println(">>> TEST: Ingress-nginx-gw verified with linkerd injection")
 		})

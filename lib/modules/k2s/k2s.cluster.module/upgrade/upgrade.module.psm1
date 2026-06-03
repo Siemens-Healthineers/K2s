@@ -1003,7 +1003,7 @@ function Restore-LogFile {
 
 	if (Test-Path -Path $LogFile) {
 		$file = Split-Path $LogFile -Leaf
-		$restore = "$($systemDriveLetter):\var\log\$file"
+		$restore = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath $file
 		Copy-Item -Path $LogFile -Destination $restore
 	}
 }
@@ -1019,8 +1019,9 @@ function Get-ProductVersionGivenKubePath {
 
 function Restore-MergeLogFiles {
 	Write-Log "Merge all logs to $logFilePath" -Console
-	$merge = "$($systemDriveLetter):\var\log\k2supgrade.log"
-	$intermediate = "$($systemDriveLetter):\var\log\k2s*.log"
+	$logRoot = Get-ConfiguredLogDirectory
+	$merge = Join-Path -Path $logRoot -ChildPath 'k2supgrade.log'
+	$intermediate = Join-Path -Path $logRoot -ChildPath 'k2s*.log'
 
 	try {
 		# Ensure UTF-8 even for legacy encodings
@@ -1427,12 +1428,12 @@ function PerformClusterUpgrade {
 			if ($ShowProgress -eq $true) {
 				Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply not namespaced resources, please wait..'
 			}
-			Import-NotNamespacedResources -folderResources $BackupDir -ExePath $kubeExeFolder
+			Import-NotNamespacedResources -folderResources (Join-Path $BackupDir 'NotNamespaced') -ExePath $kubeExeFolder
 			
 			if ($ShowProgress -eq $true) {
 				Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8.5/10' -PercentComplete 85 -CurrentOperation 'Apply namespaced resources, please wait..'
 			}
-			Import-NamespacedResources -folderNamespaces $BackupDir -ExePath $kubeExeFolder
+			Import-NamespacedResources -folderNamespaces (Join-Path $BackupDir 'Namespaced') -ExePath $kubeExeFolder
 		}
 
 		# re-enable previously enabled addons

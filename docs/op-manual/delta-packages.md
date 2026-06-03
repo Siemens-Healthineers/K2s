@@ -161,10 +161,13 @@ Both full node packages and node delta packages are created with the `--node-pac
 
 A full node package bundles everything needed for a fresh node installation or a full node upgrade.
 
+Creating a full node package requires an existing *K2s* cluster on the machine where you run the command, and it must use the local cluster proxy `http://172.19.1.1:8181`.
+
 ```console
-k2s system package --node-package --os debian13 `
-  -d C:\packages `
-  -n debian13-node-v1.8.0.zip
+k2s system package --node-package --os debian12 `
+  --target-dir "C:\out" `
+  --name "debian12-node.zip" `
+  -p http://172.19.1.1:8181
 ```
 
 #### Full Node Package Parameters
@@ -175,6 +178,7 @@ k2s system package --node-package --os debian13 `
 | `--os` | Yes | Target Linux distribution (e.g. `debian12`, `debian13`) |
 | `-d, --target-dir` | Yes | Output directory |
 | `-n, --name` | Yes | Output ZIP file name |
+| `-p, --proxy` | Yes | Local cluster proxy, `http://172.19.1.1:8181` |
 | `-o, --output` | No | Show log output in terminal |
 
 ### Node Delta Package

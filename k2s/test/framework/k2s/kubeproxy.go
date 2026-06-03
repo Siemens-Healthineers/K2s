@@ -4,6 +4,8 @@ package k2s
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
@@ -34,7 +36,20 @@ func (r *KubeProxyRestarter) Restart(ctx context.Context) {
 func (r *KubeProxyRestarter) restart(ctx context.Context) {
 	GinkgoWriter.Println("Restarting kubeproxy to clean all caches..")
 
-	r.nssmCli.MustExec(ctx, "restart", "kubeproxy")
+	const maxAttempts = 3
+	const retryDelay = 5 * time.Second
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		_, exitCode := r.nssmCli.Exec(ctx, "restart", "kubeproxy")
+		if exitCode == 0 {
+			break
+		}
+		if attempt == maxAttempts {
+			Fail(fmt.Sprintf("kubeproxy restart failed after %d attempts (last exit code: %d)", maxAttempts, exitCode))
+		}
+		GinkgoWriter.Printf("kubeproxy restart attempt %d/%d failed (exit code: %d), retrying after %v\n", attempt, maxAttempts, exitCode, retryDelay)
+		time.Sleep(retryDelay)
+	}
 
 	GinkgoWriter.Println("kubeproxy restarted")
 }

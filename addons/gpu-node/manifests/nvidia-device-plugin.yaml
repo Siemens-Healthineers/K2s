@@ -35,7 +35,7 @@ spec:
       # See https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
       priorityClassName: "system-node-critical"
       containers:
-      - image: nvcr.io/nvidia/k8s-device-plugin:v0.19.1
+      - image: nvcr.io/nvidia/k8s-device-plugin:v0.19.2
         imagePullPolicy: IfNotPresent
         name: nvidia-device-plugin-ctr
         args:
@@ -80,22 +80,40 @@ spec:
                   i=0
                   while [ $i -lt 30 ] && [ ! -f "$SPEC" ]; do sleep 1; i=$((i+1)); done
                   [ -f "$SPEC" ] || exit 0
-                  # Resolve GPU UUID so CRI-O can look up the CDI device by name.
-                  # On WSL2/dxcore the CDI spec only has "name":"all" but the plugin
-                  # allocates by UUID, so we add a UUID alias entry.
                   sleep 2
+
+                  # Add GPU UUID device entry if not present
                   UUID=$(/usr/lib/wsl/lib/nvidia-smi --query-gpu=uuid --format=csv,noheader 2>/dev/null | tr -d '[:space:]')
-                  [ -z "$UUID" ] && exit 0
-                  grep -q "\"$UUID\"" "$SPEC" && exit 0
-                  # Build the UUID device entry (same deviceNode as "all")
-                  NEW_DEV=',{"name":"'"$UUID"'","containerEdits":{"deviceNodes":[{"path":"/dev/dxg","hostPath":"/dev/dxg"}]}}'
-                  # Insert UUID device after "all" device (before devices-array close ']').
-                  # Temp file in same directory for atomic mv (avoids EXDEV).
-                  awk -v new_dev="$NEW_DEV" '{
-                    pos=index($0,"}]}}]")
-                    if(pos>0){print substr($0,1,pos+3) new_dev substr($0,pos+4)}
-                    else{print}
-                  }' "$SPEC" > /var/run/cdi/.cdi_tmp && mv /var/run/cdi/.cdi_tmp "$SPEC"
+                  if [ -n "$UUID" ] && ! grep -q "\"name\":\"$UUID\"" "$SPEC"; then
+                    # Insert UUID device before the closing of devices array
+                    awk -v uuid="$UUID" '{
+                      if (match($0, /\}\]\}\}\]/)) {
+                        pre = substr($0, 1, RSTART+3)
+                        post = substr($0, RSTART+4)
+                        print pre ",{\"name\":\"" uuid "\",\"containerEdits\":{\"deviceNodes\":[{\"path\":\"/dev/dxg\",\"hostPath\":\"/dev/dxg\"}]}}" post
+                      } else print
+                    }' "$SPEC" > "${SPEC}.tmp" && mv "${SPEC}.tmp" "$SPEC"
+                  fi
+
+                  # Add LD_LIBRARY_PATH if not present
+                  if ! grep -q "LD_LIBRARY_PATH=/usr/lib/wsl/lib" "$SPEC"; then
+                    sed -i 's/"env":\["NVIDIA_VISIBLE_DEVICES=void"/"env":["LD_LIBRARY_PATH=\/usr\/lib\/wsl\/lib","NVIDIA_VISIBLE_DEVICES=void"/g' "$SPEC"
+                  fi
+
+                  # Add directory mounts for full GPU library access (OpenGL needs libd3d12.so, libnvwgf2umx.so)
+                  # Check if directory mount already exists (not just file mounts)
+                  if ! grep -q '"containerPath":"/usr/lib/wsl/lib"' "$SPEC"; then
+                    # Use awk to insert mounts at the beginning of the mounts array
+                    awk '{
+                      if (match($0, /"mounts":\[/)) {
+                        pre = substr($0, 1, RSTART+9)
+                        post = substr($0, RSTART+10)
+                        lib = "{\"hostPath\":\"/usr/lib/wsl/lib\",\"containerPath\":\"/usr/lib/wsl/lib\",\"options\":[\"ro\",\"nosuid\",\"nodev\",\"rbind\"]}"
+                        drv = "{\"hostPath\":\"/usr/lib/wsl/drivers\",\"containerPath\":\"/usr/lib/wsl/drivers\",\"options\":[\"ro\",\"nosuid\",\"nodev\",\"rbind\"]}"
+                        print pre lib "," drv "," post
+                      } else print
+                    }' "$SPEC" > "${SPEC}.tmp" && mv "${SPEC}.tmp" "$SPEC"
+                  fi
         volumeMounts:
         - name: device-plugin
           mountPath: /var/lib/kubelet/device-plugins

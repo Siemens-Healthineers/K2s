@@ -18,7 +18,7 @@ $windowsNode_DockerDirectory = 'docker'
 
 function Invoke-DownloadDockerArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $dockerDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_DockerDirectory"
-    $DockerVersion = '29.4.3'
+    $DockerVersion = '29.5.2'
     $compressedDockerFile = 'docker-' + $DockerVersion + '.zip'
     $compressedFile = "$dockerDownloadsDirectory\$compressedDockerFile"
 
@@ -86,14 +86,14 @@ function Install-WinDocker {
         # &"$kubeBinPath\docker\dockerd" --exec-opt isolation=process --data-root "$storageLocalDrive\docker" --register-service
         # &"$kubeBinPath\docker\dockerd" --log-level debug  -H fd:// --containerd="\\\\.\\pipe\\containerd-containerd" --register-service
 
-        $target = "$(Get-SystemDriveLetter):\var\log\dockerd"
+        $target = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'dockerd'
         Remove-Item -Path $target -Force -Recurse -ErrorAction SilentlyContinue | Out-Null
-        mkdir "$(Get-SystemDriveLetter):\var\log\dockerd" -ErrorAction SilentlyContinue | Out-Null
+        mkdir $target -ErrorAction SilentlyContinue | Out-Null
         &$kubeBinPath\nssm install docker $kubePath\bin\docker\dockerd.exe
         &$kubeBinPath\nssm set docker AppDirectory $kubePath\bin\docker | Out-Null
         &$kubeBinPath\nssm set docker AppParameters --exec-opt isolation=process --data-root "$storageLocalDrive\docker" --log-level debug | Out-Null
-        &$kubeBinPath\nssm set docker AppStdout "$(Get-SystemDriveLetter):\var\log\dockerd\dockerd_stdout.log" | Out-Null
-        &$kubeBinPath\nssm set docker AppStderr "$(Get-SystemDriveLetter):\var\log\dockerd\dockerd_stderr.log" | Out-Null
+        &$kubeBinPath\nssm set docker AppStdout "$target\dockerd_stdout.log" | Out-Null
+        &$kubeBinPath\nssm set docker AppStderr "$target\dockerd_stderr.log" | Out-Null
         &$kubeBinPath\nssm set docker AppStdoutCreationDisposition 4 | Out-Null
         &$kubeBinPath\nssm set docker AppStderrCreationDisposition 4 | Out-Null
         &$kubeBinPath\nssm set docker AppRotateFiles 1 | Out-Null

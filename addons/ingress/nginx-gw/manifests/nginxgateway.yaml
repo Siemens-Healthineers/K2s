@@ -1,16 +1,18 @@
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
-
+# Source: nginx-gateway-fabric/templates/nginxgateway.yaml
 apiVersion: gateway.nginx.org/v1alpha1
 kind: NginxGateway
 metadata:
-  labels:
-    app.kubernetes.io/instance: nginx-gw
-    app.kubernetes.io/name: nginx-gw
-    app.kubernetes.io/version: "2.4.2"
   name: nginx-gw-config
   namespace: nginx-gw
+  labels:
+    helm.sh/chart: nginx-gateway-fabric-2.6.3
+    app.kubernetes.io/name: nginx-gw
+    app.kubernetes.io/instance: nginx-gw
+    app.kubernetes.io/version: "2.6.3"
+    app.kubernetes.io/managed-by: Helm
 spec:
   logging:
     level: info
