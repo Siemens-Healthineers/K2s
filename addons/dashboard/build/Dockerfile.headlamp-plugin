@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Parameterized Headlamp plugin OCI image.
+#
+# A single Dockerfile builds all three K2s Headlamp plugin images
+# (flux / cert-manager / prometheus). The compiled plugin bundle is prepared by
+# Build-HeadlampPluginImages.ps1 into the build context at:
+#
+#     plugins/<plugin-dir>/{main.js,package.json[,...]}
+#
+# and copied verbatim to /plugins/ inside the image.
+#
+# RUNTIME CONTRACT (see Build-PluginPatchJson in dashboard.module.psm1):
+#   The dashboard addon injects an init-container that runs
+#       sh -c "mkdir -p /tmp/headlamp/plugins/<plugin-dir> \
+#              && cp -r /plugins/<plugin-dir>/. /tmp/headlamp/plugins/<plugin-dir>/"
+#   Therefore the image MUST:
+#     1. expose the bundle at /plugins/<plugin-dir>/  (<plugin-dir> == init-container Name)
+#     2. provide a POSIX shell + mkdir + cp  (busybox satisfies all three)
+#
+# The base image is pinned in headlamp-plugins.lock.json (baseImage) and passed
+# in as BASE_IMAGE for reproducibility. Prefer pinning by digest in CI.
+# ──────────────────────────────────────────────────────────────────────────────
+
+ARG BASE_IMAGE=docker.io/library/busybox:1.36
+
+FROM ${BASE_IMAGE}
+
+ARG PLUGIN_NAME=unknown
+ARG PLUGIN_VERSION=0.0.0
+ARG PLUGIN_DIR=unknown
+
+LABEL org.opencontainers.image.title="headlamp-plugin-${PLUGIN_NAME}" \
+      org.opencontainers.image.version="${PLUGIN_VERSION}" \
+      org.opencontainers.image.vendor="Siemens Healthineers AG" \
+      org.opencontainers.image.licenses="MIT" \
+      vnd.k2s.headlamp.plugin="${PLUGIN_NAME}" \
+      vnd.k2s.headlamp.plugin-dir="${PLUGIN_DIR}"
+
+# Compiled Headlamp plugin bundle staged by Build-HeadlampPluginImages.ps1.
+COPY plugins/ /plugins/
+

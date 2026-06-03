@@ -108,6 +108,74 @@ k2s addons backup dashboard
 k2s addons restore dashboard -f C:\Temp\k2s\Addons\dashboard_backup_YYYYMMDD_HHMMSS.zip
 ```
 
+## Headlamp Plugin Integration
+
+The dashboard addon includes a **plugin framework** that automatically injects Headlamp ecosystem plugins as Kubernetes init-containers whenever their corresponding capabilities are detected in the cluster.
+
+### Active Plugins
+
+| Plugin | Headlamp Feature | Activated When |
+|---|---|---|
+| `headlamp-plugin-flux:0.6.0` | GitOps sync status, sources, failures | `flux-system` namespace **or** Flux kustomization CRD detected |
+| `headlamp-plugin-cert-manager:0.1.0` | Certificate list, expiry, TLS health | `cert-manager` namespace **or** `certificates.cert-manager.io` CRD detected |
+| `headlamp-plugin-prometheus:0.8.2` | CPU/Memory/Network charts | `prometheuses.monitoring.coreos.com` CRD **or** `prometheus-operated` service detected |
+
+### Capability-Based Activation
+
+Plugin activation is driven by **actual cluster state**, not addon ownership.
+
+**Example**: cert-manager is installed by `ingress/nginx`, `ingress/traefik`, `ingress/nginx-gw`, **and** `security`. The cert-manager plugin activates whenever `cert-manager` is present — regardless of which addon (or external tool) installed it.
+
+This means the following order-independent scenarios all converge to the same Headlamp state:
+
+```
+ingress/nginx enabled → cert-manager plugin appears in Headlamp
+security enabled (nginx already present) → cert-manager plugin already active (no-op)
+ingress/nginx disabled (security still present) → cert-manager plugin stays active
+security disabled → cert-manager removed → cert-manager plugin removed
+```
+
+### Bidirectional Sync
+
+`Sync-HeadlampPlugins` is called from every addon lifecycle script that can affect a registered capability:
+
+| Addon lifecycle event | Plugin effect |
+|---|---|
+| `dashboard enable` | All available capabilities detected and activated |
+| `dashboard update` | Re-syncs to current cluster state |
+| `monitoring enable/disable` | Prometheus plugin added/removed |
+| `rollout/fluxcd enable/disable` | Flux plugin added/removed |
+| `ingress/nginx enable/disable` | cert-manager plugin synced |
+| `ingress/traefik enable/disable` | cert-manager plugin synced |
+| `ingress/nginx-gw enable/disable` | cert-manager plugin synced |
+| `security enable/disable` | cert-manager plugin synced |
+
+All sync operations are **idempotent** — calling `Sync-HeadlampPlugins` multiple times is always safe.
+
+### Offline Compliance
+
+Plugin OCI images are declared under `additionalImages` in `addon.manifest.yaml` so the packaging pipeline caches them in the offline bundle. No network access occurs at runtime.
+
+### Public API (for addon developers)
+
+| Function | Description |
+|---|---|
+| `Sync-HeadlampPlugins` | Idempotent sync; call at the end of any `Enable.ps1` / `Disable.ps1` that can affect a capability |
+| `Remove-HeadlampPluginPatch` | Removes all K2s plugin init-containers; called on `dashboard disable` only |
+| `Test-FluxCapabilityAvailable` | Returns `$true` when Flux is present in the cluster |
+| `Test-CertManagerCapabilityAvailable` | Returns `$true` when cert-manager is present in the cluster |
+| `Test-PrometheusCapabilityAvailable` | Returns `$true` when Prometheus is present in the cluster |
+
+### Adding a New Plugin
+
+1. Build the plugin OCI image containing compiled plugin files at `/plugins/<name>/`.
+2. Add the image to `additionalImages` in `addon.manifest.yaml`.
+3. Add a capability detector function `Test-<Name>CapabilityAvailable` to `dashboard.module.psm1`.
+4. Register the plugin in `Get-RegisteredHeadlampPlugins` with a `Detector` scriptblock.
+5. Add `Sync-HeadlampPlugins` call to the addon's `Enable.ps1` and `Disable.ps1`.
+6. Export the new capability function in `Export-ModuleMember`.
+7. Add unit tests for the detector and the sync scenario.
+
 ## Further Reading
 
 - Headlamp Documentation: <https://headlamp.dev/docs/latest/>

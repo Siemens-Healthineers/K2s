@@ -32,8 +32,9 @@ $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infr
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $traefikModule = "$PSScriptRoot\traefik.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $traefikModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $traefikModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -202,6 +203,9 @@ if (-not $OmitCertMgr) {
 
 # adapt other addons
 Update-Addons -AddonName $addonName
+
+Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after ingress traefik enable' -Console
+Sync-HeadlampPlugins
 
 Write-Log 'Installation of Traefik addon finished.' -Console
 

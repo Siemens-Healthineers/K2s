@@ -23,8 +23,9 @@ $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.clu
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $monitoringModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $monitoringModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -69,6 +70,9 @@ Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'monitoring' })
 $metricsEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'metrics' })
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
+
+Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after monitoring disable' -Console
+Sync-HeadlampPlugins
 
 if (-not $metricsEnabled) {
     Write-Log 'Removing Windows Exporter (no longer needed by any addon)' -Console

@@ -28,8 +28,9 @@ $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $traefikModule = "$PSScriptRoot\traefik.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $traefikModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $traefikModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -93,6 +94,9 @@ Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implement
 
 # adapt other addons
 Update-Addons -AddonName $addonName
+
+Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after ingress traefik disable' -Console
+Sync-HeadlampPlugins
 
 Write-Log 'Uninstallation of ingress traefik addon finished' -Console
 

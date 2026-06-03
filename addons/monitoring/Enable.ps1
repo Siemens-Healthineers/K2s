@@ -30,8 +30,9 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -199,6 +200,9 @@ if (!$kubectlCmd.Success) {
 &"$PSScriptRoot\Update.ps1" -OmitGrafana:$OmitGrafana
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring'; OmitGrafana = $OmitGrafana.IsPresent })
+
+Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after monitoring enable' -Console
+Sync-HeadlampPlugins
 
 if ($OmitGrafana) {
     Write-Log 'Kube Prometheus Stack installed successfully (without Grafana)'

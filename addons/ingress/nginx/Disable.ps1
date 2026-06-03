@@ -28,8 +28,9 @@ $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $nginxModule = "$PSScriptRoot\nginx.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nginxModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nginxModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -92,6 +93,9 @@ Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implement
 
 # adapt other addons
 Update-Addons -AddonName $addonName
+
+Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after ingress nginx disable' -Console
+Sync-HeadlampPlugins
 
 
 if ($EncodeStructuredOutput -eq $true) {

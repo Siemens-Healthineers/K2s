@@ -4,10 +4,11 @@
 
 #Requires -RunAsAdministrator
 
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$securityModule = "$PSScriptRoot\security.module.psm1"
+$addonsModule    = "$PSScriptRoot\..\addons.module.psm1"
+$securityModule  = "$PSScriptRoot\security.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
-Import-Module $addonsModule, $securityModule
+Import-Module $addonsModule, $securityModule, $dashboardModule
 
 Remove-IngressForSecurity
 if (Test-NginxIngressControllerAvailability) {
@@ -21,3 +22,6 @@ elseif (Test-NginxGatewayAvailability) {
 }
 
 Write-Log 'Updating security addon finished.' -Console
+
+Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after security update' -Console
+Sync-HeadlampPlugins

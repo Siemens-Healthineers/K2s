@@ -42,8 +42,9 @@ $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infr
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -120,6 +121,9 @@ if ($Ingress -ne 'none') {
 Write-Log 'Installation of rollout addon with Flux finished.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
+
+Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after Flux enable' -Console
+Sync-HeadlampPlugins
 
 # Deploy addon-sync infrastructure for GitOps addon delivery
 if ($AddonSync) {

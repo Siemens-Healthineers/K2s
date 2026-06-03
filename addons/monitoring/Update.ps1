@@ -9,10 +9,11 @@ Param(
     [switch] $OmitGrafana
 )
 
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
+$addonsModule      = "$PSScriptRoot\..\addons.module.psm1"
+$monitoringModule  = "$PSScriptRoot\monitoring.module.psm1"
+$dashboardModule   = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
-Import-Module $addonsModule, $monitoringModule
+Import-Module $addonsModule, $monitoringModule, $dashboardModule
 
 # Check if Grafana was omitted during installation (from config or parameter)
 $monitoringConfig = Get-AddonConfig -Name 'monitoring'
@@ -164,5 +165,8 @@ if ($EnancedSecurityEnabled) {
 }
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
+
+Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after monitoring update' -Console
+Sync-HeadlampPlugins
 
 Write-Log 'Updating monitoring addon finished.' -Console
