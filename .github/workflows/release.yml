@@ -5,6 +5,11 @@ name: Release a version
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to publish, for example v1.8.0
+        required: true
+        type: string
 #  push:
 #    tags:
 #      - 'v1.*'
@@ -23,30 +28,96 @@ jobs:
         with:
           fetch-depth: 0
 
-        # Go-built binaries are no longer committed to git — build them first
+      - name: Validate release tag
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $releaseTag = '${{ inputs.release_tag }}'
+          if ([string]::IsNullOrWhiteSpace($releaseTag)) {
+            throw 'A release_tag input is required.'
+          }
+
+          git rev-parse --verify "refs/tags/$releaseTag" | Out-Null
+
+          $headCommit = git rev-parse HEAD
+          $tagCommit = git rev-list -n 1 $releaseTag
+          if ($headCommit -ne $tagCommit) {
+            throw "The selected workflow ref points to $headCommit, but tag '$releaseTag' points to $tagCommit. Run this workflow from the release branch/tag commit that matches '$releaseTag'."
+          }
+
+        # Go-built binaries are no longer committed to git - build them first
       - name: Set up Golang
         uses: actions/setup-go@v5
         with:
           go-version: ${{env.GOVERSION}}
           cache-dependency-path: "**/*.sum"
 
-      - name: Build all k2s executables
+      - name: Build all k2s Windows executables
         run: |
-          .\smallsetup\common\BuildGoExe.ps1 -BuildAll
+          .\bin\bgow
+
+      - name: Validate built executables
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          .\k2s.exe version
+
+          $expectedFiles = @(
+            '.\k2s.exe',
+            '.\bin\cloudinitisobuilder.exe',
+            '.\bin\devgon.exe',
+            '.\bin\httpproxy.exe',
+            '.\bin\yaml2json.exe',
+            '.\bin\zap.exe',
+            '.\bin\cni\bridge.exe',
+            '.\bin\cni\l4proxy.exe',
+            '.\bin\cni\vfprules.exe',
+            '.\bin\cni\cplauncher.exe'
+          )
+
+          foreach ($expectedFile in $expectedFiles) {
+            if (-not (Test-Path -Path $expectedFile -PathType Leaf)) {
+              throw "Expected built executable not found: $expectedFile"
+            }
+          }
 
         # get the version from the freshly-built k2s cli
       - name: version
-        run: echo "version=$((.\k2s.exe version).Split()[1].Substring(0, 6))" >> $env:GITHUB_OUTPUT
         id: version
         shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $versionOutput = .\k2s.exe version
+          $versionParts = $versionOutput -split '\s+'
+          if ($versionParts.Count -lt 2) {
+            throw "Could not parse version from output: $versionOutput"
+          }
+
+          $version = $versionParts[1]
+
+          "version=$version" >> $env:GITHUB_OUTPUT
 
         # get previous tag
       - name: Get previous tag
         id: previousTag
+        shell: pwsh
         run: |
-          name=$(git --no-pager tag --sort=creatordate --merged ${{ github.ref_name }} | tail -2 | head -1)
-          echo "previousTag: $name"
-          echo "previousTag=$name" >> $GITHUB_ENV
+          $ErrorActionPreference = 'Stop'
+
+          $releaseTag = '${{ inputs.release_tag }}'
+          $previousTag = git --no-pager tag --sort=creatordate --merged $releaseTag |
+            Where-Object { $_ -ne $releaseTag } |
+            Select-Object -Last 1
+
+          if ([string]::IsNullOrWhiteSpace($previousTag)) {
+            throw "Could not determine previous tag for '$releaseTag'."
+          }
+
+          Write-Host "previousTag: $previousTag"
+          "previousTag=$previousTag" >> $env:GITHUB_ENV
 
         # create the changelog text
         # - name: Create changelog text
@@ -60,36 +131,105 @@ jobs:
         uses: requarks/changelog-action@v1
         with:
           token: ${{ github.token }}
-          fromTag: ${{ github.ref_name }}
+          fromTag: ${{ inputs.release_tag }}
           toTag: ${{ env.previousTag }}
           writeToFile: false
 
-        # create the release for the version
-      - name: release
-        uses: actions/create-release@latest
-        id: create_release
-        with:
-          draft: false
-          prerelease: false
-          release_name: ${{ steps.version.outputs.version }}
-          tag_name: ${{ github.ref }}
-          body_path:  ${{ steps.changelog.outputs.changes }} 
+      - name: Write release notes
+        shell: pwsh
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-
-        # create zip file of the entire project except certain folders
-      - name: Create zip file
+          CHANGELOG: ${{ steps.changelog.outputs.changes }}
         run: |
-          $exclude = @('.github', '.vscode', '.gitignore')
-          Compress-Archive -Path . -DestinationPath K2s-${{ steps.version.outputs.version }}.zip -CompressionLevel Optimal -ExcludePath $exclude
+          $ErrorActionPreference = 'Stop'
 
-        # upload the zip file to the release
-      - name: upload zip artifact
-        uses: actions/upload-release-asset@v1
+          Set-Content -Path release-notes.md -Value $env:CHANGELOG -Encoding UTF8
+
+        # create a release package with source code and the binaries built by bgow
+      - name: Create source and Windows binaries package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          Add-Type -AssemblyName System.IO.Compression
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+          $baseDirectory = (Get-Location).Path
+          $assetName = "K2s-${{ steps.version.outputs.version }}-source-windows-binaries.zip"
+          $targetPath = Join-Path $baseDirectory $assetName
+
+          if (Test-Path -Path $targetPath) {
+            Remove-Item -Path $targetPath -Force
+          }
+
+          $excludedRootEntries = @(
+            '.git',
+            '.github',
+            '.vscode'
+          )
+
+          $excludedFiles = @(
+            '.gitignore',
+            $assetName
+          )
+
+          $zipFileStream = [System.IO.File]::Open($targetPath, [System.IO.FileMode]::CreateNew)
+          $zipArchive = [System.IO.Compression.ZipArchive]::new($zipFileStream, [System.IO.Compression.ZipArchiveMode]::Create)
+
+          try {
+            Get-ChildItem -Path $baseDirectory -Force -Recurse -File | ForEach-Object {
+              $relativePath = [System.IO.Path]::GetRelativePath($baseDirectory, $_.FullName)
+              $rootEntry = ($relativePath -split '[\\/]', 2)[0]
+
+              if ($excludedRootEntries -contains $rootEntry) {
+                return
+              }
+
+              if ($excludedFiles -contains $relativePath) {
+                return
+              }
+
+              $entryName = $relativePath.Replace('\\', '/')
+              [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipArchive, $_.FullName, $entryName, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+            }
+          }
+          finally {
+            $zipArchive.Dispose()
+            $zipFileStream.Dispose()
+          }
+
+          $createdArchive = Get-Item -Path $targetPath
+          Write-Host "Created $assetName ($($createdArchive.Length) bytes)"
+
+        # create the release if needed and upload the zip file
+      - name: Create or update GitHub release
+        shell: pwsh
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-            upload_url: ${{ steps.create_release.outputs.upload_url }}
-            asset_path: ./K2s-${{ steps.version.outputs.version }}.zip
-            asset_name: K2s-${{ steps.version.outputs.version }}.zip
-            asset_content_type: application/zip
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $releaseTag = '${{ inputs.release_tag }}'
+          $assetPath = '.\K2s-${{ steps.version.outputs.version }}-source-windows-binaries.zip'
+
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          $releaseExists = $false
+          gh release view $releaseTag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            $releaseExists = $true
+          }
+
+          if ($releaseExists) {
+            gh release upload $releaseTag $assetPath --clobber --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to upload release asset '$assetPath' to '$releaseTag'."
+            }
+          }
+          else {
+            gh release create $releaseTag $assetPath --title $releaseTag --notes-file release-notes.md --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to create release '$releaseTag'."
+            }
+          }
