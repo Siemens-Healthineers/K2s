@@ -188,7 +188,7 @@ jobs:
           $closedIssues = New-Object System.Collections.Generic.List[object]
           $page = 1
           do {
-            $searchResponseJson = gh api search/issues -f q=$query -f per_page=100 -f page=$page
+            $searchResponseJson = gh api --method GET search/issues -f q=$query -f per_page=100 -f page=$page
             if ($LASTEXITCODE -ne 0) {
               throw "Failed to search issues closed between '$previousTag' and '$releaseTag'."
             }
