@@ -179,51 +179,44 @@ jobs:
           $releaseStart = [datetimeoffset](git log -1 --format=%cI $previousTag)
           $releaseEnd = [datetimeoffset](git log -1 --format=%cI $releaseTag)
 
-          $commitMessages = git log --format='%s%n%b' "$previousTag..$releaseTag"
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to read commits between '$previousTag' and '$releaseTag'."
-          }
-
-          $issueIds = [ordered]@{}
-          foreach ($line in $commitMessages) {
-            if ([string]::IsNullOrWhiteSpace($line)) {
-              continue
-            }
-
-            foreach ($match in [regex]::Matches($line, '#(?<id>\d+)')) {
-              $issueIds[$match.Groups['id'].Value] = $true
-            }
-          }
+          $searchStart = $releaseStart.UtcDateTime.ToString('yyyy-MM-dd')
+          $searchEnd = $releaseEnd.UtcDateTime.ToString('yyyy-MM-dd')
+          $query = "repo:$repo is:issue is:closed closed:$searchStart..$searchEnd"
+          Write-Host "Searching release issues with query: $query"
 
           $issueLines = New-Object System.Collections.Generic.List[string]
-          foreach ($issueId in $issueIds.Keys) {
-            $issueJson = gh api "repos/$repo/issues/$issueId" --jq '{ title: .title, state: .state, closedAt: .closed_at, isPullRequest: (.pull_request != null) }'
+          $closedIssues = New-Object System.Collections.Generic.List[object]
+          $page = 1
+          do {
+            $searchResponseJson = gh api search/issues -f q=$query -f per_page=100 -f page=$page
             if ($LASTEXITCODE -ne 0) {
-              Write-Warning "Skipping #$issueId because it could not be loaded from GitHub."
-              continue
+              throw "Failed to search issues closed between '$previousTag' and '$releaseTag'."
             }
 
-            $issue = $issueJson | ConvertFrom-Json
-            if ($issue.isPullRequest) {
-              continue
+            $searchResponse = $searchResponseJson | ConvertFrom-Json
+            foreach ($issue in $searchResponse.items) {
+              $closedAt = [datetimeoffset]$issue.closed_at
+
+              if ($closedAt -le $releaseStart -or $closedAt -gt $releaseEnd) {
+                continue
+              }
+
+              $closedIssues.Add([PSCustomObject]@{
+                Number = [int]$issue.number
+                Title = [string]$issue.title
+                ClosedAt = $closedAt
+              })
             }
 
-            if ($issue.state -ne 'closed' -or [string]::IsNullOrWhiteSpace($issue.closedAt)) {
-              Write-Host "Skipping issue #$issueId because it is not closed."
-              continue
-            }
+            $page++
+          } while ($searchResponse.items.Count -eq 100)
 
-            $closedAt = [datetimeoffset]$issue.closedAt
-            if ($closedAt -le $releaseStart -or $closedAt -gt $releaseEnd) {
-              Write-Host "Skipping issue #$issueId because it was closed outside the release window ($previousTag..$releaseTag)."
-              continue
-            }
-
-            $issueLines.Add("- [Issue #$issueId](https://github.com/$repo/issues/$issueId) $($issue.title)")
+          foreach ($issue in ($closedIssues | Sort-Object -Property ClosedAt, Number)) {
+            $issueLines.Add("- [Issue #$($issue.Number)](https://github.com/$repo/issues/$($issue.Number)) $($issue.Title)")
           }
 
           if ($issueLines.Count -eq 0) {
-            throw "No GitHub issues were found in commit messages between '$previousTag' and '$releaseTag'."
+            throw "No GitHub issues were closed between '$previousTag' and '$releaseTag'."
           }
 
           $releaseNotes = New-Object System.Collections.Generic.List[string]
