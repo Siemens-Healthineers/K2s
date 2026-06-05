@@ -150,9 +150,6 @@ var _ = Describe("kubevirt addon export and import", Ordered, func() {
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
-		// Note: Unlike other addons, kubevirt intentionally skips the "addon can be enabled while air-gapped" test
-		// and the paired disable cleanup in AfterAll due to heavy Hyper-V/libvirt dependencies that may not be
-		// available in all test environments. The import verification tests above confirm artifact integrity.
 		AfterAll(func(ctx context.Context) {
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
