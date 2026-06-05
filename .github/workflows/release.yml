@@ -221,9 +221,8 @@ jobs:
           }
 
           $releaseNotes = New-Object System.Collections.Generic.List[string]
-          $releaseNotes.Add('K2s solution is a Kubernetes (K8s) distribution which packages different')
-          $releaseNotes.Add('components into one small and easy to use solution. It has its focus on running mixed')
-          $releaseNotes.Add("Windows & Linux workloads in Kubernetes and it's available on Windows hosts.")
+          $releaseNotes.Add('K2s solution is a Kubernetes (K8s) distribution which packages different components into one small and easy to use solution.')
+          $releaseNotes.Add("It has its focus on running mixed Windows & Linux workloads in Kubernetes and it's available on Windows hosts.")
           $releaseNotes.Add('')
           $releaseNotes.Add('## What''s Changed')
           $releaseNotes.Add('')
