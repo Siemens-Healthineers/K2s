@@ -28,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate release tag
+      - name: Checkout release tag
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -38,13 +38,25 @@ jobs:
             throw 'A release_tag input is required.'
           }
 
+          if ('${{ github.ref_type }}' -ne 'branch' -or '${{ github.ref_name }}' -notlike 'release-*') {
+            throw "Run this workflow from the matching release branch, for example 'release-1.8.x', not from '${{ github.ref_name }}'."
+          }
+
           git rev-parse --verify "refs/tags/$releaseTag" | Out-Null
 
-          $headCommit = git rev-parse HEAD
+          $workflowRefCommit = git rev-parse HEAD
           $tagCommit = git rev-list -n 1 $releaseTag
-          if ($headCommit -ne $tagCommit) {
-            throw "The selected workflow ref points to $headCommit, but tag '$releaseTag' points to $tagCommit. Run this workflow from the release branch/tag commit that matches '$releaseTag'."
+          Write-Host "Workflow ref commit: $workflowRefCommit"
+          Write-Host "Release tag commit: $tagCommit"
+
+          git checkout --detach $releaseTag
+
+          $checkedOutCommit = git rev-parse HEAD
+          if ($checkedOutCommit -ne $tagCommit) {
+            throw "Expected to check out tag '$releaseTag' at $tagCommit, but checked out $checkedOutCommit."
           }
+
+          Write-Host "Checked out '$releaseTag' for release packaging."
 
         # Go-built binaries are no longer committed to git - build them first
       - name: Set up Golang
