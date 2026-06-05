@@ -35,7 +35,7 @@ var (
 
 func TestIngressTraefikExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ingress traefik Addon Export/Import Tests", Label("addon", "addon-communication", "acceptance", "internet-required", "setup-required", "invasive", "ingress-traefik", "export-import", "system-running"))
+	RunSpecs(t, "ingress traefik Addon Export/Import Tests", Label("addon", "addon-communication", "acceptance", "internet-required", "setup-required", "invasive", "ingress-traefik", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -143,11 +143,18 @@ var _ = Describe("ingress traefik addon export and import", Ordered, func() {
 	})
 
 	Describe("import ingress traefik addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 
@@ -187,6 +194,12 @@ var _ = Describe("ingress traefik addon export and import", Ordered, func() {
 				"traefik.module.psm1",
 			}
 			exportimport.VerifyImportedAddonFiles(traefikImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "traefik", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 		})
 	})
 
