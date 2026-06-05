@@ -114,9 +114,6 @@ var _ = Describe("ingress nginx-gw addon export and import", Ordered, func() {
 
 		It("all resources have been exported", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all resources have been exported")
-			// Verifies that both ghcr.io/nginx/nginx-gateway-fabric and
-			// ghcr.io/nginx/nginx-gateway-fabric/nginx (declared via additionalImages
-			// because the NginxProxy CRD uses repository+tag sub-keys) are present.
 			extractedArtifactsDir := exportPath
 			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
@@ -163,8 +160,6 @@ var _ = Describe("ingress nginx-gw addon export and import", Ordered, func() {
 
 		It("images available after import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: images available after import")
-			// This validates both nginx-gateway-fabric images are re-imported,
-			// including ghcr.io/nginx/nginx-gateway-fabric/nginx from additionalImages.
 			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
 		})
 
