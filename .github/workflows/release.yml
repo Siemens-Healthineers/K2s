@@ -175,7 +175,9 @@ jobs:
           $releaseTag = '${{ inputs.release_tag }}'
           $previousTag = '${{ env.previousTag }}'
           $repo = $env:GITHUB_REPOSITORY
-          $assetName = "K2s-${{ steps.version.outputs.version }}-source-windows-binaries.zip"
+          $assetName = "K2s-$releaseTag-windows.zip"
+          $releaseStart = [datetimeoffset](git log -1 --format=%cI $previousTag)
+          $releaseEnd = [datetimeoffset](git log -1 --format=%cI $releaseTag)
 
           $commitMessages = git log --format='%s%n%b' "$previousTag..$releaseTag"
           if ($LASTEXITCODE -ne 0) {
@@ -195,7 +197,7 @@ jobs:
 
           $issueLines = New-Object System.Collections.Generic.List[string]
           foreach ($issueId in $issueIds.Keys) {
-            $issueJson = gh api "repos/$repo/issues/$issueId" --jq '{ title: .title, isPullRequest: (.pull_request != null) }'
+            $issueJson = gh api "repos/$repo/issues/$issueId" --jq '{ title: .title, state: .state, closedAt: .closed_at, isPullRequest: (.pull_request != null) }'
             if ($LASTEXITCODE -ne 0) {
               Write-Warning "Skipping #$issueId because it could not be loaded from GitHub."
               continue
@@ -203,6 +205,17 @@ jobs:
 
             $issue = $issueJson | ConvertFrom-Json
             if ($issue.isPullRequest) {
+              continue
+            }
+
+            if ($issue.state -ne 'closed' -or [string]::IsNullOrWhiteSpace($issue.closedAt)) {
+              Write-Host "Skipping issue #$issueId because it is not closed."
+              continue
+            }
+
+            $closedAt = [datetimeoffset]$issue.closedAt
+            if ($closedAt -le $releaseStart -or $closedAt -gt $releaseEnd) {
+              Write-Host "Skipping issue #$issueId because it was closed outside the release window ($previousTag..$releaseTag)."
               continue
             }
 
@@ -226,7 +239,7 @@ jobs:
             $releaseNotes.Add($issueLine)
           }
           $releaseNotes.Add('')
-          $releaseNotes.Add("In addition to GitHub's source code artifacts, this release includes a Windows package with source code and executables built with ``.\bin\bgow``: ``$assetName``.")
+          $releaseNotes.Add("In addition to GitHub's source code artifacts, this release includes a Windows package with executables built with ``.\bin\bgow``: ``$assetName``.")
           $releaseNotes.Add('')
           $releaseNotes.Add("Full Changelog: [$previousTag...$releaseTag](https://github.com/$repo/compare/$previousTag...$releaseTag)")
 
@@ -242,7 +255,7 @@ jobs:
           Add-Type -AssemblyName System.IO.Compression.FileSystem
 
           $baseDirectory = (Get-Location).Path
-          $assetName = "K2s-${{ steps.version.outputs.version }}-source-windows-binaries.zip"
+          $assetName = "K2s-${{ inputs.release_tag }}-windows.zip"
           $targetPath = Join-Path $baseDirectory $assetName
 
           if (Test-Path -Path $targetPath) {
@@ -297,7 +310,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
 
           $releaseTag = '${{ inputs.release_tag }}'
-          $assetPath = '.\K2s-${{ steps.version.outputs.version }}-source-windows-binaries.zip'
+          $assetPath = ".\K2s-$releaseTag-windows.zip"
 
           if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
             $PSNativeCommandUseErrorActionPreference = $false
