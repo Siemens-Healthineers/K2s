@@ -1,0 +1,13 @@
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
+{% extends "base.html" %}
+
+{% block outdated %}
+You're not viewing the latest release version.
+<a href="{{ '../' ~ base_url }}">
+    <strong>Click here to go to latest release.</strong>
+</a>
+{% endblock %}
