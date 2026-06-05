@@ -10,6 +10,10 @@ on:
         description: Release tag to publish, for example v1.8.0
         required: true
         type: string
+      previous_tag:
+        description: Previous release tag for changelog generation, for example v1.7.1. Leave empty to auto-detect.
+        required: false
+        type: string
 #  push:
 #    tags:
 #      - 'v1.*'
@@ -42,6 +46,7 @@ jobs:
             throw "Run this workflow from the matching release branch, for example 'release-1.8.x', not from '${{ github.ref_name }}'."
           }
 
+          git fetch --tags --force
           git rev-parse --verify "refs/tags/$releaseTag" | Out-Null
 
           $workflowRefCommit = git rev-parse HEAD
@@ -120,13 +125,33 @@ jobs:
           $ErrorActionPreference = 'Stop'
 
           $releaseTag = '${{ inputs.release_tag }}'
-          $previousTag = git --no-pager tag --sort=creatordate --merged $releaseTag |
-            Where-Object { $_ -ne $releaseTag } |
-            Select-Object -Last 1
+          $previousTag = '${{ inputs.previous_tag }}'
+
+          if ([string]::IsNullOrWhiteSpace($previousTag)) {
+            if ($releaseTag -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
+              throw "Could not auto-detect previous tag because release tag '$releaseTag' does not match vMAJOR.MINOR.PATCH. Provide previous_tag manually."
+            }
+
+            $releaseVersion = [version]$Matches.version
+            $previousTag = git --no-pager tag --list 'v[0-9]*' |
+              ForEach-Object {
+                if ($_ -match '^v(?<version>\d+\.\d+\.\d+)$') {
+                  [PSCustomObject]@{
+                    Tag = $_
+                    Version = [version]$Matches.version
+                  }
+                }
+              } |
+              Where-Object { $_.Version -lt $releaseVersion } |
+              Sort-Object -Property Version -Descending |
+              Select-Object -First 1 -ExpandProperty Tag
+          }
 
           if ([string]::IsNullOrWhiteSpace($previousTag)) {
             throw "Could not determine previous tag for '$releaseTag'."
           }
+
+          git rev-parse --verify "refs/tags/$previousTag" | Out-Null
 
           Write-Host "previousTag: $previousTag"
           "previousTag=$previousTag" >> $env:GITHUB_ENV
