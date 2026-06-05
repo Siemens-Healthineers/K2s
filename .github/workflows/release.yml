@@ -21,6 +21,11 @@ on:
 env:
   GOVERSION: "1.26.3"
 
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
 jobs:
   build_release:
     name: build_release
@@ -156,30 +161,76 @@ jobs:
           Write-Host "previousTag: $previousTag"
           "previousTag=$previousTag" >> $env:GITHUB_ENV
 
-        # create the changelog text
-        # - name: Create changelog text
-        # id: changelog
-        # uses: loopwerk/tag-changelog@v1
-        # with:
-        #  token: ${{ github.token }}
-        #  exclude_types: ci, chore   
-      - name: Update CHANGELOG
-        id: changelog
-        uses: requarks/changelog-action@v1
-        with:
-          token: ${{ github.token }}
-          fromTag: ${{ inputs.release_tag }}
-          toTag: ${{ env.previousTag }}
-          writeToFile: false
-
-      - name: Write release notes
+      - name: Generate release notes
         shell: pwsh
         env:
-          CHANGELOG: ${{ steps.changelog.outputs.changes }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
 
-          Set-Content -Path release-notes.md -Value $env:CHANGELOG -Encoding UTF8
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
+          $releaseTag = '${{ inputs.release_tag }}'
+          $previousTag = '${{ env.previousTag }}'
+          $repo = $env:GITHUB_REPOSITORY
+          $assetName = "K2s-${{ steps.version.outputs.version }}-source-windows-binaries.zip"
+
+          $commitMessages = git log --format='%s%n%b' "$previousTag..$releaseTag"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to read commits between '$previousTag' and '$releaseTag'."
+          }
+
+          $issueIds = [ordered]@{}
+          foreach ($line in $commitMessages) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+              continue
+            }
+
+            foreach ($match in [regex]::Matches($line, '#(?<id>\d+)')) {
+              $issueIds[$match.Groups['id'].Value] = $true
+            }
+          }
+
+          $issueLines = New-Object System.Collections.Generic.List[string]
+          foreach ($issueId in $issueIds.Keys) {
+            $issueJson = gh api "repos/$repo/issues/$issueId" --jq '{ title: .title, isPullRequest: (.pull_request != null) }'
+            if ($LASTEXITCODE -ne 0) {
+              Write-Warning "Skipping #$issueId because it could not be loaded from GitHub."
+              continue
+            }
+
+            $issue = $issueJson | ConvertFrom-Json
+            if ($issue.isPullRequest) {
+              continue
+            }
+
+            $issueLines.Add("- [Issue #$issueId](https://github.com/$repo/issues/$issueId) $($issue.title)")
+          }
+
+          if ($issueLines.Count -eq 0) {
+            throw "No GitHub issues were found in commit messages between '$previousTag' and '$releaseTag'."
+          }
+
+          $releaseNotes = New-Object System.Collections.Generic.List[string]
+          $releaseNotes.Add('K2s solution is a Kubernetes (K8s) distribution which packages different')
+          $releaseNotes.Add('components into one small and easy to use solution. It has its focus on running mixed')
+          $releaseNotes.Add("Windows & Linux workloads in Kubernetes and it's available on Windows hosts.")
+          $releaseNotes.Add('')
+          $releaseNotes.Add('## What''s Changed')
+          $releaseNotes.Add('')
+          $releaseNotes.Add("In this new version $releaseTag we have solved the following issues:")
+          $releaseNotes.Add('')
+          foreach ($issueLine in $issueLines) {
+            $releaseNotes.Add($issueLine)
+          }
+          $releaseNotes.Add('')
+          $releaseNotes.Add("In addition to GitHub's source code artifacts, this release includes a Windows package with source code and executables built with ``.\bin\bgow``: ``$assetName``.")
+          $releaseNotes.Add('')
+          $releaseNotes.Add("Full Changelog: [$previousTag...$releaseTag](https://github.com/$repo/compare/$previousTag...$releaseTag)")
+
+          Set-Content -Path release-notes.md -Value $releaseNotes -Encoding UTF8
 
         # create a release package with source code and the binaries built by bgow
       - name: Create source and Windows binaries package
@@ -259,6 +310,11 @@ jobs:
           }
 
           if ($releaseExists) {
+            gh release edit $releaseTag --title $releaseTag --notes-file release-notes.md --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to update release notes for '$releaseTag'."
+            }
+
             gh release upload $releaseTag $assetPath --clobber --repo $env:GITHUB_REPOSITORY
             if ($LASTEXITCODE -ne 0) {
               throw "Failed to upload release asset '$assetPath' to '$releaseTag'."
