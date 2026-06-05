@@ -35,7 +35,7 @@ var (
 
 func TestStorageSmbExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "storage smb Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "storage-smb", "export-import", "system-running"))
+	RunSpecs(t, "storage smb Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "storage-smb", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -141,11 +141,18 @@ var _ = Describe("storage smb addon export and import", Ordered, func() {
 	})
 
 	Describe("import storage smb addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "storage", "smb", "-o")
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 
@@ -201,6 +208,12 @@ var _ = Describe("storage smb addon export and import", Ordered, func() {
 				filepath.Join(storageBaseDir, "config", "SmbStorage.json.license"),
 			}
 			exportimport.VerifyNoStrayFiles(unexpectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "storage", "smb", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("csi-smb-controller", "storage-smb")
 		})
 	})
 

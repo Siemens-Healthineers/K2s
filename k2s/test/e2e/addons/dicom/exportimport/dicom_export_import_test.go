@@ -151,6 +151,7 @@ var _ = Describe("dicom addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
@@ -194,6 +195,13 @@ var _ = Describe("dicom addon export and import", Ordered, func() {
 				"dicom.module.psm1",
 			}
 			exportimport.VerifyImportedAddonFiles(dicomImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "dicom", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+			suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 		})
 	})
 
