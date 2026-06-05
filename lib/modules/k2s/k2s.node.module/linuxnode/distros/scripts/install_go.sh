@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: MIT
 
 # Set default Go version
-DEFAULT_GO_VERSION="1.26.3"
+DEFAULT_GO_VERSION="1.26.4"
 
 # Check if an argument is provided and is a valid integer
 if [ "$#" -eq 1 ] && [[ "$1" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
