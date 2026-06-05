@@ -16,13 +16,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 var suite *framework.K2sTestSuite
+var k2s *dsl.K2s
 
 func TestHyperVLinuxNode(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -35,6 +39,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(500*time.Millisecond),
 		framework.ClusterTestStepTimeout(20*time.Minute))
+	k2s = dsl.NewK2s(suite)
 
 	DeferCleanup(suite.TearDown)
 })
