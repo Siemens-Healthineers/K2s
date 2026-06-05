@@ -182,6 +182,7 @@ jobs:
           $searchStart = $releaseStart.UtcDateTime.ToString('yyyy-MM-dd')
           $searchEnd = $releaseEnd.UtcDateTime.ToString('yyyy-MM-dd')
           $query = "repo:$repo is:issue is:closed closed:$searchStart..$searchEnd"
+          $issuesQueryUrl = "https://github.com/$repo/issues?q=is%3Aissue%20is%3Aclosed%20closed%3A$searchStart..$searchEnd"
           Write-Host "Searching release issues with query: $query"
 
           $issueLines = New-Object System.Collections.Generic.List[string]
@@ -234,7 +235,15 @@ jobs:
           $releaseNotes.Add('')
           $releaseNotes.Add("In addition to GitHub's source code artifacts, this release includes a Windows package with executables built with ``.\bin\bgow``: ``$assetName``.")
           $releaseNotes.Add('')
-          $releaseNotes.Add("Full Changelog: [$previousTag...$releaseTag](https://github.com/$repo/compare/$previousTag...$releaseTag)")
+
+          git merge-base --is-ancestor $previousTag $releaseTag
+          if ($LASTEXITCODE -eq 0) {
+            $releaseNotes.Add("Full Changelog: [$previousTag...$releaseTag](https://github.com/$repo/compare/$previousTag...$releaseTag)")
+          }
+          else {
+            $releaseNotes.Add("Closed Issues: [$previousTag...$releaseTag]($issuesQueryUrl)")
+            Write-Host "Skipping full changelog compare link because '$previousTag' is not an ancestor of '$releaseTag'."
+          }
 
           Set-Content -Path release-notes.md -Value $releaseNotes -Encoding UTF8
 
