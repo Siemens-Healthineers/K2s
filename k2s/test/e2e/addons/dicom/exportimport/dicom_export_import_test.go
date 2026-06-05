@@ -151,7 +151,7 @@ var _ = Describe("dicom addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().Exec(ctx, "addons", "disable", "dicom", "-o")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "dicom", "-o", "-f")
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
