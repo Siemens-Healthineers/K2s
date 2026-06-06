@@ -674,7 +674,7 @@
     {
       "group": "https://github.com/prometheus/alertmanager",
       "name": "alertmanager",
-      "version": "v0.32.1",
+      "version": "v0.32.2",
       "description": "Prometheus Alertmanager - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -691,7 +691,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus/alertmanager@v0.32.1",
+      "purl": "pkg:github/prometheus/alertmanager@v0.32.2",
       "type": "container"
     },
     {
