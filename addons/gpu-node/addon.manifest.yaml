@@ -22,7 +22,7 @@ spec:
             - nvidia-container-toolkit
           curl: []
           additionalImages:
-            - shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.26.3
+            - shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.33.1
             - nvcr.io/nvidia/k8s-device-plugin:v0.19.2
             - nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9
         windows:
