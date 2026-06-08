@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -184,7 +184,7 @@ function New-SmbHostOnLinuxIfNotExisting {
     # Add POSIX extension config to Samba share if enabled
     $posixLines = Get-SambaSharePosixConfig -Config $Config
     foreach ($line in $posixLines) {
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo $line >> /etc/samba/smb.conf'").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo `"$line`" >> /etc/samba/smb.conf'").Output | Write-Log
     }
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart smbd.service nmbd.service').Output | Write-Log
 
@@ -655,7 +655,8 @@ function New-StorageClassManifest {
     if ($Config) {
         $mountOpts = Get-StorageClassMountOptions -Config $Config
     } else {
-        $mountOpts = @('dir_mode=0777','file_mode=0777','uid=1001','gid=1001','noperm','mfsymlinks','cache=strict','noserverino')
+        $defaultConfig = [PSCustomObject]@{ EnablePosixExtensions = $false; UseServerInode = $false; SmbDialect = 'auto' }
+        $mountOpts = Get-StorageClassMountOptions -Config $defaultConfig
     }
     $mountOptsYaml = ($mountOpts | ForEach-Object { "  - $_" }) -join "`n"
 
