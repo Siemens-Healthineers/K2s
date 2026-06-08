@@ -12,6 +12,9 @@
     SSHes in, runs the distribution-specific download scripts to fetch .deb packages via
     apt-get download, copies the packages back to the Windows host, and creates a zip archive.
 
+    Node package creation requires an existing K2s cluster on the machine where the command
+    runs and the local cluster proxy http://172.19.1.1:8181.
+
     The -TargetDirectory and -ZipPackageFileName flags are required and control
     where the resulting zip is written and what it is named.
 
@@ -25,18 +28,19 @@
     File name for the resulting zip archive (must end in .zip).
 
 .PARAMETER Proxy
-    Optional HTTP proxy to use for package downloads inside the VM (e.g. http://10.0.0.1:8080).
+    HTTP proxy to use for package downloads inside the VM. For node package creation, use
+    the local cluster proxy http://172.19.1.1:8181.
 
 .PARAMETER ShowLogs
     When set, all log output is also printed to the console.
 
 .EXAMPLE
     # Download Debian 12 node packages
-    k2s system package --node-package --os debian12 --target-dir C:\output --name mynode.zip
+    k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
 
 .EXAMPLE
-    # Download Debian 13 node packages through a proxy
-    k2s system package --node-package --os debian13 --target-dir C:\output --name mynode.zip --proxy http://proxy:8080
+    # Download Debian 13 node packages through the local cluster proxy
+    k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip" -p http://172.19.1.1:8181
 #>
 
 param (

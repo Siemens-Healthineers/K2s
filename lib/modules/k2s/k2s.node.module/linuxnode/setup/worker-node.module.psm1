@@ -175,6 +175,7 @@ function Add-PersistentLinuxWorkerNodeRoutes {
     #   (networkd flushes manually-added routes on restart, so we must re-add them)
     # - After=systemd-networkd.service: Ensures routes are added after network is configured
     # - No ExecStop that deletes routes: Avoids accidental route deletion on service stop/restart
+    # - Retry loop: DHCP may not be fully ready when network-online.target is reached
     $serviceLines = @(
         "[Unit]"
         "Description=K2s Kubernetes Routes"
@@ -185,7 +186,7 @@ function Add-PersistentLinuxWorkerNodeRoutes {
         "[Service]"
         "Type=oneshot"
         "RemainAfterExit=yes"
-        "ExecStart=/bin/sh -c 'ip route replace $controlPlaneCIDR via $WindowsHostIpAddress; ip route replace $podNetworkCIDR via $WindowsHostIpAddress'"
+        "ExecStart=/bin/sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do ping -c 1 -W 2 $WindowsHostIpAddress >/dev/null 2>&1 && break; sleep 2; done; ip route replace $controlPlaneCIDR via $WindowsHostIpAddress; ip route replace $podNetworkCIDR via $WindowsHostIpAddress'"
         ""
         "[Install]"
         "WantedBy=multi-user.target"
