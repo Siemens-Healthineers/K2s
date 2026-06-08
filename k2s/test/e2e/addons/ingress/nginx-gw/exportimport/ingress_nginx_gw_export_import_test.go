@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package registryexportimport
+package nginxgwexportimport
 
 import (
 	"context"
@@ -33,18 +33,18 @@ var (
 	testFailed            = false
 )
 
-func TestRegistryExportImport(t *testing.T) {
+func TestIngressNginxGwExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "registry Addon Export/Import Tests", Label("addon", "addon-diverse", "acceptance", "internet-required", "setup-required", "invasive", "registry", "export-import", "air-gapped", "system-running"))
+	RunSpecs(t, "ingress nginx-gw Addon Export/Import Tests", Label("addon", "addon-communication", "acceptance", "internet-required", "setup-required", "invasive", "ingress-nginx-gw", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	GinkgoWriter.Println("========================================")
-	GinkgoWriter.Println("REGISTRY EXPORT/IMPORT TEST - SETUP")
-	GinkgoWriter.Println("========================================")
+	GinkgoWriter.Println("==========================================")
+	GinkgoWriter.Println("INGRESS NGINX-GW EXPORT/IMPORT TEST - SETUP")
+	GinkgoWriter.Println("==========================================")
 
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(exportImportTestTimeout))
-	exportPath = filepath.Join(suite.RootDir(), "tmp", "registry-export-test")
+	exportPath = filepath.Join(suite.RootDir(), "tmp", "ingress-nginx-gw-export-test")
 	controlPlaneIpAddress = suite.SetupInfo().Config.ControlPlane().IpAddress()
 
 	GinkgoWriter.Printf("[Setup] Root dir: %s\n", suite.RootDir())
@@ -54,30 +54,30 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	allAddons := suite.AddonsAdditionalInfo().AllAddons()
 	GinkgoWriter.Printf("[Setup] Total addons available: %d\n", len(allAddons))
 
-	addon = exportimport.GetAddonByName(allAddons, "registry")
-	Expect(addon).NotTo(BeNil(), "registry addon should exist")
+	addon = exportimport.GetAddonByName(allAddons, "ingress")
+	Expect(addon).NotTo(BeNil(), "ingress addon should exist")
 	GinkgoWriter.Printf("[Setup] Found addon: %s\n", addon.Metadata.Name)
 
-	impl = exportimport.GetImplementation(addon, "registry")
-	Expect(impl).NotTo(BeNil(), "registry implementation should exist")
+	impl = exportimport.GetImplementation(addon, "nginx-gw")
+	Expect(impl).NotTo(BeNil(), "nginx-gw implementation should exist")
 	GinkgoWriter.Printf("[Setup] Found implementation: %s\n", impl.Name)
 	GinkgoWriter.Printf("[Setup] Export directory name: %s\n", impl.ExportDirectoryName)
+
+	exportimport.AssertWindowsCurlContains(impl, `bin\cmctl.exe`)
 
 	k2s = dsl.NewK2s(suite)
 
 	GinkgoWriter.Println("[Setup] Setup complete")
-	GinkgoWriter.Println("========================================")
+	GinkgoWriter.Println("==========================================")
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
 	if testFailed {
 		suite.K2sCli().MustExec(ctx, "system", "dump", "-S", "-o")
 	}
-
 	if suite.ShouldCleanup(testFailed) {
 		exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 	}
-
 	suite.TearDown(ctx)
 })
 
@@ -87,15 +87,15 @@ var _ = AfterEach(func() {
 	}
 })
 
-var _ = Describe("registry addon export and import", Ordered, func() {
-	Describe("export registry addon", func() {
+var _ = Describe("ingress nginx-gw addon export and import", Ordered, func() {
+	Describe("export ingress nginx-gw addon", func() {
 		BeforeAll(func(ctx context.Context) {
 			exportimport.CleanupExportedFiles(exportPath, "")
 		})
 
-		It("exports registry addon to versioned OCI tar file", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: exports registry addon to versioned OCI tar file")
-			exportedOciFile = exportimport.ExportAddon(ctx, suite, "registry", "", exportPath)
+		It("exports ingress nginx-gw addon to versioned OCI tar file", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: exports ingress nginx-gw addon to versioned OCI tar file")
+			exportedOciFile = exportimport.ExportAddon(ctx, suite, "ingress", "nginx-gw", exportPath)
 
 			GinkgoWriter.Printf("[Test] Verifying exported OCI tar file exists: %s\n", exportedOciFile)
 			info, err := os.Stat(exportedOciFile)
@@ -103,11 +103,11 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 			GinkgoWriter.Printf("[Test] OCI tar file verified: %d bytes\n", info.Size())
 		})
 
-		It("contains registry addon folder with correct OCI structure", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: contains registry addon folder with correct OCI structure")
+		It("contains ingress addon folder with correct OCI structure", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: contains ingress addon folder with correct OCI structure")
 			extractedArtifactsDir := exportimport.ExtractOciTar(ctx, suite, exportedOciFile, exportPath)
 
-			expectedDirName := exportimport.GetExpectedDirName("registry", "registry")
+			expectedDirName := exportimport.GetExpectedDirName("ingress", "nginx-gw")
 			GinkgoWriter.Printf("[Test] Expected directory name: %s\n", expectedDirName)
 			exportimport.VerifyExportedOciStructure(extractedArtifactsDir, expectedDirName)
 		})
@@ -123,7 +123,7 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 
 		It("index.json contains proper OCI structure", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: index.json contains proper OCI structure")
-			expectedDirName := exportimport.GetExpectedDirName("registry", "registry")
+			expectedDirName := exportimport.GetExpectedDirName("ingress", "nginx-gw")
 			extractedArtifactsDir := exportPath
 			GinkgoWriter.Printf("[Test] Extracted artifacts dir: %s\n", extractedArtifactsDir)
 
@@ -131,7 +131,7 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 		})
 	})
 
-	Describe("clean up registry resources", func() {
+	Describe("clean up ingress nginx-gw resources", func() {
 		BeforeAll(func(ctx context.Context) {
 			exportimport.CleanAddonResources(ctx, suite, k2s, impl, controlPlaneIpAddress)
 		})
@@ -142,7 +142,7 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 		})
 	})
 
-	Describe("import registry addon", func() {
+	Describe("import ingress nginx-gw addon", func() {
 		var restoreProxyEnvironment func()
 
 		BeforeAll(func(ctx context.Context) {
@@ -151,27 +151,16 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
+			suite.K2sCli().Exec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
-
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
-		})
-
-		It("debian packages available after import", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: debian packages available after import")
-			exportimport.VerifyImportedDebPackages(ctx, suite, impl, controlPlaneIpAddress)
 		})
 
 		It("images available after import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: images available after import")
 			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
-		})
-
-		It("linux curl packages available after import", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: linux curl packages available after import")
-			exportimport.VerifyImportedLinuxCurlPackages(ctx, suite, impl, controlPlaneIpAddress)
 		})
 
 		It("windows curl packages available after import", func(ctx context.Context) {
@@ -181,8 +170,8 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 
 		It("all addon files present at correct paths after import", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: all addon files present at correct paths after import")
-			registryImplDir := filepath.Join(suite.RootDir(), "addons", "registry")
-			GinkgoWriter.Printf("[Test] Registry implementation directory: %s\n", registryImplDir)
+			nginxGwImplDir := filepath.Join(suite.RootDir(), "addons", "ingress", "nginx-gw")
+			GinkgoWriter.Printf("[Test] nginx-gw implementation directory: %s\n", nginxGwImplDir)
 
 			expectedFiles := []string{
 				"Enable.ps1",
@@ -192,61 +181,15 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 				"Restore.ps1",
 				"Update.ps1",
 				"README.md",
-				"registry.module.psm1",
+				"nginx-gw.module.psm1",
 			}
-			exportimport.VerifyImportedAddonFiles(registryImplDir, expectedFiles)
+			exportimport.VerifyImportedAddonFiles(nginxGwImplDir, expectedFiles)
 		})
 
 		It("addon can be enabled while air-gapped", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
-			suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o")
-			k2s.VerifyAddonIsEnabled("registry")
-		})
-	})
-
-	Describe("export and import with relative paths", func() {
-		var (
-			relExportDir    string
-			absRelExportDir string
-			relOciFile      string
-		)
-
-		BeforeAll(func(ctx context.Context) {
-			absRelExportDir = filepath.Join(suite.RootDir(), "tmp", "registry-relpath-test")
-			os.MkdirAll(absRelExportDir, 0o755)
-			var err error
-			relExportDir, err = filepath.Rel(suite.RootDir(), absRelExportDir)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		AfterAll(func(ctx context.Context) {
-			exportimport.CleanupExportedFiles(absRelExportDir, relOciFile)
-		})
-
-		It("exports addon using a relative directory path", func(ctx context.Context) {
-			relOciFile = exportimport.ExportAddonRelativePath(ctx, suite, "registry", "registry", suite.RootDir(), relExportDir)
-			info, err := os.Stat(relOciFile)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(info.Size()).To(BeNumerically(">", 0))
-		})
-
-		It("imports addon using a relative file path", func(ctx context.Context) {
-			Expect(relOciFile).NotTo(BeEmpty())
-			relFilePath, err := filepath.Rel(suite.RootDir(), relOciFile)
-			Expect(err).ToNot(HaveOccurred())
-			exportimport.ImportAddonRelativePath(ctx, suite, suite.RootDir(), relFilePath)
-			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
-		})
-
-		It("imports addon using a parent-relative file path", func(ctx context.Context) {
-			files, err := filepath.Glob(filepath.Join(absRelExportDir, "*.oci.tar"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(files)).To(BeNumerically(">=", 1))
-			subDir := filepath.Join(absRelExportDir, "subdir")
-			os.MkdirAll(subDir, 0o755)
-			parentRelPath := ".." + string(filepath.Separator) + filepath.Base(files[0])
-			exportimport.ImportAddonRelativePath(ctx, suite, subDir, parentRelPath)
-			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", "nginx-gw")
 		})
 	})
 })

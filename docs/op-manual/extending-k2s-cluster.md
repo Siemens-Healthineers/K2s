@@ -3,9 +3,9 @@ SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# [EXPERIMENTAL] Extending a K2s Cluster
+# Extending a K2s Cluster
 
-This guide explains how to extend a K2s cluster by adding physical hosts or virtual machines to an existing K2s setup.
+This guide explains how to extend a K2s cluster by adding additional nodes. At the moment, the documented and supported workflow covers Linux worker nodes on physical hosts or existing virtual machines. Support for Windows worker nodes will follow.
 
 ## Prerequisites
 
@@ -14,14 +14,13 @@ This guide explains how to extend a K2s cluster by adding physical hosts or virt
    - Confirm that the K2s cluster is running and healthy.
 
 2. **New Host or VM Requirements**:
-   - Install a compatible operating system (Linux or Windows, based on your cluster requirements).
-   - For Linux worker node onboarding, the currently supported Debian versions are `debian12` and `debian13`.
-   - Install an SSH service on the new machine and ensure port 22 is enabled for connectivity.
-   - Ensure network connectivity with the K2s node.
-   - **IP Address Requirements**:
-     - The IP address of the new machine must be in the same subnet as the K2s setup (e.g., `172.94.91.0/24`).
-     - **Bare-metal target**: IP must be in a physical network subnet (LAN/WiFi/Ethernet) of the Windows host.
-     - **Existing Hyper-V VM target**: VM must be attached to KubeSwitch and have an IP in the KubeSwitch CIDR (for example `172.19.1.x`).
+     - Install a supported Debian Linux operating system. The currently supported Linux node versions are `debian12` and `debian13`.
+     - Install an SSH service on the new machine and ensure port 22 is enabled for connectivity.
+     - Ensure network connectivity with the K2s node.
+     - **IP Address Requirements**:
+         - The IP address of the new machine must be in the same subnet as the K2s setup (e.g., `172.94.91.0/24`).
+         - **Bare-metal target**: IP must be in a physical network subnet (LAN/WiFi/Ethernet) of the Windows host.
+         - **Existing Hyper-V VM target**: VM must be attached to KubeSwitch and have an IP in the KubeSwitch CIDR (for example `172.19.1.x`).
 
 ---
 
@@ -54,7 +53,7 @@ Before running `k2s node add`, make sure your target matches one of the supporte
 ### 1. Copy the public SSH Key to the new node
 
 When K2s is installed, an SSH public key is available under the directory `%USERPROFILE%\.ssh\k2s\id_rsa.pub`.
-This key must be copied to the physical host or VM to establish communication and initiate the installation.
+This key must be copied to the Linux physical host or VM to establish communication and initiate the installation.
 
 #### Manually
 
@@ -62,16 +61,10 @@ Copy the file from `%USERPROFILE%\.ssh\k2s\id_rsa.pub` to any location on the ma
 
 #### Using `scp` and password
 
-##### Linux New Node
+##### Target Linux Node
 
 ```cmd
 scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\k2s\id_rsa.pub  <usernameOfNode>@<IpAddressOfNode>:/tmp/temp_k2s.pub
-```
-
-##### Windows New Node
-
-```cmd
-scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\k2s\id_rsa.pub  <usernameOfNode>@<IpAddressOfNode>:c:\\temp\\temp_k2s.pub
 ```
 
 !!! hint "scp"
@@ -81,39 +74,13 @@ scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\k2s\id_rsa.pub  <usernameOfNo
 
 This operation ensures that the new node can be connected over SSH from K2s setup.
 
-#### On Linux New Node
+#### On Target Linux Node
 
 ```cmd
 cat /tmp/temp_k2s.pub >> ~/.ssh/authorized_keys && cat ~/.ssh/authorized_keys
 ```
 
-#### On Windows New Node
-
-```powershell
-$rootPublicKey = 'c:\temp\temp_k2s.pub'
-$authorizedkeypath = 'C:\ProgramData\ssh\administrators_authorized_keys'
-
-Write-Output 'Adding public key for SSH connection'
-
-if ((Test-Path $authorizedkeypath -PathType Leaf)) {
-    Write-Output "$authorizedkeypath already exists! overwriting new key"
-
-    Set-Content $authorizedkeypath -Value $rootPublicKey
-}
-else {
-    New-Item $authorizedkeypath -ItemType File -Value $rootPublicKey
-
-    $acl = Get-Acl C:\ProgramData\ssh\administrators_authorized_keys
-    $acl.SetAccessRuleProtection($true, $false)
-    $administratorsRule = New-Object system.security.accesscontrol.filesystemaccessrule('Administrators', 'FullControl', 'Allow')
-    $systemRule = New-Object system.security.accesscontrol.filesystemaccessrule('SYSTEM', 'FullControl', 'Allow')
-    $acl.SetAccessRule($administratorsRule)
-    $acl.SetAccessRule($systemRule)
-    $acl | Set-Acl
-}
-```
-
-### 3. Add new node with K2s CLI
+### 3. Add the new node with K2s CLI
 
 ```cmd
 k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection>
@@ -140,24 +107,24 @@ The offline workflow has two phases:
 
 ### 1. Create the node package
 
-Generate an OS-specific node package. This step does **not** require an installed *K2s* cluster on the machine where you run the command.
+Generate an OS-specific node package. This step requires an installed *K2s* cluster on the machine where you run the command, and it must use the local cluster proxy `http://172.19.1.1:8181`.
 
 Example using `k2s.exe` directly from a local directory:
 
 ```console
-.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip"
+.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip" --proxy http://172.19.1.1:8181
 ```
 
 You can also generate the package on an existing *K2s* host:
 
 ```console
-k2s system package --node-package --os debian12 --target-dir C:\output --name debian12-node.zip
+k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
 ```
 
 For Debian 13 nodes, create a Debian 13 package instead:
 
 ```console
-k2s system package --node-package --os debian13 --target-dir C:\output --name debian13-node.zip
+k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip" -p http://172.19.1.1:8181
 ```
 
 !!! note

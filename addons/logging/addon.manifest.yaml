@@ -28,8 +28,13 @@ spec:
               - name: omitOpensearch
                 description: Deploy only Fluent-bit; omit OpenSearch and OpenSearch Dashboards
                 default: false
+              - name: snode
+                shorthand: s
+                default: ""
+                description: Node to use for persistent volume storage (defaults to control-plane)
             examples:
               - cmd: k2s addons enable logging
+              - cmd: k2s addons enable logging --snode worker1
                 comment: Enable logging in k2s
               - cmd: k2s addons enable logging --ingress traefik
                 comment: Enable logging in k2s with ingress traefik
@@ -38,6 +43,8 @@ spec:
           script:
             subPath: Enable.ps1
             parameterMappings:
+              - cliFlagName: snode
+                scriptParameterName: StorageNode
               - cliFlagName: ingress
                 scriptParameterName: Ingress
               - cliFlagName: omitOpensearch

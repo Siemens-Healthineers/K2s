@@ -9,6 +9,7 @@ $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.ps
 Import-Module $configModule
 
 $proxyConfigFp = "C:\ProgramData\k2s\proxy.conf"
+$noProxyBaselineFp = "C:\ProgramData\k2s\no_proxy.baseline"
 
 class ProxyConfig {
     [string] $HttpProxy
@@ -56,6 +57,57 @@ function Get-K2sHosts {
     $k2sHosts = $k2sHosts | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
     
     return $k2sHosts
+}
+
+function ConvertTo-NoProxyList {
+    param (
+        [AllowNull()]
+        [object[]]$Entries
+    )
+
+    if ($null -eq $Entries -or $Entries.Count -eq 0) {
+        return @()
+    }
+
+    return $Entries |
+        ForEach-Object { $_ } |
+        ForEach-Object { $_ -split ',' } |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { ![string]::IsNullOrWhiteSpace($_) } |
+        Sort-Object -Unique
+}
+
+function Save-NoProxyBaseline {
+    param (
+        [AllowNull()]
+        [string]$NoProxyValue
+    )
+
+    if (Test-Path -Path $noProxyBaselineFp) {
+        return
+    }
+
+    $baselineDirectory = Split-Path -Path $noProxyBaselineFp -Parent
+    if (!(Test-Path -Path $baselineDirectory)) {
+        New-Item -ItemType Directory -Path $baselineDirectory | Out-Null
+    }
+
+    $baseline = ConvertTo-NoProxyList -Entries @($NoProxyValue)
+    $baseline -join ',' | Set-Content -Path $noProxyBaselineFp
+}
+
+function Get-NoProxyBaseline {
+    if (!(Test-Path -Path $noProxyBaselineFp)) {
+        return $null
+    }
+
+    return ConvertTo-NoProxyList -Entries @((Get-Content -Path $noProxyBaselineFp -Raw))
+}
+
+function Remove-NoProxyBaseline {
+    if (Test-Path -Path $noProxyBaselineFp) {
+        Remove-Item -Path $noProxyBaselineFp -Force
+    }
 }
 
 <#
@@ -501,10 +553,9 @@ function Add-K2sHostsToNoProxyEnvVar() {
     $k2sHosts = Get-K2sHosts
 
     if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
-        $noProxyList = $noProxyEnvVar -split ","
+        Save-NoProxyBaseline -NoProxyValue $noProxyEnvVar
 
-        $noProxyList += $k2sHosts
-        $noProxyList = $noProxyList | Sort-Object -Unique
+        $noProxyList = ConvertTo-NoProxyList -Entries @($noProxyEnvVar, $k2sHosts)
         $updatedNoProxyEnvVar = $noProxyList -join ","
         [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Process")
         [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Machine")
@@ -523,12 +574,21 @@ function Remove-K2sHostsFromNoProxyEnvVar() {
     $k2sHosts = Get-K2sHosts
 
     if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
-        $noProxyList = $noProxyEnvVar -split ","
-        $noProxyList = $noProxyList | Where-Object { $_ -notin $k2sHosts }
+        $noProxyBaseline = Get-NoProxyBaseline
+        if ($null -eq $noProxyBaseline) {
+            Write-Log '[Proxy] NO_PROXY baseline not found. Keeping machine NO_PROXY unchanged.' -Console
+            return
+        }
+
+        $noProxyList = ConvertTo-NoProxyList -Entries @($noProxyEnvVar)
+        $k2sAddedHosts = $k2sHosts | Where-Object { $_ -notin $noProxyBaseline }
+        $noProxyList = $noProxyList | Where-Object { $_ -notin $k2sAddedHosts }
         $updatedNoProxyEnvVar = $noProxyList -join ","
         [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Process")
         [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Machine")
     }
+
+    Remove-NoProxyBaseline
 }
 
 Export-ModuleMember -Function Get-OrUpdateProxyServer,

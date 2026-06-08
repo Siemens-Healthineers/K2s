@@ -812,7 +812,7 @@ try {
                 }
                 layers = @()
                 annotations = @{
-                    'org.opencontainers.image.title' = $manifest.metadata.name
+                    'org.opencontainers.image.title' = $addonFolderName
                     'org.opencontainers.image.version' = $addonVersion
                     'org.opencontainers.image.created' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
                     'org.opencontainers.image.vendor' = 'Siemens Healthineers AG'
@@ -820,6 +820,7 @@ try {
                     'org.opencontainers.image.description' = if ($manifest.metadata.description) { $manifest.metadata.description } else { "K2s addon: $($manifest.metadata.name)" }
                     'vnd.k2s.addon.name' = $manifest.metadata.name
                     'vnd.k2s.addon.implementation' = $implementation.name
+                    'vnd.k2s.addon.export-name' = $addonFolderName
                     'vnd.k2s.version' = $k2sVersion
                     'vnd.k2s.export.date' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
                     'vnd.k2s.export.type' = if ($All) { 'all' } else { 'specific' }
@@ -858,6 +859,7 @@ try {
             # Track manifest reference for index.json
             $addonManifestReferences += @{
                 dirName = $addonFolderName
+                baseAddonName = $manifest.metadata.name
                 implementation = $implementation.name
                 version = $addonVersion
                 manifestDigest = $manifestBlobResult.Digest
@@ -902,9 +904,11 @@ try {
             artifactType = 'application/vnd.k2s.addon.v1'
             annotations = @{
                 'org.opencontainers.image.ref.name' = "v$($addonRef.version)"
+                'org.opencontainers.image.title' = $addonRef.dirName
                 'org.opencontainers.image.version' = $addonRef.version
-                'vnd.k2s.addon.name' = $addonRef.dirName
+                'vnd.k2s.addon.name' = $addonRef.baseAddonName
                 'vnd.k2s.addon.implementation' = $addonRef.implementation
+                'vnd.k2s.addon.export-name' = $addonRef.dirName
             }
         }
     }

@@ -100,7 +100,15 @@ spec:
           nvidia.com/gpu: 1
 ```
 
-The NVIDIA Device Plugin allocates a GPU slot and injects the device into the container via CDI annotations. The container gains access to `/dev/dxg` and the NVIDIA driver libraries under `/usr/lib/wsl/`.
+The NVIDIA Device Plugin allocates a GPU slot and injects the following into the container via CDI annotations:
+
+| Resource | Path | Purpose |
+|----------|------|---------|
+| Device | `/dev/dxg` | DirectX GPU device for WSL2/GPU-PV |
+| Libraries | `/usr/lib/wsl/lib` | CUDA runtime (`libcuda.so`), D3D12 (`libd3d12.so`), dxcore (`libdxcore.so`) |
+| Drivers | `/usr/lib/wsl/drivers` | Vendor-specific drivers (e.g., `libnvwgf2umx.so` for NVIDIA OpenGL via D3D12) |
+
+The `LD_LIBRARY_PATH` environment variable is also set to `/usr/lib/wsl/lib` so that applications can discover GPU libraries at runtime.
 
 ### Targeting the GPU node explicitly
 
