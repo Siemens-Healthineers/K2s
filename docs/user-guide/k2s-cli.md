@@ -464,7 +464,7 @@ k2s system upgrade [flags]
 
 ### system package
 
-Build a *K2s* zip package (optionally offline, delta, or code-signed).
+Build a *K2s* zip package (optionally offline, delta, node-package, or code-signed).
 
 ```console
 k2s system package [flags]
@@ -485,8 +485,16 @@ k2s system package [flags]
 | `--master-cpus` | | CPUs for master VM |
 | `--master-memory` | | Memory for master VM |
 | `--master-disk` | | Disk for master VM |
-| `--proxy` | `-p` | HTTP proxy |
+| `--proxy` | `-p` | HTTP proxy. Required for `--node-package`; use the local cluster proxy `http://172.19.1.1:8181` |
 | `--k8s-bins` | | Path to locally built Kubernetes binaries |
+| `--node-package` | | Create a Linux worker node package. Requires an existing *K2s* cluster and `-p http://172.19.1.1:8181` |
+| `--os` | | Target Linux distribution for `--node-package`, for example `debian12` or `debian13` |
+
+Example for node package creation:
+
+```console
+k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
+```
 
 ### system backup
 
@@ -591,14 +599,13 @@ k2s system reset network [flags]
 
 ## node
 
-!!! warning "Experimental"
-    All `node` subcommands are experimental.
+Manage additional cluster nodes.
 
-Manage additional cluster nodes (physical machines or VMs).
+Currently, `node` commands document and support additional Linux worker nodes on physical hosts or existing VMs. Support for Windows worker nodes will follow.
 
 ### node add
 
-Add a node to the cluster.
+Add a node to the cluster. Currently, this is documented for Linux worker nodes.
 
 ```console
 k2s node add [flags]
@@ -606,13 +613,13 @@ k2s node add [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--ip-addr` | `-i` | **Required.** IP address of the machine |
+| `--ip-addr` | `-i` | **Required.** IP address of the node |
 | `--username` | `-u` | **Required.** SSH username |
-| `--name` | `-m` | Hostname |
+| `--name` | `-m` | Hostname of the node |
 | `--role` | `-r` | Node role (default `worker`) |
 | `--node-package` | `-p` | Path to a node package ZIP for offline installation |
 
-Use `--node-package` together with `k2s system package --node-package --os ...` when adding a Linux worker node without internet access.
+Use `--node-package` together with a node package created through `k2s system package --node-package --os ... -p http://172.19.1.1:8181` on an existing *K2s* cluster when adding a Linux worker node without internet access.
 
 ### node remove
 
@@ -624,11 +631,11 @@ k2s node remove [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--name` | `-m` | **Required.** Hostname of the machine |
+| `--name` | `-m` | **Required.** Hostname of the node |
 
 ### node copy
 
-Copy files or folders between host and node.
+Copy files or folders between the host and a node.
 
 ```console
 k2s node copy [flags]

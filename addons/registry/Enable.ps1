@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -25,7 +25,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Node for persistent storage (default: control plane)')]
+    [string] $StorageNode
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -74,18 +76,38 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
+# Inject storage node hostname into PV manifest
+if ([string]::IsNullOrEmpty($StorageNode)) {
+    $StorageNode = Get-ConfigControlPlaneNodeHostname
+}
+
 # Create folder structure for certificates and authentication files
 Write-Log 'Creating authentication files and secrets' -Console
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /registry').Output | Write-Log
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/auth 2>&1').Output | Write-Log
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/repository 2>&1').Output | Write-Log
+$controlPlaneHostname = Get-ConfigControlPlaneNodeHostname
+if ($StorageNode -eq $controlPlaneHostname) {
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -p /registry /registry/auth /registry/repository').Output | Write-Log
+} else {
+    $clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
+    $workerNode = @($clusterDescriptor.nodes) | Where-Object { $_.Name -eq $StorageNode } | Select-Object -First 1
+    if (-not $workerNode) { throw "Storage node '$StorageNode' not found in cluster descriptor" }
+    (Invoke-CmdOnVmViaSSHKey -IpAddress $workerNode.IpAddress -UserName $workerNode.Username -Timeout 2 -CmdToExecute 'sudo mkdir -p /registry /registry/auth /registry/repository').Output | Write-Log
+}
 
 # Create secrets
 (Invoke-Kubectl -Params 'create', 'namespace', 'registry').Output | Write-Log
 
-# Apply registry pod with persistent volume
-Write-Log 'Creating local registry' -Console
-(Invoke-Kubectl -Params 'apply', '-k', "$PSScriptRoot\manifests\registry").Output | Write-Log
+$pvFile = "$PSScriptRoot\manifests\registry\persistent-volume.yaml"
+$pvOrig = [System.IO.File]::ReadAllText($pvFile)
+[System.IO.File]::WriteAllText($pvFile, $pvOrig.Replace('__STORAGE_NODE__', $StorageNode))
+try {
+    # Apply registry pod with persistent volume
+    Write-Log 'Creating local registry' -Console
+    (Invoke-Kubectl -Params 'apply', '-k', "$PSScriptRoot\manifests\registry").Output | Write-Log
+}
+finally {
+    # Restore PV manifest placeholder
+    [System.IO.File]::WriteAllText($pvFile, $pvOrig)
+}
 
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'registry', '--timeout=300s')
 Write-Log $kubectlCmd.Output
