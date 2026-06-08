@@ -92,5 +92,16 @@ Add the following optional fields to your SmbStorage.json entries:
 - POSIX extensions are only meaningful with a Linux SMB host (Samba).
 - The smbDialect field affects fstab mounts only. StorageClass mounts use the CSI driver negotiation.
 - Omitting all three fields preserves the existing default behavior.
+
+### Rollback
+
+To revert a POSIX-enabled share to the previous default behavior:
+
+1. Edit the affected entry in `SmbStorage.json`: set `enablePosixExtensions` to `false` and `smbDialect` to `auto` (or remove all three optional fields).
+2. Re-apply the configuration by disabling and re-enabling the addon (`k2s addons disable storage smb` then `k2s addons enable storage smb`), or by re-running the addon configuration step.
+3. The host fstab mount reverts to `vers=3.0` and the StorageClass drops the POSIX mount options; the Samba `streams_xattr` settings are removed on the next host setup.
+
+Existing data on the share is not affected by the rollback - no migration is required. Symbolic links created while POSIX was enabled remain on disk but may not be traversable over SMB once POSIX is disabled.
+
 ## Examples
 - [Example Workloads](../../../k2s/test/e2e/addons/storage/workloads/)
