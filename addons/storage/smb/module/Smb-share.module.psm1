@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -187,6 +187,17 @@ function New-SmbHostOnLinuxIfNotExisting {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo `"$line`" >> /etc/samba/smb.conf'").Output | Write-Log
     }
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart smbd.service nmbd.service').Output | Write-Log
+
+    # POSIX runtime validation: confirm Samba advertises the streams_xattr settings we just wrote.
+    # Warn-not-fail - a negative result is logged but does not abort host setup.
+    if ($posixLines) {
+        if (Test-SambaPosixNegotiation -ShareName $Config.LinuxShareName) {
+            Write-Log " POSIX extensions negotiated successfully for Samba share '$($Config.LinuxShareName)'."
+        }
+        else {
+            Write-Log " WARNING: POSIX extensions were requested for Samba share '$($Config.LinuxShareName)' but could not be confirmed via testparm. Check 'vfs objects = streams_xattr' and 'store dos attributes = no' on the host." -Console
+        }
+    }
 
     Write-Log ' SMB host on Linux (Samba Share) set up.'
 }
