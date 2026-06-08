@@ -2,9 +2,15 @@
 #
 # SPDX-License-Identifier: MIT
 
+# Default SMB protocol version for fstab mounts. Used when smbDialect is 'auto' or unset.
+# Change this single value to update the default across all mount points.
+$script:DefaultSmbFstabDialect = '3.0'
+
 function Get-FstabVersionOption {
     param ([string]$SmbDialect = 'auto')
-    if ($SmbDialect -eq 'auto' -or [string]::IsNullOrEmpty($SmbDialect)) { return '' }
+    if ($SmbDialect -eq 'auto' -or [string]::IsNullOrEmpty($SmbDialect)) {
+        return "vers=$script:DefaultSmbFstabDialect"
+    }
     return "vers=$SmbDialect"
 }
 
@@ -16,8 +22,11 @@ function Get-StorageClassMountOptions {
     } else {
         $opts = [System.Collections.ArrayList]@('dir_mode=0777','file_mode=0777','uid=1001','gid=1001','noperm','mfsymlinks','cache=strict','noserverino')
     }
-    $ver = Get-FstabVersionOption -SmbDialect $Config.SmbDialect
-    if ($ver) { $opts.Add($ver) | Out-Null }
+    # Only add explicit vers= to StorageClass when user specifies a non-default dialect.
+    # The CSI driver negotiates version automatically; fstab mounts use Get-FstabVersionOption separately.
+    if ($Config.SmbDialect -and $Config.SmbDialect -ne 'auto') {
+        $opts.Add("vers=$($Config.SmbDialect)") | Out-Null
+    }
     return $opts
 }
 
@@ -31,4 +40,4 @@ function Get-SambaSharePosixConfig {
     return $lines
 }
 
-Export-ModuleMember -Function Get-FstabVersionOption, Get-StorageClassMountOptions, Get-SambaSharePosixConfig
+Export-ModuleMember -Function Get-FstabVersionOption, Get-StorageClassMountOptions, Get-SambaSharePosixConfig -Variable DefaultSmbFstabDialect
