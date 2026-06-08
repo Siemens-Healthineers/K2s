@@ -151,6 +151,7 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
@@ -194,6 +195,12 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 				"registry.module.psm1",
 			}
 			exportimport.VerifyImportedAddonFiles(registryImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o")
+			k2s.VerifyAddonIsEnabled("registry")
 		})
 	})
 
