@@ -35,7 +35,7 @@ var (
 
 func TestRolloutArgocdExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "rollout argocd Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "rollout-argocd", "export-import", "system-running"))
+	RunSpecs(t, "rollout argocd Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "rollout-argocd", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -141,11 +141,18 @@ var _ = Describe("rollout argocd addon export and import", Ordered, func() {
 	})
 
 	Describe("import rollout argocd addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "rollout", "argocd", "-o")
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 
@@ -187,6 +194,13 @@ var _ = Describe("rollout argocd addon export and import", Ordered, func() {
 				"hooks/Setup-Rollout.Restore.ps1",
 			}
 			exportimport.VerifyImportedAddonFiles(argocdImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "argocd", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-repo-server", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-server", "rollout")
 		})
 	})
 
