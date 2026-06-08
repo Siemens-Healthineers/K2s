@@ -83,7 +83,7 @@ This is useful for workloads that require POSIX semantics on an SMB share hosted
 
 Add the following optional fields to your SmbStorage.json entries:
 
-- **smbDialect** (default: auto) - SMB protocol version for fstab mounts. Valid: auto, 3, 3.0, 3.1.1.
+- **smbDialect** (default: auto → 3.0) - SMB protocol version for fstab mounts. Valid: auto, 3, 3.0, 3.1.1. When set to `auto`, uses the default version (currently 3.0).
 - **enablePosixExtensions** (default: false) - Removes noperm from mount options, adds handletimeout=60000, configures Samba for POSIX.
 - **useServerInode** (default: false) - When true with POSIX, omits noserverino from mount options.
 
