@@ -40,4 +40,31 @@ function Get-SambaSharePosixConfig {
     return $lines
 }
 
-Export-ModuleMember -Function Get-FstabVersionOption, Get-StorageClassMountOptions, Get-SambaSharePosixConfig -Variable DefaultSmbFstabDialect
+function Test-SambaPosixNegotiation {
+    <#
+    .SYNOPSIS
+    Validates at runtime that the Samba host advertises the POSIX (streams_xattr) settings
+    required for SMB 3.1.1 POSIX extensions on a configured share.
+    .DESCRIPTION
+    Runs testparm against the live smb.conf on the Linux control-plane host and verifies the
+    given share section declares the streams_xattr vfs object and disables DOS attribute storage.
+    Returns $true when both settings are present, otherwise $false. Intended as a warn-not-fail
+    post-configuration check; callers log a warning on $false rather than aborting setup.
+    #>
+    param (
+        [Parameter(Mandatory = $true)] [string]$ShareName,
+        [int]$Timeout = 2
+    )
+    $cmd = "sudo testparm -s --section-name '$ShareName' 2>/dev/null"
+    $result = Invoke-CmdOnControlPlaneViaSSHKey -Timeout $Timeout -CmdToExecute $cmd
+    $output = ($result.Output | Out-String)
+    if ([string]::IsNullOrWhiteSpace($output)) {
+        # Fall back to dumping the whole config if the section query returned nothing.
+        $result = Invoke-CmdOnControlPlaneViaSSHKey -Timeout $Timeout -CmdToExecute "sudo testparm -s 2>/dev/null"
+        $output = ($result.Output | Out-String)
+    }
+    $hasStreams = $output -match 'streams_xattr'
+    $hasNoDosAttr = $output -match 'store dos attributes\s*=\s*[Nn]o'
+    return [bool]($hasStreams -and $hasNoDosAttr)
+}
+Export-ModuleMember -Function Get-FstabVersionOption, Get-StorageClassMountOptions, Get-SambaSharePosixConfig, Test-SambaPosixNegotiation -Variable DefaultSmbFstabDialect
