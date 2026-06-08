@@ -327,9 +327,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/flannel-io/flannel/releases/download/0.28.4/flanneld.exe",
+      "group": "https://github.com/flannel-io/flannel/releases/download/0.28.5/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.28.4",
+      "version": "v0.28.5",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -346,7 +346,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.28.4",
+      "purl": "pkg:github/flannel-io/flannel@v0.28.5",
       "type": "application"
     },
     {
@@ -674,7 +674,7 @@
     {
       "group": "https://github.com/prometheus/alertmanager",
       "name": "alertmanager",
-      "version": "v0.32.1",
+      "version": "v0.32.2",
       "description": "Prometheus Alertmanager - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -691,7 +691,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus/alertmanager@v0.32.1",
+      "purl": "pkg:github/prometheus/alertmanager@v0.32.2",
       "type": "container"
     },
     {
