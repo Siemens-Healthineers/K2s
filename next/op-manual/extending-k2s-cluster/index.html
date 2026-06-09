@@ -1765,6 +1765,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#gpu-support-for-offline-nodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU Support for Offline Nodes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#2-prepare-ssh-access-to-the-target-node" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2993,6 +3004,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#gpu-support-for-offline-nodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU Support for Offline Nodes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#2-prepare-ssh-access-to-the-target-node" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3173,6 +3195,19 @@ This key must be copied to the Linux physical host or <abbr title="Virtual Machi
 <p class="admonition-title">Note</p>
 <p>The same workflow applies whether the target Linux node is a physical host or an existing <abbr title="Virtual Machine">VM</abbr>.</p>
 </div>
+<h3 id="gpu-support-for-offline-nodes">GPU Support for Offline Nodes</h3>
+<p>To add a GPU-capable worker node offline, create the node package with the <code>--include-gpu</code> flag:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s system package --node-package --os debian13 --include-gpu --target-dir C:\output --name debian13-gpu.zip</span>
+</code></pre></div>
+<p>Then add the node as usual:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s node add --ip-addr &lt;IPAddressOfNewNode&gt; --username &lt;UserNameForRemoteConnection&gt; --node-package C:\output\debian13-gpu.zip</span>
+</code></pre></div>
+<p>K2s automatically detects the NVIDIA GPU and configures GPU support using the bundled packages. If the target has no NVIDIA GPU, it joins as a regular worker.</p>
+<div class="admonition warning">
+<p class="admonition-title">Prerequisites</p>
+<p>NVIDIA kernel drivers must be pre-installed on the target node. Verify with <code>nvidia-smi</code> before running <code>k2s node add</code>.</p>
+</div>
+<p>See <a href="../../user-guide/gpu-node/#external-gpu-worker-nodes">GPU Node addon</a> for complete GPU worker documentation.</p>
 <h3 id="2-prepare-ssh-access-to-the-target-node">2. Prepare <abbr title="Secure Shell">SSH</abbr> access to the target node</h3>
 <p>Follow the <abbr title="Secure Shell">SSH</abbr> key setup described above:</p>
 <ul>
@@ -3182,10 +3217,10 @@ This key must be copied to the Linux physical host or <abbr title="Virtual Machi
 <p>This step is required in both online and offline mode because <code>k2s node add</code> still connects to the node over <abbr title="Secure Shell">SSH</abbr>.</p>
 <h3 id="3-add-the-node-using-the-offline-package">3. Add the node using the offline package</h3>
 <p>Run <code>k2s node add</code> and point it to the node package ZIP:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s node add --ip-addr &lt;IPAddressOfNewNode&gt; --username &lt;UserNameForRemoteConnection&gt; --node-package C:\temp\debian13-node.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s node add --ip-addr &lt;IPAddressOfNewNode&gt; --username &lt;UserNameForRemoteConnection&gt; --node-package C:\temp\debian13-node.zip</span>
 </code></pre></div>
 <h3 id="4-verify-the-node-joined-successfully">4. Verify the node joined successfully</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s status -o wide</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s status -o wide</span>
 </code></pre></div>
 <p>You can also use <code>k2s node connect</code> or <code>k2s node exec</code> to confirm <abbr title="Secure Shell">SSH</abbr> connectivity to the node after provisioning.</p>
 <h2 id="when-the-node-ip-changes">When the Node <abbr title="Internet Protocol">IP</abbr> Changes</h2>
@@ -3195,8 +3230,8 @@ This key must be copied to the Linux physical host or <abbr title="Virtual Machi
 <li>Configure a static <abbr title="Internet Protocol">IP</abbr> address or <abbr title="Dynamic Host Configuration Protocol">DHCP</abbr> reservation for the node.</li>
 <li>If the <abbr title="Internet Protocol">IP</abbr> already changed, remove and re-add the node with the new <abbr title="Internet Protocol">IP</abbr>:</li>
 </ol>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s node remove --name &lt;NodeName&gt;</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="go">k2s node add --ip-addr &lt;NewIpAddress&gt; --username &lt;UserNameForRemoteConnection&gt; --name &lt;NodeName&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s node remove --name &lt;NodeName&gt;</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">k2s node add --ip-addr &lt;NewIpAddress&gt; --username &lt;UserNameForRemoteConnection&gt; --name &lt;NodeName&gt;</span>
 </code></pre></div>
 <p>If you use offline installation, include <code>--node-package &lt;PathToNodePackageZip&gt;</code> again during the re-add operation.</p>
 <!--
