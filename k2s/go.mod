@@ -4,7 +4,7 @@
 
 module github.com/siemens-healthineers/k2s
 
-go 1.26.3
+go 1.26.4
 
 require (
 	github.com/Microsoft/hcsshim v0.14.1
@@ -116,7 +116,7 @@ require (
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	github.com/quic-go/quic-go v0.59.0 // indirect
+	github.com/quic-go/quic-go v0.59.1 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/samber/slog-common v0.21.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect

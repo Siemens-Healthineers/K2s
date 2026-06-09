@@ -48,10 +48,7 @@ $nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.modu
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
-# TODO: Remove cross referencing once the code clones are removed and use the central module for these functions.
-$loggingModule = "$PSScriptRoot\..\logging\logging.module.psm1"
-
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule, $loggingModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule
 Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
