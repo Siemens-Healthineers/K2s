@@ -559,6 +559,38 @@ Describe 'New-StorageClassManifest' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     }
 }
 
+Describe 'New-StorageClassManifest mount-options injection' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+    Context 'template containing a MOUNT_OPTIONS reference in a comment (regression #2478)' {
+        BeforeAll {
+            # Mirrors the real template, which carried a "# NOTE: ... MOUNT_OPTIONS ..." comment.
+            # An unanchored replace matched the token in BOTH the comment and the real placeholder,
+            # duplicating the options and leaking the comment text into the cifs -o string (mount error 22).
+            Mock -ModuleName $moduleName Get-Content { return 'mountOptions:', '# NOTE: MOUNT_OPTIONS placeholder must start at column 0.', 'MOUNT_OPTIONS' } -ParameterFilter { $Path -match '\\manifests\\base\\storage-classes\\template_StorageClass.yaml' }
+            Mock -ModuleName $moduleName Write-Log {}
+            Mock -ModuleName $moduleName Convert-ToUnixPath { return 'unix-path' } -ParameterFilter { $Path -eq 'remote-path' }
+            Mock -ModuleName $moduleName Set-Content {}
+
+            InModuleScope -ModuleName $moduleName {
+                New-StorageClassManifest -RemotePath 'remote-path' -StorageClassName 'regression-sc'
+            }
+        }
+
+        It 'preserves a commented MOUNT_OPTIONS reference instead of expanding it' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter { $Value[0] -match '# NOTE: MOUNT_OPTIONS placeholder must start at column 0' }
+            }
+        }
+
+        It 'injects the mount options exactly once' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter {
+                    ([regex]::Matches($Value[0], 'dir_mode=0777')).Count -eq 1
+                }
+            }
+        }
+    }
+}
+
 Describe 'Wait-ForPodToBeReady' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'success' {
         BeforeAll {

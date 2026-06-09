@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: Copyright 2017 The Kubernetes Authors. https://github.com/kubernetes-csi/csi-driver-smb
+# SPDX-FileCopyrightText: Copyright 2017 The Kubernetes Authors. https://github.com/kubernetes-csi/csi-driver-smb
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -20,5 +20,5 @@ parameters:
 reclaimPolicy: SC_RECLAIM_POLICY # default: Delete; available values: Delete, Retain
 volumeBindingMode: Immediate
 mountOptions:
-# NOTE: MOUNT_OPTIONS placeholder must start at column 0. Code generates '  - opt' with leading indent.
+# mount options are injected below (placeholder line must stay at column 0)
 MOUNT_OPTIONS
