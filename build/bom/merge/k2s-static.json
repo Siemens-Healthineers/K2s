@@ -720,7 +720,7 @@
     {
       "group": "https://github.com/kubernetes/kube-state-metrics",
       "name": "kube-state-metrics",
-      "version": "v2.20.0",
+      "version": "v2.20.1",
       "description": "Service that generates metrics about the state of Kubernetes objects - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -737,7 +737,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/kubernetes/kube-state-metrics@v2.20.0",
+      "purl": "pkg:github/kubernetes/kube-state-metrics@v2.20.1",
       "type": "container"
     },
     {
