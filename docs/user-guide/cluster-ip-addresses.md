@@ -71,7 +71,7 @@ When a workload with `kubernetes.io/os` in its `nodeSelector` is created, the we
 
 This reconciliation handles the common `kubectl apply -k` case where Services and Deployments are submitted simultaneously — Kubernetes processes Services first, before the backing workload exists. Workloads without a `kubernetes.io/os` nodeSelector are ignored since Services default to the Linux subnet anyway.
 
-TLS certificates for the webhook are generated automatically via init Jobs during cluster setup.
+TLS certificates for the webhook are generated automatically by an init container on each Pod startup. The init container creates a self-signed certificate (valid for one year) and patches the webhook configuration. Certificate renewal happens automatically whenever the webhook Pod is recreated — for example, via `k2s system certificate renew`, deployment rollout, or pod deletion.
 
 !!! note
     You can still set `clusterIP` manually if needed (e.g., for infrastructure services in the reserved `.0–.49` range). The webhook will skip any Service that already has `clusterIP` set.
