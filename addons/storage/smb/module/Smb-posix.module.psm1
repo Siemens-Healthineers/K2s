@@ -53,18 +53,33 @@ function Test-SambaPosixNegotiation {
     #>
     param (
         [Parameter(Mandatory = $true)] [string]$ShareName,
-        [int]$Timeout = 2
+        [int]$Timeout = 2,
+        [int]$Retries = 1,
+        [int]$RetryDelaySeconds = 3
     )
     $cmd = "sudo testparm -s --section-name '$ShareName' 2>/dev/null"
-    $result = Invoke-CmdOnControlPlaneViaSSHKey -Timeout $Timeout -CmdToExecute $cmd
-    $output = ($result.Output | Out-String)
-    if ([string]::IsNullOrWhiteSpace($output)) {
-        # Fall back to dumping the whole config if the section query returned nothing.
-        $result = Invoke-CmdOnControlPlaneViaSSHKey -Timeout $Timeout -CmdToExecute "sudo testparm -s 2>/dev/null"
+    # Bounded poll: smbd may have just restarted to apply share config, so the POSIX
+    # (streams_xattr) settings can take a few seconds to become serviceable. Retry the
+    # negotiation check up to $Retries times before giving up, instead of checking once.
+    $attempt = 0
+    while ($true) {
+        $result = Invoke-CmdOnControlPlaneViaSSHKey -Timeout $Timeout -CmdToExecute $cmd
         $output = ($result.Output | Out-String)
+        if ([string]::IsNullOrWhiteSpace($output)) {
+            # Fall back to dumping the whole config if the section query returned nothing.
+            $result = Invoke-CmdOnControlPlaneViaSSHKey -Timeout $Timeout -CmdToExecute "sudo testparm -s 2>/dev/null"
+            $output = ($result.Output | Out-String)
+        }
+        $hasStreams = $output -match 'streams_xattr'
+        $hasNoDosAttr = $output -match 'store dos attributes\s*=\s*[Nn]o'
+        if ($hasStreams -and $hasNoDosAttr) {
+            return $true
+        }
+        $attempt++
+        if ($attempt -ge $Retries) {
+            return $false
+        }
+        Start-Sleep -Seconds $RetryDelaySeconds
     }
-    $hasStreams = $output -match 'streams_xattr'
-    $hasNoDosAttr = $output -match 'store dos attributes\s*=\s*[Nn]o'
-    return [bool]($hasStreams -and $hasNoDosAttr)
 }
 Export-ModuleMember -Function Get-FstabVersionOption, Get-StorageClassMountOptions, Get-SambaSharePosixConfig, Test-SambaPosixNegotiation -Variable DefaultSmbFstabDialect
