@@ -671,7 +671,7 @@ function New-StorageClassManifest {
     }
     $mountOptsYaml = ($mountOpts | ForEach-Object { "  - $_" }) -join "`n"
 
-    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath -replace $storageClassReclaimPlaceholder, $ReclaimPolicy -replace 'MOUNT_OPTIONS', $mountOptsYaml
+    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath -replace $storageClassReclaimPlaceholder, $ReclaimPolicy -replace '(?m)^MOUNT_OPTIONS\s*$', $mountOptsYaml
 
     Set-Content -Value $manifestContent -Path $manifestPath -Force
 
