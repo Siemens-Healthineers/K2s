@@ -243,6 +243,32 @@ function Invoke-KubeConfigRefreshOnHost {
     Add-K8sContext
 }
 
+function Invoke-WebhookCertificateRenewal {
+    Write-Log "Renewing clusterip-webhook certificate..." -Console
+
+    # Trigger a rollout restart so the init container generates a fresh certificate
+    $restartCmd = 'kubectl rollout restart deployment/clusterip-webhook -n k2s-webhook'
+    $restartOutput = (Invoke-CmdOnControlPlaneViaSSHKey $restartCmd).Output
+    Write-Log "Webhook rollout restart: $restartOutput"
+
+    # Wait for the rollout to complete
+    Write-Log "Waiting for webhook deployment to become ready..."
+    $statusCmd = 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s'
+    $statusOutput = (Invoke-CmdOnControlPlaneViaSSHKey $statusCmd).Output
+    Write-Log "Webhook rollout status: $statusOutput"
+
+    # Validate that caBundle has been set by the init container
+    $caBundleCmd = "kubectl get mutatingwebhookconfiguration k2s-webhook -o jsonpath='{.webhooks[0].clientConfig.caBundle}'"
+    $caBundle = (Invoke-CmdOnControlPlaneViaSSHKey $caBundleCmd).Output
+    if ([string]::IsNullOrWhiteSpace($caBundle)) {
+        Write-Log "[Warning] Webhook caBundle is empty after renewal - webhook may not be operational" -Console
+        return $false
+    }
+
+    Write-Log "ClusterIP webhook certificate renewed successfully" -Console
+    return $true
+}
+
 
 try {
     Start-ControlPlaneIfNotRunning
@@ -257,6 +283,19 @@ try {
         $noErrorsOccurred = Invoke-CertificateRenewalInControlPlane
         if ($noErrorsOccurred -eq $true) {
             Invoke-KubeConfigRefreshOnHost
+        }
+    }
+
+    # Renew webhook certificate (restart deployment so init container generates fresh cert)
+    if ($noErrorsOccurred -eq $true) {
+        $webhookExists = (Invoke-CmdOnControlPlaneViaSSHKey 'kubectl get deployment clusterip-webhook -n k2s-webhook --no-headers 2>/dev/null' -IgnoreErrors).Output
+        if (-not [string]::IsNullOrWhiteSpace($webhookExists)) {
+            $webhookResult = Invoke-WebhookCertificateRenewal
+            if ($webhookResult -eq $false) {
+                Write-Log "[Warning] Webhook certificate renewal had issues - see logs above" -Console
+            }
+        } else {
+            Write-Log "ClusterIP webhook deployment not found - skipping webhook certificate renewal" -Console
         }
     }
 
