@@ -189,13 +189,13 @@ function New-SmbHostOnLinuxIfNotExisting {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart smbd.service nmbd.service').Output | Write-Log
 
     # POSIX runtime validation: confirm Samba advertises the streams_xattr settings we just wrote.
-    # Warn-not-fail - a negative result is logged but does not abort host setup.
+    # smbd was just restarted above, so negotiation can take a few seconds to become serviceable; actively poll with a bounded retry budget. Still warn-not-fail.
     if ($posixLines) {
-        if (Test-SambaPosixNegotiation -ShareName $Config.LinuxShareName) {
+        if (Test-SambaPosixNegotiation -ShareName $Config.LinuxShareName -Retries 10 -RetryDelaySeconds 3) {
             Write-Log " POSIX extensions negotiated successfully for Samba share '$($Config.LinuxShareName)'."
         }
         else {
-            Write-Log " WARNING: POSIX extensions were requested for Samba share '$($Config.LinuxShareName)' but could not be confirmed via testparm. Check 'vfs objects = streams_xattr' and 'store dos attributes = no' on the host." -Console
+            Write-Log " WARNING: POSIX extensions were requested for Samba share '$($Config.LinuxShareName)' but could not be confirmed via testparm after waiting for smbd to become ready. Check 'vfs objects = streams_xattr' and 'store dos attributes = no' on the host." -Console
         }
     }
 
