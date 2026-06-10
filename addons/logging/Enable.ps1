@@ -198,19 +198,40 @@ else {
 
     if ($EnableAI) {
         Write-Log '[AI] Deploying AI log analysis components (vector index, embedding pipeline, query API)' -Console
-        Write-Log '[AI] Using shared Ollama from ai-assistant namespace (nomic-embed-text + LLM models pre-cached)' -Console
-        Write-Log '[AI] Ensuring nomic-embed-text model is loaded in Ollama (bypassing proxy for registry pull)...' -Console
-        # ollama pull must bypass the Zscaler HTTPS proxy — the proxy intercepts registry.ollama.ai
-        # and returns a fake "success" with no data. Setting NO_PROXY=* forces a direct connection.
-        $pullResult = Invoke-Kubectl -Params @(
-            'exec', '-n', 'ai-assistant', 'deployment/ollama', '--',
-            'sh', '-c',
-            'NO_PROXY=''*'' no_proxy=''*'' HTTPS_PROXY='''' HTTP_PROXY='''' https_proxy='''' http_proxy='''' ollama pull nomic-embed-text'
-        )
-        $pullResult.Output | Write-Log
-        if (-not $pullResult.Success) {
-            Write-Log '[AI] Warning: nomic-embed-text pull may have failed. Check ai-assistant Ollama pod logs.' -Console
+        Write-Log '[AI] Using Windows-host Ollama from the ai-assistant addon (bridge endpoint 172.19.1.1:11434).' -Console
+        Write-Log '[AI] Verifying Windows-host Ollama and nomic-embed-text model availability...' -Console
+
+        $tagsJson = ''
+        $ollamaReachable = $false
+        try {
+            $tagsJson = & curl.exe -s http://localhost:11434/api/tags --max-time 10 2>&1
+            $ollamaReachable = ($LASTEXITCODE -eq 0 -and $tagsJson -match '"models"')
         }
+        catch {
+            $ollamaReachable = $false
+        }
+
+        if (-not $ollamaReachable) {
+            Write-Log '[AI] Warning: Windows-host Ollama is not reachable at http://localhost:11434. Start or repair the ai-assistant addon before using semantic search.' -Console
+        }
+        elseif ($tagsJson -notmatch 'nomic-embed-text') {
+            $ollamaCli = Get-Command 'ollama.exe' -ErrorAction SilentlyContinue
+            if ($null -eq $ollamaCli) {
+                Write-Log '[AI] Warning: nomic-embed-text is not loaded and ollama.exe is not available on PATH. Run: ollama pull nomic-embed-text' -Console
+            }
+            else {
+                Write-Log '[AI] Pulling nomic-embed-text on the Windows host...' -Console
+                $pullOutput = & $ollamaCli.Source pull nomic-embed-text 2>&1
+                $pullOutput | Write-Log
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Log '[AI] Warning: nomic-embed-text pull failed on the Windows host. Semantic search may fail until the model is available.' -Console
+                }
+            }
+        }
+        else {
+            Write-Log '[AI] nomic-embed-text is already available on the Windows-host Ollama service.' -Console
+        }
+
         $aiManifestsPath = "$manifestsPath\ai"
         $aiSourcePath = "$PSScriptRoot\ai"
 

@@ -57,6 +57,15 @@ class TestQueryBuilding(unittest.TestCase):
         namespaces = [c.get("term", {}).get("metadata.namespace") for c in filter_clauses]
         self.assertIn("default", namespaces)
 
+    def test_knn_query_with_pod_filter(self):
+        vector = [0.1, 0.2, 0.3]
+        filters = {"pod": "order-service"}
+        query = self._build_knn(vector, 5, filters)
+        self.assertIn("bool", query)
+        filter_clauses = query["bool"]["filter"]
+        pods = [c.get("term", {}).get("metadata.pod") for c in filter_clauses]
+        self.assertIn("order-service", pods)
+
     def test_hybrid_query_includes_both_knn_and_match(self):
         vector = [0.1, 0.2, 0.3]
         query = self._build_hybrid("crash in pod", vector, 5, None)

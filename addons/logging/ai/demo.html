@@ -120,7 +120,7 @@ async function doSearch() {
   const from = document.getElementById('fFrom').value.trim();
   const to = document.getElementById('fTo').value.trim();
   if (ns) filters.namespace = ns;
-  if (pod) filters.service = pod;
+  if (pod) filters.pod = pod;
   if (from || to) { filters.time_range = {}; if (from) filters.time_range.gte = from; if (to) filters.time_range.lte = to; }
   if (Object.keys(filters).length) body.filters = filters;
 

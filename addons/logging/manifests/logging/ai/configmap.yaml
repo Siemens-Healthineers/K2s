@@ -15,8 +15,9 @@ data:
   EMBEDDING_DIMENSION: "768"
   # Embedding provider: "ollama" (default) or "noop" (zero vectors, no model needed)
   EMBEDDING_PROVIDER: "ollama"
-  # Use shared Ollama from ai-assistant namespace (has nomic-embed-text cached; avoids duplicate deployment)
-  OLLAMA_HOST: "http://ollama.ai-assistant.svc.cluster.local:11434"
+  # Use the Windows-host Ollama service exposed on the bridge interface.
+  # This matches the current ai-assistant addon architecture (offline/local mode).
+  OLLAMA_HOST: "http://172.19.1.1:11434"
   OLLAMA_MODEL: "nomic-embed-text"
   BATCH_SIZE: "50"
   PIPELINE_LOOKBACK_MINUTES: "60"

@@ -37,8 +37,9 @@ def _build_knn_query(vector: List[float], top_k: int, filters: Optional[Dict]) -
     }
     filter_clauses: List[Dict[str, Any]] = []
     if filters:
-        if filters.get("service"):
-            filter_clauses.append({"term": {"metadata.service": filters["service"]}})
+        pod_name = filters.get("pod") or filters.get("service")
+        if pod_name:
+            filter_clauses.append({"term": {"metadata.pod": pod_name}})
         if filters.get("namespace"):
             filter_clauses.append({"term": {"metadata.namespace": filters["namespace"]}})
         if filters.get("env"):

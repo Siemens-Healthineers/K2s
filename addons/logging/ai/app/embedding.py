@@ -59,7 +59,14 @@ class OllamaEmbeddingService(EmbeddingService):
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode())
             # /api/embed returns {"embeddings": [[...vector...]]}
-            embedding = data["embeddings"][0]
+            # Some environments/proxies still return the legacy shape
+            # {"embedding": [...vector...]} even on a successful 200.
+            if "embeddings" in data:
+                embedding = data["embeddings"][0]
+            elif "embedding" in data:
+                embedding = data["embedding"]
+            else:
+                raise KeyError("embeddings")
         except urllib.error.HTTPError as exc:
             if exc.code != 404:
                 raise
