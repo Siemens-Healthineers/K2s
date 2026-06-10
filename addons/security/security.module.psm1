@@ -809,7 +809,10 @@ function Install-Kyverno {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false)]
-        [string] $Proxy
+        [string] $Proxy,
+
+        [Parameter(Mandatory = $false)]
+        [switch] $EnhancedSecurity = $false
     )
 
     $kyvernoNamespace = 'kyverno'
@@ -824,6 +827,12 @@ function Install-Kyverno {
         (Invoke-Kubectl -Params 'create', 'namespace', $kyvernoNamespace).Output | Write-Log
     } else {
         Write-Log "[Kyverno] Namespace '$kyvernoNamespace' already exists" -Console
+    }
+
+    if ($EnhancedSecurity) {
+        Write-Log '[Kyverno] Enhanced security: adding namespace to the Linkerd mesh' -Console
+        (Invoke-Kubectl -Params 'annotate', 'namespace', $kyvernoNamespace, 'linkerd.io/inject=enabled', '--overwrite').Output | Write-Log
+        (Invoke-Kubectl -Params 'annotate', 'namespace', $kyvernoNamespace, 'config.linkerd.io/skip-inbound-ports=9443', '--overwrite').Output | Write-Log
     }
 
     Write-Log '[Kyverno] Waiting for API server to be ready before Helm install...' -Console
@@ -912,6 +921,11 @@ function Install-Kyverno {
         }
 
         throw "[Kyverno] Helm install failed: $($result.Output)"
+    }
+
+    if ($EnhancedSecurity -and $existingNs) {
+        Write-Log '[Kyverno] Enhanced security: restarting Kyverno controllers to inject the Linkerd sidecar' -Console
+        (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment', '-n', $kyvernoNamespace).Output | Write-Log
     }
 
     Write-Log '[Kyverno] Waiting for Kyverno controllers to be ready (up to 1200s)...' -Console

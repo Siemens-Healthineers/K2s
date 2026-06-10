@@ -5,6 +5,8 @@
 # Kyverno values for K2s: single replicas, conservative resources.
 admissionController:
   replicas: 1
+  podAnnotations:
+    config.linkerd.io/skip-inbound-ports: "9443"
   container:
     resources:
       requests:
