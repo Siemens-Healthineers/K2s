@@ -9,11 +9,20 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
+Describe 'Smb-posix module dependency resolution' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+    # Regression guard (#2478): asserts the module imports its node-module dependency so the cmdlet resolves at runtime. Injects NO stub on purpose.
+    Context 'Required cmdlet is in scope after import' {
+        It 'resolves Invoke-CmdOnControlPlaneViaSSHKey inside the posix module scope' {
+            InModuleScope -ModuleName $moduleName {
+                Get-Command -Name 'Invoke-CmdOnControlPlaneViaSSHKey' -ErrorAction SilentlyContinue |
+                    Should -Not -BeNullOrEmpty
+            }
+        }
+    }
+}
+
 Describe 'Test-SambaPosixNegotiation' -Tag 'unit', 'ci', 'addon', 'storage smb' {
-    # The posix module does not import the infra module, so
-    # Invoke-CmdOnControlPlaneViaSSHKey is unresolved in its scope. Each test
-    # injects a stub of that command inside the module scope to return canned
-    # testparm output, then exercises the validator against it.
+    # Each test stubs Invoke-CmdOnControlPlaneViaSSHKey in module scope with canned testparm output for host-free validation.
 
     Context 'POSIX settings present in testparm output' {
         It 'returns true when streams_xattr and store dos attributes = no are configured' {
@@ -57,8 +66,7 @@ Describe 'Test-SambaPosixNegotiation' -Tag 'unit', 'ci', 'addon', 'storage smb' 
     Context 'Bounded retry while smbd becomes ready' {
         It 'retries and returns true once POSIX settings appear on a later attempt' {
             InModuleScope -ModuleName $moduleName {
-                # First attempt: smbd still restarting (no POSIX settings yet).
-                # Second attempt: settings now serviceable -> validator should succeed.
+                # First attempt: smbd still restarting; second attempt: settings serviceable.
                 $script:posixAttempt = 0
                 function Invoke-CmdOnControlPlaneViaSSHKey {
                     param([string]$CmdToExecute, [int]$Timeout, [switch]$NoLog)
