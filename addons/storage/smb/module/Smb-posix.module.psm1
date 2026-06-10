@@ -2,8 +2,11 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Default SMB protocol version for fstab mounts. Used when smbDialect is 'auto' or unset.
-# Change this single value to update the default across all mount points.
+# Import the leaf vm.module in THIS module's scope so Invoke-CmdOnControlPlaneViaSSHKey resolves (not the admin-gated node aggregator).
+$vmModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
+Import-Module $vmModule
+
+# Default fstab SMB dialect (vers=) used when smbDialect is 'auto' or unset.
 $script:DefaultSmbFstabDialect = '3.0'
 
 function Get-FstabVersionOption {
@@ -22,8 +25,7 @@ function Get-StorageClassMountOptions {
     } else {
         $opts = [System.Collections.ArrayList]@('dir_mode=0777','file_mode=0777','uid=1001','gid=1001','noperm','mfsymlinks','cache=strict','noserverino')
     }
-    # Only add explicit vers= to StorageClass when user specifies a non-default dialect.
-    # The CSI driver negotiates version automatically; fstab mounts use Get-FstabVersionOption separately.
+    # CSI driver negotiates version automatically; only pin vers= for a non-default dialect.
     if ($Config.SmbDialect -and $Config.SmbDialect -ne 'auto') {
         $opts.Add("vers=$($Config.SmbDialect)") | Out-Null
     }
@@ -58,9 +60,7 @@ function Test-SambaPosixNegotiation {
         [int]$RetryDelaySeconds = 3
     )
     $cmd = "sudo testparm -s --section-name '$ShareName' 2>/dev/null"
-    # Bounded poll: smbd may have just restarted to apply share config, so the POSIX
-    # (streams_xattr) settings can take a few seconds to become serviceable. Retry the
-    # negotiation check up to $Retries times before giving up, instead of checking once.
+    # Bounded poll: smbd may have just restarted, so POSIX settings can take seconds to become serviceable.
     $attempt = 0
     while ($true) {
         $result = Invoke-CmdOnControlPlaneViaSSHKey -Timeout $Timeout -CmdToExecute $cmd
