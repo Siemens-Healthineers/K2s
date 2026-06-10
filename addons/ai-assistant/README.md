@@ -51,6 +51,8 @@ The AI Assistant addon deploys [Kagent](https://kagent.dev) (a CNCF Kubernetes-n
 
 ## Quick Start
 
+For a step-by-step local setup guide, see [`LOCAL-SETUP.md`](LOCAL-SETUP.md).
+
 ```console
 # Connected mode (default) — uses GitHub Copilot CLI
 k2s addons enable ai-assistant --github-token ghp_xxx
