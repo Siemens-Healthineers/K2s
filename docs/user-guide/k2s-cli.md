@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -470,6 +470,8 @@ Build a *K2s* zip package (optionally offline, delta, node-package, or code-sign
 k2s system package [flags]
 ```
 
+**Full Package Flags**
+
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--target-dir` | `-d` | **Required.** Target directory |
@@ -489,11 +491,18 @@ k2s system package [flags]
 | `--k8s-bins` | | Path to locally built Kubernetes binaries |
 | `--node-package` | | Create a Linux worker node package. Requires an existing *K2s* cluster and `-p http://172.19.1.1:8181` |
 | `--os` | | Target Linux distribution for `--node-package`, for example `debian12` or `debian13` |
+| `--include-gpu` | | Include NVIDIA Container Toolkit packages for GPU support. When `k2s node add` uses a package built with this flag, GPU support is auto-configured if an NVIDIA GPU is detected |
 
 Example for node package creation:
 
 ```console
 k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
+```
+
+Example for node package with GPU support:
+
+```console
+k2s system package --node-package --os debian13 --include-gpu --target-dir "C:\out" --name "debian13-gpu.zip" -p http://172.19.1.1:8181
 ```
 
 ### system backup
