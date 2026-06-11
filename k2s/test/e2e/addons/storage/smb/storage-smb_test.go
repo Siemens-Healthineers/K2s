@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package smb_share
@@ -1059,7 +1059,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				GinkgoWriter.Printf("Mount options for %s: %s\n", storageConfig[3].StorageClassName, mountOptions)
 
 				Expect(mountOptions).To(ContainSubstring("vers=3.1.1"), "POSIX StorageClass should request the configured SMB dialect")
-				Expect(mountOptions).To(ContainSubstring("handletimeout=60000"), "POSIX StorageClass should use POSIX-oriented mount options")
+				Expect(mountOptions).NotTo(ContainSubstring("handletimeout"), "handletimeout is rejected by mount.cifs and conflicts with nobrl; it must not be in StorageClass mount options")
 				Expect(mountOptions).NotTo(ContainSubstring("noperm"), "POSIX mode should not emulate permissions via noperm")
 			})
 
