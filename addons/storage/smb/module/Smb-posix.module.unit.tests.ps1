@@ -120,3 +120,49 @@ Describe 'Test-SambaPosixNegotiation' -Tag 'unit', 'ci', 'addon', 'storage smb' 
         }
     }
 }
+
+Describe 'Get-FstabVersionOption' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+    # AC#1 (#2478): an 'auto' or empty dialect must resolve to a concrete fstab vers= so the host mount succeeds.
+    Context 'auto or empty dialect' {
+        It 'defaults to the host fstab dialect for auto' {
+            InModuleScope -ModuleName $moduleName {
+                Get-FstabVersionOption -SmbDialect 'auto' | Should -Be "vers=$script:DefaultSmbFstabDialect"
+            }
+        }
+
+        It 'defaults to the host fstab dialect for an empty dialect' {
+            InModuleScope -ModuleName $moduleName {
+                Get-FstabVersionOption -SmbDialect '' | Should -Be "vers=$script:DefaultSmbFstabDialect"
+            }
+        }
+    }
+
+    Context 'explicit dialect' {
+        It 'pins the requested dialect' {
+            InModuleScope -ModuleName $moduleName {
+                Get-FstabVersionOption -SmbDialect '3.1.1' | Should -Be 'vers=3.1.1'
+            }
+        }
+    }
+}
+
+Describe 'Get-SambaSharePosixConfig' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+    # AC#2c (#2478): POSIX shares must declare streams_xattr; non-POSIX shares must not.
+    Context 'POSIX extensions enabled' {
+        It 'returns the streams_xattr and store dos attributes settings' {
+            InModuleScope -ModuleName $moduleName {
+                $lines = Get-SambaSharePosixConfig -Config ([pscustomobject]@{ EnablePosixExtensions = $true })
+                $lines | Should -Contain 'vfs objects = streams_xattr'
+                $lines | Should -Contain 'store dos attributes = no'
+            }
+        }
+    }
+
+    Context 'POSIX extensions disabled' {
+        It 'returns no POSIX share lines' {
+            InModuleScope -ModuleName $moduleName {
+                Get-SambaSharePosixConfig -Config ([pscustomobject]@{ EnablePosixExtensions = $false }) | Should -BeNullOrEmpty
+            }
+        }
+    }
+}

@@ -935,6 +935,50 @@ Describe 'Remove-SmbShareAndFolderWindowsHost' -Tag 'unit', 'ci', 'addon', 'stor
     }
 }
 
+Describe 'New-SmbHostOnLinuxIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+    # Regression guard (#2478): the POSIX 'vfs objects = streams_xattr' share config needs streams_xattr.so,
+    # which ships in samba-vfs-modules. That package must be installed only when POSIX extensions are requested.
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log {}
+        Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey { return [pscustomobject]@{ Output = '' } }
+        Mock -ModuleName $moduleName Install-DebianPackages {}
+        Mock -ModuleName $moduleName Get-SambaSharePosixConfig { return @() }
+        Mock -ModuleName $moduleName Test-SambaPosixNegotiation { return $true }
+    }
+
+    Context 'POSIX extensions enabled' {
+        BeforeAll {
+            InModuleScope -ModuleName $moduleName {
+                New-SmbHostOnLinuxIfNotExisting -Config ([pscustomobject]@{ LinuxShareName = 'linux-smb-posix'; EnablePosixExtensions = $true })
+            }
+        }
+
+        It 'installs samba-vfs-modules alongside cifs-utils and samba' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Install-DebianPackages -Times 1 -Scope Context -ParameterFilter {
+                    $packages -contains 'cifs-utils' -and $packages -contains 'samba' -and $packages -contains 'samba-vfs-modules'
+                }
+            }
+        }
+    }
+
+    Context 'POSIX extensions disabled' {
+        BeforeAll {
+            InModuleScope -ModuleName $moduleName {
+                New-SmbHostOnLinuxIfNotExisting -Config ([pscustomobject]@{ LinuxShareName = 'linux-smb'; EnablePosixExtensions = $false })
+            }
+        }
+
+        It 'installs cifs-utils and samba without samba-vfs-modules' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Install-DebianPackages -Times 1 -Scope Context -ParameterFilter {
+                    $packages -contains 'cifs-utils' -and $packages -contains 'samba' -and $packages -notcontains 'samba-vfs-modules'
+                }
+            }
+        }
+    }
+}
+
 Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'testing skipped' {
         BeforeAll {
