@@ -545,9 +545,9 @@ Describe 'New-StorageClassManifest' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             }
         }
 
-        It 'includes handletimeout in POSIX mode' {
+        It 'does not include handletimeout in POSIX mode' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter { $Value[0] -match 'handletimeout=60000' }
+                Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter { $Value[0] -notmatch 'handletimeout' }
             }
         }
 

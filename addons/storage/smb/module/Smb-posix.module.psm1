@@ -20,7 +20,8 @@ function Get-FstabVersionOption {
 function Get-StorageClassMountOptions {
     param ([pscustomobject]$Config = $(throw 'Config not specified'))
     if ($Config.EnablePosixExtensions) {
-        $opts = [System.Collections.ArrayList]@('dir_mode=0777','file_mode=0777','uid=1001','gid=1001','mfsymlinks','cache=strict','handletimeout=60000')
+        # handletimeout: rejected by mount.cifs and conflicts with driver-injected nobrl (issue #2478).
+        $opts = [System.Collections.ArrayList]@('dir_mode=0777','file_mode=0777','uid=1001','gid=1001','mfsymlinks','cache=strict')
         if (-not $Config.UseServerInode) { $opts.Add('noserverino') | Out-Null }
     } else {
         $opts = [System.Collections.ArrayList]@('dir_mode=0777','file_mode=0777','uid=1001','gid=1001','noperm','mfsymlinks','cache=strict','noserverino')
