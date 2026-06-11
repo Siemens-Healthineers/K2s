@@ -87,6 +87,8 @@ Add the following optional fields to your SmbStorage.json entries:
 - **enablePosixExtensions** (default: false) - Removes noperm from mount options, configures Samba for POSIX (streams_xattr).
 - **useServerInode** (default: false) - When true with POSIX, omits noserverino from mount options.
 
+When POSIX extensions are enabled, the addon installs the `samba-vfs-modules` package on the Linux control-plane host (in addition to `cifs-utils` and `samba`), which provides the `streams_xattr` Samba VFS module. The package is acquired through the offline-aware installer and is only downloaded when it is not already cached on the host.
+
 ### Limitations
 
 - POSIX extensions are only meaningful with a Linux SMB host (Samba).
