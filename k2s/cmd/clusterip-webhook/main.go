@@ -69,6 +69,11 @@ func main() {
 	var tlsCert string
 	var tlsKey string
 
+	var initCert bool
+	var webhookName string
+	var serviceName string
+	var namespace string
+
 	versionFlag := cli.NewVersionFlag(cliName)
 	flag.StringVar(&addr, "addr", ":8443", "address to listen on")
 	flag.StringVar(&linuxSubnet, "linux-subnet", defaultLinuxSubnet, "CIDR for Linux service ClusterIPs")
@@ -76,10 +81,30 @@ func main() {
 	flag.IntVar(&reservedIPs, "reserved-ips", defaultReservedIPs, "number of IPs reserved at the start of each subnet")
 	flag.StringVar(&tlsCert, "tls-cert", certFile, "path to TLS certificate")
 	flag.StringVar(&tlsKey, "tls-key", keyFile, "path to TLS private key")
+	flag.BoolVar(&initCert, "init-cert", false, "generate TLS certificate and patch webhook config, then exit")
+	flag.StringVar(&webhookName, "webhook-name", "k2s-webhook", "name of the MutatingWebhookConfiguration to patch (init-cert mode)")
+	flag.StringVar(&serviceName, "service-name", "clusterip-webhook", "service name for TLS certificate SANs (init-cert mode)")
+	flag.StringVar(&namespace, "namespace", "k2s-webhook", "namespace of the webhook service (init-cert mode)")
 	flag.Parse()
 
 	if *versionFlag {
 		ve.GetVersion().Print(cliName)
+		return
+	}
+
+	if initCert {
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+		if err := runCertGen(certGenConfig{
+			CertPath:    tlsCert,
+			KeyPath:     tlsKey,
+			ServiceName: serviceName,
+			Namespace:   namespace,
+			WebhookName: webhookName,
+		}); err != nil {
+			slog.Error("Certificate generation failed", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("Init-cert completed successfully")
 		return
 	}
 
