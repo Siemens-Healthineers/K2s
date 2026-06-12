@@ -223,6 +223,29 @@ func getControlPlaneNodeName(ctx context.Context) string {
 	return strings.TrimSpace(output)
 }
 
+// getControlPlaneNodeInternalIP returns the InternalIP of the control-plane node.
+func getControlPlaneNodeInternalIP(ctx context.Context) (string, error) {
+	client := suite.Cluster().Client()
+	clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
+	if err != nil {
+		return "", err
+	}
+
+	controlPlaneNode := getControlPlaneNodeName(ctx)
+	node, err := clientSet.CoreV1().Nodes().Get(ctx, controlPlaneNode, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == corev1.NodeInternalIP && strings.TrimSpace(addr.Address) != "" {
+			return strings.TrimSpace(addr.Address), nil
+		}
+	}
+
+	return "", fmt.Errorf("control-plane node %s has no InternalIP", controlPlaneNode)
+}
+
 var _ = Describe("Hyper-V Linux VM Node", Ordered, func() {
 	var vmIP string
 	var nodeName string // Kubernetes node name
@@ -299,6 +322,7 @@ var _ = Describe("Hyper-V Linux VM Node", Ordered, func() {
 		)
 
 		var controlPlaneNode string
+		var deploymentTempFile string
 
 		BeforeAll(func(ctx context.Context) {
 			controlPlaneNode = getControlPlaneNodeName(ctx)
@@ -323,6 +347,13 @@ var _ = Describe("Hyper-V Linux VM Node", Ordered, func() {
 
 			GinkgoWriter.Println("Cleanup: deleting test namespace")
 			suite.Kubectl().Exec(ctx, "delete", "namespace", testNamespace, "--ignore-not-found")
+
+			if strings.TrimSpace(deploymentTempFile) != "" {
+				err := os.Remove(deploymentTempFile)
+				if err != nil && !os.IsNotExist(err) {
+					GinkgoWriter.Printf("Cleanup warning: failed to delete temp deployment file %s: %v\n", deploymentTempFile, err)
+				}
+			}
 		})
 
 		Context("when deploying workload across nodes", Ordered, func() {
@@ -379,11 +410,11 @@ spec:
 `, deploymentName, testNamespace, replicas, deploymentName, deploymentName, deploymentName, deploymentName)
 
 				// Apply the deployment using a temp file written with Go's os.WriteFile
-				tempFile := filepath.Join(suite.SetupInfo().Config.Host().K2sSetupConfigDir(), "deployment.yaml")
-				err := os.WriteFile(tempFile, []byte(deploymentYaml), 0644)
-				Expect(err).NotTo(HaveOccurred(), "Failed to write deployment YAML to %s", tempFile)
+				deploymentTempFile = filepath.Join(suite.SetupInfo().Config.Host().K2sSetupConfigDir(), "deployment.yaml")
+				err := os.WriteFile(deploymentTempFile, []byte(deploymentYaml), 0644)
+				Expect(err).NotTo(HaveOccurred(), "Failed to write deployment YAML to %s", deploymentTempFile)
 
-				suite.Kubectl().MustExec(ctx, "apply", "-f", tempFile)
+				suite.Kubectl().MustExec(ctx, "apply", "-f", deploymentTempFile)
 
 				GinkgoWriter.Printf("Created deployment %s with %d replicas\n", deploymentName, replicas)
 			})
@@ -419,7 +450,7 @@ spec:
 					ready, err := getNodeStatus(ctx, nodeName)
 					if err != nil {
 						GinkgoWriter.Printf("Error getting node status: %v\n", err)
-						return true // Keep polling on error
+						return false // Keep polling on error
 					}
 					GinkgoWriter.Printf("Node %s Ready status: %v\n", nodeName, ready)
 					return !ready // We want NotReady (ready=false)
@@ -698,7 +729,9 @@ spec:
 
 		Context("when VM is reachable via KubeSwitch after restart", func() {
 			It("KubeMaster is reachable via SSH", func(ctx context.Context) {
-				kubemasterIP := "172.19.1.100" // Default KubeMaster IP
+				kubemasterIP, err := getControlPlaneNodeInternalIP(ctx)
+				Expect(err).NotTo(HaveOccurred(), "Expected to resolve control-plane InternalIP")
+				GinkgoWriter.Printf("Resolved KubeMaster/control-plane IP: %s\n", kubemasterIP)
 				Eventually(func() bool {
 					conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:22", kubemasterIP), 5*time.Second)
 					if err != nil {

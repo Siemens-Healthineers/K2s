@@ -712,7 +712,6 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
 
     $attempt = 0
     $output = $null
-    $timeoutSeconds = $TimeoutMinutes * 60
 
     do {
         $attempt++
