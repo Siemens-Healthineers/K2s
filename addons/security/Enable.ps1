@@ -52,6 +52,12 @@ $dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule
 Import-Module PKI;
 
+# Optional Dashboard integration: import the Dashboard module only if it is packaged.
+# Allows security to work in offline packages that do not include the dashboard addon.
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -DisableNameChecking
+}
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
@@ -442,7 +448,9 @@ Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
 # sync Headlamp plugins — cert-manager is now running
 Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after security enable' -Console
-Sync-HeadlampPlugins
+if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+    Sync-HeadlampPlugins
+}
 
 # if security addon is enabled, than adapt other addons
 # Important is that update is called at the end because addons check state of security addon

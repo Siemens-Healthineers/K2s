@@ -172,26 +172,6 @@ function Test-CertManagerCapabilityAvailable {
     return $false
 }
 
-function Test-PrometheusCapabilityAvailable {
-    <#
-    .SYNOPSIS
-    Returns $true when Prometheus is present in the cluster, regardless of how it was installed.
-    Detection checks: prometheuses.monitoring.coreos.com CRD, then prometheus-operated service.
-    #>
-    Write-Log '[Dashboard][Plugin] Checking Prometheus capability'
-    $crd = (Invoke-Kubectl -Params 'get', 'crd', 'prometheuses.monitoring.coreos.com', '--ignore-not-found').Output
-    if ($crd) {
-        Write-Log '[Dashboard][Plugin] Prometheus: prometheuses CRD found'
-        return $true
-    }
-    $svc = (Invoke-Kubectl -Params 'get', 'service', 'prometheus-operated', '-n', 'monitoring', '--ignore-not-found').Output
-    if ($svc) {
-        Write-Log '[Dashboard][Plugin] Prometheus: prometheus-operated service found'
-        return $true
-    }
-    Write-Log '[Dashboard][Plugin] Prometheus capability not detected'
-    return $false
-}
 
 # ── Plugin Registry ───────────────────────────────────────────────────────────
 
@@ -209,22 +189,22 @@ function Get-RegisteredHeadlampPlugins {
     Activation is capability-based (not addon-state-based), so plugins activate
     whenever the underlying technology is present — regardless of which K2s addon
     or external tool installed it.
+
+    Plugin images are consumed directly from upstream GHCR. Their compiled bundle
+    lives at /plugins/<upstreamName>/ inside the image (e.g. /plugins/flux,
+    /plugins/cert-manager); the init-container copy is layout-agnostic (see
+    Build-PluginPatchJson), so the in-image subdirectory name need not match Name.
     #>
     return @(
         [pscustomobject]@{
             Name     = 'flux-plugin'
-            Image    = 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0'
+            Image    = 'ghcr.io/headlamp-k8s/headlamp-plugin-flux:v0.6.0'
             Detector = { Test-FluxCapabilityAvailable }
         },
         [pscustomobject]@{
             Name     = 'cert-manager-plugin'
-            Image    = 'shsk2s.azurecr.io/headlamp-plugin-cert-manager:0.1.0'
+            Image    = 'ghcr.io/headlamp-k8s/headlamp-plugin-cert-manager:v0.1.0'
             Detector = { Test-CertManagerCapabilityAvailable }
-        },
-        [pscustomobject]@{
-            Name     = 'prometheus-plugin'
-            Image    = 'shsk2s.azurecr.io/headlamp-plugin-prometheus:0.8.2'
-            Detector = { Test-PrometheusCapabilityAvailable }
         }
     )
 }
@@ -242,7 +222,9 @@ function New-PluginInitContainer {
     The init-container name.  Used as the plugin sub-directory under the plugins dir.
 
     .PARAMETER Image
-    The OCI image reference.  The image must expose compiled plugin files at /plugins/<Name>/.
+    The OCI image reference.  The image exposes compiled plugin files under /plugins/
+    (in a single subdirectory whose name is image-defined, e.g. /plugins/flux/).
+    The init-container copy is layout-agnostic, so this subdirectory need not equal Name.
     #>
     param (
         [Parameter(Mandatory = $true)]
@@ -300,7 +282,13 @@ function Build-PluginPatchJson {
     foreach ($ic in $K2sInitContainers) {
         $n   = $ic.Name
         $img = $ic.Image
-        $cp  = 'mkdir -p ' + $pluginsDir + '/' + $n + ' && cp -r /plugins/' + $n + '/. ' + $pluginsDir + '/' + $n + '/'
+        # Layout-agnostic copy: upstream plugin images expose the compiled bundle at
+        # /plugins/<upstreamName>/ (e.g. /plugins/flux, /plugins/cert-manager), which is
+        # NOT necessarily the init-container name ($n). Copy the entire /plugins tree into
+        # the shared pluginsDir so Headlamp finds pluginsDir/<plugin>/main.js regardless of
+        # the in-image subdirectory name. Each plugin image ships exactly one subdir under
+        # /plugins, so merged copies from multiple init-containers never collide.
+        $cp  = 'mkdir -p ' + $pluginsDir + ' && cp -r /plugins/. ' + $pluginsDir + '/'
         $icParts += '{\"name\":\"' + $n + '\",\"image\":\"' + $img + '\",' +
                     '\"command\":[\"sh\",\"-c\",\"' + $cp + '\"],' +
                     '\"volumeMounts\":[{\"name\":\"' + $volName + '\",\"mountPath\":\"' + $pluginsDir + '\"}]}'
@@ -505,5 +493,5 @@ function Sync-HeadlampPlugins {
 Export-ModuleMember -Function Get-HeadlampManifestsDirectory, Get-HeadlampChartDirectory, Get-HeadlampChartPath, `
     Install-HeadlampViaHelm, Uninstall-HeadlampViaHelm, Enable-MetricsServer, Wait-ForHeadlampAvailable, `
     Write-HeadlampUsageForUser, `
-    Test-FluxCapabilityAvailable, Test-CertManagerCapabilityAvailable, Test-PrometheusCapabilityAvailable, `
+    Test-FluxCapabilityAvailable, Test-CertManagerCapabilityAvailable, `
     New-PluginInitContainer, Apply-HeadlampPluginPatch, Remove-HeadlampPluginPatch, Sync-HeadlampPlugins

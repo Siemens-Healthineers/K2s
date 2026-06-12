@@ -8,7 +8,13 @@ $addonsModule  = "$PSScriptRoot\..\..\addons.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 $dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $addonsModule, $rolloutModule, $dashboardModule
+Import-Module $addonsModule, $rolloutModule
+
+# Optional Dashboard integration: import the Dashboard module only if it is packaged.
+# Allows rollout/fluxcd to work in offline packages that do not include the dashboard addon.
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -DisableNameChecking
+}
 
 Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 
@@ -26,5 +32,7 @@ if ($EnhancedSecurityEnabled) {
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
 
 Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after rollout/fluxcd update' -Console
-Sync-HeadlampPlugins
+if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+    Sync-HeadlampPlugins
+}
 

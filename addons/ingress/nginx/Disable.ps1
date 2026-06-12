@@ -30,7 +30,13 @@ $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $nginxModule = "$PSScriptRoot\nginx.module.psm1"
 $dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nginxModule, $dashboardModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nginxModule
+
+# Optional Dashboard integration: import the Dashboard module only if it is packaged.
+# Allows ingress nginx to work in offline packages that do not include the dashboard addon.
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -DisableNameChecking
+}
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -95,7 +101,9 @@ Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implement
 Update-Addons -AddonName $addonName
 
 Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after ingress nginx disable' -Console
-Sync-HeadlampPlugins
+if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+    Sync-HeadlampPlugins
+}
 
 
 if ($EncodeStructuredOutput -eq $true) {

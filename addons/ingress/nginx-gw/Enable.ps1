@@ -34,7 +34,13 @@ $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $gatewayModule = "$PSScriptRoot\nginx-gw.module.psm1"
 $dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $gatewayModule, $dashboardModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $gatewayModule
+
+# Optional Dashboard integration: import the Dashboard module only if it is packaged.
+# Allows ingress nginx-gw to work in offline packages that do not include the dashboard addon.
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -DisableNameChecking
+}
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -261,7 +267,9 @@ if (-not $OmitCertMgr) {
 Update-Addons -AddonName $addonName
 
 Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after ingress nginx-gw enable' -Console
-Sync-HeadlampPlugins
+if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+    Sync-HeadlampPlugins
+}
 
 Write-Log 'nginx-gw installed successfully' -Console
 

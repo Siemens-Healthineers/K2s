@@ -13,7 +13,13 @@ $addonsModule      = "$PSScriptRoot\..\addons.module.psm1"
 $monitoringModule  = "$PSScriptRoot\monitoring.module.psm1"
 $dashboardModule   = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
-Import-Module $addonsModule, $monitoringModule, $dashboardModule
+Import-Module $addonsModule, $monitoringModule
+
+# Optional Dashboard integration: import the Dashboard module only if it is packaged.
+# Allows monitoring to work in offline packages that do not include the dashboard addon.
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -DisableNameChecking
+}
 
 # Check if Grafana was omitted during installation (from config or parameter)
 $monitoringConfig = Get-AddonConfig -Name 'monitoring'
@@ -167,6 +173,8 @@ if ($EnancedSecurityEnabled) {
 (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
 
 Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after monitoring update' -Console
-Sync-HeadlampPlugins
+if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+    Sync-HeadlampPlugins
+}
 
 Write-Log 'Updating monitoring addon finished.' -Console

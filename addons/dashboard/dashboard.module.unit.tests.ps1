@@ -421,10 +421,10 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         }
     }
 
-    It 'exports Test-PrometheusCapabilityAvailable' {
+    It 'does not export the removed Test-PrometheusCapabilityAvailable' {
         InModuleScope $moduleName {
             $fn = Get-Command -Module $moduleName -Name 'Test-PrometheusCapabilityAvailable' -ErrorAction SilentlyContinue
-            $fn | Should -Not -BeNullOrEmpty
+            $fn | Should -BeNullOrEmpty
         }
     }
 
@@ -539,10 +539,10 @@ Describe 'Linkerd annotation null-safety logic (Update.ps1 guard pattern)' -Tag 
 # ── Headlamp Plugin Framework Tests ───────────────────────────────────────────
 
 Describe 'Get-RegisteredHeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
-    It 'returns exactly 3 plugins' {
+    It 'returns exactly 2 plugins' {
         InModuleScope $moduleName {
             $result = @(Get-RegisteredHeadlampPlugins)
-            $result.Count | Should -Be 3
+            $result.Count | Should -Be 2
         }
     }
 
@@ -560,10 +560,17 @@ Describe 'Get-RegisteredHeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard'
         }
     }
 
-    It 'includes a prometheus-plugin registration' {
+    It 'does not include a prometheus-plugin registration' {
         InModuleScope $moduleName {
             $result = @(Get-RegisteredHeadlampPlugins)
-            $result | Where-Object { $_.Name -eq 'prometheus-plugin' } | Should -Not -BeNullOrEmpty
+            $result | Where-Object { $_.Name -eq 'prometheus-plugin' } | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'every registration uses a ghcr.io plugin image' {
+        InModuleScope $moduleName {
+            $result = @(Get-RegisteredHeadlampPlugins)
+            $result | ForEach-Object { $_.Image | Should -BeLike 'ghcr.io/headlamp-k8s/headlamp-plugin-*' }
         }
     }
 
@@ -589,15 +596,15 @@ Describe 'New-PluginInitContainer' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plu
 
     It 'returns an object with the correct Name property' {
         InModuleScope $moduleName {
-            $result = New-PluginInitContainer -Name 'flux-plugin' -Image 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0'
+            $result = New-PluginInitContainer -Name 'flux-plugin' -Image 'ghcr.io/headlamp-k8s/headlamp-plugin-flux:v0.6.0'
             $result.Name | Should -Be 'flux-plugin'
         }
     }
 
     It 'returns an object with the correct Image property' {
         InModuleScope $moduleName {
-            $result = New-PluginInitContainer -Name 'flux-plugin' -Image 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0'
-            $result.Image | Should -Be 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0'
+            $result = New-PluginInitContainer -Name 'flux-plugin' -Image 'ghcr.io/headlamp-k8s/headlamp-plugin-flux:v0.6.0'
+            $result.Image | Should -Be 'ghcr.io/headlamp-k8s/headlamp-plugin-flux:v0.6.0'
         }
     }
 
@@ -739,62 +746,6 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
     }
 }
 
-Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
-    Context 'Prometheus CRD present' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $true; Output = 'prometheuses.monitoring.coreos.com   2023-01-01' }
-            }
-            Mock -ModuleName $moduleName Write-Log { }
-        }
-
-        It 'returns true when the prometheuses CRD is found' {
-            InModuleScope $moduleName {
-                $result = Test-PrometheusCapabilityAvailable
-                $result | Should -Be $true
-            }
-        }
-    }
-
-    Context 'CRD absent but prometheus-operated service present' {
-        BeforeAll {
-            $script:promKubectlCall = 0
-            Mock -ModuleName $moduleName Invoke-Kubectl {
-                $script:promKubectlCall++
-                if ($script:promKubectlCall -eq 1) {
-                    return [pscustomobject]@{ Success = $true; Output = '' }
-                }
-                return [pscustomobject]@{ Success = $true; Output = 'prometheus-operated   ClusterIP   None' }
-            }
-            Mock -ModuleName $moduleName Write-Log { }
-        }
-
-        It 'returns true when the prometheus-operated service is found' {
-            InModuleScope $moduleName {
-                $script:promKubectlCall = 0
-                $result = Test-PrometheusCapabilityAvailable
-                $result | Should -Be $true
-            }
-        }
-    }
-
-    Context 'neither CRD nor service present' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $true; Output = '' }
-            }
-            Mock -ModuleName $moduleName Write-Log { }
-        }
-
-        It 'returns false when no Prometheus indicators are found' {
-            InModuleScope $moduleName {
-                $result = Test-PrometheusCapabilityAvailable
-                $result | Should -Be $false
-            }
-        }
-    }
-}
-
 Describe 'Build-PluginPatchJson' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
     It 'returns null for empty K2sInitContainers and empty NamesToRemove' {
         InModuleScope $moduleName {
@@ -805,7 +756,7 @@ Describe 'Build-PluginPatchJson' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugi
 
     It 'contains the container name when a plugin is being added' {
         InModuleScope $moduleName {
-            $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0' }
+            $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'ghcr.io/headlamp-k8s/headlamp-plugin-flux:v0.6.0' }
             $result = Build-PluginPatchJson -K2sInitContainers @($ic)
             $result | Should -Match 'flux-plugin'
         }
@@ -813,7 +764,7 @@ Describe 'Build-PluginPatchJson' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugi
 
     It 'contains the image reference when a plugin is being added' {
         InModuleScope $moduleName {
-            $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0' }
+            $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'ghcr.io/headlamp-k8s/headlamp-plugin-flux:v0.6.0' }
             $result = Build-PluginPatchJson -K2sInitContainers @($ic)
             $result | Should -Match 'headlamp-plugin-flux'
         }
@@ -850,10 +801,10 @@ Describe 'Build-PluginPatchJson' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugi
     It 'includes both container names when two plugins are being added' {
         InModuleScope $moduleName {
             $ic1 = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'img-a:1.0' }
-            $ic2 = [pscustomobject]@{ Name = 'prometheus-plugin'; Image = 'img-b:1.0' }
+            $ic2 = [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-b:1.0' }
             $result = Build-PluginPatchJson -K2sInitContainers @($ic1, $ic2)
             $result | Should -Match 'flux-plugin'
-            $result | Should -Match 'prometheus-plugin'
+            $result | Should -Match 'cert-manager-plugin'
         }
     }
 
@@ -1051,14 +1002,14 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
         BeforeAll {
             Mock -ModuleName $moduleName Get-RegisteredHeadlampPlugins {
                 return @(
-                    [pscustomobject]@{ Name = 'flux-plugin';       Image = 'img-flux:0.6.0'; Detector = { $true } },
-                    [pscustomobject]@{ Name = 'prometheus-plugin';  Image = 'img-prom:0.9.0'; Detector = { $true } }
+                    [pscustomobject]@{ Name = 'flux-plugin';        Image = 'img-flux:0.6.0'; Detector = { $true } },
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:0.9.0';  Detector = { $true } }
                 )
             }
             Mock -ModuleName $moduleName Get-CurrentPluginInitContainers {
                 return @(
-                    [pscustomobject]@{ name = 'flux-plugin';      image = 'img-flux:0.6.0' },  # unchanged
-                    [pscustomobject]@{ name = 'prometheus-plugin'; image = 'img-prom:0.8.2' }  # OLD tag
+                    [pscustomobject]@{ name = 'flux-plugin';        image = 'img-flux:0.6.0' },  # unchanged
+                    [pscustomobject]@{ name = 'cert-manager-plugin'; image = 'img-cm:0.8.2' }   # OLD tag
                 )
             }
             Mock -ModuleName $moduleName Build-PluginPatchJson { return 'mock-mixed-json' }
@@ -1069,8 +1020,8 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
         It 'calls kubectl patch because one plugin image has changed' {
             InModuleScope $moduleName {
                 $desired = @(
-                    [pscustomobject]@{ Name = 'flux-plugin';      Image = 'img-flux:0.6.0' },
-                    [pscustomobject]@{ Name = 'prometheus-plugin'; Image = 'img-prom:0.9.0' }
+                    [pscustomobject]@{ Name = 'flux-plugin';        Image = 'img-flux:0.6.0' },
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:0.9.0' }
                 )
                 Apply-HeadlampPluginPatch -InitContainers $desired
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
@@ -1082,8 +1033,8 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
         It 'passes both desired plugins to Build-PluginPatchJson with empty NamesToRemove' {
             InModuleScope $moduleName {
                 $desired = @(
-                    [pscustomobject]@{ Name = 'flux-plugin';      Image = 'img-flux:0.6.0' },
-                    [pscustomobject]@{ Name = 'prometheus-plugin'; Image = 'img-prom:0.9.0' }
+                    [pscustomobject]@{ Name = 'flux-plugin';        Image = 'img-flux:0.6.0' },
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:0.9.0' }
                 )
                 Apply-HeadlampPluginPatch -InitContainers $desired
                 Should -Invoke Build-PluginPatchJson -Times 1 -Scope It -ParameterFilter {
@@ -1097,14 +1048,14 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
         BeforeAll {
             Mock -ModuleName $moduleName Get-RegisteredHeadlampPlugins {
                 return @(
-                    [pscustomobject]@{ Name = 'flux-plugin';      Image = 'img-flux:0.6.0'; Detector = { $true } },
-                    [pscustomobject]@{ Name = 'prometheus-plugin'; Image = 'img-prom:0.8.2'; Detector = { $true } }
+                    [pscustomobject]@{ Name = 'flux-plugin';        Image = 'img-flux:0.6.0'; Detector = { $true } },
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:0.8.2'; Detector = { $true } }
                 )
             }
             Mock -ModuleName $moduleName Get-CurrentPluginInitContainers {
                 return @(
-                    [pscustomobject]@{ name = 'flux-plugin';      image = 'img-flux:0.6.0' },
-                    [pscustomobject]@{ name = 'prometheus-plugin'; image = 'img-prom:0.8.2' }
+                    [pscustomobject]@{ name = 'flux-plugin';        image = 'img-flux:0.6.0' },
+                    [pscustomobject]@{ name = 'cert-manager-plugin'; image = 'img-cm:0.8.2' }
                 )
             }
             Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = '' } }
@@ -1114,8 +1065,8 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
         It 'does not call kubectl patch when all plugin names and images match' {
             InModuleScope $moduleName {
                 $desired = @(
-                    [pscustomobject]@{ Name = 'flux-plugin';      Image = 'img-flux:0.6.0' },
-                    [pscustomobject]@{ Name = 'prometheus-plugin'; Image = 'img-prom:0.8.2' }
+                    [pscustomobject]@{ Name = 'flux-plugin';        Image = 'img-flux:0.6.0' },
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:0.8.2' }
                 )
                 Apply-HeadlampPluginPatch -InitContainers $desired
                 Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter {
@@ -1125,19 +1076,17 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
         }
     }
 
-    Context 'Scenario 5c: three plugins — one added, one removed, one image-upgraded' {
+    Context 'Scenario 5c: two plugins — one added, one image-upgraded' {
         BeforeAll {
             Mock -ModuleName $moduleName Get-RegisteredHeadlampPlugins {
                 return @(
                     [pscustomobject]@{ Name = 'flux-plugin';         Image = 'img-flux:0.7.0'; Detector = { $true } },
-                    [pscustomobject]@{ Name = 'cert-manager-plugin';  Image = 'img-cm:0.1.0';  Detector = { $true } },
-                    [pscustomobject]@{ Name = 'prometheus-plugin';    Image = 'img-prom:0.9.0'; Detector = { $true } }
+                    [pscustomobject]@{ Name = 'cert-manager-plugin';  Image = 'img-cm:0.1.0';  Detector = { $true } }
                 )
             }
             Mock -ModuleName $moduleName Get-CurrentPluginInitContainers {
                 return @(
-                    [pscustomobject]@{ name = 'flux-plugin';        image = 'img-flux:0.6.0' },  # upgrade
-                    [pscustomobject]@{ name = 'prometheus-plugin';  image = 'img-prom:0.9.0' }   # unchanged, cert-manager absent
+                    [pscustomobject]@{ name = 'flux-plugin'; image = 'img-flux:0.6.0' }  # upgrade; cert-manager absent (added)
                 )
             }
             Mock -ModuleName $moduleName Build-PluginPatchJson { return 'mock-complex-json' }
@@ -1145,12 +1094,11 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
             Mock -ModuleName $moduleName Write-Log { }
         }
 
-        It 'calls kubectl patch for the complex mixed-change scenario' {
+        It 'calls kubectl patch for the mixed add/upgrade scenario' {
             InModuleScope $moduleName {
                 $desired = @(
                     [pscustomobject]@{ Name = 'flux-plugin';        Image = 'img-flux:0.7.0' },
-                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:0.1.0' },
-                    [pscustomobject]@{ Name = 'prometheus-plugin';   Image = 'img-prom:0.9.0' }
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:0.1.0' }
                 )
                 Apply-HeadlampPluginPatch -InitContainers $desired
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
@@ -1159,20 +1107,20 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
             }
         }
 
-        It 'passes all 3 desired plugins to Build-PluginPatchJson with empty NamesToRemove' {
+        It 'passes both desired plugins to Build-PluginPatchJson with empty NamesToRemove' {
             InModuleScope $moduleName {
                 $desired = @(
                     [pscustomobject]@{ Name = 'flux-plugin';        Image = 'img-flux:0.7.0' },
-                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:0.1.0' },
-                    [pscustomobject]@{ Name = 'prometheus-plugin';   Image = 'img-prom:0.9.0' }
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:0.1.0' }
                 )
                 Apply-HeadlampPluginPatch -InitContainers $desired
                 Should -Invoke Build-PluginPatchJson -Times 1 -Scope It -ParameterFilter {
-                    @($K2sInitContainers).Count -eq 3 -and @($NamesToRemove).Count -eq 0
+                    @($K2sInitContainers).Count -eq 2 -and @($NamesToRemove).Count -eq 0
                 }
             }
         }
     }
+
 
     Context 'passes only K2s init-containers to Build-PluginPatchJson (non-K2s untouched by strategic merge)' {
         BeforeAll {
@@ -1281,8 +1229,7 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
             Mock -ModuleName $moduleName Get-RegisteredHeadlampPlugins {
                 return @(
                     [pscustomobject]@{ Name = 'flux-plugin';         Image = 'img-flux:1.0'; Detector = { $false } },
-                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:1.0';   Detector = { $false } },
-                    [pscustomobject]@{ Name = 'prometheus-plugin';   Image = 'img-prom:1.0'; Detector = { $false } }
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:1.0';   Detector = { $false } }
                 )
             }
             Mock -ModuleName $moduleName Apply-HeadlampPluginPatch { }
@@ -1299,14 +1246,13 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
         }
     }
 
-    Context 'dashboard enabled; all 3 capabilities detected' {
+    Context 'dashboard enabled; all capabilities detected' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true }
             Mock -ModuleName $moduleName Get-RegisteredHeadlampPlugins {
                 return @(
                     [pscustomobject]@{ Name = 'flux-plugin';         Image = 'img-flux:1.0'; Detector = { $true } },
-                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:1.0';   Detector = { $true } },
-                    [pscustomobject]@{ Name = 'prometheus-plugin';   Image = 'img-prom:1.0'; Detector = { $true } }
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:1.0';   Detector = { $true } }
                 )
             }
             Mock -ModuleName $moduleName New-PluginInitContainer {
@@ -1317,11 +1263,11 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
             Mock -ModuleName $moduleName Write-Log { }
         }
 
-        It 'calls Apply-HeadlampPluginPatch with 3 init-containers' {
+        It 'calls Apply-HeadlampPluginPatch with 2 init-containers' {
             InModuleScope $moduleName {
                 Sync-HeadlampPlugins
                 Should -Invoke Apply-HeadlampPluginPatch -Times 1 -Scope It -ParameterFilter {
-                    @($InitContainers).Count -eq 3
+                    @($InitContainers).Count -eq 2
                 }
             }
         }
@@ -1333,8 +1279,7 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
             Mock -ModuleName $moduleName Get-RegisteredHeadlampPlugins {
                 return @(
                     [pscustomobject]@{ Name = 'flux-plugin';         Image = 'img-flux:1.0'; Detector = { $true } },
-                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:1.0';   Detector = { $false } },
-                    [pscustomobject]@{ Name = 'prometheus-plugin';   Image = 'img-prom:1.0'; Detector = { $false } }
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:1.0';   Detector = { $false } }
                 )
             }
             Mock -ModuleName $moduleName New-PluginInitContainer {
@@ -1361,8 +1306,7 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
             Mock -ModuleName $moduleName Get-RegisteredHeadlampPlugins {
                 return @(
                     [pscustomobject]@{ Name = 'flux-plugin';         Image = 'img-flux:1.0'; Detector = { $false } },
-                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:1.0';   Detector = { $true } },
-                    [pscustomobject]@{ Name = 'prometheus-plugin';   Image = 'img-prom:1.0'; Detector = { $false } }
+                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:1.0';   Detector = { $true } }
                 )
             }
             Mock -ModuleName $moduleName New-PluginInitContainer {
@@ -1383,41 +1327,12 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
         }
     }
 
-    Context 'dashboard enabled; only Prometheus capability detected' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true }
-            Mock -ModuleName $moduleName Get-RegisteredHeadlampPlugins {
-                return @(
-                    [pscustomobject]@{ Name = 'flux-plugin';         Image = 'img-flux:1.0'; Detector = { $false } },
-                    [pscustomobject]@{ Name = 'cert-manager-plugin'; Image = 'img-cm:1.0';   Detector = { $false } },
-                    [pscustomobject]@{ Name = 'prometheus-plugin';   Image = 'img-prom:1.0'; Detector = { $true } }
-                )
-            }
-            Mock -ModuleName $moduleName New-PluginInitContainer {
-                param ($Name, $Image)
-                return [pscustomobject]@{ Name = $Name; Image = $Image }
-            }
-            Mock -ModuleName $moduleName Apply-HeadlampPluginPatch { }
-            Mock -ModuleName $moduleName Write-Log { }
-        }
-
-        It 'calls Apply-HeadlampPluginPatch with only the prometheus-plugin init-container' {
-            InModuleScope $moduleName {
-                Sync-HeadlampPlugins
-                Should -Invoke Apply-HeadlampPluginPatch -Times 1 -Scope It -ParameterFilter {
-                    @($InitContainers).Count -eq 1 -and @($InitContainers)[0].Name -eq 'prometheus-plugin'
-                }
-            }
-        }
-    }
-
     Context 'dashboard enabled; uses real capability detectors via detector scriptblocks' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true }
             # Use real registry — detector scriptblocks call the real capability functions
             Mock -ModuleName $moduleName Test-FluxCapabilityAvailable         { return $true }
-            Mock -ModuleName $moduleName Test-CertManagerCapabilityAvailable  { return $false }
-            Mock -ModuleName $moduleName Test-PrometheusCapabilityAvailable   { return $true }
+            Mock -ModuleName $moduleName Test-CertManagerCapabilityAvailable  { return $true }
             Mock -ModuleName $moduleName New-PluginInitContainer {
                 param ($Name, $Image)
                 return [pscustomobject]@{ Name = $Name; Image = $Image }
@@ -1426,7 +1341,7 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
             Mock -ModuleName $moduleName Write-Log { }
         }
 
-        It 'activates only flux and prometheus plugins when only those capabilities are present' {
+        It 'activates both flux and cert-manager plugins when both capabilities are present' {
             InModuleScope $moduleName {
                 Sync-HeadlampPlugins
                 Should -Invoke Apply-HeadlampPluginPatch -Times 1 -Scope It -ParameterFilter {

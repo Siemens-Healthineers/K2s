@@ -34,7 +34,13 @@ $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $traefikModule = "$PSScriptRoot\traefik.module.psm1"
 $dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $traefikModule, $dashboardModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $traefikModule
+
+# Optional Dashboard integration: import the Dashboard module only if it is packaged.
+# Allows ingress traefik to work in offline packages that do not include the dashboard addon.
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -DisableNameChecking
+}
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -205,7 +211,9 @@ if (-not $OmitCertMgr) {
 Update-Addons -AddonName $addonName
 
 Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after ingress traefik enable' -Console
-Sync-HeadlampPlugins
+if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+    Sync-HeadlampPlugins
+}
 
 Write-Log 'Installation of Traefik addon finished.' -Console
 

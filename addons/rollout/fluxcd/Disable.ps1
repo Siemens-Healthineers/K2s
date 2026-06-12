@@ -32,7 +32,13 @@ $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 $dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule, $dashboardModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule
+
+# Optional Dashboard integration: import the Dashboard module only if it is packaged.
+# Allows rollout/fluxcd to work in offline packages that do not include the dashboard addon.
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -DisableNameChecking
+}
 
 Initialize-Logging -ShowLogs:$ShowLogs
 Write-Log 'Checking cluster status' -Console
@@ -88,7 +94,9 @@ Write-Log 'Deleting rollout namespace...' -Console
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 
 Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after Flux disable' -Console
-Sync-HeadlampPlugins
+if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+    Sync-HeadlampPlugins
+}
 
 Write-Log 'Uninstallation of rollout addon with Flux finished' -Console
 
