@@ -903,8 +903,7 @@ function Get-ClusterIPWebhookImages {
 
     Write-Log 'Get images used by clusterip-webhook'
 
-    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.1.0'
-    &$executeRemoteCommand 'sudo crictl pull registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9'
+    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.2.0'
 }
 
 function AddRegistryMirrors {
@@ -1115,9 +1114,7 @@ Function Deploy-ClusterIPWebhook {
         'namespace.yaml',
         'rbac.yaml',
         'webhook-config.yaml',
-        'deployment.yaml',
-        'certgen-create-job.yaml',
-        'certgen-patch-job.yaml'
+        'deployment.yaml'
     )
 
     foreach ($file in $manifestFiles) {
@@ -1141,18 +1138,6 @@ Function Deploy-ClusterIPWebhook {
     Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
 
-    Write-Log '[ClusterIP-Webhook] Running TLS certificate create job'
-    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Retries 3
-
-    Write-Log '[ClusterIP-Webhook] Waiting for cert-create job to complete'
-    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-webhook --timeout=120s' -Retries 3
-
-    Write-Log '[ClusterIP-Webhook] Running TLS certificate patch job'
-    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-patch-job.yaml" -Retries 3
-
-    Write-Log '[ClusterIP-Webhook] Waiting for cert-patch job to complete'
-    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-webhook --timeout=120s' -Retries 3
-
     Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/deployment.yaml" -Retries 3
 
@@ -1160,21 +1145,6 @@ Function Deploy-ClusterIPWebhook {
     &$ExecuteRemoteCommand 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s' -Retries 3
 
     &$ExecuteRemoteCommand "rm -rf $remoteDir" -IgnoreErrors
-
-    # Clean up certgen Jobs and image so the certgen image is NOT captured by
-    # Write-KubernetesImagesIntoJson. The certgen image shares its repository with
-    # the nginx addon's certgen; if recorded as a K8s base image, the addon
-    # export-import test filters it out from the actual image list and fails.
-    # We delete Jobs, wait for pods to fully terminate (releasing CRI-O container
-    # references), then use 'buildah rmi --force' because Write-KubernetesImagesIntoJson
-    # snapshots via 'buildah images' (not crictl). crictl rmi can silently fail when
-    # containers still reference the image; buildah --force bypasses that.
-    Write-Log '[ClusterIP-Webhook] Cleaning up certgen Jobs and image to avoid K8s-image-list collision with nginx addon'
-    &$ExecuteRemoteCommand 'kubectl delete job clusterip-webhook-certgen-create clusterip-webhook-certgen-patch -n k2s-webhook --ignore-not-found' -IgnoreErrors
-    &$ExecuteRemoteCommand 'kubectl wait --for=delete pod -l app.kubernetes.io/component=certgen -n k2s-webhook --timeout=60s 2>/dev/null || true' -IgnoreErrors
-    &$ExecuteRemoteCommand 'sudo buildah rmi --force registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9 2>/dev/null || true' -IgnoreErrors
-    Write-Log '[ClusterIP-Webhook] Verifying certgen image removal:'
-    &$ExecuteRemoteCommand 'sudo buildah images registry.k8s.io/ingress-nginx/kube-webhook-certgen 2>/dev/null || echo "(image not found - cleanup OK)"' -IgnoreErrors
 
     Write-Log '[ClusterIP-Webhook] ClusterIP webhook deployed successfully' -Console
 }
