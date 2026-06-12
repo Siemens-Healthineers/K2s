@@ -243,6 +243,45 @@ function Invoke-KubeConfigRefreshOnHost {
     Add-K8sContext
 }
 
+function Invoke-WebhookCertificateRenewal {
+    Write-Log "Renewing clusterip-webhook certificate..." -Console
+
+    # Trigger a rollout restart so the init container generates a fresh certificate
+    $restartCmd = 'kubectl rollout restart deployment/clusterip-webhook -n k2s-webhook'
+    $restartResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $restartCmd -Timeout 30 -IgnoreErrors:$true
+    Write-Log "Webhook rollout restart: $($restartResult.Output)"
+    if (-not $restartResult.Success) {
+        Write-Log "[Warning] Failed to restart webhook deployment" -Console
+        return $false
+    }
+
+    # Wait for the rollout to complete
+    Write-Log "Waiting for webhook deployment to become ready..."
+    $statusCmd = 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s'
+    $statusResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $statusCmd -Timeout 150 -IgnoreErrors:$true
+    Write-Log "Webhook rollout status: $($statusResult.Output)"
+    if (-not $statusResult.Success) {
+        Write-Log "[Warning] Webhook deployment did not become ready after restart" -Console
+        return $false
+    }
+
+    # Validate that caBundle has been set by the init container
+    $caBundleCmd = "kubectl get mutatingwebhookconfiguration k2s-webhook -o jsonpath='{.webhooks[0].clientConfig.caBundle}'"
+    $caBundleResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $caBundleCmd -Timeout 30 -IgnoreErrors:$true
+    if (-not $caBundleResult.Success) {
+        Write-Log "[Warning] Failed to query webhook caBundle" -Console
+        return $false
+    }
+    $caBundle = ($caBundleResult.Output | Out-String).Trim()
+    if ([string]::IsNullOrWhiteSpace($caBundle)) {
+        Write-Log "[Warning] Webhook caBundle is empty after renewal - webhook may not be operational" -Console
+        return $false
+    }
+
+    Write-Log "ClusterIP webhook certificate renewed successfully" -Console
+    return $true
+}
+
 
 try {
     Start-ControlPlaneIfNotRunning
@@ -257,6 +296,19 @@ try {
         $noErrorsOccurred = Invoke-CertificateRenewalInControlPlane
         if ($noErrorsOccurred -eq $true) {
             Invoke-KubeConfigRefreshOnHost
+        }
+    }
+
+    # Renew webhook certificate (restart deployment so init container generates fresh cert)
+    if ($noErrorsOccurred -eq $true) {
+        $webhookExists = (Invoke-CmdOnControlPlaneViaSSHKey 'kubectl get deployment clusterip-webhook -n k2s-webhook --no-headers 2>/dev/null' -IgnoreErrors).Output
+        if (-not [string]::IsNullOrWhiteSpace($webhookExists)) {
+            $webhookResult = Invoke-WebhookCertificateRenewal
+            if ($webhookResult -eq $false) {
+                Write-Log "[Warning] Webhook certificate renewal had issues - see logs above" -Console
+            }
+        } else {
+            Write-Log "ClusterIP webhook deployment not found - skipping webhook certificate renewal" -Console
         }
     }
 
