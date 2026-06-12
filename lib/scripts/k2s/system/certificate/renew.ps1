@@ -248,14 +248,22 @@ function Invoke-WebhookCertificateRenewal {
 
     # Trigger a rollout restart so the init container generates a fresh certificate
     $restartCmd = 'kubectl rollout restart deployment/clusterip-webhook -n k2s-webhook'
-    $restartOutput = (Invoke-CmdOnControlPlaneViaSSHKey $restartCmd).Output
-    Write-Log "Webhook rollout restart: $restartOutput"
+    $restartResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $restartCmd -Timeout 30 -IgnoreErrors:$true
+    Write-Log "Webhook rollout restart: $($restartResult.Output)"
+    if (-not $restartResult.Success) {
+        Write-Log "[Warning] Failed to restart webhook deployment" -Console
+        return $false
+    }
 
     # Wait for the rollout to complete
     Write-Log "Waiting for webhook deployment to become ready..."
     $statusCmd = 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s'
-    $statusOutput = (Invoke-CmdOnControlPlaneViaSSHKey $statusCmd).Output
-    Write-Log "Webhook rollout status: $statusOutput"
+    $statusResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $statusCmd -Timeout 150 -IgnoreErrors:$true
+    Write-Log "Webhook rollout status: $($statusResult.Output)"
+    if (-not $statusResult.Success) {
+        Write-Log "[Warning] Webhook deployment did not become ready after restart" -Console
+        return $false
+    }
 
     # Validate that caBundle has been set by the init container
     $caBundleCmd = "kubectl get mutatingwebhookconfiguration k2s-webhook -o jsonpath='{.webhooks[0].clientConfig.caBundle}'"
