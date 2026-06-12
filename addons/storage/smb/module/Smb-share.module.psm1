@@ -286,7 +286,7 @@ function New-SharedFolderMountOnLinuxClient {
     $tempMountOnLinuxClientScript = 'tmp_mountOnLinuxClientCmd.sh'
     $mountOnLinuxClientScript = 'mountOnLinuxClientCmd.sh'
     $fstabVersOption = Get-FstabVersionOption -SmbDialect $Config.SmbDialect
-    $fstabVersSuffix = if ($fstabVersOption) { ",$fstabVersOption" } else { '' }
+    $fstabVersSuffix = ",$fstabVersOption"
     $mountOnLinuxClientCmd = @"
         findmnt $($Config.LinuxMountPath) -D >/dev/null && sudo umount $($Config.LinuxMountPath)
         sudo rm -rf $($Config.LinuxMountPath)
@@ -499,8 +499,10 @@ function New-SharedFolderMountOnLinuxHost {
 
     Write-Log 'Creating temporary mount script...'
 
-    $fstabVersOption2 = Get-FstabVersionOption -SmbDialect $Config.SmbDialect
-    $fstabVersSuffix2 = if ($fstabVersOption2) { ",$fstabVersOption2" } else { '' }
+    # Linux Samba host historically pinned 'vers=3' (negotiates up to 3.1.1); preserve that default
+    # for 'auto' so existing shares are not downgraded to a fixed 3.0 (issue #2478, AC #1).
+    $fstabVersOption2 = Get-FstabVersionOption -SmbDialect $Config.SmbDialect -DefaultDialect '3'
+    $fstabVersSuffix2 = ",$fstabVersOption2"
     $fstabCmd = @"
         findmnt $($Config.LinuxMountPath) -D >/dev/null && sudo umount $($Config.LinuxMountPath)
         sudo rm -rf $($Config.LinuxMountPath)
@@ -676,7 +678,11 @@ function New-StorageClassManifest {
     }
     $mountOptsYaml = ($mountOpts | ForEach-Object { "  - $_" }) -join "`n"
 
-    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath -replace $storageClassReclaimPlaceholder, $ReclaimPolicy -replace '(?m)^MOUNT_OPTIONS\s*$', $mountOptsYaml
+    # Escape '$' so any literal dollar in the mount options is not interpreted as a
+    # regex replacement back-reference (e.g. $1) by the -replace below.
+    $mountOptsYamlSafe = $mountOptsYaml -replace '\$', '$$$$'
+
+    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath -replace $storageClassReclaimPlaceholder, $ReclaimPolicy -replace '(?m)^MOUNT_OPTIONS\s*$', $mountOptsYamlSafe
 
     Set-Content -Value $manifestContent -Path $manifestPath -Force
 
