@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	mathrand "math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -219,6 +220,9 @@ func patchWebhookCABundle(webhookName string, caPEM []byte) error {
 		}
 		if k8serrors.IsConflict(err) {
 			slog.Info("Conflict updating webhook configuration, retrying", "attempt", attempt+1)
+			// Backoff with jitter to avoid thundering-herd on concurrent pod starts
+			backoff := time.Duration(attempt+1)*100*time.Millisecond + time.Duration(mathrand.Int63n(50))*time.Millisecond
+			time.Sleep(backoff)
 			continue
 		}
 		return fmt.Errorf("update MutatingWebhookConfiguration %q: %w", webhookName, err)
