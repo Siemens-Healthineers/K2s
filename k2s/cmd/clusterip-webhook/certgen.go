@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -163,9 +164,11 @@ func generateServerCert(caCert *x509.Certificate, caKey *ecdsa.PrivateKey, servi
 }
 
 func writeCertFiles(certPath string, certPEM []byte, keyPath string, keyPEM []byte) error {
-	if dir := filepath.Dir(certPath); dir != "" {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("create cert directory %q: %w", dir, err)
+	for _, dir := range []string{filepath.Dir(certPath), filepath.Dir(keyPath)} {
+		if dir != "" {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("create directory %q: %w", dir, err)
+			}
 		}
 	}
 
@@ -182,6 +185,8 @@ func writeCertFiles(certPath string, certPEM []byte, keyPath string, keyPEM []by
 	return nil
 }
 
+const maxConflictRetries = 5
+
 func patchWebhookCABundle(webhookName string, caPEM []byte) error {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -196,22 +201,30 @@ func patchWebhookCABundle(webhookName string, caPEM []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	webhookCfg, err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webhookName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("get MutatingWebhookConfiguration %q: %w", webhookName, err)
-	}
+	// Retry on conflict (409) to handle concurrent updates during rolling updates
+	for attempt := 0; attempt < maxConflictRetries; attempt++ {
+		webhookCfg, err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webhookName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get MutatingWebhookConfiguration %q: %w", webhookName, err)
+		}
 
-	for i := range webhookCfg.Webhooks {
-		webhookCfg.Webhooks[i].ClientConfig.CABundle = caPEM
-	}
+		for i := range webhookCfg.Webhooks {
+			webhookCfg.Webhooks[i].ClientConfig.CABundle = caPEM
+		}
 
-	_, err = clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(ctx, webhookCfg, metav1.UpdateOptions{})
-	if err != nil {
+		_, err = clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(ctx, webhookCfg, metav1.UpdateOptions{})
+		if err == nil {
+			slog.Info("Webhook configuration patched", "webhookName", webhookName, "webhookCount", len(webhookCfg.Webhooks))
+			return nil
+		}
+		if k8serrors.IsConflict(err) {
+			slog.Info("Conflict updating webhook configuration, retrying", "attempt", attempt+1)
+			continue
+		}
 		return fmt.Errorf("update MutatingWebhookConfiguration %q: %w", webhookName, err)
 	}
 
-	slog.Info("Webhook configuration patched", "webhookName", webhookName, "webhookCount", len(webhookCfg.Webhooks))
-	return nil
+	return fmt.Errorf("update MutatingWebhookConfiguration %q: exceeded %d conflict retries", webhookName, maxConflictRetries)
 }
 
 func cryptoRandSerial() (*big.Int, error) {
