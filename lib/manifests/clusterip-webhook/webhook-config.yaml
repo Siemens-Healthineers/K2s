@@ -37,7 +37,7 @@ webhooks:
         namespace: k2s-webhook
         path: /mutate
         port: 443
-      # caBundle will be injected by the kube-webhook-certgen patch Job
+      # caBundle will be injected by the init-cert init container on Pod startup
       caBundle: ""
   - name: workload.clusterip.k2s.io
     admissionReviewVersions: ["v1"]

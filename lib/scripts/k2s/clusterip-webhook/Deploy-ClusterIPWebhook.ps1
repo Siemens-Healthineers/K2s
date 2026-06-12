@@ -9,11 +9,13 @@ Deploys the K2s ClusterIP mutating webhook to the cluster.
 .DESCRIPTION
 This script deploys the clusterip-webhook components:
   1. Namespace
-  2. RBAC (ServiceAccounts, ClusterRoles, Roles, Bindings)
+  2. RBAC (ServiceAccounts, ClusterRoles, Bindings)
   3. MutatingWebhookConfiguration
-  4. TLS cert generation Job (creates self-signed cert)
-  5. Webhook Deployment + Service
-  6. TLS cert patch Job (injects caBundle into webhook config)
+  4. Webhook Deployment + Service (with init container for TLS cert generation)
+
+The Deployment uses an init container (--init-cert mode) that generates a
+self-signed TLS certificate, writes it to a shared emptyDir volume, and patches
+the MutatingWebhookConfiguration caBundle before the webhook container starts.
 
 The webhook automatically assigns ClusterIPs from the correct subnet
 (Linux 172.21.0.x or Windows 172.21.1.x) by detecting the target OS from
@@ -70,8 +72,6 @@ function Deploy-ClusterIPWebhook {
         'namespace.yaml',
         'rbac.yaml',
         'webhook-config.yaml',
-        'certgen-create-job.yaml',
-        'certgen-patch-job.yaml',
         'deployment.yaml'
     )
 
@@ -87,33 +87,19 @@ function Deploy-ClusterIPWebhook {
     &$executeRemoteCommand "kubectl apply -f $remoteDir/namespace.yaml" -Retries 3
     &$executeRemoteCommand "kubectl apply -f $remoteDir/rbac.yaml" -Retries 3
 
-    # Step 3: Apply webhook config (caBundle empty, will be patched by Job)
+    # Step 3: Apply webhook config (caBundle empty, will be patched by init container)
     Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
     &$executeRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
 
-    # Step 4: Run TLS cert-create Job and wait for completion
-    Write-Log '[ClusterIP-Webhook] Running TLS certificate create job'
-    &$executeRemoteCommand "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Retries 3
-
-    Write-Log '[ClusterIP-Webhook] Waiting for cert-create job to complete'
-    &$executeRemoteCommand "kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-webhook --timeout=120s" -Retries 3
-
-    # Step 5: Run TLS cert-patch Job and wait for completion
-    Write-Log '[ClusterIP-Webhook] Running TLS certificate patch job'
-    &$executeRemoteCommand "kubectl apply -f $remoteDir/certgen-patch-job.yaml" -Retries 3
-
-    Write-Log '[ClusterIP-Webhook] Waiting for cert-patch job to complete'
-    &$executeRemoteCommand "kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-webhook --timeout=120s" -Retries 3
-
-    # Step 6: Apply Deployment + Service (after TLS secret exists)
+    # Step 4: Apply Deployment + Service (init container generates TLS cert on startup)
     Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
     &$executeRemoteCommand "kubectl apply -f $remoteDir/deployment.yaml" -Retries 3
 
-    # Step 7: Wait for webhook deployment to be ready
+    # Step 5: Wait for webhook deployment to be ready
     Write-Log '[ClusterIP-Webhook] Waiting for webhook deployment to be ready'
     &$executeRemoteCommand "kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s" -Retries 3
 
-    # Step 9: Cleanup temp files
+    # Step 6: Cleanup temp files
     &$executeRemoteCommand "rm -rf $remoteDir" -IgnoreErrors
 
     Write-Log '[ClusterIP-Webhook] ClusterIP webhook deployed successfully' -Console
