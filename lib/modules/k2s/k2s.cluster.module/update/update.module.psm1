@@ -328,7 +328,8 @@ function Restore-ClusterIPWebhook {
 		# Note: This resets caBundle to "" in the MutatingWebhookConfiguration. The init container
 		# in the deployment will re-patch it with a fresh CA certificate on rollout restart (Step 5).
 		# There is a brief window between this apply and init container completion where the webhook
-		# will not validate admission requests. This is acceptable during a restore/update.
+		# will not validate admission requests. This is safe because the webhook uses
+		# failurePolicy: Ignore — admission requests are allowed through when the webhook is unavailable.
 		Write-Log '[Webhook] Applying MutatingWebhookConfiguration...' -Console:$consoleSwitch
 		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/webhook-config.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
 

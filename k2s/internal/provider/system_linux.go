@@ -6,6 +6,7 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -81,8 +82,14 @@ func (p *linuxSystemProvider) CertificateRenew(_ SystemCertRenewConfig) error {
 	slog.Info("[System] Renewing clusterip-webhook certificate")
 	checkCmd := exec.Command("kubectl", "get", "deployment", "clusterip-webhook",
 		"-n", "k2s-webhook", "--no-headers")
-	if err := checkCmd.Run(); err != nil {
-		slog.Info("[System] clusterip-webhook deployment not found - skipping webhook cert renewal")
+	if out, err := checkCmd.CombinedOutput(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			slog.Info("[System] clusterip-webhook deployment not found - skipping webhook cert renewal")
+			return nil
+		}
+		slog.Warn("[System] Failed to check clusterip-webhook deployment - skipping webhook cert renewal",
+			"error", err, "output", string(out))
 		return nil
 	}
 
