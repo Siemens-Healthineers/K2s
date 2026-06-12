@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -30,7 +30,7 @@ spec:
           command:
             - "/bin/sh"
             - "-c"
-            - set -euo pipefail; echo "[$(date)] test pv static" >> /mnt/k8s-smb-retain/smb-share-test-linux.file; tail -f /dev/null
+            - set -eu; echo "[$(date)] test pv static" >> /mnt/k8s-smb-retain/smb-share-test-linux.file; tail -f /dev/null
           volumeMounts:
             - name: static-storage
               mountPath: /mnt/k8s-smb-retain
