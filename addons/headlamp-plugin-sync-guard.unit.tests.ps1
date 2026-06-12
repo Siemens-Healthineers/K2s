@@ -8,7 +8,7 @@ Regression tests ensuring the optional Dashboard integration (Headlamp plugin sy
 never becomes a hard runtime dependency for other addons.
 
 .DESCRIPTION
-Several addons (security, monitoring, ingress/*, rollout/fluxcd) call
+Several addons (security, ingress/*, rollout/fluxcd) call
 Sync-HeadlampPlugins from dashboard.module.psm1 purely as an optional UI
 integration. In offline/minimal packages the dashboard addon may be absent.
 
@@ -28,14 +28,13 @@ BeforeAll {
 }
 
 # Defined at discovery scope so -ForEach data-driven cases expand correctly (Pester v5).
+# Note: monitoring is intentionally NOT listed — it installs only kube-prometheus-stack,
+# which maps to no registered Headlamp plugin, so it carries no Dashboard integration.
 $script:addonsRootDiscovery = $PSScriptRoot
 $script:guardedScripts = @(
     'security\Enable.ps1'
     'security\Disable.ps1'
     'security\Update.ps1'
-    'monitoring\Enable.ps1'
-    'monitoring\Disable.ps1'
-    'monitoring\Update.ps1'
     'ingress\nginx\Enable.ps1'
     'ingress\nginx\Disable.ps1'
     'ingress\nginx-gw\Enable.ps1'
