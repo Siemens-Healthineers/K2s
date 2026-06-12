@@ -312,7 +312,7 @@ else {
 
     # Apply WSL2 Kernel
     Write-Log 'Changing linux kernel' -Console
-    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.26.3'
+    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.33.1'
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .microsoft-standard-wsl2').Output | Write-Log
     $command = "container=`$(sudo buildah from $microsoftStandardWSL2 2> /dev/null)  && mountpoint=`$(sudo buildah mount `$container) && sudo find `$mountpoint -iname *.deb | xargs sudo cp -t .microsoft-standard-wsl2 && sudo buildah unmount `$container && sudo buildah rm `$container > /dev/null 2>&1"
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $command).Output | Write-Log
@@ -481,6 +481,7 @@ if ($installFailed) { exit 1 }
 # nvidia-container-toolkit packages are still needed for CRI-O CDI container edits.
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
 
+
 Wait-ForAPIServer
 
 if ($TimeSlices -gt 1) {
@@ -496,6 +497,12 @@ if ($TimeSlices -gt 1) {
     # Apply default ConfigMap (no sharing section — exclusive GPU access per pod).
     (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\time-slicing-config-default.yaml").Output | Write-Log
 }
+
+# Label the node BEFORE deploying the device plugin, so the DaemonSet can schedule pods.
+# The device plugin DaemonSet has nodeSelector: gpu=true
+$labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
+Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true and accelerator=nvidia" -Console
+(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
 
 # Apply Nvidia device plugin — ConfigMap content determines time-slicing behavior.
 Write-Log 'Installing Nvidia Device Plugin' -Console
@@ -551,10 +558,20 @@ if ($TimeSlices -gt 1) {
 }
 Write-Log 'KubeMaster configured successfully as GPU node' -Console
 
-# Label the node so workloads can use nodeSelector: gpu=true.
-$labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
-Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true and accelerator=nvidia" -Console
-(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
+# Check for any external GPU-labeled worker nodes
+Write-Log '[gpu-node] Checking for external GPU-capable worker nodes...' -Console
+$allGpuNodes = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
+if (![string]::IsNullOrWhiteSpace($allGpuNodes)) {
+    $gpuNodeList = $allGpuNodes -split '\s+'
+    $externalGpuNodes = $gpuNodeList | Where-Object { $_ -ne $labelNodeName }
+    if ($externalGpuNodes.Count -gt 0) {
+        Write-Log "[gpu-node] Found $($externalGpuNodes.Count) external GPU-capable worker node(s):" -Console
+        foreach ($node in $externalGpuNodes) {
+            Write-Log "[gpu-node]   - $node" -Console
+        }
+        Write-Log '[gpu-node] These nodes will receive the NVIDIA device plugin DaemonSet pods.' -Console
+    }
+}
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node' })
 

@@ -47,6 +47,9 @@ var (
 	# Requires an existing K2s cluster and the local cluster proxy
 	k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" --proxy http://172.19.1.1:8181
 
+	# Creates a node package with GPU support (includes NVIDIA Container Toolkit packages)
+	k2s system package --node-package --os debian12 --include-gpu --target-dir "C:\output" --name "debian12-node-gpu.zip" --proxy http://172.19.1.1:8181
+
 	# Creates a node-only delta package (between two node package zips)
 	k2s system package --node-package --delta-package --package-version-from "C:\tmp\debian13-node-v1.7.0.zip" --package-version-to "C:\tmp\debian13-node-v1.8.0.zip" --target-dir "C:\output" --name "debian13-node-delta-v1.7.0-to-v1.8.0.zip"
 

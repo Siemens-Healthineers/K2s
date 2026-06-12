@@ -356,6 +356,11 @@ var _ = Describe("'security' addon tests", Ordered, Serial, func() {
 			Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 		})
 
+		It("meshes the kyverno namespace into Linkerd (enhanced security mode)", func(ctx context.Context) {
+			output := suite.Kubectl().MustExec(ctx, "get", "namespace", "kyverno", "-o", "jsonpath={.metadata.annotations.linkerd\\.io/inject}")
+			Expect(output).To(ContainSubstring("enabled"))
+		})
+
 		It("Deploy the workloads after enabling the security addon", func(ctx context.Context) {
 			DeployWorkloads(ctx)
 		})
