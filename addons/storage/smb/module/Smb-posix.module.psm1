@@ -10,9 +10,14 @@ Import-Module $vmModule
 $script:DefaultSmbFstabDialect = '3.0'
 
 function Get-FstabVersionOption {
-    param ([string]$SmbDialect = 'auto')
+    param (
+        [string]$SmbDialect = 'auto',
+        # Dialect pinned when smbDialect is 'auto'/unset. Caller-specific to preserve historical
+        # defaults: Windows SMB host fstab used 'vers=3.0', Linux Samba host fstab used 'vers=3'.
+        [string]$DefaultDialect = $script:DefaultSmbFstabDialect
+    )
     if ($SmbDialect -eq 'auto' -or [string]::IsNullOrEmpty($SmbDialect)) {
-        return "vers=$script:DefaultSmbFstabDialect"
+        return "vers=$DefaultDialect"
     }
     return "vers=$SmbDialect"
 }

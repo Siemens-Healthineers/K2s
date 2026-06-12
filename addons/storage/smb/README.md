@@ -101,7 +101,7 @@ To revert a POSIX-enabled share to the previous default behavior:
 
 1. Edit the affected entry in `SmbStorage.json`: set `enablePosixExtensions` to `false` and `smbDialect` to `auto` (or remove all three optional fields).
 2. Re-apply the configuration by disabling and re-enabling the addon (`k2s addons disable storage smb` then `k2s addons enable storage smb`), or by re-running the addon configuration step.
-3. The host fstab mount reverts to `vers=3.0` and the StorageClass drops the POSIX mount options; the Samba `streams_xattr` settings are removed on the next host setup.
+3. The host fstab mount reverts to its default SMB dialect (the Windows SMB host uses `vers=3.0`, the Linux Samba host uses `vers=3`, both of which negotiate automatically) and the StorageClass drops the POSIX mount options; the Samba `streams_xattr` settings are removed on the next host setup.
 
 Existing data on the share is not affected by the rollback - no migration is required. Symbolic links created while POSIX was enabled remain on disk but may not be traversable over SMB once POSIX is disabled.
 
