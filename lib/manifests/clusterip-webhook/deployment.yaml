@@ -45,7 +45,7 @@ spec:
               mountPath: /certs
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             runAsNonRoot: true
             runAsUser: 65534
             capabilities:

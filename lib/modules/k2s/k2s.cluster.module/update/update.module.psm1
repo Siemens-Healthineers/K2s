@@ -324,7 +324,11 @@ function Restore-ClusterIPWebhook {
 		$rbacResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/rbac.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
 		Write-Log ('[Webhook] rbac apply: success={0} output={1}' -f $rbacResult.Success, ($rbacResult.Output | Out-String).Trim()) -Console:$consoleSwitch
 
-		# Step 2: Apply webhook configuration
+		# Step 2: Apply webhook configuration.
+		# Note: This resets caBundle to "" in the MutatingWebhookConfiguration. The init container
+		# in the deployment will re-patch it with a fresh CA certificate on rollout restart (Step 5).
+		# There is a brief window between this apply and init container completion where the webhook
+		# will not validate admission requests. This is acceptable during a restore/update.
 		Write-Log '[Webhook] Applying MutatingWebhookConfiguration...' -Console:$consoleSwitch
 		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/webhook-config.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
 
