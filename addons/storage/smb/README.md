@@ -106,4 +106,114 @@ To revert a POSIX-enabled share to the previous default behavior:
 Existing data on the share is not affected by the rollback - no migration is required. Symbolic links created while POSIX was enabled remain on disk but may not be traversable over SMB once POSIX is disabled.
 
 ## Examples
-- [Example Workloads](../../../k2s/test/e2e/addons/storage/workloads/)
+
+After enabling the addon, reference the StorageClass name (as printed in the enable output and configured in `SmbStorage.json`) from a `PersistentVolumeClaim`. The example below provisions a 1Gi volume from the default `smb` StorageClass and mounts it into a workload at `/mnt/smb`:
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: smb-example
+  namespace: default
+spec:
+  serviceName: smb-example
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smb-example
+  template:
+    metadata:
+      labels:
+        app: smb-example
+    spec:
+      containers:
+        - name: smb-example
+          image: docker.io/curlimages/curl:8.5.0
+          command: ["/bin/sh", "-c", "while true; do echo $(date) >> /mnt/smb/example.file; sleep 5; done"]
+          volumeMounts:
+            - name: persistent-storage
+              mountPath: /mnt/smb
+  volumeClaimTemplates:
+    - metadata:
+        name: persistent-storage
+      spec:
+        storageClassName: smb
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+```
+
+Replace `storageClassName: smb` with the StorageClass that matches your `SmbStorage.json` entry (for example `smb-posix` for a POSIX-enabled share).
+
+### POSIX-enabled example
+
+POSIX extensions are configured per storage entry in `SmbStorage.json`, not in the consuming workload. A POSIX-enabled volume is consumed exactly like any other SMB volume - the only difference is the StorageClass it references.
+
+POSIX extensions only apply to a Linux-hosted (Samba) share, so enable the addon with the Linux host type:
+
+```
+k2s addons enable storage smb -t linux
+```
+
+First, configure a POSIX-enabled entry in `SmbStorage.json` (this creates the `smb-posix` StorageClass on the next enable). Disable the addon before editing `SmbStorage.json`, then re-enable it - the enable/disable flow rewrites this file from the persisted setup config, so edits made while the addon is enabled are overwritten:
+
+```json
+[
+    {
+        "winMountPath": "C:\\k8s-smb-posix",
+        "linuxMountPath": "/mnt/k8s-smb-posix",
+        "storageClassName": "smb-posix",
+        "smbDialect": "3.1.1",
+        "enablePosixExtensions": true,
+        "useServerInode": true
+    }
+]
+```
+
+Then deploy a workload that references the `smb-posix` StorageClass. The example below exercises POSIX semantics by creating a symbolic link on the share (which only succeeds when POSIX extensions are active):
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: smb-posix-example
+  namespace: default
+spec:
+  serviceName: smb-posix-example
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smb-posix-example
+  template:
+    metadata:
+      labels:
+        app: smb-posix-example
+    spec:
+      nodeSelector:
+        "kubernetes.io/os": linux
+      containers:
+        - name: smb-posix-example
+          image: docker.io/curlimages/curl:8.5.0
+          command:
+            - "/bin/sh"
+            - "-c"
+            - set -eu; echo posix-marker > /mnt/smb/marker.txt; ln -sf /mnt/smb/marker.txt /mnt/smb/marker.link; while true; do sleep 30; done
+          volumeMounts:
+            - name: persistent-storage
+              mountPath: /mnt/smb
+  volumeClaimTemplates:
+    - metadata:
+        name: persistent-storage
+      spec:
+        storageClassName: smb-posix
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+```
+
+> POSIX extensions only apply to shares hosted by the Linux Samba server. Schedule POSIX workloads onto Linux nodes (as shown via `nodeSelector`).
+
+Additional ready-to-run manifests are available under [k2s/test/e2e/addons/storage/smb/workloads](../../../k2s/test/e2e/addons/storage/smb/workloads/).
+

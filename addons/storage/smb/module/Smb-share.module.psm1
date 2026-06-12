@@ -1035,7 +1035,7 @@ function Enable-SmbShare {
     }
     
     Write-Log -Console '**                                                                                        **'
-    Write-Log -Console "** See '<root>\k2s\test\e2e\addons\storage\smb\workloads\' for example deployments.       **"
+    Write-Log -Console "** See '<root>\addons\storage\smb\README.md' for configuration and examples.              **"
     Write-Log -Console '********************************************************************************************'
 
     return @{Error = $null }
