@@ -186,6 +186,8 @@ Set the mode per policy rule with `validationFailureAction: Audit` or `validatio
 k2s addons enable security --omitPolicyEnf
 ```
 
+In **enhanced security mode** the `kyverno` namespace is meshed into Linkerd (`linkerd.io/inject: enabled`), so the Kyverno controllers run inside the zero-trust mTLS perimeter; the admission webhook port (`9443`) is excluded from inbound proxying so the API server can still reach it. In basic mode Kyverno runs without a sidecar.
+
 For full usage examples, sample policies, and `PolicyException` guidance, see the [Policy Enforcement Guide](policy-enforcement.md).
 
 ---

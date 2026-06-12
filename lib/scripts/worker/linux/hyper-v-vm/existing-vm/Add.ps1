@@ -22,6 +22,10 @@ $linuxWorkerCommon = "$PSScriptRoot\..\..\common\LinuxWorkerNode.Common.ps1"
 
 Initialize-LinuxWorkerScriptEnvironment -ShowLogs:$ShowLogs -IncludePuttyTools
 
+# Import GPU worker module for GPU detection and configuration
+$gpuWorkerModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\linuxnode\setup\gpu-worker.module.psm1"
+Import-Module $gpuWorkerModule
+
 $ErrorActionPreference = 'Stop'
 
 
@@ -137,7 +141,6 @@ Add-LinuxWorkerNode @workerNodeParams
 
 Write-Log 'Starting worker node' -Console
 & "$PSScriptRoot\..\..\bare-metal\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName -ObtainCIDR:$true
-
 
 Write-Log "Current state of cluster nodes:" -Console
 Start-Sleep 2
