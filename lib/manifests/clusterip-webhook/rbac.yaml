@@ -37,6 +37,9 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets", "daemonsets"]
     verbs: ["list"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ipaddresses"]
+    verbs: ["list"]
   # Required by the init-cert container to patch caBundle during pod startup.
   # This permission is broader than the old certgen Job design (which used a
   # dedicated short-lived ServiceAccount). It is architecturally required because
