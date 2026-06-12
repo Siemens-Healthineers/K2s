@@ -22,5 +22,16 @@
         "winShareName":  "win-smb-retain",
         "storageClassName": "smb-retain",
         "storageClassReclaimPolicy": "Retain"
+    },
+    {
+        "winMountPath": "C:\\k8s-smb-posix",
+        "linuxMountPath": "/mnt/k8s-smb-posix",
+        "linuxShareName":  "linux-smb-posix",
+        "winShareName":  "win-smb-posix",
+        "storageClassName": "smb-posix",
+        "storageClassReclaimPolicy": "Delete",
+        "smbDialect": "3.1.1",
+        "enablePosixExtensions": true,
+        "useServerInode": true
     }
 ]
