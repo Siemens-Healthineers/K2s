@@ -144,6 +144,22 @@ Describe 'Get-FstabVersionOption' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             }
         }
     }
+
+    # AC#1 (#2478): the Linux Samba host historically pinned 'vers=3'; an 'auto' dialect must not
+    # downgrade it to 'vers=3.0' when a caller-specific default is supplied.
+    Context 'caller-specific default dialect' {
+        It 'uses the supplied default for auto' {
+            InModuleScope -ModuleName $moduleName {
+                Get-FstabVersionOption -SmbDialect 'auto' -DefaultDialect '3' | Should -Be 'vers=3'
+            }
+        }
+
+        It 'still pins an explicit dialect regardless of the default' {
+            InModuleScope -ModuleName $moduleName {
+                Get-FstabVersionOption -SmbDialect '3.1.1' -DefaultDialect '3' | Should -Be 'vers=3.1.1'
+            }
+        }
+    }
 }
 
 Describe 'Get-SambaSharePosixConfig' -Tag 'unit', 'ci', 'addon', 'storage smb' {
