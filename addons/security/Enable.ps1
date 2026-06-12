@@ -400,7 +400,7 @@ try {
 	if (-not $OmitPolicyEnf) {
 		Write-Log 'Installing Kyverno policy enforcement engine' -Console
 		Install-KyvernoCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
-		Install-Kyverno -Proxy $Proxy
+		Install-Kyverno -Proxy $Proxy -EnhancedSecurity:(Confirm-EnhancedSecurityOn($Type))
 		Write-Log 'Kyverno policy enforcement engine installed successfully' -Console
 	} else {
 		Write-Log 'Omitting Kyverno policy enforcement engine as per flag.' -Console
