@@ -113,18 +113,13 @@ function Write-HeadlampUsageForUser {
 }
 
 # ── Headlamp Plugin Framework ──────────────────────────────────────────────────
-# Offline-first, bidirectional Headlamp plugin injection via Kubernetes
-# init-containers.
+# Plugins are injected as Kubernetes init-containers and activated by capability
+# detection (actual cluster state), independent of which addon installed it.
 #
-# Activation is driven by *capability detection* (actual cluster state), not
-# addon ownership, so plugins activate correctly regardless of which installer
-# provided the capability (ingress/nginx, ingress/traefik, security, or a
-# third-party tool).
-#
-# Registry: Get-RegisteredHeadlampPlugins — add new plugins here.
-# Detectors: Test-*CapabilityAvailable — one per plugin, private to this module.
-# Sync entry point: Sync-HeadlampPlugins — called from every addon
-#   Enable.ps1 / Disable.ps1 that can affect a registered capability.
+# Registry:  Get-RegisteredHeadlampPlugins — add new plugins here.
+# Detectors: Test-*CapabilityAvailable     — one per plugin, private to this module.
+# Sync:      Sync-HeadlampPlugins           — call from any addon Enable/Disable
+#            that can affect a registered capability.
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Capability Detectors ──────────────────────────────────────────────────────
@@ -183,17 +178,15 @@ function Get-RegisteredHeadlampPlugins {
     .DESCRIPTION
     Each registration is a PSCustomObject with:
       - Name     : init-container name, unique key (e.g. 'flux-plugin')
-      - Image    : OCI image reference (must be present in the offline package)
+      - Image    : GHCR image reference (must be present in the offline package)
       - Detector : ScriptBlock that returns $true when the capability is live in the cluster
 
     Activation is capability-based (not addon-state-based), so plugins activate
     whenever the underlying technology is present — regardless of which K2s addon
     or external tool installed it.
 
-    Plugin images are consumed directly from upstream GHCR. Their compiled bundle
-    lives at /plugins/<upstreamName>/ inside the image (e.g. /plugins/flux,
-    /plugins/cert-manager); the init-container copy is layout-agnostic (see
-    Build-PluginPatchJson), so the in-image subdirectory name need not match Name.
+    Images are pinned GHCR references embedded in the offline package. The
+    in-image plugin subdirectory need not match Name (see Build-PluginPatchJson).
     #>
     return @(
         [pscustomobject]@{
@@ -216,15 +209,13 @@ function New-PluginInitContainer {
 
     .DESCRIPTION
     The returned object describes one Kubernetes init-container that copies compiled
-    plugin files from the OCI image into the shared Headlamp plugins emptyDir volume.
+    plugin files from the GHCR image into the shared Headlamp plugins emptyDir volume.
 
     .PARAMETER Name
     The init-container name.  Used as the plugin sub-directory under the plugins dir.
 
     .PARAMETER Image
-    The OCI image reference.  The image exposes compiled plugin files under /plugins/
-    (in a single subdirectory whose name is image-defined, e.g. /plugins/flux/).
-    The init-container copy is layout-agnostic, so this subdirectory need not equal Name.
+    The plugin's GHCR image reference (tag pinned).
     #>
     param (
         [Parameter(Mandatory = $true)]
@@ -282,12 +273,10 @@ function Build-PluginPatchJson {
     foreach ($ic in $K2sInitContainers) {
         $n   = $ic.Name
         $img = $ic.Image
-        # Layout-agnostic copy: upstream plugin images expose the compiled bundle at
-        # /plugins/<upstreamName>/ (e.g. /plugins/flux, /plugins/cert-manager), which is
-        # NOT necessarily the init-container name ($n). Copy the entire /plugins tree into
-        # the shared pluginsDir so Headlamp finds pluginsDir/<plugin>/main.js regardless of
-        # the in-image subdirectory name. Each plugin image ships exactly one subdir under
-        # /plugins, so merged copies from multiple init-containers never collide.
+        # Copy the whole /plugins tree (not /plugins/$n): the in-image subdir name is
+        # image-defined and need not equal $n. Each plugin image ships exactly one
+        # subdir, so merges from multiple init-containers never collide, and Headlamp
+        # still finds pluginsDir/<plugin>/main.js.
         $cp  = 'mkdir -p ' + $pluginsDir + ' && cp -r /plugins/. ' + $pluginsDir + '/'
         $icParts += '{\"name\":\"' + $n + '\",\"image\":\"' + $img + '\",' +
                     '\"command\":[\"sh\",\"-c\",\"' + $cp + '\"],' +
@@ -331,6 +320,13 @@ function Get-CurrentPluginInitContainers {
     Returns an empty array when the Deployment does not exist or has no initContainers.
     #>
     $result = Invoke-Kubectl -Params 'get', 'deployment', 'headlamp', '-n', 'dashboard', '-o', 'json', '--ignore-not-found'
+    # Guard against parsing error text as JSON: a failed kubectl call (auth/transient API
+    # error) may emit a non-empty, non-JSON message on Output. Treat any failure as "unknown
+    # state" and return empty so the caller does not act on garbage.
+    if (-not $result.Success) {
+        Write-Log "[Dashboard][Plugin] Warning: kubectl get deployment failed while reading initContainers: $($result.Output)"
+        return @()
+    }
     if (-not $result.Output) {
         return @()
     }
@@ -410,12 +406,10 @@ function Apply-HeadlampPluginPatch {
 
     Write-Log "[Dashboard][Plugin] Patching headlamp deployment: $($toAddOrUpdate.Count) add/update, $($toRemove.Count) remove" -Console
 
+    # At least one add/update/remove is guaranteed here (checked above), so
+    # Build-PluginPatchJson always receives a non-empty input and never returns $null.
     $patchJson = Build-PluginPatchJson -K2sInitContainers $InitContainers -NamesToRemove $toRemove
 
-    if (-not $patchJson) {
-        Write-Log '[Dashboard][Plugin] Nothing to patch (no additions, updates, or removals needed)'
-        return
-    }
 
     # Build-PluginPatchJson emits backslash-escaped quotes (\") for legacy inline use.
     # Passing that inline via -p is unsafe: under PowerShell 5.1 native-argument quoting

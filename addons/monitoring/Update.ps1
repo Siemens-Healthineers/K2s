@@ -9,8 +9,8 @@ Param(
     [switch] $OmitGrafana
 )
 
-$addonsModule      = "$PSScriptRoot\..\addons.module.psm1"
-$monitoringModule  = "$PSScriptRoot\monitoring.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
 
 Import-Module $addonsModule, $monitoringModule
 
@@ -164,6 +164,5 @@ if ($EnancedSecurityEnabled) {
 }
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
-
 
 Write-Log 'Updating monitoring addon finished.' -Console

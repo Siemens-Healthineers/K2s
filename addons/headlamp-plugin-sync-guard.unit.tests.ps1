@@ -30,7 +30,6 @@ BeforeAll {
 # Defined at discovery scope so -ForEach data-driven cases expand correctly (Pester v5).
 # Note: monitoring is intentionally NOT listed — it installs only kube-prometheus-stack,
 # which maps to no registered Headlamp plugin, so it carries no Dashboard integration.
-$script:addonsRootDiscovery = $PSScriptRoot
 $script:guardedScripts = @(
     'security\Enable.ps1'
     'security\Disable.ps1'
@@ -87,8 +86,14 @@ Describe 'Optional Dashboard integration (Headlamp plugin sync guards)' -Tag 'un
         # ...and every reference is wrapped in the availability guard.
         $content | Should -Match 'if \(Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue\)' -Because "$_ must guard the call"
 
-        # No bare, unguarded invocation at column 0 (the guarded call is indented inside the if).
-        ($content -match '(?m)^Sync-HeadlampPlugins\s*$') | Should -Be $false -Because "$_ must not call Sync-HeadlampPlugins unguarded"
+        # Every bare invocation line (the function name alone on a line, at any
+        # indentation) must be matched by a Get-Command guard. Counting both and
+        # requiring equality catches indented unguarded calls too — not just calls
+        # at column 0 — since each guarded call is exactly one guard wrapping one
+        # indented invocation line.
+        $bareCalls   = ([regex]::Matches($content, '(?m)^\s*Sync-HeadlampPlugins\s*$')).Count
+        $guardLines  = ([regex]::Matches($content, 'if \(Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue\)')).Count
+        $bareCalls | Should -Be $guardLines -Because "$_ must not call Sync-HeadlampPlugins unguarded (every invocation needs a Get-Command guard)"
     }
 }
 

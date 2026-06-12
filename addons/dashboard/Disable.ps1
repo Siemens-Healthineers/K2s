@@ -57,9 +57,6 @@ Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'dashboard' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dashboard' })
 Remove-IngressForNginxGateway -Addon ([pscustomobject] @{Name = 'dashboard' })
 
-Write-Log '[Dashboard] Removing Headlamp plugin init-containers' -Console
-Remove-HeadlampPluginPatch
-
 Write-Log '[Dashboard] Uninstalling Headlamp workloads via Helm, please wait ...' -Console
 Uninstall-HeadlampViaHelm
 

@@ -70,7 +70,6 @@ $metricsEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'metrics
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
 
-
 if (-not $metricsEnabled) {
     Write-Log 'Removing Windows Exporter (no longer needed by any addon)' -Console
     $windowsExporterManifest = Get-WindowsExporterManifestDir

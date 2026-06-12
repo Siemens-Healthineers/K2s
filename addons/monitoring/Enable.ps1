@@ -200,7 +200,6 @@ if (!$kubectlCmd.Success) {
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring'; OmitGrafana = $OmitGrafana.IsPresent })
 
-
 if ($OmitGrafana) {
     Write-Log 'Kube Prometheus Stack installed successfully (without Grafana)'
 } else {
