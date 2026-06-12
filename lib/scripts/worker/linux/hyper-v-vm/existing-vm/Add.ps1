@@ -89,21 +89,24 @@ if ($targetVm.State -ne [Microsoft.HyperV.PowerShell.VMState]::Running) {
     throw "Precondition not met: VM '$VmName' must be in 'Running' state, but is '$($targetVm.State)'"
 }
 
-# Check KubeSwitch network profile is set to Private
+# Check KubeSwitch firewall posture is acceptable: hidden, or Private as fallback
 $kubeSwitchProfile = Test-KubeSwitchPrivateProfile
-if (-not $kubeSwitchProfile.IsPrivate) {
+if (-not $kubeSwitchProfile.IsAcceptable) {
     $category = $kubeSwitchProfile.CurrentCategory
     $interfaceAlias = $kubeSwitchProfile.InterfaceAlias
     
     $errorMsg = @"
-Precondition not met: KubeSwitch network profile is set to '$category' but must be 'Private'.
+Precondition not met: KubeSwitch firewall posture is not acceptable. Current category: '$category', hidden: '$($kubeSwitchProfile.IsHidden)'.
 
 To fix this, run the following command in an elevated PowerShell:
+    & "$(Get-KubeBinPath)\SetNcfHidden.exe" ALIAS '$interfaceAlias' true 1
+
+If SetNcfHidden.exe is unavailable, use the fallback:
     Set-NetConnectionProfile -InterfaceAlias '$interfaceAlias' -NetworkCategory Private
 "@
     throw $errorMsg
 }
-Write-Log "[NodeAdd] KubeSwitch profile check passed (category: $($kubeSwitchProfile.CurrentCategory))"
+Write-Log "[NodeAdd] KubeSwitch firewall posture check passed (category: $($kubeSwitchProfile.CurrentCategory), hidden: $($kubeSwitchProfile.IsHidden))"
 
 Assert-LinuxWorkerNodeSshConnectivity -UserName $UserName -IpAddress $IpAddress -LogPrefix '[NodeAdd]' -TargetDescription 'node'
 Assert-LinuxWorkerNodeAuthorizedKey -UserName $UserName -IpAddress $IpAddress -LogPrefix '[NodeAdd]'

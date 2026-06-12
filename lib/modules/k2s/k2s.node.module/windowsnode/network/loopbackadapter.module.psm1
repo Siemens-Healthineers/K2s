@@ -367,6 +367,7 @@ function Set-LoopbackAdapterExtendedProperties {
     Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
     netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
     Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102  | Out-Null
+    Set-K2sInterfaceHidden -InterfaceAlias $loopbackAdapterAlias -Hidden $true -Category 1 | Out-Null
 }
 
 function Set-NewNameForLoopbackAdapter {
@@ -407,7 +408,10 @@ function Set-NewNameForLoopbackAdapter {
 function Set-PrivateNetworkProfileForLoopbackAdapter {
     $adapterName = Get-L2BridgeName
     $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
-    Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
+    $hiddenResult = Set-K2sInterfaceHidden -InterfaceAlias "$loopbackAdapterAlias" -Hidden $true -Category 1
+    if (-not $hiddenResult.Applied) {
+        Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
+    }
 }
 
 Export-ModuleMember New-LoopbackAdapter

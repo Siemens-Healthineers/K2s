@@ -70,14 +70,17 @@ function New-KubeSwitch() {
     }
 
     New-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -InterfaceAlias $switchAlias | Out-Null
-    # set connection to private because of firewall rules
-    Set-NetConnectionProfile -InterfaceAlias $switchAlias -NetworkCategory Private -ErrorAction SilentlyContinue
     # enable forwarding
     netsh int ipv4 set int $switchAlias forwarding=enabled | Out-Null
     # change index in order to have the Ethernet card as first card (also for much better DNS queries)
     $ipindex1 = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$controlPlaneSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
     Write-Log "[KubeSwitch] Index for interface $controlPlaneSwitchName : ($ipindex1) -> metric 100"
     Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 100
+
+    $hiddenResult = Set-K2sInterfaceHidden -InterfaceAlias $switchAlias -Hidden $true -Category 1
+    if (-not $hiddenResult.Applied) {
+        Set-NetConnectionProfile -InterfaceAlias $switchAlias -NetworkCategory Private -ErrorAction SilentlyContinue
+    }
 }
 
 <#

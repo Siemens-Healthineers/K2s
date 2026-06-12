@@ -178,6 +178,8 @@ function New-ExternalSwitch {
         Write-Log "Disable DNS for interface $endpointname : ($cbr0AdapterIfIndex)"
         Set-DnsClient -InterfaceIndex $cbr0AdapterIfIndex -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
     }
+
+    Set-K2sInterfaceHidden -InterfaceAlias $iname -Hidden $true -Category 1 | Out-Null
 }
 
 function Remove-ExternalSwitch () {
@@ -227,6 +229,132 @@ function Remove-ExternalSwitch () {
             Write-Log "L2 bridge network switch name: $l2BridgeSwitchName removed"
             break
         }
+    }
+}
+
+function Set-K2sInterfaceHidden {
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string] $InterfaceAlias,
+        [Parameter()]
+        [bool] $Hidden = $true,
+        [Parameter()]
+        [int] $Category = 1,
+        [Parameter()]
+        [switch] $Strict
+    )
+
+    $adapter = Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $InterfaceAlias } | Select-Object -First 1
+    if (-not $adapter) {
+        Write-Log "[NcfHidden] Interface '$InterfaceAlias' not found, skipping hidden flag."
+        return [PSCustomObject]@{
+            InterfaceAlias = $InterfaceAlias
+            Applied        = $false
+            Hidden         = $Hidden
+            Category       = $Category
+            Error          = 'Interface not found'
+        }
+    }
+
+    $setNcfHiddenExe = Join-Path -Path (Get-KubeBinPath) -ChildPath 'SetNcfHidden.exe'
+    if (-not (Test-Path $setNcfHiddenExe)) {
+        $message = "[NcfHidden] '$setNcfHiddenExe' not found, leaving '$InterfaceAlias' network profile unchanged."
+        if ($Strict) { throw $message }
+        Write-Log $message
+        return [PSCustomObject]@{
+            InterfaceAlias = $InterfaceAlias
+            Applied        = $false
+            Hidden         = $Hidden
+            Category       = $Category
+            Error          = 'SetNcfHidden.exe not found'
+        }
+    }
+
+    $hiddenValue = $Hidden.ToString().ToLowerInvariant()
+    Write-Log "[NcfHidden] Setting '$InterfaceAlias' hidden=$hiddenValue category=$Category"
+
+    $output = & $setNcfHiddenExe ALIAS $InterfaceAlias $hiddenValue $Category 2>&1
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        $message = "[NcfHidden] Failed to set hidden flag for '$InterfaceAlias' (exit code $exitCode): $output"
+        if ($Strict) { throw $message }
+        Write-Log $message
+        return [PSCustomObject]@{
+            InterfaceAlias = $InterfaceAlias
+            Applied        = $false
+            Hidden         = $Hidden
+            Category       = $Category
+            Error          = $message
+        }
+    }
+
+    if ($output) {
+        Write-Log "[NcfHidden] SetNcfHidden.exe output for '$InterfaceAlias': $output"
+    }
+
+    return [PSCustomObject]@{
+        InterfaceAlias = $InterfaceAlias
+        Applied        = $true
+        Hidden         = $Hidden
+        Category       = $Category
+        Error          = $null
+    }
+}
+
+function Set-K2sNetworkInterfacesHidden {
+    $k2sInterfaceAliases = @(
+        'vEthernet (KubeSwitch)',
+        'vEthernet (cbr0_ep)',
+        'vEthernet (Loopbackk2s)'
+    )
+
+    foreach ($interfaceAlias in $k2sInterfaceAliases) {
+        Set-K2sInterfaceHidden -InterfaceAlias $interfaceAlias -Hidden $true -Category 1 | Out-Null
+    }
+}
+
+function Test-K2sInterfaceFirewallPosture {
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string] $InterfaceAlias
+    )
+
+    $adapter = Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $InterfaceAlias } | Select-Object -First 1
+    if (-not $adapter) {
+        Write-Log "[NcfHidden] Interface '$InterfaceAlias' not found during firewall posture check."
+        return @{
+            IsAcceptable   = $false
+            IsPrivate      = $false
+            IsHidden       = $false
+            CurrentCategory = 'Unknown'
+            InterfaceAlias  = $InterfaceAlias
+            Error           = 'Interface not found'
+        }
+    }
+
+    $connectionProfile = Get-NetConnectionProfile -InterfaceAlias $InterfaceAlias -ErrorAction SilentlyContinue
+    if (-not $connectionProfile) {
+        Write-Log "[NcfHidden] No connection profile found for '$InterfaceAlias'; treating it as hidden/acceptable."
+        return @{
+            IsAcceptable   = $true
+            IsPrivate      = $false
+            IsHidden       = $true
+            CurrentCategory = 'NoProfile'
+            InterfaceAlias  = $InterfaceAlias
+            Error           = $null
+        }
+    }
+
+    $category = $connectionProfile.NetworkCategory
+    return @{
+        IsAcceptable   = ($category -eq 'Private')
+        IsPrivate      = ($category -eq 'Private')
+        IsHidden       = $false
+        CurrentCategory = $category
+        InterfaceAlias  = $InterfaceAlias
+        Error           = $null
     }
 }
 
@@ -675,25 +803,28 @@ function Set-KubeSwitchToPrivate {
     # get the real switch name
     $switchRealName = Get-VirtualSwitchName($switchname)
 
-    # set the switch to private
-    Set-InterfacePrivate -InterfaceAlias $switchRealName
+    # hide the switch from Windows Firewall profile evaluation; fall back to Private profile if the helper is unavailable
+    $hiddenResult = Set-K2sInterfaceHidden -InterfaceAlias $switchRealName -Hidden $true -Category 1
+    if (-not $hiddenResult.Applied) {
+        Set-InterfacePrivate -InterfaceAlias $switchRealName
+    }
 
     Write-Log 'Kubeswitch check finished.'
 }
 
 <#
 .SYNOPSIS
-Checks if the KubeSwitch network connection profile is set to Private.
+Checks if the KubeSwitch firewall posture is acceptable.
 
 .DESCRIPTION
-Verifies that the KubeSwitch (Hyper-V internal switch) has its network category set to Private.
-This is required for proper communication between the Windows host and VMs on the switch.
-Returns a hashtable with IsPrivate (bool) and CurrentCategory (string).
+Verifies that the KubeSwitch (Hyper-V internal switch) is hidden from Windows Firewall profile evaluation.
+If hiding is not available, a Private network category is accepted as fallback.
+Returns a hashtable with IsAcceptable, IsHidden, IsPrivate, and CurrentCategory.
 
 .EXAMPLE
 $result = Test-KubeSwitchPrivateProfile
-if (-not $result.IsPrivate) {
-    throw "KubeSwitch is set to '$($result.CurrentCategory)' - must be Private"
+if (-not $result.IsAcceptable) {
+    throw "KubeSwitch firewall posture is not acceptable"
 }
 #>
 function Test-KubeSwitchPrivateProfile {
@@ -715,6 +846,8 @@ function Test-KubeSwitchPrivateProfile {
         Write-Log "[KubeSwitchCheck] Could not find interface for switch '$switchname': $_"
         return @{
             IsPrivate       = $false
+            IsHidden        = $false
+            IsAcceptable    = $false
             CurrentCategory = 'Unknown'
             SwitchName      = $switchname
             InterfaceAlias  = $null
@@ -722,27 +855,17 @@ function Test-KubeSwitchPrivateProfile {
         }
     }
 
-    $connectionProfile = Get-NetConnectionProfile -InterfaceAlias $switchRealName -ErrorAction SilentlyContinue
-    if (-not $connectionProfile) {
-        Write-Log "[KubeSwitchCheck] No connection profile found for '$switchRealName'"
-        return @{
-            IsPrivate       = $false
-            CurrentCategory = 'NoProfile'
-            SwitchName      = $switchname
-            InterfaceAlias  = $switchRealName
-            Error           = "No connection profile found"
-        }
-    }
-
-    $category = $connectionProfile.NetworkCategory
-    Write-Log "[KubeSwitchCheck] KubeSwitch '$switchRealName' has network category: $category"
+    $posture = Test-K2sInterfaceFirewallPosture -InterfaceAlias $switchRealName
+    Write-Log "[KubeSwitchCheck] KubeSwitch '$switchRealName' firewall posture: category=$($posture.CurrentCategory), hidden=$($posture.IsHidden), acceptable=$($posture.IsAcceptable)"
 
     return @{
-        IsPrivate       = ($category -eq 'Private')
-        CurrentCategory = $category
+        IsPrivate       = $posture.IsPrivate
+        IsHidden        = $posture.IsHidden
+        IsAcceptable    = $posture.IsAcceptable
+        CurrentCategory = $posture.CurrentCategory
         SwitchName      = $switchname
         InterfaceAlias  = $switchRealName
-        Error           = $null
+        Error           = $posture.Error
     }
 }
 
@@ -754,4 +877,5 @@ Get-L2BridgeSwitchName,
 Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
 Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand,
-Wait-ForServiceStopped, Test-KubeSwitchPrivateProfile
+Wait-ForServiceStopped, Test-KubeSwitchPrivateProfile, Set-K2sInterfaceHidden, Set-K2sNetworkInterfacesHidden,
+Test-K2sInterfaceFirewallPosture

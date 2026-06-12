@@ -204,22 +204,26 @@ function Initialize-Cni0Interface {
 
 function CheckKubeSwitchInExpectedState() {
     $controlPlaneNodeDefaultSwitchName = Get-ControlPlaneNodeDefaultSwitchName
-    $if = Get-NetConnectionProfile -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -ErrorAction SilentlyContinue
-    if (!$if) {
-        Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not found."
+    $interfaceAlias = "vEthernet ($controlPlaneNodeDefaultSwitchName)"
+    $adapter = Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $interfaceAlias } | Select-Object -First 1
+    if (!$adapter) {
+        Write-Log "$interfaceAlias not found."
         return $false
     }
-    if ($if.NetworkCategory -ne 'Private') {
-        Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not set to private."
+
+    $posture = Test-K2sInterfaceFirewallPosture -InterfaceAlias $interfaceAlias
+    if (-not $posture.IsAcceptable) {
+        Write-Log "$interfaceAlias firewall posture is not acceptable. Category: $($posture.CurrentCategory), Hidden: $($posture.IsHidden)"
         return $false
     }
-    $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -AddressFamily IPv4 -ErrorAction SilentlyContinue
+
+    $if = Get-NetIPAddress -InterfaceAlias $interfaceAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue
     if (!$if) {
-        Write-Log "Unable get IP Address for host on vEthernet ($controlPlaneNodeDefaultSwitchName) interface..."
+        Write-Log "Unable get IP Address for host on $interfaceAlias interface..."
         return $false
     }
     if ($if.IPAddress -ne $windowsHostIpAddress) {
-        Write-Log "IP Address of Host on vEthernet ($controlPlaneNodeDefaultSwitchName) is not $windowsHostIpAddress ..."
+        Write-Log "IP Address of Host on $interfaceAlias is not $windowsHostIpAddress ..."
         return $false
     }
     return $true
@@ -377,7 +381,10 @@ function Start-ControlPlaneNodeOnNewVM {
 
             # create switch for VM
             New-KubeSwitch
-            Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
+            $hiddenResult = Set-K2sInterfaceHidden -InterfaceAlias "vEthernet ($switchname)" -Hidden $true -Category 1
+            if (-not $hiddenResult.Applied) {
+                Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
+            }
 
             # connect VM to switch
             Connect-KubeSwitch
@@ -423,8 +430,11 @@ function Start-ControlPlaneNodeOnNewVM {
     netsh int ipv4 set int $switchRealName forwarding=enabled | Out-Null
     netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
-    # Double check for KubeSwitch is in expected Private state
-    Set-InterfacePrivate -InterfaceAlias $switchRealName
+    # Double check KubeSwitch hidden firewall posture, with Private profile as fallback
+    $hiddenResult = Set-K2sInterfaceHidden -InterfaceAlias $switchRealName -Hidden $true -Category 1
+    if (-not $hiddenResult.Applied) {
+        Set-InterfacePrivate -InterfaceAlias $switchRealName
+    }
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'K2s control plane started'

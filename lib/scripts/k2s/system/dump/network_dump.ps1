@@ -49,6 +49,9 @@ route print | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfil
 
 Get-NetConnectionProfile | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "Get-NetConnectionProfile" -Separator $lineBreak
 
+Get-NetAdapter -IncludeHidden | Where-Object { $_.Name -in @('vEthernet (KubeSwitch)', 'vEthernet (cbr0_ep)', 'vEthernet (Loopbackk2s)') } | Out-String `
+| Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "K2s hidden-capable network adapters" -Separator $lineBreak
+
 Get-NetRoute -IncludeAllCompartments | Sort-Object RouteMetric | Out-String `
 | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "Get-NetRoute" -Separator $lineBreak
 
