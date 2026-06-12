@@ -156,6 +156,7 @@ var _ = Describe("dashboard addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "dashboard", "-o")
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
@@ -200,6 +201,12 @@ var _ = Describe("dashboard addon export and import", Ordered, func() {
 				"dashboard.module.unit.tests.ps1",
 			}
 			exportimport.VerifyImportedAddonFiles(dashboardImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "dashboard", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("headlamp", "dashboard")
 		})
 	})
 

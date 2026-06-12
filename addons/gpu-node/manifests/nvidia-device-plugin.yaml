@@ -146,3 +146,8 @@ spec:
           name: time-slicing-config
       nodeSelector:
         "kubernetes.io/os": linux
+        # Only schedule on nodes explicitly labeled as GPU-capable.
+        # This label is applied by:
+        # - The gpu-node addon Enable.ps1 (for KubeMaster)
+        # - k2s node add (automatically when NVIDIA GPU is detected on external Linux workers)
+        "gpu": "true"

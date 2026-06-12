@@ -151,6 +151,7 @@ var _ = Describe("logging addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "logging", "-o")
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
@@ -195,6 +196,12 @@ var _ = Describe("logging addon export and import", Ordered, func() {
 				"opensearch-dashboard-saved-objects/k2s-index-pattern.ndjson",
 			}
 			exportimport.VerifyImportedAddonFiles(loggingImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "logging", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 		})
 	})
 
