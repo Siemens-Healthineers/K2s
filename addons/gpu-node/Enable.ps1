@@ -105,6 +105,60 @@ if ($null -eq $wslLibDir) {
 
 Write-Log "[gpu-node] WSL lib directory resolved to: $wslLibDir" -Console
 
+$nvidiaDriverDirectory = $null
+if (!$WSL) {
+    $nvidiaVideoControllers = @(Get-CimInstance -ClassName Win32_VideoController | Where-Object { $_.Name -match 'NVIDIA' })
+    $installedDisplayDriver = $nvidiaVideoControllers | ForEach-Object { $_.InstalledDisplayDrivers } | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1
+    $installedDisplayDriverFile = if (![string]::IsNullOrWhiteSpace($installedDisplayDriver)) {
+        ($installedDisplayDriver -split ',') | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1
+    }
+
+    if ($nvidiaVideoControllers.Count -eq 0 -or [string]::IsNullOrWhiteSpace($installedDisplayDriverFile)) {
+        $errMsg = "No NVIDIA GPU with installed display driver was detected on this Windows host.`n" +
+            "The gpu-node addon requires a supported NVIDIA GPU and WSL-compatible NVIDIA drivers.`n" +
+            "Install the NVIDIA driver from https://www.nvidia.com/Download/index.aspx on a machine with NVIDIA hardware, reboot, and try again."
+
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
+    }
+
+    $nvidiaDriverDirectory = Split-Path $installedDisplayDriverFile
+    if ([string]::IsNullOrWhiteSpace($nvidiaDriverDirectory) -or !(Test-Path -Path $nvidiaDriverDirectory)) {
+        $errMsg = "NVIDIA driver metadata was found, but the driver directory could not be resolved: '$installedDisplayDriverFile'.`n" +
+            'Reinstall the NVIDIA driver, reboot the machine, and try enabling the gpu-node addon again.'
+
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
+    }
+
+    if (!(Test-Path -Path (Join-Path $nvidiaLibDir 'nvidia-smi'))) {
+        $errMsg = "NVIDIA WSL driver files were not found in '$nvidiaLibDir'.`n" +
+            "The gpu-node addon requires NVIDIA's WSL driver components, including nvidia-smi.`n" +
+            'Reinstall a WSL-compatible NVIDIA driver, reboot the machine, and try enabling the gpu-node addon again.'
+
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
+    }
+}
+
 if ($WSL) {
     $success = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute '[ -f /usr/lib/wsl/lib/libdxcore.so ]').Success
     if (!$success) {
@@ -218,8 +272,6 @@ else {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     Write-Log 'Copying drivers' -Console
-    $installedDisplayDriver = Get-CimInstance -ClassName Win32_VideoController | Where-Object { $_.Name -match 'NVIDIA' } | ForEach-Object { $_.InstalledDisplayDrivers }
-    $drivers = Split-Path ($installedDisplayDriver -split ',')[0]
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .nvidiadrivers/lib').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .nvidiadrivers/drivers').Output | Write-Log
@@ -232,7 +284,7 @@ else {
         Write-Log "[gpu-node] Merging WSL GPU libs from '$wslLibDir'" -Console
         Copy-ToControlPlaneViaSSHKey "$wslLibDir\*" '.nvidiadrivers/lib'
     }
-    Copy-ToControlPlaneViaSSHKey $drivers '.nvidiadrivers/drivers'
+    Copy-ToControlPlaneViaSSHKey $nvidiaDriverDirectory '.nvidiadrivers/drivers'
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /usr/lib/wsl').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -p /usr/lib/wsl/lib').Output | Write-Log
@@ -260,7 +312,7 @@ else {
 
     # Apply WSL2 Kernel
     Write-Log 'Changing linux kernel' -Console
-    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.26.3'
+    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.33.1'
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .microsoft-standard-wsl2').Output | Write-Log
     $command = "container=`$(sudo buildah from $microsoftStandardWSL2 2> /dev/null)  && mountpoint=`$(sudo buildah mount `$container) && sudo find `$mountpoint -iname *.deb | xargs sudo cp -t .microsoft-standard-wsl2 && sudo buildah unmount `$container && sudo buildah rm `$container > /dev/null 2>&1"
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $command).Output | Write-Log
@@ -429,6 +481,7 @@ if ($installFailed) { exit 1 }
 # nvidia-container-toolkit packages are still needed for CRI-O CDI container edits.
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
 
+
 Wait-ForAPIServer
 
 if ($TimeSlices -gt 1) {
@@ -444,6 +497,12 @@ if ($TimeSlices -gt 1) {
     # Apply default ConfigMap (no sharing section — exclusive GPU access per pod).
     (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\time-slicing-config-default.yaml").Output | Write-Log
 }
+
+# Label the node BEFORE deploying the device plugin, so the DaemonSet can schedule pods.
+# The device plugin DaemonSet has nodeSelector: gpu=true
+$labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
+Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true and accelerator=nvidia" -Console
+(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
 
 # Apply Nvidia device plugin — ConfigMap content determines time-slicing behavior.
 Write-Log 'Installing Nvidia Device Plugin' -Console
@@ -499,10 +558,20 @@ if ($TimeSlices -gt 1) {
 }
 Write-Log 'KubeMaster configured successfully as GPU node' -Console
 
-# Label the node so workloads can use nodeSelector: gpu=true.
-$labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
-Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true and accelerator=nvidia" -Console
-(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
+# Check for any external GPU-labeled worker nodes
+Write-Log '[gpu-node] Checking for external GPU-capable worker nodes...' -Console
+$allGpuNodes = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
+if (![string]::IsNullOrWhiteSpace($allGpuNodes)) {
+    $gpuNodeList = $allGpuNodes -split '\s+'
+    $externalGpuNodes = $gpuNodeList | Where-Object { $_ -ne $labelNodeName }
+    if ($externalGpuNodes.Count -gt 0) {
+        Write-Log "[gpu-node] Found $($externalGpuNodes.Count) external GPU-capable worker node(s):" -Console
+        foreach ($node in $externalGpuNodes) {
+            Write-Log "[gpu-node]   - $node" -Console
+        }
+        Write-Log '[gpu-node] These nodes will receive the NVIDIA device plugin DaemonSet pods.' -Console
+    }
+}
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node' })
 

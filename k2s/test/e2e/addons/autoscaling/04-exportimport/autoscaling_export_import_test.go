@@ -151,6 +151,7 @@ var _ = Describe("autoscaling addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "autoscaling", "-o")
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
@@ -194,6 +195,12 @@ var _ = Describe("autoscaling addon export and import", Ordered, func() {
 				"README.md",
 			}
 			exportimport.VerifyImportedAddonFiles(autoscalingImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "autoscaling", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("keda-operator", "autoscaling")
 		})
 	})
 

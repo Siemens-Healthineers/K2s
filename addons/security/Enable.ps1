@@ -49,10 +49,7 @@ $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 $dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
-# TODO: Remove cross referencing once the code clones are removed and use the central module for these functions.
-$loggingModule = "$PSScriptRoot\..\logging\logging.module.psm1"
-
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule, $loggingModule, $dashboardModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule
 Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -404,7 +401,7 @@ try {
 	if (-not $OmitPolicyEnf) {
 		Write-Log 'Installing Kyverno policy enforcement engine' -Console
 		Install-KyvernoCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
-		Install-Kyverno -Proxy $Proxy
+		Install-Kyverno -Proxy $Proxy -EnhancedSecurity:(Confirm-EnhancedSecurityOn($Type))
 		Write-Log 'Kyverno policy enforcement engine installed successfully' -Console
 	} else {
 		Write-Log 'Omitting Kyverno policy enforcement engine as per flag.' -Console

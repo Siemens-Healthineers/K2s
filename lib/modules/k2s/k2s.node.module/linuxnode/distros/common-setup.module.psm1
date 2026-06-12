@@ -778,7 +778,112 @@ function Get-FlannelImages {
     Write-Log 'Get images used by flannel'
 
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.1-flannel1'
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.28.4'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.28.5'
+}
+
+<#
+.SYNOPSIS
+    Downloads NVIDIA Container Toolkit packages for GPU support.
+.DESCRIPTION
+    Sets up the NVIDIA apt repository on the remote Linux machine and downloads
+    the NVIDIA Container Toolkit packages (libnvidia-container, nvidia-container-toolkit, etc.)
+    to the specified target path. These packages enable GPU container workloads.
+.PARAMETER UserName
+    The user name to log in into the VM.
+.PARAMETER UserPwd
+    The password to use to log in into the VM.
+.PARAMETER IpAddress
+    The IP address of the VM.
+.PARAMETER Proxy
+    Optional HTTP proxy to use for package downloads.
+.PARAMETER TargetPath
+    Remote path where downloaded .deb packages will be stored.
+#>
+function Get-NvidiaGpuDebPackagesFromInternet {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = '',
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$Proxy = '',
+        [string]$TargetPath = $(throw 'Argument missing: TargetPath')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+
+    Write-Log '[GpuPkg] Downloading NVIDIA Container Toolkit packages'
+
+    $proxyEnv = ''
+    $curlProxy = ''
+    if (![string]::IsNullOrWhiteSpace($Proxy)) {
+        $proxyEnv = "http_proxy=$Proxy https_proxy=$Proxy "
+        $curlProxy = "-x $Proxy"
+    }
+
+    # Add NVIDIA Container Toolkit repository
+    $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+    Write-Log '[GpuPkg] Setting up NVIDIA repository...'
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+
+    # Update apt
+    $updateCmd = "${proxyEnv}sudo apt-get update"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $updateCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+
+    # Create target directory
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $TargetPath && cd $TargetPath && sudo chown -R _apt:root ." -RemoteUser $remoteUser -RemoteUserPwd $UserPwd).Output | Write-Log
+
+    $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-toolkit-base', 'nvidia-container-runtime', 'nvidia-container-toolkit')
+    foreach ($pkg in $gpuPackages) {
+        Write-Log "[GpuPkg] Downloading GPU package: $pkg"
+        # Download the package
+        $downloadCmd = "cd $TargetPath && ${proxyEnv}sudo apt-get download $pkg 2>&1"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $downloadCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        
+        # Download dependencies
+        $depsCmd = "cd $TargetPath && ${proxyEnv}sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r ${proxyEnv}sudo apt-get download 2>&1 || true"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $depsCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+    }
+
+    $remoteGpuDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $TargetPath/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output
+    Write-Log "[GpuPkg] GPU packages downloaded: $($remoteGpuDebCount.Trim())"
+    Write-Log '[GpuPkg] Finished downloading NVIDIA Container Toolkit packages'
+}
+
+<#
+.SYNOPSIS
+    Pulls GPU container images (NVIDIA device plugin, DCGM exporter).
+.DESCRIPTION
+    Pulls the container images required for GPU workloads in Kubernetes:
+    - NVIDIA device plugin: Exposes GPUs to the Kubernetes scheduler
+    - DCGM exporter: Exports GPU metrics (optional, may not work on all setups)
+.PARAMETER UserName
+    The user name to log in into the VM.
+.PARAMETER UserPwd
+    The password to use to log in into the VM.
+.PARAMETER IpAddress
+    The IP address of the VM.
+#>
+function Get-GpuContainerImages {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    }
+
+    Write-Log '[GpuImg] Pulling GPU container images (device plugin, DCGM exporter)'
+
+    &$executeRemoteCommand 'sudo buildah pull nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
+    &$executeRemoteCommand 'sudo buildah pull nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
+
+    Write-Log '[GpuImg] Finished pulling GPU container images'
 }
 
 function Get-ClusterIPWebhookImages {
@@ -2266,6 +2371,8 @@ Copy-KubernetesImagesFromControlPlaneToRemoteComputer,
 Add-KubernetesArtifactsToRemoteComputer,
 Get-KubernetesImages,
 Get-FlannelImages,
+Get-NvidiaGpuDebPackagesFromInternet,
+Get-GpuContainerImages,
 Get-KubernetesDebPackagesPath,
 Get-BuildahDebPackagesPath,
 Add-BuildahArtifactsToRemoteComputer,

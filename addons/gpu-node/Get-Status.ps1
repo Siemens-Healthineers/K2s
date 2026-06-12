@@ -53,28 +53,69 @@ $nodeLabelsMessage = if ($labelsOkay) {
 }
 $nodeGpuLabelsProp = @{Name = 'NodeGpuLabels'; Value = $labelsOkay; Okay = $labelsOkay; Message = $nodeLabelsMessage}
 
-$gpuAllocatable = 0
+# Get allocatable GPU slots for control plane node
+$cpGpuAllocatable = 0
 $gpuAllocatableRaw = (Invoke-Kubectl -Params 'get', 'node', $controlPlaneNodeName, '-o', "jsonpath={.status.allocatable['nvidia\.com/gpu']}").Output
 if (![string]::IsNullOrWhiteSpace($gpuAllocatableRaw) -and $gpuAllocatableRaw -match '^\d+$') {
-    $gpuAllocatable = [int]$gpuAllocatableRaw
+    $cpGpuAllocatable = [int]$gpuAllocatableRaw
 }
-$slotLabel = if ($gpuAllocatable -eq 1) { 'slot' } else { 'slots' }
-$gpuAllocatableProp = @{Name = 'GpuAllocatable'; Value = $gpuAllocatable -gt 0; Okay = $gpuAllocatable -gt 0 }
-if ($gpuAllocatable -gt 0) {
-    $gpuAllocatableProp.Message = "$gpuAllocatable GPU $slotLabel available"
+$slotLabel = if ($cpGpuAllocatable -eq 1) { 'slot' } else { 'slots' }
+$gpuAllocatableProp = @{Name = 'GpuAllocatable'; Value = $cpGpuAllocatable -gt 0; Okay = $cpGpuAllocatable -gt 0 }
+if ($cpGpuAllocatable -gt 0) {
+    $gpuAllocatableProp.Message = "$cpGpuAllocatable GPU $slotLabel available"
 }
 else {
     $gpuAllocatableProp.Message = 'No GPU slots available — device plugin may not be ready yet'
 }
 
-$gpuInUse = 0
-# Use field selector to limit to Running pods only — Pending/Succeeded/Failed pods do not hold GPU slots.
-$gpuInUseRaw = (Invoke-Kubectl -Params 'get', 'pods', '--all-namespaces', '--field-selector=status.phase=Running', '-o', "jsonpath={range .items[*]}{range .spec.containers[*]}{.resources.limits['nvidia\.com/gpu']}{' '}{end}{end}").Output
-$gpuInUseRaw -split '\s+' | ForEach-Object {
-    if ($_ -match '^\d+$') { $gpuInUse += [int]$_ }
+# Get GPU slots in use on control plane node only
+$cpGpuInUse = 0
+$cpGpuInUseRaw = (Invoke-Kubectl -Params 'get', 'pods', '--all-namespaces', '--field-selector', "status.phase=Running,spec.nodeName=$controlPlaneNodeName", '-o', "jsonpath={range .items[*]}{range .spec.containers[*]}{.resources.limits['nvidia\.com/gpu']}{' '}{end}{end}").Output
+$cpGpuInUseRaw -split '\s+' | ForEach-Object {
+    if ($_ -match '^\d+$') { $cpGpuInUse += [int]$_ }
 }
-$inUseLabel = if ($gpuInUse -eq 1) { 'slot' } else { 'slots' }
+$inUseLabel = if ($cpGpuInUse -eq 1) { 'slot' } else { 'slots' }
 $gpuInUseProp = @{Name = 'GpuInUse'; Value = $true; Okay = $true }
-$gpuInUseProp.Message = "$gpuInUse of $gpuAllocatable GPU $inUseLabel in use"
+$gpuInUseProp.Message = "$cpGpuInUse of $cpGpuAllocatable GPU $inUseLabel in use"
 
-return $isDevicePluginRunningProp, $isDCGMExporterRunningProp, $nodeGpuLabelsProp, $gpuAllocatableProp, $gpuInUseProp
+# Check for external GPU-capable worker nodes
+$allGpuNodesRaw = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
+$allGpuNodes = if (![string]::IsNullOrWhiteSpace($allGpuNodesRaw)) { $allGpuNodesRaw -split '\s+' } else { @() }
+$externalGpuNodes = $allGpuNodes | Where-Object { $_ -ne $controlPlaneNodeName }
+$externalGpuWorkersProp = @{Name = 'ExternalGpuWorkers'; Value = $true; Okay = $true }
+if ($externalGpuNodes.Count -gt 0) {
+    $nodeListStr = $externalGpuNodes -join ', '
+    $externalGpuWorkersProp.Message = "$($externalGpuNodes.Count) external GPU worker(s): $nodeListStr"
+} else {
+    $externalGpuWorkersProp.Message = 'No external GPU workers configured (workers with NVIDIA GPUs are automatically configured when added)'
+}
+
+# Build per-node GPU slot details for external workers
+$externalNodeProps = @()
+foreach ($extNode in $externalGpuNodes) {
+    # Get allocatable GPU slots for this node
+    $extGpuAllocatable = 0
+    $extGpuAllocatableRaw = (Invoke-Kubectl -Params 'get', 'node', $extNode, '-o', "jsonpath={.status.allocatable['nvidia\.com/gpu']}").Output
+    if (![string]::IsNullOrWhiteSpace($extGpuAllocatableRaw) -and $extGpuAllocatableRaw -match '^\d+$') {
+        $extGpuAllocatable = [int]$extGpuAllocatableRaw
+    }
+
+    # Get GPU slots in use on this specific node (Running pods scheduled to this node)
+    $extGpuInUse = 0
+    $extGpuInUseRaw = (Invoke-Kubectl -Params 'get', 'pods', '--all-namespaces', '--field-selector', "status.phase=Running,spec.nodeName=$extNode", '-o', "jsonpath={range .items[*]}{range .spec.containers[*]}{.resources.limits['nvidia\.com/gpu']}{' '}{end}{end}").Output
+    $extGpuInUseRaw -split '\s+' | ForEach-Object {
+        if ($_ -match '^\d+$') { $extGpuInUse += [int]$_ }
+    }
+
+    $extSlotLabel = if ($extGpuAllocatable -eq 1) { 'slot' } else { 'slots' }
+    $extNodeProp = @{Name = "ExternalNode_$extNode"; Value = $true; Okay = $extGpuAllocatable -gt 0 }
+    if ($extGpuAllocatable -gt 0) {
+        $extNodeProp.Message = "  -> ${extNode}: $extGpuInUse of $extGpuAllocatable GPU $extSlotLabel in use"
+    } else {
+        $extNodeProp.Message = "  -> ${extNode}: No GPU slots registered (device plugin may not be ready)"
+    }
+    $externalNodeProps += $extNodeProp
+}
+
+$resultProps = @($isDevicePluginRunningProp, $isDCGMExporterRunningProp, $nodeGpuLabelsProp, $gpuAllocatableProp, $gpuInUseProp, $externalGpuWorkersProp) + $externalNodeProps
+return $resultProps

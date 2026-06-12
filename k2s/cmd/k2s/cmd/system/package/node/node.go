@@ -18,10 +18,13 @@ import (
 
 const (
 	NodePackageFlagName  = "node-package"
-	NodePackageFlagUsage = "Creates a zip package containing Linux node packages (kubelet, kubeadm, kubectl, CRI-O, buildah) for the specified OS and version"
+	NodePackageFlagUsage = "Creates a zip package containing Linux node packages (kubelet, kubeadm, kubectl, CRI-O, buildah) for the specified OS and version; requires an existing K2s cluster and --proxy http://172.19.1.1:8181"
 
 	OSFlagName  = "os"
 	OSFlagUsage = "Target Linux distribution and version combined (e.g. debian12, debian13)"
+
+	IncludeGpuFlagName  = "include-gpu"
+	IncludeGpuFlagUsage = "Include NVIDIA Container Toolkit packages for GPU support. When 'k2s node add' uses a package built with this flag, it automatically detects if the target node has an NVIDIA GPU and configures GPU support (installs container toolkit, configures CRI-O, labels the node)."
 
 	DeltaPackageFlagName       = "delta-package"
 	PackageVersionFromFlagName = "package-version-from"
@@ -32,6 +35,7 @@ const (
 func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool(NodePackageFlagName, false, NodePackageFlagUsage)
 	cmd.Flags().String(OSFlagName, "", OSFlagUsage)
+	cmd.Flags().Bool(IncludeGpuFlagName, false, IncludeGpuFlagUsage)
 }
 
 // IsSet returns true when the --node-package flag is present and enabled.
@@ -123,6 +127,11 @@ func BuildCmd(flags *pflag.FlagSet, out bool, targetDir, zipName, proxy string) 
 	params = append(params, " -OS "+utils.EscapeWithSingleQuotes(os))
 	if proxy != "" {
 		params = append(params, " -Proxy "+proxy)
+	}
+
+	includeGpu, _ := flags.GetBool(IncludeGpuFlagName)
+	if includeGpu {
+		params = append(params, " -IncludeGpu")
 	}
 
 	scriptPath := utils.FormatScriptFilePath(
