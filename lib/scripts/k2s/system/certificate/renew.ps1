@@ -267,7 +267,12 @@ function Invoke-WebhookCertificateRenewal {
 
     # Validate that caBundle has been set by the init container
     $caBundleCmd = "kubectl get mutatingwebhookconfiguration k2s-webhook -o jsonpath='{.webhooks[0].clientConfig.caBundle}'"
-    $caBundle = (Invoke-CmdOnControlPlaneViaSSHKey $caBundleCmd).Output
+    $caBundleResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $caBundleCmd -Timeout 30 -IgnoreErrors:$true
+    if (-not $caBundleResult.Success) {
+        Write-Log "[Warning] Failed to query webhook caBundle" -Console
+        return $false
+    }
+    $caBundle = ($caBundleResult.Output | Out-String).Trim()
     if ([string]::IsNullOrWhiteSpace($caBundle)) {
         Write-Log "[Warning] Webhook caBundle is empty after renewal - webhook may not be operational" -Console
         return $false

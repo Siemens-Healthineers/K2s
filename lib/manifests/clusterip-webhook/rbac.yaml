@@ -42,9 +42,11 @@ rules:
   # dedicated short-lived ServiceAccount). It is architecturally required because
   # init containers share the pod's ServiceAccount. The webhook deployment runs
   # with a single replica, and the pod's security context prevents privilege
-  # escalation. Monitor via audit policy if concerned about ambient scope.
+  # escalation. Scoped to the specific webhook resource name to limit blast radius.
+  # Monitor via audit policy if concerned about ambient scope.
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
+    resourceNames: ["k2s-webhook"]
     verbs: ["get", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
